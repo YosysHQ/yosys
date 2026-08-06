@@ -166,7 +166,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+										log_signal(action.first), log_signal(action.second), module->design->twines.unescaped_str(proc_it.first).c_str()));
 
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
@@ -187,7 +187,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first))
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+										log_signal(action.first), log_signal(action.second), module->design->twines.unescaped_str(proc_it.first).c_str()));
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -220,7 +220,7 @@ struct CheckPass : public Pass {
 					SigBit to = sigmap(to_portsig[to_bit]);
 
 					if (from.wire && to.wire)
-						topo.edge(std::make_pair(from.wire->name, from.offset), std::make_pair(to.wire->name, to.offset));
+						topo.edge(std::make_pair(IdString(from.wire->name), from.offset), std::make_pair(IdString(to.wire->name), to.offset));
 				}
 
 				bool detail_costly(Cell *cell) {
@@ -270,14 +270,14 @@ struct CheckPass : public Pass {
 						if (cell->input(conn.first))
 						for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							topo.edge(std::make_pair(bit.wire->name, bit.offset),
-									  std::make_pair(cell->name, -1));
+							topo.edge(std::make_pair(IdString(bit.wire->name), bit.offset),
+									  std::make_pair(IdString(cell->name), -1));
 
 						if (cell->output(conn.first))
 						for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							topo.edge(std::make_pair(cell->name, -1),
-									  std::make_pair(bit.wire->name, bit.offset));
+							topo.edge(std::make_pair(IdString(cell->name), -1),
+									  std::make_pair(IdString(bit.wire->name), bit.offset));
 					}
 
 					// Return false to signify the fallback
@@ -319,7 +319,7 @@ struct CheckPass : public Pass {
 						if (output && !input && bit.wire)
 						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
-							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", conn.first.unescape(), i,
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", cell->module->design->twines.unescaped_str(conn.first).c_str(), i,
 																cell, cell->type.unescape()));
 						if (output)
 							driver_cells[bit] = cell;
@@ -420,8 +420,8 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
-												   to_port.unescape(), to_bit);
+								message += stringf("      %s[%d] --> %s[%d]\n", cell->module->design->twines.unescaped_str(from_port).c_str(), from_bit,
+												   cell->module->design->twines.unescaped_str(to_port).c_str(), to_bit);
 							if (nhits == HITS_LIMIT)
 								message += "      ...\n";
 						}
@@ -429,7 +429,7 @@ struct CheckPass : public Pass {
 
 					Wire *wire = module->wire(pair.first);
 					log_assert(wire);
-					SigBit bit(module->wire(pair.first), pair.second);
+					SigBit bit(wire, pair.second);
 					log_assert(driver_cells.count(bit));
 					Cell *driver = driver_cells.at(bit);
 

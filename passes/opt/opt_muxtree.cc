@@ -298,7 +298,7 @@ struct OptMuxtreeWorker
 					live_ports.push_back(port_idx);
 				} else {
 					log("    dead port %d/%d on %s %s.\n", port_idx+1, GetSize(mi.ports),
-							mi.cell->type.c_str(), mi.cell->name.c_str());
+							mi.cell->type, mi.cell->name);
 					removed_count++;
 				}
 			}
@@ -530,7 +530,7 @@ struct OptMuxtreeWorker
 		}
 
 		if (did_something) {
-			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", portname.unescape(),
+			log("      Replacing known input bits on port %s of cell %s: %s -> %s\n", PooledName(design, portname).unescape(),
 					muxinfo.cell, log_signal(muxinfo.cell->getPort(portname)), log_signal(sig));
 			muxinfo.cell->setPort(portname, sig);
 		}

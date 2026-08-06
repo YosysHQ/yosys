@@ -27,7 +27,7 @@ PRIVATE_NAMESPACE_BEGIN
 std::vector<Module*> order_modules(Design *design, std::vector<Module *> modules)
 {
 	std::set<Module *> modules_set(modules.begin(), modules.end());
-	using Order = IdString::compare_ptr_by_name<RTLIL::NamedObject>;
+	using Order = IdString::compare_ptr_by_name<RTLIL::Module>;
 	TopoSort<Module*, Order> sort;
 
 	for (auto m : modules) {
@@ -191,7 +191,8 @@ struct AbcNewPass : public ScriptPass {
 				}
 
 				run(stringf("  abc9_ops -write_box %s/input.box", tmpdir));
-				run(stringf("  write_xaiger2 -mapping_prep -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
+
+				run(stringf("  write_xaiger2 -mapping_prep -map-refs -map2 %s/input.map2 %s/input.xaig", tmpdir, tmpdir));
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options, tmpdir, tmpdir));
 				run(stringf("  read_xaiger2 -sc_mapping -module_name %s -map2 %s/input.map2 %s/output.aig",
 							modname.c_str(), tmpdir.c_str(), tmpdir.c_str()));

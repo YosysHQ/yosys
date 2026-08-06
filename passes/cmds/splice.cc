@@ -319,12 +319,12 @@ struct SplicePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-port" && argidx+1 < args.size()) {
-				ports.insert(RTLIL::escape_id(args[++argidx]));
+				ports.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
 				no_outputs = true;
 				continue;
 			}
 			if (args[argidx] == "-no_port" && argidx+1 < args.size()) {
-				no_ports.insert(RTLIL::escape_id(args[++argidx]));
+				no_ports.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			break;

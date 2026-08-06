@@ -80,7 +80,7 @@ struct RmportsPassPass : public Pass {
 			for(auto p : ports_to_remove)
 			{
 				log("  Removing port \"%s\" from instance \"%s\"\n",
-					p.c_str(), cell->type.c_str());
+					module->design->twines.str(p), cell->type.str());
 				cell->unsetPort(p);
 			}
 		}
@@ -155,7 +155,7 @@ struct RmportsPassPass : public Pass {
 		// Print the ports out as we go through them
 		for(auto port : unused_ports)
 		{
-			log("  removing unused port %s\n", port);
+			log("  removing unused port %s\n", module->design->twines.str(port));
 			removed_ports[module->name].insert(port);
 
 			// Remove from ports list

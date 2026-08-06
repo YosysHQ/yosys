@@ -64,8 +64,8 @@ struct TestKoggeStonePass : public Pass {
 	void execute(std::vector<std::string> args, Design *design) override
 	{
 		int width = 16;
-		IdString gold_name = ID(gold);
-		IdString gate_name = ID(gate);
+		IdString gold_name = ID::gold;
+		IdString gate_name = ID::gate;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -74,11 +74,11 @@ struct TestKoggeStonePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-gold" && argidx + 1 < args.size()) {
-				gold_name = RTLIL::escape_id(args[++argidx]);
+				gold_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-gate" && argidx + 1 < args.size()) {
-				gate_name = RTLIL::escape_id(args[++argidx]);
+				gate_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;

@@ -25,6 +25,7 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 static std::string celltype, cell_portname, cell_paramname;
+static IdString celltype_ref, cell_portname_ref, cell_paramname_ref;
 
 static RTLIL::Module *module;
 static RTLIL::SigChunk value;
@@ -33,9 +34,9 @@ void constmap_worker(RTLIL::SigSpec &sig)
 {
 	if (sig.is_fully_const()){
 		value = module->addWire(NEW_ID, sig.size());
-		RTLIL::Cell *cell = module->addCell(NEW_ID, celltype);
-		cell->setParam(cell_paramname, sig.as_const());
-		cell->setPort(cell_portname, value);
+		RTLIL::Cell *cell = module->addCell(NEW_ID, celltype_ref);
+		cell->setParam(cell_paramname_ref, sig.as_const());
+		cell->setPort(cell_portname_ref, value);
 		sig = value;
 	}
 }
@@ -74,11 +75,15 @@ struct ConstmapPass : public Pass {
 		if (celltype.empty())
 			log_cmd_error("Missing required option -cell.\n");
 
-		if (design->has(celltype)) {
-			Module *existing = design->module(celltype);
+		celltype_ref = design->twines.add(std::string{celltype});
+		cell_portname_ref = design->twines.add(std::string{cell_portname});
+		cell_paramname_ref = design->twines.add(std::string{cell_paramname});
+
+		if (design->has(celltype_ref)) {
+			Module *existing = design->module(celltype_ref);
 			bool has_port = false;
 			for (auto &p : existing->ports){
-				if (p == cell_portname){
+				if (p == cell_portname_ref){
 					has_port = true;
 					break;
 				}
@@ -88,7 +93,7 @@ struct ConstmapPass : public Pass {
 
 			bool has_param = false;
 			for (auto &p : existing->avail_parameters){
-				if (p == cell_paramname)
+				if (p == cell_paramname_ref)
 					has_param = true;
 			}
 

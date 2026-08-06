@@ -122,9 +122,16 @@ struct ClkbufmapPass : public Pass {
 		// If true, use both ther -buf and -inpad cell for input ports that are clocks.
 		bool buffer_inputs = true;
 
-		Module *inpad_mod = design->module(RTLIL::escape_id(inpad_celltype));
+		IdString buf_celltype_ref = design->twines.add(std::string{RTLIL::escape_id(buf_celltype)});
+		IdString buf_portname_ref = design->twines.add(std::string{RTLIL::escape_id(buf_portname)});
+		IdString buf_portname2_ref = design->twines.add(std::string{RTLIL::escape_id(buf_portname2)});
+		IdString inpad_celltype_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_celltype)});
+		IdString inpad_portname_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_portname)});
+		IdString inpad_portname2_ref = design->twines.add(std::string{RTLIL::escape_id(inpad_portname2)});
+
+		Module *inpad_mod = design->module(inpad_celltype_ref);
 		if (inpad_mod) {
-			Wire *buf_wire = inpad_mod->wire(RTLIL::escape_id(buf_portname));
+			Wire *buf_wire = inpad_mod->wire(buf_portname_ref);
 			if (buf_wire && buf_wire->get_bool_attribute(ID::clkbuf_driver))
 				buffer_inputs = false;
 		}
@@ -148,7 +155,7 @@ struct ClkbufmapPass : public Pass {
 							sink_ports.insert(make_pair(module->name, make_pair(wire->name, i)));
 					auto it = wire->attributes.find(ID::clkbuf_inv);
 					if (it != wire->attributes.end()) {
-						IdString in_name = RTLIL::escape_id(it->second.decode_string());
+						IdString in_name = design->twines.add(std::string{RTLIL::escape_id(it->second.decode_string())});
 						for (int i = 0; i < GetSize(wire); i++) {
 							inv_ports_out[make_pair(module->name, make_pair(wire->name, i))] = make_pair(in_name, i);
 							inv_ports_in[make_pair(module->name, make_pair(in_name, i))] = make_pair(wire->name, i);
@@ -258,22 +265,22 @@ struct ClkbufmapPass : public Pass {
 						bool is_input = wire->port_input && !inpad_celltype.empty() && module->get_bool_attribute(ID::top);
 						if (!buf_celltype.empty() && (!is_input || buffer_inputs)) {
 							log("Inserting %s on %s.%s[%d].\n", buf_celltype, module, wire, i);
-							cell = module->addCell(NEW_ID, RTLIL::escape_id(buf_celltype));
+							cell = module->addCell(NEW_ID, buf_celltype_ref);
 							iwire = module->addWire(NEW_ID);
-							cell->setPort(RTLIL::escape_id(buf_portname), mapped_wire_bit);
-							cell->setPort(RTLIL::escape_id(buf_portname2), iwire);
+							cell->setPort(buf_portname_ref, mapped_wire_bit);
+							cell->setPort(buf_portname2_ref, iwire);
 						}
 						if (is_input) {
 							log("Inserting %s on %s.%s[%d].\n", inpad_celltype, module, wire, i);
-							RTLIL::Cell *cell2 = module->addCell(NEW_ID, RTLIL::escape_id(inpad_celltype));
+							RTLIL::Cell *cell2 = module->addCell(NEW_ID, inpad_celltype_ref);
 							if (iwire) {
-								cell2->setPort(RTLIL::escape_id(inpad_portname), iwire);
+								cell2->setPort(inpad_portname_ref, iwire);
 							} else {
-								cell2->setPort(RTLIL::escape_id(inpad_portname), mapped_wire_bit);
+								cell2->setPort(inpad_portname_ref, mapped_wire_bit);
 								cell = cell2;
 							}
 							iwire = module->addWire(NEW_ID);
-							cell2->setPort(RTLIL::escape_id(inpad_portname2), iwire);
+							cell2->setPort(inpad_portname2_ref, iwire);
 						}
 						if (iwire)
 							buffered_bits[mapped_wire_bit] = make_pair(cell, iwire);

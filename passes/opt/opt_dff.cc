@@ -167,7 +167,7 @@ struct OptDffWorker
 		if (!sat_warned)
 			log_warning("opt_dff -sat: solver effort budget for module %s is exhausted, leaving the "
 					"remaining FFs un-optimized. Raise or clear the limit with the scratchpad "
-					"option 'opt_dff.sat_effort' (0 disables it).\n", log_id(module));
+					"option 'opt_dff.sat_effort' (0 disables it).\n", module);
 		sat_warned = true;
 		return true;
 	}
@@ -1370,7 +1370,7 @@ struct OptDffWorker
 	std::vector<std::vector<int>> drop_all_classes()
 	{
 		log("opt_dff -sat: skipping all equivalent-flip-flop merges in module %s (solver effort budget "
-				"exhausted before the equivalences could be proven).\n", log_id(module));
+				"exhausted before the equivalences could be proven).\n", module);
 		return {};
 	}
 

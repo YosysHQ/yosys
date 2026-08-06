@@ -41,7 +41,7 @@ struct dff_map_bit_info_t {
 
 bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_info_t> &dff_dq_map)
 {
-	if (wire->name[0] == '$' || dff_dq_map.count(wire->name))
+	if (!wire->name.isPublic() || dff_dq_map.count(wire->name))
 		return false;
 	if (wire->port_input)
 		return false;
@@ -50,9 +50,9 @@ bool consider_wire(RTLIL::Wire *wire, std::map<RTLIL::IdString, dff_map_info_t> 
 
 bool consider_cell(RTLIL::Design *design, std::set<RTLIL::IdString> &dff_cells, RTLIL::Cell *cell)
 {
-	if (cell->name[0] == '$' || dff_cells.count(cell->name))
+	if (!cell->name.isPublic() || dff_cells.count(cell->name))
 		return false;
-	if (cell->type[0] == '\\' && (design->module(cell->type) == nullptr))
+	if (cell->type.isPublic() && (design->module(cell->type) == nullptr))
 		return false;
 	return true;
 }
@@ -210,8 +210,14 @@ void create_dff_dq_map(std::map<RTLIL::IdString, dff_map_info_t> &map, RTLIL::Mo
 RTLIL::Wire *add_new_wire(RTLIL::Module *module, RTLIL::IdString name, int width = 1)
 {
 	if (module->count_id(name))
-		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n", name.unescape());
+		log_error("Attempting to create wire %s, but a wire of this name exists already! Hint: Try another value for -sep.\n",
+				module->design->twines.unescaped_str(name));
 	return module->addWire(name, width);
+}
+
+RTLIL::Wire *add_new_wire(RTLIL::Module *module, const std::string &name, int width = 1)
+{
+	return add_new_wire(module, module->design->twines.add(name), width);
 }
 
 struct ExposePass : public Pass {
@@ -472,7 +478,7 @@ struct ExposePass : public Pass {
 					if (!w->port_input) {
 						w->port_input = true;
 						log("New module port: %s/%s\n", module, w);
-						wire_map[w] = NEW_ID;
+						wire_map[w] = module->design->twines.add(NEW_ID);
 					}
 				}
 				else
@@ -483,7 +489,7 @@ struct ExposePass : public Pass {
 					}
 
 					if (flag_cut) {
-						wire_map[w] = w->name.str() + sep + "i";
+						wire_map[w] = module->design->twines.add(w->name.str() + sep + "i");
 					}
 				}
 			}
@@ -542,7 +548,7 @@ struct ExposePass : public Pass {
 
 				dff_map_info_t &info = dq.second;
 
-				RTLIL::Wire *wire_dummy_q = add_new_wire(module, NEW_ID, 0);
+				RTLIL::Wire *wire_dummy_q = add_new_wire(module, module->design->twines.add(NEW_ID), 0);
 
 				for (auto &cell_name : info.cells) {
 					RTLIL::Cell *cell = module->cell(cell_name);
@@ -654,7 +660,7 @@ struct ExposePass : public Pass {
 					{
 						for (auto &it : cell->connections())
 						{
-							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + it.first.unescape(), it.second.size());
+							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + design->twines.unescaped_str(it.first), it.second.size());
 							if (ct.cell_input(cell->type, it.first))
 								w->port_output = true;
 							if (ct.cell_output(cell->type, it.first))

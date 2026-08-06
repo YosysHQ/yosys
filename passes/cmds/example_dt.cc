@@ -43,6 +43,17 @@ struct ExampleDtPass : public Pass
 			ExampleWorker worker(module);
 			DriverMap dm;
 
+			TwinePool &twines = design->twines;
+			const IdString fn_concat = twines.add(std::string("$$concat"));
+			const IdString fn_input = twines.add(std::string("$$input"));
+			const IdString fn_buf = twines.add(std::string("$$buf"));
+			const IdString fn_slice = twines.add(std::string("$$slice"));
+			const IdString fn_state = twines.add(std::string("$$state"));
+			const IdString fn_cell_output = twines.add(std::string("$$cell_output"));
+			const IdString fn_const = twines.add(std::string("$$const"));
+			const IdString fn_multi = twines.add(std::string("$$multi"));
+			const IdString fn_undriven = twines.add(std::string("$$undriven"));
+
 			struct ExampleFn {
 				IdString name;
 				dict<IdString, Const> parameters;
@@ -99,7 +110,7 @@ struct ExampleDtPass : public Pass
 				ExampleGraph::Ref node = compute_graph[i];
 
 				if (spec.chunks().size() > 1) {
-					node.set_function(ID($$concat));
+					node.set_function(fn_concat);
 
 					for (auto const &chunk : spec.chunks()) {
 						node.append_arg(enqueue(chunk));
@@ -111,16 +122,16 @@ struct ExampleDtPass : public Pass
 						if (wire_chunk.is_whole()) {
 							node.sparse_attr() = wire_chunk.wire->name;
 							if (wire_chunk.wire->port_input) {
-								node.set_function(ExampleFn(ID($$input), {{wire_chunk.wire->name, {}}}));
+								node.set_function(ExampleFn(fn_input, {{wire_chunk.wire->name, {}}}));
 							} else {
 								DriveSpec driver = dm(DriveSpec(wire_chunk));
-								node.set_function(ID($$buf));
+								node.set_function(fn_buf);
 
 								node.append_arg(enqueue(driver));
 							}
 						} else {
 							DriveChunkWire whole_wire(wire_chunk.wire, 0, wire_chunk.wire->width);
-							node.set_function(ExampleFn(ID($$slice), {{ID(offset), wire_chunk.offset}, {ID(width), wire_chunk.width}}));
+							node.set_function(ExampleFn(fn_slice, {{ID::offset, wire_chunk.offset}, {ID::width, wire_chunk.width}}));
 							node.append_arg(enqueue(whole_wire));
 						}
 					} else if (chunk.is_port()) {
@@ -130,7 +141,7 @@ struct ExampleDtPass : public Pass
 								if (port_chunk.cell->type.in(ID($dff), ID($ff)))
 								{
 									Cell *cell = port_chunk.cell;
-									node.set_function(ExampleFn(ID($$state), {{cell->name, {}}}));
+									node.set_function(ExampleFn(fn_state, {{cell->name, {}}}));
 									for (auto const &conn : cell->connections()) {
 										if (!dm.celltypes.cell_input(cell->type, conn.first))
 											continue;
@@ -139,11 +150,11 @@ struct ExampleDtPass : public Pass
 								}
 								else
 								{
-									node.set_function(ExampleFn(ID($$cell_output), {{port_chunk.port, {}}}));
+									node.set_function(ExampleFn(fn_cell_output, {{port_chunk.port, {}}}));
 									node.append_arg(enqueue(DriveBitMarker(cells(port_chunk.cell), 0)));
 								}
 							} else {
-								node.set_function(ID($$buf));
+								node.set_function(fn_buf);
 
 								DriveSpec driver = dm(DriveSpec(port_chunk));
 								node.append_arg(enqueue(driver));
@@ -151,14 +162,14 @@ struct ExampleDtPass : public Pass
 
 						} else {
 							DriveChunkPort whole_port(port_chunk.cell, port_chunk.port, 0, GetSize(port_chunk.cell->connections().at(port_chunk.port)));
-							node.set_function(ExampleFn(ID($$slice), {{ID(offset), port_chunk.offset}}));
+							node.set_function(ExampleFn(fn_slice, {{ID::offset, port_chunk.offset}}));
 							node.append_arg(enqueue(whole_port));
 						}
 					} else if (chunk.is_constant()) {
-						node.set_function(ExampleFn(ID($$const), {{ID(value), chunk.constant()}}));
+						node.set_function(ExampleFn(fn_const, {{ID::value, chunk.constant()}}));
 
 					} else if (chunk.is_multiple()) {
-						node.set_function(ID($$multi));
+						node.set_function(fn_multi);
 						for (auto const &driver : chunk.multiple().multiple())
 							node.append_arg(enqueue(driver));
 					} else if (chunk.is_marker()) {
@@ -172,7 +183,7 @@ struct ExampleDtPass : public Pass
 							node.append_arg(enqueue(DriveChunkPort(cell, conn)));
 						}
 					} else if (chunk.is_none()) {
-						node.set_function(ID($$undriven));
+						node.set_function(fn_undriven);
 
 					} else {
 						log_error("unhandled drivespec: %s\n", log_signal(chunk));
@@ -208,7 +219,7 @@ struct ExampleDtPass : public Pass
 
 			for (int i = 0; i < compute_graph.size(); ++i)
 			{
-				if (compute_graph[i].function().name == ID($$buf) && !compute_graph[i].has_sparse_attr() && compute_graph[i].arg(0).index() < i)
+				if (compute_graph[i].function().name == fn_buf && !compute_graph[i].has_sparse_attr() && compute_graph[i].arg(0).index() < i)
 				{
 
 					alias.push_back(alias[compute_graph[i].arg(0).index()]);
@@ -226,13 +237,13 @@ struct ExampleDtPass : public Pass
 			{
 				auto ref = compute_graph[i];
 				log("n%d ", i);
-				log("%s", ref.function().name.unescape());
+				log("%s", PooledName(design, ref.function().name).unescape());
 				for (auto const &param : ref.function().parameters)
 				{
 					if (param.second.empty())
-						log("[%s]", param.first.unescape());
+						log("[%s]", PooledName(design, param.first).unescape());
 					else
-						log("[%s=%s]", param.first.unescape(), log_const(param.second));
+						log("[%s=%s]", PooledName(design, param.first).unescape(), log_const(param.second));
 				}
 				log("(");
 
@@ -244,13 +255,13 @@ struct ExampleDtPass : public Pass
 				}
 				log(")\n");
 				if (ref.has_sparse_attr())
-					log("// wire %s\n", ref.sparse_attr().unescape());
+					log("// wire %s\n", PooledName(design, ref.sparse_attr()).unescape());
 				log("// was #%d %s\n", ref.attr(), log_signal(queue[ref.attr()]));
 			}
 
 			for (auto const &key : compute_graph.keys())
 			{
-				log("return %d as %s \n", key.second, key.first.unescape());
+				log("return %d as %s \n", key.second, PooledName(design, key.first).unescape());
 			}
 		}
 		log("Plugin test passed!\n");

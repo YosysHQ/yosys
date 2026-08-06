@@ -149,7 +149,7 @@ struct VlogHammerReporter
 
 		for (auto c : module->cells())
 			if (!satgen.importCell(c))
-				log_error("Failed to import cell %s (type %s) to SAT database.\n", c->name.unescape(), c->type.unescape());
+				log_error("Failed to import cell %s (type %s) to SAT database.\n", c, c->type.unescape());
 
 		ez->assume(satgen.signals_eq(recorded_set_vars, recorded_set_vals));
 
@@ -262,9 +262,9 @@ struct VlogHammerReporter
 					if (module == modules.front()) {
 						RTLIL::SigSpec sig(wire);
 						if (!ce.eval(sig))
-							log_error("Can't read back value for port %s!\n", inputs[i].unescape());
+							log_error("Can't read back value for port %s!\n", PooledName(design, inputs[i]).unescape());
 						input_pattern_list += stringf(" %s", sig.as_const().as_string());
-						log("++PAT++ %d %s %s #\n", idx, inputs[i].unescape(), sig.as_const().as_string());
+						log("++PAT++ %d %s %s #\n", idx, PooledName(design, inputs[i]).unescape(), sig.as_const().as_string());
 					}
 				}
 
@@ -305,29 +305,30 @@ struct VlogHammerReporter
 	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list, std::string pattern_list) : design(design)
 	{
 		for (auto name : split(module_list, ",")) {
-			RTLIL::IdString esc_name = RTLIL::escape_id(module_prefix + name);
-			if (design->module(esc_name) == nullptr)
+			IdString esc_name = design->twines.add(RTLIL::escape_id(module_prefix + name));
+			RTLIL::Module *mod = design->module(esc_name);
+			if (mod == nullptr)
 				log_error("Can't find module %s in current design!\n", name);
-			log("Using module %s (%s).\n", esc_name, name);
-			modules.push_back(design->module(esc_name));
+			log("Using module %s (%s).\n", design->twines.str(esc_name), name);
+			modules.push_back(mod);
 			module_names.push_back(name);
 		}
 
 		total_input_width = 0;
 		for (auto name : split(input_list, ",")) {
 			int width = -1;
-			RTLIL::IdString esc_name = RTLIL::escape_id(name);
+			IdString esc_name = design->twines.add(RTLIL::escape_id(name));
 			for (auto mod : modules) {
-				if (mod->wire(esc_name) == nullptr)
-					log_error("Can't find input %s in module %s!\n", name, mod->name.unescape());
 				RTLIL::Wire *port = mod->wire(esc_name);
+				if (port == nullptr)
+					log_error("Can't find input %s in module %s!\n", name, mod->name.unescape());
 				if (!port->port_input || port->port_output)
 					log_error("Wire %s in module %s is not an input!\n", name, mod->name.unescape());
 				if (width >= 0 && width != port->width)
 					log_error("Port %s has different sizes in the different modules!\n", name);
 				width = port->width;
 			}
-			log("Using input port %s with width %d.\n", esc_name, width);
+			log("Using input port %s with width %d.\n", design->twines.str(esc_name), width);
 			inputs.push_back(esc_name);
 			input_widths.push_back(width);
 			total_input_width += width;
@@ -414,11 +415,13 @@ struct EvalPass : public Pass {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				if (design->module(mod1_name) == nullptr)
+				RTLIL::Module *mod1 = design->module(design->twines.find(mod1_name));
+				RTLIL::Module *mod2 = design->module(design->twines.find(mod2_name));
+				if (mod1 == nullptr)
 					log_error("Can't find module `%s'!\n", mod1_name);
-				if (design->module(mod2_name) == nullptr)
+				if (mod2 == nullptr)
 					log_error("Can't find module `%s'!\n", mod2_name);
-				BruteForceEquivChecker checker(design->module(mod1_name), design->module(mod2_name), args[argidx-2] == "-brute_force_equiv_checker_x");
+				BruteForceEquivChecker checker(mod1, mod2, args[argidx-2] == "-brute_force_equiv_checker_x");
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
