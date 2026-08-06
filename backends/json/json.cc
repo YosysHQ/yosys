@@ -76,7 +76,7 @@ struct JsonWriter
 
 	string get_name(IdString name)
 	{
-		return get_string(name.unescape());
+		return get_string(design->twines.unescaped_str(name));
 	}
 
 	string get_bits(SigSpec sig)
@@ -197,7 +197,7 @@ struct JsonWriter
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(c->name));
-			f << stringf("          \"hide_name\": %s,\n", c->name[0] == '$' ? "1" : "0");
+			f << stringf("          \"hide_name\": %s,\n", c->name.isPublic() ? "0" : "1");
 			f << stringf("          \"type\": %s,\n", get_name(c->type));
 			if (aig_mode) {
 				Aig aig(c);
@@ -246,7 +246,7 @@ struct JsonWriter
 					continue;
 				f << stringf("%s\n", first ? "" : ",");
 				f << stringf("        %s: {\n", get_name(it.second->name));
-				f << stringf("          \"hide_name\": %s,\n", it.second->name[0] == '$' ? "1" : "0");
+				f << stringf("          \"hide_name\": %s,\n", it.second->name.isPublic() ? "0" : "1");
 				f << stringf("          \"attributes\": {");
 				write_parameters(it.second->attributes);
 				f << stringf("\n          },\n");
@@ -266,7 +266,7 @@ struct JsonWriter
 				continue;
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s: {\n", get_name(w->name));
-			f << stringf("          \"hide_name\": %s,\n", w->name[0] == '$' ? "1" : "0");
+			f << stringf("          \"hide_name\": %s,\n", w->name.isPublic() ? "0" : "1");
 			f << stringf("          \"bits\": %s,\n", get_bits(w));
 			if (w->start_offset)
 				f << stringf("          \"offset\": %d,\n", w->start_offset);
@@ -316,13 +316,13 @@ struct JsonWriter
 					f << stringf("      /* %3d */ [ ", node_idx);
 					if (node.portbit >= 0)
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
-								node.portname.unescape(), node.portbit);
+								design->twines.unescaped_str(node.portname), node.portbit);
 					else if (node.left_parent < 0 && node.right_parent < 0)
 						f << stringf("\"%s\"", node.inverter ? "true" : "false");
 					else
 						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
 					for (auto &op : node.outports)
-						f << stringf(", \"%s\", %d", op.first.unescape(), op.second);
+						f << stringf(", \"%s\", %d", design->twines.unescaped_str(op.first), op.second);
 					f << stringf(" ]");
 					node_idx++;
 				}

@@ -100,7 +100,7 @@ struct TableBackend : public Backend {
 				*f << module->name.unescape() << "\t";
 				*f << cell->name.unescape() << "\t";
 				*f << cell->type.unescape() << "\t";
-				*f << conn.first.unescape() << "\t";
+				*f << design->twines.unescaped_str(conn.first) << "\t";
 
 				if (cell->input(conn.first) && cell->output(conn.first))
 					*f << "inout" << "\t";
