@@ -79,6 +79,7 @@ struct BtorWorker
 	dict<SigBit, bool> initbits;
 	pool<Wire*> statewires;
 	pool<string> srcsymbols;
+	std::optional<pool<string>> module_names;
 	vector<Mem> memories;
 	dict<Cell*, Mem*> mem_cells;
 
@@ -116,6 +117,30 @@ struct BtorWorker
 		info_lines.push_back(fmt.format(args...));
 	}
 
+	bool srcsym_taken(const string &sym)
+	{
+		if (srcsymbols.count(sym))
+			return true;
+		if (!module_names)
+			module_names = RTLIL::object_names(module);
+		return module_names->count("\\" + sym) != 0;
+	}
+
+	string uniquify_srcsym(string src)
+	{
+		if (srcsym_taken(src)) {
+			for (int i = 1;; i++) {
+				string s = stringf("%s-%d", src.c_str(), i);
+				if (!srcsym_taken(s)) {
+					src = s;
+					break;
+				}
+			}
+		}
+		srcsymbols.insert(src);
+		return src;
+	}
+
 	template<typename T>
 	string getinfo(T *obj, bool srcsym = false)
 	{
@@ -125,17 +150,7 @@ struct BtorWorker
 			string src = obj->attributes.at(ID::src).decode_string().c_str();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
-				if (srcsymbols.count(src) || module->count_id("\\" + src)) {
-					for (int i = 1;; i++) {
-						string s = stringf("%s-%d", src, i);
-						if (!srcsymbols.count(s) && !module->count_id("\\" + s)) {
-							src = s;
-							break;
-						}
-					}
-				}
-				srcsymbols.insert(src);
-				infostr = src;
+				infostr = uniquify_srcsym(std::move(src));
 			} else {
 				infostr += " ; " + src;
 			}
@@ -697,13 +712,13 @@ struct BtorWorker
 					ywmap_clock_bits[sig_c] |= negedge ? 2 : 1;
 			}
 
-			IdString symbol;
+			Wire *symbol = nullptr;
 
 			if (sig_q.is_wire()) {
 				Wire *w = sig_q.as_wire();
 				if (w->port_id == 0) {
 					statewires.insert(w);
-					symbol = w->name;
+					symbol = w;
 				}
 			}
 
@@ -723,10 +738,10 @@ struct BtorWorker
 			int sid = get_bv_sid(GetSize(sig_q));
 			int nid = next_nid++;
 
-			if (symbol.empty() || (!print_internal_names && symbol[0] == '$'))
+			if (symbol == nullptr || (!print_internal_names && !symbol->name.isPublic()))
 				btorf("%d state %d\n", nid, sid);
 			else
-				btorf("%d state %d %s\n", nid, sid, symbol.unescape());
+				btorf("%d state %d %s\n", nid, sid, symbol->name.unescape());
 
 			if (cell->get_bool_attribute(ID(clk2fflogic)))
 				ywmap_state(cell->getPort(ID::D)); // For a clk2fflogic FF the named signal is the D input not the Q output
@@ -868,7 +883,7 @@ struct BtorWorker
 			int nid = next_nid++;
 			int nid_head = nid;
 
-			if (mem->memid[0] == '$')
+			if (!mem->memid.isPublic())
 				btorf("%d state %d\n", nid, sid);
 			else
 				btorf("%d state %d %s\n", nid, sid, mem->memid.unescape());
@@ -1173,10 +1188,10 @@ struct BtorWorker
 
 		memories = Mem::get_all_memories(module);
 
-		dict<IdString, Mem*> mem_dict;
+		dict<std::string, Mem*> mem_dict;
 		for (auto &mem : memories) {
 			mem.narrow();
-			mem_dict[mem.memid] = &mem;
+			mem_dict[mem.memid.str()] = &mem;
 		}
 		for (auto cell : module->cells())
 			if (cell->is_mem_cell())
@@ -1339,7 +1354,7 @@ struct BtorWorker
 
 		for (auto wire : module->wires())
 		{
-			if (wire->port_id || wire->name[0] == '$')
+			if (wire->port_id || !wire->name.isPublic())
 				continue;
 
 			btorf_push(stringf("wire %s", wire));

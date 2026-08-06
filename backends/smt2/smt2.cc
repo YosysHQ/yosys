@@ -60,7 +60,7 @@ struct Smt2Worker
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
-			std::string str = n.unescape();
+			std::string str = module->design->twines.unescaped_str(n);
 			for (int i = 0; i < GetSize(str); i++) {
 				if (str[i] == '\\')
 					str[i] = '/';
@@ -125,15 +125,15 @@ struct Smt2Worker
 
 		makebits(stringf("%s_is", get_id(module)));
 
-		dict<IdString, Mem*> mem_dict;
+		dict<std::string, Mem*> mem_dict;
 		memories = Mem::get_all_memories(module);
 		for (auto &mem : memories)
 		{
 			if (is_smtlib2_module)
-				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid);
+				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid.unescape());
 
 			mem.narrow();
-			mem_dict[mem.memid] = &mem;
+			mem_dict[mem.memid.str()] = &mem;
 			for (auto &port : mem.wr_ports)
 			{
 				if (port.clk_enable) {
@@ -207,7 +207,7 @@ struct Smt2Worker
 				}
 			else if (is_output || !is_input)
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
-						conn.first.unescape(), module, cell, cell->type.unescape());
+						module->design->twines.unescaped_str(conn.first), module, cell, cell->type.unescape());
 
 			if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)) && conn.first.in(ID::CLK, ID::C))
 			{
@@ -520,7 +520,8 @@ struct Smt2Worker
 
 		for (char ch : expr)
 			if (ch == 'A' || ch == 'B') {
-				RTLIL::SigSpec sig = sigmap(cell->getPort(stringf("\\%c", ch)));
+				IdString port = (ch == 'A') ? ID::A : ID::B;
+				RTLIL::SigSpec sig = sigmap(cell->getPort(port));
 				for (auto bit : sig)
 					processed_expr += " " + get_bool(bit);
 				if (GetSize(sig) == 1)
@@ -617,7 +618,7 @@ struct Smt2Worker
 				string infostr = cell->attributes.count(ID::src) ? cell->attributes.at(ID::src).decode_string().c_str() : get_id(cell);
 				if (cell->attributes.count(ID::reg))
 					infostr += " " + cell->attributes.at(ID::reg).decode_string();
-				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.c_str() + 1, get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
+				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.str().substr(1), get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
 				if (cell->getPort(QY).is_wire() && cell->getPort(QY).as_wire()->get_bool_attribute(ID::maximize)){
 					decls.push_back(stringf("; yosys-smt2-maximize %s#%d\n", get_id(module), idcounter));
 					log("Wire %s is maximized\n", cell->getPort(QY).as_wire()->name.str());
@@ -1119,7 +1120,7 @@ struct Smt2Worker
 
 				string name_a = get_bool(cell->getPort(ID::A));
 				string name_en = get_bool(cell->getPort(ID::EN));
-				bool private_name = cell->name[0] == '$';
+				bool private_name = !cell->name.isPublic();
 
 				if (!private_name && cell->has_attribute(ID::hdlname)) {
 					for (auto const &part : cell->get_hdlname_attribute()) {
@@ -1131,9 +1132,9 @@ struct Smt2Worker
 				}
 
 				if (private_name && cell->attributes.count(ID::src))
-					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.c_str() + 1, id, get_id(cell), cell->attributes.at(ID::src).decode_string()));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.str().substr(1), id, get_id(cell), cell->get_src_attribute()));
 				else
-					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.c_str() + 1, id, get_id(cell)));
+					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.str().substr(1), id, get_id(cell)));
 
 				if (cell->type == ID($cover))
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
@@ -1523,8 +1524,7 @@ struct Smt2Worker
 	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0)
 	{
 		std::vector<std::string> hiername;
-		const char *wire_name = wire->name.c_str();
-		if (wire_name[0] == '\\') {
+		if (wire->name.isPublic()) {
 			auto hdlname = wire->get_string_attribute(ID::hdlname);
 			for (auto token : split_tokens(hdlname))
 				hiername.push_back("\\" + token);

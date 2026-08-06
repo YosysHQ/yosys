@@ -47,13 +47,53 @@ struct BlifDumperConfig
 	bool gatesi_mode;
 
 	std::string buf_type, buf_in, buf_out;
+	std::vector<std::array<std::string, 3>> unbuf_args;
 	std::map<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> unbuf_types;
 	std::string true_type, true_out, false_type, false_out, undef_type, undef_out;
+	RTLIL::Module *buf_module = nullptr, *true_module = nullptr, *false_module = nullptr, *undef_module = nullptr;
+
+	void resolve(RTLIL::Design *design);
 
 	BlifDumperConfig() : icells_mode(false), conn_mode(false), impltf_mode(false), gates_mode(false),
 			cname_mode(false), iname_mode(false), param_mode(false), attr_mode(false), iattr_mode(false),
 			blackbox_mode(false), noalias_mode(false), gatesi_mode(false) { }
 };
+
+static IdString match_port(RTLIL::Cell *cell, const std::string &escaped_name)
+{
+	for (auto &conn : cell->connections())
+		if (cell->module->design->twines.name_equal(conn.first, escaped_name))
+			return conn.first;
+	return IdString();
+}
+
+void BlifDumperConfig::resolve(RTLIL::Design *design)
+{
+	if (RTLIL::Module *module = RTLIL::module_by_name(design, buf_type))
+		buf_module = module;
+	if (RTLIL::Module *module = RTLIL::module_by_name(design, true_type))
+		true_module = module;
+	if (RTLIL::Module *module = RTLIL::module_by_name(design, false_type))
+		false_module = module;
+	if (RTLIL::Module *module = RTLIL::module_by_name(design, undef_type))
+		undef_module = module;
+
+	std::vector<std::array<std::string, 3>> escaped_unbuf;
+	for (auto &names : unbuf_args)
+		escaped_unbuf.push_back({RTLIL::escape_id(names[0]), RTLIL::escape_id(names[1]), RTLIL::escape_id(names[2])});
+
+	for (auto module : design->modules()) {
+		for (auto cell : module->cells())
+			for (auto &names : escaped_unbuf) {
+				if (unbuf_types.count(cell->type) || !design->twines.name_equal(cell->type, names[0]))
+					continue;
+				IdString in_port = match_port(cell, names[1]);
+				IdString out_port = match_port(cell, names[2]);
+				if (in_port != IdString::Null && out_port != IdString::Null)
+					unbuf_types[cell->type] = std::make_pair(in_port, out_port);
+			}
+	}
+}
 
 struct BlifDumper
 {
@@ -91,7 +131,7 @@ struct BlifDumper
 
 	const std::string str(RTLIL::IdString id)
 	{
-		std::string str = id.unescape();
+		std::string str = design->twines.unescaped_str(id);
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -108,10 +148,7 @@ struct BlifDumper
 			return config->undef_type == "-" || config->undef_type == "+" ? config->undef_out.c_str() : "$undef";
 		}
 
-		std::string str = sig.wire->name.unescape();
-		for (size_t i = 0; i < str.size(); i++)
-			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
-				str[i] = '?';
+		std::string str = this->str(sig.wire->name);
 
 		if (sig.wire->width != 1)
 			str += stringf("[%d]", sig.wire->upto ? sig.wire->start_offset+sig.wire->width-sig.offset-1 : sig.wire->start_offset+sig.offset);
@@ -136,21 +173,24 @@ struct BlifDumper
 			return stringf("%d", init_bits.at(sig));
 	}
 
-	const char *subckt_or_gate(std::string cell_type)
+	const char *subckt_or_gate(RTLIL::Module *cell_module)
 	{
 		if (!config->gates_mode)
 			return "subckt";
-		if (design->module(RTLIL::escape_id(cell_type)) == nullptr)
-			return "gate";
-		if (design->module(RTLIL::escape_id(cell_type))->get_blackbox_attribute())
+		if (cell_module == nullptr || cell_module->get_blackbox_attribute())
 			return "gate";
 		return "subckt";
+	}
+
+	const char *subckt_or_gate(IdString cell_type)
+	{
+		return subckt_or_gate(config->gates_mode ? design->module(cell_type) : nullptr);
 	}
 
 	void dump_params(const char *command, dict<IdString, Const> &params)
 	{
 		for (auto &param : params) {
-			f << stringf("%s %s ", command, param.first.unescape());
+			f << stringf("%s %s ", command, design->twines.unescaped_str(param.first));
 			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 				std::string str = param.second.decode_string();
 				f << stringf("\"");
@@ -208,7 +248,7 @@ struct BlifDumper
 				if (config->false_type == "+")
 					f << stringf(".names %s\n", config->false_out);
 				else if (config->false_type != "-")
-					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_type),
+					f << stringf(".%s %s %s=$false\n", subckt_or_gate(config->false_module),
 							config->false_type.c_str(), config->false_out.c_str());
 			} else
 				f << stringf(".names $false\n");
@@ -216,7 +256,7 @@ struct BlifDumper
 				if (config->true_type == "+")
 					f << stringf(".names %s\n1\n", config->true_out);
 				else if (config->true_type != "-")
-					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_type),
+					f << stringf(".%s %s %s=$true\n", subckt_or_gate(config->true_module),
 							config->true_type.c_str(), config->true_out.c_str());
 			} else
 				f << stringf(".names $true\n1\n");
@@ -224,7 +264,7 @@ struct BlifDumper
 				if (config->undef_type == "+")
 					f << stringf(".names %s\n", config->undef_out);
 				else if (config->undef_type != "-")
-					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_type),
+					f << stringf(".%s %s %s=$undef\n", subckt_or_gate(config->undef_module),
 							config->undef_type.c_str(), config->undef_out.c_str());
 			} else
 				f << stringf(".names $undef\n");
@@ -416,7 +456,7 @@ struct BlifDumper
 				goto internal_cell;
 			}
 
-			f << stringf(".%s %s", subckt_or_gate(cell->type.str()), str(cell->type));
+			f << stringf(".%s %s", subckt_or_gate(cell->type), str(cell->type));
 			for (auto &conn : cell->connections())
 			{
 				if (conn.second.size() == 1) {
@@ -469,7 +509,7 @@ struct BlifDumper
 			if (config->conn_mode)
 				f << stringf(".conn %s %s\n", str(rhs_bit), str(lhs_bit));
 			else if (!config->buf_type.empty())
-				f << stringf(".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_type), config->buf_type,
+				f << stringf(".%s %s %s=%s %s=%s\n", subckt_or_gate(config->buf_module), config->buf_type,
 						config->buf_in.c_str(), str(rhs_bit).c_str(), config->buf_out.c_str(), str(lhs_bit).c_str());
 			else
 				f << stringf(".names %s %s\n1 1\n", str(rhs_bit), str(lhs_bit));
@@ -589,10 +629,8 @@ struct BlifBackend : public Backend {
 				continue;
 			}
 			if (args[argidx] == "-unbuf" && argidx+3 < args.size()) {
-				RTLIL::IdString unbuf_type = RTLIL::escape_id(args[++argidx]);
-				RTLIL::IdString unbuf_in = RTLIL::escape_id(args[++argidx]);
-				RTLIL::IdString unbuf_out = RTLIL::escape_id(args[++argidx]);
-				config.unbuf_types[unbuf_type] = std::pair<RTLIL::IdString, RTLIL::IdString>(unbuf_in, unbuf_out);
+				config.unbuf_args.push_back({args[argidx+1], args[argidx+2], args[argidx+3]});
+				argidx += 3;
 				continue;
 			}
 			if (args[argidx] == "-true" && argidx+2 < args.size()) {
@@ -661,6 +699,7 @@ struct BlifBackend : public Backend {
 			break;
 		}
 		extra_args(f, filename, args, argidx);
+		config.resolve(design);
 
 		if (top_module_name.empty())
 			for (auto module : design->modules())
@@ -669,6 +708,7 @@ struct BlifBackend : public Backend {
 
 		*f << stringf("# Generated by %s\n", yosys_maybe_version());
 
+		std::string escaped_top_name = RTLIL::escape_id(top_module_name);
 		std::vector<RTLIL::Module*> mod_list;
 
 		design->sort();
@@ -682,7 +722,7 @@ struct BlifBackend : public Backend {
 			if (module->memories.size() != 0)
 				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", module->name.unescape());
 
-			if (module->name == RTLIL::escape_id(top_module_name)) {
+			if (design->twines.name_equal(module->name, escaped_top_name)) {
 				BlifDumper::dump(*f, module, design, config);
 				top_module_name.clear();
 				continue;
