@@ -491,6 +491,136 @@ struct RTLILFrontendWorker {
 		expect_eol();
 	}
 
+	bool static_ids_match(const std::vector<size_t> &ordered_ids)
+	{
+		for (size_t id : ordered_ids) {
+			if (id >= STATIC_TWINE_END)
+				continue;
+			const TwineDesc &desc = twine_descs.at(id);
+			IdString found;
+			if (desc.kind == TwineDesc::Leaf)
+				found = design->twines.find(Twine{Twine::Leaf{desc.text}});
+			else
+				found = design->twines.find(Twine{Twine::Suffix{
+						IdString(desc.parent), desc.text}});
+			if (found == IdString::Null || found.untag().raw() != id)
+				return false;
+		}
+		return true;
+	}
+
+	IdString resolve_file_twine(size_t id, bool is_public = false)
+	{
+		return materialize_file_twine(id).tag(is_public);
+	}
+
+	IdString materialize_file_twine(size_t id)
+	{
+		auto rit = twine_remap.find(id);
+		if (rit != twine_remap.end())
+			return rit->second;
+		auto dit = twine_descs.find(id);
+		if (dit == twine_descs.end()) {
+			if (id < STATIC_TWINE_END)
+				return IdString(id);
+			error("Unknown twine reference @%zu at line %d", id, line_num);
+		}
+		TwineDesc &desc = dit->second;
+		if (desc.materializing)
+			error("Cyclic twine reference @%zu at line %d", id, line_num);
+		desc.materializing = true;
+		IdString ref;
+		switch (desc.kind) {
+		case TwineDesc::Leaf:
+			ref = design->twines.add(Twine::Leaf{desc.text});
+			break;
+		case TwineDesc::Suffix:
+			ref = design->twines.add(Twine::Suffix{
+					materialize_file_twine(desc.parent),
+					desc.text});
+			break;
+		}
+		desc.materializing = false;
+		twine_remap[id] = ref;
+		return ref;
+	}
+
+	std::optional<IdString> try_parse_twine_handle()
+	{
+		bool is_public;
+		size_t prefix = IdString::handle_token_prefix(line, is_public);
+		if (prefix == 0)
+			return std::nullopt;
+		line = line.substr(prefix);
+		return resolve_file_twine(parse_integer(), is_public);
+	}
+
+	std::optional<IdString> try_parse_twine()
+	{
+		if (std::optional<IdString> handle = try_parse_twine_handle())
+			return handle;
+		std::optional<std::string> id = try_parse_id();
+		if (!id)
+			return std::nullopt;
+		return design->twines.add(std::move(*id));
+	}
+
+	IdString parse_twine()
+	{
+		std::optional<IdString> t = try_parse_twine();
+		if (!t)
+			error("Expected twine reference or ID, got `%s'.", error_token());
+		return *t;
+	}
+
+	void parse_twines()
+	{
+		expect_eol();
+		while (true) {
+			if (try_parse_keyword("end"))
+				break;
+			if (try_parse_keyword("leaf")) {
+				size_t file_id = parse_integer();
+				TwineDesc &desc = twine_descs[file_id];
+				desc.kind = TwineDesc::Leaf;
+				desc.text = parse_string();
+				expect_eol();
+				continue;
+			}
+			if (try_parse_keyword("suffix")) {
+				size_t file_id = parse_integer();
+				TwineDesc &desc = twine_descs[file_id];
+				desc.kind = TwineDesc::Suffix;
+				desc.parent = parse_integer();
+				desc.text = parse_string();
+				expect_eol();
+				continue;
+			}
+			error("Expected `leaf` or `suffix` inside twines block, got `%s'.",
+					error_token());
+		}
+		std::vector<size_t> ordered_ids;
+		ordered_ids.reserve(twine_descs.size());
+		for (auto &it : twine_descs)
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		if (static_ids_match(ordered_ids)) {
+			std::vector<size_t> dynamic_ids;
+			dynamic_ids.reserve(ordered_ids.size());
+			for (size_t id : ordered_ids) {
+				if (id < STATIC_TWINE_END)
+					twine_descs.erase(id);
+				else
+					dynamic_ids.push_back(id);
+			}
+			ordered_ids.swap(dynamic_ids);
+		}
+		for (size_t id : ordered_ids)
+			materialize_file_twine(id);
+		twine_descs.clear();
+		expect_eol();
+	}
+
 	void parse_parameter()
 	{
 		RTLIL::IdString id = parse_id();
