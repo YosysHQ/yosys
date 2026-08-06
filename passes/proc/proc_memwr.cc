@@ -29,13 +29,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &next_port_id)
+void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<std::string, int> &next_port_id)
 {
 	for (auto sr : proc->syncs)
 	{
 		std::vector<int> prev_port_ids;
 		for (auto memwr : sr->mem_write_actions) {
-			int port_id = next_port_id[memwr.memid]++;
+			std::string memid = mod->design->twines.str(memwr.memid);
+			int port_id = next_port_id[memid]++;
 			Const priority_mask(State::S0, port_id);
 			for (int i = 0; i < GetSize(prev_port_ids); i++)
 				if (memwr.priority_mask[i] == State::S1)
@@ -44,7 +45,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<IdString, int> &n
 
 			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
 			cell->attributes = memwr.attributes;
-			cell->setParam(ID::MEMID, Const(memwr.memid.str()));
+			cell->setParam(ID::MEMID, Const(memid));
 			cell->setParam(ID::ABITS, GetSize(memwr.address));
 			cell->setParam(ID::WIDTH, GetSize(memwr.data));
 			cell->setParam(ID::PORTID, port_id);
@@ -100,11 +101,11 @@ struct ProcMemWrPass : public Pass {
 		extra_args(args, 1, design);
 
 		for (auto mod : design->all_selected_modules()) {
-			dict<IdString, int> next_port_id;
+			dict<std::string, int> next_port_id;
 			for (auto cell : mod->cells()) {
 				if (cell->type.in(ID($memwr), ID($memwr_v2))) {
 					bool is_compat = cell->type == ID($memwr);
-					IdString memid = cell->parameters.at(ID::MEMID).decode_string();
+					std::string memid = cell->parameters.at(ID::MEMID).decode_string();
 					int port_id = cell->parameters.at(is_compat ? ID::PRIORITY : ID::PORTID).as_int();
 					if (port_id >= next_port_id[memid])
 						next_port_id[memid] = port_id + 1;

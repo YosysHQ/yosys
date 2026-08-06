@@ -33,7 +33,7 @@ struct MemoryMapWorker
 	bool rom_only = false;
 	bool keepdc = false;
 	bool formal = false;
-	dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
+	dict<std::string, std::vector<RTLIL::Const>> attributes;
 
 	RTLIL::Design *design;
 	RTLIL::Module *module;
@@ -41,6 +41,9 @@ struct MemoryMapWorker
 	FfInitVals initvals;
 
 	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::SigBit> decoder_cache;
+
+
+	pool<std::string> wire_names;
 
 	MemoryMapWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module), initvals(&sigmap, module) {}
 
@@ -63,7 +66,7 @@ struct MemoryMapWorker
 	std::string genid(RTLIL::IdString name, std::string token1 = "", int i = -1, std::string token2 = "", int j = -1, std::string token3 = "", int k = -1, std::string token4 = "")
 	{
 		std::stringstream sstr;
-		sstr << "$memory" << name.str() << token1;
+		sstr << "$memory" << design->twines.str(name) << token1;
 
 		if (i >= 0)
 			sstr << "[" << i << "]";
@@ -115,11 +118,12 @@ struct MemoryMapWorker
 
 		// check if attributes allow us to infer FFRAM for this memory
 		for (const auto &attr : attributes) {
-			if (mem.attributes.count(attr.first)) {
-				const auto &cell_attr = mem.attributes[attr.first];
+			IdString attr_ref = design->twines.find(attr.first);
+			if (attr_ref != IdString::Null && mem.attributes.count(attr_ref)) {
+				const auto &cell_attr = mem.attributes[attr_ref];
 				if (attr.second.empty()) {
 					log("Not mapping memory %s in module %s (attribute %s is set).\n",
-							mem.memid.c_str(), module->name.c_str(), attr.first.c_str());
+							mem.memid, module->name, attr.first);
 					return;
 				}
 
@@ -133,10 +137,10 @@ struct MemoryMapWorker
 				if (!found) {
 					if (cell_attr.flags & RTLIL::CONST_FLAG_STRING) {
 						log("Not mapping memory %s in module %s (attribute %s is set to \"%s\").\n",
-								mem.memid.c_str(), module->name.c_str(), attr.first.c_str(), cell_attr.decode_string().c_str());
+								mem.memid, module->name, attr.first, cell_attr.decode_string().c_str());
 					} else {
 						log("Not mapping memory %s in module %s (attribute %s is set to %d).\n",
-								mem.memid.c_str(), module->name.c_str(), attr.first.c_str(), cell_attr.as_int());
+								mem.memid, module->name, attr.first, cell_attr.as_int());
 					}
 					return;
 				}
@@ -170,24 +174,24 @@ struct MemoryMapWorker
 				static_only = false;
 				if (GetSize(refclock) != 0)
 					log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
-							mem.memid.c_str(), module->name.c_str());
+							mem.memid, module->name);
 				if (!formal)
 					log("Not mapping memory %s in module %s (write port %d has no clock).\n",
-								mem.memid.c_str(), module->name.c_str(), i);
+								mem.memid, module->name, i);
 				async_wr = true;
 				continue;
 			}
 			static_only = false;
 			if (async_wr)
 				log("Not mapping memory %s in module %s (mixed clocked and async write ports).\n",
-						mem.memid.c_str(), module->name.c_str());
+						mem.memid, module->name);
 			if (refclock.size() == 0) {
 				refclock = port.clk;
 				refclock_pol = port.clk_polarity;
 			}
 			if (port.clk != refclock || port.clk_polarity != refclock_pol) {
 				log("Not mapping memory %s in module %s (write clock %d is incompatible with other clocks).\n",
-						mem.memid.c_str(), module->name.c_str(), i);
+						mem.memid, module->name, i);
 				return;
 			}
 		}
@@ -244,16 +248,17 @@ struct MemoryMapWorker
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
-				std::string w_out_name = stringf("%s[%d]", mem.memid, addr);
-				if (module->wires_.count(w_out_name) > 0)
+				std::string w_out_name = stringf("%s[%d]", mem.memid.str(), addr);
+				if (wire_names.count(w_out_name))
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
+				wire_names.insert(w_out->name.str());
 
-				if (formal && mem.packed && mem.cell->name.c_str()[0] == '\\') {
+				if (formal && mem.packed && mem.cell->name.isPublic()) {
 					auto hdlname = mem.cell->get_hdlname_attribute();
 					if (hdlname.empty())
-						hdlname.push_back(mem.cell->name.c_str() + 1);
+						hdlname.push_back(mem.cell->name.unescape());
 					hdlname.push_back(stringf("[%d]", addr));
 					w_out->set_hdlname_attribute(hdlname);
 				}
@@ -389,6 +394,9 @@ struct MemoryMapWorker
 
 	void run()
 	{
+		for (auto wire : module->wires())
+			wire_names.insert(wire->name.str());
+
 		for (auto &mem : Mem::get_selected_memories(module))
 			handle_memory(mem);
 	}
@@ -436,7 +444,7 @@ struct MemoryMapPass : public Pass {
 		bool rom_only = false;
 		bool keepdc = false;
 		bool formal = false;
-		dict<RTLIL::IdString, std::vector<RTLIL::Const>> attributes;
+		dict<std::string, std::vector<RTLIL::Const>> attributes;
 
 		log_header(design, "Executing MEMORY_MAP pass (converting memories to logic and flip-flops).\n");
 

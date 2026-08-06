@@ -73,7 +73,7 @@ void replace_undriven(RTLIL::Module *module, const NewCellTypes &ct)
 	{
 		RTLIL::SigSpec sig = c;
 
-		if (c.wire->name[0] == '$')
+		if (!c.wire->name.isPublic())
 			sig = used_signals.extract(sig);
 		if (sig.size() == 0)
 			continue;
@@ -124,8 +124,8 @@ void replace_cell(SigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell,
 	out_val.extend_u0(Y.size(), false);
 
 	log_debug("Replacing %s cell `%s' (%s) in module `%s' with constant driver `%s = %s'.\n",
-			cell->type.c_str(), cell->name.c_str(), info.c_str(),
-			module->name.c_str(), log_signal(Y), log_signal(out_val));
+			cell->type, cell->name, info,
+			module->name, log_signal(Y), log_signal(out_val));
 	// log_cell(cell);
 	assign_map.add(Y, out_val);
 	module->connect(Y, out_val);
@@ -138,7 +138,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	IdString b_name = cell->hasPort(ID::B) ? ID::B : ID::A;
 
 	bool a_signed = cell->parameters.at(ID::A_SIGNED).as_bool();
-	bool b_signed = cell->parameters.at(b_name.str() + "_SIGNED").as_bool();
+	bool b_signed = cell->parameters.at(b_name == ID::B ? ID::B_SIGNED : ID::A_SIGNED).as_bool();
 
 	RTLIL::SigSpec sig_a = sigmap(cell->getPort(ID::A));
 	RTLIL::SigSpec sig_b = sigmap(cell->getPort(b_name));
@@ -308,7 +308,7 @@ void handle_polarity_inv(Cell *cell, IdString port, IdString param, const SigMap
 	SigSpec sig = assign_map(cell->getPort(port));
 	if (invert_map.count(sig)) {
 		log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
-				port.unescape(), cell->type.unescape(), cell, cell->module,
+				PooledName(cell->module, port).unescape(), cell->type.unescape(), cell, cell->module,
 				log_signal(sig), log_signal(invert_map.at(sig)));
 		cell->setPort(port, (invert_map.at(sig)));
 		cell->setParam(param, !cell->getParam(param).as_bool());
@@ -333,14 +333,14 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 		}
 	}
 
-	if (cell->type.in(type1, type2)) {
+	if (cell->type == type1 || cell->type == type2) {
 		SigSpec sig = assign_map(cell->getPort(port));
 		if (invert_map.count(sig)) {
 			log_debug("Inverting %s of %s cell `%s' in module `%s': %s -> %s\n",
-					port.unescape(), cell->type.unescape(), cell, cell->module,
+					PooledName(cell->module, port).unescape(), cell->type.unescape(), cell, cell->module,
 					log_signal(sig), log_signal(invert_map.at(sig)));
 			cell->setPort(port, (invert_map.at(sig)));
-			cell->type = cell->type == type1 ? type2 : type1;
+			cell->type = cell->module->design->twines.add(cell->type == type1 ? type2 : type1);
 		}
 	}
 }
@@ -398,7 +398,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 	dict<RTLIL::SigSpec, RTLIL::SigSpec> invert_map;
 
 	for (auto cell : module->cells()) {
-		if (design->selected(module, cell) && cell->type[0] == '$') {
+		if (design->selected(module, cell) && !cell->type.isPublic()) {
 			if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) &&
 					GetSize(cell->getPort(ID::A)) == 1 && GetSize(cell->getPort(ID::Y)) == 1)
 				invert_map[assign_map(cell->getPort(ID::Y))] = assign_map(cell->getPort(ID::A));
@@ -802,7 +802,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (GetSize(new_sig_a) < GetSize(sig_a)) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_sig_a));
+							cell->type, cell->name, module->name, log_signal(sig_a), log_signal(new_sig_a));
 					cell->setPort(ID::A, new_sig_a);
 					cell->parameters.at(ID::A_WIDTH) = GetSize(new_sig_a);
 					did_something = true;
@@ -824,7 +824,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (GetSize(new_sig_b) < GetSize(sig_b)) {
 					log_debug("Replacing port B of %s cell `%s' in module `%s' with shorter expression: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_sig_b));
+							cell->type, cell->name, module->name, log_signal(sig_b), log_signal(new_sig_b));
 					cell->setPort(ID::B, new_sig_b);
 					cell->parameters.at(ID::B_WIDTH) = GetSize(new_sig_b);
 					did_something = true;
@@ -849,7 +849,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
+							cell->type, cell->name, module->name, log_signal(sig_a), log_signal(new_a));
 					cell->setPort(ID::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
 					did_something = true;
@@ -874,7 +874,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_a != RTLIL::State::Sm && RTLIL::SigSpec(new_a) != sig_a) {
 					log_debug("Replacing port A of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_a), log_signal(new_a));
+							cell->type, cell->name, module->name, log_signal(sig_a), log_signal(new_a));
 					cell->setPort(ID::A, sig_a = new_a);
 					cell->parameters.at(ID::A_WIDTH) = 1;
 					did_something = true;
@@ -899,7 +899,7 @@ void replace_const_cells(RTLIL::Design *design, RTLIL::Module *module, bool cons
 
 				if (new_b != RTLIL::State::Sm && RTLIL::SigSpec(new_b) != sig_b) {
 					log_debug("Replacing port B of %s cell `%s' in module `%s' with constant driver: %s -> %s\n",
-							cell->type.c_str(), cell->name.c_str(), module->name.c_str(), log_signal(sig_b), log_signal(new_b));
+							cell->type, cell->name, module->name, log_signal(sig_b), log_signal(new_b));
 					cell->setPort(ID::B, sig_b = new_b);
 					cell->parameters.at(ID::B_WIDTH) = 1;
 					did_something = true;
@@ -1171,7 +1171,7 @@ skip_fine_alu:
 				ACTION_DO(ID::Y, cell->getPort(ID::A));
 			if (input == State::S0 && !a.is_fully_undef()) {
 				log_debug("Replacing data input of %s cell `%s' in module `%s' with constant undef.\n",
-					cell->type.c_str(), cell->name.c_str(), module->name.c_str());
+					cell->type, cell->name, module->name);
 				cell->setPort(ID::A, SigSpec(State::Sx, GetSize(a)));
 				did_something = true;
 				goto next_cell;
@@ -1375,7 +1375,7 @@ skip_fine_alu:
 			if (identity_wrt_a || identity_wrt_b)
 			{
 				log_debug("Replacing %s cell `%s' in module `%s' with identity for port %c.\n",
-					cell->type.c_str(), cell->name.c_str(), module->name.c_str(), identity_wrt_a ? 'A' : 'B');
+					cell->type, cell->name, module->name, identity_wrt_a ? 'A' : 'B');
 
 				if (cell->type == ID($alu)) {
 					bool a_signed = cell->parameters[ID::A_SIGNED].as_bool();
@@ -1672,14 +1672,14 @@ skip_identity:
 				// 2^B = 1<<B
 				if (bit_idx == 1) {
 					log_debug("Replacing pow cell `%s' in module `%s' with left-shift\n",
-							cell->name.c_str(), module->name.c_str());
+							cell->name, module->name);
 					cell->type = ID($shl);
 					cell->parameters[ID::A_WIDTH] = 1;
 					cell->setPort(ID::A, Const(State::S1, 1));
 				}
 				else {
 					log_debug("Replacing pow cell `%s' in module `%s' with multiply and left-shift\n",
-							cell->name.c_str(), module->name.c_str());
+							cell->name, module->name);
 					cell->type = ID($mul);
 					cell->setPort(ID::A, Const(bit_idx, cell->parameters[ID::A_WIDTH].as_int()));
 
@@ -1710,7 +1710,7 @@ skip_identity:
 				if (sig_a.is_fully_zero())
 				{
 					log_debug("Replacing multiply-by-zero cell `%s' in module `%s' with zero-driver.\n",
-							cell->name.c_str(), module->name.c_str());
+							cell->name, module->name);
 
 					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(0, sig_y.size())));
 					module->remove(cell);
@@ -1723,7 +1723,7 @@ skip_identity:
 				if (sig_a.is_onehot(&exp) && !(a_signed && exp == GetSize(sig_a) - 1))
 				{
 					log_debug("Replacing multiply-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
-							log_signal(sig_a), cell->name.c_str(), module->name.c_str(), exp);
+							log_signal(sig_a), cell->name, module->name, exp);
 
 					if (!swapped_ab) {
 						cell->setPort(ID::A, cell->getPort(ID::B));
@@ -1756,7 +1756,7 @@ skip_identity:
 			if (a_zeros || b_zeros) {
 				int y_zeros = a_zeros + b_zeros;
 				log_debug("Removing low %d A and %d B bits from cell `%s' in module `%s'.\n",
-						a_zeros, b_zeros, cell->name.c_str(), module->name.c_str());
+						a_zeros, b_zeros, cell->name, module->name);
 
 				if (y_zeros >= GetSize(sig_y)) {
 					module->connect(sig_y, RTLIL::SigSpec(0, GetSize(sig_y)));
@@ -1797,7 +1797,7 @@ skip_identity:
 				if (sig_b.is_fully_zero())
 				{
 					log_debug("Replacing divide-by-zero cell `%s' in module `%s' with undef-driver.\n",
-							cell->name.c_str(), module->name.c_str());
+							cell->name, module->name);
 
 					module->connect(RTLIL::SigSig(sig_y, RTLIL::SigSpec(State::Sx, sig_y.size())));
 					module->remove(cell);
@@ -1814,7 +1814,7 @@ skip_identity:
 						bool is_truncating = cell->type == ID($div);
 						log_debug("Replacing %s-divide-by-%s cell `%s' in module `%s' with shift-by-%d.\n",
 								is_truncating ? "truncating" : "flooring",
-								log_signal(sig_b), cell->name.c_str(), module->name.c_str(), exp);
+								log_signal(sig_b), cell->name, module->name, exp);
 
 						Const new_b = exp;
 
@@ -1842,7 +1842,7 @@ skip_identity:
 						bool is_truncating = cell->type == ID($mod);
 						log_debug("Replacing %s-modulo-by-%s cell `%s' in module `%s' with bitmask.\n",
 								is_truncating ? "truncating" : "flooring",
-								log_signal(sig_b), cell->name.c_str(), module->name.c_str());
+								log_signal(sig_b), cell->name, module->name);
 
 						// truncating modulo has the same masked bits as flooring modulo, but
 						// the sign bits are those of A (except when R=0)
@@ -1924,7 +1924,7 @@ skip_identity:
 
 			for (auto &p : split_points)
 				log_debug("Splitting $alu cell `%s' in module `%s' at const-carry point %d.\n",
-					cell->name.c_str(), module->name.c_str(), p.first);
+					cell->name, module->name, p.first);
 
 			if (split_points.back().first != GetSize(sig_y))
 				split_points.push_back(std::make_pair(GetSize(sig_y), State::Sx));
@@ -2010,7 +2010,7 @@ skip_alu_split:
 							sig_y.append(RTLIL::SigSpec(State::S0, y_width - k));
 
 						log_debug("Replacing `(2^%d-1) - B` $sub cell `%s' in module `%s' with $not.\n",
-								k, cell->name.c_str(), module->name.c_str());
+								k, cell->name, module->name);
 						module->connect(cell->getPort(ID::Y), sig_y);
 						module->remove(cell);
 						did_something = true;

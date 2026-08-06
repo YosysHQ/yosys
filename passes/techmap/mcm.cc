@@ -438,7 +438,7 @@ struct McmWorker {
 		auto value = constant.try_as_int(is_signed);
 		if (!value || *value == std::numeric_limits<int>::min()) {
 			log_debug("Skipping constant multiplier %s: coefficient %s is outside the supported range.\n",
-					log_id(cell), log_const(constant));
+					cell, log_const(constant));
 			return false;
 		}
 
@@ -479,7 +479,7 @@ struct McmWorker {
 			int depth = graph.depth.at(odd) + (group.items[i].coefficient < 0 ? 1 : 0);
 			if (depth > config.search.max_depth) {
 				log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
-						log_id(group.items[i].cell), config.search.max_depth);
+						group.items[i].cell, config.search.max_depth);
 				continue;
 			}
 			plan.active_items.push_back(i);
@@ -566,7 +566,7 @@ struct McmWorker {
 		if (is_profitable(plan))
 			return true;
 		log_debug("Skipping MCM group in module %s: estimated bit cost %lld vs %lld "
-				"does not meet %d%% minimum gain.\n", log_id(module), plan.shared_cost,
+				"does not meet %d%% minimum gain.\n", module, plan.shared_cost,
 				plan.independent_cost, config.min_gain);
 		return false;
 	}
@@ -761,7 +761,7 @@ struct McmPass : public Pass {
 			worker.run();
 			if (worker.n_muls)
 				log("Module %s: replaced %d constant multiplier(s) in %d group(s) "
-					"with %d adder(s).\n", log_id(module), worker.n_muls, worker.n_groups, worker.n_adders);
+					"with %d adder(s).\n", module, worker.n_muls, worker.n_groups, worker.n_adders);
 			total_groups += worker.n_groups;
 			total_muls += worker.n_muls;
 			total_adders += worker.n_adders;

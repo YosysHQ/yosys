@@ -91,14 +91,14 @@ struct DeletePass : public Pass {
 			pool<RTLIL::Wire*> delete_wires;
 			pool<RTLIL::Cell*> delete_cells;
 			pool<RTLIL::Process*> delete_procs;
-			pool<RTLIL::IdString> delete_mems;
+			dict<std::string, RTLIL::IdString> delete_mems;
 
 			for (auto wire : module->selected_wires())
 				delete_wires.insert(wire);
 
 			for (auto &it : module->memories)
 				if (design->selected(module, it.second))
-					delete_mems.insert(it.first);
+					delete_mems[design->twines.str(it.first)] = it.first;
 
 			for (auto cell : module->cells()) {
 				if (design->selected(module, cell))
@@ -113,8 +113,8 @@ struct DeletePass : public Pass {
 					delete_procs.insert(it.second);
 
 			for (auto &it : delete_mems) {
-				delete module->memories.at(it);
-				module->memories.erase(it);
+				delete module->memories.at(it.second);
+				module->memories.erase(it.second);
 			}
 
 			for (auto &it : delete_cells)
