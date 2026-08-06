@@ -1237,7 +1237,7 @@ public:
 	void add(SigSpec const &a, SigSpec const &b);
 
 private:
-	void add_port(Cell *cell, IdString const &port, SigSpec const &b);
+	void add_port(Cell *cell, IdString port, SigSpec const &b);
 
 	// Only used a local variables in `orient_undirected`, always cleared, only
 	// stored to reduce allocations.
