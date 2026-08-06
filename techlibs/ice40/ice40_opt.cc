@@ -117,37 +117,44 @@ static void run_ice40_opts(Module *module)
 
 			if (GetSize(replacement_output)) {
 				optimized_co.insert(sigmap(cell->getPort(ID::CO)[0]));
-				auto it = cell->attributes.find(IdString{"\\SB_LUT4.name"});
+				TwinePool &twines = module->design->twines;
+				IdString lut_name_attr = twines.add(std::string("\\SB_LUT4.name"));
+				auto it = cell->attributes.find(lut_name_attr);
 				if (it != cell->attributes.end()) {
 					module->rename(cell, it->second.decode_string());
 					decltype(Cell::attributes) new_attr;
-					for (const auto &a : cell->attributes)
-						if (a.first.begins_with("\\SB_LUT4.\\"))
-							new_attr[a.first.c_str() + strlen("\\SB_LUT4.")] = a.second;
+					for (const auto &a : cell->attributes) {
+						std::string aname = twines.str(a.first);
+						if (aname.starts_with("\\SB_LUT4.\\"))
+							new_attr[twines.add(aname.substr(strlen("\\SB_LUT4.")))] = a.second;
 						else if (a.first == ID::src)
 							new_attr.insert(std::make_pair(a.first, a.second));
-						else if (a.first.in(IdString{"\\SB_LUT4.name"}, ID::keep, ID::module_not_derived))
+						else if (a.first.in(lut_name_attr, ID::keep, ID::module_not_derived))
 							continue;
-						else if (a.first.begins_with("\\SB_CARRY.\\"))
+						else if (aname.starts_with("\\SB_CARRY.\\"))
 							continue;
 						else
 							log_abort();
+					}
 					cell->attributes = std::move(new_attr);
 				}
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);
 				log("Optimized $__ICE40_CARRY_WRAPPER cell back to logic (without SB_CARRY) %s.%s: CO=%s\n",
 						module, cell, log_signal(replacement_output));
-				cell->type = ID($lut);
 				auto I3 = get_bit_or_zero(cell->getPort(cell->getParam(ID(I3_IS_CI)).as_bool() ? ID::CI : ID(I3)));
-				cell->setPort(ID::A, { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) });
-				cell->setPort(ID::Y, cell->getPort(ID::O));
+				RTLIL::SigSpec sig_a { I3, inbit[1], inbit[0], get_bit_or_zero(cell->getPort(ID(I0))) };
+				RTLIL::SigSpec sig_y = cell->getPort(ID::O);
+				cell->unsetPort(ID::A);
 				cell->unsetPort(ID::B);
 				cell->unsetPort(ID::CI);
 				cell->unsetPort(ID(I0));
 				cell->unsetPort(ID(I3));
 				cell->unsetPort(ID::CO);
 				cell->unsetPort(ID::O);
+				cell->type = ID($lut);
+				cell->setPort(ID::A, std::move(sig_a));
+				cell->setPort(ID::Y, std::move(sig_y));
 				cell->setParam(ID::WIDTH, 4);
 				cell->unsetParam(ID(I3_IS_CI));
 			}
