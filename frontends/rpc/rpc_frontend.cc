@@ -115,7 +115,7 @@ struct RpcServer {
 		return modules;
 	}
 
-	std::pair<std::string, std::string> derive_module(const std::string &module, const dict<RTLIL::IdString, RTLIL::Const> &parameters) {
+	std::pair<std::string, std::string> derive_module(const RTLIL::Design *design, const std::string &module, const dict<IdString, RTLIL::Const> &parameters) {
 		Json::object json_parameters;
 		for (auto &param : parameters) {
 			std::string type, value;
@@ -130,7 +130,7 @@ struct RpcServer {
 				value = param.second.as_string();
 			} else
 				log_cmd_error("Unserializable constant flags 0x%x\n", param.second.flags);
-			json_parameters[param.first.str()] = Json::object {
+			json_parameters[design->twines.str(param.first)] = Json::object {
 				{ "type", type },
 				{ "value", value },
 			};
@@ -167,8 +167,8 @@ struct RpcModule : RTLIL::Module {
 
 		std::string parameter_info;
 		for (auto &param : parameters) {
-			log("Parameter %s = %s\n", param.first, log_signal(RTLIL::SigSpec(param.second)));
-			parameter_info += stringf("%s=%s", param.first, log_signal(RTLIL::SigSpec(param.second)));
+			log("Parameter %s = %s\n", PooledName(design, param.first).unescape(), log_signal(RTLIL::SigSpec(param.second)));
+			parameter_info += stringf("%s=%s", PooledName(design, param.first).unescape(), log_signal(RTLIL::SigSpec(param.second)));
 		}
 
 		std::string derived_name;
@@ -179,11 +179,12 @@ struct RpcModule : RTLIL::Module {
 		else
 			derived_name = "$paramod" + stripped_name + parameter_info;
 
-		if (design->has(derived_name)) {
+		IdString derived_ref = design->twines.find(derived_name);
+		if (design->has(derived_ref)) {
 			log("Found cached RTLIL representation for module `%s'.\n", derived_name);
 		} else {
 			std::string command, input;
-			std::tie(command, input) = server->derive_module(stripped_name.substr(1), parameters);
+			std::tie(command, input) = server->derive_module(design, stripped_name.substr(1), parameters);
 
 			std::istringstream input_stream(input);
 			RTLIL::Design *derived_design = new RTLIL::Design;
@@ -207,26 +208,24 @@ struct RpcModule : RTLIL::Module {
 			for (auto module : derived_design->modules())
 				for (auto cell : module->cells())
 					if (name_mangling.count(cell->type.str()))
-						cell->type = name_mangling[cell->type.str()];
+						cell->type = cell->module->design->twines.add(name_mangling[cell->type.str()]);
 
 			for (auto module : derived_design->modules_) {
-				std::string mangled_name = name_mangling[module.first.str()];
+				std::string mangled_name = name_mangling[derived_design->twines.str(module.first)];
 
-				log("Importing `%s' as `%s'.\n", module.first.unescape(), mangled_name);
+				log("Importing `%s' as `%s'.\n", PooledName(derived_design, module.first).unescape(), mangled_name);
 
-				module.second->name = mangled_name;
-				module.second->design = design;
-				module.second->attributes.erase(ID::top);
-				if (!module.second->has_attribute(ID::hdlname))
-					module.second->set_string_attribute(ID::hdlname, module.first.str());
-				design->modules_[mangled_name] = module.second;
-				derived_design->modules_.erase(module.first);
+				IdString original_name = module.first;
+				RTLIL::Module *t = module.second->clone(design, design->twines.add(mangled_name));
+				t->attributes.erase(ID::top);
+				if (!t->has_attribute(ID::hdlname))
+					t->set_string_attribute(ID::hdlname, derived_design->twines.str(original_name));
 			}
 
 			delete derived_design;
 		}
 
-		return derived_name;
+		return design->twines.add(derived_name);
 	}
 
 	RTLIL::Module *clone() const override {
@@ -588,7 +587,8 @@ cleanup_path:
 		for (auto &module_name : server->get_module_names()) {
 			log("Linking module `%s'.\n", module_name);
 			RpcModule *module = new RpcModule;
-			module->name = "$abstract\\" + module_name;
+			module->design = design;
+			module->name = design->twines.add("$abstract\\" + module_name);
 			module->server = server;
 			design->add(module);
 		}
