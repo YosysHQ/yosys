@@ -617,7 +617,7 @@ struct AigerWriter
 
 			for (auto wire : module->wires())
 			{
-				if (wire->name[0] == '$')
+				if (!wire->name.isPublic())
 					continue;
 
 				SigSpec sig = sigmap(wire);
@@ -691,7 +691,7 @@ struct AigerWriter
 
 		for (auto wire : module->wires())
 		{
-			if (!verbose_map && wire->name[0] == '$')
+			if (!verbose_map && !wire->name.isPublic())
 				continue;
 
 			SigSpec sig = sigmap(wire);
