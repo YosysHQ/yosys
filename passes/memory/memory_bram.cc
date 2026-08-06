@@ -26,6 +26,8 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct rules_t
 {
+	Design *design = nullptr;
+
 	struct portinfo_t {
 		int group, index, dupidx;
 		int wrmode, enable, transp, clocks, clkpol;
@@ -36,7 +38,7 @@ struct rules_t
 	};
 
 	struct bram_t {
-		IdString name;
+		PooledName name;
 		int variant;
 
 		int groups, abits, dbits, init;
@@ -95,7 +97,7 @@ struct rules_t
 			return portinfos;
 		}
 
-		void find_variant_params(dict<IdString, Const> &variant_params, const bram_t &other) const
+		void find_variant_params(TwinePool &twines, dict<IdString, Const> &variant_params, const bram_t &other) const
 		{
 			log_assert(name == other.name);
 
@@ -114,21 +116,22 @@ struct rules_t
 				if (ports[i] != other.ports[i])
 					log_error("Bram %s variants %d and %d have different number of %c-ports.\n", name.unescape(), variant, other.variant, 'A'+i);
 				if (wrmode[i] != other.wrmode[i])
-					variant_params[stringf("\\CFG_WRMODE_%c", 'A' + i)] = wrmode[i];
+					variant_params[twines.add(stringf("\\CFG_WRMODE_%c", 'A' + i))] = wrmode[i];
 				if (enable[i] != other.enable[i])
-					variant_params[stringf("\\CFG_ENABLE_%c", 'A' + i)] = enable[i];
+					variant_params[twines.add(stringf("\\CFG_ENABLE_%c", 'A' + i))] = enable[i];
 				if (transp[i] != other.transp[i])
-					variant_params[stringf("\\CFG_TRANSP_%c", 'A' + i)] = transp[i];
+					variant_params[twines.add(stringf("\\CFG_TRANSP_%c", 'A' + i))] = transp[i];
 				if (clocks[i] != other.clocks[i])
-					variant_params[stringf("\\CFG_CLOCKS_%c", 'A' + i)] = clocks[i];
+					variant_params[twines.add(stringf("\\CFG_CLOCKS_%c", 'A' + i))] = clocks[i];
 				if (clkpol[i] != other.clkpol[i])
-					variant_params[stringf("\\CFG_CLKPOL_%c", 'A' + i)] = clkpol[i];
+					variant_params[twines.add(stringf("\\CFG_CLKPOL_%c", 'A' + i))] = clkpol[i];
 			}
 		}
+
 	};
 
 	struct match_t {
-		IdString name;
+		PooledName name;
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
@@ -211,7 +214,7 @@ struct rules_t
 
 	void parse_bram()
 	{
-		IdString bram_name = RTLIL::escape_id(tokens[1]);
+		PooledName bram_name(design, design->twines.add(RTLIL::escape_id(tokens[1])));
 
 		if (GetSize(tokens) != 2)
 			syntax_error();
@@ -296,7 +299,7 @@ struct rules_t
 			syntax_error();
 
 		match_t data;
-		data.name = RTLIL::escape_id(tokens[1]);
+		data.name = PooledName(design, design->twines.add(RTLIL::escape_id(tokens[1])));
 		data.or_next_if_better = false;
 		data.make_transp = false;
 		data.make_outreg = false;
@@ -349,7 +352,7 @@ struct rules_t
 					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
 					size_t c2 = tokens[idx].find("=");
 					bool exists = (c1 == 0);
-					IdString key = RTLIL::escape_id(tokens[idx].substr(c1, c2));
+					IdString key = design->twines.add(RTLIL::escape_id(tokens[idx].substr(c1, c2)));
 					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
 
 					data.attributes.back().emplace_back(exists, key, map_case(val));
@@ -361,8 +364,9 @@ struct rules_t
 		}
 	}
 
-	void parse(string filename)
+	void parse(string filename, Design *design)
 	{
+		this->design = design;
 		rewrite_filename(filename);
 		infile.open(filename);
 		linecount = 0;
@@ -759,7 +763,7 @@ grow_read_ports:;
 				if (!exists)
 					ss << "!";
 				IdString key = std::get<1>(sums.front());
-				ss << key.unescape();
+				ss << PooledName(mem.module, key).unescape();
 				const Const &value = rules.map_case(std::get<2>(sums.front()));
 				if (exists && value != Const(1))
 					ss << "=\"" << value.decode_string() << "\"";
@@ -862,7 +866,7 @@ grow_read_ports:;
 
 	dict<IdString, Const> variant_params;
 	for (auto &other_bram : rules.brams.at(bram.name))
-		bram.find_variant_params(variant_params, other_bram);
+		bram.find_variant_params(module->design->twines, variant_params, other_bram);
 
 	// actually replace that memory cell
 
@@ -873,7 +877,7 @@ grow_read_ports:;
 		for (int grid_a = 0; grid_a < acells; grid_a++)
 		for (int dupidx = 0; dupidx < dup_count; dupidx++)
 		{
-			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid, grid_d, grid_a, dupidx)), bram.name);
+			Cell *c = module->addCell(module->uniquify(stringf("%s.%d.%d.%d", mem.memid.str(), grid_d, grid_a, dupidx)), bram.name);
 			log("      Creating %s cell at grid position <%d %d %d>: %s\n", bram.name.unescape(), grid_d, grid_a, dupidx, c);
 
 			for (auto &vp : variant_params)
@@ -1137,7 +1141,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					if (!exists)
 						ss << "!";
 					IdString key = std::get<1>(sums.front());
-					ss << key.unescape();
+					ss << PooledName(mem.module, key).unescape();
 					const Const &value = rules.map_case(std::get<2>(sums.front()));
 					if (exists && value != Const(1))
 						ss << "=\"" << value.decode_string() << "\"";
@@ -1313,7 +1317,7 @@ struct MemoryBramPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-rules" && argidx+1 < args.size()) {
-				rules.parse(args[++argidx]);
+				rules.parse(args[++argidx], design);
 				continue;
 			}
 			break;

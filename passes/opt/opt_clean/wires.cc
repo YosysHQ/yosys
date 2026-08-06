@@ -131,7 +131,7 @@ bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const Sha
 	if (w1->port_output != w2->port_output)
 		return w2->port_output;
 
-	if (w1->name[0] != w2->name[0])
+	if (w1->name.isPublic() != w2->name.isPublic())
 		return w2->name.isPublic();
 
 	int attrs1 = count_nontrivial_wire_attrs(w1);
@@ -143,14 +143,14 @@ bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const Sha
 	return w2->name.lt_by_name(w1->name);
 }
 
-bool check_public_name(RTLIL::IdString id)
+bool check_public_name(RTLIL::Wire *wire)
 {
-	if (id.begins_with("$"))
+	if (!wire->name.isPublic())
 		return false;
-	const std::string &id_str = id.str();
-	if (id.begins_with("\\_") && (id.ends_with("_") || id_str.find("_[") != std::string::npos))
+	std::string name = wire->name.unescape();
+	if (name[0] == '_' && (name.back() == '_' || name.find("_[") != std::string::npos))
 		return false;
-	if (id_str.find(".$") != std::string::npos)
+	if (name.find(".$") != std::string::npos)
 		return false;
 	return true;
 }
@@ -437,7 +437,7 @@ struct WireDeleter {
 				if (wire->port_id != 0 || wire->get_bool_attribute(ID::keep) || !initval.is_fully_undef()) {
 					// do not delete anything with "keep" or module ports or initialized wires
 				} else
-				if (!purge_mode && check_public_name(wire->name) && (check_any(used_sig_analysis.raw_connected, s1) || check_any(used_sig_analysis.connected, s2) || s1 != s2)) {
+				if (!purge_mode && check_public_name(wire) && (check_any(used_sig_analysis.raw_connected, s1) || check_any(used_sig_analysis.connected, s2) || s1 != s2)) {
 					// do not get rid of public names unless in purge mode or if the wire is entirely unused, not even aliased
 				} else
 				if (!check_any(used_sig_analysis.raw_connected, s1)) {
@@ -519,7 +519,7 @@ struct WireDeleter {
 	int delete_wires(RTLIL::Module* mod, bool verbose) {
 		int deleted_and_unreported = 0;
 		for (auto wire : del_wires_queue) {
-			if (ys_debug() || (check_public_name(wire->name) && verbose))
+			if (ys_debug() || (check_public_name(wire) && verbose))
 				log_debug("  removing unused non-port wire %s.\n", wire->name);
 			else
 				deleted_and_unreported++;

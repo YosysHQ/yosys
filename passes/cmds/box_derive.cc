@@ -60,8 +60,8 @@ struct BoxDerivePass : Pass {
 		log_header(d, "Executing BOX_DERIVE pass. (derive modules for boxes)\n");
 
 		size_t argidx;
-		IdString naming_attr;
-		IdString base_name;
+		std::string naming_attr;
+		std::string base_name;
 		bool apply_mode = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-naming_attr" && argidx + 1 < args.size())
@@ -75,11 +75,14 @@ struct BoxDerivePass : Pass {
 		}
 		extra_args(args, argidx, d);
 
+		IdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines.find(naming_attr);
+
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {
-			base_override = d->module(base_name);
+			IdString base_ref = d->twines.find(base_name);
+			base_override = base_ref == IdString::Null ? nullptr : d->module(base_ref);
 			if (!base_override)
-				log_cmd_error("Base module %s not found.\n", base_name.unescape());
+				log_cmd_error("Base module %s not found.\n", RTLIL::unescape_id(base_name));
 		}
 
 		dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Module*> done;
@@ -94,7 +97,7 @@ struct BoxDerivePass : Pass {
 				if (base_override)
 					base = base_override;
 
-				auto index = std::make_pair(base->name, cell->parameters);
+				auto index = std::make_pair(IdString(base->name), cell->parameters);
 
 				if (cell->parameters.empty())
 					continue;
@@ -103,22 +106,22 @@ struct BoxDerivePass : Pass {
 					IdString derived_type = base->derive(d, cell->parameters);
 					Module *derived = d->module(derived_type);
 					log_assert(derived && "Failed to derive module\n");
-					log("derived %s\n", derived_type);
+					log("derived %s\n", d->twines.str(derived_type).c_str());
 
-					if (!naming_attr.empty() && derived->has_attribute(naming_attr)) {
-						IdString new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr));
-						if (!new_name.isPublic())
+					if (naming_attr_ref != IdString::Null && derived->has_attribute(naming_attr_ref)) {
+						std::string new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr_ref));
+						if (new_name.empty() || new_name[0] != '\\')
 							log_error("Derived module %s cannot be renamed to private name %s.\n",
-									  derived, new_name.unescape());
-						derived->attributes.erase(naming_attr);
-						d->rename(derived, new_name);
+									  derived, RTLIL::unescape_id(new_name));
+						derived->attributes.erase(naming_attr_ref);
+						d->rename(derived, std::move(new_name));
 					}
 
 					done[index] = derived;
 				}
 
 				if (apply_mode)
-					cell->type = done[index]->name;
+					cell->type = cell->module->design->twines.copy_from(done[index]->design->twines, done[index]->name);
 			}
 		}
 	}

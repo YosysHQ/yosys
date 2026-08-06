@@ -322,7 +322,8 @@ struct AbcModuleState {
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
 	bool extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
-	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
+	std::string remap_name(const std::string &abc_name, RTLIL::Wire **orig_wire = nullptr);
+	RTLIL::IdString remap_ref(RTLIL::Module *module, const std::string &abc_name);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
 	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
@@ -589,7 +590,12 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 	return false;
 }
 
-std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire)
+RTLIL::IdString AbcModuleState::remap_ref(RTLIL::Module *module, const std::string &abc_name)
+{
+	return module->design->twines.add(remap_name(abc_name));
+}
+
+std::string AbcModuleState::remap_name(const std::string &abc_name, RTLIL::Wire **orig_wire)
 {
 	std::string abc_sname = abc_name.substr(1);
 	bool isnew = false;
@@ -612,7 +618,7 @@ std::string AbcModuleState::remap_name(RTLIL::IdString abc_name, RTLIL::Wire **o
 				const auto &bit = signal_bits.at(sid);
 				if (bit.wire != nullptr)
 				{
-					std::string s = stringf("$abc$%d$%s", map_autoidx, bit.wire->name.c_str()+1);
+					std::string s = stringf("$abc$%d$%s", map_autoidx, bit.wire->name.str().substr(1));
 					if (bit.wire->width != 1)
 						s += stringf("[%d]", bit.offset);
 					if (isnew)
@@ -734,9 +740,9 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 					id1 = id2;
 				else if (w2 == nullptr)
 					continue;
-				else if (w1->name[0] == '$' && w2->name[0] == '\\')
+				else if (!w1->name.isPublic() && w2->name.isPublic())
 					id1 = id2;
-				else if (w1->name[0] == '\\' && w2->name[0] == '$')
+				else if (w1->name.isPublic() && !w2->name.isPublic())
 					continue;
 				else if (edges[id1].size() < edges[id2].size())
 					id1 = id2;
@@ -975,31 +981,31 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			clk_polarity = false;
 			clk_str = clk_str.substr(1);
 		}
-		if (module->wire(RTLIL::escape_id(clk_str)) != nullptr)
-			clk_sig = assign_map(module->wire(RTLIL::escape_id(clk_str)));
+		if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, clk_str))
+			clk_sig = assign_map(wire);
 		if (en_str != "") {
 			if (en_str[0] == '!') {
 				en_polarity = false;
 				en_str = en_str.substr(1);
 			}
-			if (module->wire(RTLIL::escape_id(en_str)) != nullptr)
-				en_sig = assign_map(module->wire(RTLIL::escape_id(en_str)));
+			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, en_str))
+				en_sig = assign_map(wire);
 		}
 		if (arst_str != "") {
 			if (arst_str[0] == '!') {
 				arst_polarity = false;
 				arst_str = arst_str.substr(1);
 			}
-			if (module->wire(RTLIL::escape_id(arst_str)) != nullptr)
-				arst_sig = assign_map(module->wire(RTLIL::escape_id(arst_str)));
+			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, arst_str))
+				arst_sig = assign_map(wire);
 		}
 		if (srst_str != "") {
 			if (srst_str[0] == '!') {
 				srst_polarity = false;
 				srst_str = srst_str.substr(1);
 			}
-			if (module->wire(RTLIL::escape_id(srst_str)) != nullptr)
-				srst_sig = assign_map(module->wire(RTLIL::escape_id(srst_str)));
+			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, srst_str))
+				srst_sig = assign_map(wire);
 		}
 	}
 
@@ -1014,7 +1020,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	run_abc.per_run_tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 	run_abc.per_run_tempdir_name = make_temp_dir(run_abc.per_run_tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
-			module->name.c_str(), replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir).c_str());
+			module->name, replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir).c_str());
 
 	run_abc.abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
 
@@ -1536,7 +1542,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 	ifs.close();
 
 	log_header(design, "Re-integrating ABC results.\n");
-	RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
+	RTLIL::Module *mapped_mod = mapped_design->module(ID::netlist);
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
 	bool markgroups = run_abc.config.markgroups;
@@ -1560,7 +1566,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			cell_stats[c->type.unescape()]++;
 			if (c->type.in(ID(ZERO), ID(ONE))) {
 				RTLIL::SigSig conn;
-				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
+				IdString name_y = remap_ref(module, c->getPort(ID::Y).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
 				connect(assign_map, module, conn);
@@ -1568,89 +1574,89 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			}
 			if (c->type == ID(BUF)) {
 				RTLIL::SigSig conn;
-				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
-				RTLIL::IdString name_a = remap_name(c->getPort(ID::A).as_wire()->name);
+				IdString name_y = remap_ref(module, c->getPort(ID::Y).as_wire()->name);
+				IdString name_a = remap_ref(module, c->getPort(ID::A).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = module->wire(name_a);
 				connect(assign_map, module, conn);
 				continue;
 			}
 			if (c->type == ID(NOT)) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_NOT_));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_NOT_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(MUX), ID(NMUX))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type == ID(MUX4)) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX4_));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX4_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type == ID(MUX8)) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX8_));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX8_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type == ID(MUX16)) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX16_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
 						ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(AOI3), ID(OAI3))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
 				continue;
 			}
 			if (c->type.in(ID(AOI4), ID(OAI4))) {
-				RTLIL::Cell *cell = module->addCell(remap_name(c->name), stringf("$_%s_", c->type.c_str()+1));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
-					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
 				design->select(module, cell);
@@ -1658,7 +1664,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			}
 			if (c->type == ID(DFF)) {
 				log_assert(clk_sig.size() == 1);
-				FfData ff(module, &initvals, remap_name(c->name));
+				FfData ff(module, &initvals, remap_ref(module, c->name));
 				ff.width = 1;
 				ff.is_fine = true;
 				ff.has_clk = true;
@@ -1689,8 +1695,8 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 					ff.sig_srst = srst_sig;
 					ff.val_srst = init;
 				}
-				ff.sig_d = module->wire(remap_name(c->getPort(ID::D).as_wire()->name));
-				ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
+				ff.sig_d = module->wire(remap_ref(module, c->getPort(ID::D).as_wire()->name));
+				ff.sig_q = module->wire(remap_ref(module, c->getPort(ID::Q).as_wire()->name));
 				RTLIL::Cell *cell = ff.emit();
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				design->select(module, cell);
@@ -1702,7 +1708,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 		if (c->type.in(ID(_const0_), ID(_const1_))) {
 			RTLIL::SigSig conn;
-			conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
+			conn.first = module->wire(remap_ref(module, c->connections().begin()->second.as_wire()->name));
 			conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
 			connect(assign_map, module, conn);
 			continue;
@@ -1710,7 +1716,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 		if (c->type == ID(_dff_)) {
 			log_assert(clk_sig.size() == 1);
-			FfData ff(module, &initvals, remap_name(c->name));
+			FfData ff(module, &initvals, remap_ref(module, c->name));
 			ff.width = 1;
 			ff.is_fine = true;
 			ff.has_clk = true;
@@ -1738,8 +1744,8 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 				ff.sig_srst = srst_sig;
 				ff.val_srst = init;
 			}
-			ff.sig_d = module->wire(remap_name(c->getPort(ID::D).as_wire()->name));
-			ff.sig_q = module->wire(remap_name(c->getPort(ID::Q).as_wire()->name));
+			ff.sig_d = module->wire(remap_ref(module, c->getPort(ID::D).as_wire()->name));
+			ff.sig_q = module->wire(remap_ref(module, c->getPort(ID::Q).as_wire()->name));
 			RTLIL::Cell *cell = ff.emit();
 			if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 			design->select(module, cell);
@@ -1747,22 +1753,22 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 		}
 
 		if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
-			SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
-			SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
+			SigSpec my_a = module->wire(remap_ref(module, c->getPort(ID::A).as_wire()->name));
+			SigSpec my_y = module->wire(remap_ref(module, c->getPort(ID::Y).as_wire()->name));
 			connect(assign_map, module, RTLIL::SigSig(my_a, my_y));
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(remap_name(c->name), c->type);
+		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->design->twines.copy_from(mapped_design->twines, c->type));
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-		cell->parameters = c->parameters;
+		RTLIL::copy_attr_dict(cell->parameters, c->parameters, c->module->design, module->design);
 		for (auto &conn : c->connections()) {
 			RTLIL::SigSpec newsig;
 			for (auto &c : conn.second.chunks()) {
 				if (c.width == 0)
 					continue;
 				log_assert(c.width == 1);
-				newsig.append(module->wire(remap_name(c.wire->name)));
+				newsig.append(module->wire(remap_ref(module, c.wire->name)));
 			}
 			cell->setPort(conn.first, newsig);
 		}
@@ -1771,9 +1777,9 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 	for (auto conn : mapped_mod->connections()) {
 		if (!conn.first.is_fully_const())
-			conn.first = module->wire(remap_name(conn.first.as_wire()->name));
+			conn.first = module->wire(remap_ref(module, conn.first.as_wire()->name));
 		if (!conn.second.is_fully_const())
-			conn.second = module->wire(remap_name(conn.second.as_wire()->name));
+			conn.second = module->wire(remap_ref(module, conn.second.as_wire()->name));
 		connect(assign_map, module, conn);
 	}
 
@@ -1788,10 +1794,10 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			RTLIL::SigSig conn;
 			if (si.type != G(NONE)) {
 				conn.first = signal_bits[si.id];
-				conn.second = module->wire(remap_name(buffer));
+				conn.second = module->wire(remap_ref(module, buffer));
 				out_wires++;
 			} else {
-				conn.first = module->wire(remap_name(buffer));
+				conn.first = module->wire(remap_ref(module, buffer));
 				conn.second = signal_bits[si.id];
 				in_wires++;
 			}

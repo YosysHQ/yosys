@@ -34,8 +34,8 @@ private:
 	std::vector<std::pair<RTLIL::SigSpec, RTLIL::IdString>> meta_mux_selects;
 	RTLIL::Module *module = nullptr;
 
-	const RTLIL::IdString cost_model_wire_name = ID(__glift_weight);
-	const RTLIL::IdString glift_attribute_name = ID(glift);
+	const IdString cost_model_wire_name = ID::__glift_weight;
+	const IdString glift_attribute_name = ID::glift;
 
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {
@@ -47,7 +47,8 @@ private:
 
 		//Get a SigSpec for the corresponding taint signal for the cell port, creating one if necessary:
 		if (sig.is_wire()) {
-			RTLIL::Wire *w = module->wire(sig.as_wire()->name.str() + "_t");
+			IdString taint_name_ref = module->design->twines.add(sig.as_wire()->name.str() + "_t");
+			RTLIL::Wire *w = module->wire(taint_name_ref);
 			if (w == nullptr) w = module->addWire(sig.as_wire()->name.str() + "_t", 1);
 			ret = w;
 		}
@@ -385,8 +386,8 @@ private:
 				meta_mux_select_sums.swap(meta_mux_select_sums_buf);
 			}
 			if (meta_mux_select_sums.size() > 0) {
-				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\minimize");
-				meta_mux_select_sums[0].as_wire()->set_bool_attribute("\\keep");
+				meta_mux_select_sums[0].as_wire()->set_bool_attribute(ID::minimize);
+				meta_mux_select_sums[0].as_wire()->set_bool_attribute(ID::keep);
 				module->rename(meta_mux_select_sums[0].as_wire(), cost_model_wire_name);
 			}
 		}
@@ -600,7 +601,7 @@ struct GliftPass : public Pass {
 
 		for (auto i = 0; i < GetSize(topo_modules.sorted); ++i) {
 			RTLIL::Module *module = topo_modules.sorted[i];
-			GliftWorker(module, !non_top_modules[module->name], opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model, opt_taintconstants, opt_keepoutputs, opt_simplecostmodel, opt_nocostmodel, opt_instrumentmore);
+			GliftWorker(module, !non_top_modules.count(module->name), opt_create_precise_model, opt_create_imprecise_model, opt_create_instrumented_model, opt_taintconstants, opt_keepoutputs, opt_simplecostmodel, opt_nocostmodel, opt_instrumentmore);
 		}
 	}
 } GliftPass;

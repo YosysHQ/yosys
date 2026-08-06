@@ -78,8 +78,8 @@ struct EquivStructWorker
 					if (bits_a[i] != bits_b[i]) {
 						inputs_a.append(bits_a[i]);
 						inputs_b.append(bits_b[i]);
-						input_names.push_back(GetSize(bits_a) == 1 ? port_a.first.str() :
-								stringf("%s[%d]", port_a.first.unescape(), i));
+						input_names.push_back(GetSize(bits_a) == 1 ? module->design->twines.str(port_a.first) :
+								stringf("%s[%d]", module->design->twines.unescaped_str(port_a.first).c_str(), i));
 					}
 		}
 
@@ -110,9 +110,7 @@ struct EquivStructWorker
 			module->connect(sig_b, sig_a);
 		}
 
-		auto merged_attr = cell_b->get_strpool_attribute(ID::equiv_merged);
-		merged_attr.insert(cell_b->name.unescape());
-		cell_a->add_strpool_attribute(ID::equiv_merged, merged_attr);
+		cell_a->set_bool_attribute(ID::equiv_merged);
 		module->remove(cell_b);
 	}
 
@@ -175,14 +173,14 @@ struct EquivStructWorker
 				if (cell->input(conn.first)) {
 					SigSpec sig = sigmap(conn.second);
 					for (int i = 0; i < GetSize(sig); i++)
-						fwd_connections.push_back(make_tuple(conn.first, i, sig[i]));
+						fwd_connections.push_back(std::make_tuple(conn.first, i, sig[i]));
 				}
 
 				if (cell->output(conn.first)) {
 					SigSpec sig = equiv_bits(conn.second);
 					for (int i = 0; i < GetSize(sig); i++) {
 						key.connections.clear();
-						key.connections.push_back(make_tuple(conn.first, i, sig[i]));
+						key.connections.push_back(std::make_tuple(conn.first, i, sig[i]));
 
 						if (merge_cache.count(key))
 							bwd_merge_cache.insert(key);
@@ -213,7 +211,7 @@ struct EquivStructWorker
 				for (auto cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
-						string n = cell_name.str();
+						string n = module->design->twines.str(cell_name);
 						cells_type = c->type;
 						if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gold") == 0)
 							gold_cells.push_back(c);
@@ -266,7 +264,7 @@ struct EquivStructWorker
 			run_strategy:
 				int total_group_size = GetSize(gold_cells) + GetSize(gate_cells) + GetSize(other_cells);
 				log("    %s merging %d %s cells (from group of %d) using strategy %s:\n", phase ? "Bwd" : "Fwd",
-						2*GetSize(cell_pairs), cells_type.unescape(), total_group_size, strategy);
+						2*GetSize(cell_pairs), PooledName(module->design, cells_type).unescape(), total_group_size, strategy);
 				for (auto it : cell_pairs) {
 					log("      Merging cells %s and %s.\n", it.first,  it.second);
 					merge_cell_pair(it.first, it.second);
@@ -334,7 +332,7 @@ struct EquivStructPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-fwonly" && argidx+1 < args.size()) {
-				fwonly_cells.insert(RTLIL::escape_id(args[++argidx]));
+				fwonly_cells.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-maxiter" && argidx+1 < args.size()) {
