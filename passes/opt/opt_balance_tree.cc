@@ -404,7 +404,7 @@ struct OptBalanceTreePass : public Pass {
 
 		// Log stats
 		for (auto cell_type : cell_types)
-			log("Converted %d %s cells into trees.\n", cell_count[cell_type], cell_type.unescape());
+			log("Converted %d %s cells into trees.\n", cell_count[cell_type], PooledName(design, cell_type).unescape());
 
 		// Clean up
 		Yosys::run_pass("clean -purge");

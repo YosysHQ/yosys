@@ -459,7 +459,7 @@ struct OptMergeWorker
 				for (auto &it : remove_cell->connections()) {
 					if (remove_cell->output(it.first)) {
 						RTLIL::SigSpec keep_sig = keep_cell->getPort(it.first);
-						log_debug("    Redirecting output %s: %s = %s\n", it.first,
+						log_debug("    Redirecting output %s: %s = %s\n", module->design->twines.str(it.first),
 								log_signal(it.second), log_signal(keep_sig));
 						Const init = initvals(keep_sig);
 						initvals.remove_init(it.second);

@@ -264,7 +264,7 @@ struct XpropWorker
 			auto not_0 = module->Not(NEW_ID, result.is_0);
 			auto not_1 = module->Not(NEW_ID, result.is_1);
 			auto not_x = module->Not(NEW_ID, result.is_x);
-			auto valid = module->ReduceAnd(NEW_ID, {
+			auto valid = module->ReduceAnd(NEW_ID, SigSpec{
 				module->Eq(NEW_ID, result.is_0, module->And(NEW_ID, not_1, not_x)),
 				module->Eq(NEW_ID, result.is_1, module->And(NEW_ID, not_0, not_x)),
 				module->Eq(NEW_ID, result.is_x, module->And(NEW_ID, not_0, not_1)),
@@ -274,7 +274,7 @@ struct XpropWorker
 			else
 				module->addAssume(NEW_ID_SUFFIX("xprop_enc"), valid, State::S1);
 			if (options.debug_asserts) {
-				auto bad_bits = module->Bweqx(NEW_ID, {result.is_0, result.is_1, result.is_x}, Const(State::Sx, GetSize(result) * 3));
+				auto bad_bits = module->Bweqx(NEW_ID, SigSpec{result.is_0, result.is_1, result.is_x}, Const(State::Sx, GetSize(result) * 3));
 				module->addAssert(NEW_ID_SUFFIX("xprop_debug"), module->LogicNot(NEW_ID, bad_bits), State::S1);
 			}
 		}
@@ -486,9 +486,9 @@ struct XpropWorker
 				auto sig_a = cell->getPort(ID::A);
 				auto sig_b = cell->getPort(ID::B);
 
-				auto name = cell->name;
+				std::string name_str = cell->name.str();
 				module->remove(cell);
-				module->addXnor(name, sig_a, sig_b, sig_y);
+				module->addXnor(name_str, sig_a, sig_b, sig_y);
 				return;
 			}
 
@@ -497,13 +497,13 @@ struct XpropWorker
 				auto sig_a = cell->getPort(ID::A);
 				auto sig_b = cell->getPort(ID::B);
 
-				auto name = cell->name;
-				auto type = cell->type;
+				std::string name_str = cell->name.str();
+				IdString type = cell->type;
 				module->remove(cell);
 				if (type == ID($eqx))
-					module->addEq(name, sig_a, sig_b, sig_y);
+					module->addEq(name_str, sig_a, sig_b, sig_y);
 				else
-					module->addNe(name, sig_a, sig_b, sig_y);
+					module->addNe(name_str, sig_a, sig_b, sig_y);
 				return;
 			}
 
@@ -685,7 +685,7 @@ struct XpropWorker
 			auto delta_0 = module->Xnor(NEW_ID, enc_a.is_0, enc_b.is_0);
 			auto delta_1 = module->Xnor(NEW_ID, enc_a.is_1, enc_b.is_1);
 
-			auto eq = module->ReduceAnd(NEW_ID, {delta_0, delta_1});
+			auto eq = module->ReduceAnd(NEW_ID, SigSpec{delta_0, delta_1});
 
 			auto res = cell->type == ID($nex) ? module->Not(NEW_ID, eq) : eq;
 
@@ -749,7 +749,7 @@ struct XpropWorker
 
 			int width = GetSize(enc_y);
 
-			auto all_x = module->ReduceOr(NEW_ID, {
+			auto all_x = module->ReduceOr(NEW_ID, SigSpec{
 				enc_s.is_x,
 				module->And(NEW_ID, enc_s.is_1, module->Sub(NEW_ID, enc_s.is_1, Const(1, width)))
 			});
@@ -787,7 +787,7 @@ struct XpropWorker
 			SigSpec y_1 = module->addWire(NEW_ID, GetSize(sig_y));
 			SigSpec y_x = module->addWire(NEW_ID, GetSize(sig_y));
 
-			auto encoded_type = cell->type == ID($shiftx) ? ID($shift) : cell->type;
+			IdString encoded_type = cell->type == ID($shiftx) ? IdString{ID($shift)} : cell->type;
 
 			if (cell->type == ID($shiftx)) {
 				std::swap(enc_a.is_0, enc_a.is_x);
@@ -892,7 +892,7 @@ struct XpropWorker
 					ff.val_init = init_q_is_1;
 					ff.emit();
 
-					ff.name = NEW_ID;
+					ff.name = module->design->twines.add(NEW_ID);
 					ff.cell = nullptr;
 					ff.sig_d = enc_d.is_x;
 					ff.sig_q = enc_q.is_x;
@@ -982,8 +982,8 @@ struct XpropWorker
 				if (wire->port_input == wire->port_output) {
 					log_warning("Port %s not an input or an output port which is not supported by xprop\n", wire);
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
-					auto port_d = module->uniquify(stringf("%s_d", port));
-					auto port_x = module->uniquify(stringf("%s_x", port));
+					auto port_d = module->uniquify(module->design->twines.str(port) + "_d");
+					auto port_x = module->uniquify(module->design->twines.str(port) + "_x");
 
 					auto wire_d = module->addWire(port_d, GetSize(wire));
 					auto wire_x = module->addWire(port_x, GetSize(wire));
@@ -1003,7 +1003,7 @@ struct XpropWorker
 
 						if (options.split_public) {
 							// Need to hide the original wire so split_public doesn't try to split it again
-							module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
+							module->rename(wire, NEW_ID_SUFFIX(wire->name.str()));
 						}
 					} else {
 						auto enc = encoded(wire, true);
@@ -1035,8 +1035,9 @@ struct XpropWorker
 				continue;
 			int index_d = 0;
 			int index_x = 0;
-			auto name_d = module->uniquify(stringf("%s_d", wire->name), index_d);
-			auto name_x = module->uniquify(stringf("%s_x", wire->name), index_x);
+			std::string wname = wire->name.str();
+			auto name_d = module->uniquify(wname + "_d", index_d);
+			auto name_x = module->uniquify(wname + "_x", index_x);
 
 			auto hdlname = wire->get_hdlname_attribute();
 
@@ -1056,7 +1057,7 @@ struct XpropWorker
 			module->connect(wire_d, enc.is_1);
 			module->connect(wire_x, enc.is_x);
 
-			module->rename(wire, NEW_ID_SUFFIX(wire->name.c_str()));
+			module->rename(wire, NEW_ID_SUFFIX(wire->name.str()));
 		}
 	}
 

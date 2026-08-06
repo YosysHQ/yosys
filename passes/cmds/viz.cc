@@ -703,13 +703,13 @@ struct VizWorker
 
 	void update_attrs()
 	{
-		IdString vg_id("\\vg");
+		IdString vg_id = module->design->twines.add(std::string("\\vg"));
 		for (auto c : module->cells())
 			c->attributes.erase(vg_id);
 		for (auto g : graph.nodes) {
-			for (auto name : g->names()) {
-				auto w = module->wire(name);
-				auto c = module->cell(name);
+			for (auto ref : g->names()) {
+				auto w = module->wire(ref);
+				auto c = module->cell(ref);
 				if (w) w->attributes[vg_id] = g->index;
 				if (c) c->attributes[vg_id] = g->index;
 			}
@@ -734,7 +734,7 @@ struct VizWorker
 			buffer.emplace_back();
 
 			for (auto name : g->names())
-				buffer.back().push_back(name.unescape());
+				buffer.back().push_back(module->design->twines.unescaped_str(name));
 
 			std::sort(buffer.back().begin(), buffer.back().end());
 			std::sort(buffer.begin(), buffer.end());
@@ -782,7 +782,7 @@ struct VizWorker
 				g->names().sort();
 				std::string label; // = stringf("vg=%d\\n", g->index);
 				for (auto n : g->names())
-					label = label + (label.empty() ? "" : "\\n") + n.unescape();
+					label = label + (label.empty() ? "" : "\\n") + PooledName(module, n).unescape();
 				fprintf(f, "\tn%d [shape=rectangle,label=\"%s\"];\n", g->index, label.c_str());
 			} else {
 				std::string label = stringf("vg=%d | %d cells", g->index, GetSize(g->names()));

@@ -8,11 +8,11 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct ClockGateCell {
-	IdString name;
-	IdString ce_pin;
-	IdString clk_in_pin;
-	IdString clk_out_pin;
-	std::vector<IdString> tie_lo_pins;
+	std::string name;
+	std::string ce_pin;
+	std::string clk_in_pin;
+	std::string clk_out_pin;
+	std::vector<std::string> tie_lo_pins;
 };
 
 ClockGateCell icg_from_arg(std::string& name, std::string& str) {
@@ -371,7 +371,8 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				Cell* icg = module->addCell(NEW_ID, matching_icg_desc->name);
+				auto& twines = module->design->twines;
+				Cell* icg = module->addCell(NEW_ID, twines.add(std::string{matching_icg_desc->name}));
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID);

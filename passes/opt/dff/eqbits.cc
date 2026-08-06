@@ -308,7 +308,7 @@ struct EqBitsContext
 	void drop_all_classes(EqCandidates &cand)
 	{
 		log("opt_dff -sat: skipping all equivalent-flip-flop merges in module %s (solver effort budget "
-				"exhausted before the equivalences could be proven).\n", log_id(worker.module));
+				"exhausted before the equivalences could be proven).\n", worker.module);
 		cand.classes.clear();
 	}
 

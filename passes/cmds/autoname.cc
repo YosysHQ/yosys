@@ -91,7 +91,7 @@ struct node {
 	// Is this name final?
 	bool decided = false;
 
-	const IdString& name() const { return cell ? cell->name : wire->name; }
+	IdString name() const { return cell ? IdString(cell->name) : IdString(wire->name); }
 };
 
 // Decides the order of exploring neighbors
@@ -158,12 +158,11 @@ struct ModuleAutonamer
 
 		// Resolve selection before renaming
 		for (auto &nd : nodes) {
-			IdString name = nd.name();
 			nd.selected = nd.cell ? module->selected(nd.cell) : module->selected(nd.wire);
-			nd.is_public = (name[0] != '$');
+			nd.is_public = nd.name().isPublic();
 			nd.renameable = !nd.is_public && (nd.cell || nd.wire->port_id == 0);
 			if (nd.is_public)
-				nd.name_length = name.str().size();
+				nd.name_length = module->design->twines.str(nd.name()).size();
 		}
 
 		// Only possible once every fanout is known
@@ -177,9 +176,10 @@ struct ModuleAutonamer
 		node &nd = nodes[to];
 		if (!nd.renameable || nd.decided)
 			return;
+		std::string port = module->design->twines.unescaped_str(edge.port);
 		string suffix = nd.cell
-			? stringf("_%s_%s", nd.cell->type.unescape(), edge.port.unescape())
-			: stringf("_%s", edge.port.unescape());
+			? stringf("_%s_%s", nd.cell->type.unescape(), port)
+			: stringf("_%s", port);
 		cost c{edge.score, nodes[from].name_length + suffix.length(), edge_pos};
 		if (c >= nd.c)
 			return;
@@ -222,8 +222,10 @@ struct ModuleAutonamer
 	void append_name(int n, string &out)
 	{
 		const node &nd = nodes[n];
-		if (nd.is_public || nd.selected)
-			return nd.name().append_to(&out);
+		if (nd.is_public || nd.selected) {
+			out += module->design->twines.str(nd.name());
+			return;
+		}
 		append_name(nd.from_node, out);
 		out += nd.suffix;
 	}
@@ -237,12 +239,12 @@ struct ModuleAutonamer
 		full.reserve(nd.name_length);
 		append_name(nd.from_node, full);
 		full += nd.suffix;
-		IdString name = module->uniquify(IdString(full));
+		IdString name = module->uniquify(full);
 		if (nd.cell) {
-			log_debug("Rename cell %s in %s to %s.\n", nd.cell, module, name.unescape());
+			log_debug("Rename cell %s in %s to %s.\n", nd.cell, module, PooledName(module, name).unescape());
 			module->rename(nd.cell, name);
 		} else {
-			log_debug("Rename wire %s in %s to %s.\n", nd.wire, module, name.unescape());
+			log_debug("Rename wire %s in %s to %s.\n", nd.wire, module, PooledName(module, name).unescape());
 			module->rename(nd.wire, name);
 		}
 		renamed++;

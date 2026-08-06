@@ -78,9 +78,10 @@ struct DffinitPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ff" && argidx+3 < args.size()) {
-				IdString cell_name = RTLIL::escape_id(args[++argidx]);
-				IdString output_port = RTLIL::escape_id(args[++argidx]);
-				IdString init_param = RTLIL::escape_id(args[++argidx]);
+				TwineSearch search(&design->twines);
+				IdString cell_name = search.find(RTLIL::escape_id(args[++argidx]));
+				IdString output_port = search.find(RTLIL::escape_id(args[++argidx]));
+				IdString init_param = search.find(RTLIL::escape_id(args[++argidx]));
 				ff_types[cell_name][output_port] = init_param;
 				continue;
 			}
@@ -123,14 +124,14 @@ struct DffinitPass : public Pass {
 						if (noreinit && value[i] != State::Sx && value[i] != initval[i])
 							log_error("Trying to assign a different init value for %s.%s.%s which technically "
 									"have a conflicted init value.\n",
-									module, cell, it.second.unescape());
+									module, cell, PooledName(design, it.second).unescape());
 						value.set(i, initval[i]);
 					}
 
 					if (highlow_mode && GetSize(value) != 0) {
 						if (GetSize(value) != 1)
 							log_error("Multi-bit init value for %s.%s.%s is incompatible with -highlow mode.\n",
-									module, cell, it.second.unescape());
+									module, cell, PooledName(design, it.second).unescape());
 						if (value[0] == State::S1)
 							value = Const(high_string);
 						else
@@ -138,8 +139,8 @@ struct DffinitPass : public Pass {
 					}
 
 					if (value.size() != 0) {
-						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", module, cell, it.second.unescape(),
-								it.first.unescape(), log_signal(sig), log_signal(value));
+						log("Setting %s.%s.%s (port=%s, net=%s) to %s.\n", module, cell, PooledName(design, it.second).unescape(),
+								PooledName(design, it.first).unescape(), log_signal(sig), log_signal(value));
 						cell->setParam(it.second, value);
 					}
 				}
