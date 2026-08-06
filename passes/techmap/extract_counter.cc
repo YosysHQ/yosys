@@ -697,7 +697,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", load.cell->name.unescape(), load.port.unescape());
+		log("    Counter has parallel output to cell %s port %s\n", cell->name.unescape(), PooledName(load.cell->module, load.port).unescape());
 	}
 	if(extract.has_pout)
 	{
@@ -817,13 +817,13 @@ struct ExtractCounterPass : public Pass {
 				{
 					if(pouts[i] == ',')
 					{
-						settings.parallel_cells.insert(RTLIL::escape_id(tmp));
+						settings.parallel_cells.insert(design->twines.add(RTLIL::escape_id(tmp)));
 						tmp = "";
 					}
 					else
 						tmp += pouts[i];
 				}
-				settings.parallel_cells.insert(RTLIL::escape_id(tmp));
+				settings.parallel_cells.insert(design->twines.add(RTLIL::escape_id(tmp)));
 				continue;
 			}
 

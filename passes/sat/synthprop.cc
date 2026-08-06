@@ -37,8 +37,6 @@ struct SynthPropWorker
 	// pointer to main design
 	RTLIL::Design *design;
 
-	RTLIL::IdString top_name;
-
 	RTLIL::Module *module;
 
 	std::string map_file;
@@ -52,7 +50,7 @@ struct SynthPropWorker
 	bool reset_pol;
 
 	// basic contrcutor
-	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(RTLIL::escape_id("assertions")) {}
+	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(design->twines.add(std::string("\\assertions"))) {}
 
 	void tracing(RTLIL::Module *mod, int depth, TrackingData &tracing_data, std::string hier_path);
 	void run();
@@ -95,9 +93,11 @@ void SynthPropWorker::run()
 	TrackingData tracing_data;
 	tracing(module, 0, tracing_data, module->name.unescape());
 
+	IdString port_ref = port_name;
+
 	for (auto &data : tracing_data) {
 		if (data.second.names.size() == 0) continue;
-		RTLIL::Wire *wire = data.first->addWire(port_name, data.second.names.size());
+		RTLIL::Wire *wire = data.first->addWire(port_ref, data.second.names.size());
 		wire->port_output = true;
 		data.first->fixup_ports();
 	}
@@ -105,7 +105,7 @@ void SynthPropWorker::run()
 	RTLIL::Wire *output = nullptr;
 	for (auto &data : tracing_data) {
 		int num = 0;
-		RTLIL::Wire *port_wire = data.first->wire(port_name);
+		RTLIL::Wire *port_wire = data.first->wire(port_ref);
 		if (!reset_name.empty() && data.first == module) {
 			port_wire = data.first->addWire(NEW_ID, data.second.names.size());
 			output = port_wire;
@@ -130,10 +130,10 @@ void SynthPropWorker::run()
 			if (RTLIL::Module *submod = design->module(cell->type)) {
 				if (tracing_data[submod].names.size() > 0) {
 					if (!or_outputs) {
-						cell->setPort(port_name, SigChunk(port_wire, num, tracing_data[submod].names.size()));
+						cell->setPort(port_ref, SigChunk(port_wire, num, tracing_data[submod].names.size()));
 					} else {
 						RTLIL::Wire *result_wire = data.first->addWire(NEW_ID);
-						cell->setPort(port_name, result_wire);
+						cell->setPort(port_ref, result_wire);
 						connected.emplace(result_wire);
 					}
 					num += tracing_data[submod].names.size();
@@ -163,7 +163,7 @@ void SynthPropWorker::run()
 		SigSpec reset = module->wire(reset_name);
 		reset.extend_u0(width, true);
 
-		module->addDlatchsr(NEW_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_name), true, true, reset_pol);
+		module->addDlatchsr(NEW_ID, State::S1, Const(State::S0,width), reset, output, module->wire(port_ref), true, true, reset_pol);
 	}
 
 	if (!map_file.empty()) {
@@ -224,7 +224,7 @@ struct SyntProperties : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-name" && argidx+1 < args.size()) {
-				worker.port_name = RTLIL::escape_id(args[++argidx]);
+				worker.port_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -232,12 +232,12 @@ struct SyntProperties : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-reset" && argidx+1 < args.size()) {
-				worker.reset_name = RTLIL::escape_id(args[++argidx]);
+				worker.reset_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				worker.reset_pol = true;
 				continue;
 			}
 			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
-				worker.reset_name = RTLIL::escape_id(args[++argidx]);
+				worker.reset_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				worker.reset_pol = false;
 				continue;
 			}

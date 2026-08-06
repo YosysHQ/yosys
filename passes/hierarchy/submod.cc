@@ -115,12 +115,10 @@ struct SubmodWorker
 			}
 		}
 
-		RTLIL::Module *new_mod = new RTLIL::Module;
-		new_mod->name = submod.full_name;
-		design->add(new_mod);
+		RTLIL::Module *new_mod = design->addModule(submod.full_name);
 		int auto_name_counter = 1;
 
-		std::set<RTLIL::IdString> all_wire_names;
+		std::set<std::string> all_wire_names;
 		for (auto &it : wire_flags) {
 			all_wire_names.insert(it.first->name);
 		}
@@ -221,7 +219,8 @@ struct SubmodWorker
 		submod.cells.clear();
 
 		if (!copy_mode) {
-			RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod.full_name);
+			IdString submod_type = design->twines.add(std::string{submod.full_name});
+		RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod_type);
 			for (auto &it : wire_flags)
 			{
 				RTLIL::SigSpec old_sig = sigmap(it.first);
@@ -289,9 +288,10 @@ struct SubmodWorker
 
 				if (submodules.count(submod_str) == 0) {
 					submodules[submod_str].name = submod_str;
-					submodules[submod_str].full_name = module->name.str() + "_" + submod_str;
-					while (design->module(submodules[submod_str].full_name) != nullptr ||
-							module->count_id(submodules[submod_str].full_name) != 0)
+					std::string module_name_str(module->name.str());
+					submodules[submod_str].full_name = module_name_str + "_" + submod_str;
+					while (design->module(design->twines.add(std::string{submodules[submod_str].full_name})) != nullptr ||
+							module->count_id(design->twines.add(std::string{submodules[submod_str].full_name})) != 0)
 						submodules[submod_str].full_name += "_";
 				}
 
@@ -389,10 +389,12 @@ struct SubmodPass : public Pass {
 			bool did_something = true;
 			while (did_something) {
 				did_something = false;
-				std::vector<RTLIL::IdString> queued_modules;
-				for (auto mod : design->modules())
-					if (handled_modules.count(mod->name) == 0 && design->selected_whole_module(mod->name))
-						queued_modules.push_back(mod->name);
+				std::vector<IdString> queued_modules;
+				for (auto mod : design->modules()) {
+					IdString mod_name = mod->name;
+					if (handled_modules.count(mod_name) == 0 && design->selected_whole_module(mod))
+						queued_modules.push_back(mod_name);
+				}
 				for (auto &modname : queued_modules)
 					if (design->module(modname) != nullptr) {
 						SubmodWorker worker(design, design->module(modname), copy_mode, hidden_mode);

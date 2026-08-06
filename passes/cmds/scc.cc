@@ -356,7 +356,7 @@ struct SccPass : public Pass {
 				{
 					for (auto attr : setAttr)
 					{
-						IdString attr_name(RTLIL::escape_id(attr.first));
+						IdString attr_name = design->twines.add(RTLIL::escape_id(attr.first));
 						string attr_valstr = attr.second;
 						string index = stringf("%d", scc_counter);
 

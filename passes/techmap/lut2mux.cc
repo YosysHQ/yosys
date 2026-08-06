@@ -97,7 +97,7 @@ struct Lut2muxPass : public Pass {
 			if (cell->type == ID($lut)) {
 				IdString cell_name = cell->name;
 				int count = lut2mux(cell, word_mode);
-				log("Converted %s.%s to %d MUX cells.\n", module, cell_name.unescape(), count);
+				log("Converted %s.%s to %d MUX cells.\n", module, PooledName(module, cell_name).unescape(), count);
 			}
 		}
 	}

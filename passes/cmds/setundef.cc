@@ -39,7 +39,9 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 	RTLIL::Wire *wire = NULL;
 	name = RTLIL::escape_id(name);
 
-	if (module->count_id(name) != 0)
+	IdString t = module->design->twines.add(name);
+
+	if (module->count_id(t) != 0)
 	{
 		log("Module %s already has such an object %s.\n", module->name, name);
 		name += "$";
@@ -424,7 +426,7 @@ struct SetundefPass : public Pass {
 					{
 						for (auto wire : module->wires())
 						{
-							if (wire->name[0] == (wire_types ? '\\' : '$'))
+							if (wire->name.isPublic() == wire_types)
 								continue;
 
 							if (!wire->attributes.count(ID::init))
@@ -453,7 +455,7 @@ struct SetundefPass : public Pass {
 					{
 						for (auto wire : module->wires())
 						{
-							if (wire->name[0] == (wire_types ? '\\' : '$'))
+							if (wire->name.isPublic() == wire_types)
 								continue;
 
 							for (auto bit : sigmap(wire))
@@ -474,7 +476,7 @@ struct SetundefPass : public Pass {
 					{
 						for (auto wire : module->wires())
 						{
-							if (wire->name[0] == (wire_types ? '\\' : '$'))
+							if (wire->name.isPublic() == wire_types)
 								continue;
 
 							for (auto bit : sigmap(wire))
