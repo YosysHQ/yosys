@@ -171,18 +171,18 @@ struct IntersynthBackend : public Backend {
 					RTLIL::SigSpec sig = sigmap(port.second);
 					if (sig.size() != 0) {
 						conntypes_code.insert(stringf("conntype b%d %d 2 %d\n", sig.size(), sig.size(), sig.size()));
-						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", port.first.unescape());
-						node_code += stringf(" %s %s", port.first.unescape(), netname(conntypes_code, celltypes_code, constcells_code, sig));
+						celltype_code += stringf(" b%d %s%s", sig.size(), ct.cell_output(cell->type, port.first) ? "*" : "", design->twines.unescaped_str(port.first));
+						node_code += stringf(" %s %s", design->twines.unescaped_str(port.first), netname(conntypes_code, celltypes_code, constcells_code, sig));
 					}
 				}
 				for (auto &param : cell->parameters) {
-					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), param.first.unescape());
+					celltype_code += stringf(" cfg:%d %s", int(param.second.size()), design->twines.unescaped_str(param.first));
 					if (param.second.size() != 32) {
-						node_code += stringf(" %s '", param.first.unescape());
+						node_code += stringf(" %s '", design->twines.unescaped_str(param.first));
 						for (int i = param.second.size()-1; i >= 0; i--)
 							node_code += param.second[i] == State::S1 ? "1" : "0";
 					} else
-						node_code += stringf(" %s 0x%x", param.first.unescape(), param.second.as_int());
+						node_code += stringf(" %s 0x%x", design->twines.unescaped_str(param.first), param.second.as_int());
 				}
 
 				celltypes_code.insert(celltype_code + "\n");

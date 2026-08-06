@@ -71,14 +71,14 @@ using CxxWriter = Functional::Writer;
 
 struct CxxStruct {
 	std::string name;
-	dict<IdString, CxxType> types;
+	dict<PooledName, CxxType> types;
 	CxxScope<IdString> scope;
 	CxxStruct(std::string name) : name(name)
 	{
 		scope.reserve("fn");
 		scope.reserve("visit");
 	}
-	void insert(IdString name, CxxType type) {
+	void insert(PooledName name, CxxType type) {
 		scope(name, name);
 		types.insert({name, type});
 	}
@@ -94,7 +94,7 @@ struct CxxStruct {
 		f.print("\t\t}}\n");
 		f.print("\t}};\n\n");
 	};
-	std::string operator[](IdString field) {
+	std::string operator[](PooledName field) {
 		return scope(field, field);
 	}
 };
@@ -151,8 +151,8 @@ template<class NodePrinter> struct CxxPrintVisitor : public Functional::Abstract
 	void arithmetic_shift_right(Node, Node a, Node b) override { print("{}.arithmetic_shift_right({})", a, b); }
 	void mux(Node, Node a, Node b, Node s) override { print("{2}.any() ? {1} : {0}", a, b, s); }
 	void constant(Node, RTLIL::Const const & value) override { print("{}", cxx_const(value)); }
-	void input(Node, IdString name, IdString kind) override { log_assert(kind == ID($input)); print("input.{}", input_struct[name]); }
-	void state(Node, IdString name, IdString kind) override { log_assert(kind == ID($state)); print("current_state.{}", state_struct[name]); }
+	void input(Node self, IdString name, IdString kind) override { log_assert(kind == ID($input)); print("input.{}", input_struct[{self.design, name}]); }
+	void state(Node self, IdString name, IdString kind) override { log_assert(kind == ID($state)); print("current_state.{}", state_struct[{self.design, name}]); }
 	void memory_read(Node, Node mem, Node addr) override { print("{}.read({})", mem, addr); }
 	void memory_write(Node, Node mem, Node addr, Node data) override { print("{}.write({}, {})", mem, addr, data); }
 };

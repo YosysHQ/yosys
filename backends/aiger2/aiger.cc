@@ -847,7 +847,7 @@ struct Index {
 
 		int idx = cursor.bitwire_index(*this, bit);
 		if (lits[idx] == Writer::EMPTY_LIT - 1)
-			log_error("Combinational cycle through %s in %s\n", log_signal(bit), log_id(cursor.leaf_module(*this)));
+			log_error("Combinational cycle through %s in %s\n", log_signal(bit), cursor.leaf_module(*this));
 		if (lits[idx] != Writer::EMPTY_LIT) {
 			// literal already assigned
 			return lits[idx];
@@ -1302,6 +1302,13 @@ struct XAigerWriter : AigerWriter {
 		keep_wires.insert(named);
 		keep_cells.insert(named->driverCell());
 		return found->second;
+	}
+
+	std::string map_sym(IdString name) const
+	{
+		if (map_refs)
+			return "#" + std::to_string((uint64_t)name.raw());
+		return design->twines.str(name);
 	}
 
 	typedef std::pair<SigBit, HierCursor> HierBit;
@@ -1895,6 +1902,8 @@ struct XAiger2Backend : Backend {
 			writer.map_file.open(map_filename);
 			if (!writer.map_file)
 				log_cmd_error("Failed to open '%s' for writing\n", map_filename);
+			if (writer.map_refs)
+				writer.map_file << "refs " << (uint64_t)top->name.ref().raw() << "\n";
 		}
 
 		design->bufNormalize(true);

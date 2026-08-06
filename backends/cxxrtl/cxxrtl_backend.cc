@@ -212,7 +212,7 @@ bool is_ff_cell(RTLIL::IdString type)
 		ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr));
 }
 
-bool is_internal_cell(RTLIL::IdString type)
+bool is_internal_cell(PooledName type)
 {
 	return !type.isPublic() && !type.begins_with("$paramod");
 }
@@ -728,6 +728,8 @@ struct CxxrtlWorker {
 	std::string indent;
 	int temporary = 0;
 
+	const RTLIL::Design *design = nullptr;
+
 	dict<const RTLIL::Module*, SigMap> sigmaps;
 	dict<const RTLIL::Module*, std::vector<Mem>> mod_memories;
 	pool<std::pair<const RTLIL::Module*, RTLIL::IdString>> writable_memories;
@@ -756,7 +758,7 @@ struct CxxrtlWorker {
 	//  1b. Generated identifiers for internal names (beginning with `$`) start with `i_`.
 	//  2. An underscore is escaped with another underscore, i.e. `__`.
 	//  3. Any other non-alnum character is escaped with underscores around its lowercase hex code, e.g. `@` as `_40_`.
-	std::string mangle_name(RTLIL::IdString name)
+	std::string mangle_name(PooledName name)
 	{
 		std::string mangled;
 		bool first = true;
@@ -786,7 +788,7 @@ struct CxxrtlWorker {
 		return mangled;
 	}
 
-	std::string mangle_module_name(RTLIL::IdString name, bool is_blackbox = false)
+	std::string mangle_module_name(PooledName name, bool is_blackbox = false)
 	{
 		// Class namespace.
 		if (is_blackbox)
@@ -794,19 +796,19 @@ struct CxxrtlWorker {
 		return mangle_name(name);
 	}
 
-	std::string mangle_memory_name(RTLIL::IdString name)
+	std::string mangle_memory_name(PooledName name)
 	{
 		// Class member namespace.
 		return "memory_" + mangle_name(name);
 	}
 
-	std::string mangle_cell_name(RTLIL::IdString name)
+	std::string mangle_cell_name(PooledName name)
 	{
 		// Class member namespace.
 		return "cell_" + mangle_name(name);
 	}
 
-	std::string mangle_wire_name(RTLIL::IdString name)
+	std::string mangle_wire_name(PooledName name)
 	{
 		// Class member namespace.
 		return mangle_name(name);
@@ -904,7 +906,7 @@ struct CxxrtlWorker {
 				params += ", ";
 			first = false;
 			params += "/*" + param_name + "=*/";
-			RTLIL::IdString id_param_name = '\\' + param_name;
+			IdString id_param_name = cell->module->design->twines.find('\\' + param_name);
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
 				              cell->module, cell, param_name.c_str(), cell_module);
@@ -927,7 +929,7 @@ struct CxxrtlWorker {
 	void dump_attrs(const RTLIL::AttrObject *object)
 	{
 		for (auto attr : object->attributes) {
-			f << indent << "// " << attr.first.str() << ": ";
+			f << indent << "// " << design->twines.str(attr.first) << ": ";
 			if (attr.second.flags & RTLIL::CONST_FLAG_STRING) {
 				f << attr.second.decode_string();
 			} else {
@@ -1127,7 +1129,7 @@ struct CxxrtlWorker {
 				if (is_cxxrtl_sync_port(cell, conn.first) && !conn.second.empty()) {
 					f << indent;
 					dump_sigspec_lhs(conn.second, for_debug);
-					f << " = " << mangle(cell) << access << mangle_wire_name(conn.first) << ".curr;\n";
+					f << " = " << mangle(cell) << access << mangle_wire_name({design, conn.first}) << ".curr;\n";
 				}
 	}
 
@@ -1532,7 +1534,7 @@ struct CxxrtlWorker {
 					RTLIL::Module *cell_module = cell->module->design->module(cell->type);
 					log_assert(cell_module != nullptr && cell_module->wire(conn.first));
 					RTLIL::Wire *cell_module_wire = cell_module->wire(conn.first);
-					f << indent << mangle(cell) << access << mangle_wire_name(conn.first);
+					f << indent << mangle(cell) << access << mangle_wire_name({design, conn.first});
 					if (!is_cxxrtl_blackbox_cell(cell) && wire_types[cell_module_wire].is_buffered()) {
 						buffered_inputs = true;
 						f << ".next";
@@ -1564,7 +1566,7 @@ struct CxxrtlWorker {
 							continue; // fully sync ports are handled in CELL_SYNC nodes
 						f << indent;
 						dump_sigspec_lhs(conn.second);
-						f << " = " << mangle(cell) << access << mangle_wire_name(conn.first);
+						f << " = " << mangle(cell) << access << mangle_wire_name({design, conn.first});
 						// Similarly to how there is no purpose to buffering cell inputs, there is also no purpose to buffering
 						// combinatorial cell outputs in case the cell converges within one cycle. (To convince yourself that
 						// this optimization is valid, consider that, since the cell converged within one cycle, it would not
@@ -2296,10 +2298,10 @@ struct CxxrtlWorker {
 			if (!metadata_item.first.isPublic())
 				continue;
 			if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-				f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+				f << indent << "/* attribute " << design->twines.str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
 				continue;
 			}
-			data += metadata_item.first.str().substr(1) + '\0';
+			data += design->twines.str(metadata_item.first).substr(1) + '\0';
 			// In Yosys, a real is a type of string.
 			if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
 				double dvalue = std::stod(metadata_item.second.decode_string());
@@ -2333,10 +2335,10 @@ struct CxxrtlWorker {
 					if (!metadata_item.first.isPublic())
 						continue;
 					if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-						f << indent << "/* attribute " << metadata_item.first.str().substr(1) << " is over 64 bits wide */\n";
+						f << indent << "/* attribute " << design->twines.str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
 						continue;
 					}
-					f << indent << "{ " << escape_cxx_string(metadata_item.first.str().substr(1)) << ", ";
+					f << indent << "{ " << escape_cxx_string(design->twines.str(metadata_item.first).substr(1)) << ", ";
 					// In Yosys, a real is a type of string.
 					if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
 						f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;
@@ -2774,9 +2776,10 @@ struct CxxrtlWorker {
 
 	void dump_design(RTLIL::Design *design)
 	{
+		this->design = design;
 		RTLIL::Module *top_module = nullptr;
 		std::vector<RTLIL::Module*> modules;
-		using Order = IdString::compare_ptr_by_name<RTLIL::NamedObject>;
+		using Order = IdString::compare_ptr_by_name<RTLIL::Module>;
 		TopoSort<RTLIL::Module*, Order> topo_design;
 		for (auto module : design->modules()) {
 			if (!design->selected_module(module))
@@ -2911,6 +2914,7 @@ struct CxxrtlWorker {
 
 	void analyze_design(RTLIL::Design *design)
 	{
+		this->design = design;
 		bool has_feedback_arcs = false;
 		bool has_buffered_comb_wires = false;
 

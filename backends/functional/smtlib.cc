@@ -72,13 +72,13 @@ class SmtStruct {
 		SmtSort sort;
 		std::string accessor;
 	};
-	idict<IdString> field_names;
+	idict<PooledName> field_names;
 	vector<Field> fields;
 	SmtScope &scope;
 public:
 	std::string name;
 	SmtStruct(std::string name, SmtScope &scope) : scope(scope), name(name) {}
-	void insert(IdString field_name, SmtSort sort) {
+	void insert(PooledName field_name, SmtSort sort) {
 		field_names(field_name);
 		auto accessor = scope.unique_name("\\" + name + "_" + field_name.unescape());
 		fields.emplace_back(Field{sort, accessor});
@@ -105,7 +105,7 @@ public:
 		}
 	}
 	SExpr access(SExpr record, IdString name) {
-		size_t i = field_names.at(name);
+		size_t i = field_names.at(PooledName(name));
 		return list(fields[i].accessor, std::move(record));
 	}
 };
