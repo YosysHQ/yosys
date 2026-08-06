@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/ffinit.h"
+#include "kernel/twine.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -181,6 +182,9 @@ struct FfData : FfTypeData {
 		pol_set = false;
 	}
 
+	FfData(Module *module, FfInitVals *initvals, Twine &&name)
+			: FfData(module, initvals, module->design->twines.add(std::move(name))) {}
+
 	FfData(FfInitVals *initvals, Cell *cell_);
 
 	// Returns a FF identical to this one, but only keeping bit indices from the argument.
@@ -227,6 +231,43 @@ struct FfData : FfTypeData {
 	void flip_bits(const pool<int> &bits);
 
 	void flip_rst_bits(const pool<int> &bits);
+};
+
+struct FfDataSigMapped : public FfData {
+	const SigMapView& sigmap;
+	FfDataSigMapped(const SigMapView& map, Module *module, FfInitVals *initvals = nullptr, IdString name = IdString()) : FfData(module, initvals, name), sigmap(map) {}
+
+	void remap() {
+		sigmap(sig_q);
+		sigmap(sig_d);
+		sigmap(sig_ad);
+		sigmap(sig_clk);
+		sigmap(sig_ce);
+		sigmap(sig_aload);
+		sigmap(sig_arst);
+		sigmap(sig_srst);
+		sigmap(sig_clr);
+		sigmap(sig_set);
+	}
+	FfDataSigMapped(const SigMapView& map, FfInitVals *initvals, Cell *cell_) : FfData(initvals, cell_), sigmap(map) {
+		remap();
+	}
+	FfDataSigMapped(const SigMapView& map, const FfData& base) : FfData(base), sigmap(map) {
+		remap();
+	}
+	FfDataSigMapped(const FfDataSigMapped& other) : FfData(other), sigmap(other.sigmap) {}
+	FfDataSigMapped& operator=(const FfDataSigMapped& other) {
+		FfData::operator=(other);
+		return *this;
+	}
+	Cell* emit() {
+		Cell* cell = FfData::emit();
+		remap();
+		return cell;
+	}
+	FfDataSigMapped slice(const std::vector<int> &bits) {
+		return FfDataSigMapped(sigmap, FfData::slice(bits));
+	}
 };
 
 YOSYS_NAMESPACE_END

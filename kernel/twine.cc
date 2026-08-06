@@ -23,6 +23,22 @@ int twine_gc_count;
 
 Hasher IdString::hash_into(Hasher h) const { h.hash64(value); return h; }
 
+std::string IdString::handle_token() const {
+	return stringf("%s@%zu", isPublic() ? "$pub" : "$priv", untag().raw());
+}
+
+size_t IdString::handle_token_prefix(std::string_view token, bool &is_public) {
+	if (token.substr(0, 5) == "$pub@") {
+		is_public = true;
+		return 5;
+	}
+	if (token.substr(0, 6) == "$priv@") {
+		is_public = false;
+		return 6;
+	}
+	return 0;
+}
+
 std::string ID::str(IdString ref) {
 	IdString idx = ref.untag();
 	log_assert(idx.raw() < STATIC_TWINE_END);

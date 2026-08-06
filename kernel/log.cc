@@ -55,9 +55,6 @@ std::chrono::steady_clock::time_point LogManager::get_initial_time() const
 void (*log_error_atexit)() = NULL;
 void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
-// TODO: remove when log_id is removed
-vector<char*> log_id_cache;
-
 static bool next_print_log = true;
 
 FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
@@ -157,13 +154,6 @@ LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::strin
 			next_print_log = true;
 	}
 	cached_msg = stringf("%s%s%s", time_str, prefix, message);
-}
-
-static void log_id_cache_clear()
-{
-	for (auto p : log_id_cache)
-		free(p);
-	log_id_cache.clear();
 }
 
 void LogManager::logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in) {
@@ -267,8 +257,6 @@ void LogManager::formatted_header(RTLIL::Design *design, std::string_view format
 	if (hdump.count(header_id) && design != nullptr)
 		for (auto &filename : hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename);
-			if (yosys_xtrace)
-				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
 			if (yosys_xtrace)
 				log("#X# -- end of dump --\n");
@@ -458,7 +446,6 @@ void LogManager::push()
 void LogManager::pop()
 {
 	header_count.pop_back();
-	log_id_cache_clear();
 	flush();
 }
 
@@ -563,12 +550,16 @@ void LogManager::reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
-	log_id_cache_clear();
 	flush();
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
-	log("%s", v.unescape());
+	if (v == IdString::Null)
+		log("(null)");
+	else if (ID::is_static(v))
+		log("%s", ID::str(v));
+	else
+		log("%s", v.handle_token().c_str());
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {
@@ -582,7 +573,7 @@ void log_dump_val_worker(RTLIL::State v) {
 std::string log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
+	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint, RTLIL_BACKEND::DumpMode::Readable);
 	return buf.str();
 }
 
@@ -594,86 +585,24 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 	return "\"" + value.decode_string() + "\"";
 }
 
-const char *log_id_str(const std::string &str)
-{
-	log_id_cache.push_back(strdup(str.c_str()));
-	return log_id_cache.back();
-}
-
-static const char *log_id_cached(std::string unescaped)
-{
-	log_id_cache.push_back(strdup(unescaped.c_str()));
-	return log_id_cache.back();
-}
-
-const char *log_id(const IdString &str)
-{
-	if (str == IdString::Null)
-		return log_id_cached(std::string());
-	if (!ID::is_static(str))
-		return log_id_cached(stringf("$twine$%zu", str.untag().raw()));
-	return log_id_cached(RTLIL::unescape_id(ID::str(str)));
-}
-
-static const char *log_id_twine(const RTLIL::Design *design, IdString name)
-{
-	return log_id_cached(RTLIL::unescape_id(design->twines.str(name)));
-}
-
-const char *log_id(const RTLIL::Design *design, IdString name)
-{
-	return log_id_twine(design, name);
-}
-
-const char *log_id(const RTLIL::Module *module, IdString name)
-{
-	return log_id_twine(module->design, name);
-}
-
-const char *log_id(const RTLIL::Module *obj, const char *nullstr)
-{
-	if (nullstr && obj == nullptr) return nullstr;
-	return log_id_twine(obj->design, obj->name);
-}
-const char *log_id(const RTLIL::Cell *obj, const char *nullstr)
-{
-	if (nullstr && obj == nullptr) return nullstr;
-	return log_id_twine(obj->module->design, obj->name);
-}
-const char *log_id(const RTLIL::Wire *obj, const char *nullstr)
-{
-	if (nullstr && obj == nullptr) return nullstr;
-	return log_id_twine(obj->module->design, obj->name);
-}
-const char *log_id(const RTLIL::Memory *obj, const char *nullstr)
-{
-	if (nullstr && obj == nullptr) return nullstr;
-	return log_id_twine(obj->module->design, obj->name);
-}
-const char *log_id(const RTLIL::Process *obj, const char *nullstr)
-{
-	if (nullstr && obj == nullptr) return nullstr;
-	return log_id_twine(obj->module->design, obj->name);
-}
-
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false);
+	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false, true, false, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_cell(buf, indent, cell);
+	RTLIL_BACKEND::dump_cell(buf, indent, cell, cell->module ? cell->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_wire(RTLIL::Wire *wire, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_wire(buf, indent, wire);
+	RTLIL_BACKEND::dump_wire(buf, indent, wire, wire->module ? wire->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
