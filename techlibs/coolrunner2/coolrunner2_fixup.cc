@@ -23,6 +23,11 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static IdString uniq(RTLIL::Module *module, std::string name)
+{
+	return module->uniquify(std::move(name));
+}
+
 RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cellname)
 {
 	RTLIL::Wire *outwire = nullptr;
@@ -31,9 +36,9 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 	{
 		// Constant 1
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF1_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF1_XOR", cellname)),
+			uniq(module, stringf("$xc2fix$%s_BUF1_XOR", cellname)),
 			ID(MACROCELL_XOR));
 		xor_cell->setParam(ID(INVERT_OUT), true);
 		xor_cell->setPort(ID(OUT), outwire);
@@ -42,9 +47,9 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 	{
 		// Constant 0
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR", cellname)),
 			ID(MACROCELL_XOR));
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(ID(OUT), outwire);
@@ -54,25 +59,25 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 		// x; treat as 0
 		log_warning("While buffering, changing x to 0 into cell %s\n", cellname);
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR_OUT", cellname)));
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF0_XOR", cellname)),
+			uniq(module, stringf("$xc2fix$%s_BUF0_XOR", cellname)),
 			ID(MACROCELL_XOR));
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(ID(OUT), outwire);
 	}
 	else
 	{
-		auto inwire_name = inwire.wire->name.c_str();
+		auto inwire_name_s = inwire.wire->name.unescape(); auto inwire_name = inwire_name_s.c_str();
 
 		outwire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF_XOR_OUT", inwire_name)));
+			uniq(module, stringf("$xc2fix$%s_BUF_XOR_OUT", inwire_name)));
 
 		auto and_to_xor_wire = module->addWire(
-			module->uniquify(stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
+			uniq(module, stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
 
 		auto and_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
+			uniq(module, stringf("$xc2fix$%s_BUF_AND", inwire_name)),
 			ID(ANDTERM));
 		and_cell->setParam(ID(TRUE_INP), 1);
 		and_cell->setParam(ID(COMP_INP), 0);
@@ -81,7 +86,7 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 		and_cell->setPort(ID(IN_B), SigSpec());
 
 		auto xor_cell = module->addCell(
-			module->uniquify(stringf("$xc2fix$%s_BUF_XOR", inwire_name)),
+			uniq(module, stringf("$xc2fix$%s_BUF_XOR", inwire_name)),
 			ID(MACROCELL_XOR));
 		xor_cell->setParam(ID(INVERT_OUT), false);
 		xor_cell->setPort(ID(IN_PTC), and_to_xor_wire);
@@ -93,13 +98,13 @@ RTLIL::Wire *makexorbuffer(RTLIL::Module *module, SigBit inwire, const char *cel
 
 RTLIL::Wire *makeptermbuffer(RTLIL::Module *module, SigBit inwire)
 {
-	auto inwire_name = inwire.wire->name.c_str();
+	auto inwire_name_s = inwire.wire->name.unescape(); auto inwire_name = inwire_name_s.c_str();
 
 	auto outwire = module->addWire(
-		module->uniquify(stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
+		uniq(module, stringf("$xc2fix$%s_BUF_AND_OUT", inwire_name)));
 
 	auto and_cell = module->addCell(
-		module->uniquify(stringf("$xc2fix$%s_BUF_AND", inwire_name)),
+		uniq(module, stringf("$xc2fix$%s_BUF_AND", inwire_name)),
 		ID(ANDTERM));
 	and_cell->setParam(ID(TRUE_INP), 1);
 	and_cell->setParam(ID(COMP_INP), 0);
@@ -267,9 +272,9 @@ struct Coolrunner2FixupPass : public Pass {
 					if (input == ibuf_out_wire)
 					{
 						log("Found IBUF %s that can be packed with FF %s (type %s)\n",
-							ibuf_out_wire.wire->name.c_str(),
-							maybe_ff_cell->name.c_str(),
-							maybe_ff_cell->type.c_str());
+							ibuf_out_wire.wire->name.unescape().c_str(),
+							maybe_ff_cell->name.unescape().c_str(),
+							maybe_ff_cell->type.str().c_str());
 
 						ibuf_out_to_packed_reg_cell[ibuf_out_wire] = maybe_ff_cell;
 						packed_reg_out.insert(output);
@@ -300,7 +305,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						log("Buffering input to \"%s\"\n", cell->name);
 
-						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.c_str());
+						auto xor_to_ff_wire = makexorbuffer(module, input, cell->name.unescape().c_str());
 
 						if (cell->type.in(ID(FTCP), ID(FTCP_N), ID(FTDCP)))
 							cell->setPort(ID::T, xor_to_ff_wire);
@@ -391,7 +396,7 @@ struct Coolrunner2FixupPass : public Pass {
 					{
 						log("Buffering input to \"%s\"\n", cell->name);
 
-						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.c_str());
+						auto xor_to_io_wire = makexorbuffer(module, input, cell->name.unescape().c_str());
 
 						cell->setPort(ID::I, xor_to_io_wire);
 					}
@@ -448,9 +453,9 @@ struct Coolrunner2FixupPass : public Pass {
 								if (xor_fanout_once[wire_in])
 								{
 									log("Additional fanout found for %s into %s (type %s), duplicating\n",
-										xor_cell->name.c_str(),
-										cell->name.c_str(),
-										cell->type.c_str());
+										xor_cell->name.unescape().c_str(),
+										cell->name.unescape().c_str(),
+										cell->type.str().c_str());
 
 									auto new_xor_cell = module->addCell(
 										module->uniquify(xor_cell->name), xor_cell);
@@ -496,9 +501,9 @@ struct Coolrunner2FixupPass : public Pass {
 								if (or_fanout_once[wire_in])
 								{
 									log("Additional fanout found for %s into %s (type %s), duplicating\n",
-										or_cell->name.c_str(),
-										cell->name.c_str(),
-										cell->type.c_str());
+										or_cell->name.unescape().c_str(),
+										cell->name.unescape().c_str(),
+										cell->type.str().c_str());
 
 									auto new_or_cell = module->addCell(
 										module->uniquify(or_cell->name), or_cell);
