@@ -32,14 +32,15 @@ struct TimingInfo
 		RTLIL::IdString name;
 		int offset;
 		NameBit() : offset(0) {}
-		NameBit(const RTLIL::IdString name, int offset) : name(name), offset(offset) {}
+		NameBit(IdString name, int offset) : name(name), offset(offset) {}
 		explicit NameBit(const RTLIL::SigBit &b) : name(b.wire->name), offset(b.offset) {}
 		bool operator==(const NameBit& nb) const { return nb.name == name && nb.offset == offset; }
 		bool operator!=(const NameBit& nb) const { return !operator==(nb); }
 		std::optional<SigBit> get_connection(RTLIL::Cell *cell) {
-			if (!cell->hasPort(name))
+			IdString port_name = name;
+			if (!cell->hasPort(port_name))
 				return {};
-			auto &port = cell->getPort(name);
+			auto &port = cell->getPort(port_name);
 			if (offset >= port.size())
 				return {};
 			return port[offset];
@@ -160,8 +161,8 @@ struct TimingInfo
 				}
 			}
 			else if (cell->type == ID($specrule)) {
-				IdString type = cell->getParam(ID::TYPE).decode_string();
-				if (type != ID($setup) && type != ID($setuphold))
+				std::string type = cell->getParam(ID::TYPE).decode_string();
+				if (type != "$setup" && type != "$setuphold")
 					continue;
 				auto src = cell->getPort(ID::SRC);
 				auto dst = cell->getPort(ID::DST).as_bit();

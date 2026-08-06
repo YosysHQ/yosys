@@ -43,7 +43,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 	}
 
 
-	std::string type_str = type.str();
+	std::string type_str = ID::str(type);
 
 	if (type.in(ID($anyinit), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe), ID($aldff), ID($aldffe), ID($sdff), ID($sdffe), ID($sdffce), ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr))) {
 		if (type.in(ID($anyinit), ID($ff))) {
@@ -334,7 +334,7 @@ FfData::FfData(FfInitVals *initvals, Cell *cell_) : FfData(cell_->module, initva
 }
 
 FfData FfData::slice(const std::vector<int> &bits) {
-	FfData res(module, initvals, NEW_ID);
+	FfData res(module, initvals, module->design->twines.add(NEW_ID));
 	res.sig_clk = sig_clk;
 	res.sig_ce = sig_ce;
 	res.sig_aload = sig_aload;

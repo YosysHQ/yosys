@@ -321,7 +321,7 @@ struct ModIndex : public RTLIL::Monitor
 				log("  PRIMARY OUTPUT\n");
 			for (auto &port : it.second.ports)
 				log("  PORT: %s.%s[%d] (%s)\n", port.cell,
-						port.port.unescape(), port.offset, port.cell->type.unescape());
+						PooledName(module, port.port).unescape(), port.offset, port.cell->type.unescape());
 		}
 	}
 };

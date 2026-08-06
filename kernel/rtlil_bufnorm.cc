@@ -104,7 +104,7 @@ void RTLIL::Module::bufNormalize()
 			if (wire->port_input && !wire->port_output && GetSize(wire) != 0) {
 				if (wire->driverCell_ != nullptr && wire->driverCell_->type != ID($input_port)) {
 					wire->driverCell_ = nullptr;
-					wire->driverPort_.clear();
+					wire->driverPort_ = IdString::Null;
 				}
 				if (wire->driverCell_ == nullptr) {
 					Cell *input_port_cell = addCell(NEW_ID, ID($input_port));
@@ -148,7 +148,7 @@ void RTLIL::Module::bufNormalize()
 		// already enqueued or becomes reachable when denormalizing $buf or
 		// $connect cells.
 		auto enqueue_cell_port = [&](Cell *cell, IdString port) {
-			xlog("processing cell port %s.%s\n", cell, port.unescape());
+			xlog("processing cell port %s.%s\n", cell, design->twines.unescaped_str(port));
 
 			// An empty cell type means the cell got removed
 			if (cell->type.empty())
@@ -335,7 +335,7 @@ void RTLIL::Module::bufNormalize()
 		// to keep track of the wires that we still have to update.
 		for (auto wire : wire_queue_entries) {
 			wire->driverCell_ = nullptr;
-			wire->driverPort_.clear();
+			wire->driverPort_ = IdString::Null;
 		}
 
 		// For the unique driving cell ports fully connected to a full wire, we
@@ -547,7 +547,7 @@ void RTLIL::Cell::unsetPort(RTLIL::IdString portname)
 				mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 		if (yosys_xtrace) {
-			log("#X# Unconnect %s.%s.%s\n", this->module, this, portname.unescape());
+			log("#X# Unconnect %s.%s.%s\n", this->module, this, PooledName(module, portname).unescape());
 			log_backtrace("-X- ", yosys_xtrace-1);
 		}
 
@@ -607,7 +607,7 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 			mon->notify_connect(this, conn_it->first, conn_it->second, signal);
 
 	if (yosys_xtrace) {
-		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module, this, portname.unescape(), log_signal(signal), GetSize(signal));
+		log("#X# Connect %s.%s.%s = %s (%d)\n", this->module, this, PooledName(module, portname).unescape(), log_signal(signal), GetSize(signal));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
