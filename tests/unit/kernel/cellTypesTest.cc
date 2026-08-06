@@ -10,15 +10,16 @@ YOSYS_NAMESPACE_BEGIN
 
 TEST(CellTypesTest, basic)
 {
-	yosys_setup();
-	log_files.push_back(stdout);
 	CellTypes older;
 	NewCellTypes newer;
 	older.setup(nullptr);
 	newer.setup(nullptr);
-	older.setup_type(ID(bleh), {ID::G}, {ID::H, ID::I}, false, true);
-	newer.setup_type(ID(bleh), {ID::G}, {ID::H, ID::I}, false, true);
-	EXPECT_EQ(older.cell_known(ID(aaaaa)), newer.cell_known(ID(aaaaa)));
+	RTLIL::Design design;
+	IdString bleh = design.twines.add(std::string("\\bleh"));
+	IdString aaaaa = design.twines.add(std::string("\\aaaaa"));
+	older.setup_type(bleh, {ID::G}, {ID::H, ID::I}, false, true);
+	newer.setup_type(bleh, {ID::G}, {ID::H, ID::I}, false, true);
+	EXPECT_EQ(older.cell_known(aaaaa), newer.cell_known(aaaaa));
 	EXPECT_EQ(older.cell_known(ID($and)), newer.cell_known(ID($and)));
 	auto check_port = [&](auto type, auto port) {
 		EXPECT_EQ(older.cell_port_dir(type, port), newer.cell_port_dir(type, port));
@@ -68,12 +69,11 @@ TEST(CellTypesTest, basic)
 		ID($_FF_),
 	};
 
-	for (size_t i = 0; i < static_cast<size_t>(RTLIL::StaticId::STATIC_ID_END); i++) {
-		IdString type;
-		type.index_ = i;
+	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
+		IdString type(i);
 		EXPECT_EQ(older.cell_known(type), newer.cell_known(type));
 		if (older.cell_evaluable(type) != newer.cell_evaluable(type))
-			std::cout << type.str() << "\n";
+			std::cout << ID::unescaped_str(type) << "\n";
 		EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
 		for (auto port : StaticCellTypes::builder.cells.data()->inputs.ports)
 			check_port(type, port);
@@ -81,7 +81,6 @@ TEST(CellTypesTest, basic)
 			check_port(type, port);
 		EXPECT_EQ(expected_ff_types.count(type) > 0, StaticCellTypes::categories.is_ff(type));
 	}
-	yosys_shutdown();
 }
 
 YOSYS_NAMESPACE_END
