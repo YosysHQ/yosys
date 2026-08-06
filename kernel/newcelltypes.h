@@ -425,7 +425,7 @@ struct PortInfo {
 	struct PortLists {
 		std::array<CellTableBuilder::PortList, MAX_CELLS> data{};
 		constexpr CellTableBuilder::PortList operator()(IdString type) const {
-			return data[type.index_];
+			return data[type.raw()];
 		}
 		constexpr CellTableBuilder::PortList& operator[](size_t idx) {
 			return data[idx];
@@ -437,7 +437,7 @@ struct PortInfo {
 	constexpr PortInfo() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type.raw();
 			inputs[idx] = cell.inputs;
 			outputs[idx] = cell.outputs;
 		}
@@ -448,7 +448,7 @@ struct Categories {
 	struct Category {
 		std::array<bool, MAX_CELLS> data{};
 		constexpr bool operator()(IdString type) const {
-			size_t idx = type.index_;
+			size_t idx = type.raw();
 			if (idx >= MAX_CELLS)
 				return false;
 			return data[idx];
@@ -457,7 +457,7 @@ struct Categories {
 			return data[idx];
 		}
 		constexpr void set_id(IdString type, bool val = true) {
-			size_t idx = type.index_;
+			size_t idx = type.raw();
 			if (idx >= MAX_CELLS)
 				return; // TODO should be an assert but then it's not constexpr
 			data[idx] = val;
@@ -480,7 +480,7 @@ struct Categories {
 	constexpr Categories() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type.raw();
 			is_known.set(idx);
 			is_evaluable.set(idx, cell.features.is_evaluable);
 			is_combinatorial.set(idx, cell.features.is_combinatorial);
