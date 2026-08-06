@@ -250,7 +250,7 @@ struct BtorWorker
 		cell_recursion_guard.insert(cell);
 		btorf_push(cell->name.unescape());
 
-		if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor), ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
+		if (cell->type.in(ID($add), ID($sub), ID($mul), ID($and), ID($or), ID($xor), ID($xnor), ID($bweqx), ID($shl), ID($sshl), ID($shr), ID($sshr), ID($shift), ID($shiftx),
 				ID($concat), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_), ID($_XOR_), ID($_XNOR_)))
 		{
 			string btor_op;
@@ -267,7 +267,7 @@ struct BtorWorker
 			if (cell->type == ID($concat)) btor_op = "concat";
 			if (cell->type == ID($_NAND_)) btor_op = "nand";
 			if (cell->type == ID($_NOR_)) btor_op = "nor";
-			if (cell->type.in(ID($xnor), ID($_XNOR_))) btor_op = "xnor";
+			if (cell->type.in(ID($xnor), ID($bweqx), ID($_XNOR_))) btor_op = "xnor";
 			log_assert(!btor_op.empty());
 
 			int width_ay = std::max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::Y)));

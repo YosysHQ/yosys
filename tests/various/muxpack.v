@@ -238,6 +238,16 @@ module case_overlap (
         end
 endmodule
 
+module chain_slice_self_input (
+        input [31:0] A,
+        input [1:0] S,
+        output [31:0] Y
+);
+        wire [31:0] tmp;
+        assign tmp = S == 1 ? {A[7:0], A[7:0], A[7:0], A[7:0]} : A;
+        assign Y = S == 2 ? {A[15:0], tmp[15:0]} : tmp;
+endmodule
+
 module case_overlap2 (
         input wire [2:0] x,
         input wire a, b, c, d, e,

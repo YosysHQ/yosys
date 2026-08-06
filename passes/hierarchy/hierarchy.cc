@@ -684,23 +684,31 @@ void hierarchy_clean(RTLIL::Design *design, RTLIL::Module *top, bool purge_lib)
 
 bool set_keep_print(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 {
-	if (cache.count(mod) == 0)
+	if (cache.count(mod) == 0) {
+		cache[mod] = false;
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_print(cache, m)) || c->type == ID($print))
-				return cache[mod] = true;
+			if ((m != nullptr && set_keep_print(cache, m)) || c->type == ID($print)) {
+				cache[mod] = true;
+				break;
+			}
 		}
+	}
 	return cache[mod];
 }
 
 bool set_keep_assert(std::map<RTLIL::Module*, bool> &cache, RTLIL::Module *mod)
 {
-	if (cache.count(mod) == 0)
+	if (cache.count(mod) == 0) {
+		cache[mod] = false;
 		for (auto c : mod->cells()) {
 			RTLIL::Module *m = mod->design->module(c->type);
-			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
-				return cache[mod] = true;
+			if ((m != nullptr && set_keep_assert(cache, m)) || c->type.in(ID($check), ID($assert), ID($assume), ID($live), ID($fair), ID($cover))) {
+				cache[mod] = true;
+				break;
+			}
 		}
+	}
 	return cache[mod];
 }
 

@@ -104,6 +104,8 @@ bool ezMiniSAT::solver(const std::vector<int> &modelExpressions, std::vector<boo
 	preSolverCallback();
 
 	solverTimeoutStatus = false;
+	solverPropLimitStatus = false;
+	solverProps = 0;
 
 	if (0) {
 contradiction:
@@ -201,7 +203,21 @@ contradiction:
 	}
 #endif
 
-	bool foundSolution = minisatSolver->solve(assumps);
+	uint64_t solverPropsBefore = minisatSolver->propagations;
+	bool foundSolution;
+
+	if (solverPropLimit > 0) {
+		minisatSolver->setPropBudget(solverPropLimit);
+		Minisat::lbool res = minisatSolver->solveLimited(assumps);
+		minisatSolver->budgetOff();
+		if (Minisat::toInt(res) == 2) // l_Undef: propagation budget exhausted
+			solverPropLimitStatus = true;
+		foundSolution = (Minisat::toInt(res) == 0); // l_True
+	} else {
+		foundSolution = minisatSolver->solve(assumps);
+	}
+
+	solverProps = minisatSolver->propagations - solverPropsBefore;
 
 #if defined(HAS_ALARM)
 	if (solverTimeout > 0) {
@@ -210,6 +226,7 @@ contradiction:
 		alarm(0);
 		sigaction(SIGALRM, &old_sig_action, NULL);
 		alarm(old_alarm_timeout);
+		minisatSolver->clearInterrupt();
 	}
 #endif
 

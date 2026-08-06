@@ -2,8 +2,21 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.67 .. Yosys 0.68-dev
+Yosys 0.68 .. Yosys 0.69-dev
 --------------------------
+
+Yosys 0.67 .. Yosys 0.68
+--------------------------
+
+ * New commands and options
+    - Added "symfpu" and "symfpu_convert" passes.
+    - Removed "-fast" option from "abc" pass.
+    - Removed "flowmap" pass and "-flowmap" from "synth"
+      and "synth_ice40" passes.
+    - Removed "-wideports" option from "read_aiger" pass.
+
+ * Various
+    - nexus: fix Radiant netlist compatibility.
 
 Yosys 0.66 .. Yosys 0.67
 --------------------------
