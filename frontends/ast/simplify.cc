@@ -694,17 +694,32 @@ static std::string prefix_id(const std::string &prefix, const std::string &str)
 
 // direct access to this global should be limited to the following two functions
 static const RTLIL::Design *simplify_design_context = nullptr;
+static dict<std::string, RTLIL::IdString> simplify_design_modules;
+static size_t simplify_design_modules_size = 0;
 
 void AST::set_simplify_design_context(const RTLIL::Design *design)
 {
 	log_assert(!simplify_design_context || !design);
 	simplify_design_context = design;
+	simplify_design_modules.clear();
+	simplify_design_modules_size = 0;
 }
 
 // lookup the module with the given name in the current design context
 static const RTLIL::Module* lookup_module(const std::string &name)
 {
-	return simplify_design_context->module(name);
+	const RTLIL::Design *design = simplify_design_context;
+	if (const RTLIL::Module *module = design->module(design->twines.find(name)))
+		return module;
+
+	if (simplify_design_modules_size != design->modules_.size()) {
+		simplify_design_modules.clear();
+		for (const auto &it : design->modules_)
+			simplify_design_modules[design->twines.str(it.first)] = it.first;
+		simplify_design_modules_size = design->modules_.size();
+	}
+	auto it = simplify_design_modules.find(name);
+	return it == simplify_design_modules.end() ? nullptr : design->module(it->second);
 }
 
 const RTLIL::Module* AstNode::lookup_cell_module()
@@ -742,7 +757,8 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 
 		if (child->str.empty() && para_counter >= module->avail_parameters.size())
 			return nullptr; // let hierarchy handle this error
-		IdString paraname = child->str.empty() ? module->avail_parameters[para_counter++] : child->str;
+		IdString paraname = child->str.empty() ? module->avail_parameters[para_counter++]
+				: module->design->twines.add(std::string(child->str));
 
 		const AstNode *value = child->children[0].get();
 		if (value->type != AST_REALVALUE && value->type != AST_CONSTANT)
@@ -751,11 +767,11 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 	}
 
 	// put the parameters in order and generate the derived module name
-	std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> named_parameters;
+	std::vector<std::pair<std::string, RTLIL::Const>> named_parameters;
 	for (RTLIL::IdString param : module->avail_parameters) {
 		auto it = cell_params_map.find(param);
 		if (it != cell_params_map.end())
-			named_parameters.emplace_back(it->first, it->second);
+			named_parameters.emplace_back(module->design->twines.str(it->first), it->second);
 	}
 	std::string modname = celltype->str;
 	if (cell_params_map.size()) // not named_parameters to cover hierarchical defparams
@@ -952,8 +968,9 @@ static void check_auto_nosync(AstNode *node)
 {
 	std::vector<RTLIL::IdString> attrs_to_drop;
 	for (const auto& elem : node->attributes) {
+		std::string attr_str = attr_name_str(elem.first);
 		// skip attributes that don't begin with the prefix
-		if (elem.first.compare(0, auto_nosync_prefix.size(),
+		if (attr_str.compare(0, auto_nosync_prefix.size(),
 					auto_nosync_prefix.c_str()))
 			continue;
 
@@ -961,7 +978,7 @@ static void check_auto_nosync(AstNode *node)
 		attrs_to_drop.push_back(elem.first);
 
 		// find the wire based on the attribute
-		std::string wire_name = elem.first.substr(auto_nosync_prefix.size());
+		std::string wire_name = attr_str.substr(auto_nosync_prefix.size());
 		auto it = current_scope.find(wire_name);
 		if (it == current_scope.end())
 			continue;
@@ -978,8 +995,8 @@ static void check_auto_nosync(AstNode *node)
 	}
 
 	// remove the attributes we've "consumed"
-	for (RTLIL::IdString str : attrs_to_drop) {
-		auto it = node->attributes.find(str);
+	for (IdString id : attrs_to_drop) {
+		auto it = node->attributes.find(id);
 		node->attributes.erase(it);
 	}
 
@@ -1474,14 +1491,20 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			module = lookup_cell_module();
 		if (module) {
 			size_t port_counter = 0;
+			dict<std::string, IdString> ports_by_name;
+			for (auto port : module->ports)
+				ports_by_name[module->design->twines.str(port)] = port;
 			for (auto& child : children) {
 				if (child->type != AST_ARGUMENT)
 					continue;
 
 				// determine the full name of port this argument is connected to
 				RTLIL::IdString port_name;
-				if (child->str.size())
-					port_name = child->str;
+				if (child->str.size()) {
+					auto it = ports_by_name.find(child->str);
+					if (it != ports_by_name.end())
+						port_name = it->second;
+				}
 				else {
 					if (port_counter >= module->ports.size())
 						input_error("Cell instance has more ports than the module!\n");
@@ -1492,7 +1515,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				const RTLIL::Wire *ref = module->wire(port_name);
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
-							port_name.unescape(), module->name.unescape());
+							child->str.size() ? RTLIL::unescape_id(child->str)
+									: module->design->twines.unescaped_str(port_name),
+							module->name.unescape());
 
 				// select the argument, if present
 				log_assert(child->children.size() <= 1);
@@ -1517,7 +1542,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// create the indirection wire
 				std::stringstream sstr;
-				sstr << "$indirect$" << ref->name.c_str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+				sstr << "$indirect$" << ref->name.str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
 				std::string tmp_str = sstr.str();
 				add_wire_for_ref(location, ref, tmp_str);
 
@@ -4356,13 +4381,15 @@ skip_dynamic_range_lvalue_expansion:;
 			cell->str = prefix.substr(0, GetSize(prefix)-1);
 			cell->children[0]->str = celltype;
 
-			for (auto& attr : decl->attributes)
-				if (attr.first.str().rfind("\\via_celltype_defparam_", 0) == 0)
+			for (auto& attr : decl->attributes) {
+				std::string attr_str = attr_name_str(attr.first);
+				if (attr_str.rfind("\\via_celltype_defparam_", 0) == 0)
 				{
 					auto cell_arg = std::make_unique<AstNode>(location, AST_PARASET, attr.second->clone());
-					cell_arg->str = RTLIL::escape_id(attr.first.substr(strlen("\\via_celltype_defparam_")));
+					cell_arg->str = RTLIL::escape_id(attr_str.substr(strlen("\\via_celltype_defparam_")));
 					cell->children.push_back(std::move(cell_arg));
 				}
+			}
 
 			for (auto& child : decl->children)
 				if (child->type == AST_WIRE && (child->is_input || child->is_output || (type == AST_FCALL && child->str == str)))

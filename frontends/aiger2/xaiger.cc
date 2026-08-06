@@ -28,7 +28,7 @@ uint32_t read_be32(std::istream &f) {
 		((uint32_t) f.get() << 8) | (uint32_t) f.get();
 }
 
-IdString read_idstring(std::istream &f)
+std::string read_idstring(std::istream &f)
 {
 	std::string str;
 	std::getline(f, str, '\0');
@@ -69,14 +69,14 @@ struct Xaiger2Frontend : public Frontend {
 
 	void read_sc_mapping(std::istream *&f, std::string filename, std::vector<std::string> args, Design *design)
 	{
-		IdString module_name;
+		std::string module_name;
 		std::string map_filename;
 
 		size_t argidx;
 		for (argidx = 2; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-module_name" && argidx + 1 < args.size()) {
-				module_name = RTLIL::escape_id(args[++argidx]);
+				module_name = args[++argidx];
 				continue;
 			}
 			if (arg == "-map2" && argidx + 1 < args.size()) {
@@ -92,9 +92,9 @@ struct Xaiger2Frontend : public Frontend {
 		if (module_name.empty())
 			log_error("A '-module_name' argument is required\n");
 
-		Module *module = design->module(module_name);
+		Module *module = RTLIL::module_by_name(design, module_name);
 		if (!module)
-			log_error("Module '%s' not found\n", module_name.unescape());
+			log_error("Module '%s' not found\n", module_name.c_str());
 
 		std::ifstream map_file;
 		map_file.open(map_filename);
@@ -140,7 +140,7 @@ struct Xaiger2Frontend : public Frontend {
 				int lit = (2 * pi_idx) + 2;
 				if (lit < 0 || lit >= (int) bits.size())
 					log_error("Bad map file: primary input literal out of range\n");
-				Wire *w = module->wire(name);
+				Wire *w = module->wire(resolve_sym(design, name));
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
 							  name.c_str(), woffset);
@@ -153,7 +153,7 @@ struct Xaiger2Frontend : public Frontend {
 				if (box_seq < 0)
 					log_error("Bad map file: box out of range\n");
 
-				Cell *box = module->cell(RTLIL::escape_id(name));
+				Cell *box = module->cell(resolve_sym(design, name));
 				if (!box)
 					log_error("Map file references non-existent box %s\n",
 							  name.c_str());
@@ -218,6 +218,7 @@ struct Xaiger2Frontend : public Frontend {
 					log_assert(cell && def);
 					retained_boxes[box_seq] = true;
 
+					std::string cell_name_str = cell->name.unescape();
 					int box_ci_idx = 0;
 					for (auto port_id : def->ports) {
 						Wire *port = def->wire(port_id);
@@ -226,13 +227,11 @@ struct Xaiger2Frontend : public Frontend {
 								log_error("Malformed design (1)\n");
 
 							SigSpec &conn = cell->connections_[port_id];
+							std::string port_id_str = design->twines.unescaped_str(port_id);
 							for (int j = 0; j < port->width; j++) {
 								if (conn[j].wire && conn[j].wire->port_output)
 									conn[j] = module->addWire(module->uniquify(
-												stringf("$box$%s$%s$%d",
-													cell->name.isPublic() ? cell->name.c_str() + 1 : cell->name.c_str(),
-													port_id.isPublic() ? port_id.c_str() + 1 : port_id.c_str(),
-													j)));
+												stringf("$box$%s$%s$%d", cell_name_str, port_id_str, j)));
 
 								bits[2*(pi_num + ci_counter + box_ci_idx++) + 2] = conn[j];
 							}
@@ -279,14 +278,14 @@ struct Xaiger2Frontend : public Frontend {
 
 				for (unsigned i = 0; i < no_cells; ++i) {
 					auto &cell = cells[i];
-					cell.type = read_idstring(*f);
-					cell.out = read_idstring(*f);
+					cell.type = design->twines.add(read_idstring(*f));
+					cell.out = design->twines.add(read_idstring(*f));
 					uint32_t nins = read_be32(*f);
 					for (uint32_t j = 0; j < nins; j++)
-						cell.ins.push_back(read_idstring(*f));
-					log_debug("M: Cell %s (out %s, ins", cell.type.unescape(), cell.out.unescape());
+						cell.ins.push_back(design->twines.add(read_idstring(*f)));
+					log_debug("M: Cell %s (out %s, ins", PooledName(design, cell.type).unescape(), PooledName(design, cell.out).unescape());
 					for (auto in : cell.ins)
-						log_debug(" %s", in.unescape());
+						log_debug(" %s", PooledName(design, in).unescape());
 					log_debug(")\n");
 				}
 
@@ -420,7 +419,7 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: primary output literal is a marker\n");
-				Wire *w = module->wire(name);
+				Wire *w = module->wire(resolve_sym(design, name));
 				if (!w || woffset < 0 || woffset >= w->width)
 					log_error("Map file references non-existent signal bit %s[%d]\n",
 							  name.c_str(), woffset);
@@ -440,11 +439,12 @@ struct Xaiger2Frontend : public Frontend {
 					log_error("Bad map file: pseudo primary output literal out of range\n");
 				if (bits[lit] == RTLIL::Sm)
 					log_error("Bad map file: pseudo primary output literal is a marker\n");
-				Cell *cell = module->cell(box_name);
-				if (!cell || !cell->hasPort(box_port))
+				Cell *cell = module->cell(resolve_sym(design, box_name));
+				auto box_port_ref = resolve_sym(design, box_port);
+				if (!cell || !cell->hasPort(box_port_ref))
 					log_error("Map file references non-existent box port %s/%s\n",
 							  box_name.c_str(), box_port.c_str());
-				SigSpec &port = cell->connections_[box_port];
+				SigSpec &port = cell->connections_[box_port_ref];
 				if (poffset < 0 || poffset >= port.size())
 					log_error("Map file references non-existent box port bit %s/%s[%d]\n",
 							  box_name.c_str(), box_port.c_str(), poffset);

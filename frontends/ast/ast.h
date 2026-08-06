@@ -36,6 +36,10 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace AST
 {
+	TwinePool &ast_name_pool();
+	inline IdString intern_attr_name(const std::string &name) { return ast_name_pool().add(std::string(name)); }
+	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
+
 	// all node types, type2str() must be extended
 	// whenever a new node type is added here
 	enum AstNodeType
@@ -183,9 +187,10 @@ namespace AST
 		// the list of child nodes for this node
 		std::vector<std::unique_ptr<AstNode>> children;
 
-		// the list of attributes assigned to this node
-		std::map<RTLIL::IdString, std::unique_ptr<AstNode>> attributes;
-		bool get_bool_attribute(RTLIL::IdString id);
+		// The list of attributes assigned to this node. Keys are IdStrings
+		std::map<IdString, std::unique_ptr<AstNode>> attributes;
+		bool get_bool_attribute(IdString id);
+		bool get_bool_attribute(const std::string &id) { return get_bool_attribute(intern_attr_name(id)); }
 
 		// node content - most of it is unused in most node types
 		std::string str;
@@ -361,6 +366,10 @@ namespace AST
 			node->set_in_param_flag(true);
 			attributes[key] = std::move(node);
 		}
+		void set_attribute(const std::string &key, std::unique_ptr<AstNode> node)
+		{
+			set_attribute(intern_attr_name(key), std::move(node));
+		}
 
 		// helper to set in_lvalue/in_param flags from the hierarchy context (the actual flag
 		// can be overridden based on the intrinsic properties of this node, i.e. based on its type)
@@ -402,6 +411,9 @@ namespace AST
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
+		RTLIL::Module *clone(RTLIL::Design *dst) const override;
+		RTLIL::Module *clone(RTLIL::Design *dst, IdString target_name) const override;
+		void copy_config_into(AstModule *new_mod) const;
 		void loadconfig() const;
 	};
 
@@ -427,12 +439,14 @@ namespace AST
 	AstNode * find_modport(AstNode *intf, std::string name);
 	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
 
+	IdString intern_hier_name(RTLIL::Design *design, std::string_view escaped);
+
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 
 	// generate standard $paramod... derived module name; parameters should be
 	// in the order they are declared in the instantiated module
-	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters);
+	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<std::string, RTLIL::Const>> &parameters);
 
 	// used to provide simplify() access to the current design for looking up
 	// modules, ports, wires, etc.
