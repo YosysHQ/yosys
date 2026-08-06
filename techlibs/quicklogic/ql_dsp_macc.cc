@@ -72,8 +72,8 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
         return;
     }
 
-    type = RTLIL::escape_id(cell_base_name + cell_size_name + "_cfg_ports");
-    log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, type.unescape());
+    type = pm.module->design->twines.add(std::string{RTLIL::escape_id(cell_base_name + cell_size_name + "_cfg_ports")});
+    log("Inferring MACC %zux%zu->%zu as %s from:\n", a_width, b_width, z_width, PooledName(pm.module, type).unescape());
 
     for (auto cell : {st.mul, st.add, st.mux, st.ff})
     if (cell)

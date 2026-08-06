@@ -58,7 +58,7 @@ code clk_port en_port
 		clk_port = \C;
 	else log_abort();
 	if (first->type.in($_DFF_N_, $_DFF_P_))
-		en_port = IdString();
+		en_port = IdString::Null;
 	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
 		en_port = \E;
 	else if (first->type.in(\FDRE, \FDRE_1))
@@ -94,7 +94,7 @@ code clk_port en_port
 		clk_port = \C;
 	else log_abort();
 	if (first->type.in($_DFF_N_, $_DFF_P_))
-		en_port = IdString();
+		en_port = IdString::Null;
 	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
 		en_port = \E;
 	else if (first->type.in(\FDRE, \FDRE_1))
@@ -110,7 +110,7 @@ match next
 	index <IdString> next->type === first->type
 	index <SigBit> port(next, \Q) === port(first, \D)
 	filter port(next, clk_port) == port(first, clk_port)
-	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter en_port == IdString::Null || port(next, en_port) == port(first, en_port)
 	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool()
 	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool()
 	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool()
@@ -137,7 +137,7 @@ match next
 	index <IdString> next->type === chain.back()->type
 	index <SigBit> port(next, \Q) === port(chain.back(), \D)
 	filter port(next, clk_port) == port(first, clk_port)
-	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter en_port == IdString::Null || port(next, en_port) == port(first, en_port)
 	filter !first->type.in(\FDRE) || param(next, \IS_C_INVERTED).as_bool() == param(first, \IS_C_INVERTED).as_bool()
 	filter !first->type.in(\FDRE) || param(next, \IS_D_INVERTED).as_bool() == param(first, \IS_D_INVERTED).as_bool()
 	filter !first->type.in(\FDRE) || param(next, \IS_R_INVERTED).as_bool() == param(first, \IS_R_INVERTED).as_bool()
@@ -242,7 +242,7 @@ code clk_port en_port
 		clk_port = \CLK;
 	else log_abort();
 	if (first->type.in($_DFF_N_, $_DFF_P_, $dff))
-		en_port = IdString();
+		en_port = IdString::Null;
 	else if (first->type.in($_DFFE_NN_, $_DFFE_NP_, $_DFFE_PN_, $_DFFE_PP_))
 		en_port = \E;
 	else if (first->type.in($dffe))
@@ -279,7 +279,7 @@ match next
 	index <SigBit> port(next, \Q)[idx] === port(chain.back().first, \D)[chain.back().second]
 	index <SigBit> port(next, \Q)[idx] === port(shiftx, \A)[shiftx_width-1-GetSize(chain)]
 	filter port(next, clk_port) == port(first, clk_port)
-	filter en_port == IdString() || port(next, en_port) == port(first, en_port)
+	filter en_port == IdString::Null || port(next, en_port) == port(first, en_port)
 	filter !next->type.in($dff, $dffe) || param(next, \CLK_POLARITY).as_bool() == param(first, \CLK_POLARITY).as_bool()
 	filter !next->type.in($dffe) || param(next, \EN_POLARITY).as_bool() == param(first, \EN_POLARITY).as_bool()
 	filter !chain_bits.count(port(next, \D)[idx])

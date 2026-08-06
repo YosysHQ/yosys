@@ -94,7 +94,7 @@ struct Coolrunner2SopPass : public Pass {
 					auto sop_width = cell->getParam(ID::WIDTH).as_int();
 					auto sop_table = cell->getParam(ID::TABLE);
 
-					auto sop_output_wire_name = sop_output.wire->name.c_str();
+					auto sop_output_wire_name = sop_output.wire->name.unescape();
 
 					// Check for a $_NOT_ at the output
 					bool has_invert = false;
@@ -170,14 +170,14 @@ struct Coolrunner2SopPass : public Pass {
 								if (has_invert)
 								{
 									auto cell = std::get<0>(x);
-									if (cell->type == ID(FDCP)) cell->type = ID(FDCP_N);
-									else if (cell->type == ID(FDCP_N)) cell->type = ID(FDCP);
-									else if (cell->type == ID(FTCP)) cell->type = ID(FTCP_N);
-									else if (cell->type == ID(FTCP_N)) cell->type = ID(FTCP);
-									else if (cell->type == ID(FDCPE)) cell->type = ID(FDCPE_N);
-									else if (cell->type == ID(FDCPE_N)) cell->type = ID(FDCPE);
-									else if (cell->type == ID(LDCP)) cell->type = ID(LDCP_N);
-									else if (cell->type == ID(LDCP_N)) cell->type = ID(LDCP);
+									if (cell->type == ID::FDCP) cell->type = ID::FDCP_N;
+									else if (cell->type == ID::FDCP_N) cell->type = ID::FDCP;
+									else if (cell->type == ID::FTCP) cell->type = ID::FTCP_N;
+									else if (cell->type == ID::FTCP_N) cell->type = ID::FTCP;
+									else if (cell->type == ID::FDCPE) cell->type = ID::FDCPE_N;
+									else if (cell->type == ID::FDCPE_N) cell->type = ID::FDCPE;
+									else if (cell->type == ID::LDCP) cell->type = ID::LDCP_N;
+									else if (cell->type == ID::LDCP_N) cell->type = ID::LDCP;
 									else log_assert(!"Internal error! Bad cell type!");
 								}
 							}
