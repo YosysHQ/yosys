@@ -37,6 +37,14 @@ IdString read_idstring(std::istream &f)
 	return RTLIL::escape_id(str);
 }
 
+IdString resolve_sym(Design *design, const std::string &tok)
+{
+	IdString ref = design->twines.ref_from_token(tok);
+	if (ref == IdString::Null)
+		log_error("Bad map file: '%s' is not a live name reference of this yosys run\n", tok.c_str());
+	return ref;
+}
+
 struct Xaiger2Frontend : public Frontend {
 	Xaiger2Frontend() : Frontend("xaiger2", "(experimental) read XAIGER file")
 	{

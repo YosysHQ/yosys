@@ -47,11 +47,13 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	if (!module->wires_.count(id))
+	IdString wire_ref = module->design->twines.find(id);
+	RTLIL::Wire *w = module->wire(wire_ref);
+	if (!w)
 		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
 
 	expr += id_len;
-	return module->wires_.at(id);
+	return w;
 }
 
 static bool parse_func_reduce(RTLIL::Module *module, std::vector<token_t> &stack, token_t next_token)
@@ -196,8 +198,10 @@ static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 
 static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 {
-	auto* iq_wire = module->wire(RTLIL::escape_id(node->args.at(0)));
-	auto* iqn_wire = module->wire(RTLIL::escape_id(node->args.at(1)));
+	IdString iq_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(0)));
+	IdString iqn_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(1)));
+	auto* iq_wire = module->wire(iq_ref);
+	auto* iqn_wire = module->wire(iqn_ref);
 	log_assert(iq_wire && iqn_wire);
 	return std::make_pair(iq_wire, iqn_wire);
 }
@@ -239,7 +243,7 @@ static void create_ff(RTLIL::Module *module, const LibertyAst *node)
 			module->addNotGate(NEW_ID, q_sig, out_sig);
 		}
 
-		RTLIL::Cell* cell = module->addCell(NEW_ID, "");
+		RTLIL::Cell* cell = module->addCell(NEW_ID, IdString::Null);
 		cell->setPort(ID::D, data_sig);
 		cell->setPort(ID::Q, q_sig);
 		cell->setPort(ID::C, clk_sig);
@@ -505,8 +509,10 @@ struct LibertyFrontend : public Frontend {
 			parse_type_map(type_map, cell);
 
 			RTLIL::Module *module = new RTLIL::Module;
+			module->design = design;
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-			module->name = cell_name;
+			IdString cell_name_ref = design->twines.add(std::string{cell_name});
+			module->name = cell_name_ref;
 
 			if (flag_lib)
 				module->set_bool_attribute(ID::blackbox);
@@ -519,7 +525,7 @@ struct LibertyFrontend : public Frontend {
 				module->attributes[ID::area] = area->value;
 
 			for (auto &attr : attributes)
-				module->attributes[attr] = 1;
+				module->attributes[design->twines.add(std::string(attr))] = 1;
 
 			bool simple_comb_cell = true, has_outputs = false;
 
@@ -626,7 +632,8 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					RTLIL::Wire *wire = module->wires_.at(RTLIL::escape_id(node->args.at(0)));
+					IdString wire_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(0)));
+					RTLIL::Wire *wire = module->wire(wire_ref);
 					log_assert(wire);
 
 					const LibertyAst *capacitance = node->find("capacitance");
@@ -710,8 +717,8 @@ struct LibertyFrontend : public Frontend {
 				}
 			}
 
-			if (design->has(cell_name)) {
-				Module *existing_mod = design->module(cell_name);
+			if (design->has(cell_name_ref)) {
+				Module *existing_mod = design->module(cell_name_ref);
 				if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 					log_error("Re-definition of cell/module %s!\n", RTLIL::unescape_id(cell_name));
 				} else if (flag_nooverwrite) {

@@ -34,14 +34,14 @@ AST::Binding::Binding(RTLIL::IdString  target_type,
 }
 
 std::string
-AST::Binding::describe() const
+AST::Binding::describe(const RTLIL::Design *design) const
 {
 	std::ostringstream oss;
 	oss << "directive to bind " << ast_node->str
-	    << " to " << target_name.str();
+	    << " to " << design->twines.str(target_name);
 	if (!target_type.empty())
 		oss << " (target type: "
-		    << target_type.str()
+		    << design->twines.str(target_type)
 		    << ")";
 	return oss.str();
 }

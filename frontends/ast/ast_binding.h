@@ -45,7 +45,7 @@ namespace AST
 		        RTLIL::IdString  target_name,
 		        const AstNode   &cell);
 
-		std::string describe() const override;
+		std::string describe(const RTLIL::Design *design) const override;
 
 	private:
 		// The syntax-level representation of the cell to be bound.
