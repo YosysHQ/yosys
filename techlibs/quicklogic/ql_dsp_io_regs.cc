@@ -83,7 +83,7 @@ struct QlDspIORegs : public Pass {
 			for (auto cfg_port : {ID(register_inputs), ID(output_select)})
 			if (!cell->hasPort(cfg_port) || !sigmap(cell->getPort(cfg_port)).is_fully_const())
 				log_error("Missing or non-constant '%s' port on DSP cell %s\n",
-						  cfg_port, cell);
+						  cell->module->design->twines.str(cfg_port).c_str(), cell);
 			int reg_in_i = sigmap(cell->getPort(ID(register_inputs))).as_int();
 			int out_sel_i = sigmap(cell->getPort(ID(output_select))).as_int();
 
@@ -127,7 +127,7 @@ struct QlDspIORegs : public Pass {
 			}
 
 			// Set new type name
-			cell->type = RTLIL::IdString(new_type);
+			cell->type = module->design->twines.add(std::string{new_type});
 
 			std::vector<std::string> ports2del;
 
