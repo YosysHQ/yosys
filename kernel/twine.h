@@ -93,6 +93,9 @@ public:
 
 	Hasher hash_into(Hasher h) const;
 
+	std::string handle_token() const;
+	static size_t handle_token_prefix(std::string_view token, bool &is_public);
+
 private:
 	constexpr bool in_one(IdString rhs) const { return *this == rhs; }
 	bool in_one(const pool<IdString> &rhs) const;
