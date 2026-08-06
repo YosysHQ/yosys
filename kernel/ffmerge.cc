@@ -29,7 +29,7 @@ bool FfMergeHelper::is_output_unused(RTLIL::SigSpec sig) {
 }
 
 bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData(module, initvals, NEW_ID);
+	ff = FfData(module, initvals, module->design->twines.add(NEW_ID));
 	sigmap->apply(sig);
 
 	bool found = false;
@@ -157,7 +157,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 }
 
 bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair<Cell *, int>> &bits) {
-	ff = FfData(module, initvals, NEW_ID);
+	ff = FfData(module, initvals, module->design->twines.add(NEW_ID));
 	sigmap->apply(sig);
 
 	bool found = false;
@@ -303,6 +303,7 @@ void FfMergeHelper::remove_output_ff(const pool<std::pair<Cell *, int>> &bits) {
 		dff_driver.erase((*sigmap)(q[idx]));
 		q[idx] = module->addWire(stringf("$ffmerge_disconnected$%d", autoidx++));
 		cell->setPort(ID::Q, q);
+		initvals->set_init(cell->getPort(ID::Q), (*initvals)(q));
 	}
 }
 

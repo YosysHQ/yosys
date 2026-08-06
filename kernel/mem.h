@@ -91,7 +91,7 @@ struct MemInit : RTLIL::AttrObject {
 
 struct Mem : RTLIL::AttrObject {
 	Module *module;
-	IdString memid;
+	PooledName memid;
 	bool packed;
 	RTLIL::Memory *mem;
 	Cell *cell;
@@ -222,7 +222,9 @@ struct Mem : RTLIL::AttrObject {
 	// in the same clock domain.
 	void emulate_read_first(FfInitVals *initvals);
 
-	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
+	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(module->design, memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
+	Mem(Module *module, Twine &&memid, int width, int start_offset, int size)
+			: Mem(module, module->design->twines.add(std::move(memid)), width, start_offset, size) {}
 };
 
 // MemContents efficiently represents the contents of a potentially sparse memory by storing only those segments that are actually defined

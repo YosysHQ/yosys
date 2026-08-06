@@ -219,12 +219,12 @@ public:
 			return result;
 		}
 
-		std::string path_str() {
+		std::string path_str(const RTLIL::Design *design) {
 			std::string result;
 			for (const auto &item : path()) {
 				if (!result.empty())
 					result.push_back(' ');
-				result += RTLIL::unescape_id(item);
+				result += design->twines.unescaped_str(item);
 			}
 			return result;
 		}
@@ -328,7 +328,7 @@ struct ModuleItem {
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(ptr); return h; }
 };
 
-static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p %s", cursor.target, cursor.scope_name.unescape()); }
+static inline void log_dump_val_worker(typename IdTree<ModuleItem>::Cursor cursor ) { log("%p ", cursor.target); log_dump_val_worker(cursor.scope_name); }
 
 template<typename T>
 static inline void log_dump_val_worker(const typename std::unique_ptr<T> &cursor ) { log("unique %p", cursor.get()); }
@@ -336,14 +336,18 @@ static inline void log_dump_val_worker(const typename std::unique_ptr<T> &cursor
 template<typename O>
 std::vector<IdString> parse_hdlname(const O* object)
 {
+	TwinePool &twines = object->design()->twines;
+	IdString name = object->name;
 	std::vector<IdString> path;
 	for (auto const &item : object->get_hdlname_attribute())
-		path.push_back("\\" + item);
-	if (path.empty() && object->name.isPublic())
-		path.push_back(object->name);
-	if (!path.empty() && !(object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract"))) {
+		path.push_back(twines.add("\\" + item));
+	bool synthetic = !name.isPublic() && !object->name.begins_with("$paramod")
+			&& !object->name.begins_with("$abstract");
+	if (path.empty() && name.isPublic())
+		path.push_back(name);
+	if (!path.empty() && synthetic) {
 		path.pop_back();
-		path.push_back(object->name);
+		path.push_back(name);
 	}
 	return path;
 }
@@ -351,24 +355,25 @@ std::vector<IdString> parse_hdlname(const O* object)
 template<typename O>
 std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 {
+	TwinePool &twines = object->design()->twines;
 	std::vector<IdString> path;
 	IdString trailing = object->name;
-	if (object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")) {
+	if (trailing.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")) {
 		for (auto const &item : object->get_hdlname_attribute())
-			path.push_back("\\" + item);
+			path.push_back(twines.add("\\" + item));
 		if (!path.empty()) {
 			trailing = path.back();
 			path.pop_back();
 		}
 	} else if (object->has_attribute(ID::hdlname)) {
 		for (auto const &item : object->get_hdlname_attribute())
-			path.push_back("\\" + item);
+			path.push_back(twines.add("\\" + item));
 		if (!path.empty()) {
 			path.pop_back();
 		}
 	} else {
 		for (auto const &item : split_tokens(object->get_string_attribute(ID(scopename)), " "))
-			path.push_back("\\" + item);
+			path.push_back(twines.add("\\" + item));
 	}
 	return {path, trailing};
 }

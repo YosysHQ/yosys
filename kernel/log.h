@@ -244,28 +244,10 @@ void log_check_expected();
 
 std::string log_signal(const RTLIL::SigSpec &sig, bool autoint = true);
 std::string log_const(const RTLIL::Const &value, bool autoint = true);
-const char *log_id(const RTLIL::IdString &id);
-
-template<typename T> static inline const char *log_id(T *obj, const char *nullstr = nullptr) {
-	if (nullstr && obj == nullptr)
-		return nullstr;
-	return log_id(obj->name);
-}
 
 void log_module(RTLIL::Module *module, std::string indent = "");
 void log_cell(RTLIL::Cell *cell, std::string indent = "");
 void log_wire(RTLIL::Wire *wire, std::string indent = "");
-
-[[noreturn]]
-void log_assert_failure(const char *expr, const char *file, int line);
-#ifndef NDEBUG
-static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
-	if (!cond) log_assert_failure(expr, file, line);
-}
-#  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
-#else
-#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
-#endif
 
 [[noreturn]]
 void log_abort_internal(const char *file, int line);
@@ -367,7 +349,7 @@ static inline void log_dump_val_worker(const char *v) { log("%s", v); }
 static inline void log_dump_val_worker(std::string v) { log("%s", v); }
 static inline void log_dump_val_worker(PerformanceTimer p) { log("%f seconds", p.sec()); }
 static inline void log_dump_args_worker(const char *p) { log_assert(*p == 0); }
-void log_dump_val_worker(RTLIL::IdString v);
+void log_dump_val_worker(IdString v);
 void log_dump_val_worker(RTLIL::SigSpec v);
 void log_dump_val_worker(RTLIL::State v);
 

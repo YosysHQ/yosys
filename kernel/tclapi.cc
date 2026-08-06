@@ -255,13 +255,15 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("bad usage: expected \"get_attr -mod [-string|-int|-sint|-uint|-bool] <module> <attrname>\""
 			  " or \"get_attr [-string|-int|-sint|-uint|-bool] <module> <identifier> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -269,36 +271,39 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		obj = mod->wire(obj_id);
+		auto obj_twine = search.find(obj_id);
+		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
-			obj = mod->cell(obj_id);
+			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)
 		ERROR("object not found")
 
+	IdString attr_twine = search.find(attr_id);
+
 	if (string_flag) {
-		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->get_string_attribute(attr_id).c_str(), -1));
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->get_string_attribute(attr_twine).c_str(), -1));
 	} else if (int_flag || uint_flag || sint_flag) {
-		if (!obj->has_attribute(attr_id))
+		if (!obj->has_attribute(attr_twine))
 			ERROR("attribute missing (required for -int)");
-		RTLIL::Const &value = obj->attributes.at(attr_id);
+		RTLIL::Const &value = obj->attributes.at(attr_twine);
 
 		mp_int value_mp;
 		if (!const_to_mp_int(value, &value_mp, sint_flag, uint_flag))
 			ERROR("bignum manipulation failed");
 		Tcl_SetObjResult(interp, Tcl_NewBignumObj(&value_mp));
 	} else if (bool_flag) {
-		Tcl_SetObjResult(interp, Tcl_NewBooleanObj(obj->get_bool_attribute(attr_id)));
+		Tcl_SetObjResult(interp, Tcl_NewBooleanObj(obj->get_bool_attribute(attr_twine)));
 	} else {
-		if (!obj->has_attribute(attr_id))
+		if (!obj->has_attribute(attr_twine))
 			ERROR("attribute missing (required unless -bool or -string)")
 
-		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->attributes.at(attr_id).as_string().c_str(), -1));
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->attributes.at(attr_twine).as_string().c_str(), -1));
 	}
 
 	return TCL_OK;
@@ -318,13 +323,15 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 		ERROR("bad usage: expected \"has_attr -mod <module> <attrname>\""
 			  " or \"has_attr <module> <identifier> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(argv[i++]);
 	attr_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -332,19 +339,20 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		obj = mod->wire(obj_id);
+		auto obj_twine = search.find(obj_id);
+		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
-			obj = mod->cell(obj_id);
+			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)
 		ERROR("object not found")
 
-	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(attr_id)).c_str(), -1));
+	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(search.find(attr_id))).c_str(), -1));
 	return TCL_OK;
 }
 
@@ -371,13 +379,15 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 			  " or \"set_attr [-true|-false] <module> <identifier> <attrname>\""
 			  " or \"set_attr -mod [-true|-false| <module> <attrname>\"")
 
-	IdString mod_id, obj_id, attr_id;
+	std::string mod_id, obj_id, attr_id;
 	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	if (!mod_flag)
 		obj_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	attr_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
@@ -385,20 +395,23 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (mod_flag) {
 		obj = mod;
 	} else {
-		obj = mod->wire(obj_id);
+		auto obj_twine = search.find(obj_id);
+		obj = mod->wire(obj_twine);
 		if (!obj)
-			obj = mod->memories.at(obj_id, nullptr);
+			obj = mod->memories.at(obj_twine, nullptr);
 		if (!obj)
-			obj = mod->cell(obj_id);
+			obj = mod->cell(obj_twine);
 		if (!obj)
-			obj = mod->processes.at(obj_id, nullptr);
+			obj = mod->processes.at(obj_twine, nullptr);
 	}
 
 	if (!obj)
 		ERROR("object not found")
 
+	IdString attr_twine = yosys_design->twines.add(std::string(attr_id));
+
 	if (string_flag) {
-		obj->set_string_attribute(attr_id, Tcl_GetString(objv[i++]));
+		obj->set_string_attribute(attr_twine, Tcl_GetString(objv[i++]));
 	} else if (sint_flag || uint_flag) {
 		RTLIL::Const const_;
 		mp_int value_mp;
@@ -418,15 +431,15 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 				const_.extu(32);
 		}
 
-		obj->attributes[attr_id] = const_;
+		obj->attributes[attr_twine] = const_;
 	} else if (bool_flag) {
-		obj->set_bool_attribute(attr_id, atoi(Tcl_GetString(objv[i++])) != 0);
+		obj->set_bool_attribute(attr_twine, atoi(Tcl_GetString(objv[i++])) != 0);
 	} else if (true_flag) {
-		obj->set_bool_attribute(attr_id, true);
+		obj->set_bool_attribute(attr_twine, true);
 	} else if (false_flag) {
-		obj->set_bool_attribute(attr_id, false);
+		obj->set_bool_attribute(attr_twine, false);
 	} else {
-		obj->attributes[attr_id] = Const::from_string(std::string(Tcl_GetString(objv[i++])));
+		obj->attributes[attr_twine] = Const::from_string(std::string(Tcl_GetString(objv[i++])));
 	}
 
 	return TCL_OK;
@@ -449,23 +462,27 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 			(string_flag + int_flag > 1))
 		ERROR("bad usage: expected \"get_param [-string|-int|-sint|-uint] <module> <cellid> <paramname>")
 
-	IdString mod_id, cell_id, param_id;
+	std::string mod_id, cell_id, param_id;
 	mod_id = RTLIL::escape_id(argv[i++]);
 	cell_id = RTLIL::escape_id(argv[i++]);
 	param_id = RTLIL::escape_id(argv[i++]);
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
-	RTLIL::Cell *cell = mod->cell(cell_id);
+	auto cell_twine = search.find(cell_id);
+	Cell* cell = mod->cell(cell_twine);
 	if (!cell)
 		ERROR("object not found")
 
-	if (!cell->hasParam(param_id))
+	IdString param_twine = search.find(param_id);
+	if (!cell->hasParam(param_twine))
 		ERROR("parameter missing")
 
-	const RTLIL::Const &value = cell->getParam(param_id);
+	const RTLIL::Const &value = cell->getParam(param_twine);
 
 	if (string_flag) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(value.decode_string().c_str(), -1));
@@ -495,21 +512,26 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 			(string_flag + sint_flag + uint_flag > 1))
 		ERROR("bad usage: expected \"set_param [-string|-sint|-uint] <module> <cellid> <paramname> <value>")
 
-	IdString mod_id, cell_id, param_id;
+	std::string mod_id, cell_id, param_id;
 	mod_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	cell_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 	param_id = RTLIL::escape_id(Tcl_GetString(objv[i++]));
 
-	RTLIL::Module *mod = yosys_design->module(mod_id);
+	TwineSearch search(&yosys_design->twines);
+	auto mod_twine = search.find(mod_id);
+	RTLIL::Module *mod = yosys_design->module(mod_twine);
 	if (!mod)
 		ERROR("module not found")
 
-	RTLIL::Cell *cell = mod->cell(cell_id);
+	auto cell_twine = search.find(cell_id);
+	RTLIL::Cell *cell = mod->cell(cell_twine);
 	if (!cell)
 		ERROR("object not found")
 
+	IdString param_twine = yosys_design->twines.add(std::string(param_id));
+
 	if (string_flag) {
-		cell->setParam(param_id, Const(std::string(Tcl_GetString(objv[i++]))));
+		cell->setParam(param_twine, Const(std::string(Tcl_GetString(objv[i++]))));
 	} else if (sint_flag || uint_flag) {
 		RTLIL::Const const_;
 		mp_int value_mp;
@@ -529,9 +551,9 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 				const_.extu(32);
 		}
 
-		cell->setParam(param_id, const_);
+		cell->setParam(param_twine, const_);
 	} else {
-		cell->setParam(param_id, Const::from_string(std::string(Tcl_GetString(objv[i++]))));
+		cell->setParam(param_twine, Const::from_string(std::string(Tcl_GetString(objv[i++]))));
 	}
 	return TCL_OK;
 }

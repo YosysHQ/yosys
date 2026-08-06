@@ -65,10 +65,16 @@ struct CellTypes
 		cell_types[ct.type] = ct;
 	}
 
+	template<typename N, YS_NAME_STRING(N)>
+	void setup_type(const N &type_str, const pool<RTLIL::IdString> &inputs, const pool<RTLIL::IdString> &outputs, bool is_evaluable = false, bool is_combinatorial = false, bool is_synthesizable = false)
+	{
+		setup_type(ID::lookup(type_str), inputs, outputs, is_evaluable, is_combinatorial, is_synthesizable);
+	}
+
 	void setup_module(RTLIL::Module *module)
 	{
-		pool<RTLIL::IdString> inputs, outputs;
-		for (RTLIL::IdString wire_name : module->ports) {
+		pool<IdString> inputs, outputs;
+		for (auto wire_name : module->ports) {
 			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
 				inputs.insert(wire->name);
@@ -361,7 +367,7 @@ struct CellTypes
 				signed1 = false, signed2 = false;
 		}
 
-#define HANDLE_CELL_TYPE(_t) if (type == ID($##_t)) return const_ ## _t(arg1, arg2, signed1, signed2, result_len);
+#define HANDLE_CELL_TYPE(_t) if (type == ID::$##_t) return const_ ## _t(arg1, arg2, signed1, signed2, result_len);
 		HANDLE_CELL_TYPE(not)
 		HANDLE_CELL_TYPE(and)
 		HANDLE_CELL_TYPE(or)

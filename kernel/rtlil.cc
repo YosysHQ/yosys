@@ -1042,6 +1042,17 @@ RTLIL::Module *RTLIL::Design::module(IdString id) {
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
 
+RTLIL::Module *RTLIL::module_by_name(RTLIL::Design *design, const std::string &name)
+{
+	if (name.empty())
+		return nullptr;
+	std::string escaped = escape_id(name);
+	for (auto module : design->modules())
+		if (design->twines.name_equal(module->name, escaped))
+			return module;
+	return nullptr;
+}
+
 RTLIL::Module *RTLIL::Design::top_module() const
 {
 	RTLIL::Module *module = nullptr;
@@ -1457,17 +1468,17 @@ size_t RTLIL::Module::count_id(RTLIL::IdString id)
 	return wires_.count(id) + cells_.count(id) + memories.count(id) + processes.count(id);
 }
 
-pool<std::string> RTLIL::Module::object_names() const
+pool<std::string> RTLIL::object_names(const RTLIL::Module *module)
 {
-	const TwinePool &twines = design->twines;
+	const TwinePool &twines = module->design->twines;
 	pool<std::string> names;
-	for (auto &it : wires_)
+	for (auto &it : module->wires_)
 		names.insert(twines.str(it.first));
-	for (auto &it : cells_)
+	for (auto &it : module->cells_)
 		names.insert(twines.str(it.first));
-	for (auto &it : memories)
+	for (auto &it : module->memories)
 		names.insert(twines.str(it.first));
-	for (auto &it : processes)
+	for (auto &it : module->processes)
 		names.insert(twines.str(it.first));
 	return names;
 }
@@ -3092,6 +3103,17 @@ void RTLIL::copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
 		auto &it = *src.element(i);
 		dst[dst_design->twines.copy_from(src_design->twines, it.first)] = it.second;
 	}
+}
+
+RTLIL::Wire *RTLIL::wire_by_name(RTLIL::Module *module, const std::string &name)
+{
+	if (name.empty())
+		return nullptr;
+	std::string escaped = escape_id(name);
+	for (auto wire : module->wires())
+		if (module->design->twines.name_equal(wire->name, escaped))
+			return wire;
+	return nullptr;
 }
 
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
