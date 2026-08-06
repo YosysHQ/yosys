@@ -101,10 +101,10 @@ struct QlDspSimdPass : public Pass {
 		};
 
 		// Source DSP cell type (SISD)
-		static const IdString m_SisdDspType = ID(dsp_t1_10x9x32);
+		static const IdString m_SisdDspType = ID::dsp_t1_10x9x32;
 
 		// Target DSP cell types for the SIMD mode
-		static const IdString m_SimdDspType = ID(QL_DSP2);
+		static const IdString m_SimdDspType = ID::QL_DSP2;
 
 		// Parse args
 		extra_args(a_Args, 1, a_Design);
@@ -197,8 +197,9 @@ struct QlDspSimdPass : public Pass {
 					// MODE_BITS parameter
 					Const mode_bits;
 					for (const auto &it : m_DspParams) {
-						auto val_a = dsp_a->getParam(it);
-						auto val_b = dsp_b->getParam(it);
+						IdString param = module->design->twines.add("\\" + it);
+						auto val_a = dsp_a->getParam(param);
+						auto val_b = dsp_b->getParam(param);
 
 						mode_bits.append(val_a);
 						mode_bits.append(val_b);

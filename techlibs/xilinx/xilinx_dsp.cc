@@ -375,7 +375,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != IdString::Null) {
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(ID::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -407,7 +407,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			SigSpec A = cell->getPort(ID::A);
 			f(A, st.ffA2, ID(CEA2), ID(RSTA));
 			if (st.ffA1) {
-				f(A, st.ffA1, ID(CEA1), IdString());
+				f(A, st.ffA1, ID(CEA1), IdString::Null);
 				cell->setParam(ID(AREG), 2);
 				cell->setParam(ID(ACASCREG), 2);
 			}
@@ -422,7 +422,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			SigSpec B = cell->getPort(ID::B);
 			f(B, st.ffB2, ID(CEB2), ID(RSTB));
 			if (st.ffB1) {
-				f(B, st.ffB1, ID(CEB1), IdString());
+				f(B, st.ffB1, ID(CEB1), IdString::Null);
 				cell->setParam(ID(BREG), 2);
 				cell->setParam(ID(BCASCREG), 2);
 			}
@@ -562,7 +562,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != IdString::Null) {
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(ID::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
@@ -685,7 +685,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
 			if (!A.empty())
 				A.replace(Q, D);
-			if (rstport != IdString()) {
+			if (rstport != IdString::Null) {
 				if (ff->type.in(ID($sdff), ID($sdffe))) {
 					SigSpec srst = ff->getPort(ID::SRST);
 					bool rstpol = ff->getParam(ID::SRST_POLARITY).as_bool();
