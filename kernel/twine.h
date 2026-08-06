@@ -91,6 +91,9 @@ public:
 	}
 
 	Hasher hash_into(Hasher h) const;
+
+	std::string handle_token() const;
+	static size_t handle_token_prefix(std::string_view token, bool &is_public);
 };
 
 constexpr NullIdString::operator IdString() const { return IdString(); }
