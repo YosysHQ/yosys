@@ -22,7 +22,6 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/utils.h"
-#include <deque>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -80,26 +79,6 @@ struct OptBalanceTreeWorker {
 			if (input_port_sigs.count(bit) && !consumed_cells.count(drv))
 				return nullptr;
 		return drv;
-	}
-
-	// Check if the driver graph reachable from head contains a cycle,
-	// following the same edges as the backward chain traversal
-	bool has_cycle(Cell *head, IdString cell_type) {
-		TopoSort<Cell*, IdString::compare_ptr_by_name<Cell>> toposort;
-		toposort.analyze_loops = false;
-		vector<Cell*> queue = {head};
-		while (!queue.empty())
-		{
-			Cell *c = queue.back();
-			queue.pop_back();
-			for (IdString port: {ID::A, ID::B})
-				if (Cell *drv = chain_driver(c, port, cell_type)) {
-					if (!toposort.has_node(drv))
-						queue.push_back(drv);
-					toposort.edge(drv, c);
-				}
-		}
-		return !toposort.sort();
 	}
 
 	// Create a balanced binary tree from a vector of source signals
@@ -288,28 +267,45 @@ struct OptBalanceTreeWorker {
 					if (consumed_cells.count(head_cell))
 						continue;
 
+					// Collect the chain cone into a topological sort
+					TopoSort<Cell*, IdString::compare_ptr_by_name<Cell>> toposort;
+					toposort.analyze_loops = false;
+					toposort.node(head_cell);
+					vector<Cell*> queue = {head_cell};
+					while (!queue.empty())
+					{
+						Cell *x = queue.back();
+						queue.pop_back();
+						for (IdString port: {ID::A, ID::B})
+							if (Cell *drv = chain_driver(x, port, cell_type)) {
+								if (!toposort.has_node(drv))
+									queue.push_back(drv);
+								toposort.edge(drv, x);
+							}
+					}
+
 					// Abandon chains containing combinational loops, since
 					// rebalancing them is not sound (and would not terminate)
-					if (has_cycle(head_cell, cell_type))
+					if (!toposort.sort())
 						continue;
 
-					// Get sources of the chain
+					// Get sources of the chain: process cells from head to
+					// drivers, counting the paths leading back to the head so
+					// reconvergent sources are counted with multiplicity
 					dict<SigSpec, int> sources;
 					dict<SigSpec, bool> signeds;
-					int inner_cells = 0;
-					std::deque<Cell*> bfs_queue = {head_cell};
-					while (bfs_queue.size())
+					int inner_cells = GetSize(toposort.sorted) - 1;
+					dict<Cell*, int> reach;
+					reach[head_cell] = 1;
+					for (int i = GetSize(toposort.sorted); i-- > 0; )
 					{
-						Cell* x = bfs_queue.front();
-						bfs_queue.pop_front();
-
+						Cell* x = toposort.sorted[i];
 						for (IdString port: {ID::A, ID::B}) {
 							if (Cell *drv = chain_driver(x, port, cell_type)) {
-								inner_cells++;
-								bfs_queue.push_back(drv);
+								reach[drv] += reach[x];
 							} else {
 								auto sig = sigmap(x->getPort(port));
-								sources[sig]++;
+								sources[sig] += reach[x];
 								signeds[sig] = x->getParam(port == ID::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
 							}
 						}
