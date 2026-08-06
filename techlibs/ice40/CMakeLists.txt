@@ -60,6 +60,7 @@ yosys_pass(synth_ice40
 		share
 		simplemap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

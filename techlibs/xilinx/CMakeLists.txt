@@ -65,6 +65,7 @@ yosys_pass(synth_xilinx
 		simplemap
 		sort
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

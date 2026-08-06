@@ -83,6 +83,7 @@ yosys_pass(abc9
 		design
 		opt
 		portarcs
+		read_aiger
 		read_verilog
 		scc
 		select
@@ -90,6 +91,7 @@ yosys_pass(abc9
 		submod
 		techmap
 		wbflip
+		write_xaiger
 )
 yosys_pass(abc_new
 	abc_new.cc
