@@ -135,7 +135,7 @@ void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, boo
 void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire)
 {
 	dump_attributes(f, indent, wire);
-	if (wire->driverCell_) {
+	if (wire->known_driver()) {
 		f << stringf("%s" "# driver %s %s\n", indent,
 				wire->driverCell()->name, wire->driverPort());
 	}

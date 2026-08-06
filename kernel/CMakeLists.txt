@@ -42,6 +42,7 @@ yosys_core(kernel
 	functional.h
 	gzip.cc
 	gzip.h
+	hashcons.h
 	hashlib.h
 	io.cc
 	io.h
@@ -58,6 +59,7 @@ yosys_core(kernel
 	modtools.h
 	newcelltypes.h
 	pattern.h
+	pmux.h
 	qcsat.cc
 	qcsat.h
 	register.cc
@@ -66,6 +68,8 @@ yosys_core(kernel
 	rtlil_bufnorm.cc
 	rtlil.cc
 	rtlil.h
+	rtlil_twine_compat.h
+	rtlil_twine_compat_impl.h
 	satgen.cc
 	satgen.h
 	scopeinfo.cc
@@ -78,6 +82,8 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	twine.cc
+	twine.h
 	unused_bits.h
 	utils.h
 	version.cc
@@ -127,6 +133,7 @@ yosys_core(kernel
 		ffmerge.h
 		fmt.h
 		gzip.h
+		hashcons.h
 		hashlib.h
 		io.h
 		json.h
@@ -137,12 +144,15 @@ yosys_core(kernel
 		qcsat.h
 		register.h
 		rtlil.h
+		rtlil_twine_compat.h
+		rtlil_twine_compat_impl.h
 		satgen.h
 		scopeinfo.h
 		sexpr.h
 		sigtools.h
 		threading.h
 		timinginfo.h
+		twine.h
 		unused_bits.h
 		utils.h
 		yosys.h
