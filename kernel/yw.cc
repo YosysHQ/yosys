@@ -23,7 +23,7 @@
 USING_YOSYS_NAMESPACE
 
 // Use the same formatting as witness.py uses
-static const char *pretty_name(IdString id)
+static const char *pretty_name(const std::string &id)
 {
 	const char *c_str = id.c_str();
 	const char *p = c_str;
@@ -77,7 +77,7 @@ bool IdPath::get_address(int &addr) const
 	if (empty())
 		return false;
 	auto &last = back();
-	if (!last.begins_with("\\["))
+	if (!last.starts_with("\\["))
 		return false;
 	if (last == "\\[0]") {
 		addr = 0;
@@ -91,9 +91,9 @@ bool IdPath::get_address(int &addr) const
 	return endptr[0] == ']' && endptr[1] == 0;
 }
 
-static std::vector<IdString> get_path(const json11::Json &json)
+static std::vector<std::string> get_path(const json11::Json &json)
 {
-	std::vector<IdString> result;
+	std::vector<std::string> result;
 	for (auto &path_item : json.array_items()) {
 		auto const &path_item_str = path_item.string_value();
 		if (path_item_str.empty())
