@@ -26,39 +26,45 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct HierDirtyFlags;
 
-static pool<string> reserved_cids;
-static dict<IdString, string> id2cid;
-
-static string cid(IdString id)
+struct CIdentifiers
 {
-	if (id2cid.count(id) == 0)
+	const Design *design;
+	pool<string> reserved;
+	dict<IdString, string> id2cid;
+
+	CIdentifiers(const Design *design) : design(design) { }
+
+	string cid(IdString id)
 	{
-		string s = id.str();
-		if (GetSize(s) < 2) log_abort();
+		if (id2cid.count(id) == 0)
+		{
+			string s = design->twines.str(id);
+			if (GetSize(s) < 2) log_abort();
 
-		if (s[0] == '\\')
-			s = s.substr(1);
+			if (s[0] == '\\')
+				s = s.substr(1);
 
-		if ('0' <= s[0] && s[0] <= '9') {
-			s = "_" + s;
+			if ('0' <= s[0] && s[0] <= '9') {
+				s = "_" + s;
+			}
+
+			for (int i = 0; i < GetSize(s); i++) {
+				if ('0' <= s[i] && s[i] <= '9') continue;
+				if ('A' <= s[i] && s[i] <= 'Z') continue;
+				if ('a' <= s[i] && s[i] <= 'z') continue;
+				s[i] = '_';
+			}
+
+			while (reserved.count(s))
+				s += "_";
+
+			reserved.insert(s);
+			id2cid[id] = s;
 		}
 
-		for (int i = 0; i < GetSize(s); i++) {
-			if ('0' <= s[i] && s[i] <= '9') continue;
-			if ('A' <= s[i] && s[i] <= 'Z') continue;
-			if ('a' <= s[i] && s[i] <= 'z') continue;
-			s[i] = '_';
-		}
-
-		while (reserved_cids.count(s))
-			s += "_";
-
-		reserved_cids.insert(s);
-		id2cid[id] = s;
+		return id2cid.at(id);
 	}
-
-	return id2cid.at(id);
-}
+};
 
 struct HierDirtyFlags
 {
@@ -72,13 +78,13 @@ struct HierDirtyFlags
 	dict<IdString, HierDirtyFlags*> children;
 	string prefix, log_prefix;
 
-	HierDirtyFlags(Module *module, IdString hiername, HierDirtyFlags *parent, const string &prefix, const string &log_prefix) :
+	HierDirtyFlags(CIdentifiers &cids, Module *module, IdString hiername, HierDirtyFlags *parent, const string &prefix, const string &log_prefix) :
 			dirty(0), module(module), hiername(hiername), parent(parent), prefix(prefix), log_prefix(log_prefix)
 	{
 		for (Cell *cell : module->cells()) {
 			Module *mod = module->design->module(cell->type);
-			if (mod) children[cell->name] = new HierDirtyFlags(mod, cell->name, this,
-					prefix + cid(cell->name) + ".", log_prefix + "." + prefix + cell->name.unescape());
+			if (mod) children[cell->name] = new HierDirtyFlags(cids, mod, cell->name, this,
+					prefix + cids.cid(cell->name) + ".", log_prefix + "." + prefix + cell->name.unescape());
 		}
 	}
 
@@ -154,6 +160,7 @@ struct SimplecWorker
 	int max_uintsize = 32;
 
 	Design *design;
+	CIdentifiers cids;
 	dict<Module*, SigMap> sigmaps;
 
 	vector<string> signal_declarations;
@@ -176,8 +183,13 @@ struct SimplecWorker
 	pool<string> activated_cells;
 	pool<string> reactivated_cells;
 
-	SimplecWorker(Design *design) : design(design)
+	SimplecWorker(Design *design) : design(design), cids(design)
 	{
+	}
+
+	string cid(IdString id)
+	{
+		return cids.cid(id);
 	}
 
 	string sigtype(int n)
@@ -524,6 +536,7 @@ struct SimplecWorker
 					for (SigBit bit : dirtysig)
 					{
 						if (bit2output[work->module].count(bit) && work->parent)
+						{
 							for (auto outbit : bit2output[work->module][bit])
 							{
 								Module *parent_mod = work->parent->module;
@@ -542,6 +555,7 @@ struct SimplecWorker
 									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
 											work->parent->log_prefix.c_str(), parent_bit.wire, parent_bit.offset);
 							}
+						}
 
 						for (auto &port : bit2cell[work->module][bit])
 						{
@@ -716,7 +730,7 @@ struct SimplecWorker
 	{
 		create_module_struct(mod);
 
-		HierDirtyFlags work(mod, IdString(), nullptr, "state->", mod->name.unescape());
+		HierDirtyFlags work(cids, mod, IdString(), nullptr, "state->", mod->name.unescape());
 
 		make_init_func(&work);
 		make_eval_func(&work);
@@ -765,9 +779,6 @@ struct SimplecBackend : public Backend {
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		reserved_cids.clear();
-		id2cid.clear();
-
 		SimplecWorker worker(design);
 
 		log_header(design, "Executing SIMPLEC backend.\n");
