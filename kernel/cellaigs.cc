@@ -94,7 +94,9 @@ struct AigMaker
 	int inport(IdString portname, int portbit = 0, bool inverter = false)
 	{
 		if (portbit >= GetSize(cell->getPort(portname))) {
-			if (cell->parameters.count(portname.str() + "_SIGNED") && cell->getParam(portname.str() + "_SIGNED").as_bool())
+			IdString signed_param = cell->module->design->twines.find(
+				cell->module->design->twines.str(portname) + "_SIGNED");
+		if (signed_param != IdString::Null && cell->parameters.count(signed_param) && cell->getParam(signed_param).as_bool())
 				return inport(portname, GetSize(cell->getPort(portname))-1, inverter);
 			return bool_node(inverter);
 		}
@@ -266,7 +268,7 @@ struct AigMaker
 
 Aig::Aig(Cell *cell)
 {
-	if (cell->type[0] != '$')
+	if (cell->type.isPublic())
 		return;
 
 	AigMaker mk(this, cell);

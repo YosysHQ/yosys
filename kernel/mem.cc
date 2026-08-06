@@ -122,7 +122,7 @@ void Mem::emit() {
 		}
 		if (!cell) {
 			if (memid.empty())
-				memid = NEW_ID;
+				memid = PooledName(module->design, module->design->twines.add(NEW_ID));
 			cell = module->addCell(memid, ID($mem_v2));
 		}
 		cell->type = ID($mem_v2);
@@ -291,10 +291,8 @@ void Mem::emit() {
 		}
 		if (!mem) {
 			if (memid.empty())
-				memid = NEW_ID;
-			mem = new RTLIL::Memory;
-			mem->name = memid;
-			module->memories[memid] = mem;
+				memid = PooledName(module->design, module->design->twines.add(NEW_ID));
+			mem = module->addMemory(memid);
 		}
 		mem->width = width;
 		mem->start_offset = start_offset;
@@ -349,8 +347,11 @@ void Mem::emit() {
 			bool v2 = !init.en.is_fully_ones();
 			if (!init.cell)
 				init.cell = module->addCell(NEW_ID, v2 ? ID($meminit_v2) : ID($meminit));
-			else
+			else {
+				if (!v2)
+					init.cell->unsetPort(ID::EN);
 				init.cell->type = v2 ? ID($meminit_v2) : ID($meminit);
+			}
 			init.cell->attributes = init.attributes;
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
@@ -361,8 +362,6 @@ void Mem::emit() {
 			init.cell->setPort(ID::DATA, init.data);
 			if (v2)
 				init.cell->setPort(ID::EN, init.en);
-			else
-				init.cell->unsetPort(ID::EN);
 		}
 	}
 }
@@ -544,9 +543,9 @@ void Mem::check() {
 namespace {
 
 	struct MemIndex {
-		dict<IdString, pool<Cell *>> rd_ports;
-		dict<IdString, pool<Cell *>> wr_ports;
-		dict<IdString, pool<Cell *>> inits;
+		dict<std::string, pool<Cell *>> rd_ports;
+		dict<std::string, pool<Cell *>> wr_ports;
+		dict<std::string, pool<Cell *>> inits;
 		MemIndex (Module *module) {
 			for (auto cell: module->cells()) {
 				if (cell->type.in(ID($memwr), ID($memwr_v2)))
@@ -560,14 +559,15 @@ namespace {
 	};
 
 	Mem mem_from_memory(Module *module, RTLIL::Memory *mem, const MemIndex &index) {
+		std::string memid = mem->name.str();
 		Mem res(module, mem->name, mem->width, mem->start_offset, mem->size);
 		res.packed = false;
 		res.mem = mem;
 		res.attributes = mem->attributes;
 		std::vector<bool> rd_transparent;
 		std::vector<int> wr_portid;
-		if (index.rd_ports.count(mem->name)) {
-			for (auto cell : index.rd_ports.at(mem->name)) {
+		if (index.rd_ports.count(memid)) {
+			for (auto cell : index.rd_ports.at(memid)) {
 				MemRd mrd;
 				bool is_compat = cell->type == ID($memrd);
 				mrd.cell = cell;
@@ -609,9 +609,9 @@ namespace {
 				rd_transparent.push_back(transparent);
 			}
 		}
-		if (index.wr_ports.count(mem->name)) {
+		if (index.wr_ports.count(memid)) {
 			std::vector<std::pair<int, MemWr>> ports;
-			for (auto cell : index.wr_ports.at(mem->name)) {
+			for (auto cell : index.wr_ports.at(memid)) {
 				MemWr mwr;
 				bool is_compat = cell->type == ID($memwr);
 				mwr.cell = cell;
@@ -654,9 +654,9 @@ namespace {
 				}
 			}
 		}
-		if (index.inits.count(mem->name)) {
+		if (index.inits.count(memid)) {
 			std::vector<std::pair<int, MemInit>> inits;
-			for (auto cell : index.inits.at(mem->name)) {
+			for (auto cell : index.inits.at(memid)) {
 				MemInit init;
 				init.cell = cell;
 				init.attributes = cell->attributes;
@@ -716,7 +716,7 @@ namespace {
 	}
 
 	Mem mem_from_cell(Cell *cell) {
-		Mem res(cell->module, cell->parameters.at(ID::MEMID).decode_string(),
+		Mem res(cell->module, cell->module->design->twines.add(cell->parameters.at(ID::MEMID).decode_string()),
 			cell->parameters.at(ID::WIDTH).as_int(),
 			cell->parameters.at(ID::OFFSET).as_int(),
 			cell->parameters.at(ID::SIZE).as_int()
@@ -887,6 +887,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	if (!port.clk_enable)
 		return nullptr;
 
+	log_assert(module && module->design);
+	std::string memid_str = memid.str();
+
 	Cell *c;
 
 	// There are two ways to handle rdff extraction when transparency is involved:
@@ -923,7 +926,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		if (width)
 		{
-			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid, idx), width);
+			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid_str, idx), width);
 			SigSpec sig_d;
 
 			int pos = 0;
@@ -933,7 +936,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 					port.addr[i] = sig_q[pos++];
 				}
 
-			c = module->addDff(stringf("$%s$rdreg[%d]", memid, idx), port.clk, sig_d, sig_q, port.clk_polarity);
+			c = module->addDff(stringf("$%s$rdreg[%d]", memid_str, idx), port.clk, sig_d, sig_q, port.clk_polarity);
 		} else {
 			c = nullptr;
 		}
@@ -942,7 +945,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	{
 		log_assert(port.arst == State::S0 || port.srst == State::S0);
 
-		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid, idx), GetSize(port.data));
+		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid_str, idx), GetSize(port.data));
 		SigSpec sig_d = async_d;
 
 		for (int i = 0; i < GetSize(wr_ports); i++) {
@@ -965,7 +968,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						raddr = port.sub_addr(sub);
 					SigSpec addr_eq;
 					if (raddr != waddr)
-						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid, idx, i, sub), raddr, waddr);
+						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid_str, idx, i, sub), raddr, waddr);
 					int pos = 0;
 					int ewidth = width << min_wide_log2;
 					int wsub = wide_write ? sub : 0;
@@ -978,10 +981,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						SigSpec other = port.transparency_mask[i] ? wport.data.extract(pos + wsub * width, epos-pos) : Const(State::Sx, epos-pos);
 						SigSpec cond;
 						if (raddr != waddr)
-							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
+							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
 						else
 							cond = wport.en[pos + wsub * width];
-						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid, idx, i, sub, pos), cur, other, cond);
+						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), cur, other, cond);
 						sig_d.replace(pos + rsub * width, merged);
 						pos = epos;
 					}
@@ -989,7 +992,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			}
 		}
 
-		IdString name = stringf("$%s$rdreg[%d]", memid, idx);
+		IdString name = module->design->twines.add(stringf("$%s$rdreg[%d]", memid_str, idx));
 		FfData ff(module, initvals, name);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
