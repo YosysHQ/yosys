@@ -22,7 +22,9 @@
 
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
+#include "kernel/twine.h"
 
+#include <deque>
 #include <string_view>
 #include <unordered_map>
 
@@ -84,14 +86,6 @@ namespace RTLIL
 		SB_EXCL_BB_CMDERR = 15 // call log_cmd_error on black boxed module
 	};
 
-	enum class StaticId : short {
-		STATIC_ID_BEGIN = 0,
-#define X(N) N,
-#include "kernel/constids.inc"
-#undef X
-		STATIC_ID_END,
-	};
-
 	enum PortDir : unsigned char  {
 		PD_UNKNOWN = 0,
 		PD_INPUT = 1,
@@ -123,632 +117,21 @@ namespace RTLIL
 	struct SyncRule;
 	struct Process;
 	struct Binding;
-	struct IdString;
-	struct OwningIdString;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
 };
 
-struct RTLIL::IdString
-{
-	struct Storage {
-		char *buf;
-		int size;
+struct SigMap;
 
-		std::string_view str_view() const { return {buf, static_cast<size_t>(size)}; }
-	};
-	struct AutoidxStorage {
-		// Append the negated (i.e. positive) ID to this string to get
-		// the real string. The prefix strings must live forever.
-		const std::string *prefix;
-		// Cache of the full string, or nullptr if not cached yet.
-		std::atomic<char *> full_str;
 
-		AutoidxStorage(const std::string *prefix) : prefix(prefix), full_str(nullptr) {}
-		AutoidxStorage(AutoidxStorage&& other) : prefix(other.prefix), full_str(other.full_str.exchange(nullptr, std::memory_order_relaxed)) {}
-		~AutoidxStorage() { delete[] full_str.load(std::memory_order_acquire); }
-	};
-
-	// the global id string cache
-
-	static bool destruct_guard_ok; // POD, will be initialized to zero
-	static struct destruct_guard_t {
-		destruct_guard_t() { destruct_guard_ok = true; }
-		~destruct_guard_t() { destruct_guard_ok = false; }
-	} destruct_guard;
-
-	// String storage for non-autoidx IDs
-	static std::vector<Storage> global_id_storage_;
-	// Lookup table for non-autoidx IDs
-	static std::unordered_map<std::string_view, int> global_id_index_;
-	// Storage for autoidx IDs, which have negative indices, i.e. all entries in this
-	// map have negative keys.
-	static std::unordered_map<int, AutoidxStorage> global_autoidx_id_storage_;
-	// All (index, refcount) pairs in this map have refcount > 0.
-	static std::unordered_map<int, int> global_refcount_storage_;
-	static std::vector<int> global_free_idx_list_;
-
-	static int refcount(int idx) {
-		auto it = global_refcount_storage_.find(idx);
-		if (it == global_refcount_storage_.end())
-			return 0;
-		return it->second;
-	}
-
-	static inline void xtrace_db_dump()
-	{
-	#ifdef YOSYS_XTRACE_GET_PUT
-		for (int idx = 0; idx < GetSize(global_id_storage_); idx++)
-		{
-			if (global_id_storage_.at(idx).buf == nullptr)
-				log("#X# DB-DUMP index %d: FREE\n", idx);
-			else
-				log("#X# DB-DUMP index %d: '%s' (ref %u)\n", idx, global_id_storage_.at(idx).buf, refcount(idx));
-		}
-	#endif
-	}
-
-	static inline void checkpoint()
-	{
-	#ifdef YOSYS_SORT_ID_FREE_LIST
-		std::sort(global_free_idx_list_.begin(), global_free_idx_list_.end(), std::greater<int>());
-	#endif
-	}
-
-	static int insert(std::string_view p)
-	{
-		log_assert(destruct_guard_ok);
-		log_assert(!Multithreading::active());
-
-		auto it = global_id_index_.find(p);
-		if (it != global_id_index_.end()) {
-	#ifdef YOSYS_XTRACE_GET_PUT
-			if (yosys_xtrace)
-				log("#X# GET-BY-NAME '%s' (index %d, refcount %u)\n", global_id_storage_.at(it->second).buf, it->second, refcount(it->second));
-	#endif
-			return it->second;
-		}
-		return really_insert(p, it);
-	}
-
-	// Inserts an ID with string `prefix + autoidx', incrementing autoidx.
-	// `prefix` must start with '$auto$', end with '$', and live forever.
-	static IdString new_autoidx_with_prefix(const std::string *prefix) {
-		log_assert(!Multithreading::active());
-		int index = -(autoidx++);
-		global_autoidx_id_storage_.insert({index, prefix});
-		return from_index(index);
-	}
-
-	// the actual IdString object is just is a single int
-
-	int index_;
-
-	constexpr inline IdString() : index_(0) { }
-	inline IdString(const char *str) : index_(insert(std::string_view(str))) { }
-	constexpr IdString(const IdString &str) = default;
-	IdString(IdString &&str) = default;
-	inline IdString(const std::string &str) : index_(insert(std::string_view(str))) { }
-	inline IdString(std::string_view str) : index_(insert(str)) { }
-	constexpr inline IdString(StaticId id) : index_(static_cast<short>(id)) {}
-
-	IdString &operator=(const IdString &rhs) = default;
-
-	inline void operator=(const char *rhs) {
-		IdString id(rhs);
-		*this = id;
-	}
-
-	inline void operator=(const std::string &rhs) {
-		IdString id(rhs);
-		*this = id;
-	}
-
-	inline const char *c_str() const {
-		if (index_ >= 0)
-			return global_id_storage_.at(index_).buf;
-
-		AutoidxStorage &s = global_autoidx_id_storage_.at(index_);
-		char *full_str = s.full_str.load(std::memory_order_acquire);
-		if (full_str != nullptr)
-			return full_str;
-		const std::string &prefix = *s.prefix;
-		std::string suffix = std::to_string(-index_);
-		char *c = new char[prefix.size() + suffix.size() + 1];
-		memcpy(c, prefix.data(), prefix.size());
-		memcpy(c + prefix.size(), suffix.c_str(), suffix.size() + 1);
-		if (s.full_str.compare_exchange_strong(full_str, c, std::memory_order_acq_rel))
-			return c;
-		delete[] c;
-		return full_str;
-	}
-
-	inline std::string str() const {
-		std::string result;
-		append_to(&result);
-		return result;
-	}
-
-	inline void append_to(std::string *out) const {
-		if (index_ >= 0) {
-			*out += global_id_storage_.at(index_).str_view();
-			return;
-		}
-		*out += *global_autoidx_id_storage_.at(index_).prefix;
-		*out += std::to_string(-index_);
-	}
-
-	std::string unescape() const {
-		if (index_ < 0) {
-			// Must start with "$auto$" so no unescaping required.
-			return str();
-		}
-		std::string_view str = global_id_storage_.at(index_).str_view();
-		if (str.size() < 2 || str[0] != '\\' || str[1] == '$' || str[1] == '\\' || (str[1] >= '0' && str[1] <= '9'))
-			return std::string(str);
-		return std::string(str.substr(1));
-	}
-
-	class Substrings {
-		std::string_view first_;
-		int suffix_number;
-		char buf[10];
-	public:
-		Substrings(const Storage &storage) : first_(storage.str_view()), suffix_number(-1) {}
-		// suffix_number must be non-negative
-		Substrings(const std::string *prefix, int suffix_number)
-				: first_(*prefix), suffix_number(suffix_number) {}
-		std::string_view first() { return first_; }
-		std::optional<std::string_view> next() {
-			if (suffix_number < 0)
-				return std::nullopt;
-                       int i = sizeof(buf);
-			do {
-				--i;
-                               buf[i] = (suffix_number % 10) + '0';
-                               suffix_number /= 10;
-			} while (suffix_number > 0);
-			suffix_number = -1;
-			return std::string_view(buf + i, sizeof(buf) - i);
-		}
-	};
-
-	class const_iterator {
-		const std::string *prefix;
-		std::string suffix;
-		const char *c_str;
-		int c_str_len;
-		// When this is INT_MAX it's the generic "end" value.
-		int index;
-
-	public:
-		using iterator_category = std::forward_iterator_tag;
-		using value_type = char;
-		using difference_type = std::ptrdiff_t;
-		using pointer = const char*;
-		using reference = const char&;
-
-		const_iterator(const Storage &storage) : prefix(nullptr), c_str(storage.buf), c_str_len(storage.size), index(0) {}
-		const_iterator(const std::string *prefix, int number) :
-				prefix(prefix), suffix(std::to_string(number)), c_str(nullptr), c_str_len(0), index(0) {}
-		// Construct end-marker
-		const_iterator() : prefix(nullptr), c_str(nullptr), c_str_len(0), index(INT_MAX) {}
-
-		int size() const {
-			if (c_str != nullptr)
-				return c_str_len;
-			return GetSize(*prefix) + GetSize(suffix);
-		}
-
-		char operator*() const {
-			if (c_str != nullptr)
-				return c_str[index];
-			int prefix_size = GetSize(*prefix);
-			if (index < prefix_size)
-				return prefix->at(index);
-			return suffix[index - prefix_size];
-		}
-
-		const_iterator& operator++() { ++index; return *this; }
-		const_iterator operator++(int) { const_iterator result(*this); ++index; return result; }
-		const_iterator& operator+=(int i) { index += i; return *this; }
-
-		const_iterator operator+(int add) {
-			const_iterator result = *this;
-			result += add;
-			return result;
-		}
-
-		bool operator==(const const_iterator& other) const {
-			return index == other.index || (other.index == INT_MAX && index == size())
-				|| (index == INT_MAX && other.index == other.size());
-		}
-		bool operator!=(const const_iterator& other) const {
-			return !(*this == other);
-		}
-	};
-	const_iterator begin() const {
-		if (index_ >= 0) {
-			return const_iterator(global_id_storage_.at(index_));
-		}
-		return const_iterator(global_autoidx_id_storage_.at(index_).prefix, -index_);
-	}
-	const_iterator end() const {
-		return const_iterator();
-	}
-
-	Substrings substrings() const {
-		if (index_ >= 0) {
-			return Substrings(global_id_storage_.at(index_));
-		}
-		return Substrings(global_autoidx_id_storage_.at(index_).prefix, -index_);
-	}
-
-	inline bool lt_by_name(IdString rhs) const {
-		Substrings lhs_it = substrings();
-		Substrings rhs_it = rhs.substrings();
-		std::string_view lhs_substr = lhs_it.first();
-		std::string_view rhs_substr = rhs_it.first();
-		while (true) {
-			int min = std::min(GetSize(lhs_substr), GetSize(rhs_substr));
-			int diff = memcmp(lhs_substr.data(), rhs_substr.data(), min);
-			if (diff != 0)
-				return diff < 0;
-			lhs_substr = lhs_substr.substr(min);
-			rhs_substr = rhs_substr.substr(min);
-			if (rhs_substr.empty()) {
-				if (std::optional<std::string_view> s = rhs_it.next())
-					rhs_substr = *s;
-				else
-					return false;
-			}
-			if (lhs_substr.empty()) {
-				if (std::optional<std::string_view> s = lhs_it.next())
-					lhs_substr = *s;
-				else
-					return true;
-			}
-		}
-	}
-
-	inline bool operator<(IdString rhs) const {
-		return index_ < rhs.index_;
-	}
-
-	inline bool operator==(IdString rhs) const { return index_ == rhs.index_; }
-	inline bool operator!=(IdString rhs) const { return index_ != rhs.index_; }
-
-	// The methods below are just convenience functions for better compatibility with std::string.
-
-	bool operator==(const std::string &rhs) const { return c_str() == rhs; }
-	bool operator!=(const std::string &rhs) const { return c_str() != rhs; }
-
-	bool operator==(const char *rhs) const { return strcmp(c_str(), rhs) == 0; }
-	bool operator!=(const char *rhs) const { return strcmp(c_str(), rhs) != 0; }
-
-	char operator[](size_t i) const {
-		if (index_ >= 0) {
-			const Storage &storage = global_id_storage_.at(index_);
-#ifndef NDEBUG
-			log_assert(static_cast<int>(i) < storage.size);
-#endif
-			return *(storage.buf + i);
-		}
-		const std::string &id_start = *global_autoidx_id_storage_.at(index_).prefix;
-		if (i < id_start.size())
-			return id_start[i];
-		i -= id_start.size();
-		std::string suffix = std::to_string(-index_);
-#ifndef NDEBUG
-		// Allow indexing to access the trailing null.
-		log_assert(i <= suffix.size());
-#endif
-		return suffix[i];
-	}
-
-	std::string substr(size_t pos = 0, size_t len = std::string::npos) const {
-		std::string result;
-		const_iterator it = begin() + pos;
-		const_iterator end_it = end();
-		if (len != std::string::npos && len < it.size() - pos) {
-			end_it = it + len;
-		}
-		std::copy(it, end_it, std::back_inserter(result));
-		return result;
-	}
-
-	int compare(size_t pos, size_t len, const char* s) const {
-		const_iterator it = begin() + pos;
-		const_iterator end_it = end();
-		while (len > 0 && *s != 0 && it != end_it) {
-			int diff = *it - *s;
-			if (diff != 0)
-				return diff;
-			++it;
-			++s;
-			--len;
-		}
-		return 0;
-	}
-
-	bool begins_with(std::string_view prefix) const {
-		Substrings it = substrings();
-		std::string_view substr = it.first();
-		while (true) {
-			int min = std::min(GetSize(substr), GetSize(prefix));
-			if (memcmp(substr.data(), prefix.data(), min) != 0)
-				return false;
-			prefix = prefix.substr(min);
-			if (prefix.empty())
-				return true;
-			substr = substr.substr(min);
-			if (substr.empty()) {
-				if (std::optional<std::string_view> s = it.next())
-					substr = *s;
-				else
-					return false;
-			}
-		}
-	}
-
-	bool ends_with(std::string_view suffix) const {
-		size_t sz = size();
-		if (sz < suffix.size()) return false;
-		return compare(sz - suffix.size(), suffix.size(), suffix.data()) == 0;
-	}
-
-	bool contains(std::string_view s) const {
-		if (index_ >= 0)
-			return global_id_storage_.at(index_).str_view().find(s) != std::string::npos;
-		return str().find(s) != std::string::npos;
-	}
-
-	size_t size() const {
-		return begin().size();
-	}
-
-	bool empty() const {
-		return index_ == 0;
-	}
-
-	void clear() {
-		*this = IdString();
-	}
-
-	[[nodiscard]] Hasher hash_into(Hasher h) const { return hash_ops<int>::hash_into(index_, h); }
-
-	[[nodiscard]] Hasher hash_top() const {
-		Hasher h;
-		h.force((Hasher::hash_t) index_);
-		return h;
-	}
-
-	// The following is a helper key_compare class. Instead of for example std::set<Cell*>
-	// use std::set<Cell*, IdString::compare_ptr_by_name<Cell>> if the order of cells in the
-	// set has an influence on the algorithm.
-
-	template<typename T> struct compare_ptr_by_name {
-		bool operator()(const T *a, const T *b) const {
-			return (a == nullptr || b == nullptr) ? (a < b) : (a->name < b->name);
-		}
-	};
-
-	// often one needs to check if a given IdString is part of a list (for example a list
-	// of cell types). the following functions helps with that.
-	template<typename... Args>
-	bool in(const Args &... args) const {
-		return (... || in(args));
-	}
-
-	bool in(IdString rhs) const { return *this == rhs; }
-	bool in(const char *rhs) const { return *this == rhs; }
-	bool in(const std::string &rhs) const { return *this == rhs; }
-	inline bool in(const pool<IdString> &rhs) const;
-	inline bool in(const pool<IdString> &&rhs) const;
-
-	bool isPublic() const { return begins_with("\\"); }
-
-private:
-	static void prepopulate();
-	static int really_insert(std::string_view p, std::unordered_map<std::string_view, int>::iterator &it);
-
-protected:
-	static IdString from_index(int index) {
-		IdString result;
-		result.index_ = index;
-		return result;
-	}
-
-public:
-	static void ensure_prepopulated() {
-		if (global_id_index_.empty())
-			prepopulate();
-	}
-};
-
-struct RTLIL::OwningIdString : public RTLIL::IdString {
-	inline OwningIdString() { }
-	inline OwningIdString(const OwningIdString &str) : IdString(str) { get_reference(); }
-	inline OwningIdString(const char *str) : IdString(str) { get_reference(); }
-	inline OwningIdString(const IdString &str) : IdString(str) { get_reference(); }
-	inline OwningIdString(IdString &&str) : IdString(str) {	get_reference(); }
-	inline OwningIdString(const std::string &str) : IdString(str) { get_reference(); }
-	inline OwningIdString(std::string_view str) : IdString(str) { get_reference(); }
-	inline OwningIdString(StaticId id) : IdString(id) {}
-	inline ~OwningIdString() {
-		put_reference();
-	}
-
-	inline OwningIdString &operator=(const OwningIdString &rhs) {
-		put_reference();
-		index_ = rhs.index_;
-		get_reference();
-		return *this;
-	}
-	inline OwningIdString &operator=(const IdString &rhs) {
-		put_reference();
-		index_ = rhs.index_;
-		get_reference();
-		return *this;
-	}
-	inline OwningIdString &operator=(OwningIdString &&rhs) {
-		std::swap(index_, rhs.index_);
-		return *this;
-	}
-
-	// Collect all non-owning references.
-	static void collect_garbage();
-	static int64_t garbage_collection_ns() { return gc_ns; }
-	static int garbage_collection_count() { return gc_count; }
-
-	// Used by the ID() macro to create an IdString with no destructor whose string will
-	// never be released. If ID() creates a closure-static `OwningIdString` then
-	// initialization of the static registers its destructor to run at exit, which is
-	// wasteful.
-	static IdString immortal(const char* str) {
-		IdString result(str);
-		get_reference(result.index_);
-		return result;
-	}
-private:
-	static int64_t gc_ns;
-	static int gc_count;
-
-	void get_reference()
-	{
-		get_reference(index_);
-	}
-	static void get_reference(int idx)
-	{
-		log_assert(!Multithreading::active());
-
-		if (idx < static_cast<short>(StaticId::STATIC_ID_END))
-			return;
-		auto it = global_refcount_storage_.find(idx);
-		if (it == global_refcount_storage_.end())
-			global_refcount_storage_.insert(it, {idx, 1});
-		else
-			++it->second;
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace && idx >= static_cast<short>(StaticId::STATIC_ID_END))
-			log("#X# GET-BY-INDEX '%s' (index %d, refcount %u)\n", from_index(idx), idx, refcount(idx));
-	#endif
-	}
-
-	void put_reference()
-	{
-		log_assert(!Multithreading::active());
-
-		// put_reference() may be called from destructors after the destructor of
-		// global_refcount_storage_ has been run. in this case we simply do nothing.
-		if (index_ < static_cast<short>(StaticId::STATIC_ID_END) || !destruct_guard_ok)
-			return;
-	#ifdef YOSYS_XTRACE_GET_PUT
-		if (yosys_xtrace)
-			log("#X# PUT '%s' (index %d, refcount %u)\n", from_index(index_), index_, refcount(index_));
-	#endif
-		auto it = global_refcount_storage_.find(index_);
-		log_assert(it != global_refcount_storage_.end() && it->second >= 1);
-		if (--it->second == 0) {
-			global_refcount_storage_.erase(it);
-		}
-	}
-};
-
-namespace hashlib {
-	template <>
-	struct hash_ops<RTLIL::IdString> {
-		static inline bool cmp(RTLIL::IdString a, RTLIL::IdString b) {
-			return a == b;
-		}
-		[[nodiscard]] static inline Hasher hash(RTLIL::IdString id) {
-			return id.hash_top();
-		}
-		[[nodiscard]] static inline Hasher hash_into(RTLIL::IdString id, Hasher h) {
-			return id.hash_into(h);
-		}
-	};
-};
-
-/**
- * How to not use these methods:
- * 1. if(celltype.in({...})) -> if(celltype.in(...))
- * 2. pool<IdString> p; ... a.in(p) -> (bool)p.count(a)
- */
-[[deprecated]]
-inline bool RTLIL::IdString::in(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
-[[deprecated]]
-inline bool RTLIL::IdString::in(const pool<IdString> &&rhs) const { return rhs.count(*this) != 0; }
+namespace RTLIL { using YOSYS_NAMESPACE_PREFIX ID; }
+namespace RTLIL { using YOSYS_NAMESPACE_PREFIX IdString; }
 
 namespace RTLIL {
-	namespace ID {
-#define X(_id) constexpr IdString _id(StaticId::_id);
-#include "kernel/constids.inc"
-#undef X
-	}
-}
+	void copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
+			const dict<IdString, RTLIL::Const> &src,
+			const RTLIL::Design *src_design, RTLIL::Design *dst_design);
 
-struct IdTableEntry {
-	const std::string_view name;
-	const RTLIL::IdString static_id;
-};
-
-constexpr IdTableEntry IdTable[] = {
-#define X(_id) {#_id, ID::_id},
-#include "kernel/constids.inc"
-#undef X
-};
-
-constexpr int lookup_well_known_id(std::string_view name)
-{
-	int low = 0;
-	int high = sizeof(IdTable) / sizeof(IdTable[0]);
-	while (high - low >= 2) {
-		int mid = (low + high) / 2;
-		if (name < IdTable[mid].name)
-			high = mid;
-		else
-			low = mid;
-	}
-	if (IdTable[low].name == name)
-		return low;
-	return -1;
-}
-
-// Create a statically allocated IdString object, using for example ID::A or ID($add).
-//
-// Recipe for Converting old code that is using conversion of strings like ID::A and
-// "$add" for creating IdStrings: Run below SED command on the .cc file and then use for
-// example "meld foo.cc foo.cc.orig" to manually compile errors, if necessary.
-//
-//  sed -i.orig -r 's/"\\\\([a-zA-Z0-9_]+)"/ID(\1)/g; s/"(\$[a-zA-Z0-9_]+)"/ID(\1)/g;' <filename>
-//
-typedef RTLIL::IdString IDMacroHelperFunc();
-
-template <int IdTableIndex> struct IDMacroHelper {
-	static constexpr RTLIL::IdString eval(IDMacroHelperFunc) {
-		return IdTable[IdTableIndex].static_id;
-	}
-};
-template <> struct IDMacroHelper<-1> {
-	static constexpr RTLIL::IdString eval(IDMacroHelperFunc func) {
-		return func();
-	}
-};
-
-#undef ID
-#define ID(_id) \
-		YOSYS_NAMESPACE_PREFIX IDMacroHelper< \
-				YOSYS_NAMESPACE_PREFIX lookup_well_known_id(#_id) \
-		>::eval([]() \
-		-> YOSYS_NAMESPACE_PREFIX RTLIL::IdString { \
-			const char *p = "\\" #_id, *q = p[1] == '$' ? p+1 : p; \
-			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
-				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
-			return id; \
-        })
-
-namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
 
 	[[deprecated("use StaticCellTypes::categories.is_ff() instead")]]
@@ -772,14 +155,6 @@ namespace RTLIL {
 		return str.substr(1);
 	}
 
-	static inline std::string unescape_id(RTLIL::IdString str) {
-		return str.unescape();
-	}
-
-	static inline const char *id2cstr(RTLIL::IdString str) {
-		return log_id(str);
-	}
-
 	template <typename T> struct sort_by_name_id {
 		bool operator()(T *a, T *b) const {
 			return a->name < b->name;
@@ -793,8 +168,10 @@ namespace RTLIL {
 	};
 
 	struct sort_by_id_str {
+		const TwinePool& pool;
+		explicit sort_by_id_str(const TwinePool& pool) : pool(pool) {}
 		bool operator()(RTLIL::IdString a, RTLIL::IdString b) const {
-			return a.lt_by_name(b);
+			return pool.compare_by_name(a, b) < 0;
 		}
 	};
 
@@ -871,15 +248,15 @@ namespace RTLIL {
 	// This iterator-range-pair is used for Design::modules(), Module::wires() and Module::cells().
 	// It maintains a reference counter that is used to make sure that the container is not modified while being iterated over.
 
-	template<typename T>
+	template<typename T, typename Key = IdString>
 	struct ObjIterator {
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = T;
 		using difference_type = ptrdiff_t;
 		using pointer = T*;
 		using reference = T&;
-		typename dict<RTLIL::IdString, T>::iterator it;
-		dict<RTLIL::IdString, T> *list_p;
+		typename dict<Key, T>::iterator it;
+		dict<Key, T> *list_p;
 		int *refcount_p;
 
 		ObjIterator() : list_p(nullptr), refcount_p(nullptr) {
@@ -895,7 +272,7 @@ namespace RTLIL {
 			}
 		}
 
-		ObjIterator(const RTLIL::ObjIterator<T> &other) {
+		ObjIterator(const RTLIL::ObjIterator<T, Key> &other) {
 			it = other.it;
 			list_p = other.list_p;
 			refcount_p = other.refcount_p;
@@ -903,7 +280,7 @@ namespace RTLIL {
 				(*refcount_p)++;
 		}
 
-		ObjIterator &operator=(const RTLIL::ObjIterator<T> &other) {
+		ObjIterator &operator=(const RTLIL::ObjIterator<T, Key> &other) {
 			if (refcount_p)
 				(*refcount_p)--;
 			it = other.it;
@@ -924,18 +301,18 @@ namespace RTLIL {
 			return it->second;
 		}
 
-		inline bool operator!=(const RTLIL::ObjIterator<T> &other) const {
+		inline bool operator!=(const RTLIL::ObjIterator<T, Key> &other) const {
 			if (list_p == nullptr || other.list_p == nullptr)
 				return list_p != other.list_p;
 			return it != other.it;
 		}
 
 
-		inline bool operator==(const RTLIL::ObjIterator<T> &other) const {
+		inline bool operator==(const RTLIL::ObjIterator<T, Key> &other) const {
 			return !(*this != other);
 		}
 
-		inline ObjIterator<T>& operator++() {
+		inline ObjIterator<T, Key>& operator++() {
 			log_assert(list_p != nullptr);
 			if (++it == list_p->end()) {
 				(*refcount_p)--;
@@ -945,7 +322,7 @@ namespace RTLIL {
 			return *this;
 		}
 
-		inline ObjIterator<T>& operator+=(int amt) {
+		inline ObjIterator<T, Key>& operator+=(int amt) {
 			log_assert(list_p != nullptr);
 			it += amt;
 			if (it == list_p->end()) {
@@ -956,9 +333,9 @@ namespace RTLIL {
 			return *this;
 		}
 
-		inline ObjIterator<T> operator+(int amt) {
+		inline ObjIterator<T, Key> operator+(int amt) {
 			log_assert(list_p != nullptr);
-			ObjIterator<T> new_obj(*this);
+			ObjIterator<T, Key> new_obj(*this);
 			new_obj.it += amt;
 			if (new_obj.it == list_p->end()) {
 				(*(new_obj.refcount_p))--;
@@ -968,22 +345,22 @@ namespace RTLIL {
 			return new_obj;
 		}
 
-		inline const ObjIterator<T> operator++(int) {
-			ObjIterator<T> result(*this);
+		inline const ObjIterator<T, Key> operator++(int) {
+			ObjIterator<T, Key> result(*this);
 			++(*this);
 			return result;
 		}
 	};
 
-	template<typename T>
+	template<typename T, typename Key = IdString>
 	struct ObjRange
 	{
-		dict<RTLIL::IdString, T> *list_p;
+		dict<Key, T> *list_p;
 		int *refcount_p;
 
 		ObjRange(decltype(list_p) list_p, int *refcount_p) : list_p(list_p), refcount_p(refcount_p) { }
-		RTLIL::ObjIterator<T> begin() { return RTLIL::ObjIterator<T>(list_p, refcount_p); }
-		RTLIL::ObjIterator<T> end() { return RTLIL::ObjIterator<T>(); }
+		RTLIL::ObjIterator<T, Key> begin() { return RTLIL::ObjIterator<T, Key>(list_p, refcount_p); }
+		RTLIL::ObjIterator<T, Key> end() { return RTLIL::ObjIterator<T, Key>(); }
 
 		size_t size() const {
 			return list_p->size();
@@ -1272,11 +649,11 @@ struct RTLIL::AttrObject
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
-	void set_string_attribute(RTLIL::IdString  id, string value);
+	void set_string_attribute(IdString id, string value);
 	string get_string_attribute(RTLIL::IdString id) const;
 
-	void set_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
-	void add_strpool_attribute(RTLIL::IdString  id, const pool<string> &data);
+	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
+	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
 	void set_src_attribute(const std::string &src) {
@@ -1289,14 +666,16 @@ struct RTLIL::AttrObject
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
 
-	void set_intvec_attribute(RTLIL::IdString  id, const vector<int> &data);
+	void set_intvec_attribute(IdString id, const vector<int> &data);
 	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 };
 
 struct RTLIL::NamedObject : public RTLIL::AttrObject
 {
-	RTLIL::IdString name;
+	IdString name_ = IdString::Null;
 };
+
+#include "kernel/rtlil_twine_compat.h"
 
 struct RTLIL::SigChunk
 {
@@ -1832,8 +1211,9 @@ struct RTLIL::Selection
 	// add whole module to this selection
 	template<typename T1> void select(T1 *module) {
 		if (!selects_all() && selected_modules.count(module->name) == 0) {
-			selected_modules.insert(module->name);
-			selected_members.erase(module->name);
+			IdString name = module->name;
+			selected_modules.insert(name);
+			selected_members.erase(name);
 			if (module->get_blackbox_attribute())
 				selects_boxes = true;
 		}
@@ -1841,8 +1221,8 @@ struct RTLIL::Selection
 
 	// add member of module to this selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!selects_all() && selected_modules.count(module->name) == 0) {
-			selected_members[module->name].insert(member->name);
+		if (!selects_all() && selected_modules.count(module->name_) == 0) {
+			selected_members[module->name_].insert(member->name_);
 			if (module->get_blackbox_attribute())
 				selects_boxes = true;
 		}
@@ -1889,6 +1269,28 @@ struct RTLIL::Monitor
 // Forward declaration; defined in preproc.h.
 struct define_map_t;
 
+template<typename N>
+inline constexpr bool is_unpooled_name_v =
+	std::is_same_v<std::decay_t<N>, Twine> || std::is_same_v<std::decay_t<N>, Twine::Leaf> ||
+	std::is_same_v<std::decay_t<N>, Twine::Suffix> || std::is_same_v<std::decay_t<N>, Twine::AutoSuffix> ||
+	std::is_same_v<std::decay_t<N>, std::string> ||
+	std::is_same_v<std::decay_t<N>, const char*> || std::is_same_v<std::decay_t<N>, char*>;
+
+#define YS_UNPOOLED_NAME(N) std::enable_if_t<is_unpooled_name_v<N>, int> = 0
+
+#define YS_NAME_FWD_POOL(_func, _pool) \
+	template<typename N, typename... Rest, YS_UNPOOLED_NAME(N)> \
+	decltype(auto) _func(N name, Rest&&... rest) \
+		{ return _func(_pool.add(std::move(name)), std::forward<Rest>(rest)...); }
+
+#define YS_NAME_FWD_2ND_POOL(_func, _pool) \
+	template<typename T, typename N, YS_UNPOOLED_NAME(N)> \
+	decltype(auto) _func(T &&first, N name) \
+		{ return _func(std::forward<T>(first), _pool.add(std::move(name))); }
+
+#define YS_NAME_FWD(_func) YS_NAME_FWD_POOL(_func, design->twines)
+#define YS_NAME_FWD_2ND(_func) YS_NAME_FWD_2ND_POOL(_func, design->twines)
+
 struct RTLIL::Design
 {
 	Hasher::hash_t hashidx_;
@@ -1904,17 +1306,27 @@ struct RTLIL::Design
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 	std::vector<RTLIL::Binding*> bindings_;
 
+	TwinePool twines;
+
+	std::string obj_name(const RTLIL::NamedObject *obj) const {
+		return twines.str(obj->name_);
+	}
+
+	void absorb_attrs(RTLIL::AttrObject *obj, dict<IdString, RTLIL::Const> &&buf);
+
+	size_t gc_twines();
+
 	std::vector<std::unique_ptr<AST::AstNode>> verilog_packages, verilog_globals;
 	std::unique_ptr<define_map_t> verilog_defines;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;
-	std::string selected_active_module;
+	IdString selected_active_module;
 
 	Design();
 	~Design();
 
-	RTLIL::ObjRange<RTLIL::Module*> modules();
+	RTLIL::ObjRange<RTLIL::Module*, IdString> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
 	const RTLIL::Module *module(RTLIL::IdString name) const;
 	RTLIL::Module *top_module() const;
@@ -1927,8 +1339,10 @@ struct RTLIL::Design
 	void add(RTLIL::Binding *binding);
 
 	RTLIL::Module *addModule(RTLIL::IdString name);
+	YS_NAME_FWD_POOL(addModule, twines)
 	void remove(RTLIL::Module *module);
 	void rename(RTLIL::Module *module, RTLIL::IdString new_name);
+	YS_NAME_FWD_2ND_POOL(rename, twines)
 
 	void scratchpad_unset(const std::string &varname);
 
@@ -1944,6 +1358,8 @@ struct RTLIL::Design
 	void sort_modules();
 	void check();
 	void optimize();
+
+	void clone_into(RTLIL::Design *dst) const;
 
 	// checks if the given module is included in the current selection
 	bool selected_module(RTLIL::IdString mod_name) const;
@@ -2059,6 +1475,11 @@ struct RTLIL::Design
 
 struct RTLIL::Module : public RTLIL::NamedObject
 {
+	friend struct RTLIL::Cell;
+	friend struct RTLIL::Design;
+
+	[[no_unique_address]] RTLIL::ModuleNameMasq name;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
@@ -2090,6 +1511,7 @@ public:
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
+	pool<std::string> object_names() const;
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
 
@@ -2121,6 +1543,8 @@ public:
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	void cloneInto(RTLIL::Module *new_mod) const;
 	virtual RTLIL::Module *clone() const;
+	virtual RTLIL::Module *clone(RTLIL::Design *dst) const;
+	virtual RTLIL::Module *clone(RTLIL::Design *dst, IdString target_name) const;
 
 	bool has_memories() const;
 	bool has_processes() const;
@@ -2138,7 +1562,7 @@ public:
 	std::vector<RTLIL::NamedObject*> selected_members() const;
 
 	template<typename T> bool selected(T *member) const {
-		return design->selected_member(name, member->name);
+		return design->selected_member(name_, member->name_);
 	}
 
 	RTLIL::Wire* wire(RTLIL::IdString id) {
@@ -2177,23 +1601,31 @@ public:
 	void rename(RTLIL::Wire *wire, RTLIL::IdString new_name);
 	void rename(RTLIL::Cell *cell, RTLIL::IdString new_name);
 	void rename(RTLIL::IdString old_name, RTLIL::IdString new_name);
+	YS_NAME_FWD_2ND(rename)
 
 	void swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2);
 	void swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2);
 
 	RTLIL::IdString uniquify(RTLIL::IdString name);
 	RTLIL::IdString uniquify(RTLIL::IdString name, int &index);
+	YS_NAME_FWD(uniquify)
 
 	RTLIL::Wire *addWire(RTLIL::IdString name, int width = 1);
 	RTLIL::Wire *addWire(RTLIL::IdString name, const RTLIL::Wire *other);
+	YS_NAME_FWD(addWire)
 
 	RTLIL::Cell *addCell(RTLIL::IdString name, RTLIL::IdString type);
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
+	YS_NAME_FWD(addCell)
+	template<typename T, YS_UNPOOLED_NAME(T)>
+	RTLIL::Cell *addCell(RTLIL::IdString name, T type) { return addCell(name, design->twines.add(std::move(type))); }
 
 	RTLIL::Memory *addMemory(RTLIL::IdString name);
+	YS_NAME_FWD(addMemory)
 	RTLIL::Memory *addMemory(RTLIL::IdString name, const RTLIL::Memory *other);
 
 	RTLIL::Process *addProcess(RTLIL::IdString name);
+	YS_NAME_FWD(addProcess)
 	RTLIL::Process *addProcess(RTLIL::IdString name, const RTLIL::Process *other);
 
 	// The add* methods create a cell and return the created cell. All signals must exist in advance.
@@ -2417,6 +1849,52 @@ public:
 	RTLIL::Cell*   addOverwriteTag (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const RTLIL::SigSpec &sig_s, const RTLIL::SigSpec &sig_c, const std::string &src = "");
 	RTLIL::SigSpec OriginalTag     (RTLIL::IdString name, const std::string &tag, const RTLIL::SigSpec &sig_a, const std::string &src = "");
 	RTLIL::SigSpec FutureFF        (RTLIL::IdString name, const RTLIL::SigSpec &sig_e, const std::string &src = "");
+	YS_NAME_FWD(addAnyinit)
+	YS_NAME_FWD(Anyconst) YS_NAME_FWD(Anyseq) YS_NAME_FWD(Allconst) YS_NAME_FWD(Allseq)
+	YS_NAME_FWD(Initstate)
+	YS_NAME_FWD(SetTag) YS_NAME_FWD(addSetTag) YS_NAME_FWD(GetTag)
+	YS_NAME_FWD(addOverwriteTag) YS_NAME_FWD(OriginalTag) YS_NAME_FWD(FutureFF)
+	YS_NAME_FWD(addNot) YS_NAME_FWD(addPos) YS_NAME_FWD(addBuf) YS_NAME_FWD(addNeg)
+	YS_NAME_FWD(addAnd) YS_NAME_FWD(addOr) YS_NAME_FWD(addXor) YS_NAME_FWD(addXnor)
+	YS_NAME_FWD(addReduceAnd) YS_NAME_FWD(addReduceOr) YS_NAME_FWD(addReduceXor) YS_NAME_FWD(addReduceXnor)
+	YS_NAME_FWD(addReduceBool) YS_NAME_FWD(addShl) YS_NAME_FWD(addShr) YS_NAME_FWD(addSshl)
+	YS_NAME_FWD(addSshr) YS_NAME_FWD(addShift) YS_NAME_FWD(addShiftx) YS_NAME_FWD(addLt)
+	YS_NAME_FWD(addLe) YS_NAME_FWD(addEq) YS_NAME_FWD(addNe) YS_NAME_FWD(addEqx)
+	YS_NAME_FWD(addNex) YS_NAME_FWD(addGe) YS_NAME_FWD(addGt) YS_NAME_FWD(addAdd)
+	YS_NAME_FWD(addSub) YS_NAME_FWD(addMul) YS_NAME_FWD(addDiv) YS_NAME_FWD(addMod)
+	YS_NAME_FWD(addDivFloor) YS_NAME_FWD(addModFloor) YS_NAME_FWD(addPow) YS_NAME_FWD(addFa)
+	YS_NAME_FWD(addLogicNot) YS_NAME_FWD(addLogicAnd) YS_NAME_FWD(addLogicOr) YS_NAME_FWD(addMux)
+	YS_NAME_FWD(addPmux) YS_NAME_FWD(addBmux) YS_NAME_FWD(addDemux) YS_NAME_FWD(addBweqx)
+	YS_NAME_FWD(addBwmux) YS_NAME_FWD(addSlice) YS_NAME_FWD(addConcat) YS_NAME_FWD(addLut)
+	YS_NAME_FWD(addTribuf) YS_NAME_FWD(addAssert) YS_NAME_FWD(addAssume) YS_NAME_FWD(addLive)
+	YS_NAME_FWD(addFair) YS_NAME_FWD(addCover) YS_NAME_FWD(addEquiv) YS_NAME_FWD(addSr)
+	YS_NAME_FWD(addFf) YS_NAME_FWD(addDff) YS_NAME_FWD(addDffe) YS_NAME_FWD(addDffsr)
+	YS_NAME_FWD(addDffsre) YS_NAME_FWD(addAdff) YS_NAME_FWD(addAdffe) YS_NAME_FWD(addAldff)
+	YS_NAME_FWD(addAldffe) YS_NAME_FWD(addSdff) YS_NAME_FWD(addSdffe) YS_NAME_FWD(addSdffce)
+	YS_NAME_FWD(addDlatch) YS_NAME_FWD(addAdlatch) YS_NAME_FWD(addDlatchsr) YS_NAME_FWD(addBufGate)
+	YS_NAME_FWD(addNotGate) YS_NAME_FWD(addAndGate) YS_NAME_FWD(addNandGate) YS_NAME_FWD(addOrGate)
+	YS_NAME_FWD(addNorGate) YS_NAME_FWD(addXorGate) YS_NAME_FWD(addXnorGate) YS_NAME_FWD(addAndnotGate)
+	YS_NAME_FWD(addOrnotGate) YS_NAME_FWD(addMuxGate) YS_NAME_FWD(addNmuxGate) YS_NAME_FWD(addAoi3Gate)
+	YS_NAME_FWD(addOai3Gate) YS_NAME_FWD(addAoi4Gate) YS_NAME_FWD(addOai4Gate) YS_NAME_FWD(addSrGate)
+	YS_NAME_FWD(addFfGate) YS_NAME_FWD(addDffGate) YS_NAME_FWD(addDffeGate) YS_NAME_FWD(addDffsrGate)
+	YS_NAME_FWD(addDffsreGate) YS_NAME_FWD(addAdffGate) YS_NAME_FWD(addAdffeGate) YS_NAME_FWD(addAldffGate)
+	YS_NAME_FWD(addAldffeGate) YS_NAME_FWD(addSdffGate) YS_NAME_FWD(addSdffeGate) YS_NAME_FWD(addSdffceGate)
+	YS_NAME_FWD(addDlatchGate) YS_NAME_FWD(addAdlatchGate) YS_NAME_FWD(addDlatchsrGate) YS_NAME_FWD(Not)
+	YS_NAME_FWD(Pos) YS_NAME_FWD(Buf) YS_NAME_FWD(Neg) YS_NAME_FWD(And)
+	YS_NAME_FWD(Or) YS_NAME_FWD(Xor) YS_NAME_FWD(Xnor) YS_NAME_FWD(ReduceAnd)
+	YS_NAME_FWD(ReduceOr) YS_NAME_FWD(ReduceXor) YS_NAME_FWD(ReduceXnor) YS_NAME_FWD(ReduceBool)
+	YS_NAME_FWD(Shl) YS_NAME_FWD(Shr) YS_NAME_FWD(Sshl) YS_NAME_FWD(Sshr)
+	YS_NAME_FWD(Shift) YS_NAME_FWD(Shiftx) YS_NAME_FWD(Lt) YS_NAME_FWD(Le)
+	YS_NAME_FWD(Eq) YS_NAME_FWD(Ne) YS_NAME_FWD(Eqx) YS_NAME_FWD(Nex)
+	YS_NAME_FWD(Ge) YS_NAME_FWD(Gt) YS_NAME_FWD(Add) YS_NAME_FWD(Sub)
+	YS_NAME_FWD(Mul) YS_NAME_FWD(Div) YS_NAME_FWD(Mod) YS_NAME_FWD(DivFloor)
+	YS_NAME_FWD(ModFloor) YS_NAME_FWD(Pow) YS_NAME_FWD(LogicNot) YS_NAME_FWD(LogicAnd)
+	YS_NAME_FWD(LogicOr) YS_NAME_FWD(Mux) YS_NAME_FWD(Pmux) YS_NAME_FWD(Bmux)
+	YS_NAME_FWD(Demux) YS_NAME_FWD(Bweqx) YS_NAME_FWD(Bwmux) YS_NAME_FWD(BufGate)
+	YS_NAME_FWD(NotGate) YS_NAME_FWD(AndGate) YS_NAME_FWD(NandGate) YS_NAME_FWD(OrGate)
+	YS_NAME_FWD(NorGate) YS_NAME_FWD(XorGate) YS_NAME_FWD(XnorGate) YS_NAME_FWD(AndnotGate)
+	YS_NAME_FWD(OrnotGate) YS_NAME_FWD(MuxGate) YS_NAME_FWD(NmuxGate) YS_NAME_FWD(Aoi3Gate)
+	YS_NAME_FWD(Oai3Gate) YS_NAME_FWD(Aoi4Gate) YS_NAME_FWD(Oai4Gate)
 
 	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
@@ -2424,12 +1902,10 @@ public:
 #endif
 };
 
-namespace RTLIL_BACKEND {
-void dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
-}
-
 struct RTLIL::Wire : public RTLIL::NamedObject
 {
+	[[no_unique_address]] RTLIL::WireNameMasq name;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
@@ -2441,9 +1917,8 @@ protected:
 
 	friend struct RTLIL::Design;
 	friend struct RTLIL::Cell;
-	friend void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::Wire *wire);
 	RTLIL::Cell *driverCell_ = nullptr;
-	RTLIL::IdString driverPort_;
+	IdString driverPort_ = IdString::Null;
 
 public:
 	// do not simply copy wires
@@ -2453,6 +1928,8 @@ public:
 	RTLIL::Module *module;
 	int width, start_offset, port_id;
 	bool port_input, port_output, upto, is_signed;
+
+	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 
 	bool known_driver() const { return driverCell_ != nullptr; }
 
@@ -2473,6 +1950,7 @@ public:
 	}
 
 	std::string to_rtlil_str() const;
+
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
 #endif
@@ -2488,18 +1966,38 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 	Memory();
+	~Memory();
+
+	RTLIL::Module *module = nullptr;
+
+	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+
+	[[no_unique_address]] RTLIL::MemoryNameMasq name;
 
 	int width, start_offset, size;
-
-	std::string to_rtlil_str() const;
 #ifdef YOSYS_ENABLE_PYTHON
-	~Memory();
 	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
 #endif
+
+	std::string to_rtlil_str() const;
 };
+
+template<typename N>
+inline constexpr bool is_name_string_v =
+	std::is_same_v<std::decay_t<N>, std::string> ||
+	std::is_same_v<std::decay_t<N>, const char *> || std::is_same_v<std::decay_t<N>, char *>;
+
+#define YS_NAME_STRING(N) std::enable_if_t<is_name_string_v<N>, int> = 0
 
 struct RTLIL::Cell : public RTLIL::NamedObject
 {
+private:
+	void initIndex();
+
+	bool bufnorm_handle_setPort(IdString portname, RTLIL::SigSpec &signal, dict<IdString, RTLIL::SigSpec>::iterator conn_it);
+public:
+	[[no_unique_address]] RTLIL::CellNameMasq name;
+
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
@@ -2515,7 +2013,11 @@ public:
 	void operator=(RTLIL::Cell &other) = delete;
 
 	RTLIL::Module *module;
-	RTLIL::IdString type;
+
+	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+
+	IdString type_impl;
+	[[no_unique_address]] RTLIL::CellTypeMasq type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
@@ -2523,34 +2025,38 @@ public:
 	bool hasPort(RTLIL::IdString portname) const;
 	void unsetPort(RTLIL::IdString portname);
 	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
+	template<typename N, YS_NAME_STRING(N)> void setPort(N portname, RTLIL::SigSpec signal)
+		{ setPort(module->design->twines.add(std::move(portname)), std::move(signal)); }
 	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
-	// information about cell ports
 	bool known() const;
 	bool input(RTLIL::IdString portname) const;
 	bool output(RTLIL::IdString portname) const;
 	PortDir port_dir(RTLIL::IdString portname) const;
 
-	// access cell parameters
 	bool hasParam(RTLIL::IdString paramname) const;
 	void unsetParam(RTLIL::IdString paramname);
 	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
+	template<typename N, YS_NAME_STRING(N)> bool hasParam(N name) const
+		{ return hasParam(module->design->twines.add(std::move(name))); }
+	template<typename N, YS_NAME_STRING(N)> void unsetParam(N name)
+		{ unsetParam(module->design->twines.add(std::move(name))); }
+	template<typename N, YS_NAME_STRING(N)> void setParam(N name, RTLIL::Const value)
+		{ setParam(module->design->twines.add(std::move(name)), std::move(value)); }
+	template<typename N, YS_NAME_STRING(N)> const RTLIL::Const &getParam(N name) const
+		{ return getParam(module->design->twines.add(std::move(name))); }
+
 	void sort();
 	void check();
 	void fixup_parameters(bool set_a_signed = false, bool set_b_signed = false);
 
-	bool has_keep_attr() const {
-		return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type) &&
-				module->design->module(type)->get_bool_attribute(ID::keep));
-	}
+	bool has_keep_attr() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
-
-	std::string to_rtlil_str() const;
 
 #ifdef YOSYS_ENABLE_PYTHON
 	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
@@ -2559,6 +2065,8 @@ public:
 	bool has_memid() const;
 	bool is_mem_cell() const;
 	bool is_builtin_ff() const;
+
+	std::string to_rtlil_str() const;
 };
 
 struct RTLIL::CaseRule : public RTLIL::AttrObject
@@ -2627,12 +2135,16 @@ public:
 	RTLIL::CaseRule root_case;
 	std::vector<RTLIL::SyncRule*> syncs;
 
+	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+
+	[[no_unique_address]] RTLIL::ProcessNameMasq name;
+
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 	RTLIL::Process *clone() const;
+
 	std::string to_rtlil_str() const;
 };
-
 
 inline RTLIL::SigBit::SigBit() : wire(NULL), data(RTLIL::State::S0) { }
 inline RTLIL::SigBit::SigBit(RTLIL::State bit) : wire(NULL), data(bit) { }
@@ -2672,7 +2184,9 @@ inline Hasher RTLIL::SigBit::hash_into(Hasher h) const {
 inline Hasher RTLIL::SigBit::hash_top() const {
 	Hasher h;
 	if (wire) {
-		h.force(hashlib::legacy::djb2_add(wire->name.index_, offset));
+		IdString name = wire->name.ref();
+		uint32_t n = (uint32_t)name.raw() ^ (uint32_t)(name.raw() >> 32);
+		h.force(hashlib::legacy::djb2_add(n, offset));
 		return h;
 	}
 	h.force(data);
@@ -2814,6 +2328,11 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 	for (auto it : syncs)
 		it->rewrite_sigspecs2(functor);
 }
+
+namespace RTLIL {
+}
+
+#include "kernel/rtlil_twine_compat_impl.h"
 
 YOSYS_NAMESPACE_END
 

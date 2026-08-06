@@ -600,11 +600,66 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 	return "\"" + value.decode_string() + "\"";
 }
 
-const char *log_id(const RTLIL::IdString &str)
+const char *log_id_str(const std::string &str)
 {
-	std::string unescaped = str.unescape();
+	log_id_cache.push_back(strdup(str.c_str()));
+	return log_id_cache.back();
+}
+
+static const char *log_id_cached(std::string unescaped)
+{
 	log_id_cache.push_back(strdup(unescaped.c_str()));
 	return log_id_cache.back();
+}
+
+const char *log_id(const IdString &str)
+{
+	if (str == IdString::Null)
+		return log_id_cached(std::string());
+	if (!ID::is_static(str))
+		return log_id_cached(stringf("$twine$%zu", str.untag().raw()));
+	return log_id_cached(RTLIL::unescape_id(ID::str(str)));
+}
+
+static const char *log_id_twine(const RTLIL::Design *design, IdString name)
+{
+	return log_id_cached(RTLIL::unescape_id(design->twines.str(name)));
+}
+
+const char *log_id(const RTLIL::Design *design, IdString name)
+{
+	return log_id_twine(design, name);
+}
+
+const char *log_id(const RTLIL::Module *module, IdString name)
+{
+	return log_id_twine(module->design, name);
+}
+
+const char *log_id(const RTLIL::Module *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->design, obj->name);
+}
+const char *log_id(const RTLIL::Cell *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->name);
+}
+const char *log_id(const RTLIL::Wire *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->name);
+}
+const char *log_id(const RTLIL::Memory *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->name);
+}
+const char *log_id(const RTLIL::Process *obj, const char *nullstr)
+{
+	if (nullstr && obj == nullptr) return nullstr;
+	return log_id_twine(obj->module->design, obj->name);
 }
 
 void log_module(RTLIL::Module *module, std::string indent)

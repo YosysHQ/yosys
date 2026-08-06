@@ -37,7 +37,7 @@ struct RTLIL::Binding
 	virtual ~Binding() {}
 
 	// Return a string describing the binding
-	virtual std::string describe() const = 0;
+	virtual std::string describe(const RTLIL::Design *design) const = 0;
 
 protected:
 	// May be empty. If not, it's the name of the module or interface to

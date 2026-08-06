@@ -240,7 +240,7 @@ void yosys_setup()
 	already_setup = true;
 	already_shutdown = false;
 
-	IdString::ensure_prepopulated();
+	StaticTwines::init();
 
 #ifdef YOSYS_ENABLE_PYTHON
 	// Starting Python 3.12, calling PyImport_AppendInittab on an already
