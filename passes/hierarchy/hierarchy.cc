@@ -389,7 +389,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	if (cell_type[0] == '$') {
 		if (check && !yosys_celltypes.cell_known(cell.type))
 			log_error("Cell type `%s' referenced in module `%s' in cell `%s' is neither a known internal cell type nor part of the design.\n",
-			          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
+			          cell_type.c_str(), parent.name, cell.name);
 		return nullptr;
 	}
 

@@ -50,7 +50,7 @@ struct LibertyStubber {
 		auto base_name = base->name.str().substr(1);
 		auto derived_name = derived->name.str().substr(1);
 
-		FfTypeData ffType(base_name);
+		FfTypeData ffType(base->name);
 		LibertyItemizer i(f);
 
 		if (ffType.has_gclk) {
@@ -63,18 +63,18 @@ struct LibertyStubber {
 		}
 
 		f << "\tcell (\"" << derived_name << "\") {\n";
-		auto& base_type = ct.cell_types[base_name];
+		auto& base_type = ct.cell_types[base->name];
 		i.indent = 3;
 		auto sorted_ports = derived->ports;
 		// Hack for CLK and C coming before Q does
-		auto cmp = [](IdString l, IdString r) { return l.str() < r.str(); };
+		auto cmp = [derived](IdString l, IdString r) { return derived->design->twines.str(l) < derived->design->twines.str(r); };
 		std::sort(sorted_ports.begin(), sorted_ports.end(), cmp);
 		std::string clock_pin_name = "";
 		for (auto x : sorted_ports) {
-			std::string port_name = x.unescape();
+			std::string port_name = derived->design->twines.unescaped_str(x);
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << x.unescape() << ") {\n";
+			f << "\t\tpin (" << port_name << ") {\n";
 			if (is_input && !is_output) {
 				i.item("direction", "input");
 			} else if (!is_input && is_output) {
@@ -119,20 +119,21 @@ struct LibertyStubber {
 	{
 		auto base_name = base->name.str().substr(1);
 		auto derived_name = derived->name.str().substr(1);
-		if (!ct.cell_types.count(base_name)) {
+		if (!ct.cell_types.count(base->name)) {
 			log_debug("skip skeleton for %s\n", base_name.c_str());
 			return;
 		}
 
-		if (StaticCellTypes::categories.is_ff(base_name))
+		if (StaticCellTypes::categories.is_ff(base->name))
 			return liberty_flop(base, derived, f);
 
-		auto& base_type = ct.cell_types[base_name];
+		auto& base_type = ct.cell_types[base->name];
 		f << "\tcell (\"" << derived_name << "\") {\n";
 		for (auto x : derived->ports) {
+			std::string port_name = derived->design->twines.unescaped_str(x);
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
-			f << "\t\tpin (" << x.unescape() << ") {\n";
+			f << "\t\tpin (" << port_name << ") {\n";
 			if (is_input && !is_output) {
 				f << "\t\t\tdirection : input;\n";
 			} else if (!is_input && is_output) {
@@ -193,9 +194,10 @@ struct IcellLiberty : Pass {
 				if (!inst_module || !inst_module->get_blackbox_attribute())
 					continue;
 				Module *base = inst_module;
-				if (!done.count(base->name)) {
+				IdString base_name_id = base->name;
+				if (!done.count(base_name_id)) {
 					stubber.liberty_cell(base, base, *liberty_file);
-					done.insert(base->name);
+					done.insert(base_name_id);
 				}
 			}
 		}

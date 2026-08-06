@@ -69,7 +69,7 @@ struct OptDffWorker
 		if (!sat_warned)
 			log_warning("opt_dff -sat: solver effort budget for module %s is exhausted, leaving the "
 					"remaining FFs un-optimized. Raise or clear the limit with the scratchpad "
-					"option 'opt_dff.sat_effort' (0 disables it).\n", log_id(module));
+					"option 'opt_dff.sat_effort' (0 disables it).\n", module);
 		sat_warned = true;
 		return true;
 	}

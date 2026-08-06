@@ -143,8 +143,7 @@ struct EquivMiterWorker
 		for (auto w :  miter_wires)
 			miter_module->addWire(w->name, w->width);
 		for (auto c :  miter_cells) {
-			miter_module->addCell(c->name, c);
-			auto mc = miter_module->cell(c->name);
+			auto mc = miter_module->addCell(c->name, c);
 			for (auto &conn : mc->connections())
 				mc->setPort(conn.first, sigmap(conn.second));
 		}
@@ -242,7 +241,7 @@ struct EquivMiterWorker
 		}
 
 		if (mode_trigger) {
-			auto w = miter_module->addWire(ID(trigger));
+			auto w = miter_module->addWire("trigger");
 			w->port_output = true;
 			miter_module->addReduceOr(NEW_ID, trigger_signals, w);
 		}
@@ -316,11 +315,11 @@ struct EquivMiterPass : public Pass {
 		if (argidx >= args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		worker.miter_name = RTLIL::escape_id(args[argidx++]);
+		worker.miter_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
 		extra_args(args, argidx, design);
 
 		if (design->module(worker.miter_name))
-			log_cmd_error("Miter module %s already exists.\n", worker.miter_name.unescape());
+			log_cmd_error("Miter module %s already exists.\n", PooledName(design, worker.miter_name).unescape());
 
 		worker.source_module = nullptr;
 		for (auto m : design->selected_modules()) {
