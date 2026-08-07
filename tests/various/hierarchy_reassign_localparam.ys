@@ -1,0 +1,18 @@
+read_verilog -defer <<EOT
+
+module bb (...);
+localparam A = "abc";
+input a;
+output b;
+endmodule
+
+module top (...);
+input a;
+output b;
+bb #(.A("def")) my_bb (a, b);
+endmodule
+
+EOT
+
+logger -expect error "does not have a parameter named 'A'" 1
+hierarchy -check -top top
