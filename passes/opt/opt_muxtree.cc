@@ -144,6 +144,9 @@ struct OptMuxtreeWorker
 		// Analyze port A
 		muxinfo.ports.push_back(used_port_bit(sig_a, this_mux_idx, -1));
 
+		// push before the y port scan so self-conflicts can be reported too
+		mux2info.push_back(muxinfo);
+
 		for (int idx : sig2bits(sig_y)) {
 			if (bit2info[idx].mux_driver)
 				log_cmd_error("Cell %s Y port signal %s already driven by %s\n", cell->name, log_signal(sig_y), mux2info[*bit2info[idx].mux_driver].cell->name);
@@ -152,8 +155,6 @@ struct OptMuxtreeWorker
 
 		for (int idx : sig2bits(sig_s))
 			bit2info[idx].seen_non_mux = true;
-
-		mux2info.push_back(muxinfo);
 	}
 
 	void see_non_mux_cell(Cell* cell) {
