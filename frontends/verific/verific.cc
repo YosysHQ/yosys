@@ -3177,7 +3177,7 @@ struct VerificPass : public Pass {
 		log("\n");
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		log("    verific {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|\n");
-		log("             -sv2017|-sv} <verilog-file>..\n");
+		log("             -sv2017|-sv2023|-sv} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files into Verific.\n");
 		log("Note that -sv option will use latest supported SystemVerilog standard.\n");
@@ -3228,7 +3228,7 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_VHDL_SUPPORT
 		log("                     -vhdl87|-vhdl93|-vhdl2k|-vhdl2008|-vhdl2019|-vhdl|\n");
 #endif
-		log("                     -sv2012|-sv2017|-sv|-formal] <command-file>\n");
+		log("                     -sv2012|-sv2017|-sv2023|-sv|-formal] <command-file>\n");
 		log("\n");
 		log("Load and execute the specified command file.\n");
 		log("Override verilog parsing mode can be set.\n");
@@ -3790,6 +3790,9 @@ struct VerificPass : public Pass {
 				} else if (args[argidx] == "-sv2017") {
 					verilog_mode = veri_file::SYSTEM_VERILOG_2017;
 					continue;
+				} else if (args[argidx] == "-sv2023") {
+					verilog_mode = veri_file::SYSTEM_VERILOG_2023;
+					continue;
 				} else if (args[argidx] == "-sv" || args[argidx] == "-formal") {
 					verilog_mode = veri_file::SYSTEM_VERILOG;
 					if (args[argidx] == "-formal") is_formal = true;
@@ -3877,8 +3880,8 @@ struct VerificPass : public Pass {
 		}
 
 		if (GetSize(args) > argidx && (args[argidx] == "-vlog95" || args[argidx] == "-vlog2k" || args[argidx] == "-sv2005" ||
-				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv2017" || args[argidx] == "-sv" ||
-				args[argidx] == "-formal"))
+				args[argidx] == "-sv2009" || args[argidx] == "-sv2012" || args[argidx] == "-sv2017" || args[argidx] == "-sv2023" ||
+				args[argidx] == "-sv" || args[argidx] == "-formal"))
 		{
 			Array file_names;
 			unsigned verilog_mode;
@@ -3895,6 +3898,8 @@ struct VerificPass : public Pass {
 				verilog_mode = veri_file::SYSTEM_VERILOG_2012;
 			else if (args[argidx] == "-sv2017")
 				verilog_mode = veri_file::SYSTEM_VERILOG_2017;
+			else if (args[argidx] == "-sv2023")
+				verilog_mode = veri_file::SYSTEM_VERILOG_2023;
 			else if (args[argidx] == "-sv" || args[argidx] == "-formal")
 				verilog_mode = veri_file::SYSTEM_VERILOG;
 			else
@@ -4473,7 +4478,8 @@ struct ReadPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    read {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|-sv|-formal} <verilog-file>..\n");
+		log("    read {-vlog95|-vlog2k|-sv2005|-sv2009|-sv2012|\n");
+		log("          -sv2017|-sv2023|-sv|-formal} <verilog-file>..\n");
 		log("\n");
 		log("Load the specified Verilog/SystemVerilog files. (Full SystemVerilog support\n");
 		log("is only available via Verific.)\n");
@@ -4572,7 +4578,8 @@ struct ReadPass : public Pass {
 			return;
 		}
 
-		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" || args[1] == "-sv" || args[1] == "-formal") {
+		if (args[1] == "-sv2005" || args[1] == "-sv2009" || args[1] == "-sv2012" ||
+			args[1] == "-sv2017" || args[1] == "-sv2023" || args[1] == "-sv" || args[1] == "-formal") {
 			if (use_verific) {
 				args[0] = "verific";
 			} else {
