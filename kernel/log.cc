@@ -251,6 +251,8 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 		log_files.pop_back();
 }
 
+void (*log_warning_callback)(std::string);
+
 void log_formatted_warning(std::string_view prefix, std::string message)
 {
 	log_assert(!Multithreading::active());
@@ -287,6 +289,9 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 				warning_match = true;
 			}
 
+		if (log_warning_callback)
+			log_warning_callback(stringf("%s%s", prefix, message));
+		
 		if (log_warnings.count(message))
 		{
 			log("%s%s", prefix, message);
