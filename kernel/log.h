@@ -127,11 +127,11 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 static inline bool ys_debug(int = 0) { return false; }
 #endif
 
-void log_formatted_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO);
+void log_formatted_string(std::string_view format, std::string str, LogSeverity severity);
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	log_formatted_string(fmt.format_string(), fmt.format(args...));
+	log_formatted_string(fmt.format_string(), fmt.format(args...), LogSeverity::LOG_INFO);
 }
 
 template <typename... Args>
