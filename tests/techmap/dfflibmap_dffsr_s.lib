@@ -14,6 +14,7 @@ library(test) {
     }
     pin(CLK) {
       direction : input;
+      clock : true;
     }
     pin(CLEAR) {
       direction : input;
