@@ -126,7 +126,6 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 #else
 static inline bool ys_debug(int = 0) { return false; }
 #endif
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
 void log_formatted_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO);
 template <typename... Args>
@@ -135,6 +134,14 @@ inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	if (log_make_debug && !ys_debug(1))
 		return;
 	log_formatted_string(fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
+inline void log_debug(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+    if (!ys_debug(1))
+        return;
+    log_formatted_string(fmt.format_string(), fmt.format(args...), LogSeverity::LOG_DEBUG);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
@@ -175,8 +182,6 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 template <typename... Args>
 void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	if (log_make_debug && !ys_debug(1))
-		return;
 	log_formatted_file_info(filename, lineno, fmt.format(args...));
 }
 
