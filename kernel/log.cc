@@ -100,7 +100,7 @@ int gettimeofday(struct timeval *tv, struct timezone *tz)
 }
 #endif
 
-static void logv_string(std::string_view format, std::string str) {
+static void logv_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
 		logv_string("\n", "\n");
@@ -201,13 +201,13 @@ static void logv_string(std::string_view format, std::string str) {
 	}
 }
 
-void log_formatted_string(std::string_view format, std::string str)
+void log_formatted_string(std::string_view format, std::string str, LogSeverity severity)
 {
 	log_assert(!Multithreading::active());
 
 	if (log_make_debug && !ys_debug(1))
 		return;
-	logv_string(format, std::move(str));
+	logv_string(format, std::move(str), severity);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
@@ -231,7 +231,7 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
 	log("%s. ", header_id);
-	log_formatted_string(format, std::move(str));
+	log_formatted_string(format, std::move(str), LogSeverity::LOG_HEADER);
 	log_flush();
 
 	if (log_hdump_all)
@@ -297,7 +297,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log("%s%s", prefix, message);
+			log_formatted_string("%s", stringf("%s%s", prefix, message), LogSeverity::LOG_WARNING);
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -352,7 +352,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	log_last_error = std::move(str);
 	std::string message(prefix);
 	message += log_last_error;
-	logv_string("%s%s", message);
+	log_formatted_string("%s", stringf("%s%s", prefix, log_last_error), LogSeverity::LOG_ERROR);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -429,7 +429,7 @@ void log_formatted_cmd_error(std::string str)
 			pop_errfile = true;
 		}
 
-		log("ERROR: %s", log_last_error);
+		log_formatted_string("%s", stringf("ERROR: %s", log_last_error), LogSeverity::LOG_ERROR);
 		log_flush();
 
 		if (pop_errfile)
