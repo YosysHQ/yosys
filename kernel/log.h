@@ -131,8 +131,6 @@ void log_formatted_string(std::string_view format, std::string str, LogSeverity 
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	if (log_make_debug && !ys_debug(1))
-		return;
 	log_formatted_string(fmt.format_string(), fmt.format(args...));
 }
 
