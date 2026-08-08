@@ -63,7 +63,8 @@ struct CheckPass : public Pass {
 		log("    -nolatches\n");
 		log("        also check for latch cells ($dlatch, $adlatch, $dlatchsr and their\n");
 		log("        $_DLATCH_*/$_DLATCHSR_* mappings) remaining in the design. Use this\n");
-		log("        before techmapping in flows that must not emit latches.\n");
+		log("        before techmapping in flows that must not emit latches. Cells marked\n");
+		log("        with the 'always_latch' attribute are not reported.\n");
 		log("\n");
 		log("    -latchonly\n");
 		log("        check only for latch cells (as listed under -nolatches), skipping all\n");
@@ -142,10 +143,9 @@ struct CheckPass : public Pass {
 			// latch-only mode only flags latches, skipping the (potentially false-positive mid-flow) undriven/driver/loop checks below
 			if (latchonly) {
 				for (auto cell : module->cells())
-					if (
+					if (!cell->get_bool_attribute(ID::always_latch) && (
 						cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
-						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_")
-					) {
+						cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))) {
 						log_warning("Cell %s.%s is a latch of type %s.\n", module, cell, cell->type.unescape());
 						counter++;
 					}
@@ -298,7 +298,7 @@ struct CheckPass : public Pass {
 				}
 
 				if (
-					nolatches && (
+					nolatches && !cell->get_bool_attribute(ID::always_latch) && (
 					cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr)) ||
 					cell->type.begins_with("$_DLATCH_") || cell->type.begins_with("$_DLATCHSR_"))
 				) {
