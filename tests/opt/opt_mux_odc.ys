@@ -120,6 +120,102 @@ opt_clean
 select -assert-min 1 t:$eq
 log -pop
 
+# C3: `hit` reaches the arm only through a flip-flop. Forcing it would change
+# what the register captures on cycles when the arm is not selected, and that
+# stale value is then read on a later cycle when it is.
+log -header "C3: forced signal crosses a flip-flop (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  reg hit_q;
+  always @(posedge clk) hit_q <= hit;
+  wire [3:0] res = hit_q ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+prep -top top
+opt_mux_odc
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# C4: a partial selection must not have its unselected cells rewritten, even
+# though the escape analysis still has to look at the whole module.
+log -header "C4: fold outside the selection is left alone"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+prep -top top
+select t:$add
+opt_mux_odc
+select -clear
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# C5: the state element is hidden inside a submodule. opt_boundary keeps
+# hierarchy, so the walk has to look inside rather than trust the instance.
+log -header "C5: state hidden in a submodule (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module delay (input wire clk, input wire d, output reg q);
+  always @(posedge clk) q <= d;
+endmodule
+
+module top (input wire clk, input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire hit_d;
+  delay u_delay (.clk(clk), .d(hit), .q(hit_d));
+  wire [3:0] res = hit_d ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+hierarchy -top top
+proc
+opt_mux_odc
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# C6: a purely combinational submodule on the path is fine, and must still
+# fold -- otherwise the pass would be useless with opt_boundary enabled.
+log -header "C6: combinational submodule still folds"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module recode (input wire [3:0] a, output wire [3:0] y);
+  assign y = a ^ 4'b1010;
+endmodule
+
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  wire [3:0] res_r;
+  recode u_recode (.a(res), .y(res_r));
+  assign y = v ? res_r : byp;
+endmodule
+EOF
+hierarchy -top top
+proc
+select -assert-min 1 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
 # ============================================================================
 # Group D: no implication, and -strict
 # ============================================================================

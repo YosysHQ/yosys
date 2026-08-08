@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/celltypes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -53,6 +54,14 @@ PRIVATE_NAMESPACE_BEGIN
 //      fold would be wrong. This pass never duplicates a cone to buy
 //      exclusivity, so a rewrite can only ever remove logic.
 //
+//   3. Combinational reach. The path from the folded signal to the arm must
+//      cross only combinational cells. A flip-flop or latch on it would capture
+//      the forced value during a cycle when the arm is not selected and replay
+//      it on a later cycle when it is, which the argument above does not cover:
+//      it only says the arm's value is irrelevant *in the same instant*. A
+//      submodule instance counts as combinational only if it, and everything it
+//      instantiates, is -- hierarchy is common here since opt_boundary keeps it.
+//
 // The rewrite is an observability don't-care: gold and gate genuinely differ on
 // internal nodes (that is the point), so `-strict` disables the pass for the
 // formal flow, the same way opt_argmax's learned-table mode is gated.
@@ -61,19 +70,27 @@ struct OptMuxOdcWorker
 {
 	Module *module;
 	SigMap sigmap;
+	CellTypes ct;
 
-	// Index over the module, rebuilt once per run().
+	// Index over the module, rebuilt once per run(). The index deliberately
+	// covers *all* cells, not just selected ones: escape analysis is only sound
+	// if it can see every reader. Only the rewrite honours the selection.
 	dict<SigBit, Cell *> drivers;
 	dict<SigBit, pool<Cell *>> readers;
 	pool<SigBit> escape_bits; // bits leaving through a module output port
+	pool<Cell *> selected;    // cells this invocation is allowed to touch
 
 	int regions = 0;
 	int cells_removed = 0;
 
 	// Tunables (see Pass::execute).
 	int max_cone_cells = 100000;
+	int max_hier_depth = 16;
 
-	OptMuxOdcWorker(Module *module) : module(module), sigmap(module) {}
+	OptMuxOdcWorker(Module *module) : module(module), sigmap(module)
+	{
+		ct.setup(module->design);
+	}
 
 	// An empty fallback for readers.at() has to outlive the range-for that
 	// walks it, since dict::at(key, defval) hands back a reference to defval.
@@ -96,6 +113,41 @@ struct OptMuxOdcWorker
 			if (wire->port_output)
 				for (auto bit : sigmap(wire))
 					escape_bits.insert(bit);
+
+		for (auto cell : module->selected_cells())
+			selected.insert(cell);
+	}
+
+	// Memoized: may the forward walk cross this cell type without leaving the
+	// instant the select justified? Builtins are trusted to the cell table;
+	// a submodule qualifies only if everything inside it does too.
+	dict<IdString, bool> comb_cache;
+
+	bool type_is_combinational(IdString type, int depth = 0)
+	{
+		auto it = comb_cache.find(type);
+		if (it != comb_cache.end())
+			return it->second;
+		if (depth > max_hier_depth)
+			return false;
+
+		Module *sub = module->design->module(type);
+		bool result;
+		if (sub == nullptr)
+			result = ct.cell_evaluable(type);
+		else if (sub->get_blackbox_attribute())
+			result = false; // contents unknown, so assume it can hold state
+		else {
+			comb_cache[type] = false; // breaks recursive hierarchies
+			result = true;
+			for (auto sub_cell : sub->cells())
+				if (!type_is_combinational(sub_cell->type, depth + 1)) {
+					result = false;
+					break;
+				}
+		}
+		comb_cache[type] = result;
+		return result;
 	}
 
 	// Cells feeding `sig`, bounded so a pathological cone cannot stall the pass.
@@ -154,6 +206,10 @@ struct OptMuxOdcWorker
 							continue;
 						}
 						if (!cone.count(reader))
+							return true;
+						// A state element here would hold the forced value past
+						// the cycle whose select justified it -- see condition 3.
+						if (!type_is_combinational(reader->type))
 							return true;
 						stack.push_back(reader);
 					}
@@ -217,7 +273,7 @@ struct OptMuxOdcWorker
 
 		// Snapshot the mux list: the rewrite deletes cells as it goes.
 		std::vector<Cell *> muxes;
-		for (auto cell : module->cells())
+		for (auto cell : module->selected_cells())
 			if (cell->type.in(ID($mux), ID($_MUX_)))
 				muxes.push_back(cell);
 
@@ -247,7 +303,9 @@ struct OptMuxOdcWorker
 					guard_bits.insert(bit);
 
 				for (auto cell : cone) {
-					if (!forces_output(cell, sel, value))
+					// The cone spans the whole module, so a partial selection
+					// must not have its unselected cells rewritten.
+					if (!selected.count(cell) || !forces_output(cell, sel, value))
 						continue;
 					if (escapes(cell, mux, cone, arm_bits, guard_bits))
 						continue;
