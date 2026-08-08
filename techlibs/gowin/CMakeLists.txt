@@ -31,6 +31,7 @@ yosys_pass(synth_gowin
 		sort
 		splitnets
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

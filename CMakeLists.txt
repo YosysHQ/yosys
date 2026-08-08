@@ -431,7 +431,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	yosys_link_components(yosys PRIVATE ${driver_components})
 	set_property(TARGET yosys PROPERTY ENABLE_EXPORTS ON)
 	if (MINGW)
-		target_link_options(yosys PRIVATE LINKER:--export-all-symbols)
+		target_link_options(yosys PRIVATE -municode LINKER:--export-all-symbols)
 		set_target_properties(yosys PROPERTIES
 			# Final name: `yosys.exe.a` (linked to explicitly)
 			IMPORT_PREFIX ""

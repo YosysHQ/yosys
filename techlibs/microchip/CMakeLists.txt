@@ -53,6 +53,7 @@ yosys_pass(synth_microchip
 		share
 		simplemap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

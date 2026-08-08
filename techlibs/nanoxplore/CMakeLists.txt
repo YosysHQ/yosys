@@ -31,6 +31,7 @@ yosys_pass(synth_nanoxplore
 		setundef
 		share
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

@@ -21,7 +21,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include <deque>
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -42,6 +42,11 @@ struct OptBalanceTreeWorker {
 		dict<SigBit, pool<Cell*>> bit_to_sink;
 		pool<SigBit> output_port_sigs;
 	};
+
+	// Per cell type netlist indexes, rebuilt for each balanced cell type
+	dict<SigSpec, Cell*> sig_to_driver;
+	pool<SigSpec> input_port_sigs;
+	pool<Cell*> consumed_cells;
 
 	// Check if cell is of the right type and has matching input/output widths
 	// Only allow cells with "natural" output widths (no truncation) to prevent
@@ -94,6 +99,18 @@ struct OptBalanceTreeWorker {
 		SigSpec shifted(State::S0, offset);
 		shifted.append(sig);
 		return shifted;
+	}
+
+	// Get the driver of a cell input port if it continues the chain, else nullptr
+	Cell *chain_driver(Cell *cell, IdString port, IdString cell_type) {
+		auto sig = sigmap(cell->getPort(port));
+		Cell *drv = sig_to_driver[sig];
+		if (!drv || !is_right_type(drv, cell_type))
+			return nullptr;
+		for (auto bit : sig)
+			if (input_port_sigs.count(bit) && !consumed_cells.count(drv))
+				return nullptr;
+		return drv;
 	}
 
 	// Create a balanced binary tree from a vector of source signals
@@ -361,7 +378,7 @@ struct OptBalanceTreeWorker {
 		// Do for each cell type
 		for (auto cell_type : cell_types) {
 			// Index all of the nets in the module
-			dict<SigSpec, Cell*> sig_to_driver;
+			sig_to_driver.clear();
 			dict<SigSpec, pool<Cell*>> sig_to_sink;
 			SlicedAddContext sliced_add_ctx;
 			for (auto cell : module->selected_cells())
@@ -389,7 +406,7 @@ struct OptBalanceTreeWorker {
 			}
 
 			// Need to check if any wires connect to module ports
-			pool<SigSpec> input_port_sigs;
+			input_port_sigs.clear();
 			pool<SigSpec> output_port_sigs;
 			for (auto wire : module->selected_wires())
 				if (wire->port_input || wire->port_output) {
@@ -405,7 +422,7 @@ struct OptBalanceTreeWorker {
 				}
 
 			// Actual logic starts here
-			pool<Cell*> consumed_cells;
+			consumed_cells.clear();
 			if (cell_type == ID($add))
 				for (auto cell : module->selected_cells())
 					try_sliced_add_tree(cell, consumed_cells, sliced_add_ctx);
@@ -422,11 +439,15 @@ struct OptBalanceTreeWorker {
 				pool<Cell*> sinks;
 				pool<Cell*> current_loads = sig_to_sink[y];
 				pool<Cell*> next_loads;
+				pool<Cell*> visited_loads;
 				while (!current_loads.empty())
 				{
 					// Find each sink and see what they are
 					for (auto x : current_loads)
 					{
+						if (!visited_loads.insert(x).second)
+							continue;
+
 						// If not the correct type, don't follow any further
 						// (but add the originating cell to the list of sinks)
 						if (!is_right_type(x, cell_type))
@@ -479,31 +500,45 @@ struct OptBalanceTreeWorker {
 					if (consumed_cells.count(head_cell))
 						continue;
 
-					// Get sources of the chain
+					// Collect the chain cone into a topological sort
+					TopoSort<Cell*, IdString::compare_ptr_by_name<Cell>> toposort;
+					toposort.analyze_loops = false;
+					toposort.node(head_cell);
+					vector<Cell*> queue = {head_cell};
+					while (!queue.empty())
+					{
+						Cell *x = queue.back();
+						queue.pop_back();
+						for (IdString port: {ID::A, ID::B})
+							if (Cell *drv = chain_driver(x, port, cell_type)) {
+								if (!toposort.has_node(drv))
+									queue.push_back(drv);
+								toposort.edge(drv, x);
+							}
+					}
+
+					// Abandon chains containing combinational loops, since
+					// rebalancing them is not sound (and would not terminate)
+					if (!toposort.sort())
+						continue;
+
+					// Get sources of the chain: process cells from head to
+					// drivers, counting the paths leading back to the head so
+					// reconvergent sources are counted with multiplicity
 					dict<SigSpec, int> sources;
 					dict<SigSpec, bool> signeds;
-					int inner_cells = 0;
-					std::deque<Cell*> bfs_queue = {head_cell};
-					while (bfs_queue.size())
+					int inner_cells = GetSize(toposort.sorted) - 1;
+					dict<Cell*, int> reach;
+					reach[head_cell] = 1;
+					for (int i = GetSize(toposort.sorted); i-- > 0; )
 					{
-						Cell* x = bfs_queue.front();
-						bfs_queue.pop_front();
-
+						Cell* x = toposort.sorted[i];
 						for (IdString port: {ID::A, ID::B}) {
-							auto sig = sigmap(x->getPort(port));
-							Cell* drv = sig_to_driver[sig];
-							bool drv_ok = drv && is_right_type(drv, cell_type);
-							for (auto bit : sig) {
-								if (input_port_sigs.count(bit) && !consumed_cells.count(drv)) {
-									drv_ok = false;
-									break;
-								}
-							}
-							if (drv_ok) {
-								inner_cells++;
-								bfs_queue.push_back(drv);
+							if (Cell *drv = chain_driver(x, port, cell_type)) {
+								reach[drv] += reach[x];
 							} else {
-								sources[sig]++;
+								auto sig = sigmap(x->getPort(port));
+								sources[sig] += reach[x];
 								signeds[sig] = x->getParam(port == ID::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
 							}
 						}
