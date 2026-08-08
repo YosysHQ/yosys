@@ -310,7 +310,7 @@ struct ArithTreeWorker {
 				pool.push_back({op.sig, 0});
 			} else {
 				// Multiplicative operand
-				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width);
+				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width, cell->name); // SILIMATE: Improve the naming
 
 				if (!op.negate) {
 					for (auto &pp : pps)
@@ -318,7 +318,7 @@ struct ArithTreeWorker {
 					continue;
 				}
 
-				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy);
+				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy, cell->name); // SILIMATE: Improve the naming
 				SigSpec p = module->addWire(NEW_ID2_SUFFIX("prod"), width); // SILIMATE: Improve the naming
 				module->addAdd(NEW_ID2_SUFFIX("add"), pa, pb, p, false); // SILIMATE: Improve the naming
 				SigSpec np = module->addWire(NEW_ID2_SUFFIX("nprod"), width); // SILIMATE: Improve the naming
@@ -339,9 +339,9 @@ struct ArithTreeWorker {
 		int width = GetSize(result_y);
 		auto pool = build_operand_pool(cell, operands, width, neg_compensation);
 		int final_depth = 0;
-		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy, nullptr, &final_depth);
+		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy, cell->name, nullptr, &final_depth); // SILIMATE: Improve the naming
 		auto final_choice = CompressorTree::pick_final_adder(width, final_depth, opt.final_mode);
-		CompressorTree::emit_final_adder(module, a, b, result_y, final_choice);
+		CompressorTree::emit_final_adder(module, a, b, result_y, final_choice, cell->name); // SILIMATE: Improve the naming
 	}
 
 	void process_chains()

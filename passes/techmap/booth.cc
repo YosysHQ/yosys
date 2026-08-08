@@ -393,7 +393,7 @@ struct BoothPassWorker {
 		operands.reserve(aligned_pp.size());
 		for (auto &s : aligned_pp)
 			operands.push_back({s, 0});
-		auto [wtree_a, wtree_b] = CompressorTree::reduce_scheduled(module, std::move(operands), z_sz, CompressorTree::Strategy::FA_ONLY);
+		auto [wtree_a, wtree_b] = CompressorTree::reduce_scheduled(module, std::move(operands), z_sz, CompressorTree::Strategy::FA_ONLY, cell->name); // SILIMATE: Improve the naming
 
 		// Debug code: Dump out the csa trees
 		// DumpCSATrees(debug_csa_trees);
