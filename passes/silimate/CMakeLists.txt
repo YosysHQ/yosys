@@ -95,9 +95,18 @@ pmgen_command(peepopt_shift
 	PREFIX
 		peepopt_shift
 )
+# Kept out of peepopt_shift on purpose: one matcher builds its indexes for
+# every pattern it holds, so folding this in would make -combine/-expand pay
+# to index every $add in the design on invocations that never use it.
+pmgen_command(peepopt_sink
+	peepopt_sink_shifts.pmg
+	PREFIX
+		peepopt_sink
+)
 yosys_pass(peepopt_shift
 	opt_shift.cc
 	${PMGEN_peepopt_shift_OUTPUT}
+	${PMGEN_peepopt_sink_OUTPUT}
 )
 
 pmgen_command(peepopt_muxmode

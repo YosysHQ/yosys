@@ -1,0 +1,153 @@
+log -header "Addend fits below the shift floor: merge becomes a plain OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [3:0] z,
+  output wire [19:0] x
+);
+  wire [4:0] amt = b + 5'd8;
+  assign x = (a << amt) + z;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+# z is narrower than the guaranteed shift, so nothing has to cross the shifter
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$shr
+select -assert-count 1 t:$or
+# the only remaining add is the one forming the shift amount
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Addend crosses the shift floor: narrowed add plus masked OR"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [9:0] z,
+  output wire [19:0] x
+);
+  wire [4:0] amt = b + 5'd6;
+  assign x = (a << amt) + z;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+# the high 4 bits of z move in front of the shifter, the low 6 stay behind
+select -assert-count 1 t:$shr
+select -assert-count 1 t:$or
+select -assert-count 1 t:$and
+# shift amount add, plus the sunk addend joining the arithmetic before the shift
+select -assert-count 2 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Negative: constant shift amount is free rewiring, nothing to sink"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [9:0] z,
+  output wire [19:0] x
+);
+  assign x = (a << 6) + z;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+select -assert-count 0 t:$or
+design -reset
+log -pop
+
+
+
+log -header "Negative: no constant floor on the amount, so the addend cannot narrow"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [9:0] z,
+  output wire [19:0] x
+);
+  assign x = (a << b) + z;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$or
+design -reset
+log -pop
+
+
+
+log -header "Negative: shifter output has a second consumer"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [2:0] b,
+  input wire [9:0] z,
+  output wire [19:0] x,
+  output wire [19:0] x2
+);
+  wire [4:0]  amt    = b + 5'd6;
+  wire [19:0] sh_out = a << amt;
+  assign x  = sh_out + z;
+  assign x2 = sh_out ^ 20'hA5A5A;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$or
+design -reset
+log -pop
+
+
+
+log -header "Negative: signed operands are outside the unsigned bound"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [7:0] a,
+  input wire [2:0] b,
+  input wire signed [9:0] z,
+  output wire signed [19:0] x
+);
+  wire [4:0] amt = b + 5'd6;
+  assign x = (a <<< amt) + z;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -sink
+design -load postopt
+select -assert-count 0 t:$or
+design -reset
+log -pop

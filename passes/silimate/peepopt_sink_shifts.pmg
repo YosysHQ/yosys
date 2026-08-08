@@ -1,0 +1,114 @@
+pattern sink_shifts
+//
+// Authored by Akash Levy of Silimate, Inc. under ISC license.
+//
+// Sink an add through a left shift, so the adder leaves the shifter output and
+// can merge with the arithmetic already feeding the shifter:
+//
+//   y = (x << s) + z   ===>   y = ((x + (z >> s)) << s) | (z & ~(~0 << s))
+//
+// The low part of z sits below every reachable shift amount, so it merges with
+// a disjoint $or instead of a carry-propagating add. Only fires when s has a
+// provable nonzero minimum, which is what makes (z >> s) strictly narrower
+// than z, and when s is not constant, since a constant shift is free rewiring
+// and there is nothing to sink past.
+//
+
+state <SigSpec> shift_a shift_b shift_y
+state <int> shift_min
+
+match shift
+	select shift->type.in($shl)
+	select !port(shift, \B).empty()
+	select !port(shift, \B).is_fully_const()
+	select !param(shift, \A_SIGNED).as_bool()
+	select !param(shift, \B_SIGNED).as_bool()
+	set shift_a port(shift, \A)
+	set shift_b port(shift, \B)
+	set shift_y port(shift, \Y)
+endmatch
+
+code shift_min
+	// Shifter output must feed the adder and nothing else
+	if (nusers(shift_y) != 2)
+		reject;
+
+	// Without a nonzero lower bound on s there is no narrowing to gain
+	shift_min = min_shift_amount(shift_b);
+	if (shift_min < 1)
+		reject;
+endcode
+
+state <SigSpec> add_z add_y
+
+match add
+	select add->type.in($add)
+	select !param(add, \A_SIGNED).as_bool()
+	select !param(add, \B_SIGNED).as_bool()
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(add, AB) === shift_y
+	define <IdString> BA (AB == \A ? \B : \A)
+
+	// Nothing to move if the addend is empty
+	select !port(add, BA).empty()
+
+	set add_z port(add, BA)
+	set add_y port(add, \Y)
+endmatch
+
+code
+	// Keep truncation identical to the original: same width in and out
+	if (GetSize(add_y) != GetSize(shift_y))
+		reject;
+endcode
+
+code shift_a shift_b shift_y add_z add_y
+	int wz = GetSize(add_z);
+	int wy = GetSize(add_y);
+	int wn = max(0, wz - shift_min); // bits of z that survive z >> s
+
+	Cell *cell = add;
+	std::string src = cell->get_src_attribute();
+
+	// wn == 0 means all of z sits below every reachable shift amount, so z
+	// passes through unmasked and nothing needs to cross the shifter
+	SigSpec base = shift_a;
+	SigSpec z_lo = add_z;
+	if (wn > 0) {
+		// The part of z at or above the shift rejoins the arithmetic in front
+		// of the shifter, narrowed by the shift it is guaranteed to get
+		Wire *z_hi = module->addWire(NEW_ID2, wn);
+		module->addShr(NEW_ID2, add_z, shift_b, z_hi, false, src);
+		Wire *sum = module->addWire(NEW_ID2, wy); // result width keeps truncation identical
+		module->addAdd(NEW_ID2, shift_a, z_hi, sum, false, src);
+		base = sum;
+
+		// What stays behind is z masked down to the bits below the shift
+		Wire *keep = module->addWire(NEW_ID2, wz);
+		module->addShl(NEW_ID2, SigSpec(State::S1, wz), shift_b, keep, false, src);
+		SigSpec drop = module->Not(NEW_ID2, keep, false, src);
+		Wire *masked = module->addWire(NEW_ID2, wz);
+		module->addAnd(NEW_ID2, add_z, drop, masked, false, src);
+		z_lo = masked;
+	}
+
+	Wire *base_sh = module->addWire(NEW_ID2, wy);
+	module->addShl(NEW_ID2, base, shift_b, base_sh, false, src);
+
+	// The two halves are disjoint, so the carry-propagating add becomes an $or
+	add->unsetPort(\A);
+	add->unsetPort(\B);
+	add->unsetPort(\Y);
+	shift->unsetPort(\A);
+	shift->unsetPort(\B);
+	shift->unsetPort(\Y);
+	module->addOr(NEW_ID2, base_sh, z_lo, add_y, false, src);
+
+	autoremove(add);
+	autoremove(shift);
+
+	log("sink_shifts pattern in %s: shift=%s (%s), add=%s, min_shift=%d, addend %d -> %d bits\n",
+		log_id(module), log_id(shift), log_id(shift->type), log_id(add), shift_min, wz, wn);
+	did_something = true;
+	accept;
+endcode
