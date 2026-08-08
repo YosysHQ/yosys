@@ -379,6 +379,125 @@ design -reset
 log -pop
 
 
+log -header "-timing: a compare distributes over a chain of muxes"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [4:0] f0,
+  input wire [4:0] f1,
+  input wire [4:0] f2,
+  input wire [7:0] w,
+  output wire y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s1 = sp[3];
+  wire s2 = sp[4];
+  wire [4:0] f = s2 ? f0 : (s1 ? f1 : f2);
+  assign y = (w > {3'b0, f});
+endmodule
+EOF
+proc
+check -assert
+
+# Two things kept this candidate off the floor. The compare reads f zero-extended
+# to 8 bits, so its operand carries constant padding the mux does not drive; the
+# padding is the same in both arms, so projecting it through keeps the push exact.
+# And both selects arrive late behind the multiply while every arm is a module
+# input, which makes one level of push exactly break-even -- the compare still
+# queues behind the rest of the chain -- so a single-level estimate declines the
+# first step and the chain is never entered. Weighed as a whole tree it saves the
+# compare's own level.
+equiv_opt -assert muxpush -limit 1 -types $gt -timing
+design -load postopt
+select -set cmp_fanin t:$gt %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @cmp_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "Negative case: a variable bit outside the mux output blocks the push"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [4:0] f0,
+  input wire [4:0] f1,
+  input wire [2:0] hi,
+  input wire [7:0] w,
+  output wire y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [4:0] f = s ? f0 : f1;
+  assign y = (w > {hi, f});
+endmodule
+EOF
+proc
+check -assert
+
+# Same shape as above, except the operand's upper bits are a port instead of
+# constant padding. Only extension padding may sit outside the mux output: hi is
+# not a view of either arm, so speculating the compare on the arms alone would
+# drop it. Tolerating any bit the mux does not drive, rather than constants
+# only, silently rewrites this to the wrong function.
+equiv_opt -assert muxpush -limit 1 -types $gt -timing
+design -load postopt
+select -set cmp_fanin t:$gt %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 1 @cmp_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "-timing: an unbalanced tree pays only the levels each path crosses"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] g_lo,
+  input wire [7:0] g_hi,
+  input wire [4:0] f1,
+  input wire [4:0] f2,
+  input wire [7:0] w,
+  output wire y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire [7:0] gp = g_lo * g_hi;
+  wire s1 = sp[3];
+  wire s2 = sp[4];
+  wire [4:0] f = s2 ? gp[4:0] : (s1 ? f1 : f2);
+  assign y = (w > {3'b0, f});
+endmodule
+EOF
+proc
+check -assert
+
+# The two arms of the outer mux are lopsided: one is a late multiply one level
+# up, the other a second mux over early inputs two levels up. Charging the
+# latest arrival and the deepest arm to one path prices the late arm as if it
+# crossed both muxes, which reads as break-even and declines the tree. Each path
+# pays only the levels it crosses, so the late arm is one mux short of that and
+# the push is worth a level.
+equiv_opt -assert muxpush -limit 1 -types $gt -timing
+design -load postopt
+select -set cmp_fanin t:$gt %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @cmp_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
 log -header "-slack-margin rejects a negative allowance (ends the script, keep last)"
 log -push
 design -reset
