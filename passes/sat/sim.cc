@@ -111,6 +111,9 @@ struct DisplayOutput {
 	{ }
 };
 
+// SILIMATE: cap on how many missing FST inputs get named individually under -missing-input-warn
+static const int MAX_MISSING_INPUT_WARNINGS = 20;
+
 struct SimShared
 {
 	bool debug = false;
@@ -140,6 +143,10 @@ struct SimShared
 	bool initstate = true;
 	bool undriven_check = true;
 	bool undriven_warning = false;
+	// SILIMATE: -missing-input-warn keeps input ports that have no FST signal undriven instead of
+	// aborting; only the first MAX_MISSING_INPUT_WARNINGS of them are named to bound log size.
+	bool missing_input_warning = false;
+	int missing_inputs = 0;
 	bool blackbox_children = false;
 	pool<IdString> instance_root_modules;
 	double clk_period_override = 0.0;
@@ -1758,6 +1765,17 @@ struct SimWorker : SimShared
 		write_output_files();
 	}
 
+	// SILIMATE: an input port with no matching FST signal is fatal by default (its value would be
+	// unknown for the whole replay); -missing-input-warn leaves it undriven and keeps going.
+	void report_missing_fst_input(const std::string &path, Module *mod)
+	{
+		if (!missing_input_warning)
+			log_error("Can't find port '%s' on module '%s' in FST. Use -missing-input-warn to leave it undriven and continue.\n",
+					path.c_str(), log_id(mod));
+		if (++missing_inputs <= MAX_MISSING_INPUT_WARNINGS)
+			log_warning("Can't find port '%s' on module '%s' in FST, leaving it undriven.\n", path.c_str(), log_id(mod));
+	}
+
 	void run_cosim_fst(Module *topmod, int numcycles, int log_interval)
 	{
 		log_assert(tops.empty());
@@ -1783,8 +1801,8 @@ struct SimWorker : SimShared
 					if (!wire->port_input) continue;
 					fstHandle id = fst->getHandle(iscope + "." + wire->name.unescape());
 					if (id == 0) {
-						log_error("Can't find port '%s' on module '%s' in FST.\n",
-							iscope + "." + wire->name.unescape(), log_id(m));
+						report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
+						continue;
 					}
 					t->fst_inputs[wire] = id;
 				}
@@ -1834,18 +1852,20 @@ struct SimWorker : SimShared
 				// Populate fst_inputs for input ports
 				if (wire->port_input) {
 					fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
-					if (id != 0) {
-						// Case of a regular wire/reg
+					if (id != 0)
 						top->fst_inputs[wire] = id;
-					} else {
-						// Not found
-						log_error("Unable to find required '%s' signal in file\n",(scope + "." + RTLIL::unescape_id(wire->name)));
-					}
+					else
+						report_missing_fst_input(scope + "." + RTLIL::unescape_id(wire->name), topmod);
 				}
 			}
 
 			top->addAdditionalInputs();
 		}
+
+		// SILIMATE: one line for the tail of the missing-input list that was not named above
+		if (missing_inputs > MAX_MISSING_INPUT_WARNINGS)
+			log_warning("%d further input port(s) missing from the FST are left undriven.\n",
+					missing_inputs - MAX_MISSING_INPUT_WARNINGS);
 
 		register_signals();
 		top->addAdditionalInputs();
@@ -3285,6 +3305,11 @@ struct SimPass : public Pass {
 		log("    -undriven-warn\n");
 		log("        downgrade undriven-signal replay errors to warnings\n");
 		log("\n");
+		log("    -missing-input-warn\n");
+		log("        downgrade input ports missing from the FST/VCD to warnings, leaving them\n");
+		log("        undriven instead of aborting the replay. Missing inputs remain X, so\n");
+		log("        downstream activity and derived power estimates can be underestimated.\n");
+		log("\n");
 		log("    -width <integer>\n");
 		log("        cycle width in generated simulation output (must be divisible by 2).\n");
 		log("\n");
@@ -3541,6 +3566,10 @@ struct SimPass : public Pass {
 			}
 			if (args[argidx] == "-undriven-warn") {
 				worker.undriven_warning = true;
+				continue;
+			}
+			if (args[argidx] == "-missing-input-warn") {
+				worker.missing_input_warning = true;
 				continue;
 			}
 			if (args[argidx] == "-x") {

@@ -1,0 +1,6 @@
+read_verilog missing_input.v
+prep -top missing_input
+
+# Input port `b` is absent from the trace, which is fatal by default
+logger -expect error "Can't find port 'missing_input.b' on module 'missing_input' in FST" 1
+sim -r missing_input.vcd -scope missing_input -q
