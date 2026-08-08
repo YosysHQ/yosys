@@ -379,3 +379,135 @@ sat -verify -prove q 1'b0 -set din 2'b11
 sat -verify -prove q 1'b0 -set din 2'b00
 design -reset
 log -pop
+
+
+log -header "Bit-blasted internal net"
+log -push
+design -reset
+read_verilog <<EOF
+module top (din, q);
+  input [1:0] din;
+  output q;
+  (* keep *) wire n_1_, n_0_;
+  assign n_1_ = ~din[1];
+  assign n_0_ = ~din[0];
+  assign q = n_1_ & ~n_0_;
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+bus_rebuild
+
+# A writer blasts the nets of a module along with its ports, and after flattening
+# the nets are all that is left of the inner boundaries, so they group too.
+select -assert-count 1 top/w:n top/s:2 %i
+select -assert-count 0 top/w:n_1_
+select -assert-count 0 top/w:n_0_
+
+# \keep has to survive the merge: unlike a port, a net that loses it becomes
+# removable, and `opt -full` below would sweep the bus away.
+select -assert-count 1 top/w:n top/a:keep %i
+
+opt -full
+select -assert-count 1 top/w:n
+sat -verify -prove q 1'b1 -set din 2'b01
+sat -verify -prove q 1'b0 -set din 2'b11
+design -reset
+log -pop
+
+
+log -header "Bit-blasted nets across a flop boundary"
+log -push
+design -reset
+read_verilog <<EOF
+module top (clk, din, q);
+  input clk;
+  input [1:0] din;
+  output reg q;
+  reg cut_a__pqi_0_, cut_a__pqi_1_;
+  wire cut_y__pqo;
+  assign cut_y__pqo = cut_a__pqi_1_ & ~cut_a__pqi_0_;
+  always @(posedge clk) begin
+    cut_a__pqi_0_ <= din[0];
+    cut_a__pqi_1_ <= din[1];
+    q <= cut_y__pqo;
+  end
+endmodule
+EOF
+proc
+check -assert
+
+equiv_opt -assert bus_rebuild
+design -load postopt
+
+# Characterization surrounds each cell-under-test with flops and hands the cell its
+# own nets (<cell>_<pin>__pqi/__pqo) rather than the enclosing module's ports, so
+# skipping nets leaves the widest cell input carved up into 1-bit pins.
+select -assert-count 1 top/w:cut_a__pqi top/s:2 %i
+select -assert-count 0 top/w:cut_a__pqi_0_
+select -assert-count 0 top/w:cut_a__pqi_1_
+design -reset
+log -pop
+
+
+log -header "Per-bit init survives the merge"
+log -push
+design -reset
+read_verilog <<EOF
+module top (clk, din, q);
+  input clk;
+  input [1:0] din;
+  output reg q;
+  reg n_1_ = 1'b1;
+  reg n_0_ = 1'b0;
+  always @(posedge clk) begin
+    n_0_ <= din[0];
+    n_1_ <= din[1];
+    q <= n_1_ & ~n_0_;
+  end
+endmodule
+EOF
+proc
+check -assert
+
+bus_rebuild
+
+# \init is the register's reset state, and dropping it on the merge leaves
+# simulation, SAT and formal reading those bits as uninitialized. Bit 1 inits to 1
+# and bit 0 to 0, so a bus that reassembled them in the wrong order fails here too.
+select -assert-count 1 top/w:n top/a:init=2'b10 %i
+design -reset
+log -pop
+
+
+log -header "Negative case: a group mixing a port with a net"
+log -push
+design -reset
+read_verilog <<EOF
+module top (a_0_, b, q);
+  input a_0_;
+  input b;
+  output q;
+  wire a_1_;
+  assign a_1_ = ~b;
+  assign q = a_1_ ^ a_0_;
+endmodule
+EOF
+hierarchy -top top
+check -assert
+
+# Absorbing the net into the port's bus would widen the module's interface behind
+# the back of every instance, so a mixed group has to be dropped whole.
+logger -expect warning "Not reconstructing bus a in module top: 1 of its 2 members are ports" 1
+bus_rebuild
+
+select -assert-count 1 top/w:a_0_
+select -assert-count 1 top/w:a_1_
+select -assert-count 0 top/w:a
+
+opt -full
+sat -verify -prove q 1'b1 -set a_0_ 1'b1 -set b 1'b1
+sat -verify -prove q 1'b1 -set a_0_ 1'b0 -set b 1'b0
+design -reset
+log -pop
