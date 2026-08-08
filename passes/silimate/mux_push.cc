@@ -274,6 +274,36 @@ struct OptMuxPushWorker
     return false;
   }
 
+  // Worst leaf/select arrival and level count of a chain or tree of muxes.
+  struct MuxTree { int leaf_arrival = 0; int sel_arrival = 0; int depth = 0; };
+
+  // Bounded so a deep mux tree cannot make the guard quadratic.
+  static const int max_push_depth = 8;
+
+  // Recurse only where a push would really be allowed, so the estimate matches
+  // what the iteration can actually reach; otherwise stop and treat sig as a leaf.
+  MuxTree mux_tree_stats(const RTLIL::SigSpec &sig, int budget)
+  {
+    MuxTree t;
+    RTLIL::Cell *m = nullptr;
+    RTLIL::SigSpec arm_a, arm_b;
+    if (budget > 0 && mux_drives_sig(sig, m) && design->selected(module, m) &&
+        !m->get_bool_attribute(ID::keep) &&
+        !sig_has_keep(sigmap(m->getPort(ID::Y))) &&
+        fanout_within_limit(sigmap(m->getPort(ID::Y))) &&
+        slice_arms(m, sigmap(m->getPort(ID::Y)), sig, arm_a, arm_b)) {
+      MuxTree a = mux_tree_stats(sigmap(arm_a), budget - 1);
+      MuxTree b = mux_tree_stats(sigmap(arm_b), budget - 1);
+      t.leaf_arrival = std::max(a.leaf_arrival, b.leaf_arrival);
+      t.sel_arrival = std::max(std::max(a.sel_arrival, b.sel_arrival),
+                               arrival(m->getPort(ID::S)));
+      t.depth = std::max(a.depth, b.depth) + 1;
+      return t;
+    }
+    t.leaf_arrival = arrival(sig);
+    return t;
+  }
+
   // Pushing pays when the select is the mux's late input: the operators then
   // evaluate on the early arms in parallel with the select instead of queueing
   // behind it. Otherwise it is pure area for no depth.
@@ -298,9 +328,12 @@ struct OptMuxPushWorker
       return true;
     }
 
-    int d_a = arrival(arm_a);
-    int d_b = arrival(arm_b);
-    int d_s = arrival(mux_cell->getPort(ID::S));
+    // A nested ternary builds a chain of muxes on one operand. Pushing one
+    // level is break-even there -- the operator still queues behind the rest of
+    // the chain -- so weigh the push against the fully pushed tree, which is
+    // where the operator finally sees only leaf arrivals. Judging a single level
+    // rejects the whole chain and the win is never reached.
+    MuxTree tree = mux_tree_stats(sigmap(cell->getPort(port)), max_push_depth);
     int d_mux = estimate_cell_delay(mux_cell);
     int d_op = estimate_cell_delay(cell);
 
@@ -311,11 +344,14 @@ struct OptMuxPushWorker
       others = std::max(others, arrival(conn.second));
     }
 
-    int before = std::max(std::max(std::max(d_a, d_b), d_s) + d_mux, others) + d_op;
-    int after = std::max(std::max(std::max(d_a, d_b), others) + d_op, d_s) + d_mux;
-    log_debug("    %s %s port %s: dA=%d dB=%d dS=%d before=%d after=%d slack=%d\n",
-        log_id(cell->type), log_id(cell->name), log_id(port), d_a, d_b, d_s,
-        before, after, slack);
+    // For a lone mux this is exactly the single-level estimate, since then
+    // leaf_arrival is max(dA,dB), sel_arrival is dS and depth is 1.
+    int before = std::max(arrival(cell->getPort(port)), others) + d_op;
+    int after = std::max(std::max(tree.leaf_arrival, others) + d_op,
+                         tree.sel_arrival) + tree.depth * d_mux;
+    log_debug("    %s %s port %s: leaf=%d sel=%d levels=%d before=%d after=%d slack=%d\n",
+        log_id(cell->type), log_id(cell->name), log_id(port), tree.leaf_arrival,
+        tree.sel_arrival, tree.depth, before, after, slack);
     return after < before;
   }
 
@@ -381,9 +417,12 @@ struct OptMuxPushWorker
   {
     mux_cell = nullptr;
     for (auto &bit : sig) {
+      // Zero/sign-extension padding leaves constant bits in the operand (e.g.
+      // $lt A = { 3'000, \w_floor }). They are the same in both arms, so
+      // slice_arms passes them through and the push stays exact.
       if (bit.wire == nullptr)
-        return false;
-      // Require a single consistent driver for all bits in the SigSpec
+        continue;
+      // Require a single consistent driver for all variable bits in the SigSpec
       auto it_drv = driver_map.find(bit);
       if (it_drv == driver_map.end() || it_drv->second == nullptr)
         return false;
@@ -425,8 +464,15 @@ struct OptMuxPushWorker
     arm_b = RTLIL::SigSpec();
     for (auto &bit : in_sig) {
       auto it = pos.find(bit);
-      if (it == pos.end())
-        return false;
+      if (it == pos.end()) {
+        // Only extension padding may sit outside the mux output; a variable bit
+        // from another driver means this operand is not a view of the mux.
+        if (bit.wire != nullptr)
+          return false;
+        arm_a.append(bit);
+        arm_b.append(bit);
+        continue;
+      }
       arm_a.append(mux_a[it->second]);
       arm_b.append(mux_b[it->second]);
     }
