@@ -88,6 +88,7 @@ struct log_cmd_error_exception { };
 enum LogSeverity {
 	LOG_DEBUG,
 	LOG_INFO,
+	LOG_HEADER_ID,
 	LOG_HEADER,
 	LOG_WARNING,
 	LOG_ERROR
@@ -127,11 +128,11 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 static inline bool ys_debug(int = 0) { return false; }
 #endif
 
-void log_formatted_string(std::string_view format, std::string str, LogSeverity severity);
+void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity);
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	log_formatted_string(fmt.format_string(), fmt.format(args...), LogSeverity::LOG_INFO);
+	log_formatted_string("", fmt.format_string(), fmt.format(args...), LogSeverity::LOG_INFO);
 }
 
 template <typename... Args>
@@ -139,7 +140,7 @@ inline void log_debug(FmtString<TypeIdentity<Args>...> fmt, const Args &... args
 {
     if (!ys_debug(1))
         return;
-    log_formatted_string(fmt.format_string(), fmt.format(args...), LogSeverity::LOG_DEBUG);
+    log_formatted_string("", fmt.format_string(), fmt.format(args...), LogSeverity::LOG_DEBUG);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
