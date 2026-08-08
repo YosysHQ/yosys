@@ -294,6 +294,20 @@ struct OptMuxOdcWorker
 				IdString other_port = arm ? ID::A : ID::B;
 				bool value = arm != 0;
 
+				// A cell can only be forced by the select if the select is one of
+				// its own inputs, so the candidates come straight off the index.
+				// Searching the arm's cone for them instead would cost a walk per
+				// mux, which dominates the run on a large design that folds
+				// nothing -- the common case by far.
+				std::vector<Cell *> candidates;
+				for (auto reader : readers.at(sel, no_readers))
+					// The cone spans the whole module, so a partial selection
+					// must not have its unselected cells rewritten.
+					if (selected.count(reader) && forces_output(reader, sel, value))
+						candidates.push_back(reader);
+				if (candidates.empty())
+					continue;
+
 				SigSpec arm_sig = sigmap(mux->getPort(arm_port));
 				pool<Cell *> cone;
 				if (!backward_cone(arm_sig, cone))
@@ -307,10 +321,10 @@ struct OptMuxOdcWorker
 				for (auto bit : sigmap(mux->getPort(other_port)))
 					guard_bits.insert(bit);
 
-				for (auto cell : cone) {
-					// The cone spans the whole module, so a partial selection
-					// must not have its unselected cells rewritten.
-					if (!selected.count(cell) || !forces_output(cell, sel, value))
+				for (auto cell : candidates) {
+					// Only a cell the arm actually depends on is unobservable
+					// when the select takes the other value.
+					if (!cone.count(cell))
 						continue;
 					if (escapes(cell, mux, cone, arm_bits, guard_bits))
 						continue;
