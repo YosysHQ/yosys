@@ -124,6 +124,10 @@ yosys_pass(opt_xor_fold
 	opt_xor_fold.cc
 )
 
+yosys_pass(opt_mux_odc
+	opt_mux_odc.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg
