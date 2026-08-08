@@ -36,6 +36,9 @@
 #include <vector>
 #include <list>
 
+#include <fmt/color.h>
+#include <fmt/format.h>
+
 YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
@@ -80,6 +83,41 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
+void log_colored_callback(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity)
+{
+	if (!time_str.empty())
+    	fmt::print(fg(fmt::terminal_color::blue), "{}", time_str);
+
+    switch (severity) {
+		case LOG_WARNING:
+			fmt::print(fg(fmt::terminal_color::bright_yellow) | fmt::emphasis::bold, "{}", prefix);
+			fmt::print("{}", msg);
+			break;
+
+		case LOG_ERROR:
+			fmt::print(fg(fmt::terminal_color::bright_red) | fmt::emphasis::bold, "{}", prefix);
+			fmt::print(fg(fmt::terminal_color::blue), "{}", msg);
+			break;
+
+		case LOG_HEADER:
+			fmt::print(fg(fmt::terminal_color::white) | fmt::emphasis::bold, "{}{}", prefix, msg);
+			break;
+
+		case LOG_HEADER_ID:
+			fmt::print(fg(fmt::terminal_color::cyan) | fmt::emphasis::bold, "{}", msg);
+			break;
+
+		case LOG_DEBUG:
+			fmt::print(fg(fmt::terminal_color::bright_black), "{}{}", prefix, msg);
+			break;
+
+		case LOG_INFO:
+		default:
+			fmt::print("{}{}", prefix, msg);
+			break;
+		}
+}
+
 void log_default_callback(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity)
 {
 	(void)severity;
@@ -91,7 +129,7 @@ void log_default_callback(std::string_view time_str, std::string_view prefix, st
 		*f << str;
 }
 
-void (*log_callback)(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity) = log_default_callback;
+void (*log_callback)(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity) = log_colored_callback;
 
 
 #if defined(_WIN32) && !defined(__MINGW32__)
@@ -294,7 +332,8 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 		if (log_warnings.count(message))
 		{
-			log("%s%s", prefix, message);
+			//log("%s%s", prefix, message);
+			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
 			log_flush();
 		}
 		else

@@ -92,6 +92,7 @@ yosys_core(kernel
 		${pybind11_INCLUDE_DIR}
 	LIBRARIES
 		cxxopts
+		fmt::fmt
 		$<${YOSYS_ENABLE_PLUGINS}:${Dlfcn_LIBRARIES}>
 		$<${YOSYS_ENABLE_ZLIB}:PkgConfig::zlib>
 		$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
