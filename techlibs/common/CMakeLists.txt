@@ -42,6 +42,7 @@ yosys_pass(synth
 		abc9_unmap.v
 		cmp2lcu.v
 		cmp2softlogic.v
+		fa_wordlevel.v
 
 		choices/kogge-stone.v
 		choices/han-carlson.v
