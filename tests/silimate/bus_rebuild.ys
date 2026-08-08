@@ -451,6 +451,36 @@ design -reset
 log -pop
 
 
+log -header "Per-bit init survives the merge"
+log -push
+design -reset
+read_verilog <<EOF
+module top (clk, din, q);
+  input clk;
+  input [1:0] din;
+  output reg q;
+  reg n_1_ = 1'b1;
+  reg n_0_ = 1'b0;
+  always @(posedge clk) begin
+    n_0_ <= din[0];
+    n_1_ <= din[1];
+    q <= n_1_ & ~n_0_;
+  end
+endmodule
+EOF
+proc
+check -assert
+
+bus_rebuild
+
+# \init is the register's reset state, and dropping it on the merge leaves
+# simulation, SAT and formal reading those bits as uninitialized. Bit 1 inits to 1
+# and bit 0 to 0, so a bus that reassembled them in the wrong order fails here too.
+select -assert-count 1 top/w:n top/a:init=2'b10 %i
+design -reset
+log -pop
+
+
 log -header "Negative case: a group mixing a port with a net"
 log -push
 design -reset

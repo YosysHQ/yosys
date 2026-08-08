@@ -208,11 +208,25 @@ struct BusRebuildPass : public Pass {
 			bus->port_id = port_id;
 			bus->set_src_attribute(members.begin()->second->get_src_attribute());
 
-			// A net carrying \keep is one opt_clean was told to leave alone. A port is kept by
-			// virtue of being a port, but a net would quietly become removable once merged.
-			for (auto &member : members)
+			// \keep and \init have to move onto the bus. A port survives losing them, a net does
+			// not: without \keep opt_clean may sweep it away, and without \init simulation, SAT
+			// and formal read its register bits as uninitialized. A bit with no member of its
+			// own stays Sx, like any other absent bit of a sparse bus.
+			RTLIL::Const init(RTLIL::State::Sx, width);
+			bool has_init = false;
+			for (auto &member : members) {
 				if (member.second->get_bool_attribute(ID::keep))
 					bus->set_bool_attribute(ID::keep);
+				if (!member.second->attributes.count(ID::init))
+					continue;
+				RTLIL::Const member_init = member.second->attributes.at(ID::init);
+				if (!member_init.empty()) {
+					init.set(member.first, member_init[0]);
+					has_init = true;
+				}
+			}
+			if (has_init)
+				bus->attributes[ID::init] = init;
 
 			BusGroup info;
 			info.name = bus_name;
