@@ -1,0 +1,26 @@
+# An unpacked array of packed structs is a single port bus that spans both split classes, so
+# -no_split_struct_ports has to split the array dimension only and leave each element packed.
+verific -sv <<EOT
+typedef struct packed {
+  logic [3:0] weight_region;
+  logic [1:0] mode;
+} cfg_t;
+
+module dut (
+  input  cfg_t       sel_cfg_i,          // struct port: stays flat
+  input  cfg_t       block_cfg_i [0:1],  // array of struct: dimensions split, element packed
+  input  logic [7:0] d_i [0:1],          // plain unpacked array: splits
+  output logic [7:0] y_o
+);
+  assign y_o = d_i[0] ^ d_i[1]
+             ^ {sel_cfg_i, 2'b00} ^ {block_cfg_i[0], 2'b00} ^ {block_cfg_i[1], 2'b00};
+endmodule
+EOT
+verific -no_split_struct_ports
+hierarchy -top dut
+
+# No struct field becomes a port of its own, so the input count stays at 1 + 2 + 2
+select -assert-count 5 i:*
+select -assert-count 1 i:sel_cfg_i
+select -assert-count 2 i:block_cfg_i*
+select -assert-count 2 i:d_i*
