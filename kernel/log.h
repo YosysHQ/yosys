@@ -122,6 +122,9 @@ extern int log_debug_suppressed;
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
 extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
 
+void log_default_callback(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity);
+extern void (*log_callback)(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity);
+
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
 #else

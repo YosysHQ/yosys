@@ -80,6 +80,20 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
+void log_default_callback(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity)
+{
+	(void)severity;
+	std::string str = stringf("%s%s%s",time_str,prefix,msg);
+	for (auto f : log_files)
+		fputs(str.c_str(), f);
+
+	for (auto f : log_streams)
+		*f << str;
+}
+
+void (*log_callback)(std::string_view time_str, std::string_view prefix, std::string_view msg, LogSeverity severity) = log_default_callback;
+
+
 #if defined(_WIN32) && !defined(__MINGW32__)
 // this will get time information and return it in timeval, simulating gettimeofday()
 int gettimeofday(struct timeval *tv, struct timezone *tz)
@@ -125,10 +139,9 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 	if (log_hasher)
 		log_hasher->update(str);
 
+	std::string time_str;
 	if (log_time)
 	{
-		std::string time_str;
-
 		if (next_print_log || initial_tv.tv_sec == 0) {
 			next_print_log = false;
 			struct timeval tv;
@@ -152,19 +165,8 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 		// is then in the first formatted argument
 		if (format == "%s" && str.back() == '\n')
 			next_print_log = true;
-
-		for (auto f : log_files)
-			fputs(time_str.c_str(), f);
-
-		for (auto f : log_streams)
-			*f << time_str;
 	}
-
-	for (auto f : log_files)
-		fputs(str.c_str(), f);
-
-	for (auto f : log_streams)
-		*f << str;
+	log_callback(time_str, prefix, strin, severity);
 
 	RTLIL::Design *design = yosys_get_design();
 	if (design != nullptr)
