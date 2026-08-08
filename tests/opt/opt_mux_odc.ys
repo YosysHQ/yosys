@@ -1,0 +1,161 @@
+# Tests for opt_mux_odc
+#
+# Each group exercises a specific facet:
+#   A: the fold itself, on an OR that takes the mux select as an input.
+#   B: the dual, an AND forced low on the select==0 arm.
+#   C: the exclusivity guards -- escapes to a port, to the select, or to the
+#      opposite arm all make the fold unsound.
+#   D: no implication, and -strict.
+#
+# The pass deletes the decode that the select already forces, so the structural
+# check is that the compares feeding it are gone. equiv_opt cannot be used here:
+# this is an observability don't-care, so gold and gate deliberately differ on
+# internal nodes and only the module outputs agree. Group A therefore proves
+# output equivalence with a miter instead.
+
+# ============================================================================
+# Group A: fold an OR that the select forces high
+# ============================================================================
+
+# A1: `hit` ORs in the very select that gates the arm, so the two compares
+# ahead of it are dead along that arm and must disappear.
+log -header "A1: OR forced high by the select"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+prep -top top
+design -save gold
+select -assert-min 1 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
+# A2: the fold must preserve the module outputs even though `hit` itself
+# changes when v is 0 (the arm is not selected then).
+log -header "A2: output equivalence of the A1 fold"
+log -push
+design -load gold
+rename top gate
+opt_mux_odc
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten top gate miter
+hierarchy -top miter
+sat -verify -prove trigger 0 miter
+log -pop
+
+# ============================================================================
+# Group B: the dual, an AND forced low on the select==0 arm
+# ============================================================================
+
+# B1: the arm is taken when v is 0, and `blk` ANDs in v, so it is 0 there.
+log -header "B1: AND forced low by the select"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire blk = v & ((f == 8'd10) | (f == 8'd20));
+  wire [3:0] res = blk ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? byp : res;
+endmodule
+EOF
+prep -top top
+select -assert-min 1 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
+# ============================================================================
+# Group C: exclusivity guards
+# ============================================================================
+
+# C1: `hit` also leaves through a module output, so it is observed when v is 0
+# and forcing it would change that port.
+log -header "C1: forced signal escapes to a port (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y, output wire hit_o);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+  assign hit_o = hit;
+endmodule
+EOF
+prep -top top
+opt_mux_odc
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# C2: `hit` also feeds the opposite arm, which is what the mux produces when
+# v is 0, so the fold would corrupt it.
+log -header "C2: forced signal feeds the opposite arm (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : {3'b0, hit};
+endmodule
+EOF
+prep -top top
+opt_mux_odc
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# ============================================================================
+# Group D: no implication, and -strict
+# ============================================================================
+
+# D1: the select is not an input of the OR, so nothing is forced.
+log -header "D1: select does not reach the OR (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+prep -top top
+opt_mux_odc
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
+
+# D2: -strict turns the pass off for the formal flow.
+log -header "D2: -strict disables the fold"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire [3:0] res = hit ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+prep -top top
+opt_mux_odc -strict
+opt_clean
+select -assert-min 1 t:$eq
+log -pop
