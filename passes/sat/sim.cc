@@ -3307,7 +3307,8 @@ struct SimPass : public Pass {
 		log("\n");
 		log("    -missing-input-warn\n");
 		log("        downgrade input ports missing from the FST/VCD to warnings, leaving them\n");
-		log("        undriven instead of aborting the replay\n");
+		log("        undriven instead of aborting the replay. Missing inputs remain X, so\n");
+		log("        downstream activity and derived power estimates can be underestimated.\n");
 		log("\n");
 		log("    -width <integer>\n");
 		log("        cycle width in generated simulation output (must be divisible by 2).\n");
