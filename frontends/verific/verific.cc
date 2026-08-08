@@ -3347,11 +3347,8 @@ void verific_cleanup()
 // up byte-for-byte identical to the coupled path.
 enum VerificPortBusClass { VPB_OTHER = 0, VPB_STRUCT, VPB_ARRAY };
 
-static VerificPortBusClass verific_classify_portbus(Netlist *nl, PortBus *portbus)
+static VerificPortBusClass verific_classify_portbus(const TypeRange *tr)
 {
-	// Interface ports resolve their type via a composite name lookup (mirrors the stock splitter).
-	unsigned is_intf = portbus->GetAtt(" interface_port") != 0;
-	const TypeRange *tr = nl->GetTypeRange(portbus->Name(), 0 /* exhaustive */, is_intf);
 	if (!tr)
 		return VPB_OTHER;
 	if (tr->IsTypeScalar())
@@ -3359,6 +3356,63 @@ static VerificPortBusClass verific_classify_portbus(Netlist *nl, PortBus *portbu
 	if (tr->IsTypeArray())
 		return tr->GetNext() ? VPB_ARRAY : VPB_OTHER; // only multi-dim arrays get split
 	return VPB_STRUCT; // struct / union / record / non-array interface bundle
+}
+
+// SILIMATE: the TypeRange of an array of structs (e.g. `cfg_t block_cfg_i [0:1]`) is a chain of
+// array dimensions terminating in a struct, and it classifies as VPB_ARRAY because the leading
+// dimension is an array. Return that terminal struct, or null when the element type is not one.
+static const TypeRange *verific_array_element_struct(const TypeRange *tr)
+{
+	if (!tr || !tr->IsTypeArray())
+		return nullptr;
+	while (tr->IsTypeArray() && tr->GetNext())
+		tr = tr->GetNext();
+	return tr->IsTypeStructure() ? tr : nullptr;
+}
+
+// SILIMATE: re-register an array-of-struct port with its element struct collapsed into a packed
+// vector, so the stock splitter (which walks this TypeRange chain to decide how deep to split)
+// splits the array dimensions only and leaves each element flat: `block_cfg_i[0]` rather than
+// `block_cfg_i[0].mode`. A packed struct is one vector in a VCD, so that is what keeping struct
+// ports flat has to produce for these ports to resolve against a waveform. No-op when the element
+// type is not a struct.
+static void verific_collapse_array_element_struct(Netlist *nl, PortBus *portbus, const TypeRange *tr)
+{
+	const TypeRange *elem = verific_array_element_struct(tr);
+	if (!elem)
+		return;
+	// TypeRangeStruct does not report a packed width (FullNumBits() is 1), so size the element as
+	// the bus width over the number of elements spanned by the dimensions in front of the struct.
+	unsigned num_elems = 1;
+	std::vector<const TypeRange*> dims;
+	for (const TypeRange *dim = tr; dim != elem; dim = dim->GetNext()) {
+		num_elems *= unsigned(std::abs(dim->LeftRangeBound() - dim->RightRangeBound())) + 1;
+		dims.push_back(dim);
+	}
+	unsigned total_bits = portbus->Size();
+	if (num_elems == 0 || total_bits == 0 || total_bits % num_elems)
+		return;
+
+	// Rebuild the dimensions innermost-first so the copied chain ends at the packed element
+	TypeRange *chain = new TypeRangeScalar(elem->GetDir(), int(total_bits / num_elems) - 1, 0, "logic");
+	for (auto it = dims.rbegin(); it != dims.rend(); ++it) {
+		TypeRangeArray *copy = new TypeRangeArray((*it)->GetDir(), (*it)->LeftRangeBound(),
+				(*it)->RightRangeBound(), (*it)->GetTypeName(), chain);
+		if ((*it)->IsPackedDimensionRange()) copy->SetPackedDimensionRange();
+		if ((*it)->IsRangeSigned()) copy->SetRangeSigned();
+		if ((*it)->IsUp()) copy->SetRangeUp();
+		chain = copy;
+	}
+
+	// SetTypeRange refuses to overwrite, so park the original under a key that no HDL identifier
+	// can collide with (Verific's leading-space convention); the netlist keeps owning it either way.
+	std::string stash = std::string(" preq_elem_struct ") + portbus->Name();
+	if (!nl->MoveTypeRange(portbus->Name(), stash.c_str())) {
+		delete chain;
+	} else if (!nl->SetTypeRange(portbus->Name(), chain)) {
+		nl->MoveTypeRange(stash.c_str(), portbus->Name());
+		delete chain;
+	}
 }
 
 // SILIMATE: split only the requested classes of complex ports. Verific couples struct and array
@@ -3371,6 +3425,10 @@ static VerificPortBusClass verific_classify_portbus(Netlist *nl, PortBus *portbu
 // splitting -- including parent-instance port-connection fixups and split-child naming -- is done
 // entirely by stock Verific code, so the only difference from "split everything" is that fewer
 // buses are present in the portbus maps when it runs. This avoids any per-netlist ordering concern.
+//
+// Hiding alone cannot express "split the array dimensions of an array of structs but not its
+// element struct", since that is a single bus the splitter takes all the way down; those buses are
+// instead handed to the splitter with a collapsed element TypeRange (see the helper above).
 //
 // Hide/restore relies on Netlist::Remove(PortBus*) being non-destructive, verified against Verific's
 // implementation: Remove() only unregisters the bus from the netlist's portbus map and clears the
@@ -3401,10 +3459,19 @@ static void verific_selective_split_portbuses(Netlist *top, bool split_structs, 
 		MapIter mi;
 		PortBus *portbus;
 		FOREACH_PORTBUS_OF_NETLIST(nl, mi, portbus) {
-			VerificPortBusClass cls = verific_classify_portbus(nl, portbus);
+			// Interface ports resolve their type via a composite name lookup (mirrors the stock splitter).
+			unsigned is_intf = portbus->GetAtt(" interface_port") != 0;
+			const TypeRange *tr = nl->GetTypeRange(portbus->Name(), 0 /* exhaustive */, is_intf);
+			VerificPortBusClass cls = verific_classify_portbus(tr);
 			if ((cls == VPB_STRUCT && !split_structs) ||
-			    (cls == VPB_ARRAY && !split_arrays))
+			    (cls == VPB_ARRAY && !split_arrays)) {
 				keep_flat.push_back(std::make_pair(nl, portbus));
+				continue;
+			}
+			// An array of structs is one VPB_ARRAY bus that the stock splitter would split all the
+			// way down to per-field ports; collapse its element struct so only the dimensions split.
+			if (cls == VPB_ARRAY && !split_structs)
+				verific_collapse_array_element_struct(nl, portbus, tr);
 		}
 	}
 
