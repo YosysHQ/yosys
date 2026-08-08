@@ -1,3 +1,5 @@
+# Compressors are named after the cell they came from, so the 3:2 and 4:2 paths
+# are told apart by their _fa / _c42_ suffixes rather than by the emitter name.
 read_verilog <<EOT
 module four_op_42(
 	input [3:0] a, b, c, d,
@@ -12,8 +14,8 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
-select -assert-count 2 t:$fa c:*emit_compressor_42* %i
-select -assert-count 0 t:$fa c:*emit_compressor_32* %i
+select -assert-count 2 t:$fa c:*_c42_* %i
+select -assert-count 0 t:$fa c:*_fa* %i
 design -reset
 
 read_verilog <<EOT
@@ -30,8 +32,8 @@ equiv_opt -assert arith_tree -strategy fa
 design -load postopt
 select -assert-count 2 t:$fa
 select -assert-count 1 t:$add
-select -assert-count 0 t:$fa c:*emit_compressor_42* %i
-select -assert-count 2 t:$fa c:*emit_compressor_32* %i
+select -assert-count 0 t:$fa c:*_c42_* %i
+select -assert-count 2 t:$fa c:*_fa* %i
 design -reset
 
 read_verilog <<EOT
@@ -48,7 +50,7 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 6 t:$fa
 select -assert-count 1 t:$add
-select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+select -assert-min 1 t:$fa c:*_c42_* %i
 design -reset
 
 read_verilog <<EOT
@@ -67,7 +69,7 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 14 t:$fa
 select -assert-count 1 t:$add
-select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+select -assert-min 1 t:$fa c:*_c42_* %i
 design -reset
 
 read_verilog <<EOT
@@ -84,7 +86,7 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$add
-select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+select -assert-min 1 t:$fa c:*_c42_* %i
 design -reset
 
 read_verilog <<EOT
@@ -101,7 +103,7 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 4 t:$fa
 select -assert-count 1 t:$add
-select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+select -assert-min 1 t:$fa c:*_c42_* %i
 design -reset
 
 read_verilog <<EOT
@@ -118,5 +120,5 @@ equiv_opt -assert arith_tree -strategy 42
 design -load postopt
 select -assert-count 5 t:$fa
 select -assert-count 1 t:$add
-select -assert-min 1 t:$fa c:*emit_compressor_42* %i
+select -assert-min 1 t:$fa c:*_c42_* %i
 design -reset

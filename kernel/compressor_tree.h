@@ -57,8 +57,10 @@ enum class FinalMode {
 	PREFIX,
 };
 
-std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpec b, SigSpec c, int width);
-std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpec b, SigSpec c, SigSpec d, int width);
+// SILIMATE: every emitter takes cell_name, the originating cell, so the emitted
+// logic inherits a readable name instead of an $auto$file.cc:line$id one
+std::pair<SigSpec, SigSpec> emit_compressor_32(Module *module, SigSpec a, SigSpec b, SigSpec c, int width, IdString cell_name);
+std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpec b, SigSpec c, SigSpec d, int width, IdString cell_name);
 
 /**
  * generate_partial_products() - Generate partial products for FMA concat
@@ -68,10 +70,11 @@ std::pair<SigSpec, SigSpec> emit_compressor_42(Module *module, SigSpec a, SigSpe
  * @a_signed: Whether signal A is signed
  * @b_signed: Whether signal B is signed
  * @width: Target width
+ * @cell_name: Originating cell, used to name the emitted logic
  *
  * Return: Partial-product matrix as a set of depth-0 vectors
  */
-std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSpec b, bool a_signed, bool b_signed, int width);
+std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSpec b, bool a_signed, bool b_signed, int width, IdString cell_name);
 
 /**
  * reduce_scheduled() - Reduce multiple operands to two using a compressor tree
@@ -80,12 +83,13 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
  * @sigs: Vector of input signals (operands) to be reduced
  * @width: Target bit-width to which all operands will be zero-extended
  * @strategy: Compression strategy to use
+ * @cell_name: Originating cell, used to name the emitted logic
  * @out_compressor_count: Optional pointer to return the number of $fa cells emitted
  * @out_final_depth: Optional pointer to return the final depth of the scheduled tree
  *
  * Return: The final two reduced operands, that are to be fed into an adder
  */
-std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, int *out_compressor_count = nullptr, int *out_final_depth = nullptr);
+std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSig> operands, int width, Strategy strategy, IdString cell_name, int *out_compressor_count = nullptr, int *out_final_depth = nullptr);
 
 /**
  * emit_kogge_stone() - Emit a Kogge-Stone parallel-prefix adder
@@ -93,8 +97,9 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
  * @a: Signal A
  * @b: Signal B
  * @y: Signal Y = (A + B) mod 2^W
+ * @cell_name: Originating cell, used to name the emitted logic
  */
-void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y);
+void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y, IdString cell_name);
 
 /**
  * emit_final_adder() - Emit the final carry-propagate addition between the two reduced vectors
@@ -103,10 +108,11 @@ void emit_kogge_stone(Module *module, SigSpec a, SigSpec b, SigSpec y);
  * @b: Signal B
  * @y: Signal Y
  * @choice: Adder type to instantiate
+ * @cell_name: Originating cell, used to name the emitted logic
  *
  * Return: Cell* of the emitted instance
  */
-Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice);
+Cell *emit_final_adder(Module *module, SigSpec a, SigSpec b, SigSpec y, FinalAdder choice, IdString cell_name);
 
 FinalAdder pick_final_adder(int width, int final_depth, FinalMode mode);
 

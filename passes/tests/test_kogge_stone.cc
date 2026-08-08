@@ -94,7 +94,7 @@ struct TestKoggeStonePass : public Pass {
 		build_lcu_adder(gold, gold->wire(ID(a)), gold->wire(ID(b)), gold->wire(ID(y)));
 
 		Module *gate = make_module(design, gate_name, width);
-		CompressorTree::emit_kogge_stone(gate, gate->wire(ID(a)), gate->wire(ID(b)), gate->wire(ID(y)));
+		CompressorTree::emit_kogge_stone(gate, gate->wire(ID(a)), gate->wire(ID(b)), gate->wire(ID(y)), ID(ks));
 	}
 } TestKoggeStonePass;
 
