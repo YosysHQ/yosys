@@ -274,40 +274,35 @@ struct OptMuxPushWorker
     return false;
   }
 
-  // Worst leaf/select arrival and level count of a chain or tree of muxes.
-  struct MuxTree { int leaf_arrival = 0; int sel_arrival = 0; int depth = 0; };
-
-  // Bounded so a deep mux tree cannot make the guard quadratic.
+  // The walk below forks at every mux, so bound it: a deep tree would otherwise
+  // cost the guard 2^depth visits.
   static const int max_push_depth = 8;
 
-  // Recurse only where a push would really be allowed, so the estimate matches
-  // what the iteration can actually reach; otherwise stop and treat sig as a leaf.
-  MuxTree mux_tree_stats(const RTLIL::SigSpec &sig, int budget)
+  // Arrival out of the fully pushed tree: a copy of the operator lands on every
+  // leaf and the muxes restack above it, so each path is charged only the levels
+  // it really crosses -- an unbalanced tree must not pay its latest arm and its
+  // deepest arm at once. Recurse just where a push would be allowed, so the
+  // estimate matches what the iteration can reach; elsewhere the operator reads
+  // sig as it stands.
+  int pushed_arrival(const RTLIL::SigSpec &sig, int d_op, int others, int budget)
   {
-    MuxTree t;
     RTLIL::Cell *m = nullptr;
     RTLIL::SigSpec arm_a, arm_b;
     if (budget > 0 && mux_drives_sig(sig, m) && design->selected(module, m) &&
         !m->get_bool_attribute(ID::keep) &&
         !sig_has_keep(sigmap(m->getPort(ID::Y))) &&
         fanout_within_limit(sigmap(m->getPort(ID::Y))) &&
-        slice_arms(m, sigmap(m->getPort(ID::Y)), sig, arm_a, arm_b)) {
-      MuxTree a = mux_tree_stats(sigmap(arm_a), budget - 1);
-      MuxTree b = mux_tree_stats(sigmap(arm_b), budget - 1);
-      t.leaf_arrival = std::max(a.leaf_arrival, b.leaf_arrival);
-      t.sel_arrival = std::max(std::max(a.sel_arrival, b.sel_arrival),
-                               arrival(m->getPort(ID::S)));
-      t.depth = std::max(a.depth, b.depth) + 1;
-      return t;
-    }
-    t.leaf_arrival = arrival(sig);
-    return t;
+        slice_arms(m, sigmap(m->getPort(ID::Y)), sig, arm_a, arm_b))
+      return std::max({pushed_arrival(sigmap(arm_a), d_op, others, budget - 1),
+                       pushed_arrival(sigmap(arm_b), d_op, others, budget - 1),
+                       arrival(m->getPort(ID::S))}) + estimate_cell_delay(m);
+    return std::max(arrival(sig), others) + d_op;
   }
 
   // Pushing pays when the select is the mux's late input: the operators then
   // evaluate on the early arms in parallel with the select instead of queueing
   // behind it. Otherwise it is pure area for no depth.
-  bool should_push(RTLIL::Cell *cell, IdString port, RTLIL::Cell *mux_cell,
+  bool should_push(RTLIL::Cell *cell, IdString port,
       const RTLIL::SigSpec &arm_a, const RTLIL::SigSpec &arm_b)
   {
     if (!timing_guard)
@@ -328,13 +323,6 @@ struct OptMuxPushWorker
       return true;
     }
 
-    // A nested ternary builds a chain of muxes on one operand. Pushing one
-    // level is break-even there -- the operator still queues behind the rest of
-    // the chain -- so weigh the push against the fully pushed tree, which is
-    // where the operator finally sees only leaf arrivals. Judging a single level
-    // rejects the whole chain and the win is never reached.
-    MuxTree tree = mux_tree_stats(sigmap(cell->getPort(port)), max_push_depth);
-    int d_mux = estimate_cell_delay(mux_cell);
     int d_op = estimate_cell_delay(cell);
 
     int others = 0;
@@ -344,14 +332,16 @@ struct OptMuxPushWorker
       others = std::max(others, arrival(conn.second));
     }
 
-    // For a lone mux this is exactly the single-level estimate, since then
-    // leaf_arrival is max(dA,dB), sel_arrival is dS and depth is 1.
+    // A nested ternary builds a chain of muxes on one operand. Pushing one level
+    // is break-even there -- the operator still queues behind the rest of the
+    // chain -- so weigh the push against the fully pushed tree, which is where
+    // the operator finally sees only leaf arrivals. Judging a single level
+    // rejects the whole chain and the win is never reached. For a lone mux this
+    // reduces exactly to the single-level estimate.
     int before = std::max(arrival(cell->getPort(port)), others) + d_op;
-    int after = std::max(std::max(tree.leaf_arrival, others) + d_op,
-                         tree.sel_arrival) + tree.depth * d_mux;
-    log_debug("    %s %s port %s: leaf=%d sel=%d levels=%d before=%d after=%d slack=%d\n",
-        log_id(cell->type), log_id(cell->name), log_id(port), tree.leaf_arrival,
-        tree.sel_arrival, tree.depth, before, after, slack);
+    int after = pushed_arrival(sigmap(cell->getPort(port)), d_op, others, max_push_depth);
+    log_debug("    %s %s port %s: others=%d before=%d after=%d slack=%d\n",
+        log_id(cell->type), log_id(cell->name), log_id(port), others, before, after, slack);
     return after < before;
   }
 
@@ -548,7 +538,7 @@ struct OptMuxPushWorker
             continue;
           if (!fanout_within_limit(mux_out))
             continue;
-          if (!should_push(cell, it.first, mux_cell, arm_a, arm_b))
+          if (!should_push(cell, it.first, arm_a, arm_b))
             continue;
 
           // Only push one mux per operator per iteration
