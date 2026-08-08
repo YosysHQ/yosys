@@ -215,6 +215,24 @@ select -assert-count 0 t:$shr
 
 ####################
 
+# shiftpow2: the $bmux inherits the src of the shifter, which autoremove deletes.
+# Without it the whole downstream cone loses its RTL attribution, since bmuxmap
+# and abc's node retention faithfully propagate the empty string.
+design -reset
+read_verilog <<EOT
+module peepopt_shiftpow2_src (input [63:0] D, input [2:0] S, output [7:0] Y);
+	assign Y = D >> (S*8);
+endmodule
+EOT
+
+prep -nokeepdc
+peepopt
+clean
+select -assert-count 1 t:$bmux
+select -assert-count 1 t:$bmux a:src=*:2.* %i
+
+####################
+
 # shiftpow2 must NOT fire for overlapping selections
 design -reset
 read_verilog <<EOT

@@ -80,7 +80,10 @@ code
 		}
 	}
 
-	module->addBmux(NEW_ID, bmux_a, sel, port(shift, \Y));
+	// `cell` is read by NEW_ID2_SUFFIX (kernel/yosys_common.h:324); name the $bmux after the
+	// shifter it replaces and carry its src over, since autoremove drops the only cell with one.
+	Cell *cell = shift;
+	module->addBmux(NEW_ID2_SUFFIX("bmux"), bmux_a, sel, port(shift, \Y), shift->get_src_attribute());
 	autoremove(shift);
 	accept;
 }
