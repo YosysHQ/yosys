@@ -1,0 +1,12 @@
+$version Yosys $end
+$scope module missing_input $end
+$var wire 1 ! a $end
+$var wire 1 " out $end
+$upscope $end
+$enddefinitions $end
+#0
+b0 !
+b0 "
+#10
+b1 !
+b0 "

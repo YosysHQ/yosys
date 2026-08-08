@@ -1,0 +1,6 @@
+read_verilog missing_input.v
+prep -top missing_input
+
+# Same downgrade on the multi-root -instance replay path
+logger -expect warning "Can't find port 'missing_input.b' on module 'missing_input' in FST" 1
+sim -r missing_input.vcd -instance missing_input:missing_input -q -missing-input-warn

@@ -1,0 +1,6 @@
+read_verilog missing_input.v
+prep -top missing_input
+
+# -missing-input-warn leaves the absent port `b` undriven instead of aborting the replay
+logger -expect warning "Can't find port 'missing_input.b' on module 'missing_input' in FST" 1
+sim -r missing_input.vcd -scope missing_input -q -missing-input-warn
