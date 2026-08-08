@@ -61,6 +61,9 @@ PRIVATE_NAMESPACE_BEGIN
 //      it only says the arm's value is irrelevant *in the same instant*. A
 //      submodule instance counts as combinational only if it, and everything it
 //      instantiates, is -- hierarchy is common here since opt_boundary keeps it.
+//      Anything still holding logic in a process is out of scope entirely: the
+//      index is built from cells, and both the state guard and escape analysis
+//      need a complete view, so such modules are skipped rather than analysed.
 //
 // The rewrite is an observability don't-care: gold and gate genuinely differ on
 // internal nodes (that is the point), so `-strict` disables the pass for the
@@ -137,6 +140,8 @@ struct OptMuxOdcWorker
 			result = ct.cell_evaluable(type);
 		else if (sub->get_blackbox_attribute())
 			result = false; // contents unknown, so assume it can hold state
+		else if (!sub->processes.empty())
+			result = false; // a register may still be hiding in a process
 		else {
 			comb_cache[type] = false; // breaks recursive hierarchies
 			result = true;
@@ -385,6 +390,14 @@ struct OptMuxOdcPass : public Pass {
 		int total_regions = 0, total_removed = 0;
 		if (!strict)
 			for (auto module : design->selected_modules()) {
+				// The index is built from cells, so logic still held in a
+				// process is invisible to it -- and escape analysis is only
+				// sound with a complete view of every driver and reader.
+				if (!module->processes.empty()) {
+					log("Skipping module %s because it contains processes "
+					    "(run proc first).\n", log_id(module));
+					continue;
+				}
 				// Each fold invalidates the index, so re-run until a pass over
 				// the module finds nothing left to do.
 				while (true) {

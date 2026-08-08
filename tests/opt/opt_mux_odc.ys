@@ -216,6 +216,52 @@ opt_clean
 select -assert-count 0 t:$eq
 log -pop
 
+# C7: run before `proc`, so the register is still a process rather than a cell.
+# The cell-based index cannot see it, so the module must be skipped outright
+# instead of analysed with an incomplete view of its drivers and readers.
+log -header "C7: unlowered process in the module (skipped)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  reg hit_q;
+  always @(posedge clk) hit_q <= hit;
+  wire [3:0] res = hit_q ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+hierarchy -top top
+opt_mux_odc
+select -assert-min 1 t:$eq
+log -pop
+
+# C8: the process is in a submodule this time, so the top itself is lowered and
+# only the recursive check can tell that the instance is stateful.
+log -header "C8: unlowered process in a submodule (no fold)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module delay (input wire clk, input wire d, output reg q);
+  always @(posedge clk) q <= d;
+endmodule
+
+module top (input wire clk, input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire hit = v | (f == 8'd10) | (f == 8'd20);
+  wire hit_d;
+  delay u_delay (.clk(clk), .d(hit), .q(hit_d));
+  wire [3:0] res = hit_d ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? res : byp;
+endmodule
+EOF
+hierarchy -top top
+proc top
+opt_mux_odc
+select -assert-min 1 t:$eq
+log -pop
+
 # ============================================================================
 # Group D: no implication, and -strict
 # ============================================================================
