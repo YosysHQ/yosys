@@ -144,8 +144,9 @@ struct CarveNetlistPass : public Pass {
 		log("self-containment, retie clocks to shared slow_clk/fast_clk, and skip the final\n");
 		log("1-in/1-out passthrough-to-wire cleanup so real inversions stay equivalent to RTL.\n");
 		log("\n");
-		log("Known issue: fast aes/aes_inv key carves can leave dangling n_<num> inputs when\n");
-		log("the launch flop is QN-output (DFFHQNx1); slow Q-output clones carve cleanly.\n");
+		log("Known issue: fast QN-output (DFFHQNx1) carves can leave dangling n_<num> inputs,\n");
+		log("including AES keys and some wide arithmetic, shift, memory, division, and modulo\n");
+		log("cells; slow Q-output clones carve cleanly.\n");
 		log("\n");
 	}
 
