@@ -644,10 +644,16 @@ struct AnnotateCellFanout : public ScriptPass {
 	void script() override {}
 	void help() override
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    annotate_cell_fanout [options] [selection]\n");
 		log("\n");
-		log("This pass annotates cell fanout and optionally inserts balanced buffer trees to limit fanout.\n");
+		log("Annotate each cell's fanout. With -limit, insert a recursive balanced buffer\n");
+		log("tree on outputs (and optionally inputs/clocks/resets) that exceed the limit:\n");
+		log("per output chunk, create buffers, reconnect loads round-robin until every\n");
+		log("buffer is at or under the limit, then collapse buffers with fanout 1 to wires.\n");
+		log("Improves area/timing predictions on high-fanout designs. Synthesis typically\n");
+		log("runs fanoutbuf first, then this pass to annotate.\n");
 		log("\n");
 		log("    -limit <limit>\n");
 		log("        Limits the fanout by inserting balanced buffer trees.\n");

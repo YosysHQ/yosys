@@ -252,15 +252,21 @@ struct ObsClean : public ScriptPass {
 	void script() override {}
 	void help() override
 	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    obs_clean [options] [selection]\n");
 		log("\n");
-		log("This pass performs an obversability-based logic removal. It removes cells by default.\n");
+		log("Remove cells (and optionally assigns) with no structural path to a module output.\n");
+		log("Walks transitive fanin from every output, marks reachable cells/assigns, then\n");
+		log("deletes unmarked ones. Objects with a keep attribute are preserved.\n");
+		log("\n");
+		log("Modules with processes or memories are skipped (connectivity is not modeled).\n");
 		log("\n");
 		log("    -wires\n");
-		log("        Also removes dangling wires. This option prevents formal verifciation at this time.\n");
+		log("        Also remove dangling wires. Off by default: wire removal renames signals\n");
+		log("        and breaks Yosys equiv_opt formal checking.\n");
 		log("    -assigns\n");
-		log("        Also removes dangling assigns.\n");
+		log("        Also remove dangling assigns.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
