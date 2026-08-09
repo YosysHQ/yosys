@@ -143,11 +143,24 @@ std::string_view rtrim_until(std::string_view str, char c)
 
 struct SplitNetlist : public ScriptPass {
 	SplitNetlist()
-	    : ScriptPass("splitnetlist", "Splits a netlist into multiple modules using transitive fanin grouping. \
-	       The output names that belong in the same logical cluster have to have the same prefix: <prefix>_<name>")
+	    : ScriptPass("splitnetlist", "split a flat netlist into modules by output-port prefix via transitive fanin")
 	{
 	}
 	void script() override {}
+	void help() override
+	{
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+		log("\n");
+		log("    splitnetlist\n");
+		log("\n");
+		log("Split a flat top module into multiple modules by clustering transitive fanin of\n");
+		log("output ports that share a name prefix (<prefix>_<name>, e.g. add_Y_0_ -> add).\n");
+		log("Each cluster is tagged with \\submod and extracted via the submod command.\n");
+		log("\n");
+		log("Used in bitblasted training flows after bus_rebuild so OpenSTA sees one module\n");
+		log("per logical cell. Modules with processes or memories are not supported.\n");
+		log("\n");
+	}
 
 	void execute(std::vector<std::string>, RTLIL::Design *design) override
 	{

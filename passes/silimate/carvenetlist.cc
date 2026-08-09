@@ -134,6 +134,19 @@ struct CarveNetlistPass : public Pass {
 		log("a hard boundary: cones never expand through it, so a carve can't leak across the\n");
 		log("clock into another cell's surrounding flops.\n");
 		log("\n");
+		log("Output boundary is reconstructed at capture flops (__pqcarve.<base>_<pin> buses\n");
+		log("driven by per-bit buffers) so feed-through/tie outputs still get clean ports.\n");
+		log("After submod, train. prefixes and __pqi/__pqo suffixes are stripped; only the\n");
+		log("load cell-pin is recorded (no capacitance values).\n");
+		log("\n");
+		log("DESIGN cells (slow_design_<enc>/fast_design_<enc>) get extra repairs: clean\n");
+		log("input ports at the launch boundary, clone/tie undriven constant sources for\n");
+		log("self-containment, retie clocks to shared slow_clk/fast_clk, and skip the final\n");
+		log("1-in/1-out passthrough-to-wire cleanup so real inversions stay equivalent to RTL.\n");
+		log("\n");
+		log("Known issue: fast aes/aes_inv key carves can leave dangling n_<num> inputs when\n");
+		log("the launch flop is QN-output (DFFHQNx1); slow Q-output clones carve cleanly.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
