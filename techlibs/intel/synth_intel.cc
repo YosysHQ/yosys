@@ -79,16 +79,13 @@ struct SynthIntelPass : public ScriptPass {
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
-		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, vout_file, blif_file;
-	bool retime, flatten, nobram, dff, nodsp, iopads;
+	bool flatten, nobram, dff, nodsp, iopads;
 
 	void clear_flags() override
 	{
@@ -96,7 +93,6 @@ struct SynthIntelPass : public ScriptPass {
 		family_opt = "max10";
 		vout_file = "";
 		blif_file = "";
-		retime = false;
 		flatten = true;
 		nobram = false;
 		dff = false;
@@ -157,7 +153,7 @@ struct SynthIntelPass : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-retime") {
-				retime = true;
+				// Removed: ABC9 does not support retiming.
 				continue;
 			}
 			break;
@@ -259,8 +255,6 @@ struct SynthIntelPass : public ScriptPass {
 			run("opt -full");
 			run("clean -purge");
 			run("setundef -undriven -zero");
-			if (retime || help_mode)
-				run("abc -markgroups -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs")) {
