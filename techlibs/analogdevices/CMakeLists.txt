@@ -58,7 +58,6 @@ yosys_pass(synth_analogdevices
 
 		arith_map.v
 		ff_map.v
-		latches_map.v
 		lut_map.v
 		mux_map.v
 		dsp_map.v

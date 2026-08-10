@@ -22,7 +22,6 @@
 #include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
-#include "passes/proc/proc_dlatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -73,15 +72,12 @@ struct SynthIntelALMPass : public ScriptPass {
 		log("    -noclkbuf\n");
 		log("        do not insert global clock buffers\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
-		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
 		log("\n");
 	}
 
 	string top_opt, family_opt, bram_type;
-	SynthLatchesConfig latches;
 	bool flatten, nolutram, nobram, dff, nodsp, noiopad, noclkbuf;
 
 	void clear_flags() override
@@ -89,7 +85,6 @@ struct SynthIntelALMPass : public ScriptPass {
 		top_opt = "-auto-top";
 		family_opt = "cyclonev";
 		bram_type = "m10k";
-		latches = SynthLatchesConfig();
 		flatten = true;
 		nolutram = false;
 		nobram = false;
@@ -150,8 +145,6 @@ struct SynthIntelALMPass : public ScriptPass {
 				noclkbuf = true;
 				continue;
 			}
-			if (latches.parse(args, argidx))
-				continue;
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -190,7 +183,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("coarse")) {
-			run(stringf("proc -latches %s", latches.str()));
+			run("proc -latches error");
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
@@ -248,10 +241,8 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
-			if (latches.policy == LatchPolicy::Error || help_mode)
-				run("check -latchonly -assert", "(only if -latches error, the default)");
+			run("check -latchonly -assert");
 			run("techmap");
-			run("techmap -map +/intel_alm/common/latches_map.v");
 			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
 			run("techmap -map +/intel_alm/common/dff_map.v");
 			run("opt -full -undriven -mux_undef");

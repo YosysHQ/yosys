@@ -22,7 +22,6 @@
 #include "kernel/celltypes.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
-#include "passes/proc/proc_dlatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -109,8 +108,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("    -noabc9\n");
 		log("        disable use of new ABC9 flow\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
-		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -118,7 +115,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, json_file, tech, tech_param;
-	SynthLatchesConfig latches;
 	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
 	bool abc9, dff;
 	bool flatten_before_abc;
@@ -131,7 +127,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		edif_file.clear();
 		tech = "t16ffc";
 		tech_param = " -D IS_T16FFC";
-		latches = SynthLatchesConfig();
 		flatten = true;
 		retime = false;
 		noiopad = false;
@@ -249,8 +244,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				json_file = args[++argidx];
 				continue;
 			}
-			if (latches.parse(args, argidx))
-				continue;
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -283,7 +276,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("prepare")) {
-			run(stringf("proc -latches %s", latches.str()));
+			run("proc -latches error");
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(with '-flatten')");
@@ -446,9 +439,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("map_ffs")) {
-			if (latches.policy == LatchPolicy::Error || help_mode)
-				run("check -latchonly -assert", "(only if -latches error, the default)");
-			run("techmap -map +/analogdevices/latches_map.v");
+			run("check -latchonly -assert");
 			run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
