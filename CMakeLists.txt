@@ -171,7 +171,7 @@ if (MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSIO
 endif()
 
 # Required dependencies.
-if (APPLE)
+if (APPLE AND (NOT DEFINED YOSYS_ENABLE_HOMEBREW OR YOSYS_ENABLE_HOMEBREW))
 	# In practice, we can't expect paths to Homebrew packages to be configured.
 	use_homebrew()
 endif()
