@@ -66,9 +66,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
-		log("\n");
 		log("    -nocy\n");
 		log("        do not map adders to CY cells\n");
 		log("\n");
@@ -110,7 +107,7 @@ struct SynthNanoXplorePass : public ScriptPass
 	}
 
 	string top_opt, json_file, family, latches;
-	bool flatten, abc9, nocy, nodffe, norfram, nobram, noiopad, no_rw_check;
+	bool flatten, nocy, nodffe, norfram, nobram, noiopad, no_rw_check;
 	std::string postfix;
 	int min_ce_use, min_srst_use;
 
@@ -120,7 +117,6 @@ struct SynthNanoXplorePass : public ScriptPass
 		json_file = "";
 		family = "";
 		flatten = true;
-		abc9 = false;
 		nocy = false;
 		nodffe = false;
 		norfram = false;
@@ -170,7 +166,7 @@ struct SynthNanoXplorePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc9 = true;
+				// Removed: ABC9 is the default
 				continue;
 			}
 			if (args[argidx] == "-nocy") {
@@ -349,19 +345,13 @@ struct SynthNanoXplorePass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (abc9) {
-				std::string abc9_opts = " -maxlut 4";
-				std::string k = "synth_nanoxplore.abc9.W";
-				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
-				else
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
-				run("abc9" + abc9_opts);
-			} else {
-				std::string abc_args = " -dress";
-				abc_args += " -lut 4";
-				run("abc" + abc_args);
-			}
+			std::string abc9_opts = " -lut 4";
+			std::string k = "synth_nanoxplore.abc9.W";
+			if (active_design && active_design->scratchpad.count(k))
+				abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
+			else
+				abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
+			run("abc9" + abc9_opts);
 			run("techmap -map +/nanoxplore/cells_map.v t:$lut");
 			run("opt -fast");
 			run("clean");
