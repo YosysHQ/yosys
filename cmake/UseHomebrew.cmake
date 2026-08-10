@@ -2,13 +2,28 @@
 #
 # 	use_homebrew([ROOT <root>])
 #
-# Includes all packages installed in `<root>` (`/opt/homebrew/Cellar` if not specified)
-# in `CMAKE_FIND_ROOT_PATH`.
+# Includes all packages installed in `<root>` (output of brew --prefix if not
+# specified) in `CMAKE_FIND_ROOT_PATH`.
 #
 function(use_homebrew)
 	cmake_parse_arguments(PARSE_ARGV 0 arg "" "ROOT" "")
 	if (NOT arg_ROOT)
-		set(arg_ROOT /opt/homebrew/Cellar)
+		execute_process(
+			COMMAND brew --prefix
+			WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+			RESULT_VARIABLE brew_prefix_result
+			OUTPUT_VARIABLE brew_prefix_out
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+			ERROR_QUIET
+		)
+		if (${brew_prefix_result} EQUAL 0)
+			set (arg_ROOT "${brew_prefix_out}/Cellar")
+		endif()
+	endif()
+
+	if (NOT arg_ROOT)
+		# unset and no brew binary available
+		return()
 	endif()
 
 	file(GLOB package_roots ${arg_ROOT}/*/*) # e.g. `/opt/homebrew/Cellar/bison/3.8.2/`
