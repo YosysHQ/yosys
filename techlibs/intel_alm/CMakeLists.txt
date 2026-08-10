@@ -41,6 +41,7 @@ yosys_pass(synth_intel_alm
 		common/arith_alm_map.v
 		common/dff_map.v
 		common/dff_sim.v
+		common/latches_map.v
 		common/dsp_sim.v
 		common/dsp_map.v
 		common/mem_sim.v

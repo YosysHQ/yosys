@@ -21,6 +21,7 @@
 #include "kernel/log.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
+#include "passes/proc/proc_dlatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -72,12 +73,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        use old ABC flow, which has generally worse mapping results but is less\n");
 		log("        likely to have bugs.\n");
 		log("\n");
-		log("    -latches <info|warn|error>\n");
-		log("        select the behaviour for latches that cannot be mapped to a\n");
-		log("        dedicated hardware primitive and are implemented using LUTs\n");
-		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'info' permits them with an info-level message.\n");
-		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
+		log("%s", SynthLatchesConfig::help());
 		log("        (only applies to the pp3 family)\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -85,7 +81,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path, latches;
+	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path;
+	SynthLatchesConfig latches;
 	bool abc9, inferAdder, nobram, bramTypes, dsp, ioff, flatten;
 
 	void clear_flags() override
@@ -104,7 +101,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		dsp = true;
 		ioff = true;
 		flatten = true;
-		latches = "error";
+		latches = SynthLatchesConfig();
 	}
 
 	void set_scratchpad_defaults(RTLIL::Design *design) {
@@ -177,10 +174,8 @@ struct SynthQuickLogicPass : public ScriptPass {
 				flatten = false;
 				continue;
 			}
-			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
-				latches = args[++argidx];
+			if (latches.parse(args, argidx))
 				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -190,9 +185,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 		if (family != "pp3" && family != "qlf_k6n10f")
 			log_cmd_error("Invalid family specified: '%s'\n", family);
-
-		if (latches != "info" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
@@ -227,7 +219,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("prepare")) {
-			run("proc -latches " + (family == "pp3" ? latches : std::string("info")));
+			run(stringf("proc -latches %s", family == "pp3" ? latches.str() : "info"));
 			if (flatten) {
 				run("check");
 				run("flatten", "(unless -noflatten)");
@@ -331,7 +323,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts", "(for pp3)") && (help_mode || family == "pp3")) {
-			if (latches == "error" || help_mode)
+			if (latches.policy == LatchPolicy::Error || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -map " + lib_path + family + "/latches_map.v");
 			if (abc9) {

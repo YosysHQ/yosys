@@ -22,6 +22,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "passes/proc/proc_dlatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -156,12 +157,7 @@ struct SynthLatticePass : public ScriptPass
 		log("        implement constant comparisons in soft logic, do not involve\n");
 		log("        hard carry chains\n");
 		log("\n");
-		log("    -latches <info|warn|error>\n");
-		log("        select the behaviour for latches that cannot be mapped to a\n");
-		log("        dedicated hardware primitive and are implemented using LUTs\n");
-		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'info' permits them with an info-level message.\n");
-		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
+		log("%s", SynthLatchesConfig::help());
 		log("        (ignored with -asyncprld, which has a latch primitive)\n");
 		log("\n");
 		log("\n");
@@ -170,7 +166,8 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, edif_file, json_file, family, latches;
+	string top_opt, edif_file, json_file, family;
+	SynthLatchesConfig latches;
 	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
 	bool cmp2softlogic;
 	string postfix, arith_map, brams_map, dsp_map, cells_map, map_ram_default, widelut_abc;
@@ -197,7 +194,7 @@ struct SynthLatticePass : public ScriptPass
 		iopad = false;
 		nodsp = false;
 		no_rw_check = false;
-		latches = "error";
+		latches = SynthLatchesConfig();
 		postfix = "";
 		arith_map = "";
 		brams_map = "";
@@ -327,19 +324,14 @@ struct SynthLatticePass : public ScriptPass
 				cmp2softlogic = true;
 				continue;
 			}
-			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
-				latches = args[++argidx];
+			if (latches.parse(args, argidx))
 				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		if (family.empty())
 			log_cmd_error("Lattice family parameter must be set.\n");
-
-		if (latches != "info" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		if (family == "ecp5") {
 			postfix = "_ecp5";
@@ -417,7 +409,7 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("coarse"))
 		{
-			run("proc -latches " + (asyncprld ? std::string("info") : latches));
+			run(stringf("proc -latches %s", asyncprld ? "info" : latches.str()));
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten");
@@ -548,7 +540,7 @@ struct SynthLatticePass : public ScriptPass
 			if (abc2 || help_mode)
 				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
-				if (latches == "error" || help_mode)
+				if (latches.policy == LatchPolicy::Error || help_mode)
 					run("check -latchonly -assert", "(skip if -asyncprld; only if -latches error, the default)");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}

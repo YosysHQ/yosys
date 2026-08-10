@@ -22,6 +22,7 @@
 #include "kernel/ffinit.h"
 #include "kernel/consteval.h"
 #include "kernel/log.h"
+#include "passes/proc/proc_dlatch.h"
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
@@ -416,12 +417,6 @@ struct proc_dlatch_db_t
 	}
 };
 
-enum LatchPolicy {
-	POLICY_INFO,
-	POLICY_WARN,
-	POLICY_ERROR
-};
-
 void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 {
 	RTLIL::SigSig latches_bits, nolatches_bits;
@@ -556,10 +551,10 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 			else if (proc->get_bool_attribute(ID::always_latch))
 				log("Latch inferred for signal `%s.%s' from always_latch process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
-			else if (policy == POLICY_ERROR)
+			else if (policy == LatchPolicy::Error)
 				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
-			else if (policy == POLICY_WARN)
+			else if (policy == LatchPolicy::Warn)
 				log_warning("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
 						db.module->name.c_str(), log_signal(lhs), db.module->name.c_str(), proc->name.c_str(), cell);
 			else
@@ -610,13 +605,7 @@ struct ProcDlatchPass : public Pass {
 			policy_str = design->scratchpad_get_string("proc.latches", "warn");
 
 		LatchPolicy policy;
-		if (policy_str == "info")
-			policy = POLICY_INFO;
-		else if (policy_str == "warn")
-			policy = POLICY_WARN;
-		else if (policy_str == "error")
-			policy = POLICY_ERROR;
-		else
+		if (!latch_policy_from_string(policy_str, policy))
 			log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", policy_str.c_str());
 
 		for (auto mod : design->all_selected_modules()) {
