@@ -256,8 +256,9 @@ struct OptDffWorker
 		}
 	}
 
+	// lattice join of candidate constants: Sx is the identity (unless -keepdc
+	// pins it), equal values join, Sm marks a conflict
 	State combine_const(State a, State b) {
-		// Combine constants: returns Sm if values conflict
 		if (a == State::Sx && !opt.keepdc) return b;
 		if (b == State::Sx && !opt.keepdc) return a;
 		if (a == b) return a;
@@ -916,6 +917,11 @@ struct OptDffWorker
 		return did_something;
 	}
 
+	// candidate stuck-at value of ff bit i, joined over every non-D way the bit
+	// can acquire a value: init, arst, srst and sr (a clr/set that can ever
+	// fire forces 0/1)
+	// returns S0/S1 as the candidate, Sx if unconstrained, Sm on conflict
+	// computes the induction base case only, commits happen in run_constbits
 	State check_constbit(FfData &ff, int i)
 	{
 		State val = ff.val_init[i];
@@ -966,7 +972,15 @@ struct OptDffWorker
 		return true;
 	}
 
-	// Try to decide whether target t of obligation ob is constant, under the given per-query cap.
+	// try to decide target t of obligation ob under the given per-query effort cap
+	// returns false if the cap was hit and the target is still undecided
+	//
+	// induction step: assuming q already holds the candidate value, the value fed
+	// through this target must equal it again; check_constbit provides the base
+	// case, so unsat makes the constant an inductive invariant
+	//
+	// the qcsat cone is an over-approximation (complex cells become free inputs),
+	// so only unsat is binding; a spurious sat model merely drops a valid proof
 	bool resolve_const_target(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob, ConstTarget &t,
 			const std::vector<int> &modelExprs, const std::vector<ConstObligation *> &model_obs)
 	{
