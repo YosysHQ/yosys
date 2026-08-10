@@ -928,9 +928,9 @@ struct OptDffWorker
 		if (ff.has_arst) val = combine_const(val, ff.val_arst[i]);
 		if (ff.has_srst) val = combine_const(val, ff.val_srst[i]);
 		if (ff.has_sr) {
-			if (ff.sig_clr[i] != (ff.pol_clr ? State::S0 : State::S1))
+			if (!is_inactive(sigmap(ff.sig_clr[i]), ff.pol_clr))
 				val = combine_const(val, State::S0);
-			if (ff.sig_set[i] != (ff.pol_set ? State::S0 : State::S1))
+			if (!is_inactive(sigmap(ff.sig_set[i]), ff.pol_set))
 				val = combine_const(val, State::S1);
 		}
 
@@ -1040,13 +1040,18 @@ struct OptDffWorker
 				if (val == State::Sm)
 					continue;
 
-				// Fold all const inputs first, so the SAT targets are checked against the final const
-				if ((ff.has_clk || ff.has_gclk) && !ff.sig_d[i].wire) {
-					val = combine_const(val, ff.sig_d[i].data);
+				bool has_d = ff.has_clk || ff.has_gclk;
+				SigBit d = has_d ? sigmap(ff.sig_d[i]) : SigBit();
+				SigBit ad = ff.has_aload ? sigmap(ff.sig_ad[i]) : SigBit();
+
+				// fold all const inputs first, so the sat targets are checked
+				// against the final candidate
+				if (has_d && !d.wire) {
+					val = combine_const(val, d.data);
 					if (val == State::Sm) continue;
 				}
-				if (ff.has_aload && !ff.sig_ad[i].wire) {
-					val = combine_const(val, ff.sig_ad[i].data);
+				if (ff.has_aload && !ad.wire) {
+					val = combine_const(val, ad.data);
 					if (val == State::Sm) continue;
 				}
 
@@ -1057,10 +1062,10 @@ struct OptDffWorker
 				ob.q = ff.sig_q[i];
 
 				bool feasible = true;
-				if ((ff.has_clk || ff.has_gclk) && ff.sig_d[i].wire)
-					feasible = add_const_target(modwalker, ob, ff.sig_d[i]);
-				if (feasible && ff.has_aload && ff.sig_ad[i].wire)
-					feasible = add_const_target(modwalker, ob, ff.sig_ad[i]);
+				if (has_d && d.wire)
+					feasible = add_const_target(modwalker, ob, d);
+				if (feasible && ff.has_aload && ad.wire)
+					feasible = add_const_target(modwalker, ob, ad);
 				if (!feasible)
 					continue;
 
