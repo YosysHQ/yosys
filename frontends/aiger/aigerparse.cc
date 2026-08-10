@@ -480,19 +480,22 @@ void AigerReader::parse_xaiger()
 				mapping_cell.type = RTLIL::escape_id(cellName);
 				mapping_cell.out = RTLIL::escape_id(outPinName);
 
-				auto module = design->addModule(RTLIL::escape_id(cellName));
-				module->set_bool_attribute(ID::blackbox);
-				module->addWire(RTLIL::escape_id(outPinName))->port_output = true;
-
 				for (unsigned j = 0; j < inPinNum; ++j) {
 					auto inPinName = std::string{};
 					std::getline(f, inPinName, '\0');
 					log_debug2("M:    inPinName=%s\n", inPinName);
 					mapping_cell.ins.push_back(RTLIL::escape_id(inPinName));
-					module->addWire(RTLIL::escape_id(inPinName))->port_input = true;
 				}
 
-				module->fixup_ports();
+				if (!design->module(mapping_cell.type)) {
+					auto module = design->addModule(mapping_cell.type);
+					module->set_bool_attribute(ID::blackbox);
+					module->addWire(mapping_cell.out)->port_output = true;
+					for (unsigned j = 0; j < inPinNum; ++j) {
+						module->addWire(mapping_cell.ins.at(j))->port_input = true;
+					}
+					module->fixup_ports();
+				}
 
 				mapping_cells.push_back(std::move(mapping_cell));
 			}
