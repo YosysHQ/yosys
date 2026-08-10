@@ -261,7 +261,7 @@ struct FfSpec {
 	bool ctrlpol = false; // clock for ff, enable for latch
 	bool has_reset = false, rstpol = false, rstval = false;
 	bool has_sr = false, setpol = false, clrpol = false;
-	bool has_enable = false, enapol = false; // ff clock enable, not used for latch
+	bool dff_has_enable = false, dff_enapol = false;
 };
 
 struct BestCell {
@@ -347,7 +347,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 {
 	BestCell best;
 
-	log_assert(!(spec.has_sr && spec.enapol) && "set/reset cell with enable is unimplemented due to lack of cells for testing");
+	log_assert(!(spec.has_sr && spec.dff_enapol) && "set/reset cell with enable is unimplemented due to lack of cells for testing");
 
 	// ff stores its state in a "ff" group with a "clocked_on" control pin, latch in a "latch" group with an "enable"
 	const char *group = spec.is_latch ? "latch" : "ff";
@@ -371,7 +371,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 			if (!parse_pin(cell, storage->find("data_in"), cell_data_pin, cell_data_pol))
 				continue;
 		} else {
-			if (!parse_next_state(cell, storage->find("next_state"), cell_data_pin, cell_data_pol, cell_enable_pin, cell_enable_pol) || (spec.has_enable && (cell_enable_pin.empty() || cell_enable_pol != spec.enapol)))
+			if (!parse_next_state(cell, storage->find("next_state"), cell_data_pin, cell_data_pol, cell_enable_pin, cell_enable_pol) || (spec.dff_has_enable && (cell_enable_pin.empty() || cell_enable_pol != spec.dff_enapol)))
 				continue;
 		}
 
@@ -402,7 +402,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 			this_cell_ports[cell_clr_pin] = 'R';
 		}
 
-		if (spec.has_enable)
+		if (spec.dff_has_enable)
 			this_cell_ports[cell_enable_pin] = 'E';
 		this_cell_ports[cell_data_pin] = 'D';
 
@@ -601,10 +601,10 @@ struct DfflibmapPass : public Pass {
 		find_cell(merged.cells, ID($_DFF_PP0_), {.ctrlpol=true, .has_reset=true, .rstpol=true}, dont_use_cells);
 		find_cell(merged.cells, ID($_DFF_PP1_), {.ctrlpol=true, .has_reset=true, .rstpol=true, .rstval=true}, dont_use_cells);
 
-		find_cell(merged.cells, ID($_DFFE_NN_), {.has_enable=true}, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_NP_), {.has_enable=true, .enapol=true}, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PN_), {.ctrlpol=true, .has_enable=true}, dont_use_cells);
-		find_cell(merged.cells, ID($_DFFE_PP_), {.ctrlpol=true, .has_enable=true, .enapol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NN_), {.dff_has_enable=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_NP_), {.dff_has_enable=true, .dff_enapol=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PN_), {.ctrlpol=true, .dff_has_enable=true}, dont_use_cells);
+		find_cell(merged.cells, ID($_DFFE_PP_), {.ctrlpol=true, .dff_has_enable=true, .dff_enapol=true}, dont_use_cells);
 
 		find_cell(merged.cells, ID($_DFFSR_NNN_), {.has_sr=true}, dont_use_cells);
 		find_cell(merged.cells, ID($_DFFSR_NNP_), {.has_sr=true, .clrpol=true}, dont_use_cells);

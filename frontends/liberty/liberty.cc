@@ -313,7 +313,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 		for (auto& [id, var] : {pair{"clear_preset_var1", &clear_preset_var1}, {"clear_preset_var2", &clear_preset_var2}}) {
 			if (child->id == id) {
 				if (child->value.size() != 1)
-					log_error("Unexpected length of clear_preset_var* value %s in LATCH cell %s\n", child->value, name);
+					log_error("Unexpected length of clear_preset_var* value %s in latch cell %s\n", child->value, name);
 				*var = child->value[0];
 			}
 		}
@@ -321,9 +321,9 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 
 	if (enable_sig.size() == 0 || data_sig.size() == 0) {
 		if (!flag_ignore_miss_data_latch)
-			log_error("LATCH cell %s has no data_in and/or enable attribute.\n", name);
+			log_error("Latch cell %s has no data_in and/or enable attribute.\n", name);
 		else
-			log("Ignored LATCH cell %s with no data_in and/or enable attribute.\n", name);
+			log("Ignored latch cell %s with no data_in and/or enable attribute.\n", name);
 
 		return false;
 	}
@@ -367,7 +367,7 @@ static bool create_latch(RTLIL::Module *module, const LibertyAst *node, bool fla
 				} else if (*cp_var == 'H') {
 					set_dominates = !neg;
 				} else {
-					log_error("LATCH cell %s has unsupported clear&preset behavior \'%c\'.\n", name, *cp_var);
+					log_error("Latch cell %s has unsupported clear&preset behavior \'%c\'.\n", name, *cp_var);
 				}
 				log_debug("cell %s variable %d cp_var %c set dominates? %d\n", name, (int)neg + 1, *cp_var, set_dominates);
 				// S&R priority is well-defined now
