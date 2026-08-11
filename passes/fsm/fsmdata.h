@@ -21,6 +21,7 @@
 #define FSMDATA_H
 
 #include "kernel/yosys.h"
+#include "kernel/unused_bits.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -155,7 +156,7 @@ struct FsmData
 	}
 
 	// implemented in fsm_opt.cc
-	static void optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module);
+	static void optimize_fsm(RTLIL::Cell *cell, RTLIL::Module *module, UnusedBits& unused_bits);
 };
 
 YOSYS_NAMESPACE_END
