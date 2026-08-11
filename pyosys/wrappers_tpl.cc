@@ -41,6 +41,152 @@ using namespace RTLIL;
 namespace pyosys {
 	struct Globals {};
 
+	static bool name_renderable(const RTLIL::PooledName &n)
+	{
+		return n.pool() != nullptr || n.ref().empty() || ID::is_static(n.ref());
+	}
+
+	static std::string name_str(const RTLIL::PooledName &n)
+	{
+		if (!name_renderable(n))
+			throw std::runtime_error(
+				"this name has no twine pool to resolve against; render it with Design.str(name)");
+		return n.str();
+	}
+
+	static std::string name_repr(const RTLIL::PooledName &n)
+	{
+		if (n.ref().empty())
+			return "<IdString Null>";
+		if (!name_renderable(n))
+			return stringf("<IdString #%zu%s>", n.ref().untag().raw(), n.ref().isPublic() ? " public" : "");
+		return stringf("<IdString %s>", n.str().c_str());
+	}
+
+	static size_t name_hash(const RTLIL::PooledName &n) { return run_hash(name_str(n)); }
+
+	static bool name_eq(const RTLIL::PooledName &lhs, const RTLIL::PooledName &rhs)
+	{
+		return name_str(lhs) == name_str(rhs);
+	}
+
+	static bool name_eq_str(const RTLIL::PooledName &lhs, const std::string &rhs)
+	{
+		return name_str(lhs) == rhs;
+	}
+
+	static bool name_ne(const RTLIL::PooledName &lhs, const RTLIL::PooledName &rhs) { return !name_eq(lhs, rhs); }
+	static bool name_ne_str(const RTLIL::PooledName &lhs, const std::string &rhs) { return !name_eq_str(lhs, rhs); }
+	static bool name_lt(const RTLIL::PooledName &lhs, const RTLIL::PooledName &rhs)
+	{
+		return name_str(lhs) < name_str(rhs);
+	}
+	static const TwinePool *pool_of(const RTLIL::Design &design) { return &design.twines; }
+	static const TwinePool *pool_of(const RTLIL::Module &module)
+	{
+		return module.design ? &module.design->twines : nullptr;
+	}
+
+	template<typename Owner, typename Map>
+	static py::dict name_keyed_snapshot(Owner &self, const Map &map)
+	{
+		const TwinePool *pool = pool_of(self);
+		py::dict out;
+		for (const auto &entry : map)
+			out[py::cast(RTLIL::PooledName(pool, entry.first))] =
+				py::cast(entry.second, py::return_value_policy::reference);
+		return out;
+	}
+
+	static py::dict design_modules(RTLIL::Design &self) { return name_keyed_snapshot(self, self.modules_); }
+	static py::dict module_wires(RTLIL::Module &self) { return name_keyed_snapshot(self, self.wires_); }
+	static py::dict module_cells(RTLIL::Module &self) { return name_keyed_snapshot(self, self.cells_); }
+
+	static RTLIL::PooledName design_id_add(RTLIL::Design &self, const std::string &name)
+	{
+		return RTLIL::PooledName(&self.twines, self.twines.add(name));
+	}
+
+	static py::object design_id_find(RTLIL::Design &self, const std::string &name)
+	{
+		RTLIL::IdString ref = self.twines.find(name);
+		if (ref.empty())
+			return py::none();
+		return py::cast(RTLIL::PooledName(&self.twines, ref));
+	}
+
+	static std::string design_str(RTLIL::Design &self, const RTLIL::PooledName &name)
+	{
+		if (name_renderable(name))
+			return name.str();
+		return self.twines.str(name.ref());
+	}
+
+	static py::list module_ports(RTLIL::Module &self)
+	{
+		const TwinePool *pool = pool_of(self);
+		py::list out;
+		for (RTLIL::IdString port : self.ports)
+			out.append(py::cast(RTLIL::PooledName(pool, port)));
+		return out;
+	}
+
+	static bool lookup_constid(const std::string &text, RTLIL::IdString &out)
+	{
+		try {
+			out = ID::lookup(text);
+			return true;
+		} catch (...) {
+			return false;
+		}
+	}
+}
+
+namespace pybind11 {
+namespace detail {
+
+template <> struct type_caster<Yosys::RTLIL::IdString> {
+public:
+	PYBIND11_TYPE_CASTER(Yosys::RTLIL::IdString, const_name("IdString"));
+
+	bool load(handle src, bool)
+	{
+		if (!src)
+			return false;
+		if (isinstance<Yosys::RTLIL::PooledName>(src)) {
+			value = src.cast<const Yosys::RTLIL::PooledName &>().ref();
+			return true;
+		}
+		if (PyUnicode_Check(src.ptr()))
+			return pyosys::lookup_constid(src.cast<std::string>(), value);
+		return false;
+	}
+
+	static handle cast(Yosys::RTLIL::IdString src, return_value_policy, handle)
+	{
+		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
+	}
+};
+
+template <typename Masq> struct masq_caster {
+	static constexpr auto name = const_name("IdString");
+
+	static handle cast(const Masq &src, return_value_policy, handle)
+	{
+		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
+	}
+};
+
+template <typename Owner>
+struct type_caster<Yosys::RTLIL::ObjNameMasq<Owner>> : masq_caster<Yosys::RTLIL::ObjNameMasq<Owner>> {};
+template <> struct type_caster<Yosys::RTLIL::ModuleNameMasq> : masq_caster<Yosys::RTLIL::ModuleNameMasq> {};
+template <> struct type_caster<Yosys::RTLIL::CellTypeMasq> : masq_caster<Yosys::RTLIL::CellTypeMasq> {};
+
+}
+}
+
+namespace pyosys {
+
 	// Trampolines for Classes with Python-Overridable Virtual Methods
 	// https://pybind11.readthedocs.io/en/stable/advanced/classes.html#overriding-virtual-functions-in-python
 	class PassTrampoline : public Pass {
@@ -248,12 +394,34 @@ namespace pyosys {
 			.def("notify_blackout", &RTLIL::Monitor::notify_blackout)
 		;
 
+		py::class_<RTLIL::PooledName>(m, "IdString")
+			.def("str", &name_str)
+			.def("empty", &RTLIL::PooledName::empty)
+			.def("isPublic", &RTLIL::PooledName::isPublic)
+			.def("__str__", &name_str)
+			.def("__repr__", &name_repr)
+			.def("__hash__", &name_hash)
+			.def("__eq__", &name_eq)
+			.def("__eq__", &name_eq_str)
+			.def("__ne__", &name_ne)
+			.def("__ne__", &name_ne_str)
+			.def("__lt__", &name_lt)
+		;
+
 		// Bind Opaque Containers
 		bind_autogenerated_opaque_containers(m);
 
 		// <!-- generated pymod-level code -->
 
-		py::implicitly_convertible<std::string, RTLIL::IdString>();
-		py::implicitly_convertible<const char *, RTLIL::IdString>();
+		py::reinterpret_borrow<py::class_<RTLIL::Design>>(m.attr("Design"))
+			.def_property_readonly("modules_", &design_modules)
+			.def("id_add", &design_id_add, py::arg("name"))
+			.def("id_find", &design_id_find, py::arg("name"))
+			.def("str", &design_str, py::arg("name"));
+		py::reinterpret_borrow<py::class_<RTLIL::Module>>(m.attr("Module"))
+			.def_property_readonly("wires_", &module_wires)
+			.def_property_readonly("cells_", &module_cells)
+			.def_property_readonly("ports", &module_ports);
+
 	};
 };
