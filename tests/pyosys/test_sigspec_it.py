@@ -21,7 +21,7 @@ d = ys.Design()
 
 ys.run_pass(f"read_verilog {__file_dir__ / 'spm.cut.v.gz'}", d)
 ys.run_pass(f"hierarchy -top spm", d)
-module = d.module(r"\spm")
+module = d.module(d.id_find(r"\spm"))
 for conn_from, conn_to in module.connections_:
     for bit_from, bit_to in zip(conn_from, conn_to):
         print(f"assign {_dump_sigbit(bit_from)} = {_dump_sigbit(bit_to)};")
