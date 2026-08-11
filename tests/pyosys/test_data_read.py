@@ -15,7 +15,7 @@ name_by_au_location = []
 module = None
 print(d.modules_)
 for idstr, module_obj in d.modules_.items():
-	if idstr != ys.IdString("\\spm"):
+	if idstr != d.id_find("\\spm"):
 		continue
 	if idstr.str() != "\\spm":
 		continue
