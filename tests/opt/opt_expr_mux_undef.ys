@@ -287,3 +287,76 @@ select -assert-none t:$_MUX16_
 select -assert-count 1 o:out %ci*
 
 ##########
+# fully undef select, defined data inputs
+# -keepdc: the output is a don't-care that must be preserved,
+#          so the mux is left unchanged
+# no -keepdc: the undef select is resolved to the A input
+# checked for $mux, $pmux and the gate-level $_MUX_
+
+# $mux
+design -reset
+read_rtlil <<EOT2
+module \uut
+  wire output 1 \out
+  wire input 1 \a
+  wire input 2 \b
+  cell $mux \mux
+    parameter \WIDTH 1
+    connect \A \a
+    connect \B \b
+    connect \S 1'x
+    connect \Y \out
+  end
+end
+EOT2
+
+opt_expr -mux_undef -keepdc
+select -assert-count 1 t:$mux
+opt_expr -mux_undef
+select -assert-none t:$mux
+
+# $pmux, multi-bit data and select
+design -reset
+read_rtlil <<EOT2
+module \uut
+  wire width 2 output 1 \out
+  wire width 2 input 2 \a
+  wire width 4 input 3 \b
+  cell $pmux \mux
+    parameter \WIDTH 2
+    parameter \S_WIDTH 2
+    connect \A \a
+    connect \B \b
+    connect \S 2'xx
+    connect \Y \out
+  end
+end
+EOT2
+
+opt_expr -mux_undef -keepdc
+select -assert-count 1 t:$pmux
+opt_expr -mux_undef
+select -assert-none t:$pmux
+
+# gate-level $_MUX_
+design -reset
+read_rtlil <<EOT2
+module \uut
+  wire output 1 \out
+  wire input 1 \a
+  wire input 2 \b
+  cell $_MUX_ \mux
+    connect \A \a
+    connect \B \b
+    connect \S 1'x
+    connect \Y \out
+  end
+end
+EOT2
+
+opt_expr -mux_undef -keepdc
+select -assert-count 1 t:$_MUX_
+opt_expr -mux_undef
+select -assert-none t:$_MUX_
+
+##########

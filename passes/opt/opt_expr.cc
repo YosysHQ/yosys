@@ -1158,7 +1158,9 @@ skip_fine_alu:
 			if (mux_undef) {
 				if (input.match("*  ")) ACTION_DO(ID::Y, input.extract(1, 1));
 				if (input.match(" * ")) ACTION_DO(ID::Y, input.extract(2, 1));
-				if (input.match("  *")) ACTION_DO(ID::Y, input.extract(2, 1));
+				// An undef select resolves to the A input only when we may pick
+				// values for don't-cares; with -keepdc leave the cell untouched.
+				if (!keepdc && input.match("  *")) ACTION_DO(ID::Y, input.extract(2, 1));
 			}
 		}
 
@@ -1486,9 +1488,19 @@ skip_identity:
 		if (mux_undef && cell->type.in(ID($mux), ID($pmux))) {
 			RTLIL::SigSpec new_a, new_b, new_s;
 			int width = GetSize(cell->getPort(ID::A));
-			if ((cell->getPort(ID::A).is_fully_undef() && cell->getPort(ID::B).is_fully_undef()) ||
-					cell->getPort(ID::S).is_fully_undef()) {
+			// If both data inputs are fully undef the output is undef regardless
+			// of the select, so replacing the mux with A is always valid. This
+			// does not resolve any don't-care and is therefore fine with -keepdc.
+			if (cell->getPort(ID::A).is_fully_undef() && cell->getPort(ID::B).is_fully_undef()) {
 				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
+				goto next_cell;
+			}
+			// A fully undef select makes the output a don't-care. Resolving it to
+			// the A input is only valid when we are allowed to pick values for
+			// don't-cares; with -keepdc the cell must be left untouched.
+			if (cell->getPort(ID::S).is_fully_undef()) {
+				if (!keepdc)
+					replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));
 				goto next_cell;
 			}
 			for (int i = 0; i < cell->getPort(ID::S).size(); i++) {
