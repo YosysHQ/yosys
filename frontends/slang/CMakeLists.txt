@@ -14,6 +14,7 @@ yosys_frontend(slang
 	lib/src/cases.h
 	lib/src/diag.cc
 	lib/src/diag.h
+	lib/src/driver.cc
 	lib/src/initialization.cc
 	lib/src/lvalue.cc
 	lib/src/memory.h
