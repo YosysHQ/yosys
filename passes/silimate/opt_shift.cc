@@ -313,7 +313,9 @@ bool descale_is_one(const SigSpec &sig)
   return GetSize(sig) > 0 && sig.is_fully_const() && sig.as_const() == Const(1, GetSize(sig));
 }
 
-// `out - 1`, reading `out` either directly or zero-extended
+// `out - 1`, reading `out` from bit 0 up. A narrower read is fine: the carry
+// identity holds mod 2^k for any k, so a decrement that wreduce has already
+// narrowed to what its own result needs still folds.
 bool descale_is_decrement(SigMap &sigmap, Cell *reader, const SigSpec &out)
 {
   if (reader->type != ID($sub))
@@ -323,12 +325,15 @@ bool descale_is_decrement(SigMap &sigmap, Cell *reader, const SigSpec &out)
   if (!descale_is_one(reader->getPort(ID::B)))
     return false;
   SigSpec a = sigmap(reader->getPort(ID::A));
-  if (GetSize(a) < GetSize(out) || a.extract(0, GetSize(out)) != out)
+  int common = std::min(GetSize(a), GetSize(out));
+  if (common == 0 || a.extract(0, common) != out.extract(0, common))
     return false;
-  return a.extract_end(GetSize(out)).is_fully_zero();
+  return a.extract_end(common).is_fully_zero();
 }
 
-// `out == 0`, in any of the shapes opt_expr leaves behind
+// `out == 0`, in any of the shapes opt_expr leaves behind. Unlike the decrement
+// this has to read all of `out`: at full width t + c cannot carry out, so the
+// carry is just another bit to test, but a narrower read can wrap into zero.
 bool descale_is_zero_test(SigMap &sigmap, Cell *reader, const SigSpec &out)
 {
   if (reader->type.in(ID($logic_not), ID($reduce_or), ID($reduce_bool)))
