@@ -295,6 +295,331 @@ struct GatherFuser
   }
 };
 
+// ---------------------------------------------------------------------------
+// -descale: collapse a scale-down round trip around a variable right shift
+//
+//   ((x + 1) >> s) - 1   ===>   c ? (x >> s) : (x >> s) - 1,  c = &x[s-1:0]
+//
+// Writing x = t*2^s + r, the shift throws r away, so the only thing the
+// increment can still contribute past it is its carry out of that window, which
+// is exactly c (vacuously true for s == 0). Absorbing that carry downstream
+// leaves one carry chain instead of two bracketing the shifter, and the window
+// test is a log-depth AND scan that runs beside it rather than ahead of it.
+// ---------------------------------------------------------------------------
+
+// Unsigned constant 1 of any width
+bool descale_is_one(const SigSpec &sig)
+{
+  return GetSize(sig) > 0 && sig.is_fully_const() && sig.as_const() == Const(1, GetSize(sig));
+}
+
+// `out - 1`, reading `out` from bit 0 up. A narrower read is fine: the carry
+// identity holds mod 2^k for any k, so a decrement that wreduce has already
+// narrowed to what its own result needs still folds.
+bool descale_is_decrement(SigMap &sigmap, Cell *reader, const SigSpec &out)
+{
+  if (reader->type != ID($sub))
+    return false;
+  if (reader->getParam(ID::A_SIGNED).as_bool() || reader->getParam(ID::B_SIGNED).as_bool())
+    return false;
+  if (!descale_is_one(reader->getPort(ID::B)))
+    return false;
+  SigSpec a = sigmap(reader->getPort(ID::A));
+  int common = std::min(GetSize(a), GetSize(out));
+  if (common == 0 || a.extract(0, common) != out.extract(0, common))
+    return false;
+  return a.extract_end(common).is_fully_zero();
+}
+
+// `out == 0`, in any of the shapes opt_expr leaves behind. Unlike the decrement
+// this has to read all of `out`: at full width t + c cannot carry out, so the
+// carry is just another bit to test, but a narrower read can wrap into zero.
+bool descale_is_zero_test(SigMap &sigmap, Cell *reader, const SigSpec &out)
+{
+  if (reader->type.in(ID($logic_not), ID($reduce_or), ID($reduce_bool)))
+    return sigmap(reader->getPort(ID::A)) == out;
+  if (reader->type.in(ID($eq), ID($ne))) {
+    if (reader->getParam(ID::A_SIGNED).as_bool() || reader->getParam(ID::B_SIGNED).as_bool())
+      return false;
+    SigSpec a = sigmap(reader->getPort(ID::A));
+    SigSpec b = sigmap(reader->getPort(ID::B));
+    if (a == out)
+      return b.is_fully_zero();
+    if (b == out)
+      return a.is_fully_zero();
+  }
+  return false;
+}
+
+// True when every bit of the (already sigmapped) `sig` stays inside the module,
+// so this pass is allowed to change what it carries
+bool descale_contained(const SigSpec &sig)
+{
+  for (auto bit : sig)
+    if (!bit.wire || bit.wire->port_output || bit.wire->get_bool_attribute(ID::keep))
+      return false;
+  return true;
+}
+
+// Inclusive AND scan of x, so scan[i] = &x[i:0], in ceil(log2(width)) levels
+SigSpec descale_and_scan(Cell *cell, const SigSpec &x)
+{
+  Module *module = cell->module;
+  SigSpec scan = x;
+  for (int stride = 1; stride < GetSize(x); stride *= 2) {
+    int width = GetSize(x) - stride;
+    Wire *merged = module->addWire(NEW_ID2_SUFFIX("wnd"), width);
+    module->addAnd(NEW_ID2_SUFFIX("wnd"), scan.extract(stride, width),
+                   scan.extract(0, width), merged, false, cell->get_src_attribute());
+    SigSpec next = scan.extract(0, stride);
+    next.append(merged);
+    scan = next;
+  }
+  return scan;
+}
+
+// One matched round trip: the shifter is kept and rewired, its readers absorb
+// the increment as a window carry, and the increment itself goes away.
+struct DescaleRewrite {
+  Cell *shr;
+  Cell *add;
+  SigSpec x;
+  SigSpec out;
+  vector<Cell *> decs;
+  vector<Cell *> zeros;
+};
+
+// Unsigned variable right shifts, keyed by the bits they read. Anchoring on the
+// shifters first keeps the common case (a design with no round trip) down to one
+// walk, with nothing indexed per design bit behind it.
+void descale_find_anchors(Module *module, SigMap &sigmap, dict<SigBit, Cell *> &anchors)
+{
+  vector<Cell *> shifts;
+  for (auto cell : module->selected_cells()) {
+    if (cell->type != ID($shr) || cell->getParam(ID::A_SIGNED).as_bool())
+      continue;
+
+    // A constant amount is folded by -combine, and it makes the window carry
+    // constant anyway, so there is no round trip left to break
+    if (cell->getPort(ID::B).is_fully_const())
+      continue;
+
+    shifts.push_back(cell);
+  }
+
+  // Binding the SigMap is a walk of the module in itself, so leave it unbound
+  // for the common case of a module with no variable right shift at all
+  if (shifts.empty())
+    return;
+  sigmap.set(module);
+
+  for (auto cell : shifts)
+    for (auto bit : sigmap(cell->getPort(ID::A))) {
+      if (!bit.wire)
+        continue;
+      // Two shifters on one bit means whatever drives it is shared and so cannot
+      // be deleted; the null marker rejects both of them
+      auto it = anchors.find(bit);
+      anchors[bit] = (it == anchors.end() || it->second == cell) ? cell : nullptr;
+    }
+}
+
+// Increments feeding an anchor: a whole "+1" that is all the shifter reads
+void descale_find_candidates(Module *module, SigMap &sigmap, const dict<SigBit, Cell *> &anchors,
+                             vector<DescaleRewrite> &candidates)
+{
+  for (auto cell : module->selected_cells()) {
+    if (cell->type != ID($add))
+      continue;
+    if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+      continue;
+
+    // Every bit of the sum has to land on one and the same shifter
+    SigSpec sum = sigmap(cell->getPort(ID::Y));
+    Cell *shr = nullptr;
+    bool whole = GetSize(sum) > 0;
+    for (auto bit : sum) {
+      auto it = anchors.find(bit);
+      if (it == anchors.end() || !it->second || (shr && it->second != shr)) {
+        whole = false;
+        break;
+      }
+      shr = it->second;
+    }
+    if (!whole || sigmap(shr->getPort(ID::A)) != sum)
+      continue;
+
+    SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
+    SigSpec x = descale_is_one(b) ? a : descale_is_one(a) ? b : SigSpec();
+    if (GetSize(x) == 0)
+      continue;
+
+    // A truncating increment breaks the carry identity: an all-ones x wraps to
+    // 0 instead of carrying into bit width(x)
+    if (GetSize(sum) <= GetSize(x))
+      continue;
+
+    candidates.push_back({shr, cell, x, sigmap(shr->getPort(ID::Y)), {}, {}});
+  }
+}
+
+// Readers of just the candidates' own nets: seeding the bits that matter up
+// front keeps this to one walk of the module and a pool per candidate bit,
+// rather than one per bit in the design.
+void descale_index_readers(Module *module, SigMap &sigmap, const vector<DescaleRewrite> &candidates,
+                           dict<SigBit, pool<Cell *>> &readers)
+{
+  for (auto &cand : candidates) {
+    for (auto bit : sigmap(cand.add->getPort(ID::Y)))
+      readers[bit] = pool<Cell *>();
+    for (auto bit : cand.out)
+      readers[bit] = pool<Cell *>();
+  }
+
+  for (auto cell : module->cells())
+    for (auto &conn : cell->connections()) {
+      if (cell->output(conn.first))
+        continue;
+      for (auto bit : sigmap(conn.second)) {
+        auto it = readers.find(bit);
+        if (it != readers.end())
+          it->second.insert(cell);
+      }
+    }
+
+  // A module-level connection reads bits this pass cannot rewrite; the null
+  // marker is a reader no candidate can claim, so those bits are refused
+  for (auto &conn : module->connections())
+    for (auto bit : sigmap(conn.second)) {
+      auto it = readers.find(bit);
+      if (it != readers.end())
+        it->second.insert(nullptr);
+    }
+}
+
+int run_descale_shifts(Module *module)
+{
+  SigMap sigmap; // bound by descale_find_anchors, once it knows it is needed
+  dict<SigBit, Cell *> anchors;
+  descale_find_anchors(module, sigmap, anchors);
+  if (anchors.empty())
+    return 0;
+
+  vector<DescaleRewrite> candidates;
+  descale_find_candidates(module, sigmap, anchors, candidates);
+  if (candidates.empty())
+    return 0;
+
+  dict<SigBit, pool<Cell *>> readers;
+  descale_index_readers(module, sigmap, candidates, readers);
+
+  vector<DescaleRewrite> rewrites;
+  for (auto &cand : candidates) {
+    // Both nets end up carrying a different value, so both have to be ours
+    SigSpec sum = sigmap(cand.add->getPort(ID::Y));
+    if (!descale_contained(sum) || !descale_contained(cand.out))
+      continue;
+
+    // The rewrite deletes the increment, so nothing else may be reading it
+    pool<Cell *> sharers, consumers;
+    for (auto bit : sum)
+      for (auto reader : readers.at(bit))
+        if (reader != cand.shr)
+          sharers.insert(reader);
+    if (!sharers.empty())
+      continue;
+
+    // Every reader of the shifted result has to be one the carry folds into
+    for (auto bit : cand.out)
+      for (auto reader : readers.at(bit))
+        if (reader != cand.shr)
+          consumers.insert(reader);
+
+    bool foldable = true;
+    for (auto reader : consumers) {
+      // The null marker is a module connection, and an unselected reader is one
+      // this pass may not rewrite; either way the carry has nowhere to fold
+      bool ours = reader && module->selected(reader);
+      if (ours && descale_is_decrement(sigmap, reader, cand.out))
+        cand.decs.push_back(reader);
+      else if (ours && descale_is_zero_test(sigmap, reader, cand.out))
+        cand.zeros.push_back(reader);
+      else {
+        foldable = false;
+        break;
+      }
+    }
+
+    // Without a decrement to absorb the carry the increment would just move
+    if (!foldable || cand.decs.empty())
+      continue;
+
+    log_debug("  %s: descale %s through %s (%d decrement(s), %d zero test(s))\n", log_id(module),
+              log_id(cand.add), log_id(cand.shr), GetSize(cand.decs), GetSize(cand.zeros));
+    rewrites.push_back(cand);
+  }
+
+  for (auto &rewrite : rewrites) {
+    Cell *cell = rewrite.shr; // NEW_ID2_SUFFIX names after the shifter
+    std::string src = cell->get_src_attribute();
+
+    // Carry out of the discarded window, selected with the data shift amount.
+    // Index 0 of the scan is the empty window, so s == 0 reads a hard 1; an
+    // amount past width(x) reads a zero bit of the scan and gives 0.
+    SigSpec prefix(State::S1);
+    prefix.append(descale_and_scan(cell, rewrite.x));
+    Wire *carry = module->addWire(NEW_ID2_SUFFIX("carry"));
+    module->addShr(NEW_ID2_SUFFIX("carry"), prefix, cell->getPort(ID::B), carry, false, src);
+
+    // The shifter now scales x itself; its readers make up the difference. Its
+    // result is a different value than before, so it drives a fresh net rather
+    // than leaving a stale meaning on the old name (which formal pairs up).
+    Wire *scaled = module->addWire(NEW_ID2_SUFFIX("scaled"), GetSize(rewrite.out));
+    cell->setPort(ID::A, rewrite.x);
+    cell->setPort(ID::Y, scaled);
+    cell->fixup_parameters();
+
+    for (auto dec : rewrite.decs) {
+      // The matcher already proved A is the shifter output, zero-extended
+      SigSpec operand(scaled);
+      operand.extend_u0(GetSize(dec->getPort(ID::A)), false);
+      dec->setPort(ID::A, operand);
+
+      // The carry selects rather than borrows: `t - !c` would drag the window
+      // test through every result bit, while `c ? t : t - 1` keeps the decrement
+      // a constant one and leaves the carry a single-level arc off the shifter
+      SigSpec result = dec->getPort(ID::Y);
+      Wire *decremented = module->addWire(NEW_ID2_SUFFIX("dec"), GetSize(result));
+      dec->setPort(ID::Y, decremented);
+      dec->fixup_parameters();
+      SigSpec kept(scaled);
+      kept.extend_u0(GetSize(result), false);
+      module->addMux(NEW_ID2_SUFFIX("dec"), decremented, kept, carry, result, src);
+    }
+    for (auto zero : rewrite.zeros) {
+      // t + carry is zero exactly when neither part is, so the carry can just
+      // ride along as a new top bit of the tested word
+      IdString port = sigmap(zero->getPort(ID::A)) == rewrite.out ? ID::A : ID::B;
+      SigSpec tested(scaled);
+      tested.append(carry);
+      zero->setPort(port, tested);
+      zero->fixup_parameters();
+    }
+
+    // equiv_make pairs gold and gate cells by name and then asserts their inputs
+    // equivalent, so every cell that now sees a different value has to be renamed
+    // or formal reports the intended difference as a failure
+    for (const vector<Cell *> &group : {vector<Cell *>{cell}, rewrite.decs, rewrite.zeros})
+      for (Cell *touched : group)
+        module->rename(touched, module->uniquify(touched->name.str() + "_descale"));
+
+    module->remove(rewrite.add);
+    did_something = true;
+  }
+
+  return GetSize(rewrites);
+}
+
 #include "passes/silimate/peepopt_shift_pm.h"
 #include "passes/silimate/peepopt_sink_pm.h"
 
@@ -345,11 +670,25 @@ struct OptShiftPass : public Pass {
     log("      refuse a -fuse rewrite whose repeated source would exceed n\n");
     log("      bits (default 4096).\n");
     log("\n");
+    log("  -descale\n");
+    log("      Collapse a scale-down round trip around a variable right shift,\n");
+    log("      so one carry chain is left instead of two bracketing the shifter:\n");
+    log("        ((x + 1) >> s) - 1  ===>  c ? (x >> s) : (x >> s) - 1\n");
+    log("      where c = &x[s-1:0]. Writing x = t*2^s + r, the shift throws r\n");
+    log("      away, so all the increment can still contribute is its carry out\n");
+    log("      of that window, which is c (vacuously true for s == 0). The carry\n");
+    log("      lands on a select rather than the decrement's borrow input, which\n");
+    log("      would otherwise drag the window test through every result bit, and\n");
+    log("      the test itself is a log-depth AND scan beside the shifter.\n");
+    log("      The increment must not truncate: an all-ones x has to carry into\n");
+    log("      bit width(x) rather than wrap to zero. Only readers the carry can\n");
+    log("      fold into are accepted, which is `- 1` and `== 0`.\n");
+    log("\n");
     log("  -max_iters n\n");
     log("      max number of pass iterations to run.\n");
     log("\n");
-    log("If none of -combine, -expand, -sink or -fuse is given, combine and\n");
-    log("expand are run.\n");
+    log("If none of -combine, -expand, -sink, -fuse or -descale is given,\n");
+    log("combine and expand are run.\n");
     log("\n");
   }
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -360,8 +699,10 @@ struct OptShiftPass : public Pass {
     bool run_expand = false;
     bool run_sink = false;
     bool run_fuse = false;
+    bool run_descale = false;
     int max_fuse_bits = 4096;
     int max_iters = 10000;
+    int descale_count = 0;
 
     size_t argidx;
     for (argidx = 1; argidx < args.size(); argidx++) {
@@ -381,6 +722,10 @@ struct OptShiftPass : public Pass {
         run_fuse = true;
         continue;
       }
+      if (args[argidx] == "-descale") {
+        run_descale = true;
+        continue;
+      }
       if (args[argidx] == "-max_fuse_bits" && argidx + 1 < args.size()) {
         max_fuse_bits = std::stoi(args[++argidx]);
         continue;
@@ -393,7 +738,7 @@ struct OptShiftPass : public Pass {
     }
     extra_args(args, argidx, design);
 
-    if (!run_combine && !run_expand && !run_sink && !run_fuse) {
+    if (!run_combine && !run_expand && !run_sink && !run_fuse && !run_descale) {
       run_combine = true;
       run_expand = true;
     }
@@ -405,6 +750,10 @@ struct OptShiftPass : public Pass {
     int total_fused = 0;
     for (auto module : design->selected_modules())
     {
+      // A process can read the nets -descale redirects, and it is not in the
+      // cell graph, so that reader can neither be seen nor rewritten. Checked
+      // once per module so the warning does not repeat over the iterations.
+      bool descale_module = run_descale && !module->has_processes_warn();
       did_something = true;
       for (int i = 0; did_something && i < max_iters; i++)
       {
@@ -431,11 +780,15 @@ struct OptShiftPass : public Pass {
           did_something |= fuser.run();
           total_fused += fuser.fused;
         }
+        if (descale_module)
+          descale_count += run_descale_shifts(module);
       }
     }
 
     if (run_fuse)
       log("Fused %d gather(s) with the shift feeding them.\n", total_fused);
+    if (run_descale)
+      log("Collapsed %d scale-down round trip(s) into window-carry logic.\n", descale_count);
   }
 } OptShiftPass;
 
