@@ -934,6 +934,8 @@ struct OptDffWorker
 		return val;
 	}
 
+	// one suspected-constant ff bit: q (output of cell at bit idx) looks stuck
+	// at val, and sat must show that every target feeds val back into the bit
 	struct ConstObligation {
 		enum Status { Pending, Proven, Dropped };
 
