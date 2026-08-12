@@ -209,8 +209,13 @@ void FstData::extractVarNames()
 					in_fork = false;
 					fork_vars.clear();
 				}
-				// Pop the scope off the stack.
-				fst_scope_name = fstReaderPopScope(ctx);
+				// Pop past root returns NULL so don't assign to fst_scope_name to prevent seg fault
+				if (const char *scope = fstReaderPopScope(ctx))
+					fst_scope_name = scope;
+				else {
+					log_warning("FST has more $upscope than $scope; clamping at root\n");
+					fst_scope_name.clear();
+				}
 				break;
 			}
 			case FST_HT_VAR: {
