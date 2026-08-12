@@ -498,6 +498,72 @@ design -reset
 log -pop
 
 
+log -header "Negative case: keep on an alias of the mux output blocks the push"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  (* keep *) wire [7:0] m_probe;
+  assign m_probe = m;
+  assign y = m + c;
+endmodule
+EOF
+proc
+check -assert
+
+# m_probe is `connect`-aliased to the mux output and carries keep, so the mux has
+# to stay. sigmap reports only the alias it elected for the group, so reading the
+# attribute off the mapped wire misses the one that actually carries it: the pass
+# then pushes, deletes the mux, and leaves the kept probe on an undriven net.
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 1 @add_fanin @mux_cells %i
+# The mux the probe reads is still there and still driven
+select -assert-count 1 t:$mux t:$ternary %u
+design -reset
+
+# Same netlist without the keep does push, so the group above is the guard
+# declining a real candidate rather than a shape the pass never matched.
+read_verilog <<EOF
+module top (
+  input wire [7:0] s_lo,
+  input wire [7:0] s_hi,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] sp = s_lo * s_hi;
+  wire s = sp[3];
+  wire [7:0] m = s ? b : a;
+  wire [7:0] m_probe;
+  assign m_probe = m;
+  assign y = m + c;
+endmodule
+EOF
+proc
+equiv_opt -assert muxpush -limit 1 -types $add -timing
+design -load postopt
+select -set add_fanin t:$add %ci*
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 0 @add_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
 log -header "-slack-margin rejects a negative allowance (ends the script, keep last)"
 log -push
 design -reset
