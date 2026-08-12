@@ -220,6 +220,33 @@ log -pop
 
 
 
+log -header "Negative: a decrement outside the selection is not ours to rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+# the readers are indexed over the whole module on purpose, so that one left out
+# of the selection is seen and refused rather than quietly rewritten
+select top/t:$add top/t:$shr
+opt_shift -descale
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
 log -header "Negative: constant amount leaves no round trip to break"
 log -push
 design -reset

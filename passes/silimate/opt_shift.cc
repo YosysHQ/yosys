@@ -537,9 +537,12 @@ int run_descale_shifts(Module *module)
 
     bool foldable = true;
     for (auto reader : consumers) {
-      if (reader && descale_is_decrement(sigmap, reader, cand.out))
+      // The null marker is a module connection, and an unselected reader is one
+      // this pass may not rewrite; either way the carry has nowhere to fold
+      bool ours = reader && module->selected(reader);
+      if (ours && descale_is_decrement(sigmap, reader, cand.out))
         cand.decs.push_back(reader);
-      else if (reader && descale_is_zero_test(sigmap, reader, cand.out))
+      else if (ours && descale_is_zero_test(sigmap, reader, cand.out))
         cand.zeros.push_back(reader);
       else {
         foldable = false;
