@@ -1,3 +1,10 @@
+// A comparison against a constant does not need a generic (carry-chain) comparator: each
+// constant bit decides whether the running result is extended with an AND or an OR of the
+// corresponding variable bit, so the whole compare folds into an AND/OR chain that
+// downstream logic optimization can rebalance into log depth.
+
+// Y = (A >= B) when C is 1, (A > B) when C is 0. B is expected to be constant, which folds
+// each mux below into a single AND (for B[n] = 1) or OR (for B[n] = 0).
 module constgtge(C, A, B, Y);
 parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
@@ -28,6 +35,7 @@ generate
 endgenerate
 endmodule
 
+// Y = (A <= B) when C is 1, (A < B) when C is 0: constgtge over inverted operands.
 module constltle(C, A, B, Y);
 parameter A_WIDTH = 0;
 parameter B_WIDTH = 0;
@@ -82,33 +90,51 @@ parameter _TECHMAP_CONSTVAL_B_ = 0;
 
 wire [1023:0] _TECHMAP_DO_ = "opt -fast;";
 
-wire [A_WIDTH:0] ch;
+// The comparison is signed only when both operands are; mixed signedness is unsigned
+localparam SGN = A_SIGNED && B_SIGNED;
+// Compare at the wider width, so either operand may be the narrower one
+localparam W = A_WIDTH > B_WIDTH ? A_WIDTH : B_WIDTH;
 
-genvar n;
+wire [W-1:0] Aext, Bext, bias, Ab, Bb;
+
 generate
-	if (Y_WIDTH != 1 || A_SIGNED || B_SIGNED)
+	if (SGN) begin
+		// Flipping the sign bit turns two's-complement order into unsigned order, so the
+		// unsigned chains below cover signed compares too
+		assign Aext = $signed(A);
+		assign Bext = $signed(B);
+		assign bias = 1 << (W - 1);
+	end else begin
+		assign Aext = A;
+		assign Bext = B;
+		assign bias = 0;
+	end
+endgenerate
+
+assign Ab = Aext ^ bias;
+assign Bb = Bext ^ bias;
+
+generate
+	if (Y_WIDTH != 1)
 		wire _TECHMAP_FAIL_ = 1;
-	else if (&_TECHMAP_CONSTMSK_A_) begin
-		if (A_WIDTH > B_WIDTH)
-			wire _TECHMAP_FAIL_ = 1;
-		else if (_TECHMAP_CELLTYPE_ == "$lt" || _TECHMAP_CELLTYPE_ == "$le")
-			constgtge #(.A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH))
-				_TECHMAP_REPLACE_(.A(B), .B(A), .Y(Y),
-					.C(_TECHMAP_CELLTYPE_ == "$lt"));
-		else
-			constltle #(.A_WIDTH(B_WIDTH), .B_WIDTH(A_WIDTH))
-				_TECHMAP_REPLACE_(.A(B), .B(A), .Y(Y),
-					.C(_TECHMAP_CELLTYPE_ == "$gt"));
-	end else if (&_TECHMAP_CONSTMSK_B_) begin
-		if (B_WIDTH > A_WIDTH)
-			wire _TECHMAP_FAIL_ = 1;
-		else if (_TECHMAP_CELLTYPE_ == "$lt" || _TECHMAP_CELLTYPE_ == "$le")
-			constltle #(.A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH))
-				_TECHMAP_REPLACE_(.A(A), .B(B), .Y(Y),
+	else if (&_TECHMAP_CONSTMSK_B_) begin
+		if (_TECHMAP_CELLTYPE_ == "$lt" || _TECHMAP_CELLTYPE_ == "$le")
+			constltle #(.A_WIDTH(W), .B_WIDTH(W))
+				_TECHMAP_REPLACE_(.A(Ab), .B(Bb), .Y(Y),
 					.C(_TECHMAP_CELLTYPE_ == "$le"));
 		else
-			constgtge #(.A_WIDTH(A_WIDTH), .B_WIDTH(B_WIDTH))
-				_TECHMAP_REPLACE_(.A(A), .B(B), .Y(Y),
+			constgtge #(.A_WIDTH(W), .B_WIDTH(W))
+				_TECHMAP_REPLACE_(.A(Ab), .B(Bb), .Y(Y),
+					.C(_TECHMAP_CELLTYPE_ == "$ge"));
+	end else if (&_TECHMAP_CONSTMSK_A_) begin
+		// Constant on A: swap the operands and mirror the operator, as A < B is B > A
+		if (_TECHMAP_CELLTYPE_ == "$lt" || _TECHMAP_CELLTYPE_ == "$le")
+			constgtge #(.A_WIDTH(W), .B_WIDTH(W))
+				_TECHMAP_REPLACE_(.A(Bb), .B(Ab), .Y(Y),
+					.C(_TECHMAP_CELLTYPE_ == "$le"));
+		else
+			constltle #(.A_WIDTH(W), .B_WIDTH(W))
+				_TECHMAP_REPLACE_(.A(Bb), .B(Ab), .Y(Y),
 					.C(_TECHMAP_CELLTYPE_ == "$ge"));
 	end else
 		wire _TECHMAP_FAIL_ = 1;
