@@ -5,7 +5,10 @@ module top(
 	input  signed [11:0] s,
 	input  [0:0]  u1,
 	input  signed [0:0] s1,
-	output [16:0] y
+	input  signed [39:0] s40,
+	input  signed [63:0] s64,
+	input  [39:0] u40,
+	output [20:0] y
 );
 	// Unsigned, constant on B
 	assign y[0] = u <  12'd700;
@@ -28,8 +31,14 @@ module top(
 	// Single-bit operands, where the signed bias is the whole value
 	assign y[14] = u1 >= 1'd1;
 	assign y[15] = s1 <  -1'sd1;
+	// Wider than the 32-bit unsized literal that builds the signed bias, so a bias that
+	// silently truncated to zero would leave these compared as unsigned
+	assign y[16] = s40 <  -40'sd5;
+	assign y[17] = s40 >=  40'sd300000000000;
+	assign y[18] = -64'sd5 <  s64;
+	assign y[19] = u40 >  40'd700;
 	// Neither operand constant: must be left for the generic comparator path
-	assign y[16] = u > v;
+	assign y[20] = u > v;
 endmodule
 EOT
 
@@ -40,14 +49,14 @@ opt_clean
 
 # Every compare above is a distinct cell at this point, so the counts below pin down
 # exactly which ones the map file claims
-select -assert-count 5 t:$lt
+select -assert-count 7 t:$lt
 select -assert-count 3 t:$le
-select -assert-count 4 t:$gt
-select -assert-count 5 t:$ge
+select -assert-count 5 t:$gt
+select -assert-count 6 t:$ge
 
 equiv_opt -assert techmap -map +/cmp2softlogic.v
 design -load postopt
 
-# All 16 constant-operand compares are mapped; only the variable-variable $gt survives
+# All 20 constant-operand compares are mapped; only the variable-variable $gt survives
 select -assert-count 0 t:$lt t:$le t:$ge
 select -assert-count 1 t:$gt
