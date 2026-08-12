@@ -1,0 +1,156 @@
+# Tests for opt_disjoint_add
+#
+# Each group exercises a specific facet:
+#   A: the rewrite itself, including the correlated case that per-operand
+#      range analysis cannot prove.
+#   B: the soundness guards -- operands that really can overlap, an addend
+#      independent of the shift, and a signed add.
+#   C: the cost guard on the joint support width.
+#
+# The rewrite is a true equivalence (a carry-free add is an or), so each
+# positive group proves it with equiv_opt rather than a miter.
+
+# ============================================================================
+# Group A: rewrite adds whose operands never share a bit position
+# ============================================================================
+
+# A1: constant shift, addend narrower than the window. The simplest form: the
+# low 8 bits of the result come only from `lo`, the rest only from `hi`.
+log -header "A1: constant shift with a narrow addend"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [7:0] hi, input wire [7:0] lo, output wire [15:0] y);
+  assign y = (hi << 8) + lo;
+endmodule
+EOF
+prep -top top
+select -assert-count 1 t:$add
+equiv_opt -assert opt_disjoint_add
+design -load postopt
+select -assert-none t:$add
+select -assert-count 1 t:$or
+log -pop
+
+# A2: the correlated case. `sh` and the width of `fine` both track `px`, so
+# the window and the addend move together and always just meet. Taking the
+# operands separately, `fine` may reach bit 8 while `sh` may be as low as 4,
+# so only a joint sweep of the shared support proves this one.
+log -header "A2: shift amount and addend correlated through the same driver"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] coarse, input wire [3:0] f, input wire [2:0] px,
+            output wire [23:0] y);
+  wire [7:0] fine = {4'b0, f} << px;
+  wire [3:0] sh   = px + 4'd4;
+  assign y = (coarse << sh) + fine;
+endmodule
+EOF
+prep -top top
+equiv_opt -assert opt_disjoint_add
+design -load postopt
+# The $add for `sh` stays; only the wide one becomes an $or.
+select -assert-count 1 t:$or
+select -assert-count 1 t:$add
+log -pop
+
+# A3: operand order must not matter -- the shift may sit on either add port.
+log -header "A3: shifted operand on the B port"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [7:0] hi, input wire [7:0] lo, output wire [15:0] y);
+  assign y = lo + (hi << 8);
+endmodule
+EOF
+prep -top top
+equiv_opt -assert opt_disjoint_add
+design -load postopt
+select -assert-none t:$add
+select -assert-count 1 t:$or
+log -pop
+
+# ============================================================================
+# Group B: refuse when the operands can collide
+# ============================================================================
+
+# B1: A2 with the window one bit lower. `fine` tops out at bit px+3, which is
+# now exactly where the window opens, so the two collide for every px and the
+# add must survive. Only the joint sweep can tell this apart from A2.
+log -header "B1: off-by-one window -- operands overlap"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] coarse, input wire [3:0] f, input wire [2:0] px,
+            output wire [23:0] y);
+  wire [7:0] fine = {4'b0, f} << px;
+  wire [3:0] sh   = px + 4'd3;
+  assign y = (coarse << sh) + fine;
+endmodule
+EOF
+prep -top top
+opt_disjoint_add
+select -assert-none t:$or
+log -pop
+
+# B2: the addend does not depend on the shift amount at all, so nothing bounds
+# it below the window.
+log -header "B2: addend independent of the shift amount"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] coarse, input wire [7:0] fine, input wire [2:0] px,
+            output wire [23:0] y);
+  wire [3:0] sh = px + 4'd4;
+  assign y = (coarse << sh) + fine;
+endmodule
+EOF
+prep -top top
+opt_disjoint_add
+select -assert-none t:$or
+log -pop
+
+# B3: signed operands. A negative addend sets the high bits, so the carry-free
+# argument does not hold and signed adds are rejected outright.
+log -header "B3: signed add"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire signed [7:0] hi, input wire signed [7:0] lo,
+            output wire signed [15:0] y);
+  assign y = (hi <<< 8) + lo;
+endmodule
+EOF
+prep -top top
+opt_disjoint_add
+select -assert-none t:$or
+log -pop
+
+# ============================================================================
+# Group C: the sweep is exponential in the joint support, so it is capped
+# ============================================================================
+
+# C1: A2 again -- a variable window, so the proof needs the sweep. Its joint
+# support is 7 bits (px and f), which -max-support 4 puts out of reach, and
+# the candidate must be skipped rather than swept. A1's fixed window is not
+# usable here: it is proven from the operand shapes without any sweep, so no
+# support limit applies to it.
+log -header "C1: joint support above -max-support is skipped"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] coarse, input wire [3:0] f, input wire [2:0] px,
+            output wire [23:0] y);
+  wire [7:0] fine = {4'b0, f} << px;
+  wire [3:0] sh   = px + 4'd4;
+  assign y = (coarse << sh) + fine;
+endmodule
+EOF
+prep -top top
+opt_disjoint_add -max-support 4
+select -assert-none t:$or
+# ...and is found again once the cap admits it.
+opt_disjoint_add -max-support 16
+select -assert-count 1 t:$or
+log -pop
