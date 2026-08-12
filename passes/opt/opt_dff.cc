@@ -84,42 +84,39 @@ struct BitSim {
 		}
 		evals_left--;
 
+		// pre-seed to break combinational loops
 		sim_vals[mapped] = 0;
 		uint64_t res = 0;
 
-		if (!modwalker.has_drivers(mapped)) {
+		auto drv = modwalker.signal_drivers.find(mapped);
+		if (drv == modwalker.signal_drivers.end() || drv->second.empty()) {
 			res = next_rand();
 		} else {
-			auto &drivers = modwalker.signal_drivers[mapped];
-			if (drivers.empty()) {
-				res = next_rand();
-			} else {
-				auto driver = *drivers.begin();
-				Cell *cell = driver.cell;
+			auto driver = *drv->second.begin();
+			Cell *cell = driver.cell;
 
-				if (cell->is_builtin_ff()) {
-					res = next_rand();
-				} else if (cell->type == ID($_AND_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) & eval_bit(cell->getPort(ID::B)[0], depth+1);
-				} else if (cell->type == ID($_OR_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) | eval_bit(cell->getPort(ID::B)[0], depth+1);
-				} else if (cell->type == ID($_XOR_)) {
-					res = eval_bit(cell->getPort(ID::A)[0], depth+1) ^ eval_bit(cell->getPort(ID::B)[0], depth+1);
-				} else if (cell->type == ID($_NOT_)) {
-					res = ~eval_bit(cell->getPort(ID::A)[0], depth+1);
-				} else if (cell->type == ID($_MUX_)) {
-					uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
-					uint64_t a = eval_bit(cell->getPort(ID::A)[0], depth+1);
-					uint64_t b = eval_bit(cell->getPort(ID::B)[0], depth+1);
-					res = (a & ~s) | (b & s);
-				} else if (cell->type == ID($mux)) {
-					uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
-					uint64_t a = eval_bit(cell->getPort(ID::A)[driver.offset], depth+1);
-					uint64_t b = eval_bit(cell->getPort(ID::B)[driver.offset], depth+1);
-					res = (a & ~s) | (b & s);
-				} else {
-					res = next_rand();
-				}
+			if (cell->is_builtin_ff()) {
+				res = next_rand();
+			} else if (cell->type == ID($_AND_)) {
+				res = eval_bit(cell->getPort(ID::A)[0], depth+1) & eval_bit(cell->getPort(ID::B)[0], depth+1);
+			} else if (cell->type == ID($_OR_)) {
+				res = eval_bit(cell->getPort(ID::A)[0], depth+1) | eval_bit(cell->getPort(ID::B)[0], depth+1);
+			} else if (cell->type == ID($_XOR_)) {
+				res = eval_bit(cell->getPort(ID::A)[0], depth+1) ^ eval_bit(cell->getPort(ID::B)[0], depth+1);
+			} else if (cell->type == ID($_NOT_)) {
+				res = ~eval_bit(cell->getPort(ID::A)[0], depth+1);
+			} else if (cell->type == ID($_MUX_)) {
+				uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
+				uint64_t a = eval_bit(cell->getPort(ID::A)[0], depth+1);
+				uint64_t b = eval_bit(cell->getPort(ID::B)[0], depth+1);
+				res = (a & ~s) | (b & s);
+			} else if (cell->type == ID($mux)) {
+				uint64_t s = eval_bit(cell->getPort(ID::S)[0], depth+1);
+				uint64_t a = eval_bit(cell->getPort(ID::A)[driver.offset], depth+1);
+				uint64_t b = eval_bit(cell->getPort(ID::B)[driver.offset], depth+1);
+				res = (a & ~s) | (b & s);
+			} else {
+				res = next_rand();
 			}
 		}
 
