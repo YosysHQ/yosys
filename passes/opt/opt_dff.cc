@@ -944,7 +944,6 @@ struct OptDffWorker
 		std::vector<SigBit> targets; // non-const inputs (D, AD), must be shown to be eq
 		Status status = Pending;
 
-		
 		int q_lit = -1;              // valid within the current batch
 		int differ_lit = -1;         // some target differs from the candidate value
 	};
