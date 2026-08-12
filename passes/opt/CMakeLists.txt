@@ -92,6 +92,10 @@ yosys_pass(opt_argmax
 	opt_argmax.cc
 )
 
+yosys_pass(opt_decode_fuse
+	opt_decode_fuse.cc
+)
+
 yosys_pass(opt_maxcmp
 	opt_maxcmp.cc
 )
