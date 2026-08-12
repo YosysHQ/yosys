@@ -750,6 +750,10 @@ struct OptShiftPass : public Pass {
     int total_fused = 0;
     for (auto module : design->selected_modules())
     {
+      // A process can read the nets -descale redirects, and it is not in the
+      // cell graph, so that reader can neither be seen nor rewritten. Checked
+      // once per module so the warning does not repeat over the iterations.
+      bool descale_module = run_descale && !module->has_processes_warn();
       did_something = true;
       for (int i = 0; did_something && i < max_iters; i++)
       {
@@ -776,7 +780,7 @@ struct OptShiftPass : public Pass {
           did_something |= fuser.run();
           total_fused += fuser.fused;
         }
-        if (run_descale)
+        if (descale_module)
           descale_count += run_descale_shifts(module);
       }
     }

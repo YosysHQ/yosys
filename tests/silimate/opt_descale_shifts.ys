@@ -247,6 +247,36 @@ log -pop
 
 
 
+log -header "Negative: a process reads the result and is not in the cell graph"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire clk,
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output reg [15:0] y,
+  output reg [16:0] z
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  always @(posedge clk) begin
+    y <= t - 1;
+    z <= t;
+  end
+endmodule
+EOF
+# no proc, so the always block is still a process, and its `z <= t` reads the
+# shifted result without a cell for the walk to find
+check -assert
+opt_shift -descale
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
 log -header "Negative: constant amount leaves no round trip to break"
 log -push
 design -reset
