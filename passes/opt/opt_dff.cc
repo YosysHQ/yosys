@@ -918,7 +918,7 @@ struct OptDffWorker
 	// can acquire a value: init, arst, srst and sr (a clr/set that can ever
 	// fire forces 0/1)
 	// returns S0/S1 as the candidate, Sx if unconstrained, Sm on conflict
-	// computes the induction base case only, commits happen in run_constbits
+	// the candidate doubles as the induction base case
 	State check_constbit(FfData &ff, int i)
 	{
 		State val = ff.val_init[i];
@@ -952,6 +952,7 @@ struct OptDffWorker
 	// the solver model captures (differ, q) of every pending obligation so one
 	// counterexample can disprove many at once
 	struct ConstWatchList {
+		// interleaved pairs, exprs[2k] = differ_lit and exprs[2k + 1] = q_lit of obs[k]
 		std::vector<int> exprs;
 		std::vector<ConstObligation *> obs;
 
@@ -1501,7 +1502,7 @@ struct OptDffWorker
 					std::vector<int> sub0;
 					std::vector<int> sub1;
 
-					for (size_t b_idx = 0; b_idx < cls.size(); b_idx++) {
+					for (int b_idx = 0; b_idx < GetSize(cls); b_idx++) {
 						if (modelVals[b_idx])
 							sub1.push_back(cls[b_idx]);
 						else
