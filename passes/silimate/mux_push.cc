@@ -294,21 +294,24 @@ struct OptMuxPushWorker
   // keeps the recovered mux above the arms rather than in series with them.
   bool folded_select(const RTLIL::SigSpec &sig, RTLIL::SigBit &sel)
   {
-    pool<RTLIL::SigBit> nets;
+    // A folded select repeats one net across the bus, and fanout_map counts each
+    // repeat, so tally this operand's own reads to discount them below.
+    dict<RTLIL::SigBit, int> reads;
     for (auto &bit : sig)
       if (bit.wire != nullptr)
-        nets.insert(bit);
-    if (nets.empty() || GetSize(nets) > max_folded_nets)
+        reads[bit]++;
+    if (reads.empty() || GetSize(reads) > max_folded_nets)
       return false;
-    sel = *nets.begin();
-    for (auto &bit : nets)
-      if (arrival(bit) > arrival(sel))
-        sel = bit;
     // The operator is duplicated per arm, so hold the same fanout trade as the
-    // mux case: the folded bus must be near-exclusive to this operator.
-    for (auto &bit : nets)
-      if (fanout_map[bit] > fanout_limit)
+    // mux case: charge one read for this operator, as a mux output bit would
+    // cost, and hold every other consumer to -limit.
+    for (auto &it : reads)
+      if (fanout_map[it.first] - it.second + 1 > fanout_limit)
         return false;
+    sel = reads.begin()->first;
+    for (auto &it : reads)
+      if (arrival(it.first) > arrival(sel))
+        sel = it.first;
     return true;
   }
 
