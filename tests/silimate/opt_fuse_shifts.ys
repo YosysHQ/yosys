@@ -1,0 +1,168 @@
+log -header "Rotated gather over a variable left shift: one barrel plus an input mask"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  b,
+  input wire [2:0]  a,
+  output wire [7:0] y
+);
+  wire [15:0] sh  = x << b;
+  // opt_vps emits its gather source rotated, which is why -combine cannot see
+  // through this: the outer A port is a permutation of sh, not sh itself
+  wire [15:0] rot = {sh[6:0], sh[15:7]};
+  assign y = rot >> a;
+endmodule
+EOF
+prep -top top
+check -assert
+select -assert-count 1 t:$shl
+equiv_opt -assert opt_shift -fuse
+design -load postopt
+opt_clean
+# the left shift is gone: the gather was its only reader
+select -assert-count 0 t:$shl
+# the surviving barrel, plus the constant shift forming the keep mask
+select -assert-count 2 t:$shr
+select -assert-count 1 t:$and
+# amt = a + rot - b
+select -assert-count 1 t:$add
+select -assert-count 1 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Table padded with x above the shifter output, as opt_vps leaves it"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  b,
+  input wire [2:0]  a,
+  output wire [7:0] y
+);
+  wire [11:0] sh  = x << b;
+  // 12 real entries rotated by 5 into a 16-entry table; the four x are the
+  // out-of-range reads, which must land above sh rather than on a real bit
+  wire [15:0] rot = {sh[4:0], 4'bx, sh[11:5]};
+  assign y = rot >> a;
+endmodule
+EOF
+prep -top top
+check -assert
+select -assert-count 1 t:$shl
+equiv_opt -undef -assert opt_shift -fuse
+design -load postopt
+opt_clean
+select -assert-count 0 t:$shl
+select -assert-count 1 t:$and
+design -reset
+log -pop
+
+
+
+log -header "Negative: a gather that can shift past its source zero-fills, a rotate wraps"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  b,
+  input wire [3:0]  a,
+  output wire [7:0] y
+);
+  wire [15:0] sh  = x << b;
+  wire [15:0] rot = {sh[6:0], sh[15:7]};
+  // a reaches 15, so y[7] can read past bit 15 and must come back zero
+  assign y = rot >> a;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -fuse
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$and
+design -reset
+log -pop
+
+
+
+log -header "Negative: constant inner amount is rewiring that -combine already folds"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [2:0]  a,
+  output wire [7:0] y
+);
+  wire [15:0] sh  = x << 3;
+  wire [15:0] rot = {sh[6:0], sh[15:7]};
+  assign y = rot >> a;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -fuse
+design -load postopt
+# no mask, because there is no variable amount to mask against
+select -assert-count 0 t:$and
+select -assert-count 0 t:$sub
+design -reset
+log -pop
+
+
+
+log -header "Negative: signed operands are outside the unsigned rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [15:0] x,
+  input wire [3:0]  b,
+  input wire [2:0]  a,
+  output wire signed [7:0] y
+);
+  wire signed [15:0] sh  = x <<< b;
+  wire signed [15:0] rot = {sh[6:0], sh[15:7]};
+  assign y = rot >>> a;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -fuse
+design -load postopt
+select -assert-count 0 t:$and
+design -reset
+log -pop
+
+
+
+log -header "Negative: the source is not one shifter permuted, so there is no single rot"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  b,
+  input wire [2:0]  a,
+  output wire [7:0] y
+);
+  wire [15:0] sh  = x << b;
+  // half the table comes straight from x, so the gather is not a rotation of sh
+  wire [15:0] rot = {sh[6:0], x[15:7]};
+  assign y = rot >> a;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -fuse
+design -load postopt
+select -assert-count 1 t:$shl
+select -assert-count 0 t:$and
+design -reset
+log -pop
