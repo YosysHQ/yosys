@@ -1,0 +1,21 @@
+read_verilog -icells <<EOT
+
+module top(input C, D, output Q);
+
+$_DFF_N_ ff0 (.C(C), .D(D), .Q(Q));
+
+endmodule
+
+EOT
+
+setattr -set src "top.sv:5" t:$_DFF_N_
+setattr -set hdlname "top.ff0" t:$_DFF_N_
+setattr -set my_attr "custom_one" t:$_DFF_N_
+
+read_liberty -lib dfflibmap.lib
+dfflibmap -liberty dfflibmap.lib
+
+select -assert-count 1 t:dffn
+select -assert-count 1 a:hdlname=top.ff0
+select -assert-count 1 a:src=top.sv:5
+select -assert-count 1 a:my_attr=custom_one
