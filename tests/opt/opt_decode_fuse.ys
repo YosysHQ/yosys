@@ -1,0 +1,485 @@
+# Tests for opt_decode_fuse
+#
+# Each group exercises a specific facet:
+#   A: the push fires and is proven equivalent.
+#   B: structural collapse -- the select network does not survive.
+#   C: negative cases -- a code that also feeds the datapath is left alone.
+#   D: negative cases -- a push that folds nothing is refused on cost.
+#   E: option handling (-max-nodes, -max-depth, -max-var-leaves,
+#      -max-emit-cells, -max-rounds).
+#   F: the reduction spellings of a compare, a negated test, and a code set
+#      whose compares disagree about signedness.
+#   G: fine-grained selection.
+#
+# The codes are 4 bits wide here, an order narrower than the RTL this targets.
+# Both budgets that decide profitability scale with the code width -- the bit
+# count the rewrite removes and the compares it emits at a live leaf -- so a
+# narrow code is the harder case, and one that fires at 4 bits fires at 7.
+#
+# Group A2 needs the network to reach the pass as a $bmux, which is what a
+# Verific elaboration of a `case` over a constant table yields. read_verilog
+# emits a $shiftx instead, and peepopt's shiftpow2 rule only rewrites that into a
+# $bmux when the index carries a power-of-two scale -- hence the 4-bit table
+# entries, whose index is scaled by 4.
+
+# ============================================================================
+# Group A: the push fires and is equivalent
+# ============================================================================
+
+# A1: two remap stages ($mux/$pmux) over a 4-bit code, then a classifier that
+# tests membership in {0,8} and {1,9}. Under `fmt_q == 0` every code the sample
+# select can produce is in the first class, so that arm folds to 1 -- which is
+# the collapse the pass exists for, and what no single equality would get.
+log -header "A1: two-stage remap + membership classifier (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy
+);
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    case (fmt_q)
+      4'd0: fmt_m = smp_sel ? 4'd8 : 4'd0;
+      4'd1: fmt_m = smp_sel ? 4'd9 : 4'd1;
+    endcase
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire [3:0] fmt_c = (fmt_e == 4'd5) ? 4'd2 : fmt_e;
+  wire hi = (fmt_c == 4'd0) || (fmt_c == 4'd8);
+  wire lo = (fmt_c == 4'd1) || (fmt_c == 4'd9);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+# The shape the pass matches: the remap network, and the compares that read a
+# code out of it. If this ever stops holding the groups below pass vacuously.
+select -assert-min 4 t:$mux t:$pmux %u
+select -assert-min 5 t:$eq
+equiv_opt -assert opt_decode_fuse
+design -load postopt
+select -assert-min 1 c:*decode_fuse*
+design -reset
+log -pop
+
+# A2: the same classifier over a $bmux constant table, the shape a `case` on a
+# constant table lowers to. Every arm of the table is a constant, so the node
+# folds away entirely rather than being rebuilt at one bit.
+log -header "A2: \$bmux constant table (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire [1:0] smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy
+);
+  localparam [15:0] TBL = {4'd11, 4'd10, 4'd9, 4'd8};
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    if (fmt_q == 4'd0) fmt_m = TBL[smp_sel*4 +: 4];
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd8) || (fmt_e == 4'd9) || (fmt_e == 4'd10) || (fmt_e == 4'd11);
+  wire lo = (fmt_e == 4'd14);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+select -assert-min 1 t:$bmux
+equiv_opt -assert opt_decode_fuse
+design -load postopt
+select -assert-min 1 c:*decode_fuse*
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: structural collapse
+# ============================================================================
+
+# B1: same RTL as A2. The table and the override mux only existed to carry a
+# code into the classifier, so both have to be gone afterwards -- if the network
+# survived, the 1-bit copies would be pure added area.
+log -header "B1: table and override network do not survive"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire [1:0] smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy
+);
+  localparam [15:0] TBL = {4'd11, 4'd10, 4'd9, 4'd8};
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    if (fmt_q == 4'd0) fmt_m = TBL[smp_sel*4 +: 4];
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd8) || (fmt_e == 4'd9) || (fmt_e == 4'd10) || (fmt_e == 4'd11);
+  wire lo = (fmt_e == 4'd14);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+select -assert-min 1 t:$bmux
+opt_decode_fuse
+clean -purge
+select -assert-count 0 t:$bmux
+# The code itself is gone, not merely unread: neither the remapped value nor the
+# overridden one is still computed anywhere.
+select -assert-count 0 w:fmt_m
+select -assert-count 0 w:fmt_e
+# What is left tests the leaf directly.
+select -assert-min 1 w:fmt_q %co t:$eq %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: the code also feeds the datapath
+# ============================================================================
+
+# C1: the code leaves the module as well as being classified. The network stays
+# either way, so pushing would only add a copy of it -- the pass has to decline.
+log -header "C1: code drives an output -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy,
+  output wire [3:0] code
+);
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    case (fmt_q)
+      4'd0: fmt_m = smp_sel ? 4'd8 : 4'd0;
+      4'd1: fmt_m = smp_sel ? 4'd9 : 4'd1;
+    endcase
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd0) || (fmt_e == 4'd8);
+  wire lo = (fmt_e == 4'd1) || (fmt_e == 4'd9);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+  assign code = fmt_e;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+select -assert-min 4 t:$eq
+opt_decode_fuse
+select -assert-count 0 c:*decode_fuse*
+design -reset
+log -pop
+
+# C2: the mirror of C1 with an in-module reader -- the code is added into a
+# datapath sum. This is the in-repo twin of the qor_fold_tree_alias Preqorsor
+# case; with -debug the rejection shows as the value simply never being fused.
+log -header "C2: code feeds an adder -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  input  wire       edge_q,
+  input  wire [7:0] acc,
+  output wire [1:0] sy,
+  output wire [7:0] sum
+);
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    case (fmt_q)
+      4'd0: fmt_m = smp_sel ? 4'd8 : 4'd0;
+      4'd1: fmt_m = smp_sel ? 4'd9 : 4'd1;
+    endcase
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd0) || (fmt_e == 4'd8);
+  wire lo = (fmt_e == 4'd1) || (fmt_e == 4'd9);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+  assign sum = acc + fmt_e;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+select -assert-min 4 t:$eq
+opt_decode_fuse
+select -assert-count 0 c:*decode_fuse*
+design -reset
+log -pop
+
+# ============================================================================
+# Group D: nothing folds
+# ============================================================================
+
+# D1: one compare against a code that no arm of the network produces as a set
+# with anything else, over a network whose arms disagree about the answer. The
+# push is depth neutral along every path and folds no level, so it would buy a
+# copy of the network for nothing: refused as "no depth win".
+log -header "D1: no fold available -> refused on cost"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  output wire       hit
+);
+  wire [3:0] fmt_m = smp_sel ? 4'd9 : fmt_q;
+  assign hit = (fmt_m == 4'd9);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+select -assert-min 1 t:$mux
+opt_decode_fuse
+select -assert-count 0 c:*decode_fuse*
+select -assert-min 1 t:$mux
+design -reset
+log -pop
+
+# ============================================================================
+# Group E: option handling
+# ============================================================================
+
+# E1: each budget set below what the A2 network needs must suppress the rewrite,
+# and the same netlist must fold with the defaults -- so the four runs above are
+# not passing because the pattern is absent.
+log -header "E1: budgets below the network suppress the rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire [1:0] smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy
+);
+  localparam [15:0] TBL = {4'd11, 4'd10, 4'd9, 4'd8};
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    if (fmt_q == 4'd0) fmt_m = TBL[smp_sel*4 +: 4];
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd8) || (fmt_e == 4'd9) || (fmt_e == 4'd10) || (fmt_e == 4'd11);
+  wire lo = (fmt_e == 4'd14);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+wreduce
+opt_clean
+peepopt
+design -save prepass
+opt_decode_fuse -max-nodes 1
+select -assert-count 0 c:*decode_fuse*
+design -load prepass
+opt_decode_fuse -max-depth 1
+select -assert-count 0 c:*decode_fuse*
+design -load prepass
+opt_decode_fuse -max-var-leaves 0
+select -assert-count 0 c:*decode_fuse*
+design -load prepass
+opt_decode_fuse -max-emit-cells 1
+select -assert-count 0 c:*decode_fuse*
+design -load prepass
+opt_decode_fuse -max-rounds 0
+select -assert-count 0 c:*decode_fuse*
+design -load prepass
+opt_decode_fuse
+select -assert-min 1 c:*decode_fuse*
+design -reset
+log -pop
+
+# ============================================================================
+# Group F: reduction spellings and negation
+# ============================================================================
+
+# F1: the tests against 0 that opt_expr has already turned into reductions --
+# $logic_not for `== 0` and $reduce_bool for `!= 0`. The second is a negated
+# test, so the push has to invert the folded result rather than drop it. `nz`
+# leaves the module so that inverter has a reader of its own; ORed into a mux
+# tree beside `z` it would just fold back into the consumer.
+log -header "F1: \$logic_not / \$reduce_bool spellings (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy,
+  output wire       nz
+);
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = 4'd0;
+    case (fmt_q)
+      4'd1: fmt_m = smp_sel ? 4'd9 : 4'd0;
+      4'd2: fmt_m = smp_sel ? 4'd0 : 4'd10;
+      4'd3: fmt_m = fmt_q;
+    endcase
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd0 : fmt_m;
+  wire z = (fmt_e == 4'd0);
+  assign nz = (fmt_e != 4'd0);
+  assign sy = z ? 2'd3 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+# opt_expr rewrites both tests, so what reaches the pass is the reduction form.
+select -assert-min 1 t:$logic_not t:$reduce_bool %u
+equiv_opt -assert opt_decode_fuse
+design -load postopt
+select -assert-min 1 c:*decode_fuse_inv*
+design -reset
+log -pop
+
+# F2: one code set whose compares disagree about signedness. Written in RTLIL
+# because the Verilog frontend equalizes operand widths at elaboration, and it
+# is exactly the unequal-width case that separates the two: an unsigned compare
+# zero-extends the code where a signed one sign-extends it. Sharing one flag
+# across the set would answer "not a member" for 4'hF against unsigned 5'd15,
+# and this group fails outright if that ever regresses.
+log -header "F2: mixed signedness within one code set (equiv)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire input 1 \s1
+  wire input 2 \s2
+  wire output 3 \hit
+  wire width 4 \n1
+  wire width 4 \code
+  wire \hs
+  wire \hu
+  cell $mux $m1
+    parameter \WIDTH 4
+    connect \A 4'0111
+    connect \B 4'1111
+    connect \S \s1
+    connect \Y \n1
+  end
+  cell $mux $m2
+    parameter \WIDTH 4
+    connect \A \n1
+    connect \B 4'0111
+    connect \S \s2
+    connect \Y \code
+  end
+  cell $eq $es
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 1
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 5
+    parameter \Y_WIDTH 1
+    connect \A \code
+    connect \B 5'00111
+    connect \Y \hs
+  end
+  cell $eq $eu
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 5
+    parameter \Y_WIDTH 1
+    connect \A \code
+    connect \B 5'01111
+    connect \Y \hu
+  end
+  cell $or $o1
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \hs
+    connect \B \hu
+    connect \Y \hit
+  end
+end
+EOF
+check -assert
+equiv_opt -assert opt_decode_fuse
+design -load postopt
+# Every arm of the network is a member of the set, so the whole thing folds to a
+# constant and no compare survives at all.
+select -assert-count 0 t:$eq t:$mux %u
+design -reset
+log -pop
+
+# ============================================================================
+# Group G: fine-grained selection
+# ============================================================================
+
+# G1: a selection that leaves the select network out must not rewrite anything,
+# even though the compares themselves are selected -- the pass rebuilds those
+# nodes, so it may only touch a network it is allowed to change.
+log -header "G1: selection excluding the network -> no rewrite"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (
+  input  wire [3:0] fmt_q,
+  input  wire       smp_sel,
+  input  wire       edge_q,
+  output wire [1:0] sy
+);
+  reg [3:0] fmt_m;
+  always @* begin
+    fmt_m = fmt_q;
+    case (fmt_q)
+      4'd0: fmt_m = smp_sel ? 4'd8 : 4'd0;
+      4'd1: fmt_m = smp_sel ? 4'd9 : 4'd1;
+    endcase
+  end
+  wire [3:0] fmt_e = edge_q ? 4'd14 : fmt_m;
+  wire hi = (fmt_e == 4'd0) || (fmt_e == 4'd8);
+  wire lo = (fmt_e == 4'd1) || (fmt_e == 4'd9);
+  assign sy = hi ? 2'd3 : lo ? 2'd2 : 2'd1;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+design -save prepass
+select -set nonet * t:$mux t:$pmux %u %d
+opt_decode_fuse @nonet
+select -assert-count 0 c:*decode_fuse*
+# Whole-design selection on the very same netlist does fold.
+design -load prepass
+opt_decode_fuse
+select -assert-min 1 c:*decode_fuse*
+design -reset
+log -pop
