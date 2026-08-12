@@ -1,0 +1,34 @@
+log -header "muxpush refuses -types $mux, which would never fixpoint"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] c,
+  output wire [7:0] y
+);
+  wire [7:0] m0 = s0 ? b : a;
+  assign y = s1 ? m0 : c;
+endmodule
+EOF
+proc
+check -assert
+
+# A mux feeding a mux is a shape the matcher accepts, so the refusal below has to
+# come from the type check rather than from a failure to match. With $add as the
+# target this same netlist is simply left alone.
+muxpush -limit 1 -types $add
+select -set mux_cells t:$mux t:$ternary
+select -assert-count 2 @mux_cells
+
+# $mux is the cell the rewrite emits, so targeting it makes the pass's own output
+# a candidate: each push rotates the two muxes -- same cell count, one more level
+# of name -- and run() spins forever instead of reaching a fixpoint.
+# Keep last: an expected error ends the script.
+logger -expect error "-types must not include" 1
+muxpush -limit 1 -types $mux
+logger -check-expected
+log -pop
