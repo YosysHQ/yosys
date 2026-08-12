@@ -1096,6 +1096,73 @@ struct OptDffWorker
 		return obligations;
 	}
 
+	int build_const_batch(QuickConeSat &qcsat, std::vector<ConstObligation> &obligations, int batch_begin)
+	{
+		int64_t cells_charged = 0;
+		int batch_end = batch_begin;
+
+		while (batch_end < GetSize(obligations) && !warn_if_budget_spent()) {
+			auto &ob = obligations[batch_end];
+			if (ob.targets.empty()) {
+				batch_end++;
+				continue;
+			}
+			if (batch_end > batch_begin && GetSize(qcsat.imported_cells) >= sat_batch_cells)
+				break;
+			ob.q_lit = qcsat.importSigBit(ob.q);
+			for (auto &t : ob.targets)
+				t.lit = qcsat.importSigBit(t.sig);
+			qcsat.prepare();
+			sat_budget.charge_import(qcsat, cells_charged);
+			batch_end++;
+		}
+
+		return batch_end;
+	}
+
+	// sweep the batch under the cheap screening cap first, then re-sweep the
+	// still-undecided targets with the full remaining budget
+	void sweep_const_batch(QuickConeSat &qcsat, std::vector<ConstObligation> &obligations,
+			int batch_begin, int batch_end, int64_t screen_cap)
+	{
+		for (int64_t cap : {screen_cap, (int64_t)0}) {
+			bool all_resolved = true;
+
+			// Counter ex.: every pending target in the batch. Entries that get proven or dropped later
+			// in the sweep are harmless (a proven bit is constant in every model)
+			std::vector<int> modelExprs;
+			std::vector<ConstObligation *> model_obs;
+			for (int obi = batch_begin; obi < batch_end; obi++) {
+				auto &ob = obligations[obi];
+				if (ob.dropped)
+					continue;
+				for (auto &t : ob.targets)
+					if (!t.proven) {
+						modelExprs.push_back(t.lit);
+						modelExprs.push_back(ob.q_lit);
+						model_obs.push_back(&ob);
+					}
+			}
+
+			for (int obi = batch_begin; obi < batch_end; obi++) {
+				auto &ob = obligations[obi];
+				for (auto &t : ob.targets) {
+					if (ob.dropped)
+						break;
+					if (t.proven)
+						continue;
+					if (warn_if_budget_spent())
+						return;
+					if (!resolve_const_target(qcsat, cap, ob, t, modelExprs, model_obs))
+						all_resolved = false;
+				}
+			}
+
+			if (all_resolved)
+				return;
+		}
+	}
+
 	// sat phase: prove the gathered obligations, marking targets proven or
 	// obligations dropped in place
 	void solve_const_obligations(std::vector<ConstObligation> &obligations)
@@ -1118,67 +1185,8 @@ struct OptDffWorker
 		// batches and stopping early on an exhausted budget is safe
 		for (int batch_begin = 0; batch_begin < GetSize(obligations) && !warn_if_budget_spent(); ) {
 			QuickConeSat qcsat(modwalker);
-			int64_t cells_charged = 0;
-			int batch_end = batch_begin;
-
-			while (batch_end < GetSize(obligations) && !warn_if_budget_spent()) {
-				auto &ob = obligations[batch_end];
-				if (ob.targets.empty()) {
-					batch_end++;
-					continue;
-				}
-				if (batch_end > batch_begin && GetSize(qcsat.imported_cells) >= sat_batch_cells)
-					break;
-				ob.q_lit = qcsat.importSigBit(ob.q);
-				for (auto &t : ob.targets)
-					t.lit = qcsat.importSigBit(t.sig);
-				qcsat.prepare();
-				sat_budget.charge_import(qcsat, cells_charged);
-				batch_end++;
-			}
-
-			// sweep the batch under the cheap screening cap first, then re-sweep
-			// the still-undecided targets with the full remaining budget
-			bool out_of_budget = false;
-			for (int64_t cap : {screen_cap, (int64_t)0}) {
-				bool all_resolved = true;
-
-				// Counter ex.: every pending target in the batch. Entries that get proven or dropped later
-				// in the sweep are harmless (a proven bit is constant in every model)
-				std::vector<int> modelExprs;
-				std::vector<ConstObligation *> model_obs;
-				for (int obi = batch_begin; obi < batch_end; obi++) {
-					auto &ob = obligations[obi];
-					if (ob.dropped)
-						continue;
-					for (auto &t : ob.targets)
-						if (!t.proven) {
-							modelExprs.push_back(t.lit);
-							modelExprs.push_back(ob.q_lit);
-							model_obs.push_back(&ob);
-						}
-				}
-
-				for (int obi = batch_begin; obi < batch_end && !out_of_budget; obi++) {
-					auto &ob = obligations[obi];
-					if (ob.dropped)
-						continue;
-					for (auto &t : ob.targets) {
-						if (t.proven || ob.dropped)
-							continue;
-						if (warn_if_budget_spent()) {
-							out_of_budget = true;
-							break;
-						}
-						if (!resolve_const_target(qcsat, cap, ob, t, modelExprs, model_obs))
-							all_resolved = false;
-					}
-				}
-
-				if (out_of_budget || all_resolved)
-					break;
-			}
-
+			int batch_end = build_const_batch(qcsat, obligations, batch_begin);
+			sweep_const_batch(qcsat, obligations, batch_begin, batch_end, screen_cap);
 			batch_begin = batch_end;
 		}
 	}
