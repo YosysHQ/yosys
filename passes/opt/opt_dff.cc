@@ -964,6 +964,29 @@ struct OptDffWorker
 		}
 	};
 
+	// counterexample watch list: the solver model captures (target, q) of every
+	// pending target so one counterexample can disprove many obligations at once
+	struct ConstWatchList {
+		std::vector<int> exprs;
+		std::vector<ConstObligation *> obs;
+
+		void watch(ConstObligation &ob, const ConstTarget &t) {
+			exprs.push_back(t.lit);
+			exprs.push_back(ob.q_lit);
+			obs.push_back(&ob);
+		}
+
+		// drop every obligation whose q holds its constant while the watched
+		// target differs in the model
+		void drop_disproven(const std::vector<bool> &model) const {
+			for (int k = 0; k < GetSize(obs); k++) {
+				bool want = (obs[k]->val == State::S1);
+				if (model[2*k + 1] == want && model[2*k] != want)
+					obs[k]->dropped = true;
+			}
+		}
+	};
+
 	void commit_const(dict<Cell *, pool<int>> &const_bits, const ConstObligation &ob)
 	{
 		log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
@@ -993,37 +1016,24 @@ struct OptDffWorker
 	// the qcsat cone is an over-approximation (complex cells become free inputs),
 	// so only unsat is binding; a spurious sat model merely drops a valid proof
 	bool resolve_const_target(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob, ConstTarget &t,
-			const std::vector<int> &modelExprs, const std::vector<ConstObligation *> &model_obs)
+			const ConstWatchList &watches)
 	{
-		// Prove that the next value equals the constant in every state where Q already holds it
 		int vlit = qcsat.ez->value(ob.val == State::S1);
 		std::vector<int> assumptions;
 		assumptions.push_back(qcsat.ez->IFF(ob.q_lit, vlit));
 		assumptions.push_back(qcsat.ez->NOT(qcsat.ez->IFF(t.lit, vlit)));
 
-		std::vector<bool> modelVals;
-		// One counterexample can prune many targets
-		auto res = sat_budget.solve(qcsat, cap, modelExprs, modelVals, assumptions);
+		std::vector<bool> model;
+		auto res = sat_budget.solve(qcsat, cap, watches.exprs, model, assumptions);
 
 		if (res == SatEffortBudget::Result::LimitReached)
-			return false; // Nothing changed
+			return false;
 		if (res == SatEffortBudget::Result::Unsat) {
-			t.proven = true; // t is proven to be const
+			t.proven = true;
 			return true;
 		}
 
-		// Counterexample: this bit is not constant. Any other pending bit whose Q holds its
-		// constant while its next value differs is disproven by the same state
-		for (int k = 0; k < GetSize(model_obs); k++) {
-			ConstObligation *ob2 = model_obs[k];
-			if (ob2->dropped)
-				continue;
-			bool want = (ob2->val == State::S1);
-			bool t_val = modelVals[2*k];
-			bool q_val = modelVals[2*k + 1];
-			if (q_val == want && t_val != want)
-				ob2->dropped = true;
-		}
+		watches.drop_disproven(model);
 		ob.dropped = true;
 		return true;
 	}
@@ -1128,20 +1138,17 @@ struct OptDffWorker
 		for (int64_t cap : {screen_cap, (int64_t)0}) {
 			bool all_resolved = true;
 
-			// Counter ex.: every pending target in the batch. Entries that get proven or dropped later
-			// in the sweep are harmless (a proven bit is constant in every model)
-			std::vector<int> modelExprs;
-			std::vector<ConstObligation *> model_obs;
+			// watch every pending target in the batch; entries that get proven
+			// or dropped later in the sweep are harmless (a proven bit is
+			// constant in every model)
+			ConstWatchList watches;
 			for (int obi = batch_begin; obi < batch_end; obi++) {
 				auto &ob = obligations[obi];
 				if (ob.dropped)
 					continue;
 				for (auto &t : ob.targets)
-					if (!t.proven) {
-						modelExprs.push_back(t.lit);
-						modelExprs.push_back(ob.q_lit);
-						model_obs.push_back(&ob);
-					}
+					if (!t.proven)
+						watches.watch(ob, t);
 			}
 
 			for (int obi = batch_begin; obi < batch_end; obi++) {
@@ -1153,7 +1160,7 @@ struct OptDffWorker
 						continue;
 					if (warn_if_budget_spent())
 						return;
-					if (!resolve_const_target(qcsat, cap, ob, t, modelExprs, model_obs))
+					if (!resolve_const_target(qcsat, cap, ob, t, watches))
 						all_resolved = false;
 				}
 			}
