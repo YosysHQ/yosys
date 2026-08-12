@@ -1,0 +1,266 @@
+log -header "Round trip with a zero clamp: the increment becomes a window carry"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the increment is gone, and the decrement it fed stays
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+# a second shifter selects the window carry out of the AND scan
+select -assert-count 2 t:$shr
+# ceil(log2(16)) levels of scan, and the carry selects between t and t - 1
+select -assert-count 4 t:$and
+select -assert-count 2 t:$mux
+design -reset
+log -pop
+
+
+
+log -header "No clamp: a decrement wreduce narrowed still folds, mod 2^k"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  assign y = (a >> s) - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the decrement reads 16 of the 17 shifted bits, which is the same value mod 2^16
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+select -assert-count 2 t:$shr
+select -assert-count 1 t:$mux
+design -reset
+log -pop
+
+
+
+log -header "One-bit source: the AND scan has no levels to build"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire x,
+  input wire [3:0] s,
+  output wire [1:0] y
+);
+  wire [1:0] a = x + 1'b1;
+  wire [1:0] t = a >> s;
+  assign y = (t == 0) ? 2'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# &x[s-1:0] over a single bit is that bit, so the scan is pure wiring
+select -assert-count 0 t:$add
+select -assert-count 0 t:$and
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Amount wider than the value: windows past the top carry nothing"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  input wire [7:0] s,
+  output wire [7:0] y
+);
+  wire [8:0] a = x + 1'b1;
+  wire [8:0] t = a >> s;
+  assign y = (t == 0) ? 8'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# an amount past width(x) reads a zero bit of the scan, so the carry is 0
+select -assert-count 0 t:$add
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: truncating increment wraps instead of carrying"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [15:0] a = x + 1'b1;
+  wire [15:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# an all-ones x has to carry into bit 16, which this increment does not have
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: the increment is read by something else too"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y,
+  output wire [16:0] esc
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y   = (t == 0) ? 16'd0 : t - 1;
+  assign esc = a;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the rewrite deletes the increment, so it cannot have another reader
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: a reader the window carry cannot fold into"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y,
+  output wire big
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y   = t - 1;
+  assign big = t > 17'd100;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# a compare against a limit is not `- 1` or `== 0`, so t has to keep its value
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: a zero test on part of the result can wrap"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y,
+  output wire low0
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y    = t - 1;
+  assign low0 = (t[7:0] == 0);
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# t[7:0] == 0 is not the same test as {t', c} == 0: the low bits can wrap to
+# zero on their own, unlike the full width, where t' + c cannot carry out
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: constant amount leaves no round trip to break"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  assign y = (a >> 3) - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# a constant window is free rewiring, and -combine already folds it
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Negative: signed operands are outside the unsigned identity"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [15:0] x,
+  input wire [3:0]         s,
+  output wire signed [15:0] y
+);
+  wire signed [16:0] a = x + 1'sb1;
+  wire signed [16:0] t = a >>> s;
+  assign y = t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+select -assert-count 1 t:$add
+design -reset
+log -pop
