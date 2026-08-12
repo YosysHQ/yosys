@@ -934,52 +934,39 @@ struct OptDffWorker
 		return val;
 	}
 
-	// one non-const input (D and/or AD) of a suspected-constant ff bit; the sat
-	// pass must show it equal to the candidate value
-	struct ConstTarget {
-		SigBit sig;
-		int lit = -1;
-		bool proven = false;
-	};
-
-	// one ff bit suspected to be stuck at val; committed once every target is
-	// proven, dropped as soon as one counterexample disproves it
 	struct ConstObligation {
+		enum Status { Pending, Proven, Dropped };
+
 		Cell *cell;
 		int idx;
 		State val;
 		SigBit q;
-		int q_lit = -1;
-		bool dropped = false;
-		std::vector<ConstTarget> targets;
+		std::vector<SigBit> targets; // non-const inputs (D, AD), must be shown to be eq
+		Status status = Pending;
 
-		bool proven() const {
-			for (auto &t : targets)
-				if (!t.proven)
-					return false;
-			return true;
-		}
+		
+		int q_lit = -1;              // valid within the current batch
+		int differ_lit = -1;         // some target differs from the candidate value
 	};
 
-	// counterexample watch list: the solver model captures (target, q) of every
-	// pending target so one counterexample can disprove many obligations at once
+	// the solver model captures (differ, q) of every pending obligation so one
+	// counterexample can disprove many at once
 	struct ConstWatchList {
 		std::vector<int> exprs;
 		std::vector<ConstObligation *> obs;
 
-		void watch(ConstObligation &ob, const ConstTarget &t) {
-			exprs.push_back(t.lit);
+		void watch(ConstObligation &ob) {
+			exprs.push_back(ob.differ_lit);
 			exprs.push_back(ob.q_lit);
 			obs.push_back(&ob);
 		}
 
-		// drop every obligation whose q holds its constant while the watched
-		// target differs in the model
+		// drop every obligation whose q holds its constant while some target differs
 		void drop_disproven(const std::vector<bool> &model) const {
 			for (int k = 0; k < GetSize(obs); k++) {
 				bool want = (obs[k]->val == State::S1);
-				if (model[2*k + 1] == want && model[2*k] != want)
-					obs[k]->dropped = true;
+				if (model[2*k + 1] == want && model[2*k])
+					obs[k]->status = ConstObligation::Dropped;
 			}
 		}
 	};
@@ -999,26 +986,21 @@ struct OptDffWorker
 			return false;
 		if (!get_modwalker().has_drivers(sig))
 			return false;
-		ob.targets.push_back(ConstTarget{sig});
+		ob.targets.push_back(sig);
 		return true;
 	}
 
-	// try to decide target t of obligation ob under the given per-query effort cap
-	// returns false if the cap was hit and the target is still undecided
-	//
-	// induction step: assuming q already holds the candidate value, the value fed
-	// through this target must equal it again; check_constbit provides the base
-	// case, so unsat makes the constant an inductive invariant
-	//
-	// the qcsat cone is an over-approximation (complex cells become free inputs),
-	// so only unsat is binding; a spurious sat model merely drops a valid proof
-	bool resolve_const_target(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob, ConstTarget &t,
+	// try to decide obligation ob under the given per-query effort cap
+	bool resolve_const_obligation(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob,
 			const ConstWatchList &watches)
 	{
+		// induction step: assuming q already holds the candidate value, the values
+		// fed through the targets must equal it again, since check_constbit provides the
+		// base case, so unsat makes the constant an inductive invariant
 		int vlit = qcsat.ez->value(ob.val == State::S1);
 		std::vector<int> assumptions;
 		assumptions.push_back(qcsat.ez->IFF(ob.q_lit, vlit));
-		assumptions.push_back(qcsat.ez->NOT(qcsat.ez->IFF(t.lit, vlit)));
+		assumptions.push_back(ob.differ_lit);
 
 		std::vector<bool> model;
 		auto res = sat_budget.solve(qcsat, cap, watches.exprs, model, assumptions);
@@ -1026,12 +1008,12 @@ struct OptDffWorker
 		if (res == SatEffortBudget::Result::LimitReached)
 			return false;
 		if (res == SatEffortBudget::Result::Unsat) {
-			t.proven = true;
+			ob.status = ConstObligation::Proven;
 			return true;
 		}
 
 		watches.drop_disproven(model);
-		ob.dropped = true;
+		ob.status = ConstObligation::Dropped;
 		return true;
 	}
 
@@ -1043,7 +1025,6 @@ struct OptDffWorker
 			if (!drop.count(i))
 				keep.push_back(i);
 
-		// emit removes the cell outright when no bits are kept
 		FfData new_ff = ff.slice(keep);
 		new_ff.cell = cell;
 		new_ff.emit();
@@ -1073,14 +1054,12 @@ struct OptDffWorker
 
 				// fold all const inputs first, so the sat targets are checked
 				// against the final candidate
-				if (has_d && !d.wire) {
+				if (has_d && !d.wire)
 					val = combine_const(val, d.data);
-					if (val == State::Sm) continue;
-				}
-				if (ff.has_aload && !ad.wire) {
+				if (ff.has_aload && !ad.wire)
 					val = combine_const(val, ad.data);
-					if (val == State::Sm) continue;
-				}
+				if (val == State::Sm)
+					continue;
 
 				ConstObligation ob;
 				ob.cell = cell;
@@ -1096,6 +1075,8 @@ struct OptDffWorker
 				if (!feasible)
 					continue;
 
+				if (ob.targets.empty())
+					ob.status = ConstObligation::Proven;
 				obligations.push_back(std::move(ob));
 			}
 		}
@@ -1110,15 +1091,18 @@ struct OptDffWorker
 
 		while (batch_end < GetSize(obligations) && !warn_if_budget_spent()) {
 			auto &ob = obligations[batch_end];
-			if (ob.targets.empty()) {
+			if (ob.status != ConstObligation::Pending) {
 				batch_end++;
 				continue;
 			}
 			if (batch_end > batch_begin && GetSize(qcsat.imported_cells) >= sat_batch_cells)
 				break;
 			ob.q_lit = qcsat.importSigBit(ob.q);
-			for (auto &t : ob.targets)
-				t.lit = qcsat.importSigBit(t.sig);
+			int vlit = qcsat.ez->value(ob.val == State::S1);
+			std::vector<int> differ;
+			for (auto sig : ob.targets)
+				differ.push_back(qcsat.ez->NOT(qcsat.ez->IFF(qcsat.importSigBit(sig), vlit)));
+			ob.differ_lit = qcsat.ez->expression(ezSAT::OpOr, differ);
 			qcsat.prepare();
 			sat_budget.charge_import(qcsat, cells_charged);
 			batch_end++;
@@ -1128,38 +1112,29 @@ struct OptDffWorker
 	}
 
 	// sweep the batch under the cheap screening cap first, then re-sweep the
-	// still-undecided targets with the full remaining budget
+	// still-undecided obligations with the full remaining budget
 	void sweep_const_batch(QuickConeSat &qcsat, std::vector<ConstObligation> &obligations,
 			int batch_begin, int batch_end, int64_t screen_cap)
 	{
 		for (int64_t cap : {screen_cap, (int64_t)0}) {
 			bool all_resolved = true;
 
-			// watch every pending target in the batch; entries that get proven
-			// or dropped later in the sweep are harmless (a proven bit is
-			// constant in every model)
+			// watch every pending obligation in the batch
 			ConstWatchList watches;
 			for (int obi = batch_begin; obi < batch_end; obi++) {
 				auto &ob = obligations[obi];
-				if (ob.dropped)
-					continue;
-				for (auto &t : ob.targets)
-					if (!t.proven)
-						watches.watch(ob, t);
+				if (ob.status == ConstObligation::Pending)
+					watches.watch(ob);
 			}
 
 			for (int obi = batch_begin; obi < batch_end; obi++) {
 				auto &ob = obligations[obi];
-				for (auto &t : ob.targets) {
-					if (ob.dropped)
-						break;
-					if (t.proven)
-						continue;
-					if (warn_if_budget_spent())
-						return;
-					if (!resolve_const_target(qcsat, cap, ob, t, watches))
-						all_resolved = false;
-				}
+				if (ob.status != ConstObligation::Pending)
+					continue;
+				if (warn_if_budget_spent())
+					return;
+				if (!resolve_const_obligation(qcsat, cap, ob, watches))
+					all_resolved = false;
 			}
 
 			if (all_resolved)
@@ -1167,26 +1142,26 @@ struct OptDffWorker
 		}
 	}
 
-	// sat phase: prove the gathered obligations, marking targets proven or
-	// obligations dropped in place
+	// sat: prove or drop the still-pending obligations in place
 	void solve_const_obligations(std::vector<ConstObligation> &obligations)
 	{
 		int64_t num_queries = 0;
 		for (auto &ob : obligations)
-			num_queries += GetSize(ob.targets);
+			num_queries += (ob.status == ConstObligation::Pending);
 		if (num_queries == 0)
 			return;
 
 		ModWalker &modwalker = get_modwalker();
 
-		// screening cap, scaled down when the budget cannot afford a
-		// full-price screening round
+		// screening cap
 		int64_t screen_cap = 0;
-		if (sat_budget.enabled())
+		if (sat_budget.enabled()) {
+			// scale down when we can't afford a full screening round
 			screen_cap = max((int64_t)20000, min((int64_t)200000, sat_budget.total / (4 * num_queries)));
+		}
 
-		// each obligation is proven independently, so processing obligations in
-		// batches and stopping early on an exhausted budget is safe
+		// NOTE: each obligation is proven independently, so processing obligations in
+		// batches and stopping early on an exhausted budget should be safe
 		for (int batch_begin = 0; batch_begin < GetSize(obligations) && !warn_if_budget_spent(); ) {
 			QuickConeSat qcsat(modwalker);
 			int batch_end = build_const_batch(qcsat, obligations, batch_begin);
@@ -1203,7 +1178,7 @@ struct OptDffWorker
 
 		dict<Cell *, pool<int>> const_bits;
 		for (auto &ob : obligations)
-			if (!ob.dropped && ob.proven())
+			if (ob.status == ConstObligation::Proven)
 				commit_const(const_bits, ob);
 
 		for (auto &[cell, drop] : const_bits)
