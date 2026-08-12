@@ -1257,13 +1257,20 @@ struct OptDffWorker
 		}
 	};
 
+	// concrete 0/1 bit, as opposed to x/z
 	bool is_def(State s) {
-	// Concrete constant bit (0 or 1), as opposed to x/z
 		return s == State::S0 || s == State::S1;
 	}
 
-	std::vector<std::vector<int>> gather_initial_eq_classes(std::vector<EqBit> &bits, dict<Cell *, FfData> &ff_for_cell)
+	struct EqCandidates {
+		std::vector<EqBit> bits;
+		dict<Cell *, FfData> ffs;
+		std::vector<std::vector<int>> classes;
+	};
+
+	EqCandidates gather_initial_eq_classes()
 	{
+		EqCandidates cand;
 		std::vector<SigKey> keys;
 
 		// Collect FF bits eligible for merging
@@ -1275,7 +1282,7 @@ struct OptDffWorker
 			if (!ff.has_clk && !ff.has_gclk)
 				continue;
 
-			ff_for_cell.emplace(cell, ff);
+			cand.ffs.emplace(cell, ff);
 
 			for (int i = 0; i < ff.width; i++) {
 				// Skip bits whose reset value is undefined (x)
@@ -1325,45 +1332,40 @@ struct OptDffWorker
 					if (ff.pol_set) k.flags |= SigKey::PolSet;
 				}
 
-				bits.push_back({cell, i, ff.sig_q[i]});
+				cand.bits.push_back({cell, i, ff.sig_q[i]});
 				keys.push_back(k);
 			}
 		}
 
 		dict<SigKey, std::vector<int>> buckets;
-		for (int i = 0; i < GetSize(bits); i++)
+		for (int i = 0; i < GetSize(cand.bits); i++)
 			buckets[keys[i]].push_back(i);
 
-		std::vector<std::vector<int>> classes;
 		for (auto &kv : buckets)
 			if (GetSize(kv.second) >= 2)
-				classes.push_back(std::move(kv.second));
+				cand.classes.push_back(std::move(kv.second));
 
-		return classes;
+		return cand;
 	}
 
-	std::vector<std::vector<int>> filter_classes_sim(
-		const std::vector<std::vector<int>> &classes,
-		const std::vector<EqBit> &bits,
-		const dict<Cell *, FfData> &ff_for_cell,
-		ModWalker &modwalker
-	) {
-		BitSim sim(module, sigmap, modwalker);
+	void filter_classes_sim(EqCandidates &cand)
+	{
+		BitSim sim(module, sigmap, get_modwalker());
 
 		// Assume same class
-		for (auto &cls : classes) {
+		for (auto &cls : cand.classes) {
 			uint64_t class_q_val = sim.next_rand();
 			for (int idx : cls) {
-				sim.sim_vals[sigmap(bits[idx].q)] = class_q_val;
+				sim.sim_vals[sigmap(cand.bits[idx].q)] = class_q_val;
 			}
 		}
 
 		std::vector<std::vector<int>> refined_classes;
-		for (auto &cls : classes) {
+		for (auto &cls : cand.classes) {
 			dict<uint64_t, std::vector<int>> sim_buckets;
 			for (int idx : cls) {
-				const EqBit &eb = bits[idx];
-				const FfData &ff = ff_for_cell.at(eb.cell);
+				const EqBit &eb = cand.bits[idx];
+				const FfData &ff = cand.ffs.at(eb.cell);
 				uint64_t n_val = sim.eval_bit(ff.sig_d[eb.idx]);
 
 				if (ff.has_aload) {
@@ -1400,23 +1402,21 @@ struct OptDffWorker
 					refined_classes.push_back(std::move(kv.second));
 		}
 
-		return refined_classes;
+		cand.classes = std::move(refined_classes);
 	}
 
-	std::vector<std::vector<int>> drop_all_classes()
+	void drop_all_classes(EqCandidates &cand)
 	{
 		log("opt_dff -sat: skipping all equivalent-flip-flop merges in module %s (solver effort budget "
 				"exhausted before the equivalences could be proven).\n", log_id(module));
-		return {};
+		cand.classes.clear();
 	}
 
-	std::vector<std::vector<int>> filter_classes_sat(
-		std::vector<std::vector<int>> classes,
-		const std::vector<EqBit> &bits,
-		const dict<Cell *, FfData> &ff_for_cell,
-		ModWalker &modwalker
-	) {
-		QuickConeSat qcsat(modwalker);
+	void filter_classes_sat(EqCandidates &cand)
+	{
+		auto &classes = cand.classes;
+		auto &bits = cand.bits;
+		QuickConeSat qcsat(get_modwalker());
 		std::vector<int> q_lit(bits.size(), -1);
 		std::vector<int> n_lit(bits.size(), -1);
 
@@ -1428,10 +1428,10 @@ struct OptDffWorker
 		// current states (and those of every other candidate pair) agree
 		for (auto &cls : classes) {
 			if (warn_if_budget_spent())
-				return drop_all_classes();
+				return drop_all_classes(cand);
 			for (int idx : cls) {
 				const EqBit &eb = bits[idx];
-				const FfData &ff = ff_for_cell.at(eb.cell);
+				const FfData &ff = cand.ffs.at(eb.cell);
 				q_lit[idx] = qcsat.importSigBit(eb.q);
 				int n = qcsat.importSigBit(ff.sig_d[eb.idx]);
 
@@ -1501,7 +1501,7 @@ struct OptDffWorker
 					continue;
 
 				if (warn_if_budget_spent())
-					return drop_all_classes();
+					return drop_all_classes(cand);
 
 				// Can the next state of the rep and this member ever differ?
 				int query = qcsat.ez->XOR(n_lit[rep], n_lit[cls[i]]);
@@ -1518,7 +1518,7 @@ struct OptDffWorker
 
 				if (res == SatEffortBudget::Result::LimitReached) {
 					warn_if_budget_spent();
-					return drop_all_classes();
+					return drop_all_classes(cand);
 				}
 
 				if (res == SatEffortBudget::Result::Sat) {
@@ -1551,47 +1551,29 @@ struct OptDffWorker
 				assumptions.pop_back(); // Remove query for the next pairwise check if UNSAT
 			}
 		}
-
-		return classes;
 	}
 
-	bool apply_eq_merges(const std::vector<std::vector<int>> &classes, const std::vector<EqBit> &bits, dict<Cell *, FfData> &ff_for_cell)
+	bool apply_eq_merges(const EqCandidates &cand)
 	{
 		bool any_change = false;
-		dict<Cell *, std::set<int>> remove_bits;
+		dict<Cell *, pool<int>> remove_bits;
 
 		// Drive every non-rep Q from its class rep, drop merged bits from their FFs
-		for (auto &cls : classes) {
+		for (auto &cls : cand.classes) {
 			if (GetSize(cls) < 2)
 				continue;
-			SigBit rep_q = bits[cls[0]].q;
+			SigBit rep_q = cand.bits[cls[0]].q;
 			any_change = true;
 			for (int k = 1; k < GetSize(cls); k++) {
-				const EqBit &eb = bits[cls[k]];
+				const EqBit &eb = cand.bits[cls[k]];
 				initvals.remove_init(eb.q);
 				module->connect(eb.q, rep_q);
 				remove_bits[eb.cell].insert(eb.idx);
 			}
 		}
 
-		for (auto &kv : remove_bits) {
-			Cell *cell = kv.first;
-			const std::set<int> &drop = kv.second;
-			FfData &ff = ff_for_cell.at(cell);
-			std::vector<int> keep;
-
-			for (int i = 0; i < ff.width; i++)
-				if (!drop.count(i))
-					keep.push_back(i);
-
-			if (keep.empty()) {
-				module->remove(cell);
-			} else {
-				FfData new_ff = ff.slice(keep);
-				new_ff.cell = cell;
-				new_ff.emit();
-			}
-		}
+		for (auto &[cell, drop] : remove_bits)
+			remove_ff_bits(cell, drop);
 
 		return any_change;
 	}
@@ -1601,26 +1583,21 @@ struct OptDffWorker
 		if (!opt.sat)
 			return false;
 
-		std::vector<EqBit> bits;
-		dict<Cell *, FfData> ff_for_cell;
-
-		std::vector<std::vector<int>> classes = gather_initial_eq_classes(bits, ff_for_cell);
-		if (classes.empty())
+		EqCandidates cand = gather_initial_eq_classes();
+		if (cand.classes.empty())
 			return false;
 
-		ModWalker &modwalker = get_modwalker();
-
 		// Simulation prepass
-		classes = filter_classes_sim(classes, bits, ff_for_cell, modwalker);
-		if (classes.empty())
+		filter_classes_sim(cand);
+		if (cand.classes.empty())
 			return false;
 
 		// SAT prove
-		classes = filter_classes_sat(std::move(classes), bits, ff_for_cell, modwalker);
-		if (classes.empty())
+		filter_classes_sat(cand);
+		if (cand.classes.empty())
 			return false;
 
-		return apply_eq_merges(classes, bits, ff_for_cell);
+		return apply_eq_merges(cand);
 	}
 };
 
