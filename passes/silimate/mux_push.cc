@@ -83,14 +83,16 @@ struct OptMuxPushWorker
   int fanout_limit;
   bool timing_guard;
   int slack_margin;
+  bool recover_folded;
   int total_count;
 
   OptMuxPushWorker(RTLIL::Design *design, RTLIL::Module *module,
       const pool<IdString> &target_types, int fanout_limit, bool timing_guard,
-      int slack_margin) :
+      int slack_margin, bool recover_folded) :
       design(design), module(module), sigmap(module), module_depth(0),
       target_types(target_types), fanout_limit(fanout_limit),
-      timing_guard(timing_guard), slack_margin(slack_margin), total_count(0)
+      timing_guard(timing_guard), slack_margin(slack_margin),
+      recover_folded(recover_folded), total_count(0)
   {
   }
 
@@ -278,6 +280,48 @@ struct OptMuxPushWorker
   // cost the guard 2^depth visits.
   static const int max_push_depth = 8;
 
+  // A recovered select costs what a $mux costs in estimate_cell_delay
+  static const int mux_delay = 1;
+
+  // Const-folding collapses a select over mostly-constant arms into the arms
+  // themselves: `s ? 3'd3 : 3'd0` leaves the bare bits `{1'b0, s, s}` and no mux
+  // to push through. Splitting on one of those nets recovers the two constant
+  // arms the fold destroyed. Bound the net count so the operand really is a
+  // folded select and not just narrow logic.
+  static const int max_folded_nets = 2;
+
+  // The latest net of a folded select, if `sig` is one. Splitting on the latest
+  // keeps the recovered mux above the arms rather than in series with them.
+  bool folded_select(const RTLIL::SigSpec &sig, RTLIL::SigBit &sel)
+  {
+    pool<RTLIL::SigBit> nets;
+    for (auto &bit : sig)
+      if (bit.wire != nullptr)
+        nets.insert(bit);
+    if (nets.empty() || GetSize(nets) > max_folded_nets)
+      return false;
+    sel = *nets.begin();
+    for (auto &bit : nets)
+      if (arrival(bit) > arrival(sel))
+        sel = bit;
+    // The operator is duplicated per arm, so hold the same fanout trade as the
+    // mux case: the folded bus must be near-exclusive to this operator.
+    for (auto &bit : nets)
+      if (fanout_map[bit] > fanout_limit)
+        return false;
+    return true;
+  }
+
+  // `sig` with `sel` replaced by `val`. Exact under the arm that forces it: the
+  // operand's whole dependence on `sel` is the bits that are `sel`.
+  RTLIL::SigSpec force_bit(const RTLIL::SigSpec &sig, RTLIL::SigBit sel, bool val)
+  {
+    RTLIL::SigSpec out;
+    for (auto &bit : sig)
+      out.append(bit == sel ? RTLIL::SigBit(val ? State::S1 : State::S0) : bit);
+    return out;
+  }
+
   // Arrival out of the fully pushed tree: a copy of the operator lands on every
   // leaf and the muxes restack above it, so each path is charged only the levels
   // it really crosses -- an unbalanced tree must not pay its latest arm and its
@@ -296,6 +340,14 @@ struct OptMuxPushWorker
       return std::max({pushed_arrival(sigmap(arm_a), d_op, others, budget - 1),
                        pushed_arrival(sigmap(arm_b), d_op, others, budget - 1),
                        arrival(m->getPort(ID::S))}) + estimate_cell_delay(m);
+    // No mux left, but a folded select splits into the same two arms
+    RTLIL::SigBit sel;
+    if (budget > 0 && recover_folded && folded_select(sig, sel))
+      return std::max({pushed_arrival(sigmap(force_bit(sig, sel, false)), d_op, others,
+                                      budget - 1),
+                       pushed_arrival(sigmap(force_bit(sig, sel, true)), d_op, others,
+                                      budget - 1),
+                       arrival(sel)}) + mux_delay;
     return std::max(arrival(sig), others) + d_op;
   }
 
@@ -494,9 +546,9 @@ struct OptMuxPushWorker
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
-        RTLIL::Cell *mux_cell = nullptr;
+        RTLIL::Cell *mux_cell = nullptr;  // null when the select was const-folded away
         IdString port;
-        RTLIL::SigSpec arm_a, arm_b;
+        RTLIL::SigSpec arm_a, arm_b, sel;
       };
 
       std::vector<candidate_t> candidates;
@@ -520,8 +572,18 @@ struct OptMuxPushWorker
 
           RTLIL::SigSpec in_sig = sigmap(it.second);
           RTLIL::Cell *mux_cell = nullptr;
-          if (!mux_drives_sig(in_sig, mux_cell))
-            continue;
+          if (!mux_drives_sig(in_sig, mux_cell)) {
+            // Fall back to a select the folder already collapsed into bare bits
+            RTLIL::SigBit sel;
+            if (!recover_folded || !folded_select(in_sig, sel))
+              continue;
+            RTLIL::SigSpec arm_a = force_bit(in_sig, sel, false);
+            RTLIL::SigSpec arm_b = force_bit(in_sig, sel, true);
+            if (!should_push(cell, it.first, arm_a, arm_b))
+              continue;
+            candidates.push_back({cell, nullptr, it.first, arm_a, arm_b, sel});
+            break;
+          }
           if (!design->selected(module, mux_cell))
             continue;
           if (mux_cell->get_bool_attribute(ID::keep))
@@ -542,7 +604,8 @@ struct OptMuxPushWorker
             continue;
 
           // Only push one mux per operator per iteration
-          candidates.push_back({cell, mux_cell, it.first, arm_a, arm_b});
+          candidates.push_back({cell, mux_cell, it.first, arm_a, arm_b,
+                                mux_cell->getPort(ID::S)});
           break;
         }
       }
@@ -571,8 +634,10 @@ struct OptMuxPushWorker
         for (auto &bit : cand_in)
           touched_bits.insert(bit);
 
-        log_debug("    Pushing mux %s through %s cell %s port %s.\n",
-            log_id(mux_cell->name), log_id(cell->type), log_id(cell->name), log_id(cand.port));
+        std::string via = mux_cell != nullptr
+            ? "mux " + std::string(log_id(mux_cell->name)) : "folded select";
+        log_debug("    Pushing %s through %s cell %s port %s.\n",
+            via.c_str(), log_id(cell->type), log_id(cell->name), log_id(cand.port));
 
         // Reuse the original operator as branch A to preserve the instance name and metadata
         RTLIL::Cell *branch_a = cell;
@@ -610,7 +675,7 @@ struct OptMuxPushWorker
 
         // Always create a new mux so other consumers of the original mux are unaffected
         RTLIL::IdString new_mux_name = NEW_ID2_SUFFIX("muxpush");
-        RTLIL::Cell *new_mux = module->addMux(new_mux_name, out_a, out_b, mux_cell->getPort(ID::S), orig_y);
+        RTLIL::Cell *new_mux = module->addMux(new_mux_name, out_a, out_b, cand.sel, orig_y);
         new_mux->set_src_attribute(cell->get_src_attribute());
 
         // Branch A evaluates one speculated arm now, not the original
@@ -623,14 +688,17 @@ struct OptMuxPushWorker
         // new mux only takes over the bits the operator read, so a bit outside
         // that slice still has a consumer of its own and the mux has to stay --
         // fanout_is_one alone would drop it and leave that bit undriven.
-        RTLIL::SigSpec mux_out = sigmap(mux_cell->getPort(ID::Y));
-        pool<RTLIL::SigBit> read_bits(cand_in.begin(), cand_in.end());
-        bool covers_mux_out = true;
-        for (auto &bit : mux_out)
-          if (!read_bits.count(bit))
-            covers_mux_out = false;
-        if (covers_mux_out && fanout_is_one(mux_out))
-          cells_to_remove.insert(mux_cell);
+        // A folded select has no mux cell of its own to drop.
+        if (mux_cell != nullptr) {
+          RTLIL::SigSpec mux_out = sigmap(mux_cell->getPort(ID::Y));
+          pool<RTLIL::SigBit> read_bits(cand_in.begin(), cand_in.end());
+          bool covers_mux_out = true;
+          for (auto &bit : mux_out)
+            if (!read_bits.count(bit))
+              covers_mux_out = false;
+          if (covers_mux_out && fanout_is_one(mux_out))
+            cells_to_remove.insert(mux_cell);
+        }
 
         total_count++;
       }
@@ -670,6 +738,15 @@ struct OptMuxPushPass : public Pass {
     log("        how many levels short of the longest path still counts as\n");
     log("        critical for -timing (default: 0)\n");
     log("\n");
+    log("    -folded-select\n");
+    log("        also push through a select that const-folding already collapsed\n");
+    log("        into bare replicated bits, leaving no $mux cell to match on (an\n");
+    log("        operand like {1'b0, s, s}). Off by default because it only pays\n");
+    log("        where the arms fold back down: on comparators reading a select\n");
+    log("        that no later pass has restructured. Enabling it on shifter\n");
+    log("        amounts, or on comparators after the pattern matchers have run,\n");
+    log("        measured worse than leaving the operand alone\n");
+    log("\n");
   }
 
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -677,6 +754,7 @@ struct OptMuxPushPass : public Pass {
     int fanout_limit = 1;
     bool timing_guard = false;
     int slack_margin = 0;
+    bool recover_folded = false;
     std::string types = "$add,$sub,$xor";
 
     log_header(design, "Executing MUXPUSH pass (push muxes through light ops).\n");
@@ -693,6 +771,10 @@ struct OptMuxPushPass : public Pass {
       }
       if (args[argidx] == "-timing") {
         timing_guard = true;
+        continue;
+      }
+      if (args[argidx] == "-folded-select") {
+        recover_folded = true;
         continue;
       }
       if ((args[argidx] == "-slack-margin" || args[argidx] == "-slack_margin")
@@ -720,7 +802,7 @@ struct OptMuxPushPass : public Pass {
       if (module->get_bool_attribute(ID::blackbox))
         continue;
       OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard,
-          slack_margin);
+          slack_margin, recover_folded);
       worker.run();
       total_count += worker.total_count;
     }
