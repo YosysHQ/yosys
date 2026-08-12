@@ -7,7 +7,8 @@
 #   D: negative cases -- a push that folds nothing is refused on cost.
 #   E: option handling (-max-nodes, -max-depth, -max-var-leaves,
 #      -max-emit-cells, -max-rounds).
-#   F: the reduction spellings of a compare, and a negated test.
+#   F: the reduction spellings of a compare, a negated test, and a code set
+#      whose compares disagree about signedness.
 #   G: fine-grained selection.
 #
 # The codes are 4 bits wide here, an order narrower than the RTL this targets.
@@ -361,6 +362,80 @@ select -assert-min 1 t:$logic_not t:$reduce_bool %u
 equiv_opt -assert opt_decode_fuse
 design -load postopt
 select -assert-min 1 c:*decode_fuse_inv*
+design -reset
+log -pop
+
+# F2: one code set whose compares disagree about signedness. Written in RTLIL
+# because the Verilog frontend equalizes operand widths at elaboration, and it
+# is exactly the unequal-width case that separates the two: an unsigned compare
+# zero-extends the code where a signed one sign-extends it. Sharing one flag
+# across the set would answer "not a member" for 4'hF against unsigned 5'd15,
+# and this group fails outright if that ever regresses.
+log -header "F2: mixed signedness within one code set (equiv)"
+log -push
+design -reset
+read_rtlil <<EOF
+autoidx 1
+module \top
+  wire input 1 \s1
+  wire input 2 \s2
+  wire output 3 \hit
+  wire width 4 \n1
+  wire width 4 \code
+  wire \hs
+  wire \hu
+  cell $mux $m1
+    parameter \WIDTH 4
+    connect \A 4'0111
+    connect \B 4'1111
+    connect \S \s1
+    connect \Y \n1
+  end
+  cell $mux $m2
+    parameter \WIDTH 4
+    connect \A \n1
+    connect \B 4'0111
+    connect \S \s2
+    connect \Y \code
+  end
+  cell $eq $es
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 1
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 5
+    parameter \Y_WIDTH 1
+    connect \A \code
+    connect \B 5'00111
+    connect \Y \hs
+  end
+  cell $eq $eu
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 5
+    parameter \Y_WIDTH 1
+    connect \A \code
+    connect \B 5'01111
+    connect \Y \hu
+  end
+  cell $or $o1
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \hs
+    connect \B \hu
+    connect \Y \hit
+  end
+end
+EOF
+check -assert
+equiv_opt -assert opt_decode_fuse
+design -load postopt
+# Every arm of the network is a member of the set, so the whole thing folds to a
+# constant and no compare survives at all.
+select -assert-count 0 t:$eq t:$mux %u
 design -reset
 log -pop
 

@@ -314,11 +314,11 @@ struct OptDecodeFuseWorker
 	}
 
 	// (leaf in codes) for a fully defined constant leaf, else -1 (emit a test).
-	int const_test(const SigSpec &leaf, const vector<Const> &codes, bool is_signed)
+	int const_test(const SigSpec &leaf, const vector<pair<Const, bool>> &codes)
 	{
 		if (!leaf.is_fully_const() || !leaf.is_fully_def())
 			return -1;
-		for (auto &k : codes) {
+		for (auto &[k, is_signed] : codes) {
 			if (!k.is_fully_def())
 				return -1;
 			SigSpec a = leaf, b = k;
@@ -340,11 +340,16 @@ struct OptDecodeFuseWorker
 	// bypass ORed in beside the decode -- and they stay where they are.
 	struct Target {
 		Cell *root = nullptr;    // cell whose output the pushed test replaces
-		vector<Const> codes;     // constants the value is tested against
 		bool negate = false;     // test is "not in set"
-		bool is_signed = false;
 		vector<Cell *> consumed; // compares and OR nodes that die with it
 		SigSpec kept;            // OR inputs to keep beside the pushed test
+
+		// Constants the value is tested against, each carrying the signedness of
+		// the compare it came from. One flag for the set would not do: against a
+		// wider constant an unsigned compare zero-extends where a signed one
+		// sign-extends, so sharing a flag across a mixed OR tree would silently
+		// change the tests it did not come from.
+		vector<pair<Const, bool>> codes;
 	};
 
 	// Climb to the topmost OR cell that still only exists to combine `c`'s
@@ -396,8 +401,7 @@ struct OptDecodeFuseWorker
 					}
 					if (sole && !claimed.count(drv) &&
 					    is_const_cmp(drv, v, k, negate, is_signed) && !negate) {
-						t.codes.push_back(k);
-						t.is_signed |= is_signed;
+						t.codes.push_back({k, is_signed});
 						t.consumed.push_back(drv);
 						continue;
 					}
@@ -450,9 +454,8 @@ struct OptDecodeFuseWorker
 			Const k;
 			bool negate = false, is_signed = false;
 			is_const_cmp(cmp, v, k, negate, is_signed);
-			one.codes.push_back(k);
+			one.codes.push_back({k, is_signed});
 			one.negate = negate;
-			one.is_signed = is_signed;
 			claimed.insert(cmp);
 			targets.push_back(one);
 		}
@@ -545,13 +548,13 @@ struct OptDecodeFuseWorker
 		Est r;
 		Cell *node = net_node(v);
 		if (node == nullptr) {
-			int folded = const_test(v, t.codes, t.is_signed);
+			int folded = const_test(v, t.codes);
 			if (folded >= 0)
 				r = Est{folded ? ID_S1 : ID_S0, 0};
 			else {
 				int width = GetSize(v);
-				for (auto &k : t.codes)
-					width = std::max(width, GetSize(k));
+				for (auto &code : t.codes)
+					width = std::max(width, GetSize(code.first));
 				est_test_bits += width * GetSize(t.codes);
 				r = Est{est_next_id++,
 				        level(v) + test_levels(width, GetSize(t.codes))};
@@ -595,7 +598,7 @@ struct OptDecodeFuseWorker
 		SigBit r;
 		Cell *node = net_node(v);
 		if (node == nullptr) {
-			int folded = const_test(v, t.codes, t.is_signed);
+			int folded = const_test(v, t.codes);
 			if (folded >= 0)
 				r = folded ? State::S1 : State::S0;
 			else
@@ -635,10 +638,10 @@ struct OptDecodeFuseWorker
 	{
 		Cell *cell = anchor;
 		SigSpec hits;
-		for (auto &k : t.codes) {
+		for (auto &[k, is_signed] : t.codes) {
 			cells_added++;
 			hits.append(module->Eq(NEW_ID2_SUFFIX("decode_fuse_cmp"), leaf, k,
-			                       t.is_signed, cell_src(anchor))[0]);
+			                       is_signed, cell_src(anchor))[0]);
 		}
 		if (GetSize(hits) == 1)
 			return hits[0];
