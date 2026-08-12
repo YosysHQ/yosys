@@ -108,9 +108,7 @@ FSM optimization
 The `fsm_opt` pass performs basic optimizations on `$fsm` cells (not including
 state recoding). The following optimizations are performed (in this order):
 
--  Unused control outputs are removed from the `$fsm` cell. The attribute
-   ``unused_bits`` (that is usually set by the `opt_clean` pass) is used to
-   determine which control outputs are unused.
+-  Unused control outputs are removed from the `$fsm` cell.
 
 -  Control inputs that are connected to the same driver are merged.
 
