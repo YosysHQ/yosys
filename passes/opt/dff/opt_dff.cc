@@ -20,6 +20,7 @@
 
 #include "kernel/log.h"
 #include "kernel/register.h"
+#include "kernel/ff.h"
 #include "passes/opt/dff/opt_dff.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,33 +33,6 @@ OptDffWorker::OptDffWorker(const OptDffOptions &opt, Module *mod)
 	: opt(opt), module(mod), sigmap(mod), initvals(&sigmap, mod)
 {
 	sat_budget = SatEffortBudget(module->design->scratchpad_get_int("opt_dff.sat_effort", 1000000000));
-
-	// Gathering two kinds of information here for every sigmapped SigBit:
-	// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
-	// - bit2mux: the mux cell and bit index that drives it, if any
-
-	for (auto wire : module->wires())
-		if (wire->port_output)
-			for (auto bit : sigmap(wire))
-				bitusers[bit]++;
-
-	for (auto cell : module->cells()) {
-		if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
-			RTLIL::SigSpec sig_y = sigmap(cell->getPort(ID::Y));
-			for (int i = 0; i < GetSize(sig_y); i++)
-				bit2mux[sig_y[i]] = cell_int_t(cell, i);
-		}
-
-		for (auto conn : cell->connections()) {
-			bool is_output = cell->output(conn.first);
-			if (!is_output || !cell->known())
-				for (auto bit : sigmap(conn.second))
-					bitusers[bit]++;
-		}
-
-		if (module->design->selected(module, cell) && cell->is_builtin_ff())
-			dff_cells.push_back(cell);
-	}
 }
 
 void OptDffWorker::remove_ff_bits(Cell *cell, const pool<int> &drop)
