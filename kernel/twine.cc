@@ -21,7 +21,7 @@ bool StaticTwines::ready() { return nodes_.size() == count; }
 int64_t twine_gc_ns;
 int twine_gc_count;
 
-Hasher IdString::hash_into(Hasher h) const { h.hash64(value); return h; }
+Hasher IdString::hash_into(Hasher h) const { h.hash64(raw()); return h; }
 
 std::string IdString::handle_token() const {
 	return stringf("%s@%zu", isPublic() ? "$pub" : "$priv", untag().raw());
@@ -53,8 +53,15 @@ std::string ID::unescaped_str(IdString ref) {
 	return static_names[idx.raw()];
 }
 
+Twine::Twine(Leaf v) : data(std::move(v)) {}
+Twine::Twine(Suffix v) : data(std::move(v)) {}
+Twine::Twine(AutoSuffix v) : data(std::move(v)) {}
+
 bool Twine::is_leaf() const { return std::holds_alternative<Leaf>(data); }
 bool Twine::is_suffix() const { return std::holds_alternative<Suffix>(data); }
+
+TwineNode::TwineNode(Twine::Leaf v) : data(std::move(v)) {}
+TwineNode::TwineNode(Twine::Suffix v) : data(std::move(v)) {}
 
 bool TwineNode::is_dead() const { return std::holds_alternative<std::monostate>(data); }
 bool TwineNode::is_leaf() const { return std::holds_alternative<Twine::Leaf>(data); }
@@ -76,12 +83,62 @@ std::pair<std::string, bool> twine_unescape(std::string s) {
 	return {std::move(s), is_public};
 }
 
+TwinePool::TwinePool() : serial_(next_serial()) {}
+TwinePool::TwinePool(const TwinePool& other) : HashConsPool(other), serial_(next_serial()) {}
+TwinePool::TwinePool(TwinePool&& other) : HashConsPool(std::move(other)), serial_(next_serial()) {}
+
+TwinePool& TwinePool::operator=(const TwinePool& other) {
+	HashConsPool::operator=(other);
+	return *this;
+}
+
+TwinePool& TwinePool::operator=(TwinePool&& other) {
+	HashConsPool::operator=(std::move(other));
+	return *this;
+}
+
+size_t TwinePool::serial() const { return serial_; }
+
+bool TwinePool::owns(IdString ref) const {
+	return ref == IdString::Null || ref.serial() == 0 || ref.serial() == serial_ || ID::is_static(ref);
+}
+
+IdString TwinePool::stamp(IdString ref) const {
+	if (ref == IdString::Null || ID::is_static(ref))
+		return ref;
+	return ref.stamped(serial_);
+}
+
+void TwinePool::check_owned(IdString ref) const {
+#ifndef NDEBUG
+	log_assert(owns(ref));
+#endif
+}
+
+const TwineNode& TwinePool::operator[](IdString ref) const {
+	check_owned(ref);
+	return HashConsPool::operator[](ref);
+}
+
 const TwineNode& TwinePool::static_node(size_t idx) { return StaticTwines::node(idx); }
 void TwinePool::check_ready() { log_assert(StaticTwines::ready()); }
 
 void TwinePool::canonicalize(TwineNode& t) {
 	if (auto *sfx = std::get_if<Twine::Suffix>(&t.data))
-		sfx->prefix = sfx->prefix.untag();
+		sfx->prefix = sfx->prefix.untag().stamped(0);
+}
+
+size_t TwinePool::next_serial() {
+	static size_t counter = 0;
+	size_t serial = ++counter;
+	return serial > IdString::MAX_SERIAL ? (serial % IdString::MAX_SERIAL) + 1 : serial;
+}
+
+IdString TwinePool::add_inner(TwineNode t) {
+	if (free_list.empty() && STATIC_COUNT + backing.size() > IdString::MAX_INDEX)
+		log_error("Out of twine handles: a design may name at most %zu distinct twines.\n",
+				IdString::MAX_INDEX - STATIC_COUNT);
+	return HashConsPool::add_inner(std::move(t));
 }
 
 size_t TwinePool::hash_node(const TwineNode& t) {
@@ -164,7 +221,7 @@ std::string TwinePool::unescaped_str(IdString ref) const {
 
 IdString TwinePool::find(const std::string &name) const {
 	bool is_public = !name.empty() && name[0] == '\\';
-	return find(Twine::Leaf{is_public ? name.substr(1) : name}).tag(is_public);
+	return stamp(find(Twine::Leaf{is_public ? name.substr(1) : name}).tag(is_public));
 }
 
 IdString TwinePool::find(Twine t) const {
@@ -175,7 +232,7 @@ IdString TwinePool::find(Twine t) const {
 		t = Twine::Suffix{prefix, std::move(ap->tail)};
 	}
 	bool is_public = inherits_publicity(t);
-	return HashConsPool::find(to_node(std::move(t))).tag(is_public);
+	return stamp(HashConsPool::find(to_node(std::move(t))).tag(is_public));
 }
 
 IdString TwinePool::add(Twine t) {
@@ -184,14 +241,14 @@ IdString TwinePool::add(Twine t) {
 		t = Twine::Suffix{prefix, std::move(ap->tail)};
 	}
 	bool is_public = inherits_publicity(t);
-	return add_inner(to_node(std::move(t))).tag(is_public);
+	return stamp(add_inner(to_node(std::move(t))).tag(is_public));
 }
 
 IdString TwinePool::add(std::string s) {
 	if (s.empty())
 		return IdString::Null;
 	auto [content, is_public] = twine_unescape(std::move(s));
-	return add_inner(Twine::Leaf{std::move(content)}).tag(is_public);
+	return stamp(add_inner(Twine::Leaf{std::move(content)}).tag(is_public));
 }
 
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
@@ -228,6 +285,25 @@ IdString TwinePool::find_from(const TwinePool& src, IdString ref) const {
 		return find(Twine::Suffix{prefix, t.suffix().tail}).tag(is_public);
 	}
 	return IdString::Null;
+}
+
+std::string TwinePool::ref_token(IdString ref) const {
+	return "#" + std::to_string((uint64_t)stamp(ref).bits());
+}
+
+IdString TwinePool::ref_from_token(std::string_view token) const {
+	if (token.size() < 2 || token[0] != '#')
+		return IdString::Null;
+	size_t value = 0;
+	for (char c : token.substr(1)) {
+		if (c < '0' || c > '9')
+			return IdString::Null;
+		value = value * 10 + (c - '0');
+	}
+	IdString ref(value);
+	if (ref == IdString::Null || (!ID::is_static(ref) && ref.serial() != serial_))
+		return IdString::Null;
+	return is_live(ref) ? ref : IdString::Null;
 }
 
 void TwinePool::dump(std::ostream& os) const {
