@@ -21,6 +21,9 @@ struct ArithTreeOptions {
 	CompressorTree::Strategy strategy = CompressorTree::Strategy::PREFER_42;
 	CompressorTree::FinalMode final_mode = CompressorTree::FinalMode::RIPPLE;
 	bool fma_fusion = true;
+	// A compressor level costs roughly fixed depth at any width, so
+	// compression only pays when it removes a wide carry-propagate adder.
+	int min_width = 0;
 };
 
 struct ArithTreeWorker {
@@ -364,6 +367,9 @@ struct ArithTreeWorker {
 			if (has_parent.count(root) || to_remove.count(root))
 				continue; // Not a tree root
 
+			if (GetSize(root->getPort(ID::Y)) < opt.min_width)
+				continue;
+
 			pool<Cell *> chain = collect_chain(root, children_of);
 			if (chain.size() < 2)
 				continue;
@@ -387,6 +393,9 @@ struct ArithTreeWorker {
 	{
 		pool<Cell *> to_remove;
 		for (auto cell : macc) {
+			if (GetSize(cell->getPort(ID::Y)) < opt.min_width)
+				continue;
+
 			std::vector<Operand> operands;
 			int neg_compensation;
 			if (!extract_macc_operands(cell, operands, neg_compensation))
@@ -443,6 +452,16 @@ struct ArithTreePass : public Pass {
 		log("    -no-fma\n");
 		log("        Disable fused multiply-add expansion in $macc cells\n");
 		log("\n");
+		log("    -min-width <n>\n");
+		log("        Skip chains and $macc cells whose result is narrower than <n>\n");
+		log("        bits (default 0, i.e. no limit). A compressor level costs about\n");
+		log("        the same depth at any width, so compression only pays when it\n");
+		log("        removes a wide carry-propagate adder; below that the plain chain\n");
+		log("        (or 'opt_balance_tree') wins. Prefer this over restricting the\n");
+		log("        selection: this pass indexes every cell in a selected module, so\n");
+		log("        a cell-level selection only gates which modules run, and one wide\n");
+		log("        adder anywhere would otherwise pull in all the narrow chains too.\n");
+		log("\n");
 		log("The default behaviour delivers 4:2 compression, FMA fusion, and a\n");
 		log("final standard adder\n");
 		log("\n");
@@ -474,6 +493,10 @@ struct ArithTreePass : public Pass {
 			}
 			if (arg == "-no-fma") {
 				opt.fma_fusion = false;
+				continue;
+			}
+			if (arg == "-min-width" && argidx + 1 < args.size()) {
+				opt.min_width = atoi(args[++argidx].c_str());
 				continue;
 			}
 			break;

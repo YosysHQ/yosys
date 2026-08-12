@@ -1,0 +1,92 @@
+# -min-width gates each chain on its own result width.
+#
+# The limit used to be applied by restricting the selection, which does not
+# work: the pass indexes every cell of a selected module, so a cell-level
+# selection only chooses which modules run. These tests pin the per-chain
+# behaviour, including the mixed-width module where the two rules differ.
+
+# A narrow chain is left alone above its width...
+read_verilog <<EOT
+module narrow(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree -min-width 16
+select -assert-none t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+# ...and compressed once the limit admits it.
+read_verilog <<EOT
+module narrow(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree -min-width 8
+select -assert-min 1 t:$fa
+design -reset
+
+# A wide chain next to a narrow one: only the wide chain compresses. Under a
+# selection-based limit the whole module would qualify and both would.
+read_verilog <<EOT
+module mixed(
+	input [31:0] wa, wb, wc,
+	input [7:0] na, nb, nc,
+	output [31:0] wy,
+	output [7:0] ny
+);
+	assign wy = wa + wb + wc;
+	assign ny = na + nb + nc;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree -min-width 16
+select -assert-min 1 t:$fa
+# The narrow chain keeps both of its adders and the compressed wide chain
+# leaves one final adder behind, so three remain rather than the two that
+# compressing both chains would leave.
+select -assert-count 3 t:$add
+design -reset
+
+# The limit also applies to $macc cells, which alumacc builds from the same
+# chains and which would otherwise slip past it.
+read_verilog <<EOT
+module macc_narrow(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a * b + c * d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+alumacc
+arith_tree -min-width 16
+select -assert-none t:$fa
+design -reset
+
+# Default (no -min-width) keeps compressing everything.
+read_verilog <<EOT
+module narrow(
+	input [7:0] a, b, c,
+	output [7:0] y
+);
+	assign y = a + b + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+arith_tree
+select -assert-min 1 t:$fa
+design -reset
