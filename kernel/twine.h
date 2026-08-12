@@ -49,20 +49,42 @@ private:
 
 	static constexpr size_t TWINE_PUBLIC_BIT = 1ULL << 63;
 	static constexpr size_t TWINE_NULL_VAL = ~size_t{0};
+	static constexpr int TWINE_SERIAL_SHIFT = 32;
+	static constexpr size_t TWINE_INDEX_MASK = (size_t{1} << TWINE_SERIAL_SHIFT) - 1;
+	static constexpr size_t TWINE_SERIAL_MASK = ~(TWINE_INDEX_MASK | TWINE_PUBLIC_BIT);
 
 public:
 	static constexpr NullIdString Null{};
 
-	constexpr size_t raw() const { return value; }
+	static constexpr size_t MAX_INDEX = TWINE_INDEX_MASK;
+	static constexpr size_t MAX_SERIAL = TWINE_SERIAL_MASK >> TWINE_SERIAL_SHIFT;
+
+	constexpr size_t raw() const {
+		return value == TWINE_NULL_VAL ? value : (value & ~TWINE_SERIAL_MASK);
+	}
+
+	// raw() with the pool serial kept
+	constexpr size_t bits() const { return value; }
+
+	constexpr size_t serial() const {
+		return value == TWINE_NULL_VAL ? 0 : ((value & TWINE_SERIAL_MASK) >> TWINE_SERIAL_SHIFT);
+	}
+
+	constexpr IdString stamped(size_t pool_serial) const {
+		return value == TWINE_NULL_VAL ? *this
+			: IdString((value & ~TWINE_SERIAL_MASK) | (pool_serial << TWINE_SERIAL_SHIFT));
+	}
 
 	constexpr IdString() : value(TWINE_NULL_VAL) {}
 	explicit constexpr IdString(size_t val) : value(val) {}
 
-	constexpr bool operator==(const IdString&) const = default;
+	constexpr bool operator==(const IdString &rhs) const { return raw() == rhs.raw(); }
+	constexpr bool operator!=(const IdString &rhs) const { return raw() != rhs.raw(); }
 	constexpr std::strong_ordering operator<=>(const IdString &rhs) const {
-		if (auto cmp = (value & ~TWINE_PUBLIC_BIT) <=> (rhs.value & ~TWINE_PUBLIC_BIT); cmp != 0)
+		size_t a = raw(), b = rhs.raw();
+		if (auto cmp = (a & ~TWINE_PUBLIC_BIT) <=> (b & ~TWINE_PUBLIC_BIT); cmp != 0)
 			return cmp;
-		return (value & TWINE_PUBLIC_BIT) <=> (rhs.value & TWINE_PUBLIC_BIT);
+		return (a & TWINE_PUBLIC_BIT) <=> (b & TWINE_PUBLIC_BIT);
 	}
 
 	template <typename... Args>
@@ -177,9 +199,9 @@ struct Twine {
 
 	std::variant<Leaf, Suffix, AutoSuffix> data;
 
-	Twine(Leaf v) : data(std::move(v)) {}
-	Twine(Suffix v) : data(std::move(v)) {}
-	Twine(AutoSuffix v) : data(std::move(v)) {}
+	Twine(Leaf v);
+	Twine(Suffix v);
+	Twine(AutoSuffix v);
 
 	bool is_leaf() const;
 	bool is_suffix() const;
@@ -191,8 +213,8 @@ struct TwineNode {
 	std::variant<std::monostate, Twine::Leaf, Twine::Suffix> data;
 
 	TwineNode() = default;
-	TwineNode(Twine::Leaf v) : data(std::move(v)) {}
-	TwineNode(Twine::Suffix v) : data(std::move(v)) {}
+	TwineNode(Twine::Leaf v);
+	TwineNode(Twine::Suffix v);
 
 	bool is_dead() const;
 	bool is_leaf() const;
@@ -219,6 +241,18 @@ std::pair<std::string, bool> twine_unescape(std::string s);
 
 struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	static constexpr size_t STATIC_COUNT = StaticTwines::count;
+
+	TwinePool();
+	TwinePool(const TwinePool& other);
+	TwinePool(TwinePool&& other);
+	TwinePool& operator=(const TwinePool& other);
+	TwinePool& operator=(TwinePool&& other);
+
+	size_t serial() const;
+	bool owns(IdString ref) const;
+	IdString stamp(IdString ref) const;
+	void check_owned(IdString ref) const;
+	const TwineNode& operator[](IdString ref) const;
 
 	static const TwineNode& static_node(size_t idx);
 	// static IdString untag(IdString ref);
@@ -259,13 +293,21 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	IdString copy_from(const TwinePool& src, IdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
+	// Opaque handle for files that never leave one run of yosys.
+	// Only valid until garbage collection reuses the slot.
+	std::string ref_token(IdString ref) const;
+	// Null unless the token names a live twine stamped by this pool
+	IdString ref_from_token(std::string_view token) const;
 	void dump(std::ostream& os = std::cout) const;
 	using HashConsPool::gc;
 
 private:
+	IdString add_inner(TwineNode t);
+	static size_t next_serial();
+	size_t serial_;
+
 	static bool inherits_publicity(const Twine &t);
 	static TwineNode to_node(Twine t);
-	using HashConsPool::add_inner;
 };
 
 /**
