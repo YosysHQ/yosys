@@ -24,8 +24,6 @@
 #include "kernel/modtools.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
-#include "kernel/ff.h"
-#include "kernel/pattern.h"
 
 #ifndef OPT_DFF_H
 #define OPT_DFF_H
@@ -46,25 +44,16 @@ struct OptDffWorker
 	const OptDffOptions &opt;
 	Module *module;
 
-	// Cell to port bit index
-	typedef std::pair<RTLIL::Cell*, int> cell_int_t;
-
 	SigMap sigmap;                    // Signal aliasing
 	FfInitVals initvals;
-	dict<SigBit, int> bitusers;       // Signal sink count
-	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
-
-	std::vector<Cell *> dff_cells;
-
-	// opt_dff -sat rebuilds the solver in batches of at most this many imported
-	// cells, so one pathological module can't grow a single giant solver
-	static constexpr int sat_batch_cells = 10000;
 
 	SatEffortBudget sat_budget;
 	bool sat_warned = false;
 
 	// modwalker is expensive to build, so share one lazily between constbits and eqbits
 	std::unique_ptr<ModWalker> modwalker_ptr;
+
+	OptDffWorker(const OptDffOptions &opt, Module *mod);
 
 	ModWalker &get_modwalker()
 	{
@@ -102,52 +91,10 @@ struct OptDffWorker
 		return is_inactive(sig, pol) || (!opt.keepdc && sig == State::Sx);
 	}
 
-	OptDffWorker(const OptDffOptions &opt, Module *mod);
-
 	void remove_ff_bits(Cell *cell, const pool<int> &drop);
 
-	SigSpec create_not(SigSpec a, bool is_fine);
-	SigSpec create_and(SigSpec a, SigSpec b, bool is_fine);
-	void create_mux_to_output(SigSpec a, SigSpec b, SigSpec sel, SigSpec y, bool pol, bool is_fine);
-	void maybe_simplemap(Cell *c, bool make_gates);
-	patterns_t find_muxtree_feedback_patterns(RTLIL::SigBit d, RTLIL::SigBit q, pattern_t path);
-	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates);
-	ctrl_t combine_resets(const ctrls_t &ctrls, bool make_gates);
-	bool signal_all_same(const SigSpec &sig);
-	bool optimize_sr(FfData &ff, Cell *cell, bool &changed);
-	bool optimize_aload(FfData &ff, Cell *cell, bool &changed);
-	bool optimize_arst(FfData &ff, Cell *cell, bool &changed);
-	void optimize_srst(FfData &ff, Cell *cell, bool &changed);
-	void optimize_ce(FfData &ff, Cell *cell, bool &changed);
-	void optimize_const_clk(FfData &ff, Cell *cell, bool &changed);
-	void optimize_d_equals_q(FfData &ff, Cell *cell, bool &changed);
-	bool try_merge_srst(FfData &ff, Cell *cell, bool &changed);
-	bool try_merge_ce(FfData &ff, Cell *cell, bool &changed);
 	bool run();
-
-	struct ConstObligation;
-	struct ConstWatchList;
-	State combine_const(State a, State b);
-	State check_constbit(FfData &ff, int i);
-	void commit_const(dict<Cell *, pool<int>> &const_bits, const ConstObligation &ob);
-	bool add_const_target(ConstObligation &ob, SigBit sig);
-	bool resolve_const_obligation(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob,
-			const ConstWatchList &watches);
-	std::vector<ConstObligation> gather_const_obligations();
-	int build_const_batch(QuickConeSat &qcsat, std::vector<ConstObligation> &obligations, int batch_begin);
-	void sweep_const_batch(QuickConeSat &qcsat, std::vector<ConstObligation> &obligations,
-			int batch_begin, int batch_end, int64_t screen_cap);
-	void solve_const_obligations(std::vector<ConstObligation> &obligations);
 	bool run_constbits();
-
-	struct EqBit;
-	struct SigKey;
-	struct EqCandidates;
-	EqCandidates gather_initial_eq_classes();
-	void filter_classes_sim(EqCandidates &cand);
-	void drop_all_classes(EqCandidates &cand);
-	void filter_classes_sat(EqCandidates &cand);
-	bool apply_eq_merges(const EqCandidates &cand);
 	bool run_eqbits();
 };
 
