@@ -680,27 +680,26 @@ struct XAigerWriter
 		design->scratchpad_set_int("write_xaiger.num_outputs", output_bits.size());
 	}
 
-	void write_map(std::ostream &f)
+	void write_map(std::ostream &f, bool name_mode)
 	{
 		dict<int, string> input_lines;
 		dict<int, string> output_lines;
 
 		for (auto wire : module->wires())
 		{
+			std::string sym = name_mode ? wire->name.unescape() : design->twines.ref_token(wire->name);
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				RTLIL::SigBit b(wire, i);
 				if (input_bits.count(b)) {
 					int a = aig_map.at(b);
 					log_assert((a & 1) == 0);
-					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i,
-							design->twines.ref_token(wire->name));
+					input_lines[a] += stringf("input %d %d %s\n", (a >> 1)-1, wire->start_offset+i, sym);
 				}
 
 				if (output_bits.count(b)) {
 					int o = ordered_outputs.at(b);
-					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i,
-							design->twines.ref_token(wire->name));
+					output_lines[o] += stringf("output %d %d %s\n", o - GetSize(co_bits), wire->start_offset+i, sym);
 				}
 			}
 		}
@@ -712,7 +711,8 @@ struct XAigerWriter
 
 		int box_count = 0;
 		for (auto cell : box_list)
-			f << stringf("box %d %d %s\n", box_count++, 0, design->twines.ref_token(cell->name));
+			f << stringf("box %d %d %s\n", box_count++, 0,
+					name_mode ? cell->name.unescape() : design->twines.ref_token(cell->name));
 
 		output_lines.sort();
 		for (auto &it : output_lines)
@@ -743,13 +743,17 @@ struct XAigerBackend : public Backend {
 		log("        references that 'abc_ops_reintegrate' resolves. They are only\n");
 		log("        valid within the run of yosys that wrote them.\n");
 		log("\n");
+		log("    -map-strings\n");
+		log("        write strings into the -map file instead of internal ID integers.\n");
+		log("        Not readable with read_xaiger, for debugging only.\n");
+		log("\n");
 		log("    -dff\n");
 		log("        write $_DFF_[NP]_ cells\n");
 		log("\n");
 	}
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		bool ascii_mode = false, dff_mode = false;
+		bool ascii_mode = false, dff_mode = false, map_names_mode = false;
 		std::string map_filename;
 
 		log_header(design, "Executing XAIGER backend.\n");
@@ -765,6 +769,10 @@ struct XAigerBackend : public Backend {
 				map_filename = args[++argidx];
 				continue;
 			}
+			if (args[argidx] == "-map-strings") {
+				map_names_mode = true;
+				continue;
+			}
 			if (args[argidx] == "-dff") {
 				dff_mode = true;
 				continue;
@@ -772,6 +780,9 @@ struct XAigerBackend : public Backend {
 			break;
 		}
 		extra_args(f, filename, args, argidx, !ascii_mode);
+
+		if (map_names_mode && map_filename.empty())
+			log_cmd_error("The -map-names option requires -map.\n");
 
 		Module *top_module = design->top_module();
 
@@ -794,7 +805,7 @@ struct XAigerBackend : public Backend {
 			mapf.open(map_filename.c_str(), std::ofstream::trunc);
 			if (mapf.fail())
 				log_error("Can't open file `%s' for writing: %s\n", map_filename, strerror(errno));
-			writer.write_map(mapf);
+			writer.write_map(mapf, map_names_mode);
 		}
 	}
 } XAigerBackend;
