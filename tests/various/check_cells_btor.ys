@@ -1,0 +1,16 @@
+# $check cells reach the backend unless chformal -lower has run (async2sync and
+# clk2fflogic do it for you). Both backends used to drop them silently.
+
+read_verilog -formal <<EOT
+module counter(input clk, input rst, output reg [3:0] count);
+	always @(posedge clk) begin
+		if (rst) count <= 4'd0;
+		else count <= count + 4'd1;
+	end
+	assert property (count != 4'd15);
+endmodule
+EOT
+prep -top counter
+
+logger -expect error "Unsupported cell type .check..*before .write_btor." 1
+write_btor /dev/null

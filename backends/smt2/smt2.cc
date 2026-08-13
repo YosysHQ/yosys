@@ -1107,6 +1107,10 @@ struct Smt2Worker
 
 		for (auto cell : module->cells())
 		{
+			if (cell->type == ID($check))
+				log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync` or `clk2fflogic` before `write_smt2`.\n",
+						cell->type.unescape(), module, cell);
+
 			if (cell->type.in(ID($assert), ID($assume), ID($cover)))
 			{
 				int &id = cell->type == ID($assert) ? assert_id :
