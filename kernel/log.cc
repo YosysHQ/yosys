@@ -118,6 +118,8 @@ static void log_default_callback(LogMessage msg)
 			design->scratchpad[scratchpad].append(str);
 }
 
+void (*log_callback)(LogMessage msg) = log_default_callback;
+
 static void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
@@ -143,7 +145,7 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 	if (log_hasher)
 		log_hasher->update(str);
 
-	log_default_callback(LogMessage(severity, prefix, format, str_in));
+	log_callback(LogMessage(severity, prefix, format, str_in));
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
