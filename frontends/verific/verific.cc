@@ -336,6 +336,12 @@ bool is_blackbox(Netlist *nl)
 	if (nl->IsBlackBox())
 		return true;
 
+	// Interface bindings look like parameters, so force a blackbox
+	const char *base = nl->CellBaseName();
+	if (base && verific_compile_as_blackbox.count(base))
+		return true;
+
+	// Empty parameterized RTL must uniquify
 	if (nl->HasParameters())
 		return false;
 
