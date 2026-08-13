@@ -128,6 +128,14 @@ vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 // SILIMATE: "<module>.<signal>" entries to treat as if annotated with (* force_ram *)
 vector<string> verific_force_ram_signals;
 
+// SILIMATE: module names to elaborate as blackboxes (keep ports, skip body)
+static pool<std::string> verific_compile_as_blackbox;
+
+static unsigned compile_as_blackbox_cb(const char *module_name)
+{
+	return module_name && verific_compile_as_blackbox.count(module_name);
+}
+
 // SILIMATE: stamp the force_ram attribute onto the registered signals.
 static void apply_force_ram_signals(const char *work)
 {
@@ -3332,6 +3340,7 @@ void verific_cleanup()
 	verific_libdirs.clear();
 	verific_libexts.clear();
 	verific_force_ram_signals.clear(); // SILIMATE
+	verific_compile_as_blackbox.clear(); // SILIMATE
 #endif
 	verific_import_pending = false;
 }
@@ -3717,6 +3726,12 @@ struct VerificPass : public Pass {
 		log("Treat each listed signal as if it had a (* force_ram *) attribute in the\n");
 		log("RTL, opting it into multi-port RAM extraction. The attribute is applied\n");
 		log("when the design is elaborated (verific -import).\n");
+		log("\n");
+		log("\n");
+		log("    verific -compile_as_blackbox <module>..\n");
+		log("\n");
+		log("Elaborate each listed module as a blackbox: keep the RTL port list\n");
+		log("but skip the implementation. Unlike -ignore_module, the module is still parsed\n");
 		log("\n");
 		log("\n");
 #endif
@@ -4254,6 +4269,14 @@ struct VerificPass : public Pass {
 			veri_file::AddLibExt(".svp");
 			veri_file::AddLibExt(".h");
 			veri_file::AddLibExt(".inc");
+			goto check_error;
+		}
+
+		if (GetSize(args) > argidx && args[argidx] == "-compile_as_blackbox") {
+			// Callback is invoked at library attach and first elab (VIPER #7337)
+			veri_file::RegisterCompileAsBlackbox(compile_as_blackbox_cb);
+			for (argidx++; argidx < GetSize(args); argidx++)
+				verific_compile_as_blackbox.insert(args[argidx]);
 			goto check_error;
 		}
 
