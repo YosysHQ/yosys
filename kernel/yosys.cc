@@ -777,7 +777,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			from_to_active = run_from.empty();
 		}
 
-		log("\n-- Executing script file `%s' --\n", filename);
+		log_comment("\n-- Executing script file `%s' --\n", filename);
 
 		FILE *f = stdin;
 
@@ -847,9 +847,9 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	}
 
 	if (filename == "-") {
-		log("\n-- Parsing stdin using frontend `%s' --\n", command);
+		log_comment("\n-- Parsing stdin using frontend `%s' --\n", command);
 	} else {
-		log("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
+		log_comment("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
 	}
 
 	if (command[0] == ' ') {
@@ -868,7 +868,7 @@ void run_pass(std::string command, RTLIL::Design *design)
 	if (design == nullptr)
 		design = yosys_design;
 
-	log("\n-- Running command `%s' --\n", command);
+	log_comment("\n-- Running command `%s' --\n", command);
 
 	Pass::call(design, command);
 }
@@ -907,9 +907,9 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		filename = "-";
 
 	if (filename == "-") {
-		log("\n-- Writing to stdout using backend `%s' --\n", command);
+		log_comment("\n-- Writing to stdout using backend `%s' --\n", command);
 	} else {
-		log("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
+		log_comment("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
 	}
 
 	Backend::backend_call(design, NULL, filename, command);
