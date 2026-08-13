@@ -333,11 +333,11 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 
 bool is_blackbox(Netlist *nl)
 {
-	if (nl->HasParameters())
-		return false;
-
 	if (nl->IsBlackBox() || nl->IsEmptyBox())
 		return true;
+
+	if (nl->HasParameters())
+		return false;
 
 	const char *attr = nl->GetAttValue("blackbox");
 	if (attr != nullptr && strcmp(attr, "0"))
