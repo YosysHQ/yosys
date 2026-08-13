@@ -739,7 +739,9 @@ struct OptMuxPushPass : public Pass {
     log("\n");
     log("    -types <string>\n");
     log("        comma-separated list of operator cell types to push through\n");
-    log("        (default: $add,$sub,$xor)\n");
+    log("        (default: $add,$sub,$xor). $mux is rejected: the pass emits a\n");
+    log("        $mux, so targeting it would make its own output a candidate and\n");
+    log("        never fixpoint\n");
     log("\n");
     log("    -timing\n");
     log("        only push when the push buys depth on a path that is long\n");
@@ -808,7 +810,15 @@ struct OptMuxPushPass : public Pass {
     for (auto &tok : split_tokens(types, ", \t\r\n")) {
       if (tok.empty())
         continue;
-      target_types.insert(RTLIL::escape_id(tok));
+      IdString type = RTLIL::escape_id(tok);
+      // The rewrite re-inserts a $mux at the operator's output, so targeting
+      // $mux makes the pass's own output a candidate. Each push then just
+      // rotates the two muxes -- same cell count, one more level of name -- and
+      // run() never reaches a fixpoint. Refuse rather than spin.
+      if (type == ID($mux))
+        log_cmd_error("muxpush: -types must not include $mux: it is the cell this "
+            "pass emits, so pushing a mux through a mux never fixpoints.\n");
+      target_types.insert(type);
     }
 
     int total_count = 0;
