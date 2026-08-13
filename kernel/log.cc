@@ -40,7 +40,6 @@ YOSYS_NAMESPACE_BEGIN
 
 std::vector<FILE*> log_files;
 std::vector<std::ostream*> log_streams;
-std::vector<LogSink*> log_sinks;
 std::vector<std::string> log_scratchpads;
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -70,7 +69,7 @@ int log_debug_suppressed = 0;
 vector<int> header_count;
 vector<char*> log_id_cache;
 
-static struct timeval initial_tv = { 0, 0 };
+static std::optional<std::chrono::steady_clock::time_point> initial_time;
 static bool next_print_log = false;
 static int log_newline_count = 0;
 
@@ -81,36 +80,56 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
-#if defined(_WIN32) && !defined(__MINGW32__)
-// this will get time information and return it in timeval, simulating gettimeofday()
-int gettimeofday(struct timeval *tv, struct timezone *tz)
+static void log_default_callback(LogMessage msg)
 {
-	LARGE_INTEGER counter;
-	LARGE_INTEGER freq;
+	std::string time_str;
+	if (log_time)
+	{
+		if (next_print_log || !initial_time) {
+			next_print_log = false;
+			if (!initial_time)
+    			initial_time = std::chrono::steady_clock::now();
+			auto elapsed = std::chrono::steady_clock::now() - *initial_time;
+			auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
+			time_str += stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
+		}
 
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&counter);
+		if (!msg.format.empty() && msg.format.back() == '\n')
+			next_print_log = true;
 
-	counter.QuadPart *= 1'000'000;
-	counter.QuadPart /= freq.QuadPart;
+		// Special case to detect newlines in Python log output, since
+		// the binding always calls `log("%s", payload)` and the newline
+		// is then in the first formatted argument
+		if (msg.format == "%s" && msg.message.back() == '\n')
+			next_print_log = true;
+	}
 
-	tv->tv_sec = long(counter.QuadPart / 1000000);
-	tv->tv_usec = counter.QuadPart % 1'000'000;
+	std::string str = stringf("%s%s%s", time_str, msg.prefix, msg.message);
+	for (auto f : log_files) {
+		fputs(str.c_str(), f);
+	}
 
-	return 0;
+	for (auto f : log_streams)
+		*f << str;
+
+	RTLIL::Design *design = yosys_get_design();
+	if (design != nullptr)
+		for (auto &scratchpad : log_scratchpads)
+			design->scratchpad[scratchpad].append(str);
 }
-#endif
 
-static void logv_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO) {
+static void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
-		logv_string("\n", "\n");
+		logv_string(prefix, "\n", "\n", severity);
 		format = format.substr(1);
 		++remove_leading;
 	}
 	if (remove_leading > 0) {
-		str = str.substr(remove_leading);
+		str_in = str_in.substr(remove_leading);
 	}
+
+	std::string str = stringf("%s%s",prefix,str_in);
 
 	if (str.empty())
 		return;
@@ -124,55 +143,7 @@ static void logv_string(std::string_view format, std::string str, LogSeverity se
 	if (log_hasher)
 		log_hasher->update(str);
 
-	if (log_time)
-	{
-		std::string time_str;
-
-		if (next_print_log || initial_tv.tv_sec == 0) {
-			next_print_log = false;
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			if (initial_tv.tv_sec == 0)
-				initial_tv = tv;
-			if (tv.tv_usec < initial_tv.tv_usec) {
-				tv.tv_sec--;
-				tv.tv_usec += 1'000'000;
-			}
-			tv.tv_sec -= initial_tv.tv_sec;
-			tv.tv_usec -= initial_tv.tv_usec;
-			time_str += stringf("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
-		}
-
-		if (!format.empty() && format[format.size() - 1] == '\n')
-			next_print_log = true;
-
-		// Special case to detect newlines in Python log output, since
-		// the binding always calls `log("%s", payload)` and the newline
-		// is then in the first formatted argument
-		if (format == "%s" && str.back() == '\n')
-			next_print_log = true;
-
-		for (auto f : log_files)
-			fputs(time_str.c_str(), f);
-
-		for (auto f : log_streams)
-			*f << time_str;
-	}
-
-	for (auto f : log_files)
-		fputs(str.c_str(), f);
-
-	for (auto f : log_streams)
-		*f << str;
-
-	LogMessage log_msg(severity, str);
-	for (LogSink* sink : log_sinks)
-		sink->log(log_msg);
-
-	RTLIL::Design *design = yosys_get_design();
-	if (design != nullptr)
-		for (auto &scratchpad : log_scratchpads)
-			design->scratchpad[scratchpad].append(str);
+	log_default_callback(LogMessage(severity, prefix, format, str_in));
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
@@ -206,13 +177,13 @@ static void logv_string(std::string_view format, std::string str, LogSeverity se
 	}
 }
 
-void log_formatted_string(std::string_view format, std::string str, LogSeverity severity)
+void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity)
 {
 	log_assert(!Multithreading::active());
 
 	if (log_make_debug && !ys_debug(1))
 		return;
-	logv_string(format, std::move(str), severity);
+	logv_string(prefix, format, std::move(str), severity);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
@@ -235,8 +206,8 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log("%s. ", header_id);
-	log_formatted_string(format, std::move(str));
+	log_formatted_string(stringf("%s. ", header_id), {}, {}, LogSeverity::LOG_HEADER);
+	log_formatted_string({}, format, std::move(str), LogSeverity::LOG_HEADER);
 	log_flush();
 
 	if (log_hdump_all)
@@ -277,7 +248,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
-				log_error("%s", message);
+				log_formatted_error(message);
 
 		bool warning_match = false;
 		for (auto &[_, item] : log_expect_warning)
@@ -294,7 +265,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 		if (log_warnings.count(message))
 		{
-			log("%s%s", prefix, message);
+			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
 			log_flush();
 		}
 		else
@@ -302,7 +273,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 			if (log_errfile != NULL && !log_quiet_warnings)
 				log_files.push_back(log_errfile);
 
-			log_formatted_string("%s", stringf("%s%s", prefix, message), LogSeverity::LOG_WARNING);
+			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
 			log_flush();
 
 			if (log_errfile != NULL && !log_quiet_warnings)
@@ -332,7 +303,7 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 void log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
-		logv_string(format, stringf(format, log_debug_suppressed));
+		logv_string({}, format, stringf(format, log_debug_suppressed),LogSeverity::LOG_INFO);
 		log_debug_suppressed = 0;
 	}
 }
@@ -357,7 +328,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 	log_last_error = std::move(str);
 	std::string message(prefix);
 	message += log_last_error;
-	log_formatted_string("%s", message, LogSeverity::LOG_ERROR);
+	log_formatted_string(prefix, "%s", log_last_error, LogSeverity::LOG_ERROR);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -434,7 +405,7 @@ void log_formatted_cmd_error(std::string str)
 			pop_errfile = true;
 		}
 
-		log_formatted_string("%s", stringf("ERROR: %s", log_last_error), LogSeverity::LOG_ERROR);
+		log_formatted_string("ERROR: ", "%s", log_last_error, LogSeverity::LOG_ERROR);
 		log_flush();
 
 		if (pop_errfile)

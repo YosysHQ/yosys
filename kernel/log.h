@@ -22,6 +22,7 @@
 
 #include "kernel/yosys_common.h"
 
+#include <chrono>
 #include <time.h>
 
 #include <regex>
@@ -86,27 +87,30 @@ YOSYS_NAMESPACE_BEGIN
 struct log_cmd_error_exception { };
 
 enum LogSeverity {
+	LOG_DEBUG,
+	LOG_COMMENT,
 	LOG_INFO,
+	LOG_HEADER,
 	LOG_WARNING,
 	LOG_ERROR
 };
 
 struct LogMessage {
-	LogMessage(LogSeverity severity, std::string_view message) :
-		severity(severity), timestamp(std::time(nullptr)), message(message) {}
+	LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message) :
+		severity(severity),
+		prefix(prefix),
+		format(format),
+		message(message),
+		timestamp(std::chrono::steady_clock::now()) {}
 	LogSeverity severity;
-	std::time_t timestamp;
+	std::string prefix;
+	std::string format;
 	std::string message;
-};
-
-class LogSink {
- public:
-	virtual void log(const LogMessage& message) = 0;
+	std::chrono::steady_clock::time_point timestamp;
 };
 
 extern std::vector<FILE*> log_files;
 extern std::vector<std::ostream*> log_streams;
-extern std::vector<LogSink*> log_sinks;
 extern std::vector<std::string> log_scratchpads;
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
@@ -138,13 +142,26 @@ static inline bool ys_debug(int n = 0) { if (log_force_debug) return true; log_d
 #else
 static inline bool ys_debug(int = 0) { return false; }
 #endif
-#  define log_debug(...) do { if (ys_debug(1)) log(__VA_ARGS__); } while (0)
 
-void log_formatted_string(std::string_view format, std::string str, LogSeverity severity = LogSeverity::LOG_INFO);
+void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity);
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	log_formatted_string(fmt.format_string(), fmt.format(args...));
+	log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_INFO);
+}
+
+template <typename... Args>
+inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_COMMENT);
+}
+
+template <typename... Args>
+inline void log_debug(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+    if (!ys_debug(1))
+        return;
+    log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_DEBUG);
 }
 
 void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
@@ -163,12 +180,12 @@ inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... ar
 
 inline void log_formatted_warning_noprefix(std::string str)
 {
-	log_formatted_warning("", str);
+	log_formatted_warning({}, str);
 }
 template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	log_formatted_warning("", fmt.format(args...));
+	log_formatted_warning({}, fmt.format(args...));
 }
 
 void log_experimental(const std::string &str);
@@ -185,8 +202,6 @@ void log_formatted_file_info(std::string_view filename, int lineno, std::string 
 template <typename... Args>
 void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	if (log_make_debug && !ys_debug(1))
-		return;
 	log_formatted_file_info(filename, lineno, fmt.format(args...));
 }
 
