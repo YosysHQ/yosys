@@ -73,6 +73,7 @@ struct OptMuxPushWorker
   dict<SigBit, RTLIL::Cell*> driver_map;
   dict<SigBit, int> fanout_map;
   dict<SigBit, std::vector<RTLIL::Cell*>> consumer_map;
+  pool<SigBit> keep_bits;
   dict<SigBit, int> arrival_cache;
   pool<SigBit> arrival_active;
   dict<SigBit, int> depart_cache;
@@ -337,7 +338,7 @@ struct OptMuxPushWorker
     RTLIL::SigSpec arm_a, arm_b;
     if (budget > 0 && mux_drives_sig(sig, m) && design->selected(module, m) &&
         !m->get_bool_attribute(ID::keep) &&
-        !sig_has_keep(sigmap(m->getPort(ID::Y))) &&
+        !sig_has_keep(m->getPort(ID::Y)) &&
         fanout_within_limit(sigmap(m->getPort(ID::Y))) &&
         slice_arms(m, sigmap(m->getPort(ID::Y)), sig, arm_a, arm_b))
       return std::max({pushed_arrival(sigmap(arm_a), d_op, others, budget - 1),
@@ -405,6 +406,15 @@ struct OptMuxPushWorker
     driver_map.clear();
     fanout_map.clear();
     consumer_map.clear();
+    keep_bits.clear();
+
+    // Collect `keep` across every alias, not just the wire sigmap elected: the
+    // attribute may sit on any wire of a `connect` group, and testing it on the
+    // representative alone silently drops the mux a kept probe was reading.
+    for (auto wire : module->wires())
+      if (wire->get_bool_attribute(ID::keep))
+        for (auto &bit : sigmap(RTLIL::SigSpec(wire)))
+          keep_bits.insert(bit);
 
     // Build per-bit driver and fanout maps for the current module
     for (auto cell : module->cells())
@@ -449,10 +459,11 @@ struct OptMuxPushWorker
     }
   }
 
+  // Sigmaps each bit so callers may pass raw or mapped signals interchangeably.
   bool sig_has_keep(const RTLIL::SigSpec &sig)
   {
     for (auto &bit : sig) {
-      if (bit.wire != nullptr && bit.wire->get_bool_attribute(ID::keep))
+      if (bit.wire != nullptr && keep_bits.count(sigmap(bit)))
         return true;
     }
     return false;
