@@ -161,6 +161,7 @@ int main(int argc, char **argv)
 	bool run_tcl_shell = false;
 	bool mode_v = false;
 	bool mode_q = false;
+	FILE *log_errfile = NULL;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
 	options.set_width(SIZE_MAX);
@@ -314,12 +315,11 @@ int main(int argc, char **argv)
 		for (const auto& key : {"l", "L"}) {
 			if (result.count(key)) {
 				for (const auto& filename : result[key].as<std::vector<std::string>>()) {
-					if (FILE* f = fopen(filename.c_str(), "wt")) {
-						log_files.push_back(f);
-						if (key[0] == 'L') setvbuf(f, NULL, _IOLBF, 0);
-					} else {
-						std::cerr << "Can't open log file `" << filename << "' for writing!\n";
-						exit(1);
+					try {
+						log_sinks.push_back(std::make_unique<FileLogSink>(filename, key[0] == 'L', false));
+					} catch (const std::runtime_error &e) {
+ 					   std::cerr << e.what();
+					   exit(1);
 					}
 				}
 			}
@@ -405,8 +405,9 @@ int main(int argc, char **argv)
 		}
 
 		if (log_errfile == NULL) {
-			log_files.push_back(stdout);
-			log_error_stderr = true;
+			log_sinks.push_back(std::make_unique<ConsoleLogSink>());
+		} else {
+			log_sinks.push_back(std::make_unique<StderrLogSink>());
 		}
 
 		if (print_banner)
@@ -609,7 +610,7 @@ int main(int argc, char **argv)
 		log_spacer();
 
 		if (mode_v && !mode_q)
-			log_files.push_back(stderr);
+			log_stderr_force = true;
 
 		if (log_warnings_count)
 			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);

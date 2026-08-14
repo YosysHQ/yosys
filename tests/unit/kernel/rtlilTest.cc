@@ -19,7 +19,7 @@ namespace RTLIL {
 	class KernelRtlilTest : public testing::Test {
 	protected:
 		KernelRtlilTest() {
-			if (log_files.empty()) log_files.emplace_back(stdout);
+			if (log_sinks.empty()) log_sinks.push_back(std::make_unique<ConsoleLogSink>());
 		}
 		virtual void SetUp() override {
 			IdString::ensure_prepopulated();

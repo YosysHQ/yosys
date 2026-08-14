@@ -58,41 +58,35 @@ struct TeePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		std::vector<FILE*> backup_log_files, files_to_close;
-		std::vector<std::ostream*> backup_log_streams;
-		std::vector<std::string> backup_log_scratchpads;
 		int backup_log_verbose_level = log_verbose_level;
-		backup_log_streams = log_streams;
-		backup_log_files = log_files;
-		backup_log_scratchpads = log_scratchpads;
+		auto backup_log_sinks = std::move(log_sinks);
+	    log_sinks.reserve(backup_log_sinks.size());
+	    for (const auto &sink : backup_log_sinks)
+    	    log_sinks.push_back(std::make_unique<LogSinkRef>(sink.get()));
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (args[argidx] == "-q" && files_to_close.empty()) {
-				log_files.clear();
-				log_streams.clear();
+			if (args[argidx] == "-q") {
+				log_sinks.clear();
 				continue;
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
-				const char *open_mode = args[argidx] == "-o" ? "w" : "a+";
+				bool is_append = args[argidx] == "-a";
 				auto path = args[++argidx];
 				rewrite_filename(path);
-				FILE *f = fopen(path.c_str(), open_mode);
-				yosys_input_files.insert(args[argidx]);
-				if (f == NULL) {
-					for (auto cf : files_to_close)
-						fclose(cf);
-					log_cmd_error("Can't create file %s.\n", args[argidx]);
+				try {
+					log_sinks.push_back(std::make_unique<FileLogSink>(path.c_str(), false, is_append));
+				} catch (const std::runtime_error &e) {
+					std::cerr << e.what();
+					exit(1);
 				}
-				log_files.push_back(f);
-				files_to_close.push_back(f);
 				continue;
 			}
 			if (args[argidx] == "-s" && argidx+1 < args.size()) {
 				auto name = args[++argidx];
 				design->scratchpad[name] = "";
-				log_scratchpads.push_back(name);
+				log_sinks.push_back(std::make_unique<ScratchPadLogSink>(name));
 				continue;
 			}
 			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
@@ -106,21 +100,14 @@ struct TeePass : public Pass {
 			std::vector<std::string> new_args(args.begin() + argidx, args.end());
 			Pass::call(design, new_args);
 		} catch (...) {
-			for (auto cf : files_to_close)
-				fclose(cf);
-			log_files = backup_log_files;
-			log_streams = backup_log_streams;
-			log_scratchpads = backup_log_scratchpads;
+			log_sinks.clear();
+			log_sinks = std::move(backup_log_sinks);
 			throw;
 		}
 
-		for (auto cf : files_to_close)
-			fclose(cf);
-
 		log_verbose_level = backup_log_verbose_level;
-		log_files = backup_log_files;
-		log_streams = backup_log_streams;
-		log_scratchpads = backup_log_scratchpads;
+		log_sinks.clear();
+		log_sinks = std::move(backup_log_sinks);
 	}
 } TeePass;
 

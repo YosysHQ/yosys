@@ -321,8 +321,11 @@ AstNode::~AstNode()
 void AstNode::dumpAst(FILE *f, std::string indent) const
 {
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpAst(f, indent);
+		for (auto &s : log_sinks) {
+			f = s->file_handle();
+			if (f)
+				dumpAst(f, indent);
+		}
 		return;
 	}
 
@@ -425,8 +428,11 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	std::vector<AstNode*> rem_children1, rem_children2;
 
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpVlog(f, indent);
+		for (auto &s : log_sinks) {
+			f = s->file_handle();
+			if (f)
+				dumpVlog(f, indent);
+		}
 		return;
 	}
 

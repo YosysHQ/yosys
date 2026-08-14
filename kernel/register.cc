@@ -753,6 +753,16 @@ static struct CellHelpMessages {
 	SimHelper get(string name) { return cell_help[get_cell_name(name)]; }
 } cell_help_messages;
 
+class HelpMsgLogSink : public LogSink
+{
+public:
+    explicit HelpMsgLogSink(std::ostream *buf) : buf(buf) {}
+    void log(const LogMessage &msg) override { *buf << msg.message; }
+    void flush() override { buf->flush(); }
+private:
+    std::ostream *buf;
+};
+
 struct HelpPass : public Pass {
 	HelpPass() : Pass("help", "display help messages") { }
 	void help() override
@@ -805,9 +815,9 @@ struct HelpPass : public Pass {
 
 				// dump command help
 				std::ostringstream buf;
-				log_streams.push_back(&buf);
+				log_sinks.push_back(std::make_unique<HelpMsgLogSink>(&buf));
 				pass->help();
-				log_streams.pop_back();
+				log_sinks.pop_back();
 				std::stringstream ss;
 				ss << buf.str();
 

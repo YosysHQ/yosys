@@ -38,9 +38,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::vector<FILE*> log_files;
-std::vector<std::ostream*> log_streams;
-std::vector<std::string> log_scratchpads;
+std::vector<std::unique_ptr<LogSink>> log_sinks;
+
 std::map<std::string, std::set<std::string>> log_hdump;
 std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
@@ -50,7 +49,6 @@ int log_warnings_count = 0;
 int log_warnings_count_noexpect = 0;
 bool log_expect_no_warnings = false;
 bool log_hdump_all = false;
-FILE *log_errfile = NULL;
 SHA1 *log_hasher = NULL;
 
 bool log_time = false;
@@ -58,13 +56,15 @@ bool log_error_stderr = false;
 bool log_cmd_error_throw = false;
 bool log_quiet_warnings = false;
 int log_verbose_level;
-string log_last_error;
+
 void (*log_error_atexit)() = NULL;
 void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
 int log_make_debug = 0;
 int log_force_debug = 0;
 int log_debug_suppressed = 0;
+
+bool log_stderr_force = false;
 
 vector<int> header_count;
 vector<char*> log_id_cache;
@@ -73,14 +73,83 @@ static std::optional<std::chrono::steady_clock::time_point> initial_time;
 static bool next_print_log = false;
 static int log_newline_count = 0;
 
-static void log_id_cache_clear()
+FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
+	: file(fopen(filename.c_str(), append ? "at" : "wt"))
 {
-	for (auto p : log_id_cache)
-		free(p);
-	log_id_cache.clear();
+	if (!file)
+		throw std::runtime_error("Can't open log file `" + filename + "' for writing!\n");
+
+	if (line_buffered)
+		setvbuf(file, nullptr, _IOLBF, 0);
 }
 
-static void log_default_callback(LogMessage msg)
+FileLogSink::~FileLogSink()
+{
+	flush();
+	if (file)
+		fclose(file);
+}
+
+void FileLogSink::log(const LogMessage &msg)
+{
+	fputs(msg.legacy_msg.c_str(), file);
+}
+
+void FileLogSink::flush()
+{
+	fflush(file);
+}
+
+void ConsoleLogSink::log(const LogMessage &msg)
+{
+	FILE *file = msg.severity == LogSeverity::LOG_ERROR ? stderr : stdout;
+	fputs(msg.legacy_msg.c_str(), file);
+}
+
+void ConsoleLogSink::flush()
+{
+	fflush(stdout);
+	fflush(stderr);
+}
+
+bool StderrLogSink::should_log(const LogMessage &msg) const
+{
+	return msg.severity == LogSeverity::LOG_ERROR ||
+			(msg.severity == LogSeverity::LOG_WARNING && !log_quiet_warnings) ||
+			/* (msg.severity == LogSeverity::LOG_HEADER && int(header_count.size()) <= log_verbose_level) || */
+			log_stderr_force;
+}
+
+void StderrLogSink::log(const LogMessage &msg)
+{
+	fputs(msg.legacy_msg.c_str(), stderr);
+}
+
+void StderrLogSink::flush()
+{
+	fflush(stderr);
+}
+
+ScratchPadLogSink::ScratchPadLogSink(std::string scratchpad)
+    : scratchpad(std::move(scratchpad))
+{
+}
+
+void ScratchPadLogSink::log(const LogMessage &msg)
+{
+	RTLIL::Design *design = yosys_get_design();
+	if (!design)
+		return;
+
+	design->scratchpad[scratchpad].append(msg.legacy_msg);
+}
+
+LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message) :
+	severity(severity),
+	prefix(prefix),
+	format(format),
+	message(message),
+	timestamp(std::chrono::steady_clock::now())
 {
 	std::string time_str;
 	if (log_time)
@@ -94,31 +163,24 @@ static void log_default_callback(LogMessage msg)
 			time_str += stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
 		}
 
-		if (!msg.format.empty() && msg.format.back() == '\n')
+		if (!format.empty() && format.back() == '\n')
 			next_print_log = true;
 
 		// Special case to detect newlines in Python log output, since
 		// the binding always calls `log("%s", payload)` and the newline
 		// is then in the first formatted argument
-		if (msg.format == "%s" && msg.message.back() == '\n')
+		if (format == "%s" && message.back() == '\n')
 			next_print_log = true;
 	}
-
-	std::string str = stringf("%s%s%s", time_str, msg.prefix, msg.message);
-	for (auto f : log_files) {
-		fputs(str.c_str(), f);
-	}
-
-	for (auto f : log_streams)
-		*f << str;
-
-	RTLIL::Design *design = yosys_get_design();
-	if (design != nullptr)
-		for (auto &scratchpad : log_scratchpads)
-			design->scratchpad[scratchpad].append(str);
+	legacy_msg = stringf("%s%s%s", time_str, prefix, message);
 }
 
-void (*log_callback)(LogMessage msg) = log_default_callback;
+static void log_id_cache_clear()
+{
+	for (auto p : log_id_cache)
+		free(p);
+	log_id_cache.clear();
+}
 
 static void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
 	size_t remove_leading = 0;
@@ -145,7 +207,11 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 	if (log_hasher)
 		log_hasher->update(str);
 
-	log_callback(LogMessage(severity, prefix, format, str_in));
+	auto msg = LogMessage(severity, prefix, format, str_in);
+	for (auto &sink : log_sinks) {
+		if (sink->should_log(msg))
+			sink->log(msg);
+	}
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
@@ -192,15 +258,12 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 {
 	log_assert(!Multithreading::active());
 
-	bool pop_errfile = false;
-
 	log_spacer();
 	if (header_count.size() > 0)
 		header_count.back()++;
 
-	if (int(header_count.size()) <= log_verbose_level && log_errfile != NULL) {
-		log_files.push_back(log_errfile);
-		pop_errfile = true;
+	if (int(header_count.size()) <= log_verbose_level) {
+		log_stderr_force = true;
 	}
 
 	std::string header_id;
@@ -224,9 +287,7 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 			if (yosys_xtrace)
 				log("#X# -- end of dump --\n");
 		}
-
-	if (pop_errfile)
-		log_files.pop_back();
+	log_stderr_force = false;
 }
 
 void log_formatted_warning(std::string_view prefix, std::string message)
@@ -267,20 +328,13 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 		if (log_warnings.count(message))
 		{
-			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
+			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_INFO);
 			log_flush();
 		}
 		else
 		{
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.push_back(log_errfile);
-
 			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
 			log_flush();
-
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.pop_back();
-
 			log_warnings.insert(message);
 		}
 
@@ -311,36 +365,23 @@ void log_suppressed() {
 }
 
 [[noreturn]]
-static void log_error_with_prefix(std::string_view prefix, std::string str)
+static void log_error_with_prefix(std::string_view prefix, std::string message)
 {
 	int bak_log_make_debug = log_make_debug;
 	log_make_debug = 0;
 	log_suppressed();
 
-	if (log_errfile != NULL)
-		log_files.push_back(log_errfile);
-
-	if (log_error_stderr) {
-		log_flush(); // Make sure we flush stdout before replacing it with stderr
-		for (auto &f : log_files)
-			if (f == stdout)
-				f = stderr;
-	}
-
-	log_last_error = std::move(str);
-	std::string message(prefix);
-	message += log_last_error;
-	log_formatted_string(prefix, "%s", log_last_error, LogSeverity::LOG_ERROR);
+	log_formatted_string(prefix, "%s", message, LogSeverity::LOG_ERROR);
 	log_flush();
 
 	log_make_debug = bak_log_make_debug;
 
 	for (auto &[_, item] : log_expect_error)
-		if (std::regex_search(log_last_error, item.pattern))
+		if (std::regex_search(message, item.pattern))
 			item.current_count++;
 
 	for (auto &[_, item] : log_expect_prefix_error)
-		if (std::regex_search(message, item.pattern))
+		if (std::regex_search(string(prefix) + message, item.pattern))
 			item.current_count++;
 
 	log_check_expected();
@@ -394,29 +435,16 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
 }
 
-void log_formatted_cmd_error(std::string str)
+void log_formatted_cmd_error(std::string message)
 {
 	if (log_cmd_error_throw) {
-		log_last_error = str;
-
-		// Make sure the error message gets through any selective silencing
-		// of log output
-		bool pop_errfile = false;
-		if (log_errfile != NULL) {
-			log_files.push_back(log_errfile);
-			pop_errfile = true;
-		}
-
-		log_formatted_string("ERROR: ", "%s", log_last_error, LogSeverity::LOG_ERROR);
+		log_formatted_string("ERROR: ", "%s", message, LogSeverity::LOG_ERROR);
 		log_flush();
-
-		if (pop_errfile)
-			log_files.pop_back();
 
 		throw log_cmd_error_exception();
 	}
 
-	log_formatted_error(str);
+	log_formatted_error(message);
 }
 
 void log_spacer()
@@ -544,11 +572,8 @@ void log_reset_stack()
 
 void log_flush()
 {
-	for (auto f : log_files)
-		fflush(f);
-
-	for (auto f : log_streams)
-		f->flush();
+	for (auto &sink : log_sinks)
+		sink->flush();
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {

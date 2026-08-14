@@ -96,22 +96,83 @@ enum LogSeverity {
 };
 
 struct LogMessage {
-	LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message) :
-		severity(severity),
-		prefix(prefix),
-		format(format),
-		message(message),
-		timestamp(std::chrono::steady_clock::now()) {}
+	LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message);
 	LogSeverity severity;
 	std::string prefix;
 	std::string format;
 	std::string message;
 	std::chrono::steady_clock::time_point timestamp;
+	//TODO: remove
+	std::string legacy_msg;
 };
 
-extern std::vector<FILE*> log_files;
-extern std::vector<std::ostream*> log_streams;
-extern std::vector<std::string> log_scratchpads;
+class LogSink
+{
+public:
+    virtual ~LogSink() = default;
+
+    virtual bool should_log(const LogMessage &) const { return true; }
+    virtual void log(const LogMessage &msg) = 0;
+	virtual void flush() {}
+	// TODO: Remove when AST/read_verilog removed
+	virtual FILE *file_handle() { return nullptr; }
+};
+
+extern std::vector<std::unique_ptr<LogSink>> log_sinks;
+
+class LogSinkRef : public LogSink
+{
+public:
+    explicit LogSinkRef(LogSink *sink) : sink(sink) {}
+    bool should_log(const LogMessage &msg) const override { return sink->should_log(msg); }
+    void log(const LogMessage &msg) override { sink->log(msg); }
+    void flush() override { sink->flush(); }
+	FILE *file_handle() override { return sink->file_handle(); }
+private:
+    LogSink *sink;
+};
+
+class FileLogSink : public LogSink
+{
+public:
+    explicit FileLogSink(const std::string &filename, bool line_buffered, bool append);
+    ~FileLogSink() override;
+    void log(const LogMessage &msg) override;
+	void flush() override;
+	FILE *file_handle() override { return file; }
+
+private:
+    FILE *file;
+};
+
+class ConsoleLogSink : public LogSink
+{
+public:
+    void log(const LogMessage &msg) override;
+    void flush() override;
+	FILE *file_handle() override { return stdout; };
+};
+
+class StderrLogSink : public LogSink
+{
+public:
+    bool should_log(const LogMessage &msg) const override;
+    void log(const LogMessage &msg) override;
+    void flush() override;
+};
+
+class ScratchPadLogSink : public LogSink
+{
+public:
+    explicit ScratchPadLogSink(std::string scratchpad);
+    void log(const LogMessage &msg) override;
+
+	private:
+    std::string scratchpad;
+};
+
+extern bool log_stderr_force;
+
 extern std::map<std::string, std::set<std::string>> log_hdump;
 extern std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 extern std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
@@ -119,7 +180,6 @@ extern int log_warnings_count;
 extern int log_warnings_count_noexpect;
 extern bool log_expect_no_warnings;
 extern bool log_hdump_all;
-extern FILE *log_errfile;
 extern SHA1 *log_hasher;
 
 extern bool log_time;
@@ -127,7 +187,6 @@ extern bool log_error_stderr;
 extern bool log_cmd_error_throw;
 extern bool log_quiet_warnings;
 extern int log_verbose_level;
-extern string log_last_error;
 extern void (*log_error_atexit)();
 
 extern int log_make_debug;

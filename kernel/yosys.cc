@@ -286,11 +286,7 @@ void yosys_shutdown()
 	yosys_design = NULL;
 	RTLIL::OwningIdString::collect_garbage();
 
-	for (auto f : log_files)
-		if (f != stderr)
-			fclose(f);
-	log_errfile = NULL;
-	log_files.clear();
+	log_sinks.clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {
