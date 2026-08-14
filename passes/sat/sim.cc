@@ -537,12 +537,13 @@ struct SimInstance
 
 		sig = sigmap(sig);
 		if (GetSize(sig) > GetSize(value)) {
-			log_warning("Width mismatch on signal `%s` at `%s`: net is %d bits, value is %d bits (`%s`); assigning the first %d bits.\n",
+			log_warning("Width mismatch on signal `%s` at `%s`: net is %d bits, value is %d bits (`%s`); zero-padding the high bits.\n",
 					log_signal(sig), hiername(), GetSize(sig), GetSize(value),
-					log_const(value), GetSize(value));
+					log_const(value));
+			value.extu(GetSize(sig));
 		}
 
-		for (int i = 0; i < GetSize(sig) && i < GetSize(value); i++)
+		for (int i = 0; i < GetSize(sig); i++)
 			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i]) {
 				state_nets.at(sig[i]) = value[i];
 				dirty_bits.insert(sig[i]);
