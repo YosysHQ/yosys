@@ -37,6 +37,14 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	std::string hash_input;
 	time_t newest_mtime = 0;
 
+	// The SCL format is written/read by ABC and can change between ABC builds,
+	// so the cache key must identify the ABC executable.
+	if (!abc_exe.empty()) {
+		struct stat abc_stat;
+		if (stat(abc_exe.c_str(), &abc_stat) == 0)
+			hash_input += stringf("|abc:%s:%lld:%lld", abc_exe.c_str(), (long long)abc_stat.st_mtime, (long long)abc_stat.st_size);
+	}
+
 	for (const std::string &liberty_file : sorted_files) {
 		struct stat liberty_stat;
 		if (stat(liberty_file.c_str(), &liberty_stat) != 0) {
