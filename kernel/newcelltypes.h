@@ -224,16 +224,16 @@ struct CellTableBuilder {
 
 		// for (auto c1 : list_np)
 		// 	setup_type(std::string("$_DFF_") + c1 + "_", {ID::C, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_N_, {ID::C, ID::D}, {ID::Q}, features);
-		setup_type(ID::$_DFF_P_, {ID::C, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_N_), {ID::C, ID::D}, {ID::Q}, features);
+		setup_type(ID($_DFF_P_), {ID::C, ID::D}, {ID::Q}, features);
 
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// 	setup_type(std::string("$_DFFE_") + c1 + c2 + "_", {ID::C, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NN_, {ID::C, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_NP_, {ID::C, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PN_, {ID::C, ID::D, ID::E}, {ID::Q}, features);
-		setup_type(ID::$_DFFE_PP_, {ID::C, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NN_), {ID::C, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_NP_), {ID::C, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PN_), {ID::C, ID::D, ID::E}, {ID::Q}, features);
+		setup_type(ID($_DFFE_PP_), {ID::C, ID::D, ID::E}, {ID::Q}, features);
 		// for (auto c1 : list_np)
 		// for (auto c2 : list_np)
 		// for (auto c3 : list_01)
@@ -416,13 +416,13 @@ struct CellTableBuilder {
 
 };
 
-constexpr CellTableBuilder builder{};
+inline constexpr CellTableBuilder builder {};
 
 struct PortInfo {
 	struct PortLists {
 		std::array<CellTableBuilder::PortList, MAX_CELLS> data{};
-		constexpr CellTableBuilder::PortList operator()(IdString type) const {
-			return data[type.index_];
+		constexpr const CellTableBuilder::PortList &operator()(IdString type) const {
+			return data[type.raw()];
 		}
 		constexpr CellTableBuilder::PortList& operator[](size_t idx) {
 			return data[idx];
@@ -434,7 +434,7 @@ struct PortInfo {
 	constexpr PortInfo() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type.raw();
 			inputs[idx] = cell.inputs;
 			outputs[idx] = cell.outputs;
 		}
@@ -445,7 +445,7 @@ struct Categories {
 	struct Category {
 		std::array<bool, MAX_CELLS> data{};
 		constexpr bool operator()(IdString type) const {
-			size_t idx = type.index_;
+			size_t idx = type.raw();
 			if (idx >= MAX_CELLS)
 				return false;
 			return data[idx];
@@ -454,7 +454,7 @@ struct Categories {
 			return data[idx];
 		}
 		constexpr void set_id(IdString type, bool val = true) {
-			size_t idx = type.index_;
+			size_t idx = type.raw();
 			if (idx >= MAX_CELLS)
 				return; // TODO should be an assert but then it's not constexpr
 			data[idx] = val;
@@ -477,7 +477,7 @@ struct Categories {
 	constexpr Categories() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
-			size_t idx = cell.type.index_;
+			size_t idx = cell.type.raw();
 			is_known.set(idx);
 			is_evaluable.set(idx, cell.features.is_evaluable);
 			is_combinatorial.set(idx, cell.features.is_combinatorial);
@@ -515,21 +515,21 @@ struct Categories {
 };
 
 // Pure
-static constexpr PortInfo port_info;
-static constexpr Categories categories;
+inline constexpr PortInfo port_info;
+inline constexpr Categories categories;
 
 // Legacy
 namespace Compat {
-	static constexpr auto internals_all = Categories::meet(categories.is_known, Categories::complement(categories.is_stdcell));
-	static constexpr auto mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
+	inline constexpr auto internals_all = Categories::meet(categories.is_known, Categories::complement(categories.is_stdcell));
+	inline constexpr auto mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
 	// old setup_internals + setup_stdcells
-	static constexpr auto nomem_noff = Categories::meet(categories.is_known, Categories::complement(mem_ff));
-	static constexpr auto internals_mem_ff = Categories::meet(internals_all, mem_ff);
+	inline constexpr auto nomem_noff = Categories::meet(categories.is_known, Categories::complement(mem_ff));
+	inline constexpr auto internals_mem_ff = Categories::meet(internals_all, mem_ff);
 	// old setup_internals
-	static constexpr auto internals_nomem_noff = Categories::meet(internals_all, nomem_noff);
+	inline constexpr auto internals_nomem_noff = Categories::meet(internals_all, nomem_noff);
 	// old setup_stdcells
-	static constexpr auto stdcells_nomem_noff = Categories::meet(categories.is_stdcell, nomem_noff);
-	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
+	inline constexpr auto stdcells_nomem_noff = Categories::meet(categories.is_stdcell, nomem_noff);
+	inline constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
 	// old setup_internals_eval
 	// static constexpr auto internals_eval = Categories::meet(internals_all, categories.is_evaluable);
 };
@@ -553,13 +553,8 @@ struct NewCellType {
 };
 
 struct NewCellTypes {
-	struct IdStringHash {
-		std::size_t operator()(const IdString id) const {
-			return static_cast<size_t>(id.hash_top().yield());
-		}
-	};
 	StaticCellTypes::Categories::Category static_cell_types = StaticCellTypes::categories.empty;
-	std::unordered_map<RTLIL::IdString, NewCellType, IdStringHash> custom_cell_types {};
+	dict<IdString, NewCellType> custom_cell_types {};
 
 	NewCellTypes() {
 		static_cell_types = StaticCellTypes::categories.empty;
@@ -580,8 +575,8 @@ struct NewCellTypes {
 	}
 
 	void setup_module(RTLIL::Module *module) {
-		pool<RTLIL::IdString> inputs, outputs;
-		for (RTLIL::IdString wire_name : module->ports) {
+		pool<IdString> inputs, outputs;
+		for (auto wire_name : module->ports) {
 			RTLIL::Wire *wire = module->wire(wire_name);
 			if (wire->port_input)
 				inputs.insert(wire->name);
@@ -601,11 +596,11 @@ struct NewCellTypes {
 		static_cell_types = StaticCellTypes::categories.empty;
 	}
 
-	bool cell_known(const RTLIL::IdString &type) const {
+	bool cell_known(IdString type) const {
 		return static_cell_types(type) || custom_cell_types.count(type) != 0;
 	}
 
-	bool cell_output(const RTLIL::IdString &type, const RTLIL::IdString &port) const
+	bool cell_output(IdString type, IdString port) const
 	{
 		if (static_cell_types(type) && StaticCellTypes::port_info.outputs(type).contains(port)) {
 			return true;
@@ -614,7 +609,7 @@ struct NewCellTypes {
 		return it != custom_cell_types.end() && it->second.outputs.count(port) != 0;
 	}
 
-	bool cell_input(const RTLIL::IdString &type, const RTLIL::IdString &port) const
+	bool cell_input(IdString type, IdString port) const
 	{
 		if (static_cell_types(type) && StaticCellTypes::port_info.inputs(type).contains(port)) {
 			return true;
@@ -638,7 +633,7 @@ struct NewCellTypes {
 		}
 		return RTLIL::PortDir(is_input + is_output * 2);
 	}
-	bool cell_evaluable(const RTLIL::IdString &type) const
+	bool cell_evaluable(IdString type) const
 	{
 		return static_cell_types(type) && StaticCellTypes::categories.is_evaluable(type);
 	}
