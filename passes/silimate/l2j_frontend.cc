@@ -326,6 +326,10 @@ struct L2JFrontend : public Frontend {
 				current_module->set_src_attribute(cell["src"].get<std::string>());
 			}
 
+			// Power/ground pins, collected while walking the signal pins and declared after them
+			// (see below). Pairs of pin name and pg_type.
+			std::vector<std::pair<std::string, std::string>> pg_pins;
+
 			for_each_group(cell, [&](const json &g) {
 				if (g.count("pin")) {
 					const json pin = g["pin"].get<json::object_t>();
@@ -333,6 +337,12 @@ struct L2JFrontend : public Frontend {
 					const auto pin_names = pin.value<json::array_t>("names", {});
 					for (auto &pin_name: pin_names) {
 						add_port(current_module, pin_name.get<std::string>(), 1, direction);
+					}
+				} else if (g.count("pg_pin")) {
+					const json pg_pin = g["pg_pin"].get<json::object_t>();
+					const auto pg_type = pg_pin.value<std::string>("pg_type", "");
+					for (auto &pin_name: pg_pin.value<json::array_t>("names", {})) {
+						pg_pins.emplace_back(pin_name.get<std::string>(), pg_type);
 					}
 				} else if (g.count("bus")) {
 					const json bus = g["bus"].get<json::object_t>();
@@ -370,6 +380,19 @@ struct L2JFrontend : public Frontend {
 					}
 				}
 			});
+
+			// Vendor Verilog views declare power/ground pins as ports, so RTL routinely connects
+			// them: declare them here too, or those instantiations cannot bind. OpenSTA likewise
+			// turns pg_pins into ports. Appending them keeps the signal pin positions unchanged
+			// for positional instantiations.
+			for (auto &[pg_name, pg_type]: pg_pins) {
+				// Input rather than inout: a cell never drives its own supply, and RTLIL has no
+				// power/ground direction, so an inout would make the cell look like a driver.
+				RTLIL::Wire *port = add_port(current_module, pg_name, 1, "input");
+				// Tag the port so consumers can tell supplies apart from signal pins
+				if (port && !pg_type.empty())
+					port->set_string_attribute(ID(pg_type), pg_type);
+			}
 		});
 		} catch (json::parse_error &e) {
 			log_error("Failed to parse liberty json file: %s\n", e.what());
