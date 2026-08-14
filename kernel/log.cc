@@ -102,7 +102,7 @@ void FileLogSink::flush()
 
 void ConsoleLogSink::log(const LogMessage &msg)
 {
-	FILE *file = msg.severity == LogSeverity::LOG_ERROR ? stderr : stdout;
+	FILE *file = (msg.severity == LogSeverity::LOG_ERROR && log_error_stderr) ? stderr : stdout;
 	fputs(msg.legacy_msg.c_str(), file);
 }
 

@@ -168,7 +168,7 @@ namespace pyosys {
 		m.doc() = "python access to libyosys";
 
 		if (!yosys_already_setup()) {
-			log_streams.push_back(&std::cout);
+			log_sinks.push_back(std::make_unique<ConsoleLogSink>());
 			log_error_stderr = true;
 			yosys_setup();
 

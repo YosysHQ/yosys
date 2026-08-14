@@ -406,6 +406,7 @@ int main(int argc, char **argv)
 
 		if (log_errfile == NULL) {
 			log_sinks.push_back(std::make_unique<ConsoleLogSink>());
+			log_error_stderr = true;
 		} else {
 			log_sinks.push_back(std::make_unique<StderrLogSink>());
 		}
