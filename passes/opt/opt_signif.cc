@@ -27,6 +27,10 @@ PRIVATE_NAMESPACE_BEGIN
 // that, or that the analysis cannot interpret, becomes "top" (the declared width).
 typedef __int128 wideint_t;
 
+// No endpoint is ever allowed past this width, so -x is always representable and the
+// rules may negate an endpoint without checking. cell_range enforces it.
+static const int max_range_width = 126;
+
 struct Range {
 	bool top;
 	wideint_t lo, hi;
@@ -62,7 +66,7 @@ static Range declared_range(int width, bool is_signed)
 {
 	if (width <= 0)
 		return Range(0, 0);
-	if (width > 126)
+	if (width > max_range_width)
 		return Range::unknown();
 	if (is_signed)
 		return Range(-((wideint_t)1 << (width - 1)), ((wideint_t)1 << (width - 1)) - 1);
@@ -210,7 +214,7 @@ struct SignifWorker
 				break;
 			}
 		if (all_const) {
-			if (GetSize(bits) > 126)
+			if (GetSize(bits) > max_range_width)
 				return Range::unknown();
 			wideint_t val = 0;
 			for (int i = 0; i < GetSize(bits); i++) {
@@ -272,7 +276,12 @@ struct SignifWorker
 		// rather than clamping: clamping would silently drop the wrapped value, and a
 		// word wider than the interval arithmetic can represent still bounds a narrow
 		// result perfectly well.
-		if (out.top || signed_width(out.lo, out.hi) > ywidth)
+		//
+		// Cap at max_range_width as well, which is what keeps every endpoint's
+		// negation representable. Without it a 128-bit word could carry an endpoint at
+		// the 128-bit minimum -- reachable as a checked product, e.g. -2^63 * (2^64-1)
+		// -- and the next $neg or $sub would negate it, which is undefined.
+		if (out.top || signed_width(out.lo, out.hi) > std::min(ywidth, max_range_width))
 			out = declared_range(ywidth, true);
 
 		active.erase(cell);
@@ -344,7 +353,7 @@ struct SignifWorker
 		// Left shift by a bounded, non-negative amount: scale by each shift extreme
 		if (cell->type.in(ID($shl), ID($sshl))) {
 			Range a = port_range(cell, 'A'), b = port_range(cell, 'B');
-			if (a.top || b.top || b.lo < 0 || b.hi > 126)
+			if (a.top || b.top || b.lo < 0 || b.hi > max_range_width)
 				return Range::unknown();
 			wideint_t lo_scale = (wideint_t)1 << (int)b.lo;
 			wideint_t hi_scale = (wideint_t)1 << (int)b.hi;

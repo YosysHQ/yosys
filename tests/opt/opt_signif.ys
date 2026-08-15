@@ -758,6 +758,44 @@ select -assert-count 1 t:$mul r:A_WIDTH=32 %i
 design -reset
 log -pop
 
+# Test B9: an endpoint at the edge of the interval arithmetic.
+#
+# Shape:
+#   $mul : p = a64 * {1'b0, u64}, into a 128-bit word
+#   $neg : n = -p
+#   $mul : y = n * c
+#
+# p's low corner is -2^63 * (2^64 - 1), which is representable in 128 bits and so
+# passes the multiply's overflow check, yet needs 128 signed bits. The output-width
+# cap alone would let it through on a 128-bit word, and negating it in the next cell
+# has no representable result. The max_range_width cap discards it first, which is
+# what keeps the negation in the $neg and $sub rules defined without a check on
+# every endpoint. Nothing is narrowable either way here, so the assertion pins the
+# shape rather than the cap: it fails if a future rule narrows through this corner.
+log -header "B9: reject a range at the interval-arithmetic boundary"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire signed [63:0]  a64,
+  input  wire [63:0]         u64,
+  input  wire [3:0]          c,
+  output wire [127:0]        y
+);
+  wire [127:0] p, n;
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(64), .B_WIDTH(65), .Y_WIDTH(128))
+    prod (.A(a64), .B({1'b0, u64}), .Y(p));
+  $neg #(.A_SIGNED(1), .A_WIDTH(128), .Y_WIDTH(128)) negp (.A(p), .Y(n));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(128), .B_WIDTH(128), .Y_WIDTH(128))
+    mult (.A(n), .B({124'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=128 %i
+design -reset
+log -pop
+
 # ============================================================================
 # Group C: Options and idempotence
 # ============================================================================
