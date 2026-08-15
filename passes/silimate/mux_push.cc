@@ -579,6 +579,11 @@ struct OptMuxPushWorker
       return nullptr;
     if (!fanout_is_one(sig) || sig_has_keep(sig))
       return nullptr;
+    // Absorbing a link deletes it, so one the caller kept or left out of the
+    // selection has to end the walk instead. Checking only the arm signal misses
+    // both: keep on the cell says nothing about the wire it drives.
+    if (!design->selected(module, drv) || drv->get_bool_attribute(ID::keep))
+      return nullptr;
     // Partial coverage would leave the inner mux's other bits undriven once the
     // chain is rebuilt, so demand the arm be the whole output.
     return sigmap(drv->getPort(ID::Y)) == sig ? drv : nullptr;
@@ -726,6 +731,8 @@ struct OptMuxPushWorker
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
       if (!cell->type.in(ID($mux), ID($pmux)) || cells_to_remove.count(cell))
+        continue;
+      if (cell->get_bool_attribute(ID::keep))
         continue;
       RTLIL::SigSpec out = sigmap(cell->getPort(ID::Y));
       if (sig_has_keep(out) || GetSize(out) == 0)

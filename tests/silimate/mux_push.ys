@@ -646,6 +646,7 @@ module top (
 );
   wire [7:0] late = d_lo * d_hi;
   always @* begin
+    (* parallel_case *)
     case (1'b1)
       sel[0]:  y = e0;
       sel[1]:  y = e1;
@@ -658,6 +659,9 @@ endmodule
 EOF
 proc
 check -assert
+# Without parallel_case proc emits a plain mux chain, and this group would then
+# retest the shape above instead of the one it is named for.
+select -assert-count 1 t:$pmux
 
 # A $pmux hides the chain in one cell, but it lowers back to a priority chain, so
 # its default is charged log2 of the select width rather than a single level.
@@ -666,6 +670,107 @@ check -assert
 equiv_opt -assert muxpush -hoist-late
 design -load postopt
 select -assert-count 1 t:$reduce_and
+
+design -reset
+log -pop
+
+
+log -header "-hoist-late: keep on a chain link stops the walk"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire [1:0] sel,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] e3,
+  input wire [7:0] d_lo,
+  input wire [7:0] d_hi,
+  output wire [7:0] y
+);
+  wire [7:0] late = d_lo * d_hi;
+  reg [7:0] inner;
+  always @* begin
+    (* parallel_case *)
+    case (1'b1)
+      sel[0]:  inner = e2;
+      sel[1]:  inner = e3;
+      default: inner = late;
+    endcase
+  end
+  assign y = s0 ? e0 : (s1 ? e1 : inner);
+endmodule
+EOF
+proc
+check -assert
+select -assert-count 1 t:$pmux
+design -save chain_over_pmux
+
+# The rewrite deletes every link it absorbs, so a kept link has to end the walk.
+# keep sits on the cell and says nothing about the wire it drives, so checking
+# the arm signal alone -- all the push path needs, since it only ever deletes the
+# one mux it consumed -- lets the hoist delete a cell the caller asked to keep.
+# What is left above the kept link is two muxes deep and not worth taking alone.
+setattr -set keep 1 t:$pmux
+equiv_opt -assert muxpush -hoist-late
+design -load postopt
+select -assert-count 1 a:keep
+select -assert-count 0 t:$reduce_and
+design -reset
+
+# The same netlist without the keep does hoist, so the group above is the guard
+# declining a real candidate rather than a shape the walk never matched.
+design -load chain_over_pmux
+equiv_opt -assert muxpush -hoist-late
+design -load postopt
+select -assert-count 1 t:$reduce_and
+
+design -reset
+log -pop
+
+
+log -header "-hoist-late: the walk stays inside the selection"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire [1:0] sel,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] e3,
+  input wire [7:0] d_lo,
+  input wire [7:0] d_hi,
+  output wire [7:0] y
+);
+  wire [7:0] late = d_lo * d_hi;
+  reg [7:0] inner;
+  always @* begin
+    (* parallel_case *)
+    case (1'b1)
+      sel[0]:  inner = e2;
+      sel[1]:  inner = e3;
+      default: inner = late;
+    endcase
+  end
+  assign y = s0 ? e0 : (s1 ? e1 : inner);
+endmodule
+EOF
+proc
+check -assert
+
+# Roots come from the selection but the walk follows drivers, so a targeted run
+# would otherwise absorb and delete a link the caller left out. Selecting only
+# the muxes has to end the chain at the pmux, and the two muxes above it are not
+# worth hoisting on their own.
+muxpush -hoist-late t:$mux
+select -assert-count 0 t:$reduce_and
+select -assert-count 1 t:$pmux
 
 design -reset
 log -pop
