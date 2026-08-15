@@ -80,6 +80,7 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	unused_bits.h
 	utils.h
 	version.cc
 	yosys.cc
@@ -145,6 +146,7 @@ yosys_core(kernel
 		sigtools.h
 		threading.h
 		timinginfo.h
+		unused_bits.h
 		utils.h
 		yosys.h
 		yosys_common.h

@@ -144,6 +144,9 @@ struct OptMuxtreeWorker
 		// Analyze port A
 		muxinfo.ports.push_back(used_port_bit(sig_a, this_mux_idx, -1));
 
+		// push before the y port scan so self-conflicts can be reported too
+		mux2info.push_back(muxinfo);
+
 		for (int idx : sig2bits(sig_y)) {
 			if (bit2info[idx].mux_driver)
 				log_cmd_error("Cell %s Y port signal %s already driven by %s\n", cell->name, log_signal(sig_y), mux2info[*bit2info[idx].mux_driver].cell->name);
@@ -152,8 +155,6 @@ struct OptMuxtreeWorker
 
 		for (int idx : sig2bits(sig_s))
 			bit2info[idx].seen_non_mux = true;
-
-		mux2info.push_back(muxinfo);
 	}
 
 	void see_non_mux_cell(Cell* cell) {
@@ -482,11 +483,14 @@ struct OptMuxtreeWorker
 		bool did_something = false;
 
 		int width_if_b = 0;
-		idict<int> ctrl_bits;
+		// map wire bit -> first S position
+		dict<int, int> ctrl_bits;
 		if (portname == ID::B)
 			width_if_b = GetSize(muxinfo.cell->getPort(ID::A));
-		for (int bit : sig2bits(muxinfo.cell->getPort(ID::S), false))
-			ctrl_bits(bit);
+		vector<int> s_bits = sig2bits(muxinfo.cell->getPort(ID::S), false);
+		for (int j = 0; j < GetSize(s_bits); j++)
+			if (s_bits[j] >= 0)
+				ctrl_bits.insert({s_bits[j], j});
 
 		int slice_idx = 0, slice_off = 0;
 		vector<int> bits = sig2bits(sig, false);

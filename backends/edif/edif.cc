@@ -406,7 +406,6 @@ struct EdifBackend : public Backend {
 						auto count_nontrivial_attr = [](Wire *w) {
 							int count = w->attributes.size();
 							count -= w->attributes.count(ID::src);
-							count -= w->attributes.count(ID::unused_bits);
 							return count;
 						};
 

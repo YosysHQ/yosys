@@ -44,6 +44,7 @@ yosys_pass(synth_lattice
 		share
 		simplemap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce

@@ -40,6 +40,7 @@ yosys_pass(synth_gatemate
 		share
 		simplemap
 		stat
+		synth
 		techmap
 		tribuf
 		wreduce
