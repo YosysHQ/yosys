@@ -1220,3 +1220,265 @@ logger -check-expected
 design -load postopt
 design -reset
 log -pop
+
+# ============================================================================
+# Group S: smear (MSB suffix-OR) identities, gated on -smear
+# ============================================================================
+
+# S1: cto_full(smear(x)) collapses to msb_index(x)+1.
+log -header "S1: smear feeding trailing-ones encoder (-smear)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  output reg [3:0] y
+);
+  integer i;
+  reg [7:0] m;
+  always @* begin
+    m = 8'b0;
+    for (i = 7; i >= 0; i = i - 1)
+      m[i] = |x[7:i];
+    casez (m)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "suffix-or" 1
+logger -expect log "Collapsed 1 smear/encoder round-trip" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
+
+# S2: without -smear the encoder still matches, but the smear round-trip does not.
+log -header "S2: smear feeding encoder, flag off"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  output reg [3:0] y
+);
+  integer i;
+  reg [7:0] m;
+  always @* begin
+    m = 8'b0;
+    for (i = 7; i >= 0; i = i - 1)
+      m[i] = |x[7:i];
+    casez (m)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "y <- cto_full" 1
+equiv_opt -assert opt_prienc
+logger -check-expected
+design -reset
+log -pop
+
+# S3: smear(x) < K (K a port, hence off-path) narrows into the encoded domain.
+log -header "S3: smear compared against an off-path operand"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] x,
+  input  wire [7:0] k,
+  output wire       y
+);
+  wire [7:0] m;
+  genvar i;
+  generate
+    for (i = 0; i < 8; i = i + 1)
+      assign m[i] = |x[7:i];
+  endgenerate
+  assign y = m < k;
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "via smear narrowed" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
+
+# S4: combinational other operand must not be narrowed.
+log -header "S4: smear compared against a combinational operand (negative)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] x,
+  input  wire [7:0] a,
+  input  wire [7:0] b,
+  output wire       y
+);
+  wire [7:0] m;
+  genvar i;
+  generate
+    for (i = 0; i < 8; i = i + 1)
+      assign m[i] = |x[7:i];
+  endgenerate
+  assign y = m < (a + b);
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "narrowed 0 compare" 1
+opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
+
+# S5: a bus one bit off from a suffix-OR must not fingerprint as a smear.
+log -header "S5: near-miss smear (negative)"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] x,
+  output reg  [3:0] y
+);
+  wire [7:0] m;
+  assign m[7] = x[7];
+  assign m[6] = |x[7:6];
+  assign m[5] = |x[7:5];
+  assign m[4] = |x[7:4];
+  assign m[3] = |x[7:3];
+  assign m[2] = x[2];
+  assign m[1] = |x[7:1];
+  assign m[0] = |x[7:0];
+  integer i;
+  always @* begin
+    casez (m)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "y <- cto_full" 1
+logger -expect log "Collapsed 0 smear/encoder round-trip" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
+
+# S6: smear behind a pad mux still collapses on the smear arm.
+log -header "S6: smear behind a mux, encoder on the mux output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] x,
+  input wire       en,
+  output reg [3:0] y
+);
+  integer i;
+  reg [7:0] m, t;
+  always @* begin
+    m = 8'b0;
+    for (i = 7; i >= 0; i = i - 1)
+      m[i] = |x[7:i];
+    t = en ? m : x;
+    casez (t)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "suffix-or" 1
+logger -expect log "Collapsed 1 smear/encoder round-trip" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
+
+# S7: smear also drives a live output. Collapsing the encoder must not
+# change that wide cone (equiv_opt compares both ports).
+log -header "S7: smear feeding encoder and a live output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] x,
+  output wire [7:0] m,
+  output reg  [3:0] y
+);
+  genvar gi;
+  generate
+    for (gi = 0; gi < 8; gi = gi + 1)
+      assign m[gi] = |x[7:gi];
+  endgenerate
+  always @* begin
+    casez (m)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "suffix-or" 1
+logger -expect log "Collapsed 1 smear/encoder round-trip" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop

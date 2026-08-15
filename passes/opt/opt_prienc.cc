@@ -164,6 +164,26 @@ static int const_lsb(const Const& c, int N, State want) {
 	return -1;
 }
 
+// MSB-side suffix-OR: M[i] = OR of x[j] for all j >= i. That is the
+// "round up to 2^n - 1" mask: one leading one, then ones down to the LSB.
+static Const software_smear(const Const& c, int N) {
+	auto bits = c.to_bits();
+	std::vector<State> m(N, State::S0);
+	State run = State::S0;
+	for (int i = N - 1; i >= 0; i--) {
+		State b = i < (int)bits.size() ? bits[i] : State::S0;
+		if (b == State::S1) run = State::S1;
+		m[i] = run;
+	}
+	return Const(m);
+}
+
+// msb_index(x)+1, and 0 when x is 0. Equals cto_full(smear(x)).
+static int software_leadone(const Const& c, int N) {
+	int msb = const_msb(c, N, State::S1);
+	return msb < 0 ? 0 : msb + 1;
+}
+
 struct OptPriEncWorker {
 	Module* module;
 	SigMap sigmap;
@@ -180,6 +200,7 @@ struct OptPriEncWorker {
 	bool detect_clo = true;
 	bool detect_cto = true;
 	bool detect_rr = true;
+	bool enable_smear = false;
 	int max_input_width = 256;
 	int min_input_width = 4;
 	// 2^8 evals, paid only by a pinned bus that already survived the deck.
@@ -188,7 +209,18 @@ struct OptPriEncWorker {
 	// Stats.
 	int regions_rewritten = 0;
 	int roundtrips_collapsed = 0;
+	int smears_collapsed = 0;
+	int compares_narrowed = 0;
 	int cells_added = 0;
+
+	// Valid only during the pre-mutation fingerprint window in run().
+	ConstEval* ce = nullptr;
+	// M -> x when M is the MSB suffix-OR smear of x; misses recorded separately.
+	dict<SigSpec, SigSpec> smear_hit;
+	pool<SigSpec> smear_miss;
+	// Remaining mux peels while emitting I1, so a clamp/pad tree can still
+	// retarget a smear arm after hoisting stops at an intermediate leaf.
+	int smear_peel = 3;
 
 	struct Rewrite {
 		Wire* S_wire;
@@ -208,6 +240,7 @@ struct OptPriEncWorker {
 	dict<std::pair<SigSpec, int>, SigSpec> pe_sig_cache;
 	dict<SigSpec, SigSpec> inverted_cache;
 	dict<std::pair<Wire*, int>, SigSpec> pe_prefix_cache;
+	dict<SigSpec, SigSpec> leadone_cache;
 
 	OptPriEncWorker(Module* m) : module(m), sigmap(m) { build_indexes(); }
 
@@ -731,6 +764,205 @@ struct OptPriEncWorker {
 		return finish();
 	}
 
+	// True iff M is the MSB suffix-OR of x (M[i] = OR_{j>=i} x[j]) on every
+	// vector in the deck. x may be an internal wire; ConstEval stops at it.
+	bool fingerprint_smear(const PinnedBus& pb, SigSpec M_sig, int N,
+	                       const pool<Cell*>& evaluated) {
+		if (!pb.ok || ce == nullptr) return false;
+		if (!cut_survives_eval(pb.free_bits, evaluated)) return false;
+		if (GetSize(M_sig) != N) return false;
+
+		auto check = [&](const Const& v, const Const& fv) -> bool {
+			ce->push();
+			ce->set(pb.free_bits, fv);
+			SigSpec out = M_sig;
+			SigSpec undef;
+			bool ok = ce->eval(out, undef);
+			if (ok && pb.pinned && ce->values_map(pb.free_bits) != SigSpec(fv))
+				ok = false;
+			ce->pop();
+			if (!ok || !out.is_fully_const()) return false;
+			Const want = software_smear(v, N);
+			auto wb = want.to_bits();
+			for (int i = 0; i < N; i++) {
+				State got = out[i].data;
+				State exp = i < (int)wb.size() ? wb[i] : State::S0;
+				if (got != exp) return false;
+			}
+			return true;
+		};
+		auto check_vec = [&](const Const& want) -> bool {
+			Const fv;
+			Const realized = project_vector(pb, want, fv);
+			return check(realized, fv);
+		};
+
+		if (!check_vec(const_u64(0, N))) return false;
+		if (!check_vec(Const(std::vector<State>(N, State::S1)))) return false;
+		int stride = (N <= 32) ? 1 : std::max(1, N / 16);
+		for (int k = 0; k < N; k += stride) {
+			std::vector<State> bits(N, State::S0);
+			bits[k] = State::S1;
+			if (!check_vec(Const(bits))) return false;
+		}
+		if (N > 32) {
+			for (int k : {0, 1, N - 2, N - 1}) {
+				if (k < 0 || k >= N) continue;
+				std::vector<State> bits(N, State::S0);
+				bits[k] = State::S1;
+				if (!check_vec(Const(bits))) return false;
+			}
+		}
+		for (auto& v : gen_multibit_test_vectors(N, N <= 16))
+			if (!check_vec(v)) return false;
+		// Prefixes and one-hots miss adjacent two-hots such as 8'b00000110,
+		// which still distinguish a true suffix-OR from a near-miss.
+		for (int i = 0; i + 1 < N; i++) {
+			std::vector<State> bits(N, State::S0);
+			bits[i] = State::S1;
+			bits[i + 1] = State::S1;
+			if (!check_vec(Const(bits))) return false;
+		}
+		if (pb.pinned && GetSize(pb.free_bits) <= max_exhaustive_free_bits) {
+			int nf = GetSize(pb.free_bits);
+			for (int m = 0; m < (1 << nf); m++) {
+				std::vector<State> fb(nf);
+				for (int j = 0; j < nf; j++)
+					fb[j] = ((m >> j) & 1) ? State::S1 : State::S0;
+				Const fv(fb);
+				if (!check(realize_free(pb, fv), fv)) return false;
+			}
+		}
+		return true;
+	}
+
+	// x such that M = smear(x), or empty. Memoized per bus; bounded tries.
+	SigSpec find_smear_source(SigSpec M_sig) {
+		M_sig = sigmap(M_sig);
+		if (!enable_smear || ce == nullptr) return SigSpec();
+		if (smear_hit.count(M_sig)) return smear_hit.at(M_sig);
+		if (smear_miss.count(M_sig)) return SigSpec();
+		int N = GetSize(M_sig);
+		auto miss = [&]() {
+			smear_miss.insert(M_sig);
+			return SigSpec();
+		};
+		if (N < min_input_width || N > max_input_width) return miss();
+
+		pool<Cell*> cone_cells;
+		pool<SigBit> leaf_bits;
+		int st = get_cone(M_sig, cone_cells, leaf_bits,
+		                  std::max(128, max_input_width * 16),
+		                  max_input_width + 16);
+		if (st <= 0) return miss();
+
+		pool<SigBit> cone_bits = leaf_bits;
+		for (Cell* c : cone_cells)
+			for (auto& conn : c->connections())
+				if (c->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						if (bit.wire) cone_bits.insert(bit);
+
+		vector<Wire*> cands = wires_in_cone(cone_bits, [&](Wire* w) {
+			if (w->width != N) return false;
+			if (sigmap(SigSpec(w)) == M_sig) return false;
+			return true;
+		}, /*allow_const=*/true);
+		// Sequential / port sources first: those are the unsmeared datapath.
+		std::sort(cands.begin(), cands.end(), [&](Wire* a, Wire* b) {
+			auto rank = [&](Wire* w) {
+				SigSpec s = sigmap(SigSpec(w));
+				bool seq = false;
+				for (auto bit : s) {
+					auto it = bit_to_driver.find(bit);
+					if (it != bit_to_driver.end() && sequential_cells.count(it->second))
+						seq = true;
+				}
+				if (w->port_input || seq) return 0;
+				return 1;
+			};
+			int ra = rank(a), rb = rank(b);
+			if (ra != rb) return ra < rb;
+			return a->name.str() < b->name.str();
+		});
+
+		const int max_tries = 24;
+		int tried = 0;
+		for (Wire* w : cands) {
+			if (++tried > max_tries) break;
+			SigSpec x = sigmap(SigSpec(w));
+			pool<SigBit> x_bits;
+			for (auto bit : x)
+				if (bit.wire) x_bits.insert(bit);
+			if (x_bits.empty()) continue;
+			pool<Cell*> evaluated;
+			if (!cone_depends_only_on_T(M_sig, x_bits, &evaluated)) continue;
+			PinnedBus pb = make_pinned_bus(x);
+			if (!fingerprint_smear(pb, M_sig, N, evaluated)) continue;
+			smear_hit[M_sig] = x;
+			log("  %s: smear [%d] <- suffix-or(%s)\n",
+			    log_id(module), N, log_id(w));
+			return x;
+		}
+		return miss();
+	}
+
+	// Split `sig` through a $mux that drives its variable bits. Returns false
+	// when there is no such mux or the bit mapping is incomplete.
+	bool split_mux(SigSpec sig, SigBit& sel, SigSpec& sa, SigSpec& sb) {
+		std::vector<int> vp;
+		for (int i = 0; i < GetSize(sig); i++)
+			if (sig[i].wire) vp.push_back(i);
+		if (vp.empty()) return false;
+		SigSpec var;
+		for (int i : vp) var.append(sig[i]);
+		Cell* d = sole_driver_of(var);
+		if (!d) return false;
+		// $pmux with a single select bit is $mux (A default, B the S=1 arm).
+		if (d->type == ID($pmux) && GetSize(sigmap(d->getPort(ID::S))) != 1)
+			return false;
+		if (!d->type.in(ID($mux), ID($pmux))) return false;
+		SigSpec Y = sigmap(d->getPort(ID::Y));
+		SigSpec A = sigmap(d->getPort(ID::A)), B = sigmap(d->getPort(ID::B));
+		if (GetSize(A) != GetSize(Y) || GetSize(B) != GetSize(Y)) return false;
+		dict<SigBit, int> y_pos;
+		for (int i = GetSize(Y) - 1; i >= 0; i--)
+			if (Y[i].wire) y_pos[Y[i]] = i;
+		sa = sig; sb = sig;
+		for (int k = 0; k < GetSize(vp); k++) {
+			auto it = y_pos.find(var[k]);
+			if (it == y_pos.end()) return false;
+			sa[vp[k]] = A[it->second];
+			sb[vp[k]] = B[it->second];
+		}
+		sel = sigmap(d->getPort(ID::S))[0];
+		return true;
+	}
+
+	// Walk mux layers so a clamp/pad tree does not hide a smear arm from I1.
+	void hunt_smear(SigSpec sig, int budget = 16) {
+		sig = sigmap(sig);
+		if (GetSize(sig) < min_input_width) return;
+		if (smear_hit.count(sig)) return;
+		if (!smear_miss.count(sig) && GetSize(find_smear_source(sig))) return;
+		if (budget <= 0) return;
+		SigBit sel;
+		SigSpec sa, sb;
+		if (!split_mux(sig, sel, sa, sb)) return;
+		hunt_smear(sa, budget - 1);
+		hunt_smear(sb, budget - 1);
+	}
+
+	bool subtree_has_smear(SigSpec sig, int budget) {
+		sig = sigmap(sig);
+		if (smear_hit.count(sig)) return true;
+		if (budget <= 0) return false;
+		SigBit sel;
+		SigSpec sa, sb;
+		if (!split_mux(sig, sel, sa, sb)) return false;
+		return subtree_has_smear(sa, budget - 1) || subtree_has_smear(sb, budget - 1);
+	}
+
 	// Const-folding wrappers: the sentinel padding below feeds constants deep
 	// into the recursion, and folding them here keeps the emitted netlist small.
 	SigBit emit_not(SigBit a) {
@@ -791,6 +1023,55 @@ struct OptPriEncWorker {
 		return emit_mux(pad_clz_hi, pad_clz_lo, hi_zero);
 	}
 
+	// msb_index(T)+1 on a power-of-2-width input (0 when T is 0). Result
+	// width is log2(N)+1, covering the saturating value N.
+	SigSpec emit_leadone_pow2(SigSpec T, int N) {
+		log_assert(N >= 1 && (N & (N - 1)) == 0);
+		if (N == 1)
+			return SigSpec(T[0]);
+		int N2 = N / 2;
+		SigSpec c_hi = emit_leadone_pow2(T.extract(N2, N2), N2);
+		SigSpec c_lo = emit_leadone_pow2(T.extract(0, N2), N2);
+		int W1 = GetSize(c_hi);
+		SigBit hi_nz;
+		{
+			// OR-reduce: any bit of c_hi set means the high half is nonzero.
+			SigSpec red = c_hi;
+			cells_added++;
+			hi_nz = module->ReduceOr(NEW_ID2_SUFFIX("lonz"), red, false, cell_src(cell));
+		}
+		int W = W1 + 1;
+		SigSpec lo_pad = c_lo;
+		lo_pad.append(SigSpec(State::S0));
+		SigSpec hi_pad = c_hi;
+		hi_pad.append(SigSpec(State::S0));
+		SigSpec hi_sum = module->Add(NEW_ID2_SUFFIX("loadd"), hi_pad,
+		                             SigSpec(Const(N2, W)), false, cell_src(cell));
+		cells_added++;
+		return emit_mux(lo_pad, hi_sum, hi_nz);
+	}
+
+	// msb_index(T)+1 for arbitrary width, clog2(N+1) bits. Pad MSBs with 0
+	// so a non-power-of-2 T keeps the same count (no subtract on the path).
+	SigSpec emit_leadone_full(SigSpec T, int N) {
+		T = sigmap(T);
+		auto it = leadone_cache.find(T);
+		if (it != leadone_cache.end()) return it->second;
+		int Np = 1;
+		while (Np < N) Np *= 2;
+		SigSpec padded = T;
+		while (GetSize(padded) < Np)
+			padded.append(SigSpec(State::S0));
+		SigSpec full = emit_leadone_pow2(padded, Np);
+		int W = clog2_int(N + 1);
+		if (GetSize(full) > W)
+			full = full.extract(0, W);
+		while (GetSize(full) < W)
+			full.append(SigSpec(State::S0));
+		leadone_cache[T] = full;
+		return full;
+	}
+
 	// CLZ of arbitrary-width T, returning a (clog2(N+1))-bit result.
 	SigSpec emit_clz_full(SigSpec T, int N) {
 		int Np = 1;
@@ -833,15 +1114,57 @@ struct OptPriEncWorker {
 	}
 
 	SigSpec emit_pe_sig(PEVariant v, SigSpec T_sig, int N, int out_width) {
+		T_sig = sigmap(T_sig);
+		// I1: cto_full(smear(x)) == msb_index(x)+1, and clz_full(smear(x)) ==
+		// clz_full(x). Looked up from the pre-mutation cache so ConstEval is
+		// not consulted after the netlist starts changing.
+		if (enable_smear && smear_hit.count(T_sig)) {
+			SigSpec x = smear_hit.at(T_sig);
+			int Nx = GetSize(x);
+			if (Nx == N) {
+				SigSpec full;
+				if (v == PEVariant::CTO_FULL || v == PEVariant::CTO_SHORT) {
+					full = emit_leadone_full(x, N);
+					smears_collapsed++;
+				} else if (v == PEVariant::CLZ_FULL || v == PEVariant::CLZ_SHORT) {
+					full = emit_clz_full(x, N);
+					smears_collapsed++;
+				}
+				if (GetSize(full)) {
+					if (GetSize(full) > out_width)
+						full = full.extract(0, out_width);
+					while (GetSize(full) < out_width)
+						full.append(SigSpec(State::S0));
+					return full;
+				}
+			}
+		}
+
 		auto key = std::make_pair(T_sig, variant_net_key(v));
 		SigSpec full;
 		auto it = pe_sig_cache.find(key);
 		if (it != pe_sig_cache.end()) {
 			full = it->second;
-		} else {
-			SigSpec run = variant_counts_ones(v) ? emit_inv(T_sig) : T_sig;
-			full = variant_is_leading(v) ? emit_clz_full(run, N) : emit_ctz_full(run, N);
-			pe_sig_cache[key] = full;
+		} else if (enable_smear && smear_peel > 0 && subtree_has_smear(T_sig, smear_peel)) {
+			// Hoisting may stop at a clamp/pad mux; peel so a smear arm still
+			// takes the I1 path while the other arm keeps a normal encoder.
+			SigBit sel;
+			SigSpec sa, sb;
+			if (split_mux(T_sig, sel, sa, sb)) {
+				smear_peel--;
+				SigSpec ea = emit_pe_sig(v, sa, N, out_width);
+				SigSpec eb = emit_pe_sig(v, sb, N, out_width);
+				smear_peel++;
+				full = emit_mux(ea, eb, sel);
+				pe_sig_cache[key] = full;
+			}
+		}
+		if (GetSize(full) == 0) {
+			if (it == pe_sig_cache.end()) {
+				SigSpec run = variant_counts_ones(v) ? emit_inv(T_sig) : T_sig;
+				full = variant_is_leading(v) ? emit_clz_full(run, N) : emit_ctz_full(run, N);
+				pe_sig_cache[key] = full;
+			}
 		}
 
 		// Truncation covers the SHORT variants: their narrower width only ever
@@ -1082,6 +1405,219 @@ struct OptPriEncWorker {
 		}
 	}
 
+	// Off the combinational path: every bit is const, a port, or sequential.
+	bool is_offpath_operand(SigSpec s) {
+		s = sigmap(s);
+		if (s.is_fully_const()) return true;
+		for (auto bit : s) {
+			if (!bit.wire) continue;
+			if (input_port_bits.count(bit)) continue;
+			auto it = bit_to_driver.find(bit);
+			if (it == bit_to_driver.end()) continue;
+			if (sequential_cells.count(it->second)) continue;
+			return false;
+		}
+		return true;
+	}
+
+	static bool pred_u(IdString t, uint64_t a, uint64_t b) {
+		if (t == ID($lt)) return a < b;
+		if (t == ID($le)) return a <= b;
+		if (t == ID($gt)) return a > b;
+		if (t == ID($ge)) return a >= b;
+		return false;
+	}
+
+	static uint64_t const_low(const Const& c, int N) {
+		uint64_t v = 0;
+		auto bits = c.to_bits();
+		int n = std::min(N, 64);
+		for (int i = 0; i < n; i++)
+			if (i < (int)bits.size() && bits[i] == State::S1)
+				v |= 1ull << i;
+		return v;
+	}
+
+	static uint64_t smear_u(int m) {
+		if (m <= 0) return 0;
+		if (m >= 64) return ~0ull;
+		return (1ull << m) - 1;
+	}
+
+	SigSpec emit_pred(IdString t, SigSpec a, SigSpec b) {
+		cells_added++;
+		if (t == ID($lt)) return module->Lt(NEW_ID2_SUFFIX("smearcmp"), a, b, false, cell_src(cell));
+		if (t == ID($le)) return module->Le(NEW_ID2_SUFFIX("smearcmp"), a, b, false, cell_src(cell));
+		if (t == ID($gt)) return module->Gt(NEW_ID2_SUFFIX("smearcmp"), a, b, false, cell_src(cell));
+		return module->Ge(NEW_ID2_SUFFIX("smearcmp"), a, b, false, cell_src(cell));
+	}
+
+	// Search a (predicate, const threshold) pair that agrees with orig_pred
+	// on every smear of an N-bit x. Returns true and writes new_pred / t.
+	bool find_const_threshold(IdString orig_pred, uint64_t k, int N,
+	                          IdString& new_pred, int& t_out) {
+		for (IdString np : {ID($lt), ID($le), ID($gt), ID($ge)}) {
+			for (int t = 0; t <= N + 1; t++) {
+				bool ok = true;
+				for (int m = 0; m <= N && ok; m++)
+					if (pred_u(orig_pred, smear_u(m), k) != pred_u(np, (uint64_t)m, (uint64_t)t))
+						ok = false;
+				if (ok) { new_pred = np; t_out = t; return true; }
+			}
+		}
+		return false;
+	}
+
+	// leadone(x) vs leadone(K) with some predicate, checked on the deck.
+	bool find_reg_threshold(IdString orig_pred, const PinnedBus& pb_x, int Nx,
+	                        const PinnedBus& pb_k, int Nk, IdString& new_pred) {
+		auto check_pair = [&](const Const& xv, const Const& kv, IdString np) {
+			int m = software_leadone(xv, Nx);
+			int mk = software_leadone(kv, Nk);
+			return pred_u(orig_pred, smear_u(m), const_low(kv, Nk))
+			    == pred_u(np, (uint64_t)m, (uint64_t)mk);
+		};
+		auto deck = [&](int n) {
+			vector<Const> vs;
+			vs.push_back(const_u64(0, n));
+			vs.push_back(Const(std::vector<State>(n, State::S1)));
+			int stride = (n <= 16) ? 1 : std::max(1, n / 8);
+			for (int i = 0; i < n; i += stride) {
+				std::vector<State> bits(n, State::S0);
+				bits[i] = State::S1;
+				vs.push_back(Const(bits));
+			}
+			for (auto& v : gen_multibit_test_vectors(n, n <= 12))
+				vs.push_back(v);
+			return vs;
+		};
+		auto xs = deck(Nx), ks = deck(Nk);
+		for (IdString np : {ID($lt), ID($le), ID($gt), ID($ge)}) {
+			bool ok = true;
+			for (auto& xv0 : xs) {
+				Const fx;
+				Const xv = project_vector(pb_x, xv0, fx);
+				for (auto& kv0 : ks) {
+					Const fk;
+					Const kv = project_vector(pb_k, kv0, fk);
+					if (!check_pair(xv, kv, np)) { ok = false; break; }
+				}
+				if (!ok) break;
+			}
+			if (ok) { new_pred = np; return true; }
+		}
+		return false;
+	}
+
+	// Emit smear(x) ? K as leadone(x) ? t(K), after the software identity
+	// search agrees on every m in 0..N (const K) or the hypothesized deck
+	// (register K). Returns empty when no equivalent pair exists.
+	SigSpec emit_narrow_smear_cmp(IdString orig, bool a_smear, SigSpec x, SigSpec k) {
+		int Nx = GetSize(x);
+		int Nk = GetSize(k);
+		if (Nx < 1 || Nx > 64 || Nk > 64) return SigSpec();
+		IdString np;
+		int t = 0;
+		bool k_const = k.is_fully_const();
+		if (k_const) {
+			if (!find_const_threshold(orig, const_low(k.as_const(), Nk), Nx, np, t))
+				return SigSpec();
+		} else {
+			PinnedBus pb_x = make_pinned_bus(x);
+			PinnedBus pb_k = make_pinned_bus(k);
+			if (!pb_x.ok || !pb_k.ok) return SigSpec();
+			if (!clean_set_signals({&pb_x.free_bits, &pb_k.free_bits})) return SigSpec();
+			if (!find_reg_threshold(orig, pb_x, Nx, pb_k, Nk, np)) return SigSpec();
+		}
+		SigSpec n_x = emit_leadone_full(x, Nx);
+		SigSpec n_k = k_const ? SigSpec(Const(t, GetSize(n_x)))
+		                      : emit_leadone_full(k, Nk);
+		int W = std::max(GetSize(n_x), GetSize(n_k));
+		while (GetSize(n_x) < W) n_x.append(SigSpec(State::S0));
+		while (GetSize(n_k) < W) n_k.append(SigSpec(State::S0));
+		SigSpec lhs = a_smear ? n_x : n_k;
+		SigSpec rhs = a_smear ? n_k : n_x;
+		return emit_pred(np, lhs, rhs);
+	}
+
+	struct CmpRewrite { SigSpec y; bool narrowed; };
+
+	// Narrow a smear operand, or peel a mux so a smear arm underneath can be.
+	CmpRewrite rewrite_smear_cmp(IdString orig, SigSpec A, SigSpec B, int budget) {
+		A = sigmap(A);
+		B = sigmap(B);
+		SigSpec xA = smear_hit.count(A) ? smear_hit.at(A) : SigSpec();
+		SigSpec xB = smear_hit.count(B) ? smear_hit.at(B) : SigSpec();
+		bool a_smear = GetSize(xA) > 0;
+		bool b_smear = GetSize(xB) > 0;
+		if (a_smear != b_smear) {
+			SigSpec x = a_smear ? xA : xB;
+			SigSpec k = a_smear ? B : A;
+			// Const K is muxpush's job and a leadone tree on a const-compare
+			// arm has been a net loss on the clamp-floor family. Register/port
+			// K cannot be pushed, so that is the I2 case that pays.
+			if (is_offpath_operand(k) && !k.is_fully_const()) {
+				SigSpec y = emit_narrow_smear_cmp(orig, a_smear, x, k);
+				if (GetSize(y)) return {y, true};
+			}
+		}
+		if (budget <= 0) return {SigSpec(), false};
+		// Muxpush already distributes const-K compares; peeling those here
+		// only duplicates them. Register/port K cannot be pushed, so peel
+		// just far enough to reach a smear arm.
+		SigBit sel;
+		SigSpec sa, sb;
+		if (!B.is_fully_const() && is_offpath_operand(B) &&
+		    split_mux(A, sel, sa, sb) && subtree_has_smear(A, budget)) {
+			CmpRewrite ta = rewrite_smear_cmp(orig, sa, B, budget - 1);
+			CmpRewrite tb = rewrite_smear_cmp(orig, sb, B, budget - 1);
+			if (!ta.narrowed && !tb.narrowed) return {SigSpec(), false};
+			if (!GetSize(ta.y)) ta.y = emit_pred(orig, sa, B);
+			if (!GetSize(tb.y)) tb.y = emit_pred(orig, sb, B);
+			return {emit_mux(ta.y, tb.y, sel), true};
+		}
+		if (!A.is_fully_const() && is_offpath_operand(A) &&
+		    split_mux(B, sel, sa, sb) && subtree_has_smear(B, budget)) {
+			CmpRewrite ta = rewrite_smear_cmp(orig, A, sa, budget - 1);
+			CmpRewrite tb = rewrite_smear_cmp(orig, A, sb, budget - 1);
+			if (!ta.narrowed && !tb.narrowed) return {SigSpec(), false};
+			if (!GetSize(ta.y)) ta.y = emit_pred(orig, A, sa);
+			if (!GetSize(tb.y)) tb.y = emit_pred(orig, A, sb);
+			return {emit_mux(ta.y, tb.y, sel), true};
+		}
+		return {SigSpec(), false};
+	}
+
+	void collapse_smear_compares(pool<Cell*>& dead_readers) {
+		if (!enable_smear) return;
+		build_reader_index();
+		vector<Cell*> cmps;
+		for (auto c : module->cells()) {
+			if (!c->type.in(ID($lt), ID($le), ID($gt), ID($ge))) continue;
+			if (c->getParam(ID::A_SIGNED).as_bool() || c->getParam(ID::B_SIGNED).as_bool())
+				continue;
+			cmps.push_back(c);
+		}
+		std::sort(cmps.begin(), cmps.end(),
+		          [](Cell* a, Cell* b) { return a->name.str() < b->name.str(); });
+
+		for (Cell* cmp : cmps) {
+			SigSpec A = sigmap(cmp->getPort(ID::A));
+			SigSpec B = sigmap(cmp->getPort(ID::B));
+			SigSpec Y = sigmap(cmp->getPort(ID::Y));
+			hunt_smear(A);
+			hunt_smear(B);
+			cell = cmp;
+			CmpRewrite rw = rewrite_smear_cmp(cmp->type, A, B, 4);
+			if (!rw.narrowed || !GetSize(rw.y)) continue;
+			steal_output(cmp, ID::Y, Y, rw.y);
+			log("  %s: %s via smear narrowed to encoded-domain compare\n",
+			    log_id(module), log_id(cmp->type));
+			dead_readers.insert(cmp);
+			compares_narrowed++;
+		}
+	}
+
 	// ------------------------------------------------------------------
 	// Encode before select.
 	//
@@ -1172,6 +1708,16 @@ struct OptPriEncWorker {
 		if (n->is_leaf) return emit_pe_sig(v, n->leaf, N, out_width);
 		return emit_mux(emit_pe_arms(n->a, v, N, out_width),
 		                emit_pe_arms(n->b, v, N, out_width), n->sel);
+	}
+
+	void discover_smear_leaves(const std::shared_ptr<MuxArm>& n) {
+		if (!n) return;
+		if (n->is_leaf) {
+			hunt_smear(n->leaf);
+			return;
+		}
+		discover_smear_leaves(n->a);
+		discover_smear_leaves(n->b);
 	}
 
 	int max_push_arms = 24;
@@ -1510,7 +2056,8 @@ struct OptPriEncWorker {
 		build_wire_index(wires_snapshot);
 		// One ConstEval for the whole module: ctor indexes every cell once.
 		// Fingerprints only run before we mutate the netlist.
-		ConstEval ce(module);
+		ConstEval ce_store(module);
+		ce = &ce_store;
 
 		// Stage 1: build candidate set with cones, filter by driver/width.
 		// Probe with a small cone cap first; only a budgeted number of wires
@@ -1640,7 +2187,7 @@ struct OptPriEncWorker {
 				int care_mask = care_mask_of(S_sig);
 				if (count_care_bits(care_mask) < Wbits - 1) continue;
 
-				PEVariant variant = fingerprint(ce, pb, S_sig, N, Wbits,
+				PEVariant variant = fingerprint(ce_store, pb, S_sig, N, Wbits,
 				                                care_mask, evaluated);
 				if (variant == PEVariant::NONE) continue;
 
@@ -1711,7 +2258,7 @@ struct OptPriEncWorker {
 							if (bit.wire) allowed.insert(bit);
 						if (!cone_depends_only_on_set(S_sig, allowed)) continue;
 
-						int kind = fingerprint_rr(ce, req_sig, start_sig, S_sig, N, W);
+						int kind = fingerprint_rr(ce_store, req_sig, start_sig, S_sig, N, W);
 						if (kind < 0) continue;
 
 						log("  %s: %s <- round_robin_%s(req=%s, start=%s) [N=%d, W=%d]\n",
@@ -1731,9 +2278,25 @@ struct OptPriEncWorker {
 
 		// Apply rewrites. We collected first to avoid the index growing stale
 		// while we add new cells/wires.
-		// Collapse round trips first: it takes shift consumers off S's fanout,
-		// so the emit below can tell whether the binary code is still live.
+		// Smear discovery and compare narrowing must run before any mutation:
+		// they consult ConstEval. Round-trip collapse then takes shift
+		// consumers off S's fanout, so the emit below can tell whether the
+		// binary code is still live.
+		if (enable_smear) {
+			for (auto& r : rewrites) {
+				hunt_smear(sigmap(SigSpec(r.T_wire)));
+				int arm_cap = std::min(max_push_arms, std::max(2, 512 / std::max(r.N, 1)));
+				if (arm_cap < 2) continue;
+				int split_budget = arm_cap - 1;
+				pool<SigBit> sel_bits, leaf_bits;
+				auto root = build_mux_arms(sigmap(SigSpec(r.T_wire)), split_budget,
+				                           sel_bits, leaf_bits);
+				discover_smear_leaves(root);
+			}
+		}
 		pool<Cell*> dead_readers;
+		collapse_smear_compares(dead_readers);
+		ce = nullptr;
 		for (auto& r : rewrites)
 			if (variant_is_full(r.variant))
 				collapse_roundtrips(r, dead_readers);
@@ -1823,6 +2386,16 @@ struct OptPriEncPass : public Pass {
 		log("Only shifts whose amount is exactly the matched count are touched, so a\n");
 		log("genuinely binary-encoded variable shift is never collapsed.\n");
 		log("\n");
+		log("    -smear\n");
+		log("        recognise an MSB suffix-OR ('round up to 2^n-1') feeding a\n");
+		log("        matched encoder or a magnitude compare. Off by default.\n");
+		log("        cto_full(smear(x)) is rewritten as msb_index(x)+1, so the\n");
+		log("        smear cone leaves the encoder path; a compare whose other\n");
+		log("        operand is sequential or a port is narrowed into the\n");
+		log("        same encoded domain after a software identity search\n");
+		log("        confirms the threshold. Constant other operands are left\n");
+		log("        to muxpush.\n");
+		log("\n");
 		log("In addition, the pass detects round-robin (rotated priority)\n");
 		log("arbiters: grant / idx_next = first set request bit scanning upward\n");
 		log("(wrapping) from just after a stored pointer idx_last. RTL typically\n");
@@ -1866,6 +2439,7 @@ struct OptPriEncPass : public Pass {
 		bool sel_clz = false, sel_ctz = false, sel_clo = false, sel_cto = false;
 		bool no_ones = false;
 		bool no_rr = false;
+		bool enable_smear = false;
 		int max_width = 64;
 		int min_width = 4;
 		int max_push_arms = 24;
@@ -1878,6 +2452,7 @@ struct OptPriEncPass : public Pass {
 			if (args[argidx] == "-cto") { sel_cto = true; continue; }
 			if (args[argidx] == "-no-ones") { no_ones = true; continue; }
 			if (args[argidx] == "-no-rr") { no_rr = true; continue; }
+			if (args[argidx] == "-smear") { enable_smear = true; continue; }
 			if (args[argidx] == "-max-push-arms" && argidx + 1 < args.size()) {
 				max_push_arms = std::stoi(args[++argidx]); continue;
 			}
@@ -1897,6 +2472,8 @@ struct OptPriEncPass : public Pass {
 
 		int total_regions = 0;
 		int total_roundtrips = 0;
+		int total_smears = 0;
+		int total_cmps = 0;
 		int total_cells_added = 0;
 		for (auto module : design->selected_modules()) {
 			OptPriEncWorker worker(module);
@@ -1905,12 +2482,15 @@ struct OptPriEncPass : public Pass {
 			worker.detect_clo = (any_sel ? sel_clo : true) && !no_ones;
 			worker.detect_cto = (any_sel ? sel_cto : true) && !no_ones;
 			worker.detect_rr = !no_rr;
+			worker.enable_smear = enable_smear;
 			worker.max_input_width = max_width;
 			worker.min_input_width = min_width;
 			worker.max_push_arms = max_push_arms;
 			worker.run();
 			total_regions += worker.regions_rewritten;
 			total_roundtrips += worker.roundtrips_collapsed;
+			total_smears += worker.smears_collapsed;
+			total_cmps += worker.compares_narrowed;
 			total_cells_added += worker.cells_added;
 		}
 
@@ -1918,6 +2498,9 @@ struct OptPriEncPass : public Pass {
 		    total_regions, total_cells_added);
 		log("Collapsed %d encode/decode round-trip(s) into mask logic.\n",
 		    total_roundtrips);
+		if (enable_smear)
+			log("Collapsed %d smear/encoder round-trip(s); narrowed %d compare(s).\n",
+			    total_smears, total_cmps);
 
 		Yosys::run_pass("clean -purge");
 	}
