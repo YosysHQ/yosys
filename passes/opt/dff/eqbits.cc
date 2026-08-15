@@ -361,7 +361,7 @@ struct EqBitsContext
 				n_lit[idx] = n;
 			}
 			qcsat.prepare();
-			worker.sat_budget.charge_import(qcsat, cells_charged);
+			cells_charged = worker.sat_budget.charge_import(qcsat, cells_charged);
 		}
 
 		// Assume the induction hypo (that every current class is internally equal in the present cycle), and try
@@ -480,9 +480,6 @@ struct EqBitsContext
 
 	bool run_eqbits()
 	{
-		if (!worker.opt.sat)
-			return false;
-
 		EqCandidates cand = gather_initial_eq_classes();
 		if (cand.classes.empty())
 			return false;

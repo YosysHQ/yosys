@@ -97,8 +97,8 @@ struct SatEffortBudget {
 	bool spent() const { return enabled() && remaining <= 0; }
 
 	// Charge for the cells imported into qcsat since the previous call (pricing the cells pulled in)
-	// cells_charged records how many of qcsat's imported cells are already paid for
-	void charge_import(QuickConeSat &qcsat, int64_t &cells_charged);
+	// cells_charged is how many of qcsat's imported cells are already paid for, returns the new count
+	int64_t charge_import(QuickConeSat &qcsat, int64_t cells_charged);
 
 	Result solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
 			std::vector<bool> &modelVals, const std::vector<int> &assumptions);
