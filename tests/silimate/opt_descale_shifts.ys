@@ -321,3 +321,53 @@ design -load postopt
 select -assert-count 1 t:$add
 design -reset
 log -pop
+
+
+
+log -header "Negative: keep on the increment, which the rewrite would delete"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+setattr -set keep 1 t:$add
+opt_shift -descale
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "Negative: keep on a reader the rewrite would rewire and rename"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+setattr -set keep 1 t:$sub
+opt_shift -descale
+# the carry has nowhere to fold, so the increment stays put
+select -assert-count 1 t:$add
+select -assert-count 0 t:*_descale
+design -reset
+log -pop
