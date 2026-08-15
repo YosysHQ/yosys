@@ -198,9 +198,14 @@ struct value : public expr_base<value<Bits>> {
 	value<NewBits> trunc() const {
 		static_assert(NewBits <= Bits, "trunc() may not increase width");
 		value<NewBits> result;
-		for (size_t n = 0; n < result.chunks; n++)
-			result.data[n] = data[n];
-		result.data[result.chunks - 1] &= result.msb_mask;
+		if (chunks == 1 && result.chunks == 1) {
+			// DCE loop as early as possible in common case
+			result.data[0] = data[0] & result.msb_mask;
+		} else {
+			for (size_t n = 0; n < result.chunks; n++)
+				result.data[n] = data[n];
+			result.data[result.chunks - 1] &= result.msb_mask;
+		}
 		return result;
 	}
 
@@ -209,8 +214,13 @@ struct value : public expr_base<value<Bits>> {
 	value<NewBits> zext() const {
 		static_assert(NewBits >= Bits, "zext() may not decrease width");
 		value<NewBits> result;
-		for (size_t n = 0; n < chunks; n++)
-			result.data[n] = data[n];
+		if (chunks == 1 && result.chunks == 1) {
+			// DCE loop as early as possible in common case
+			result.data[0] = data[0];
+		} else {
+			for (size_t n = 0; n < chunks; n++)
+				result.data[n] = data[n];
+		}
 		return result;
 	}
 
@@ -219,8 +229,13 @@ struct value : public expr_base<value<Bits>> {
 	value<NewBits> sext() const {
 		static_assert(NewBits >= Bits, "sext() may not decrease width");
 		value<NewBits> result;
-		for (size_t n = 0; n < chunks; n++)
-			result.data[n] = data[n];
+		if (chunks == 1 && result.chunks == 1) {
+			// DCE loop as early as possible in common case
+			result.data[0] = data[0];
+		} else {
+			for (size_t n = 0; n < chunks; n++)
+				result.data[n] = data[n];
+		}
 		if (is_neg()) {
 			result.data[chunks - 1] |= ~msb_mask;
 			for (size_t n = chunks; n < result.chunks; n++)
@@ -237,15 +252,20 @@ struct value : public expr_base<value<Bits>> {
 		value<NewBits> result;
 		constexpr size_t shift_chunks = (Bits - NewBits) / chunk::bits;
 		constexpr size_t shift_bits   = (Bits - NewBits) % chunk::bits;
-		chunk::type carry = 0;
-		if (shift_chunks + result.chunks < chunks) {
-			carry = (shift_bits == 0) ? 0
-				: data[shift_chunks + result.chunks] << (chunk::bits - shift_bits);
-		}
-		for (size_t n = result.chunks; n > 0; n--) {
-			result.data[n - 1] = carry | (data[shift_chunks + n - 1] >> shift_bits);
-			carry = (shift_bits == 0) ? 0
-				: data[shift_chunks + n - 1] << (chunk::bits - shift_bits);
+		if (chunks == 1 && result.chunks == 1) {
+			// DCE loop as early as possible in common case
+			result.data[0] = data[0] >> shift_bits;
+		} else {
+			chunk::type carry = 0;
+			if (shift_chunks + result.chunks < chunks) {
+				carry = (shift_bits == 0) ? 0
+					: data[shift_chunks + result.chunks] << (chunk::bits - shift_bits);
+			}
+			for (size_t n = result.chunks; n > 0; n--) {
+				result.data[n - 1] = carry | (data[shift_chunks + n - 1] >> shift_bits);
+				carry = (shift_bits == 0) ? 0
+					: data[shift_chunks + n - 1] << (chunk::bits - shift_bits);
+			}
 		}
 		return result;
 	}
@@ -257,14 +277,19 @@ struct value : public expr_base<value<Bits>> {
 		value<NewBits> result;
 		constexpr size_t shift_chunks = (NewBits - Bits) / chunk::bits;
 		constexpr size_t shift_bits   = (NewBits - Bits) % chunk::bits;
-		chunk::type carry = 0;
-		for (size_t n = 0; n < chunks; n++) {
-			result.data[shift_chunks + n] = (data[n] << shift_bits) | carry;
-			carry = (shift_bits == 0) ? 0
-				: data[n] >> (chunk::bits - shift_bits);
+		if (chunks == 1 && result.chunks == 1) {
+			// DCE loop as early as possible in common case
+			result.data[0] = data[0] << shift_bits;
+		} else {
+			chunk::type carry = 0;
+			for (size_t n = 0; n < chunks; n++) {
+				result.data[shift_chunks + n] = (data[n] << shift_bits) | carry;
+				carry = (shift_bits == 0) ? 0
+					: data[n] >> (chunk::bits - shift_bits);
+			}
+			if (shift_chunks + chunks < result.chunks)
+				result.data[shift_chunks + chunks] = carry;
 		}
-		if (shift_chunks + chunks < result.chunks)
-			result.data[shift_chunks + chunks] = carry;
 		return result;
 	}
 
