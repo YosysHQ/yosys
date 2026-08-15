@@ -111,9 +111,11 @@ struct ConstBitsContext
 		const_bits[ob.cell].insert(ob.idx);
 	}
 
+	// a wire input can only be proven against a definite candidate value that
+	// is actually driven somewhere in the design
 	bool add_const_target(ConstObligation &ob, SigBit sig)
 	{
-		if (!worker.opt.sat || (ob.val != State::S0 && ob.val != State::S1))
+		if (ob.val != State::S0 && ob.val != State::S1)
 			return false;
 		if (!worker.get_modwalker().has_drivers(sig))
 			return false;
@@ -121,7 +123,8 @@ struct ConstBitsContext
 		return true;
 	}
 
-	// try to decide obligation ob under the given per-query effort cap
+	// try to decide obligation ob under the given per-query effort cap, returns
+	// true if the cap was hit and the obligation had to be left pending
 	bool resolve_const_obligation(QuickConeSat &qcsat, int64_t cap, ConstObligation &ob,
 			const ConstWatchList &watches)
 	{
@@ -137,15 +140,15 @@ struct ConstBitsContext
 		auto res = worker.sat_budget.solve(qcsat, cap, watches.exprs, model, assumptions);
 
 		if (res == SatEffortBudget::Result::LimitReached)
-			return false;
+			return true;
 		if (res == SatEffortBudget::Result::Unsat) {
 			ob.status = ConstObligation::Proven;
-			return true;
+			return false;
 		}
 
 		watches.drop_disproven(model);
 		ob.status = ConstObligation::Dropped;
-		return true;
+		return false;
 	}
 
 	// fold constant D/AD inputs into the candidate value; bits with remaining
@@ -177,6 +180,12 @@ struct ConstBitsContext
 				if (ff.has_aload && !ad.wire)
 					val = combine_const(val, ad.data);
 				if (val == State::Sm)
+					continue;
+
+				// remaining wire inputs need a sat proof, without -sat only
+				// bits with all-constant inputs are candidates (proven trivially)
+				bool needs_sat = (has_d && d.wire) || (ff.has_aload && ad.wire);
+				if (needs_sat && !worker.opt.sat)
 					continue;
 
 				ConstObligation ob;
@@ -222,7 +231,7 @@ struct ConstBitsContext
 				differ.push_back(qcsat.ez->NOT(qcsat.ez->IFF(qcsat.importSigBit(sig), vlit)));
 			ob.differ_lit = qcsat.ez->expression(ezSAT::OpOr, differ);
 			qcsat.prepare();
-			worker.sat_budget.charge_import(qcsat, cells_charged);
+			cells_charged = worker.sat_budget.charge_import(qcsat, cells_charged);
 			batch_end++;
 		}
 
@@ -251,7 +260,8 @@ struct ConstBitsContext
 					continue;
 				if (worker.warn_if_budget_spent())
 					return;
-				if (!resolve_const_obligation(qcsat, cap, ob, watches))
+				bool given_up = resolve_const_obligation(qcsat, cap, ob, watches);
+				if (given_up)
 					all_resolved = false;
 			}
 
