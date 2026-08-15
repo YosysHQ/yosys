@@ -536,14 +536,12 @@ struct SimInstance
 		bool did_something = false;
 
 		sig = sigmap(sig);
-		if (shared->debug) {
-			log("GetSize(sig) %s: %d, GetSize(value) %s: %d\n",
-				log_signal(sig),
-				GetSize(sig),
-				log_const(value),
-				GetSize(value));
+		if (GetSize(sig) > GetSize(value)) {
+			log_warning("Width mismatch on signal `%s` at `%s`: net is %d bits, value is %d bits (`%s`); zero-padding the high bits.\n",
+					log_signal(sig), hiername(), GetSize(sig), GetSize(value),
+					log_const(value));
+			value.extu(GetSize(sig));
 		}
-		log_assert(GetSize(sig) <= GetSize(value));
 
 		for (int i = 0; i < GetSize(sig); i++)
 			if (value[i] != State::Sa && state_nets.at(sig[i]) != value[i]) {
