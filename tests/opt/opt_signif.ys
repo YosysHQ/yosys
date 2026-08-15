@@ -1,0 +1,933 @@
+# Tests for opt_signif.
+#
+# opt_signif narrows arithmetic operand ports whose upper bits are provably sign
+# (or zero) extension, using a forward value-range analysis over the word-level
+# operators. wreduce already strips such a prefix, but it decides how much to
+# strip by comparing the top two bits for net identity after sigmap, so it only
+# fires when the redundant bits are literally the same net. The shapes below hide
+# the extension behind a $mux or a $neg, where every upper bit is a distinct net.
+#
+# Every positive case is proven with equiv_opt -assert, so the structural width
+# assertions are backed by a SAT equivalence check rather than inspection alone.
+#
+# The default type set is $add,$sub,$mul. Compares are supported but must be asked
+# for with -types, so the compare cases below pass it explicitly and C5 pins the
+# default.
+
+# ============================================================================
+# Group A: Positive rewrites
+# ============================================================================
+
+# Test A1: signed multiply over two sign-muxed magnitudes.
+#
+# Shape:
+#   wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma})   (32 bits, ma is 4)
+#   wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb})
+#   y  = wa * wb
+#
+# Context widens both operands to 32 bits, but each can only hold [-15, 15], so
+# five signed bits suffice and the multiply should become 5x5 instead of 32x32.
+log -header "A1: signed multiply over sign-muxed magnitudes"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = wa * wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test A2: unsigned add over operands that were already sign-extended.
+#
+# Shape:
+#   $neg  : na = -ma                        (4 -> 32 bits)
+#   $mux  : wa = sa ? na : {28'b0, ma}      (32 bits)
+#   $add  : y  = wa + wb, all ports unsigned, A_WIDTH = B_WIDTH = Y_WIDTH = 32
+#
+# This is how an elaborator emits signed addition: the operands are extended to
+# the operation width first and the cell itself is unsigned. Read as unsigned the
+# extension is load-bearing, so the pass must reinterpret both operands as signed
+# -- which is only sound because nothing is extended (all widths are 32), making
+# the two's-complement sum bit-identical either way.
+log -header "A2: unsigned add over pre-extended operands"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire [31:0] y
+);
+  wire [31:0] na, nb, wa, wb;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    add_ab (.A(wa), .B(wb), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$add r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+select -assert-count 1 t:$add r:A_SIGNED=1 r:B_SIGNED=1 %i %i
+design -reset
+log -pop
+
+# Test A3: signed compare lowered as an unsigned compare with swapped sign bits.
+#
+# Shape:
+#   $lt : y = {wb[31], wa[30:0]} < {wa[31], wb[30:0]}, both ports unsigned
+#
+# unsigned_lt({Ymsb, Xlow}, {Xmsb, Ylow}) is exactly signed_lt(X, Y): equal sign
+# bits leave an unsigned compare of the low bits, unequal ones decide it. The
+# pass must undo the swap to recover wa and wb, then narrow them to five bits as
+# a signed compare. equiv_opt proves the identity rather than trusting it.
+log -header "A3: compare with swapped sign bits"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire       y
+);
+  wire [31:0] na, nb, wa, wb;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $lt #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(1))
+    cmp (.A({wb[31], wa[30:0]}), .B({wa[31], wb[30:0]}), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif -types $lt
+design -load preopt
+opt_signif -types $lt
+select -assert-count 1 t:$lt r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+select -assert-count 1 t:$lt r:A_SIGNED=1 r:B_SIGNED=1 %i %i
+design -reset
+log -pop
+
+# Test A4: union over the arms of a $pmux.
+#
+# Shape:
+#   wa = case (sel) 0: -7, 1: 5, 2: -m, default: m     (32 bits)
+#   y  = wa * wb
+#
+# No single arm is wider than five signed bits, so the union is too and the
+# multiply narrows. This exercises the arm-union rule rather than the mux rule.
+log -header "A4: pmux arm union"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire [1:0] sel,
+  input  wire       sb,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] wa;
+  always @* begin
+    case (sel)
+      2'd0:    wa = -$signed(5'd7);
+      2'd1:    wa = $signed(5'd5);
+      2'd2:    wa = -$signed({1'b0, ma});
+      default: wa = $signed({1'b0, ma});
+    endcase
+  end
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = wa * wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test A5: left shift by a bounded amount.
+#
+# Shape:
+#   $shl : sh = m << e     (4-bit value, 2-bit shift amount -> [0, 120])
+#   $mul : y  = sh * sh
+#
+# Scaling the operand range by the largest possible shift bounds the result at
+# seven unsigned bits, so the multiply narrows from 32x32 to 7x7.
+log -header "A5: bounded left shift"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] m,
+  input  wire [1:0] e,
+  output wire [31:0] y
+);
+  wire [31:0] sh;
+  $shl #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(4), .B_WIDTH(2), .Y_WIDTH(32))
+    shifter (.A(m), .B(e), .Y(sh));
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(sh), .B(sh), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=7 r:B_WIDTH=7 %i %i
+design -reset
+log -pop
+
+# Test A6: narrowing must stop at the width the value really needs.
+#
+# Shape:
+#   wa = sa ? -$signed({1'b0, a16}) : $signed({1'b0, a16})    (32 bits, a16 is 16)
+#   y  = wa * wa
+#
+# A 16-bit magnitude genuinely needs 17 signed bits. Landing anywhere below 17
+# would be an unsound under-approximation, so this pins the exact width rather
+# than merely asserting that something got smaller.
+log -header "A6: exact significant width, not merely smaller"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [15:0] a16,
+  input  wire        sa,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, a16}) : $signed({1'b0, a16});
+  assign y = wa * wa;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=17 r:B_WIDTH=17 %i %i
+design -reset
+log -pop
+
+# Test A7: range propagates through a chain of modular cells.
+#
+# Shape:
+#   $add : sum  = wa + wb        (unsigned, all widths 32)
+#   $neg : nsum = -sum           (unsigned input, 32 -> 32)
+#   $mul : y    = nsum * wa      (signed, 32x32)
+#
+# The multiply is two modular hops away from the only narrow values in the
+# design. Both hops declare unsigned operands, so without reading them as signed
+# the range dies at the first cell and the multiply keeps 32x32.
+log -header "A7: propagation through a modular chain"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire [31:0] y
+);
+  wire [31:0] na, nb, wa, wb, sum, nsum;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    add_ab (.A(wa), .B(wb), .Y(sum));
+  $neg #(.A_SIGNED(0), .A_WIDTH(32), .Y_WIDTH(32)) n_s (.A(sum), .Y(nsum));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(nsum), .B(wa), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=6 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test A8: a compare whose two sides need different widths.
+#
+# Shape:
+#   wa = sa ? -$signed({1'b0, a4})  : $signed({1'b0, a4})    (needs 5 bits)
+#   wb = sb ? -$signed({1'b0, b16}) : $signed({1'b0, b16})   (needs 17 bits)
+#   y  = wa < wb
+#
+# Narrowing each side to its own requirement would leave a 5-bit vs 17-bit
+# compare. That is legal RTLIL but not what the rest of the flow expects: wreduce
+# trims a compare's operands together, and opt_maxcmp compares one operand's
+# lanes against the other operand directly and asserts on a width mismatch. So
+# both sides must land on the wider requirement, 17, and stay equal.
+log -header "A8: compare operands stay equal width"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0]  a4,
+  input  wire [15:0] b16,
+  input  wire        sa,
+  input  wire        sb,
+  output wire        y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, a4})  : $signed({1'b0, a4});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, b16}) : $signed({1'b0, b16});
+  assign y = wa < wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif -types $lt
+design -load preopt
+opt_signif -types $lt
+select -assert-count 1 t:$lt r:A_WIDTH=17 r:B_WIDTH=17 %i %i
+design -reset
+log -pop
+
+# Test A9: subtraction, where the two operand rules differ in sign.
+#
+# Shape:
+#   $sub : y = wa - wb, both ports signed and 32 bits wide
+#
+# $sub's range rule is [la - hb, ha - lb], so it is the one rule where the B
+# operand's bounds enter with their signs exchanged. Getting that backwards still
+# produces a plausible-looking narrow width, which equiv_opt would then reject.
+log -header "A9: subtract range rule"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = wa - wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$sub r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test A10: a mask bounds an otherwise unbounded operand.
+#
+# Shape:
+#   $and : masked = u & 32'h0000000f      (u is a 32-bit unsigned input)
+#   $mul : y      = masked * {28'b0, c}
+#
+# u itself has no useful range, so the narrowing can only come from the $and
+# rule [0, min(ha, hb)]. Written with -icells and no opt because opt_expr would
+# otherwise const-fold the masked-off bits and make the operand narrow for a
+# different reason than the one under test.
+log -header "A10: mask bounds an unbounded operand"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [31:0] u,
+  input  wire [3:0]  c,
+  output wire [31:0] y
+);
+  wire [31:0] masked;
+  $and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mask (.A(u), .B(32'h0000000f), .Y(masked));
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(masked), .B({28'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=4 r:B_WIDTH=4 %i %i
+design -reset
+log -pop
+
+# Test A11: an unsigned right shift cannot grow its operand.
+#
+# Shape:
+#   $shr : s = {24'b0, byte} >> shamt     (shamt is a 3-bit input)
+#   $mul : y = s * {28'b0, c}
+#
+# Shifting right moves toward zero, so [0, ha] still bounds the result whatever
+# the distance is. Eight bits is the width only that rule yields: without it the
+# operand falls back to its declared 32.
+log -header "A11: unsigned right shift keeps the operand bound"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [7:0]  byte_i,
+  input  wire [2:0]  shamt,
+  input  wire [3:0]  c,
+  output wire [31:0] y
+);
+  wire [31:0] s;
+  $shr #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(3), .Y_WIDTH(32))
+    sh (.A({24'b0, byte_i}), .B(shamt), .Y(s));
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(s), .B({28'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=8 r:B_WIDTH=4 %i %i
+design -reset
+log -pop
+
+# Test A12: an arithmetic right shift of a signed value stays in range.
+#
+# Shape:
+#   wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma})   ([-15, 15])
+#   $sshr : ws = wa >>> shamt
+#   $mul  : y  = ws * wb
+#
+# An arithmetic shift right rounds toward negative infinity but never leaves
+# [min(lo, 0), max(hi, 0)], so the five significant bits survive the shift.
+log -header "A12: arithmetic right shift keeps the operand bound"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  input  wire [2:0] shamt,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = (wa >>> shamt) * wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test A13: narrowing is per port, not per cell.
+#
+# Shape:
+#   $mul : y = wa * b, wa sign-muxed over 4-bit magnitudes, b a 32-bit signed input
+#
+# The two ports are independent parameters, so the narrow one must shrink while
+# the genuinely wide one keeps all 32 bits. A pass that decided per cell would
+# either miss the win or corrupt the wide operand.
+log -header "A13: only the narrow port of a mixed multiply shrinks"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire       sa,
+  input  wire signed [31:0] b,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma});
+  assign y = wa * b;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=32 %i %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: Rejected shapes
+# ============================================================================
+
+# Test B1: a genuine full-width signed multiply.
+#
+# Shape:
+#   $mul : y = a * b, both 32-bit signed module inputs
+#
+# No sign-copy prefix exists, so the pass must leave both operands at 32 bits.
+# This is the case the sign-muxed shapes must remain distinguishable from.
+log -header "B1: reject a genuine full-width multiply"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire signed [31:0] a,
+  input  wire signed [31:0] b,
+  output wire signed [31:0] y
+);
+  assign y = a * b;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+equiv_opt -assert opt_signif
+design -load postopt
+select -assert-count 1 t:$mul r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+design -reset
+log -pop
+
+# Test B2: an accumulator that genuinely grows.
+#
+# Shape:
+#   acc <= acc + d      (32-bit acc, 4-bit d)
+#   y    = acc * c
+#
+# acc reaches the full datapath over time, and its range depends on itself. The
+# analysis breaks the loop by falling back to the declared width, so acc must
+# stay 32 bits on both cells; narrowing it would be a functional bug. Only the
+# genuinely narrow addend and coefficient may shrink.
+log -header "B2: reject a self-accumulating register"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire [3:0] d,
+  input  wire [3:0] c,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] acc;
+  always @(posedge clk) acc <= acc + $signed({1'b0, d});
+  assign y = acc * $signed({1'b0, c});
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test B3: an unsigned operand whose high bits carry data.
+#
+# Shape:
+#   $mul : y = u * c, u is a 32-bit unsigned input, c is 4 bits
+#
+# u's upper bits are not zero extension, so only c may narrow.
+log -header "B3: reject an unsigned operand with live high bits"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [31:0] u,
+  input  wire [3:0]  c,
+  output wire [31:0] y
+);
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(u), .B({28'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test B4: unsigned add whose result is wider than its operands.
+#
+# Shape:
+#   $add : y[32:0] = wa + wb, both ports unsigned and 32 bits wide
+#
+# Here the operands really are zero-extended, from 32 to the 33-bit operation
+# width, and that zero extension is part of the result. Reinterpreting them as
+# signed would sign-extend instead and change bit 32, so the flip must be
+# refused even though both operands hold only five significant bits. This is the
+# guard that makes A2 sound; equiv_opt fails loudly if it is ever dropped.
+log -header "B4: reject the flip when operands are really zero-extended"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire [32:0] y
+);
+  wire [31:0] na, nb, wa, wb;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(33))
+    add_ab (.A(wa), .B(wb), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$add r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+select -assert-count 1 t:$add r:A_SIGNED=0 %i
+design -reset
+log -pop
+
+# Test B5: undefined bits above the significant part.
+#
+# Shape:
+#   $mul : y = {28'bx, m} * c
+#
+# Undefined bits are not a value, so the analysis must refuse to read a range
+# through them instead of treating them as zero. The B operand is genuinely
+# zero-extended and does narrow, which keeps the assertion about A meaningful.
+log -header "B5: reject undefined high bits"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0]  m,
+  input  wire [3:0]  c,
+  output wire [31:0] y
+);
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A({28'bx, m}), .B({28'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test B6: a genuinely unsigned compare.
+#
+# Shape:
+#   $lt : y = a8 < b8, both unsigned 8-bit inputs, no sign-bit swap
+#
+# The compare-swap rewrite reconstructs its operands by exchanging the top bits
+# back. On a real unsigned compare that produces a mixed word no cell drives, so
+# its range degrades to the declared width and nothing narrows. Without that
+# self-rejection the rewrite would change the comparison's meaning.
+log -header "B6: reject a genuinely unsigned compare"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [7:0] a8,
+  input  wire [7:0] b8,
+  output wire       y
+);
+  $lt #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(1))
+    cmp (.A(a8), .B(b8), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif -types $lt
+select -assert-count 1 t:$lt r:A_WIDTH=8 r:B_WIDTH=8 %i %i
+select -assert-count 1 t:$lt r:A_SIGNED=0 %i
+design -reset
+log -pop
+
+# Test B7: a shift whose product no longer fits its output word.
+#
+# Shape:
+#   $shl : s = {28'b0, m} << shamt        (shamt is a 5-bit input, so up to 31)
+#   $mul : y = s * {28'b0, c}
+#
+# 15 << 31 needs 36 bits, so the 32-bit output word wraps and the computed range
+# no longer describes it. The analysis must discard the range instead of clamping
+# it, which would claim a narrow result the hardware does not produce.
+log -header "B7: reject a shift that wraps its output word"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0]  m,
+  input  wire [4:0]  shamt,
+  input  wire [3:0]  c,
+  output wire [31:0] y
+);
+  wire [31:0] s;
+  $shl #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(5), .Y_WIDTH(32))
+    sh (.A({28'b0, m}), .B(shamt), .Y(s));
+  $mul #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(s), .B({28'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test B8: one wide arm poisons the whole mux.
+#
+# Shape:
+#   wa = s ? wide : $signed({1'b0, ma})   (wide is a 32-bit signed input)
+#   $mul : y = wa * wb
+#
+# The mux rule is a union over the arms, so a single unbounded arm makes the
+# result unbounded. Taking the narrow arm's range would be a functional bug.
+log -header "B8: reject a mux with one wide arm"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       s,
+  input  wire       sb,
+  input  wire signed [31:0] wide,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = s ? wide : $signed({1'b0, ma});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = wa * wb;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: Options and idempotence
+# ============================================================================
+
+# Test C1: -types restricts which operators are narrowed.
+#
+# The design offers both a narrowable $mul and a narrowable $add. Asking for
+# $mul only must leave the add at full width, so the flag can scope the rewrite
+# to the operator classes a flow has measured.
+log -header "C1: -types scopes the rewrite"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire [31:0] y0,
+  output wire [31:0] y1
+);
+  wire [31:0] na, nb, wa, wb;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(wa), .B(wb), .Y(y0));
+  $add #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    add_ab (.A(wa), .B(wb), .Y(y1));
+endmodule
+EOF
+check -assert
+opt_signif -types $mul
+select -assert-count 1 t:$mul r:A_WIDTH=5 %i
+select -assert-count 1 t:$add r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test C2: a second run finds nothing left to do.
+#
+# Once each operand sits at its significant width the pass must be a no-op, so
+# repeated invocations in a flow neither churn the netlist nor loop forever.
+log -header "C2: idempotent on an already narrowed design"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] wa = sa ? -$signed({1'b0, ma}) : $signed({1'b0, ma});
+  wire signed [31:0] wb = sb ? -$signed({1'b0, mb}) : $signed({1'b0, mb});
+  assign y = wa * wb;
+endmodule
+EOF
+proc
+opt -full
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=5 %i
+design -save once
+opt_signif
+select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=5 %i %i
+design -reset
+log -pop
+
+# Test C3: exhausting the evaluation budget degrades safely.
+#
+# With no budget at all, every range lookup must fall back to the declared width,
+# so the A7 chain narrows nothing and the design is left exactly as it was. This
+# pins the direction of the failure mode: running out of budget has to lose
+# opportunities, never emit a range it could not justify.
+log -header "C3: budget exhaustion falls back to declared widths"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire [31:0] y
+);
+  wire [31:0] na, nb, wa, wb, sum, nsum;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    add_ab (.A(wa), .B(wb), .Y(sum));
+  $neg #(.A_SIGNED(0), .A_WIDTH(32), .Y_WIDTH(32)) n_s (.A(sum), .Y(nsum));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32))
+    mult (.A(nsum), .B(wa), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif -max_steps 0
+select -assert-count 1 t:$mul r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+select -assert-count 1 t:$add r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+design -reset
+log -pop
+
+# Test C5: compares are not narrowed unless asked for.
+#
+# Same design as A3, which narrows to 5x5 under -types $lt. The default set must
+# leave it at 32x32: a compare's width is read by the matchers that run later, so
+# narrowing one is only worth it for a flow that has measured the trade.
+log -header "C5: compares are off by default"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sa,
+  input  wire       sb,
+  output wire       y
+);
+  wire [31:0] na, nb, wa, wb;
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_a (.A(ma), .Y(na));
+  $neg #(.A_SIGNED(0), .A_WIDTH(4), .Y_WIDTH(32)) n_b (.A(mb), .Y(nb));
+  $mux #(.WIDTH(32)) m_a (.A({28'b0, ma}), .B(na), .S(sa), .Y(wa));
+  $mux #(.WIDTH(32)) m_b (.A({28'b0, mb}), .B(nb), .S(sb), .Y(wb));
+  $lt #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(1))
+    cmp (.A({wb[31], wa[30:0]}), .B({wa[31], wb[30:0]}), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif
+select -assert-count 1 t:$lt r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+design -reset
+log -pop
+
+# Test C4: a chain far deeper than the recursion guard.
+#
+# Range lookup walks the driver graph recursively, so a long chain of dependent
+# adds recurses once per link. 1500 links is past the default -max_depth of 1000,
+# so this is the shape that would overflow the native stack without a depth guard.
+#
+# It also checks precision on a chain: acc[i] is at most 15*(i+1), so it stops
+# fitting in 11 bits at i = 135, and the pass narrows exactly the 136 adds up to
+# that point and no more.
+log -header "C4: deep driver chain stays within the recursion guard"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0]  d,
+  output wire [11:0] y
+);
+  wire [11:0] acc [0:1500];
+  assign acc[0] = {8'b0, d};
+  genvar i;
+  generate
+    for (i = 0; i < 1500; i = i + 1) begin : chain
+      assign acc[i+1] = acc[i] + d;
+    end
+  endgenerate
+  assign y = acc[1500];
+endmodule
+EOF
+proc
+check -assert
+select -assert-count 1500 t:$add
+opt_signif
+check -assert
+select -assert-count 1500 t:$add
+select -assert-count 1364 t:$add r:A_WIDTH=12 %i
+design -reset
+log -pop

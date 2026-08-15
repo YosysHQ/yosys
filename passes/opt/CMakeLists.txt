@@ -128,6 +128,10 @@ yosys_pass(opt_xor_fold
 	opt_xor_fold.cc
 )
 
+yosys_pass(opt_signif
+	opt_signif.cc
+)
+
 yosys_pass(opt_mux_odc
 	opt_mux_odc.cc
 )
