@@ -507,6 +507,14 @@ struct OptMaxCmpWorker : CutRegionWorker
 				// value lanes. Extract its value/handle at compare width.
 				bool thr_const = thr.is_fully_const();
 
+				// A non-constant threshold is driven into ConstEval as a word of vw
+				// bits, so the fingerprint only makes sense when the compare's two
+				// operands are the same width. RTLIL permits them to differ, and any
+				// upstream pass that narrows one operand on its own produces exactly
+				// that -- so check rather than assume.
+				if (!thr_const && GetSize(thr) != vw)
+					continue;
+
 				vector<Bus> value_buses, enable_buses;
 				collect_buses(cone_cells, leaf_bits, value_buses, enable_buses);
 
