@@ -1,0 +1,37 @@
+# Regression test: Liberty `pg_pin` groups must become ports on the blackbox module.
+#
+# Vendor Verilog views of a macro declare its power/ground pins as ports, so RTL that
+# instantiates the macro connects them. When the Liberty file is the only view of the
+# cell, those connections bind against the blackbox this frontend creates, so dropping
+# pg_pin groups makes the instantiation unresolvable (Verific VERI-1010, or
+# `hierarchy -check` "does not have a port named ..."). OpenSTA's Liberty reader also
+# turns each pg_pin into a port, so declaring them keeps the two views consistent.
+#
+# The pins are inputs, not inouts: a cell never drives its own supply, and RTLIL has no
+# power/ground direction, so an inout would make the cell look like a driver of the net.
+#
+# The pg_pin groups below deliberately precede the signal pins, because the ports must
+# still be appended after them (port_id 3 and 4, not 1 and 2): positional instantiations
+# of the cell keep binding to the same signal pins as before supplies were declared.
+
+read_liberty2json << EOT
+{"library": {"leakage_power_unit": "1nW", "groups": [
+  {"cell": {"names": ["MACRO"], "area": 100.0, "cell_leakage_power": 1.0, "groups": [
+    {"pg_pin": {"names": ["VDD"], "pg_type": "primary_power", "voltage_name": "VDD"}},
+    {"pg_pin": {"names": ["VSS"], "pg_type": "primary_ground", "voltage_name": "VSS"}},
+    {"pin": {"names": ["A"], "direction": "input"}},
+    {"pin": {"names": ["Y"], "direction": "output"}}
+  ]}}
+]}}
+EOT
+
+# Signal pins keep ports 1 and 2, supplies are appended as inputs carrying their pg_type
+logger -expect log "wire input 1 \\A" 1
+logger -expect log "wire output 2 \\Y" 1
+logger -expect log "attribute \\pg_type \"primary_power\"" 1
+logger -expect log "wire input 3 \\VDD" 1
+logger -expect log "attribute \\pg_type \"primary_ground\"" 1
+logger -expect log "wire input 4 \\VSS" 1
+logger -expect-no-warnings
+dump =MACRO
+logger -check-expected
