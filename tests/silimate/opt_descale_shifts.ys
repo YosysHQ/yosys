@@ -368,6 +368,33 @@ setattr -set keep 1 t:$sub
 opt_shift -descale
 # the carry has nowhere to fold, so the increment stays put
 select -assert-count 1 t:$add
-select -assert-count 0 t:*_descale
+select -assert-count 0 c:*_descale
+design -reset
+log -pop
+
+
+
+log -header "Negative: keep on the shifter, which the rewrite rescales and renames"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [3:0]  s,
+  output wire [15:0] y
+);
+  wire [16:0] a = x + 1'b1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 0) ? 16'd0 : t - 1;
+endmodule
+EOF
+prep -top top
+check -assert
+setattr -set keep 1 t:$shr
+opt_shift -descale
+# no anchor, so nothing folds and the shifter keeps its name and connections
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+select -assert-count 0 c:*_descale
 design -reset
 log -pop

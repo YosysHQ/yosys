@@ -404,6 +404,10 @@ void descale_find_anchors(Module *module, SigMap &sigmap, dict<SigBit, Cell *> &
     if (cell->getPort(ID::B).is_fully_const())
       continue;
 
+    // The rewrite rescales the shifter in place and renames it, which keep forbids
+    if (cell->get_bool_attribute(ID::keep))
+      continue;
+
     shifts.push_back(cell);
   }
 
