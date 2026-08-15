@@ -85,15 +85,18 @@ struct OptMuxPushWorker
   bool timing_guard;
   int slack_margin;
   bool recover_folded;
+  int hoist_gain;
   int total_count;
+  int hoist_count;
+  int chains_seen = 0, chains_cheap = 0, chains_slack = 0;
 
   OptMuxPushWorker(RTLIL::Design *design, RTLIL::Module *module,
       const pool<IdString> &target_types, int fanout_limit, bool timing_guard,
-      int slack_margin, bool recover_folded) :
+      int slack_margin, bool recover_folded, int hoist_gain) :
       design(design), module(module), sigmap(module), module_depth(0),
       target_types(target_types), fanout_limit(fanout_limit),
       timing_guard(timing_guard), slack_margin(slack_margin),
-      recover_folded(recover_folded), total_count(0)
+      recover_folded(recover_folded), hoist_gain(hoist_gain), total_count(0), hoist_count(0)
   {
   }
 
@@ -546,6 +549,224 @@ struct OptMuxPushWorker
     return true;
   }
 
+  // One link of a mux priority chain: the arms that leave the chain here, and
+  // the select that takes them. A $pmux link carries S_WIDTH arms at once.
+  struct ChainStep {
+    RTLIL::Cell *cell;
+    RTLIL::SigSpec leaves;
+    RTLIL::SigSpec sel;
+    bool leaf_on_b;
+    bool is_pmux;
+    int levels;
+  };
+
+  // Is `sig` exactly the output of a private mux, so the chain can absorb it?
+  RTLIL::Cell *private_link(const RTLIL::SigSpec &sig)
+  {
+    RTLIL::Cell *drv = nullptr;
+    for (auto &bit : sig) {
+      if (bit.wire == nullptr)
+        return nullptr;
+      auto it = driver_map.find(bit);
+      if (it == driver_map.end() || it->second == nullptr)
+        return nullptr;
+      if (drv == nullptr)
+        drv = it->second;
+      else if (drv != it->second)
+        return nullptr;
+    }
+    if (drv == nullptr || !drv->type.in(ID($mux), ID($pmux)))
+      return nullptr;
+    if (!fanout_is_one(sig) || sig_has_keep(sig))
+      return nullptr;
+    // Partial coverage would leave the inner mux's other bits undriven once the
+    // chain is rebuilt, so demand the arm be the whole output.
+    return sigmap(drv->getPort(ID::Y)) == sig ? drv : nullptr;
+  }
+
+  // Walk down the default arms of a priority chain rooted at `root`. A bottom
+  // $mux contributes both arms: the later one is kept as the default, since that
+  // is the arm the rewrite lifts out.
+  bool collect_chain(RTLIL::Cell *root, std::vector<ChainStep> &steps, RTLIL::SigSpec &def)
+  {
+    RTLIL::Cell *cur = root;
+    int total = 0;
+    while (true) {
+      RTLIL::SigSpec a = sigmap(cur->getPort(ID::A));
+      RTLIL::SigSpec b = sigmap(cur->getPort(ID::B));
+      RTLIL::SigSpec s = sigmap(cur->getPort(ID::S));
+      bool pm = cur->type == ID($pmux);
+      if (pm ? GetSize(b) != GetSize(a) * GetSize(s)
+             : (GetSize(s) != 1 || GetSize(a) != GetSize(b)))
+        return false;
+      // A $pmux lowers to a priority chain, so its default pays per select bit.
+      int lv = pm ? log2p1_int(GetSize(s)) : 1;
+      total += lv;
+
+      if (RTLIL::Cell *next_a = private_link(a)) {
+        steps.push_back({cur, b, s, true, pm, lv});
+        cur = next_a;
+        continue;
+      }
+      // Only a $mux can be entered from B: a $pmux's B holds its arms.
+      if (!pm) {
+        if (RTLIL::Cell *next_b = private_link(b)) {
+          steps.push_back({cur, a, s, false, false, lv});
+          cur = next_b;
+          continue;
+        }
+      }
+
+      if (pm) {
+        steps.push_back({cur, b, s, true, true, lv});
+        def = a;
+      } else {
+        bool def_is_a = arrival(a) >= arrival(b);
+        steps.push_back({cur, def_is_a ? b : a, s, def_is_a, false, lv});
+        def = def_is_a ? a : b;
+      }
+      return total >= 2;
+    }
+  }
+
+  // The rest chain seeds from the bottom link. A bottom $mux collapses into its
+  // own leaf, a bottom $pmux still has to select among its arms.
+  RTLIL::SigSpec chain_seed(const std::vector<ChainStep> &steps, int width, int &start)
+  {
+    const ChainStep &bot = steps.back();
+    start = GetSize(steps) - (bot.is_pmux ? 1 : 2);
+    return bot.is_pmux ? bot.leaves.extract(0, width) : bot.leaves;
+  }
+
+  // Lift the chain's default arm to the output under the accumulated not-taken
+  // condition. The early arms rebuild beside it, so the late arm ends up one mux
+  // from the output instead of paying for every link above it.
+  void hoist_chain(RTLIL::Cell *root, std::vector<ChainStep> &steps, const RTLIL::SigSpec &def,
+      pool<RTLIL::Cell*> &cells_to_remove)
+  {
+    const std::string src = root->get_src_attribute();
+    int width = GetSize(def), start = 0;
+    RTLIL::SigSpec cur = chain_seed(steps, width, start);
+
+    for (int j = start; j >= 0; j--) {
+      const ChainStep &st = steps[j];
+      RTLIL::Wire *w = module->addWire(NEW_ID_SUFFIX("muxhoist_rest"), width);
+      if (st.is_pmux)
+        module->addPmux(NEW_ID_SUFFIX("muxhoist_pmux"), cur, st.leaves, st.sel, w, src);
+      else
+        module->addMux(NEW_ID_SUFFIX("muxhoist_mux"), st.leaf_on_b ? cur : st.leaves,
+            st.leaf_on_b ? st.leaves : cur, st.sel, w, src);
+      cur = w;
+    }
+
+    // Guard: every arm above the default was passed over.
+    RTLIL::SigSpec not_taken;
+    for (auto &st : steps) {
+      if (!st.is_pmux && !st.leaf_on_b) {
+        not_taken.append(st.sel);
+        continue;
+      }
+      RTLIL::Wire *inv = module->addWire(NEW_ID_SUFFIX("muxhoist_nsel"), GetSize(st.sel));
+      module->addNot(NEW_ID_SUFFIX("muxhoist_not"), st.sel, inv, false, src);
+      not_taken.append(inv);
+    }
+    RTLIL::Wire *guard = module->addWire(NEW_ID_SUFFIX("muxhoist_guard"));
+    module->addReduceAnd(NEW_ID_SUFFIX("muxhoist_all"), not_taken, guard, false, src);
+
+    RTLIL::SigSpec out = sigmap(root->getPort(ID::Y));
+    RTLIL::Wire *rewritten = module->addWire(NEW_ID_SUFFIX("muxhoist_out"), GetSize(out));
+    module->addMux(NEW_ID_SUFFIX("muxhoist_late"), cur, def, guard, rewritten, src);
+
+    for (auto &st : steps)
+      cells_to_remove.insert(st.cell);
+    module->connect(out, rewritten);
+  }
+
+  // Estimated output arrival before and after the hoist, under the same unit
+  // model as the push heuristic. Rejecting on this keeps the rewrite from firing
+  // where the default is not actually the chain's late arm.
+  bool hoist_pays(const std::vector<ChainStep> &steps, const RTLIL::SigSpec &def)
+  {
+    int n = GetSize(steps), start = 0, sel_bits = 0, sels = 0, cum = 0;
+    std::vector<int> to_out(n);
+    for (int j = 0; j < n; j++) {
+      cum += steps[j].levels;
+      to_out[j] = cum;
+      sel_bits += GetSize(steps[j].sel);
+      sels = std::max(sels, arrival(steps[j].sel));
+    }
+
+    int before = arrival(def) + cum;
+    for (int j = 0; j < n; j++)
+      before = std::max(before,
+          std::max(arrival(steps[j].leaves), arrival(steps[j].sel)) + to_out[j]);
+
+    RTLIL::SigSpec seed = chain_seed(steps, GetSize(def), start);
+    int rest = arrival(seed) + (start < 0 ? 0 : to_out[start]);
+    for (int j = 0; j <= start; j++)
+      rest = std::max(rest,
+          std::max(arrival(steps[j].leaves), arrival(steps[j].sel)) + to_out[j]);
+
+    int after = std::max({arrival(def) + 1, rest + 1, sels + log2p1_int(sel_bits) + 1});
+    // Downstream remapping reshapes shallow wins away, so only take chains where
+    // the model predicts a margin worth the extra guard.
+    return after + hoist_gain <= before;
+  }
+
+  void run_hoist()
+  {
+    build_connectivity();
+    arrival_cache.clear();
+    arrival_active.clear();
+    depart_cache.clear();
+    depart_active.clear();
+    if (timing_guard)
+      compute_module_depth();
+
+    pool<RTLIL::Cell*> cells_to_remove;
+    for (auto cell : module->selected_cells()) {
+      if (!cell->type.in(ID($mux), ID($pmux)) || cells_to_remove.count(cell))
+        continue;
+      RTLIL::SigSpec out = sigmap(cell->getPort(ID::Y));
+      if (sig_has_keep(out) || GetSize(out) == 0)
+        continue;
+      // Starting mid-chain would rebuild a chain the parent still owns.
+      if (fanout_is_one(out)) {
+        auto it = consumer_map.find(out[0]);
+        if (it != consumer_map.end() && GetSize(it->second) == 1 &&
+            it->second[0]->type.in(ID($mux), ID($pmux)))
+          continue;
+      }
+
+      std::vector<ChainStep> steps;
+      RTLIL::SigSpec def;
+      if (!collect_chain(cell, steps, def))
+        continue;
+      chains_seen++;
+      bool overlaps = false;
+      for (auto &st : steps)
+        overlaps |= cells_to_remove.count(st.cell) > 0;
+      if (overlaps)
+        continue;
+      if (!hoist_pays(steps, def)) {
+        chains_cheap++;
+        continue;
+      }
+      if (timing_guard && path_depth(out) < module_depth - slack_margin) {
+        chains_slack++;
+        continue;
+      }
+
+      hoist_chain(cell, steps, def, cells_to_remove);
+      hoist_count++;
+    }
+
+    log_debug("  hoist: %d chain(s), %d unprofitable, %d off-critical.\n",
+        chains_seen, chains_cheap, chains_slack);
+    for (auto cell : cells_to_remove)
+      module->remove(cell);
+  }
+
   void run()
   {
     while (true)
@@ -763,6 +984,18 @@ struct OptMuxPushPass : public Pass {
     log("        amounts, or on comparators after the pattern matchers have run,\n");
     log("        measured worse than leaving the operand alone\n");
     log("\n");
+    log("    -hoist-late\n");
+    log("        lift the late arm out of a mux priority chain. A datapath\n");
+    log("        feeding the default of a chain of control muxes pays one level\n");
+    log("        per control mux, but the chain is a priority select, so that arm\n");
+    log("        can be taken under the accumulated not-taken condition and the\n");
+    log("        early arms rebuilt beside it. Only fires when a unit-level\n");
+    log("        estimate says the default really is the chain's late arm\n");
+    log("\n");
+    log("    -hoist-gain <int>\n");
+    log("        levels the hoist must buy before it fires (default: 2). Shallow\n");
+    log("        wins do not survive downstream remapping\n");
+    log("\n");
   }
 
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -771,6 +1004,8 @@ struct OptMuxPushPass : public Pass {
     bool timing_guard = false;
     int slack_margin = 0;
     bool recover_folded = false;
+    bool hoist_late = false;
+    int hoist_gain = 2;
     std::string types = "$add,$sub,$xor";
 
     log_header(design, "Executing MUXPUSH pass (push muxes through light ops).\n");
@@ -791,6 +1026,16 @@ struct OptMuxPushPass : public Pass {
       }
       if (args[argidx] == "-folded-select") {
         recover_folded = true;
+        continue;
+      }
+      if (args[argidx] == "-hoist-late") {
+        hoist_late = true;
+        continue;
+      }
+      if (args[argidx] == "-hoist-gain" && argidx+1 < args.size()) {
+        hoist_gain = atoi(args[++argidx].c_str());
+        if (hoist_gain < 1)
+          log_cmd_error("muxpush: -hoist-gain must be at least 1.\n");
         continue;
       }
       if ((args[argidx] == "-slack-margin" || args[argidx] == "-slack_margin")
@@ -821,17 +1066,22 @@ struct OptMuxPushPass : public Pass {
       target_types.insert(type);
     }
 
-    int total_count = 0;
+    int total_count = 0, hoist_count = 0;
     for (auto module : design->selected_modules()) {
       if (module->get_bool_attribute(ID::blackbox))
         continue;
       OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard,
-          slack_margin, recover_folded);
+          slack_margin, recover_folded, hoist_gain);
+      if (hoist_late)
+        worker.run_hoist();
       worker.run();
       total_count += worker.total_count;
+      hoist_count += worker.hoist_count;
     }
 
     log("  Pushed muxes through %d operator inputs.\n", total_count);
+    if (hoist_late)
+      log("  Hoisted the late arm out of %d mux priority chain(s).\n", hoist_count);
   }
 } OptMuxPushPass;
 

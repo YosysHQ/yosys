@@ -564,6 +564,145 @@ design -reset
 log -pop
 
 
+log -header "-hoist-late: a late default is lifted out of a mux priority chain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire s2,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] d_lo,
+  input wire [7:0] d_hi,
+  output wire [7:0] y
+);
+  wire [7:0] late = d_lo * d_hi;
+  assign y = s0 ? e0 : s1 ? e1 : s2 ? e2 : late;
+endmodule
+EOF
+proc
+check -assert
+
+# The multiply is the only late arm and it sits at the bottom of the chain, so it
+# pays for all three control muxes. The chain is a priority select, so it can be
+# taken under "no select fired" instead and land one mux from the output while
+# the early arms rebuild beside it: 11 levels before, 9 after.
+equiv_opt -assert muxpush -hoist-late
+design -load postopt
+# The accumulated not-taken condition is the rewrite's signature.
+select -assert-count 1 t:$reduce_and
+
+design -reset
+log -pop
+
+
+log -header "-hoist-late: refuses a chain whose default is not the late arm"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire s2,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] e3,
+  output wire [7:0] y
+);
+  assign y = s0 ? e0 : s1 ? e1 : s2 ? e2 : e3;
+endmodule
+EOF
+proc
+check -assert
+
+# Same chain with every arm a module input. The default still crosses three muxes,
+# but so does the topmost select, so lifting it cannot shorten the longest path --
+# it only adds the guard. Firing on chain shape alone would take this one.
+equiv_opt -assert muxpush -hoist-late
+design -load postopt
+select -assert-count 0 t:$reduce_and
+
+design -reset
+log -pop
+
+
+log -header "-hoist-late: a pmux default pays per select bit"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [3:0] sel,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] e3,
+  input wire [7:0] d_lo,
+  input wire [7:0] d_hi,
+  output reg [7:0] y
+);
+  wire [7:0] late = d_lo * d_hi;
+  always @* begin
+    case (1'b1)
+      sel[0]:  y = e0;
+      sel[1]:  y = e1;
+      sel[2]:  y = e2;
+      sel[3]:  y = e3;
+      default: y = late;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+
+# A $pmux hides the chain in one cell, but it lowers back to a priority chain, so
+# its default is charged log2 of the select width rather than a single level.
+# Pricing it as one level reads this as break-even and leaves the multiply behind
+# the whole case statement.
+equiv_opt -assert muxpush -hoist-late
+design -load postopt
+select -assert-count 1 t:$reduce_and
+
+design -reset
+log -pop
+
+
+log -header "-hoist-gain: a higher bar declines a chain the default takes"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire s0,
+  input wire s1,
+  input wire s2,
+  input wire [7:0] e0,
+  input wire [7:0] e1,
+  input wire [7:0] e2,
+  input wire [7:0] d_lo,
+  input wire [7:0] d_hi,
+  output wire [7:0] y
+);
+  wire [7:0] late = d_lo * d_hi;
+  assign y = s0 ? e0 : s1 ? e1 : s2 ? e2 : late;
+endmodule
+EOF
+proc
+check -assert
+
+# The first group's netlist, which buys exactly two levels. Asking for three
+# declines it, so the threshold is what gates the rewrite rather than the match.
+equiv_opt -assert muxpush -hoist-late -hoist-gain 3
+design -load postopt
+select -assert-count 0 t:$reduce_and
+
+design -reset
+log -pop
+
+
 log -header "-slack-margin rejects a negative allowance (ends the script, keep last)"
 log -push
 design -reset
