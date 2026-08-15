@@ -815,6 +815,16 @@ struct OptPriEncWorker {
 		}
 		for (auto& v : gen_multibit_test_vectors(N, N <= 16))
 			if (!check_vec(v)) return false;
+		// Prefixes and one-hots miss adjacent two-hots such as 8'b00000110,
+		// which still distinguish a true suffix-OR from a near-miss.
+		if (N <= 16) {
+			for (int i = 0; i + 1 < N; i++) {
+				std::vector<State> bits(N, State::S0);
+				bits[i] = State::S1;
+				bits[i + 1] = State::S1;
+				if (!check_vec(Const(bits))) return false;
+			}
+		}
 		if (pb.pinned && GetSize(pb.free_bits) <= max_exhaustive_free_bits) {
 			int nf = GetSize(pb.free_bits);
 			for (int m = 0; m < (1 << nf); m++) {

@@ -1441,3 +1441,44 @@ equiv_opt -assert opt_prienc -smear
 logger -check-expected
 design -reset
 log -pop
+
+# S7: smear also drives a live output. Collapsing the encoder must not
+# change that wide cone (equiv_opt compares both ports).
+log -header "S7: smear feeding encoder and a live output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] x,
+  output wire [7:0] m,
+  output reg  [3:0] y
+);
+  genvar gi;
+  generate
+    for (gi = 0; gi < 8; gi = gi + 1)
+      assign m[gi] = |x[7:gi];
+  endgenerate
+  always @* begin
+    casez (m)
+      8'b11111111: y = 4'd8;
+      8'b01111111: y = 4'd7;
+      8'b?0111111: y = 4'd6;
+      8'b??011111: y = 4'd5;
+      8'b???01111: y = 4'd4;
+      8'b????0111: y = 4'd3;
+      8'b?????011: y = 4'd2;
+      8'b??????01: y = 4'd1;
+      8'b???????0: y = 4'd0;
+      default:    y = 4'bx;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "suffix-or" 1
+logger -expect log "Collapsed 1 smear/encoder round-trip" 1
+equiv_opt -assert opt_prienc -smear
+logger -check-expected
+design -reset
+log -pop
