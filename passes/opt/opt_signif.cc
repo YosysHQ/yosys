@@ -659,6 +659,10 @@ struct SignifWorker
 // narrowed on its own, and whose cost grows with operand width -- which is the point of
 // the pass. Mux-like cells share one WIDTH across A, B and Y and so are never narrowed.
 //
+// $neg earns its place for the same reason the binary operators do: a sign mux over a
+// magnitude lowers to a negate at the full declared width, so datapath code pays that
+// width once per lane even when the products themselves are written narrowly.
+//
 // Comparisons are deliberately not in the default set even though the analysis handles
 // them. A compare's width is also read by the pattern matchers that run later: opt_maxcmp
 // fingerprints a compare cone by packing the threshold operand at the *value lane* width
@@ -667,7 +671,7 @@ struct SignifWorker
 // the operand bits are worth, so it has to be asked for explicitly with -types.
 static pool<IdString> default_narrow_types()
 {
-	return { ID($add), ID($sub), ID($mul) };
+	return { ID($add), ID($sub), ID($mul), ID($neg) };
 }
 
 struct OptSignifPass : public Pass {
@@ -727,11 +731,11 @@ struct OptSignifPass : public Pass {
 		log("register is left alone.\n");
 		log("\n");
 		log("    -types <type1>,<type2>,...\n");
-		log("        Only narrow ports of these cell types. Defaults to $add,$sub,$mul:\n");
-		log("        operators whose per-port widths are independent parameters and whose\n");
-		log("        cost grows with operand width. $mux and $pmux share a single WIDTH\n");
-		log("        across A, B and Y and so are never narrowed, though the analysis\n");
-		log("        still traverses them.\n");
+		log("        Only narrow ports of these cell types. Defaults to\n");
+		log("        $add,$sub,$mul,$neg: operators whose per-port widths are independent\n");
+		log("        parameters and whose cost grows with operand width. $mux and $pmux\n");
+		log("        share a single WIDTH across A, B and Y and so are never narrowed,\n");
+		log("        though the analysis still traverses them.\n");
 		log("\n");
 		log("        $lt/$le/$gt/$ge/$eq/$ne are supported but off by default, because a\n");
 		log("        compare's operand width is also read by the pattern matchers that\n");
