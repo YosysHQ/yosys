@@ -104,6 +104,10 @@ yosys_pass(opt_modadd_tree
 	opt_modadd_tree.cc
 )
 
+yosys_pass(opt_modred
+	opt_modred.cc
+)
+
 yosys_pass(opt_parallel_prefix
 	opt_parallel_prefix.cc
 )

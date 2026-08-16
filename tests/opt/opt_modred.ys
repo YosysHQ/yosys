@@ -1,0 +1,372 @@
+# Tests for opt_modred
+#
+# Each group exercises a specific facet:
+#   A: the plain tree rewrite -- a mod-7 fold tree over a wire.
+#   B: pushing the reduction through the $add that feeds it.
+#   C: pushing through a $mux.
+#   D: pushing through a barrel shifter.
+#   E: k is not hard-coded -- the same mechanism at mod 15.
+#   F: rejection guards -- non-Mersenne modulus, plain adder, shallow tree.
+#
+# Depth is the point of this pass, so the structural checks are `ltp -noff`
+# lengths rather than cell counts: a carry-save tree is usually smaller too, but
+# the push deliberately trades area for depth.
+
+# ============================================================================
+# Group A: mod-7 fold tree, nothing to push
+# ============================================================================
+
+# A1: eight 3-bit digits combined pairwise by an end-around-carry adder, with
+# the 7 -> 0 normalizer the RTL spells out. 2^3 == 1 (mod 7), so every digit
+# carries weight 1 and the whole thing is x mod 7.
+log -header "A1: mod-7 fold tree (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  assign y = m7(m7(m7(x[2:0], x[5:3]), m7(x[8:6], x[11:9])),
+                m7(m7(x[14:12], x[17:15]), m7(x[20:18], x[23:21])));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+# equiv_opt alone would also pass if the pass stopped firing, so require the
+# rewrite too. Same for the other equiv groups below.
+logger -expect log "Rewrote 1 mod-\(2\^k-1\) reduction\(s\)" 1
+equiv_opt -assert opt_modred
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# A2: same design, structural. Each source-level fold is an add, an end-around
+# add, a compare and a mux; the carry-save tree replaces all seven of them with
+# full-adder rows plus one final fold.
+log -header "A2: mod-7 fold tree (structural)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  assign y = m7(m7(m7(x[2:0], x[5:3]), m7(x[8:6], x[11:9])),
+                m7(m7(x[14:12], x[17:15]), m7(x[20:18], x[23:21])));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-min 1 c:*modred*
+# The normalizer is gone from the middle of the tree: only the one at the root
+# survives, so there is a single compare left.
+select -assert-count 1 t:$reduce_and
+select -assert-count 0 t:$eq
+design -reset
+log -pop
+
+# ============================================================================
+# Group B: push through $add
+# ============================================================================
+
+# B1: res((a+b) mod 2^n) == res(a) + res(b) - 2^(n mod k)*cout. The adder leaves
+# the reduction's path; only its carry-out still needs the carry chain, and that
+# bit has the whole tree's worth of slack.
+log -header "B1: push through \$add (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [9:0] a, input wire [9:0] b, output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  wire [9:0] s = a + b;
+  assign y = m7(m7(s[2:0], s[5:3]), m7(s[8:6], {2'b0, s[9]}));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "pushed through 1 add\(s\)" 1
+equiv_opt -assert opt_modred
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group C: push through $mux
+# ============================================================================
+
+# C1: res(mux(s,a,b)) == mux(s, res(a), res(b)). Each arm folds to a redundant
+# pair first, so the mux moves from n bits down to 2k.
+log -header "C1: push through \$mux (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [8:0] a, input wire [8:0] b, input wire sel,
+            output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  wire [8:0] s = sel ? (a + b) : (a ^ b);
+  assign y = m7(m7(s[2:0], s[5:3]), s[8:6]);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "pushed through 1 add\(s\), 1 mux\(es\)" 1
+equiv_opt -assert opt_modred
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group D: push through a barrel shifter
+# ============================================================================
+
+# D1: res(x >> s) == rotl_{-s mod k}(res(x & ~mask(s))). The shifter comes off
+# the path entirely -- the rotate is rewiring behind one mux -- and masking is
+# the default because it costs one AND row against a whole second tree.
+log -header "D1: push through \$shr (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [8:0] a, input wire [8:0] b, input wire [2:0] sh,
+            output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  wire [8:0] s = (a + b) >> sh;
+  assign y = m7(m7(s[2:0], s[5:3]), s[8:6]);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+# Masking ends the chain at the shifter's own input, so the adder underneath
+# stays where it is -- see D2 for the spelling that keeps it pushable.
+logger -expect log "pushed through 0 add\(s\), 0 mux\(es\), 1 shift\(s\)" 1
+equiv_opt -assert opt_modred
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# D2: the same shifter under -push-shift-sub. res(x) - res(x & mask(s)) leaves
+# x whole, so the adder feeding it is still the output of a producer the push
+# can commute through, and it comes off the path too.
+log -header "D2: push through \$shr, subtract spelling (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [8:0] a, input wire [8:0] b, input wire [2:0] sh,
+            output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  wire [8:0] s = (a + b) >> sh;
+  assign y = m7(m7(s[2:0], s[5:3]), s[8:6]);
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "pushed through 1 add\(s\), 0 mux\(es\), 1 shift\(s\)" 1
+equiv_opt -assert opt_modred -push-shift-sub
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group E: k comes from the root width
+# ============================================================================
+
+# E1: the same mechanism at mod 15. Nothing about the rewrite is specific to 7.
+log -header "E1: mod-15 fold tree (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [3:0] y);
+  function automatic [3:0] m15 (input [3:0] p, input [3:0] q);
+    reg [4:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m15 = t[3:0] + {3'b0, t[4]};
+      if (m15 == 4'd15) m15 = 4'd0;
+    end
+  endfunction
+  assign y = m15(m15(m15(x[3:0], x[7:4]), m15(x[11:8], x[15:12])),
+                 m15(x[19:16], x[23:20]));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "Rewrote 1 mod-\(2\^k-1\) reduction\(s\)" 1
+equiv_opt -assert opt_modred
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group G: the whole chain at once
+# ============================================================================
+
+# G1: the shape real RTL comes in -- a digit-wise 7 -> 0 normalizer over a
+# zero-extended barrel-shifted mux of an adder, all stacked. Each layer is
+# either residue-neutral (the normalizer, the padding) or commutes, so the tree
+# ends up on a and b with nothing but the shifter's select still ahead of it.
+log -header "G1: normalizer + concat + shift + mux + add (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [8:0] a, input wire [8:0] b, input wire sel,
+            input wire [1:0] sh, output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  wire [8:0]  s   = (sel ? (a + b) : (a ^ b)) >> sh;
+  wire [11:0] raw = {3'b0, s};
+  reg  [11:0] red;
+  integer i;
+  always @* for (i = 0; i < 12; i = i + 3)
+    red[i +: 3] = (raw[i +: 3] == 3'd7) ? 3'd0 : raw[i +: 3];
+  assign y = m7(m7(red[2:0], red[5:3]), m7(red[8:6], red[11:9]));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "1 add\(s\), 1 mux\(es\), 1 shift\(s\)" 1
+equiv_opt -assert opt_modred -push-shift-sub
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group F: rejection guards
+# ============================================================================
+
+# F1: 5 is not 2^k-1, so doubling a residue is not a rotate and none of this
+# applies. The linearity check is what rejects it -- there is no modulus
+# fingerprint to fool.
+log -header "F1: non-Mersenne modulus is rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [11:0] x, output wire [2:0] y);
+  assign y = x % 3'd5;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# F2: a truncating k-bit sum is not a reduction of its inputs -- the wrap at
+# 2^k discards, where a mod-7 wrap carries around -- so an ordinary adder tree
+# must not be rewritten.
+log -header "F2: plain adder tree is rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [2:0] a, input wire [2:0] b, input wire [2:0] c,
+            input wire [2:0] d, output wire [2:0] y);
+  assign y = a + b + c + d;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# F3: the profitability guard is about depth, and a carry-save tree is already
+# the shallowest spelling of its own residue -- so a second run has to decline
+# everything the first one built, rather than stack another tree on top.
+log -header "F3: rewriting is idempotent"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [2:0] y);
+  function automatic [2:0] m7 (input [2:0] p, input [2:0] q);
+    reg [3:0] t;
+    begin
+      t = {1'b0, p} + {1'b0, q};
+      m7 = t[2:0] + {2'b0, t[3]};
+      if (m7 == 3'd7) m7 = 3'd0;
+    end
+  endfunction
+  assign y = m7(m7(m7(x[2:0], x[5:3]), m7(x[8:6], x[11:9])),
+                m7(m7(x[14:12], x[17:15]), m7(x[20:18], x[23:21])));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-min 1 c:*modred*
+clean -purge
+logger -expect log "Rewrote 0 mod-\(2\^k-1\) reduction\(s\)" 1
+opt_modred
+logger -check-expected
+design -reset
+log -pop
