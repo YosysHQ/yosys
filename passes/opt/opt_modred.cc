@@ -22,6 +22,9 @@
 #include "kernel/consteval.h"
 #include <algorithm>
 #include <functional>
+#include <memory>
+#include <queue>
+#include <utility>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
