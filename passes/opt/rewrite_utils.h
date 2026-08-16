@@ -100,14 +100,20 @@ static inline uint64_t lowmask_u64(int w)
 	return (1ULL << w) - 1;
 }
 
+// Pack the low bits of `value` into an existing Const, keeping its width.
+static inline void set_const_u64(Const &out, uint64_t value)
+{
+	auto &bits = out.bits();
+	for (int i = 0; i < GetSize(bits); i++)
+		bits[i] = i < 64 && ((value >> i) & 1ULL) ? State::S1 : State::S0;
+}
+
 // Pack the low `width` bits of `value` into a Const (bit i <- value bit i).
 static inline Const const_u64(uint64_t value, int width)
 {
-	vector<State> bits(width, State::S0);
-	for (int i = 0; i < width && i < 64; i++)
-		if ((value >> i) & 1ULL)
-			bits[i] = State::S1;
-	return Const(bits);
+	Const c(State::S0, width);
+	set_const_u64(c, value);
+	return c;
 }
 
 #endif // SILIMATE_REWRITE_UTILS_H

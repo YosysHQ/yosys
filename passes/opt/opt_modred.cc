@@ -123,6 +123,9 @@ struct OptModRedWorker : CutRegionWorker {
 	};
 
 	dict<SigSpec, int> prove_memo_ok;
+	// Roots whose proof is on the stack, and how many times one was re-entered.
+	pool<SigSpec> prove_active;
+	int64_t reentries = 0;
 	dict<SigSpec, dict<SigBit, int>> prove_memo;
 	dict<SigSpec, int> prove_memo_max;
 	dict<SigSpec, pool<Cell *>> prove_memo_region;
@@ -193,39 +196,60 @@ struct OptModRedWorker : CutRegionWorker {
 	// Retire the shallow end of every such pair, so the next walk runs past it.
 	// Pushing the whole cut outward instead would also retire the deep points
 	// that were already fine, and the cut would slide without ever settling.
+	//
+	// One walk answers this for the whole cut. Backward from every point at
+	// once, recording each edge as it is crossed, then forward along those
+	// edges from the points: a point the forward pass arrives at has another
+	// point in its fanin. Asking point by point instead re-explored the same
+	// fanin once per point, since they all sit in the same region.
 	bool prune_covered_cuts(const pool<SigBit> &hit, pool<SigBit> &excluded)
 	{
-		bool grew = false;
-		for (auto bit : hit) {
-			if (bit_to_driver.at(bit, nullptr) == nullptr)
+		dict<SigBit, vector<SigBit>> fwd;  // a bit -> the bits it feeds
+		pool<SigBit> seen;
+		std::queue<SigBit> queue;
+		for (auto bit : hit)
+			if (bit_to_driver.at(bit, nullptr) != nullptr && seen.insert(bit).second)
+				queue.push(bit);
+		while (!queue.empty() && !walk_exhausted()) {
+			SigBit bit = queue.front();
+			queue.pop();
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr)
 				continue;
-			pool<SigBit> seen;
-			std::queue<SigBit> queue;
-			queue.push(bit);
-			seen.insert(bit);
-			bool covered = false;
-			while (!queue.empty() && !covered && !walk_exhausted()) {
-				Cell *drv = bit_to_driver.at(queue.front(), nullptr);
-				queue.pop();
-				if (drv == nullptr)
-					continue;
-				charge_walk(1);
-				for (auto &conn : drv->connections()) {
-					if (!drv->input(conn.first))
-						continue;
-					for (auto in_bit : sigmap(conn.second)) {
-						if (!in_bit.wire)
-							continue;
-						if (hit.count(in_bit))
-							covered = true;
-						else if (seen.insert(in_bit).second)
-							queue.push(in_bit);
-					}
-				}
+			charge_walk(1);
+			for (auto in_bit : cell_fanin(drv)) {
+				fwd[in_bit].push_back(bit);
+				// A point is not walked through, only seeded, so the
+				// edges collected stay the ones a per-point walk saw.
+				if (!hit.count(in_bit) && seen.insert(in_bit).second)
+					queue.push(in_bit);
 			}
-			if (covered && excluded.insert(bit).second)
-				grew = true;
 		}
+
+		// Forward from the points, but starting one edge out so that a point
+		// is not reported as covering itself.
+		pool<SigBit> reached;
+		std::queue<SigBit> fq;  // the backward queue may have been cut short
+		auto push_succs = [&](const SigBit &b) {
+			auto it = fwd.find(b);
+			if (it == fwd.end())
+				return;
+			for (auto next : it->second)
+				if (reached.insert(next).second)
+					fq.push(next);
+		};
+		for (auto bit : hit)
+			push_succs(bit);
+		while (!fq.empty()) {
+			SigBit bit = fq.front();
+			fq.pop();
+			push_succs(bit);
+		}
+
+		bool grew = false;
+		for (auto bit : hit)
+			if (reached.count(bit) && excluded.insert(bit).second)
+				grew = true;
 		return grew;
 	}
 
@@ -261,9 +285,10 @@ struct OptModRedWorker : CutRegionWorker {
 	// one-hot spelling of a fold, whose table only decodes canonical residues
 	// and answers zero for the 2^k-1 input a lower level can never produce.
 	bool check_linear(const SigSpec &root, const vector<SigSpec> &slots,
-	                  const vector<int> &slot_max, int region_cells, bool allow_bits,
+	                  const vector<int> &slot_max, const pool<Cell *> &region, bool allow_bits,
 	                  vector<int> &coeffs, int &maxval)
 	{
+		int region_cells = GetSize(region);
 		// Overflow here would silently shrink the domain and "prove" a cut that
 		// was never checked, so the product is bounded as it is built.
 		const int64_t limit = int64_t(1) << max_cut_bits;
@@ -281,14 +306,27 @@ struct OptModRedWorker : CutRegionWorker {
 		// One-way switch: a cone ConstEval cannot resolve stays unresolvable
 		// for every vector, so pay the probe once rather than per vector.
 		bool bits_mode = false;
+		// Ordered on the first probe, since most cuts are rejected by the
+		// coefficient reads above and never reach the sweep.
+		vector<Cell *> order;
+		bool ordered = false;
+		// Rewritten in place per probe: the slots and their widths do not
+		// change, and a fresh assignment list costs an allocation per slot at
+		// every one of thousands of probes.
+		vector<std::pair<SigSpec, Const>> sets;
+		for (auto &s : slots)
+			sets.push_back({s, Const(State::S0, GetSize(s))});
 		auto eval_at = [&](const vector<int> &vals, uint64_t &out) {
-			vector<std::pair<SigSpec, Const>> sets;
 			for (int i = 0; i < GetSize(slots); i++)
-				sets.push_back({slots[i], const_u64(vals[i], GetSize(slots[i]))});
+				set_const_u64(sets[i].second, vals[i]);
 			if (eval_exhausted())
 				return false;
 			if (!bits_mode) {
-				if (eval_with(ce, sets, root, out, region_cells))
+				if (!ordered) {
+					compute_cone_depths(region, &order);
+					ordered = true;
+				}
+				if (eval_with(ce, sets, root, out, region_cells, &order))
 					return true;
 				if (!allow_bits)
 					return false;
@@ -361,8 +399,23 @@ struct OptModRedWorker : CutRegionWorker {
 			out.region = prove_memo_region.at(root);
 			return true;
 		}
-		prove_memo_ok[root] = 0;
+		// Re-entry means a bit-level cycle through `root`, which this cannot
+		// prove -- but only because of where the walk started, so the failure
+		// it forces on the callers above it is not theirs to remember.
+		if (!prove_active.insert(root).second) {
+			reentries++;
+			return false;
+		}
+		int64_t reentry_mark = reentries;
+		bool ok = prove_uncached(root, out, depth);
+		prove_active.erase(root);
+		if (!ok && reentries == reentry_mark)
+			prove_memo_ok[root] = 0;
+		return ok;
+	}
 
+	bool prove_uncached(const SigSpec &root, Proof &out, int depth)
+	{
 		pool<Cell *> cone;
 		pool<SigBit> leaves;
 		if (!sig_fully_driven(root) ||
@@ -401,6 +454,9 @@ struct OptModRedWorker : CutRegionWorker {
 	{
 		pool<SigBit> excluded;
 		out.region = cone;
+		// Asking a SigSpec whether it holds a bit unpacks it, which allocates;
+		// every offered cut point is asked, once per retry.
+		pool<SigBit> root_bits(root.begin(), root.end());
 
 		// Retiring a covered cut point and pushing the cut outward are separate
 		// moves and get separate budgets: the first converges on the antichain
@@ -412,7 +468,7 @@ struct OptModRedWorker : CutRegionWorker {
 			for (auto &b : buses) {
 				bool skip = false;
 				for (auto bit : b)
-					if (excluded.count(bit) || root.extract(bit).size() != 0)
+					if (excluded.count(bit) || root_bits.count(bit))
 						skip = true;
 				if (skip)
 					continue;
@@ -421,7 +477,7 @@ struct OptModRedWorker : CutRegionWorker {
 					allowed.insert(bit);
 			}
 			for (auto bit : wide_bits)
-				if (!excluded.count(bit) && root.extract(bit).size() == 0)
+				if (!excluded.count(bit) && !root_bits.count(bit))
 					allowed.insert(bit);
 
 			pool<SigBit> hit;
@@ -499,8 +555,8 @@ struct OptModRedWorker : CutRegionWorker {
 			// small cones ConstEval cannot resolve structurally.
 			bool allow_bits = GetSize(cut_cells) <= max_bits_eval_cells &&
 			                  cone_has_cell_loop(cut_cells);
-			bool lin = check_linear(root, slots, slot_max, GetSize(cut_cells), allow_bits,
-			                        coeffs, maxval);
+			bool lin = check_linear(root, slots, slot_max, cut_cells, allow_bits, coeffs,
+			                        maxval);
 			log_debug("%*stry %s: %d slot(s), %d cut cell(s) -> %s\n", 2 * depth + 4, "",
 			          log_signal(root), GetSize(slots), GetSize(cut_cells),
 			          lin ? "linear" : "not linear");
@@ -1195,8 +1251,8 @@ struct OptModRedWorker : CutRegionWorker {
 		disconnect_root(root, anchor, "modred_old");
 		module->connect(root, result);
 		claim_region(root, pf.region);
-		sweep_dead(pf.region);
-		shared_ce_ptr.reset();
+		sweep_dead(pf.region);  // rebuilds the indexes, dropping the caches
+		mark_emitted_out(root);
 		regions++;
 		dirty = true;
 		return true;
@@ -1251,10 +1307,11 @@ struct OptModRedWorker : CutRegionWorker {
 		build_indexes_again();
 	}
 
-	// The sweep invalidates every driver the worker cached, and the fn match
-	// still has candidates to walk after a plain rewrite declines.
+	// The sweep invalidates every driver and cell the worker cached, and the fn
+	// match still has candidates to walk after a plain rewrite declines.
 	void build_indexes_again()
 	{
+		clear_cell_caches();
 		bit_to_driver.clear();
 		input_port_bits.clear();
 		build_indexes();
@@ -1565,13 +1622,16 @@ struct OptModRedWorker : CutRegionWorker {
 		// than sinking the whole match.
 		uint64_t all = GetSize(m.outs) == 64 ? ~uint64_t(0)
 		                                     : (uint64_t(1) << GetSize(m.outs)) - 1;
+		// Rewritten in place per vector; see check_linear.
+		vector<std::pair<SigSpec, Const>> sets;
+		for (auto &r : m.group)
+			sets.push_back({r, Const(State::S0, GetSize(r))});
 		for (int64_t c = 0; c < combos; c++) {
 			int64_t rest = c;
-			vector<std::pair<SigSpec, Const>> sets;
 			for (int i = 0; i < s; i++) {
 				vals[i] = int(rest % (int64_t(maxv[i]) + 1));
 				rest /= int64_t(maxv[i]) + 1;
-				sets.push_back({m.group[i], const_u64(vals[i], GetSize(m.group[i]))});
+				set_const_u64(sets[i].second, vals[i]);
 			}
 			if (eval_exhausted())
 				return false;
@@ -1736,7 +1796,8 @@ struct OptModRedWorker : CutRegionWorker {
 		disconnect_root(m.outs, anchor, "modred_old");
 		module->connect(m.outs, out);
 		claim_region(m.outs, region);
-		shared_ce_ptr.reset();
+		build_indexes_again();  // the connect moved the drivers it caches
+		mark_emitted_out(m.outs);
 		regions++;
 		fn_regions++;
 		dirty = true;
@@ -1819,14 +1880,29 @@ struct OptModRedWorker : CutRegionWorker {
 	// output and stacks a second tree on top of the first.
 	static IdString emitted_attr() { return IdString("\\modred_emitted"); }
 
-	bool emitted_root(const SigSpec &sig)
+	// Marks the cell driving what a rewrite handed back, as opposed to the tree
+	// behind it. Only the handed-back signal is worth looking at again: a
+	// function match over a top-level fold has to see the halves already
+	// rewritten, while the levels inside a tree are already the form this pass
+	// emits, so proving them can only cost.
+	static IdString emitted_out_attr() { return IdString("\\modred_out"); }
+
+	bool driver_has(const SigSpec &sig, IdString attr)
 	{
 		for (auto bit : sig) {
 			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv != nullptr && drv->has_attribute(emitted_attr()))
+			if (drv != nullptr && drv->has_attribute(attr))
 				return true;
 		}
 		return false;
+	}
+
+	// Call once the rewrite's result is connected and the indexes are rebuilt.
+	void mark_emitted_out(const SigSpec &sig)
+	{
+		for (auto bit : sigmap(sig))
+			if (Cell *drv = bit_to_driver.at(bit, nullptr))
+				drv->set_bool_attribute(emitted_out_attr());
 	}
 
 	void run()
@@ -1869,11 +1945,11 @@ struct OptModRedWorker : CutRegionWorker {
 		// level, and only the topmost one is worth rewriting.
 		vector<std::pair<int, SigSpec>> cands;
 		dict<SigSpec, Proof> proofs;
-		// A tree this pass already emitted is still a residue, and the logic
-		// *above* it has not been touched. Proving it anyway is what lets a
-		// function match see both halves of a top-level fold at once, since
-		// the two halves are rewritten in different rounds. Only the plain
-		// re-emit has to skip these, or it stacks a tree on its own output.
+		// What a rewrite handed back is still a residue, and the logic *above*
+		// it has not been touched. Proving it anyway is what lets a function
+		// match see both halves of a top-level fold at once, since the two
+		// halves are rewritten in different rounds. Only the plain re-emit has
+		// to skip these, or it stacks a tree on its own output.
 		pool<SigSpec> done;
 		int skipped = 0;
 		for (auto &root : roots) {
@@ -1887,12 +1963,22 @@ struct OptModRedWorker : CutRegionWorker {
 			// 0 mod 3), and proving it wastes the budget the real roots need.
 			if (proofs.count(sig) || !sig_fully_driven(sig) || !sig_bits_unique(sig, uniq))
 				continue;
-			if (emitted_root(sig))
+			if (driver_has(sig, emitted_attr())) {
+				// A level inside a tree this pass emitted. It proves,
+				// but the proof can only ever re-emit the same tree,
+				// and a module with several of them offers hundreds of
+				// these -- each one a cone, a cut and a sweep, and
+				// enough of them to cost more than the real roots do.
+				if (!driver_has(sig, emitted_out_attr()))
+					continue;
 				done.insert(sig);
+			}
 			k = GetSize(sig);
 			mod_c = (1 << k) - 1;
-			prove_memo_ok.clear();
-			prove_memo.clear();
+			// The memo carries over between roots: k is fixed by the root's
+			// own width, and nothing is rewritten until all of them are
+			// proven. A tree's levels are each a root and each other's cut
+			// slots, so nearly every proof here is one already done.
 			Proof pf;
 			if (!prove(sig, pf, 0)) {
 				log_debug("  no mod-%d proof for %s\n", mod_c, log_signal(sig));
@@ -1974,11 +2060,6 @@ struct OptModRedPass : public Pass {
 		log("        need a bit of the other's output: acyclic per bit, deadlocked per\n");
 		log("        cell, which is all ConstEval can see. 0 disables the fallback.\n");
 		log("\n");
-		log("    -budget-scale N\n");
-		log("        multiplier on the shared cut-matcher walk and eval budgets\n");
-		log("        (default 8). A reduction tree offers a root at every level, so the\n");
-		log("        default budget can run out before the topmost one is reached.\n");
-		log("\n");
 		log("    -no-push\n");
 		log("        only re-emit the tree; do not touch the producers.\n");
 		log("\n");
@@ -1998,11 +2079,6 @@ struct OptModRedPass : public Pass {
 		int min_terms = 4, max_terms = 512, max_push_depth = 6, min_push_add_width = 8;
 		int max_bits_eval_cells = 256;
 		bool push_shift_sub = false;
-		// A residue proof costs more walking than the cut matchers this budget
-		// was tuned for: the whole module is scanned for roots, and a reduction
-		// tree offers one at every level. Running out mid-module silently drops
-		// the top of the tree, which is the only root worth rewriting.
-		int budget_scale = 8;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -2048,11 +2124,6 @@ struct OptModRedPass : public Pass {
 				max_bits_eval_cells = std::stoi(args[++argidx]);
 				continue;
 			}
-			if ((args[argidx] == "-budget-scale" || args[argidx] == "-budget_scale") &&
-			    argidx + 1 < args.size()) {
-				budget_scale = std::stoi(args[++argidx]);
-				continue;
-			}
 			if (args[argidx] == "-no-push") {
 				max_push_depth = 0;
 				continue;
@@ -2083,9 +2154,6 @@ struct OptModRedPass : public Pass {
 				worker.min_push_add_width = min_push_add_width;
 				worker.push_shift_sub = push_shift_sub;
 				worker.max_bits_eval_cells = max_bits_eval_cells;
-				worker.walk_budget *= budget_scale;
-				worker.eval_budget *= budget_scale;
-				worker.attempt_budget *= budget_scale;
 				worker.run();
 				total_regions += worker.regions;
 				total_cells += worker.cells_added;
