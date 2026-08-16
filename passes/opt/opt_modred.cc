@@ -1342,7 +1342,7 @@ struct OptModRedWorker : CutRegionWorker {
 					if (!cone.count(c))
 						frontier.insert(c);
 
-			for (auto c : frontier) {
+			for (auto c : by_name(frontier)) {
 				charge_walk(1);
 				if (!c->hasPort(ID::Y) || is_sequential(c))
 					continue;
@@ -1418,7 +1418,7 @@ struct OptModRedWorker : CutRegionWorker {
 					if (c->output(conn.first))
 						for (auto bit : sigmap(conn.second))
 							inside.insert(bit);
-			for (auto c : cand) {
+			for (auto c : by_name(cand)) {
 				charge_walk(1);
 				if (walk_exhausted())
 					return false;
@@ -1449,7 +1449,7 @@ struct OptModRedWorker : CutRegionWorker {
 		// mutually independent for the sweep to cover their combinations.
 		vector<SigSpec> add;
 		pool<SigSpec> add_seen;
-		for (auto c : cand)
+		for (auto c : by_name(cand))
 			for (auto &conn : c->connections()) {
 				if (!c->input(conn.first))
 					continue;
@@ -1490,11 +1490,32 @@ struct OptModRedWorker : CutRegionWorker {
 		return true;
 	}
 
+	// Iterating a pool of pointers follows allocator addresses, which differ
+	// between platforms and runs. Anything whose order reaches the emitted
+	// netlist has to go by name instead, or the pass is not reproducible.
+	static vector<Cell *> by_name(const pool<Cell *> &cells)
+	{
+		vector<Cell *> out(cells.begin(), cells.end());
+		std::sort(out.begin(), out.end(),
+		          [](Cell *a, Cell *b) { return a->name.str() < b->name.str(); });
+		return out;
+	}
+
+	static bool bit_before(const SigBit &a, const SigBit &b)
+	{
+		if (a.wire == nullptr || b.wire == nullptr)
+			return (a.wire == nullptr) < (b.wire == nullptr);
+		if (a.wire != b.wire)
+			return a.wire->name.str() < b.wire->name.str();
+		return a.offset < b.offset;
+	}
+
 	// Bits the cone drives that something outside it reads.
 	void cone_outputs(const pool<Cell *> &cone, SigSpec &outs)
 	{
 		pool<SigBit> seen;
-		for (auto c : cone)
+		vector<SigBit> found;
+		for (auto c : by_name(cone))
 			for (auto &conn : c->connections()) {
 				if (!c->output(conn.first))
 					continue;
@@ -1503,11 +1524,16 @@ struct OptModRedWorker : CutRegionWorker {
 						continue;
 					for (auto u : bit_to_consumers[bit])
 						if (!cone.count(u)) {
-							outs.append(bit);
+							found.push_back(bit);
 							break;
 						}
 				}
 			}
+		// The table the fit builds is indexed by position in `outs`, so the
+		// order has to be the same everywhere the pass runs.
+		std::sort(found.begin(), found.end(), bit_before);
+		for (auto &bit : found)
+			outs.append(bit);
 	}
 
 	// Sweep the group over every value each residue can take, then look for the
@@ -1879,10 +1905,13 @@ struct OptModRedWorker : CutRegionWorker {
 			proofs[sig] = pf;
 			cands.push_back({GetSize(pf.weights), sig});
 		}
-		std::sort(cands.begin(), cands.end(),
-		          [](const std::pair<int, SigSpec> &a, const std::pair<int, SigSpec> &b) {
-			          return a.first > b.first;
-		          });
+		// Stable: the comparator only ranks width, and most candidates tie, so
+		// an unstable sort would pick a different seed on a different standard
+		// library. The order it falls back on is the root order, which is the
+		// module's own cell and wire order.
+		std::stable_sort(cands.begin(), cands.end(),
+		                 [](const std::pair<int, SigSpec> &a,
+		                    const std::pair<int, SigSpec> &b) { return a.first > b.first; });
 
 		// The logic above a reduction tree first: its terms reach the furthest
 		// back, and it subsumes every residue underneath it.
