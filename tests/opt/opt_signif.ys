@@ -10,9 +10,9 @@
 # Every positive case is proven with equiv_opt -assert, so the structural width
 # assertions are backed by a SAT equivalence check rather than inspection alone.
 #
-# The default type set is $add,$sub,$mul. Compares are supported but must be asked
-# for with -types, so the compare cases below pass it explicitly and C5 pins the
-# default.
+# The default type set is $add,$sub,$mul,$neg. Compares are supported but must be
+# asked for with -types, so the compare cases below pass it explicitly and C5 pins
+# the default.
 
 # ============================================================================
 # Group A: Positive rewrites
@@ -498,6 +498,42 @@ equiv_opt -assert opt_signif
 design -load preopt
 opt_signif
 select -assert-count 1 t:$mul r:A_WIDTH=5 r:B_WIDTH=32 %i %i
+design -reset
+log -pop
+
+# Test A14: negate at the declared width over a narrow value.
+#
+# Shape:
+#   $mux : v = sel ? {28'b0, ma} : {28'b0, mb}   (32 bits)
+#   $neg : y = -v                                (A_WIDTH = Y_WIDTH = 32)
+#
+# A sign mux over a magnitude lowers to exactly this, so datapath code pays the
+# full declared width once per lane even when the products feeding it are written
+# narrowly. The mux is what keeps wreduce out: its output bits are distinct nets
+# rather than one repeated sign bit. v only holds [0, 15], so five signed bits
+# suffice on the operand -- the result stays 32 bits wide.
+log -header "A14: negate over a mux-hidden narrow value"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire [3:0] ma,
+  input  wire [3:0] mb,
+  input  wire       sel,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] v = sel ? $signed({1'b0, ma}) : $signed({1'b0, mb});
+  assign y = -v;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+equiv_opt -assert opt_signif
+design -load preopt
+opt_signif
+select -assert-count 1 t:$neg r:A_WIDTH=5 r:Y_WIDTH=32 %i %i
 design -reset
 log -pop
 
