@@ -404,6 +404,10 @@ void descale_find_anchors(Module *module, SigMap &sigmap, dict<SigBit, Cell *> &
     if (cell->getPort(ID::B).is_fully_const())
       continue;
 
+    // The rewrite rescales the shifter in place and renames it, which keep forbids
+    if (cell->get_bool_attribute(ID::keep))
+      continue;
+
     shifts.push_back(cell);
   }
 
@@ -432,6 +436,9 @@ void descale_find_candidates(Module *module, SigMap &sigmap, const dict<SigBit, 
     if (cell->type != ID($add))
       continue;
     if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+      continue;
+    // The rewrite deletes the increment outright, which keep forbids
+    if (cell->get_bool_attribute(ID::keep))
       continue;
 
     // Every bit of the sum has to land on one and the same shifter
@@ -537,9 +544,9 @@ int run_descale_shifts(Module *module)
 
     bool foldable = true;
     for (auto reader : consumers) {
-      // The null marker is a module connection, and an unselected reader is one
-      // this pass may not rewrite; either way the carry has nowhere to fold
-      bool ours = reader && module->selected(reader);
+      // The null marker is a module connection, and an unselected or kept reader
+      // is one this pass may not rewire; either way the carry has nowhere to fold
+      bool ours = reader && module->selected(reader) && !reader->get_bool_attribute(ID::keep);
       if (ours && descale_is_decrement(sigmap, reader, cand.out))
         cand.decs.push_back(reader);
       else if (ours && descale_is_zero_test(sigmap, reader, cand.out))
