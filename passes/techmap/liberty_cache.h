@@ -11,6 +11,9 @@ namespace abc {
 
 YOSYS_NAMESPACE_BEGIN
 
+// Controlled by the scl_cache pass, enabled by default
+extern bool scl_cache_enabled;
+
 /*
  * convert_liberty_files_to_merged_scl() - Convert multiple Liberty files to a single merged SCL cache file.
  * @liberty_files: Vector of liberty file paths to merge
@@ -18,10 +21,11 @@ YOSYS_NAMESPACE_BEGIN
  * @abc_exe: Path to ABC executable for conversion
  *
  * Return: Path to merged SCL cache file, or empty string if conversion fails
+ * or caching is disabled via the scl_cache pass
  */
 inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &liberty_files, const std::string &dont_use_args, const std::string &abc_exe)
 {
-	if (liberty_files.empty())
+	if (liberty_files.empty() || !scl_cache_enabled)
 		return "";
 
 	std::string cache_dir = get_base_tmpdir() + "/yosys-liberty-scl-cache";

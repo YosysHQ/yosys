@@ -190,7 +190,10 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		if (!merged_scl.empty()) {
 			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
 		} else if(!liberty_files.empty()) {
-			log_warning("ABC: Merged scl conversion failed, using liberty format\n");
+			if (!scl_cache_enabled)
+				log("ABC: SCL cache disabled, using liberty format\n");
+			else
+				log_warning("ABC: Merged scl conversion failed, using liberty format\n");
 			bool first_lib = true;
 			for (std::string liberty_file : liberty_files) {
 				abc9_script += stringf("read_lib %s %s -w \"%s\" ; ", dont_use_args, first_lib ? "" : "-m", liberty_file);

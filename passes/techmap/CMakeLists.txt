@@ -37,6 +37,9 @@ yosys_pass(libcache
 	REQUIRES
 		libparse
 )
+yosys_pass(scl_cache
+	scl_cache.cc
+)
 
 set(abc_definitions
 	"$<$<BOOL:${YOSYS_ABC_EXECUTABLE}>:ABCEXTERNAL=\"${YOSYS_ABC_EXECUTABLE}\">"
@@ -50,6 +53,7 @@ yosys_pass(abc
 		$<${YOSYS_LINK_ABC}:libyosys-abc>
 	REQUIRES
 		read_blif
+		scl_cache
 	ENABLE_IF
 		YOSYS_ENABLE_ABC
 )
@@ -59,6 +63,8 @@ yosys_pass(abc9_exe
 		${abc_definitions}
 	LIBRARIES
 		$<${YOSYS_LINK_ABC}:libyosys-abc>
+	REQUIRES
+		scl_cache
 	ENABLE_IF
 		YOSYS_ENABLE_ABC
 )
