@@ -49,6 +49,7 @@ yosys_pass(abc
 	LIBRARIES
 		$<${YOSYS_LINK_ABC}:libyosys-abc>
 	REQUIRES
+		libcache
 		read_blif
 	ENABLE_IF
 		YOSYS_ENABLE_ABC
@@ -59,6 +60,8 @@ yosys_pass(abc9_exe
 		${abc_definitions}
 	LIBRARIES
 		$<${YOSYS_LINK_ABC}:libyosys-abc>
+	REQUIRES
+		libcache
 	ENABLE_IF
 		YOSYS_ENABLE_ABC
 )
