@@ -11,7 +11,7 @@ namespace abc {
 
 YOSYS_NAMESPACE_BEGIN
 
-// Controlled by the scl_cache pass, enabled by default
+// Controlled by the libcache pass (-scl option), enabled by default
 extern bool scl_cache_enabled;
 
 /*
@@ -21,7 +21,7 @@ extern bool scl_cache_enabled;
  * @abc_exe: Path to ABC executable for conversion
  *
  * Return: Path to merged SCL cache file, or empty string if conversion fails
- * or caching is disabled via the scl_cache pass
+ * or caching is disabled via libcache -scl -disable
  */
 inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &liberty_files, const std::string &dont_use_args, const std::string &abc_exe)
 {

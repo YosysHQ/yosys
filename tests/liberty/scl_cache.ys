@@ -6,17 +6,17 @@ logger -expect log "using cached merged SCL" 1
 abc -liberty normal.lib
 logger -check-expected
 
-scl_cache -disable
+libcache -scl -disable
 
 logger -expect log "SCL caching is disabled." 1
-scl_cache -list
+libcache -list
 logger -check-expected
 
 logger -expect log "SCL cache disabled, using liberty format" 1
 abc -liberty normal.lib
 logger -check-expected
 
-scl_cache -enable
+libcache -scl -enable
 
 logger -expect log "using cached merged SCL" 1
 abc -liberty normal.lib
