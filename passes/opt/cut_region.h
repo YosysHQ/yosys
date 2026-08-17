@@ -41,6 +41,11 @@ struct CutRegionWorker
 	struct RootCand {
 		SigSpec sig;
 		std::string name;
+		// A whole named wire, rather than one cell connection's bit order.
+		// Vectorizing frontends bundle unrelated bits into a cell port in an
+		// arbitrary order, so the two spellings of the same bits are not the
+		// same candidate and a caller on a budget wants the named one first.
+		bool whole_wire = false;
 	};
 
 	struct BusCand {
@@ -346,7 +351,8 @@ struct CutRegionWorker
 	// Indexed form of cut_cone_walk; see there for the contract.
 	bool cut_cone_walk_indexed(const ConeGraph &g, const pool<SigBit> &allowed, int max_cells,
 	                           pool<SigBit> *hit_bits, pool<Cell *> *cells_out,
-	                           const pool<SigBit> *forced_bits)
+	                           const pool<SigBit> *forced_bits,
+	                           pool<SigBit> *conflict_bits = nullptr)
 	{
 		next_cg_gen();
 
@@ -402,6 +408,7 @@ struct CutRegionWorker
 		// ConstEval's whole-cell output caching.
 		const pool<SigBit> &check = (forced_bits != nullptr) ? *forced_bits :
 		                            (hit_bits != nullptr) ? *hit_bits : allowed;
+		bool conflict = false;
 		for (auto bit : check) {
 			Cell *drv = bit_to_driver.at(bit, nullptr);
 			if (drv == nullptr)
@@ -409,9 +416,17 @@ struct CutRegionWorker
 			int cid = g.cell_id.at(drv, -1);
 			if (cid >= 0 && cell_seen[cid] == cg_gen) {
 				note_cut_fail("forced bit ", bit, " driven inside cone");
-				return false;
+				conflict = true;
+				// Callers that can retire single points want the whole
+				// set, so the cut converges in one retry per level
+				// rather than one per offending bit.
+				if (conflict_bits == nullptr)
+					return false;
+				conflict_bits->insert(bit);
 			}
 		}
+		if (conflict)
+			return false;
 
 		if (cells_out != nullptr) {
 			cells_out->clear();
@@ -433,7 +448,8 @@ struct CutRegionWorker
 	                   pool<SigBit> *hit_bits = nullptr, pool<Cell *> *cells_out = nullptr,
 	                   const pool<SigBit> *forced_bits = nullptr,
 	                   const pool<SigBit> *full_leaves = nullptr,
-	                   const pool<Cell *> *full_cells = nullptr)
+	                   const pool<Cell *> *full_cells = nullptr,
+	                   pool<SigBit> *conflict_bits = nullptr)
 	{
 		attempt_budget--;
 		// Walk-free fast path: when no allowed bit has a combinational
@@ -474,7 +490,8 @@ struct CutRegionWorker
 		}
 
 		if (const ConeGraph *g = cone_graph(root))
-			return cut_cone_walk_indexed(*g, allowed, max_cells, hit_bits, cells_out, forced_bits);
+			return cut_cone_walk_indexed(*g, allowed, max_cells, hit_bits, cells_out,
+			                             forced_bits, conflict_bits);
 
 		pool<SigBit> visited;
 		pool<Cell *> cells_seen;
@@ -524,13 +541,19 @@ struct CutRegionWorker
 
 		const pool<SigBit> &check = (forced_bits != nullptr) ? *forced_bits :
 		                            (hit_bits != nullptr) ? *hit_bits : allowed;
+		bool conflict = false;
 		for (auto bit : check) {
 			Cell *drv = bit_to_driver.at(bit, nullptr);
 			if (drv != nullptr && cells_seen.count(drv)) {
 				note_cut_fail("forced bit ", bit, " driven inside cone");
-				return false;
+				conflict = true;
+				if (conflict_bits == nullptr)
+					return false;
+				conflict_bits->insert(bit);
 			}
 		}
+		if (conflict)
+			return false;
 
 		if (cells_out != nullptr)
 			*cells_out = cells_seen;
@@ -652,8 +675,11 @@ struct CutRegionWorker
 
 	// Depth of each cone cell measured from the cone leaves (cells reading
 	// only leaf/port bits have depth 1). Used to order candidate cut buses
-	// so signals produced by shallow pre-logic are tried first.
-	dict<Cell *, int> compute_cone_depths(const pool<Cell *> &cone_cells)
+	// so signals produced by shallow pre-logic are tried first. `order`
+	// collects the walk's own order, which is topological; a cell in a
+	// cell-level loop never comes ready and appears in neither result.
+	dict<Cell *, int> compute_cone_depths(const pool<Cell *> &cone_cells,
+	                                      vector<Cell *> *order = nullptr)
 	{
 		dict<Cell *, int> depth;
 		dict<Cell *, vector<Cell *>> succs;
@@ -688,6 +714,8 @@ struct CutRegionWorker
 		while (!ready.empty()) {
 			Cell *c = ready.front();
 			ready.pop();
+			if (order != nullptr)
+				order->push_back(c);
 			for (auto s : succs.at(c, no_succs)) {
 				if (depth.at(s, 0) < depth.at(c) + 1)
 					depth[s] = depth.at(c) + 1;
@@ -697,6 +725,110 @@ struct CutRegionWorker
 		}
 
 		return depth;
+	}
+
+	// ---------------------------------------------- cell-level loop census
+	//
+	// A vectorizing frontend can pack two independent bitwise operations
+	// into one wide cell each, with each cell needing a bit of the other's
+	// output. That is acyclic bit by bit but cyclic cell by cell, and
+	// ConstEval -- which resolves whole cells -- then declares the cone
+	// unresolvable. Those cones are the only ones the bit-level evaluator
+	// can rescue, and they are rare (a handful of cells in a module), so
+	// finding them once lets every other cone fail fast as before.
+
+	pool<Cell *> scc_cells;
+	bool scc_done = false;
+
+	// Iterative Tarjan over the cell fan-in graph induced by bit_to_driver.
+	void find_scc_cells()
+	{
+		scc_done = true;
+		dict<Cell *, vector<Cell *>> succ;
+		for (auto c : module->cells()) {
+			pool<Cell *> preds;
+			for (auto &conn : c->connections()) {
+				if (c->output(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					Cell *d = bit_to_driver.at(bit, nullptr);
+					if (d != nullptr && d != c)
+						preds.insert(d);
+					else if (d == c)
+						scc_cells.insert(c);  // self-loop
+				}
+			}
+			auto &v = succ[c];
+			v.insert(v.end(), preds.begin(), preds.end());
+		}
+
+		dict<Cell *, int> index, lowlink;
+		pool<Cell *> on_stack;
+		vector<Cell *> stack;
+		int next_index = 0;
+
+		// Explicit DFS stack of (cell, next successor to visit).
+		vector<std::pair<Cell *, int>> work;
+		for (auto root : module->cells()) {
+			if (index.count(root))
+				continue;
+			work.push_back({root, 0});
+			index[root] = lowlink[root] = next_index++;
+			stack.push_back(root);
+			on_stack.insert(root);
+
+			while (!work.empty()) {
+				Cell *c = work.back().first;
+				int &i = work.back().second;
+				auto &ss = succ.at(c);
+				if (i < GetSize(ss)) {
+					Cell *n = ss[i++];
+					if (!index.count(n)) {
+						index[n] = lowlink[n] = next_index++;
+						stack.push_back(n);
+						on_stack.insert(n);
+						work.push_back({n, 0});
+					} else if (on_stack.count(n)) {
+						lowlink[c] = std::min(lowlink[c], index[n]);
+					}
+					continue;
+				}
+				work.pop_back();
+				if (!work.empty()) {
+					Cell *p = work.back().first;
+					lowlink[p] = std::min(lowlink[p], lowlink[c]);
+				}
+				if (lowlink[c] != index[c])
+					continue;
+				// Root of an SCC: pop it, and keep it only if non-trivial.
+				vector<Cell *> comp;
+				while (true) {
+					Cell *m = stack.back();
+					stack.pop_back();
+					on_stack.erase(m);
+					comp.push_back(m);
+					if (m == c)
+						break;
+				}
+				if (GetSize(comp) > 1)
+					for (auto m : comp)
+						scc_cells.insert(m);
+			}
+		}
+	}
+
+	// True if any cell in `cone` sits on a cell-level combinational loop.
+	bool cone_has_cell_loop(const pool<Cell *> &cone)
+	{
+		if (!scc_done)
+			find_scc_cells();
+		bool hit = false;
+		for (auto c : cone)
+			if (scc_cells.count(c)) {
+				hit = true;
+				break;
+			}
+		return hit;
 	}
 
 	bool find_anchor_driver(const SigSpec &out_sig, Cell *&anchor)
@@ -977,22 +1109,33 @@ struct CutRegionWorker
 	// module with many FFs cannot starve the seeds whose cones hold the
 	// region. `width_ok` filters candidate widths; `seed_cone_interesting`
 	// gates internal harvesting per seed cone (e.g. "contains $bmux").
+	// `seed_width_ok`, when given, filters seeds instead of `width_ok`: a
+	// seed only anchors a cone, so a pass looking for narrow regions can
+	// still reach them behind an output the pass would never rewrite.
 	vector<RootCand> collect_root_candidates(
 		std::function<bool(int)> width_ok,
 		std::function<bool(const pool<Cell *> &)> seed_cone_interesting,
 		bool wire_roots, int max_cone_cells, int max_leaf_bits,
-		int max_internal_roots = 128)
+		int max_internal_roots = 128,
+		std::function<bool(int)> seed_width_ok = nullptr)
 	{
 		vector<RootCand> roots;
 		pool<SigSpec> seen;
 		vector<SigSpec> seed_sigs;
 
-		auto consider_root = [&](const SigSpec &sig, const std::string &name, bool seed) -> bool {
-			if (!width_ok(GetSize(sig)))
+		auto consider_root = [&](const SigSpec &sig, const std::string &name, bool seed,
+		                         bool whole_wire = false) -> bool {
+			bool root_ok = width_ok(GetSize(sig));
+			if (seed && seed_width_ok != nullptr) {
+				if (!seed_width_ok(GetSize(sig)))
+					return false;
+			} else if (!root_ok) {
 				return false;
+			}
 			if (!seen.insert(sig).second)
 				return false;
-			roots.push_back({sig, name});
+			if (root_ok)
+				roots.push_back({sig, name, whole_wire});
 			if (seed)
 				seed_sigs.push_back(sig);
 			return true;
@@ -1001,7 +1144,7 @@ struct CutRegionWorker
 		for (auto w : module->wires()) {
 			if (!w->port_output || w->port_input)
 				continue;
-			consider_root(sigmap(SigSpec(w)), w->name.str(), true);
+			consider_root(sigmap(SigSpec(w)), w->name.str(), true, true);
 		}
 
 		for (auto c : module->cells()) {
@@ -1072,7 +1215,7 @@ struct CutRegionWorker
 					}
 				if (!inside)
 					continue;
-				if (consider_root(sig, w->name.str(), false))
+				if (consider_root(sig, w->name.str(), false, true))
 					wire_root_count++;
 			}
 		}
@@ -1104,16 +1247,39 @@ struct CutRegionWorker
 		return *shared_ce_ptr;
 	}
 
+	// Resolve a region cell by cell in topological order, so that the eval
+	// below finds every value it needs already in the map. ConstEval's own
+	// descent is demand-driven: for each signal it wants it re-derives the
+	// drivers through a SigSet lookup and tracks the cells in progress in a
+	// std::set, once per port and per probe -- and an exhaustive sweep probes
+	// the same region thousands of times. This only gets there first:
+	// whatever it leaves unresolved the descent still resolves as before, and
+	// each cell computes the same value either way.
+	void prefetch_region(ConstEval &ce, const vector<Cell *> &order)
+	{
+		SigSpec undef;
+		for (auto c : order)
+			// Reached through the signal it drives, a cell always has an
+			// output ConstEval knows how to write; asked for directly it
+			// has to be checked, because a cell with no Y port -- a memory
+			// port, a register -- trips an assert rather than declining.
+			if (c->hasPort(ID::Y) || c->type == ID($lcu))
+				ce.eval(c, undef);
+	}
+
 	// Evaluate `out_sig` under the given input assignments; returns false if
 	// the cut does not fully determine the output. Charges the eval budget
 	// by `cone_cells_estimate`.
 	bool eval_with(ConstEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
-	               const SigSpec &out_sig, uint64_t &result, int64_t cone_cells_estimate)
+	               const SigSpec &out_sig, uint64_t &result, int64_t cone_cells_estimate,
+	               const vector<Cell *> *order = nullptr)
 	{
 		charge_eval(cone_cells_estimate);
 		ce.push();
 		for (auto &s : sets)
 			ce.set(s.first, s.second);
+		if (order != nullptr)
+			prefetch_region(ce, *order);
 		SigSpec out = out_sig;
 		SigSpec undef;
 		bool ok = ce.eval(out, undef);
@@ -1129,5 +1295,431 @@ struct CutRegionWorker
 		}
 		ce.pop();
 		return ok;
+	}
+
+	// As eval_with, but per bit: `ok_mask` marks the bits the cut determines
+	// instead of failing whenever one of them escapes it. A cone's outputs
+	// are whole cell ports, and a vectorizing frontend shares a port between
+	// a reduction and unrelated logic, so demanding that every bit resolve
+	// discards the bits that do.
+	void eval_masked(ConstEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
+	                 const SigSpec &out_sig, uint64_t &result, uint64_t &ok_mask,
+	                 int64_t cone_cells_estimate)
+	{
+		charge_eval(cone_cells_estimate);
+		ce.push();
+		for (auto &s : sets)
+			ce.set(s.first, s.second);
+		SigSpec out = out_sig;
+		SigSpec undef;
+		ce.eval(out, undef);
+		result = 0;
+		ok_mask = 0;
+		for (int i = 0; i < GetSize(out) && i < 64; i++) {
+			if (out[i].wire != nullptr)
+				continue;
+			if (out[i].data != State::S0 && out[i].data != State::S1)
+				continue;
+			ok_mask |= 1ULL << i;
+			if (out[i].data == State::S1)
+				result |= 1ULL << i;
+		}
+		ce.pop();
+	}
+
+	// Bit-level counterpart of eval_masked.
+	void eval_masked_bits(const vector<std::pair<SigSpec, Const>> &sets, const SigSpec &out_sig,
+	                      uint64_t &result, uint64_t &ok_mask, int64_t cone_cells_estimate)
+	{
+		begin_bit_eval(cone_cells_estimate, sets);
+		result = 0;
+		ok_mask = 0;
+		SigSpec mapped = sigmap(out_sig);
+		for (int i = 0; i < GetSize(mapped) && i < 64; i++) {
+			State v;
+			if (!bit_value(mapped[i], v) || (v != State::S0 && v != State::S1))
+				continue;
+			ok_mask |= 1ULL << i;
+			if (v == State::S1)
+				result |= 1ULL << i;
+		}
+	}
+
+	// ------------------------------------------- bit-level fallback eval
+	//
+	// ConstEval resolves one whole cell at a time. A vectorizing frontend
+	// bundles unrelated bitwise operations into single wide cells, and two
+	// of those routinely each need a bit of the other's output: acyclic bit
+	// by bit, deadlocked cell by cell, and ConstEval reports the whole cone
+	// unresolvable. `eval_with_bits` walks the cone a bit at a time instead.
+	//
+	// Only a handful of operators are given semantics here; every other cell
+	// is still evaluated by ConstEval, with its inputs resolved first. So
+	// this is a fallback, not a second implementation of RTLIL.
+
+	static bool is01(State s) { return s == State::S0 || s == State::S1; }
+
+	// How the bit walk evaluates a driver. Anything else falls back to
+	// ConstEval, which costs a push, a fresh set of input assignments and a
+	// SigSpec copy per bit -- worth avoiding for the types a residue's
+	// consumers are actually built from.
+	enum BitKind : uint8_t { BK_OPAQUE, BK_ELEMENTWISE, BK_COMPARE };
+
+	static BitKind bit_kind(Cell *c)
+	{
+		if (c->type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($not), ID($pos),
+		               ID($buf), ID($mux), ID($bwmux)))
+			return BK_ELEMENTWISE;
+		// A decode network is nothing but these, and each is one bit that
+		// every operand bit feeds -- not elementwise, but no harder.
+		if (c->type.in(ID($eq), ID($ne)))
+			return BK_COMPARE;
+		return BK_OPAQUE;
+	}
+
+	// Per-bit walk state. Tagged with the generation of the eval that wrote
+	// it rather than cleared between evals: the tables reach a few hundred
+	// live bits, and freeing and regrowing them tens of thousands of times
+	// costs more than the walk itself.
+	//
+	// DEAD is as load-bearing as VALUE. A bit's value depends only on its
+	// driver and the pinned inputs, so one that fails once fails for the
+	// whole eval; without recording that, the walk re-explores a failing
+	// subtree once per parent that reaches it.
+	enum BitStatus : uint8_t { BS_NONE, BS_ACTIVE, BS_VALUE, BS_DEAD };
+	struct BitRec {
+		int gen = -1;
+		BitStatus st = BS_NONE;
+		State val = State::Sx;
+		// Where the bit comes from. Netlist-derived, so unlike the rest it
+		// outlives the generation and is only dropped when a rewrite
+		// invalidates the indexes.
+		bool src_ok = false;
+		BitKind kind = BK_OPAQUE;
+		int yi = -1;  // its position in the driver's Y port, or -1
+		Cell *drv = nullptr;
+	};
+	dict<SigBit, BitRec> bit_rec;
+	int bit_gen = 0;
+
+	// This re-looks-up rather than take a reference: the walk recurses
+	// between reading and writing, and an insert would dangle it.
+	void mark_bit(SigBit bit, BitStatus st, State val = State::Sx)
+	{
+		BitRec &r = bit_rec[bit];
+		r.gen = bit_gen;
+		r.st = st;
+		r.val = val;
+	}
+
+	// Sigmapping a port is O(width) and indexing a SigSpec walks its chunks;
+	// the bit walk asks for one bit at a time, so both are cached flat.
+	dict<std::pair<Cell *, IdString>, vector<SigBit>> port_cache;
+
+	const vector<SigBit> &port_sig(Cell *c, IdString port)
+	{
+		auto key = std::make_pair(c, port);
+		auto it = port_cache.find(key);
+		if (it != port_cache.end())
+			return it->second;
+		return port_cache[key] = sigmap(c->getPort(port)).bits();
+	}
+
+	// Every input bit of a cell, sigmapped, with constants dropped. The
+	// backward walks ask each cell for this once per visit, and going through
+	// connections() re-derives the port directions from the global cell-type
+	// table and re-unpacks a SigSpec every time.
+	dict<Cell *, vector<SigBit>> fanin_cache;
+
+	const vector<SigBit> &cell_fanin(Cell *c)
+	{
+		auto it = fanin_cache.find(c);
+		if (it != fanin_cache.end())
+			return it->second;
+		vector<SigBit> v;
+		for (auto &conn : c->connections())
+			if (c->input(conn.first))
+				for (auto bit : sigmap(conn.second))
+					if (bit.wire != nullptr)
+						v.push_back(bit);
+		return fanin_cache[c] = std::move(v);
+	}
+
+	// Everything keyed on a cell, or on a bit's driver. A rewrite removes the
+	// cells it orphaned, so these have to go when the indexes they mirror are
+	// rebuilt -- including the ConstEvals, which hold a sigmap taken when they
+	// were built.
+	void clear_cell_caches()
+	{
+		port_cache.clear();
+		fanin_cache.clear();
+		y_index_cache.clear();
+		bit_rec.clear();
+		shared_ce_ptr.reset();
+		bits_ce_ptr.reset();
+	}
+
+	// Bit `i` of an operand, with the width extension RTLIL gives it.
+	bool operand_bit(Cell *c, IdString port, IdString signed_param, int i, State &out)
+	{
+		const vector<SigBit> &s = port_sig(c, port);
+		int n = GetSize(s);
+		if (n == 0)
+			return false;
+		if (i >= n) {
+			if (signed_param == IdString() || !c->getParam(signed_param).as_bool()) {
+				out = State::S0;
+				return true;
+			}
+			i = n - 1;
+		}
+		return bit_value(s[i], out);
+	}
+
+	bool eval_elementwise(Cell *c, int i, State &out)
+	{
+		State a, b, s;
+		if (c->type == ID($mux) || c->type == ID($bwmux)) {
+			IdString sel = ID::S;
+			int si = c->type == ID($mux) ? 0 : i;
+			if (!bit_value(port_sig(c, sel)[si], s))
+				return false;
+			if (s != State::S0 && s != State::S1)
+				return false;
+			return operand_bit(c, s == State::S1 ? ID::B : ID::A, IdString(), i, out);
+		}
+		if (!operand_bit(c, ID::A, ID::A_SIGNED, i, a))
+			return false;
+		if (c->type.in(ID($not), ID($pos), ID($buf))) {
+			if (!is01(a))
+				return false;
+			out = (c->type == ID($not)) == (a == State::S0) ? State::S1 : State::S0;
+			return true;
+		}
+		if (!operand_bit(c, ID::B, ID::B_SIGNED, i, b))
+			return false;
+		if (!is01(a) || !is01(b))
+			return false;
+		bool x = a == State::S1, y = b == State::S1, r;
+		if (c->type == ID($and))
+			r = x && y;
+		else if (c->type == ID($or))
+			r = x || y;
+		else
+			r = (x != y) == (c->type == ID($xor));
+		out = r ? State::S1 : State::S0;
+		return true;
+	}
+
+	// Bit `i` of an $eq/$ne: the comparison in bit 0, zero above it. Stops
+	// on the first pair that decides the answer, so a bit the cut leaves
+	// unresolved elsewhere is not fatal -- the same answer ConstEval gives.
+	bool eval_compare(Cell *c, int i, State &out)
+	{
+		if (i > 0) {
+			out = State::S0;
+			return true;
+		}
+		bool ne = c->type == ID($ne), unknown = false;
+		int n = std::max(GetSize(port_sig(c, ID::A)), GetSize(port_sig(c, ID::B)));
+		for (int j = 0; j < n; j++) {
+			State a, b;
+			if (!operand_bit(c, ID::A, ID::A_SIGNED, j, a) ||
+			    !operand_bit(c, ID::B, ID::B_SIGNED, j, b) || !is01(a) || !is01(b)) {
+				unknown = true;
+				continue;
+			}
+			if (a != b) {
+				out = ne ? State::S1 : State::S0;
+				return true;
+			}
+		}
+		if (unknown)
+			return false;
+		out = ne ? State::S0 : State::S1;
+		return true;
+	}
+
+	// Position of `bit` in a cell's Y port, or -1. Cached for the same
+	// reason as the ports themselves: the walk asks one bit at a time.
+	dict<Cell *, dict<SigBit, int>> y_index_cache;
+
+	int y_index(Cell *c, SigBit bit)
+	{
+		auto it = y_index_cache.find(c);
+		if (it == y_index_cache.end()) {
+			vector<SigBit> y = port_sig(c, ID::Y);
+			auto &m = y_index_cache[c];
+			for (int i = 0; i < GetSize(y); i++)
+				m.emplace(y[i], i);
+			it = y_index_cache.find(c);
+		}
+		return it->second.at(bit, -1);
+	}
+
+	// Separate ConstEval for the bit walk. `push()` deep-copies the value
+	// map, so per-cell push/pop is quadratic in the cells already resolved.
+	// Every cell in one walk sees the same input vector, so instead the
+	// values accumulate and get cleared once per eval.
+	std::unique_ptr<ConstEval> bits_ce_ptr;
+	ConstEval &bits_ce()
+	{
+		if (!bits_ce_ptr)
+			bits_ce_ptr = std::make_unique<ConstEval>(module);
+		return *bits_ce_ptr;
+	}
+
+	// Everything the elementwise table does not cover: resolve every input
+	// bit, then let ConstEval apply the cell's real semantics to them.
+	bool eval_opaque(Cell *c, State &out, SigBit want)
+	{
+		// This needs every input of the cell whichever output bit was asked
+		// for, so a failure belongs to the cell rather than to that bit.
+		// Retire the whole output port on the way out: otherwise every other
+		// bit of it repeats the resolve-and-eval and fails in the same place.
+		SigSpec outs;
+		for (auto &conn : c->connections())
+			if (c->output(conn.first))
+				outs.append(SigSpec(port_sig(c, conn.first)));
+		auto retire = [&]() {
+			for (auto bit : outs)
+				if (bit.wire)
+					mark_bit(bit, BS_DEAD);
+			return false;
+		};
+
+		ConstEval &ce = bits_ce();
+		vector<std::pair<SigSpec, Const>> sets;
+		for (auto &conn : c->connections()) {
+			if (c->output(conn.first))
+				continue;
+			// By value: resolving the bits below recurses into
+			// port_sig, and a rehash would dangle a reference.
+			vector<SigBit> s = port_sig(c, conn.first);
+			Const v;
+			for (auto bit : s) {
+				State b;
+				if (!bit_value(bit, b))
+					return retire();
+				v.bits().push_back(b);
+			}
+			sets.push_back({SigSpec(s), v});
+		}
+
+		for (auto &s : sets)
+			ce.set(s.first, s.second);
+		SigSpec ev = outs, undef;
+		if (!ce.eval(ev, undef) || !ev.is_fully_const())
+			return retire();
+		bool found = false;
+		for (int i = 0; i < GetSize(outs); i++)
+			if (outs[i].wire) {
+				mark_bit(outs[i], BS_VALUE, ev[i].data);
+				if (outs[i] == want) {
+					out = ev[i].data;
+					found = true;
+				}
+			}
+		return found;
+	}
+
+	bool bit_value(SigBit bit, State &out)
+	{
+		if (!bit.wire) {
+			out = bit.data;
+			return out == State::S0 || out == State::S1;
+		}
+		Cell *drv;
+		int yi;
+		BitKind kind;
+		{
+			// One lookup covers the memo read, the driver, and the
+			// in-progress mark: nothing in between touches bit_rec, so
+			// the reference cannot be invalidated. The walk visits
+			// millions of bits, and hashing one dominated the walk.
+			BitRec &r = bit_rec[bit];
+			if (r.gen == bit_gen) {
+				if (r.st == BS_VALUE) {
+					out = r.val;
+					return true;
+				}
+				// Either already given up on, or reached while its
+				// own evaluation is in progress -- a genuine
+				// bit-level loop, so it stays unresolvable.
+				if (r.st == BS_ACTIVE)
+					r.st = BS_DEAD;
+				return false;
+			}
+			if (eval_exhausted() || bit_visits_left <= 0)
+				return false;
+			if (!r.src_ok) {
+				r.drv = bit_to_driver.at(bit, nullptr);
+				r.kind = r.drv != nullptr ? bit_kind(r.drv) : BK_OPAQUE;
+				r.yi = r.kind != BK_OPAQUE ? y_index(r.drv, bit) : -1;
+				r.src_ok = true;
+			}
+			drv = r.drv;
+			yi = r.yi;
+			kind = r.kind;
+			r.gen = bit_gen;
+			r.st = BS_ACTIVE;
+		}
+		charge_eval(1);
+		bit_visits_left--;
+		// An input the caller did not pin down.
+		if (drv == nullptr) {
+			mark_bit(bit, BS_DEAD);
+			return false;
+		}
+		bool ok = kind == BK_OPAQUE
+		              ? eval_opaque(drv, out, bit)
+		              : yi >= 0 && (kind == BK_ELEMENTWISE
+		                                ? eval_elementwise(drv, yi, out)
+		                                : eval_compare(drv, yi, out));
+		mark_bit(bit, ok ? BS_VALUE : BS_DEAD, out);
+		return ok;
+	}
+
+	// Bits this eval may still visit. A cone whose cut points do not
+	// dominate the root leads the walk off into the rest of the design,
+	// where it fails only after touching everything; the cap turns that
+	// from a whole-design walk into a bounded one.
+	int64_t bit_visits_left = 0;
+
+	void begin_bit_eval(int64_t cone_cells_estimate,
+	                    const vector<std::pair<SigSpec, Const>> &sets)
+	{
+		charge_eval(cone_cells_estimate);
+		bit_visits_left = 64 * cone_cells_estimate + 4096;
+		bit_gen++;
+		if (bits_ce_ptr) {
+			bits_ce_ptr->values_map.clear();
+			bits_ce_ptr->busy.clear();
+		}
+		for (auto &s : sets) {
+			SigSpec pinned = sigmap(s.first);
+			for (int i = 0; i < GetSize(pinned); i++)
+				if (pinned[i].wire)
+					mark_bit(pinned[i], BS_VALUE, s.second[i]);
+		}
+	}
+
+	bool eval_with_bits(const vector<std::pair<SigSpec, Const>> &sets, const SigSpec &out_sig,
+	                    uint64_t &result, int64_t cone_cells_estimate)
+	{
+		begin_bit_eval(cone_cells_estimate, sets);
+		SigSpec out_mapped = sigmap(out_sig);
+		uint64_t r = 0;
+		for (int i = 0; i < GetSize(out_mapped) && i < 64; i++) {
+			State v;
+			if (!bit_value(out_mapped[i], v))
+				return false;
+			if (v == State::S1)
+				r |= 1ULL << i;
+			else if (v != State::S0)
+				return false;
+		}
+		result = r;
+		return true;
 	}
 };
