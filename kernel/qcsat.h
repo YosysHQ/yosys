@@ -102,6 +102,9 @@ struct SatEffortBudget {
 
 	Result solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
 			std::vector<bool> &modelVals, const std::vector<int> &assumptions);
+
+	// Assumptions-only query without a model
+	Result solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &assumptions);
 };
 
 YOSYS_NAMESPACE_END
