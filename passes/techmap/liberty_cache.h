@@ -9,7 +9,24 @@ namespace abc {
 }
 #endif
 
+#if !defined(_WIN32)
+#include <sys/file.h>
+#endif
+
 YOSYS_NAMESPACE_BEGIN
+
+#if !defined(_WIN32)
+struct ScopedFlock {
+	int fd;
+	ScopedFlock(const std::string &path) {
+		fd = open(path.c_str(), O_CREAT | O_RDWR, 0666);
+		if (fd >= 0) flock(fd, LOCK_EX);
+	}
+	~ScopedFlock() {
+		if (fd >= 0) { flock(fd, LOCK_UN); close(fd); }
+	}
+};
+#endif
 
 // Controlled by the libcache pass (-scl option), enabled by default
 extern bool scl_cache_enabled;
@@ -81,6 +98,13 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	}
 
 	if (need_convert) {
+#if !defined(_WIN32)
+		ScopedFlock flock(merged_scl + ".lock");
+		if (stat(merged_scl.c_str(), &scl_stat) == 0 && scl_stat.st_mtime >= newest_mtime) {
+			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			return merged_scl;
+		}
+#endif
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
 		std::string temp_scl = merged_scl + ".tmp";
 
