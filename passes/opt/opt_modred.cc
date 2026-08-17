@@ -1195,13 +1195,14 @@ struct OptModRedWorker : CutRegionWorker {
 	//
 	// Measured before the push, which can only widen the reach: a run the push
 	// would explode already contributes a full C here, as its digits are the
-	// powers of two.
+	// powers of two. A reach of exactly C does wrap, at the one point where
+	// every term is set, and is left to the profitability guards below.
 	bool cannot_wrap(const dict<SigBit, int> &weights) const
 	{
 		int64_t reach = 0;
 		for (auto &it : weights)
 			reach += it.second;  // each weighted bit is worth at most its weight
-		return reach <= mod_c;
+		return reach < mod_c;
 	}
 
 	// True when a tree over `terms` would not land enough earlier than `root`
