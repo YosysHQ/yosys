@@ -1186,6 +1186,25 @@ struct OptModRedWorker : CutRegionWorker {
 		return level_memo.at(root_bit);
 	}
 
+	// True when the weighted bits cannot sum past the modulus, so nothing ever
+	// wraps and res_C over them is the identity: a plain weighted sum that
+	// merely lands in as many bits as a residue. An n-input popcount reads as
+	// mod-(2^n-1) for exactly that reason. There is no reduction on the path to
+	// take off it, and re-spelling the adder tree as a carry-save fold only
+	// adds the end-around wrap and the normalizer behind it.
+	//
+	// Measured before the push, which can only widen the reach: a run the push
+	// would explode already contributes a full C here, as its digits are the
+	// powers of two. A reach of exactly C does wrap, at the one point where
+	// every term is set, and is left to the profitability guards below.
+	bool cannot_wrap(const dict<SigBit, int> &weights) const
+	{
+		int64_t reach = 0;
+		for (auto &it : weights)
+			reach += it.second;  // each weighted bit is worth at most its weight
+		return reach < mod_c;
+	}
+
 	// True when a tree over `terms` would not land enough earlier than `root`
 	// does now. Breaking even on levels is still a loss: the emitted tree is a
 	// fixed structure that the Boolean optimizer can no longer fold into its
@@ -1210,6 +1229,10 @@ struct OptModRedWorker : CutRegionWorker {
 	{
 		if (GetSize(pf.weights) < min_terms || GetSize(pf.weights) > max_terms)
 			return false;
+		if (cannot_wrap(pf.weights)) {
+			log_debug("  %s: terms cannot reach the modulus\n", log_signal(root));
+			return false;
+		}
 		if (!find_anchor_driver(root, anchor))
 			return false;
 		src = cell_src(anchor);
@@ -1755,6 +1778,10 @@ struct OptModRedWorker : CutRegionWorker {
 		fn_weights(m, proofs, weights);
 		if (GetSize(weights) < min_terms || GetSize(weights) > max_terms)
 			return false;
+		if (cannot_wrap(weights)) {
+			log_debug("  fn %s: terms cannot reach the modulus\n", log_signal(m.outs));
+			return false;
+		}
 		if (!find_anchor_driver(m.outs, anchor))
 			return false;
 		src = cell_src(anchor);
@@ -2038,6 +2065,10 @@ struct OptModRedPass : public Pass {
 		log("\n");
 		log("Candidate reductions are cut out of the netlist and proven exhaustively over the\n");
 		log("cut with ConstEval, so no spelling is assumed and no don't-care is relied on.\n");
+		log("\n");
+		log("A proof whose terms cannot sum past C is left alone: nothing wraps there, so the\n");
+		log("node is a plain weighted sum -- an n-input popcount proves as mod-(2^n-1) this\n");
+		log("way -- and it has no reduction to take off the path.\n");
 		log("\n");
 		log("    -min-mod-bits N, -max-mod-bits N\n");
 		log("        modulus width k to consider (default 2 to 6).\n");
