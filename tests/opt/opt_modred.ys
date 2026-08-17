@@ -6,7 +6,8 @@
 #   C: pushing through a $mux.
 #   D: pushing through a barrel shifter.
 #   E: k is not hard-coded -- the same mechanism at mod 15.
-#   F: rejection guards -- non-Mersenne modulus, plain adder, shallow tree.
+#   F: rejection guards -- non-Mersenne modulus, plain adder, vacuous modulus,
+#      idempotence.
 #
 # Depth is the point of this pass, so the structural checks are `ltp -noff`
 # lengths rather than cell counts: a carry-save tree is usually smaller too, but
@@ -339,10 +340,30 @@ select -assert-count 0 c:*modred*
 design -reset
 log -pop
 
-# F3: the profitability guard is about depth, and a carry-save tree is already
+# F3: a popcount into a k-bit output is linear with every term at weight 1, so it
+# proves as mod-(2^k-1) -- but n ones can never reach 2^k-1, so the reduction is
+# the identity and the fold plus its normalizer would be pure overhead.
+log -header "F3: a sum that cannot reach the modulus is rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] x, output wire [5:0] y);
+  assign y = x[0] + x[1] + x[2] + x[3] + x[4] + x[5] + x[6] + x[7] +
+             x[8] + x[9] + x[10] + x[11] + x[12] + x[13] + x[14] + x[15];
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# F4: the profitability guard is about depth, and a carry-save tree is already
 # the shallowest spelling of its own residue -- so a second run has to decline
 # everything the first one built, rather than stack another tree on top.
-log -header "F3: rewriting is idempotent"
+log -header "F4: rewriting is idempotent"
 log -push
 design -reset
 read_verilog -sv <<EOF
