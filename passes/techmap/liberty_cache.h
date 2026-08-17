@@ -11,6 +11,8 @@ namespace abc {
 
 #if !defined(_WIN32)
 #include <sys/file.h>
+#include <fcntl.h>
+#include <unistd.h>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
