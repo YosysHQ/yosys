@@ -1,5 +1,4 @@
 add_subdirectory(aiger)
-add_subdirectory(aiger2)
 add_subdirectory(ast)
 add_subdirectory(blif)
 add_subdirectory(json)
