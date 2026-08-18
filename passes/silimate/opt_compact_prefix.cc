@@ -1160,6 +1160,8 @@ struct OptCompactPrefixWorker : CutRegionWorker
 			// are the expensive step and get their own (smaller) budget.
 			const int max_closure_attempts = 768;
 			const int max_fp_attempts = 24;
+			// Cap on the cone leaves the implicit-enable probe may learn.
+			const int max_learned_en_leaves = 24;
 			int closure_attempts = 0;
 			int fp_attempts = 0;
 			bool matched = false;
@@ -1174,10 +1176,18 @@ struct OptCompactPrefixWorker : CutRegionWorker
 					break;
 				if (GetSize(bus.sig) != width)
 					continue;
-				pool<SigBit> allowed;
-				if (!sig_bits_unique(bus.sig, allowed))
+				const BusCutInfo bus_info = bus_cut_info(bus.sig);
+				if (bus_info.has_const || bus_info.has_dup)
 					continue;
 				closure_attempts++;
+				if (cut_single_cannot_close(bus_info, GetSize(leaf_bits))) {
+					charge_cut_reject();
+					log_debug("  fwd %s: cut not closed\n", bus.name.c_str());
+					continue;
+				}
+				pool<SigBit> allowed;
+				for (auto bit : mapped_bits(bus.sig))
+					allowed.insert(bit);
 				if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, nullptr, &matched_cone,
 					                   nullptr, &leaf_bits, &cone_cells)) {
 					log_debug("  fwd %s: cut not closed\n", bus.name.c_str());
@@ -1217,6 +1227,7 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						else
 							en_allowed.insert(bit);
 					}
+					const BusCutInfo en_info = bus_cut_info(en.sig);
 					for (auto &data : buses) {
 						if (closure_attempts >= max_closure_attempts ||
 						    fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
@@ -1227,17 +1238,20 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						// only re-add the data bits for each inner candidate.
 						if (!en_ok)
 							break;
-						bool data_const = false;
-						pool<SigBit> allowed = en_allowed;
-						for (auto bit : mapped_bits(data.sig)) {
-							if (!bit.wire)
-								data_const = true;
-							else
-								allowed.insert(bit);
-						}
-						if (data_const)
+						const BusCutInfo data_info = bus_cut_info(data.sig);
+						if (data_info.has_const)
 							continue;
 						closure_attempts++;
+						// Most pairs here cannot cover the cone's leaves, so
+						// settle that before paying for the cut set.
+						if (cut_pair_cannot_close(en_info, data_info, GetSize(leaf_bits))) {
+							charge_cut_reject();
+							log_debug("  gat %s/%s: cut not closed\n", en.name.c_str(), data.name.c_str());
+							continue;
+						}
+						pool<SigBit> allowed = en_allowed;
+						for (auto bit : mapped_bits(data.sig))
+							allowed.insert(bit);
 						if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, nullptr, &matched_cone,
 					                   nullptr, &leaf_bits, &cone_cells)) {
 							log_debug("  gat %s/%s: cut not closed\n", en.name.c_str(), data.name.c_str());
@@ -1285,20 +1299,28 @@ struct OptCompactPrefixWorker : CutRegionWorker
 					// The probe drives one-hot patterns onto the data bus, so
 					// its bits must be unique (the learned enable side is
 					// what handles replicated wiring).
-					bool data_const = false;
-					pool<SigBit> data_bits;
-					for (auto bit : sigmap(data.sig)) {
-						if (!bit.wire)
-							data_const = true;
-						else
-							data_bits.insert(bit);
-					}
-					if (data_const || GetSize(data_bits) != width)
+					const BusCutInfo data_info = bus_cut_info(data.sig);
+					if (data_info.has_const || data_info.has_dup)
 						continue;
 
 					closure_attempts++;
+					// The data bus covers at most `width` of the cone's
+					// leaves, so it leaves at least (leaves - width) for the
+					// enable probe to learn. Once that exceeds the probe
+					// limit no data bus can work, and the probe is a full
+					// hashed cone walk -- far too expensive to discover that
+					// once per candidate.
+					if (GetSize(leaf_bits) - width > max_learned_en_leaves) {
+						charge_cut_reject();
+						continue;
+					}
+					pool<SigBit> data_bits;
+					for (auto bit : mapped_bits(data.sig))
+						data_bits.insert(bit);
+
 					pool<SigBit> en_cands;
-					if (!cut_cone_extra_leaves(root.sig, data_bits, GetSize(cone_cells) + 16, en_cands, 24))
+					if (!cut_cone_extra_leaves(root.sig, data_bits, GetSize(cone_cells) + 16, en_cands,
+					                           max_learned_en_leaves))
 						continue;
 					if (en_cands.empty())
 						continue;
@@ -1354,6 +1376,15 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						break;
 					if (GetSize(dis.sig) < 4 || GetSize(dis.sig) > 62)
 						continue;
+					// The disable half is loop-invariant: rebuilding its bit
+					// set for every data candidate is what made this phase
+					// quadratic in bus count.
+					const BusCutInfo dis_info = bus_cut_info(dis.sig);
+					if (dis_info.has_const || dis_info.has_dup)
+						continue;
+					pool<SigBit> dis_allowed;
+					for (auto bit : mapped_bits(dis.sig))
+						dis_allowed.insert(bit);
 					for (auto &data : buses) {
 						if (closure_attempts >= max_closure_attempts ||
 						    fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
@@ -1361,12 +1392,31 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						if (GetSize(data.sig) < 4 || GetSize(data.sig) > 62)
 							continue;
 						bool self = data.sig == dis.sig;
-						pool<SigBit> allowed;
-						if (!sig_bits_unique(dis.sig, allowed))
-							break;
-						if (!self && !sig_bits_unique(data.sig, allowed))
-							continue;
+						const BusCutInfo data_info = bus_cut_info(data.sig);
+						if (!self) {
+							if (data_info.has_const || data_info.has_dup)
+								continue;
+							// Sharing a bit with the disable half fails the
+							// uniqueness test; the bit filters settle that
+							// for almost every pair without a set operation.
+							if (!bus_bits_disjoint(dis_info, data_info)) {
+								pool<SigBit> probe = dis_allowed;
+								if (!sig_bits_unique(data.sig, probe))
+									continue;
+							}
+						}
 						closure_attempts++;
+						if (self ? cut_single_cannot_close(dis_info, GetSize(leaf_bits))
+						         : cut_pair_cannot_close(dis_info, data_info, GetSize(leaf_bits))) {
+							charge_cut_reject();
+							log_debug("  rev %s/%s: cut not closed (%s)\n", dis.name.c_str(),
+							          data.name.c_str(), last_cut_fail.c_str());
+							continue;
+						}
+						pool<SigBit> allowed = dis_allowed;
+						if (!self)
+							for (auto bit : mapped_bits(data.sig))
+								allowed.insert(bit);
 						if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, nullptr, &matched_cone,
 					                   nullptr, &leaf_bits, &cone_cells)) {
 							log_debug("  rev %s/%s: cut not closed (%s)\n", dis.name.c_str(), data.name.c_str(),
@@ -1409,18 +1459,37 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						break;
 					if (GetSize(en.sig) != width)
 						continue;
+					// As in the reverse phase, the en half does not vary with
+					// the modulus candidate.
+					const BusCutInfo en_info = bus_cut_info(en.sig);
+					if (en_info.has_const || en_info.has_dup)
+						continue;
+					pool<SigBit> en_allowed;
+					for (auto bit : mapped_bits(en.sig))
+						en_allowed.insert(bit);
 					for (auto &n : buses) {
 						if (closure_attempts >= max_closure_attempts ||
 						    fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
 							break;
 						if (GetSize(n.sig) == width || GetSize(n.sig) > 62)
 							continue;
-						pool<SigBit> allowed;
-						if (!sig_bits_unique(en.sig, allowed))
-							break;
-						if (!sig_bits_unique(n.sig, allowed))
+						const BusCutInfo n_info = bus_cut_info(n.sig);
+						if (n_info.has_const || n_info.has_dup)
 							continue;
+						if (!bus_bits_disjoint(en_info, n_info)) {
+							pool<SigBit> probe = en_allowed;
+							if (!sig_bits_unique(n.sig, probe))
+								continue;
+						}
 						closure_attempts++;
+						if (cut_pair_cannot_close(en_info, n_info, GetSize(leaf_bits))) {
+							charge_cut_reject();
+							log_debug("  mod %s/%s: cut not closed\n", en.name.c_str(), n.name.c_str());
+							continue;
+						}
+						pool<SigBit> allowed = en_allowed;
+						for (auto bit : mapped_bits(n.sig))
+							allowed.insert(bit);
 						if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, nullptr, &matched_cone,
 					                   nullptr, &leaf_bits, &cone_cells)) {
 							log_debug("  mod %s/%s: cut not closed\n", en.name.c_str(), n.name.c_str());
