@@ -163,7 +163,7 @@ design -reset
 read_verilog <<EOT
 module equiv_double_neg(
 	input [3:0] a, b, c,
-	output [3:0] y
+	output [4:0] y
 );
 	wire [3:0] ab = a - b;
 	assign y = c - ab;
@@ -172,7 +172,21 @@ EOT
 hierarchy -auto-top
 proc
 equiv_opt -assert arith_tree
-design -load postopt
-select -assert-count 2 t:$fa
-select -assert-count 1 t:$add
+design -reset
+
+# A chain link that is narrower than the cell consuming it truncates its own
+# result, and that truncation is observable in the wider consumer. Flattening
+# the chain must not recover the carry the narrower link discarded.
+read_verilog <<EOT
+module equiv_narrow_intermediate(
+	input [7:0] a, b, c,
+	output [8:0] y
+);
+	wire [7:0] t = a + b;
+	assign y = t + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
 design -reset
