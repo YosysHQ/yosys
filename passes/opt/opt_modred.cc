@@ -202,7 +202,124 @@ struct OptModRedWorker : CutRegionWorker {
 	// edges from the points: a point the forward pass arrives at has another
 	// point in its fanin. Asking point by point instead re-explored the same
 	// fanin once per point, since they all sit in the same region.
-	bool prune_covered_cuts(const pool<SigBit> &hit, pool<SigBit> &excluded)
+	//
+	// Both directions run over the interned cone graph, since this is the
+	// hottest walk in the pass: every retry and every prune round re-runs it
+	// on the same cone, and a hashed SigBit BFS that re-sigmaps the fanin and
+	// allocates a successor vector per bit costs an order of magnitude more
+	// than the integer walk. An uncut cone over the interning cap has no graph
+	// and keeps the cut walk hashed, so keep a hashed prune for that case:
+	// skipping it there would let an unpruned cut through to the sweep.
+	bool prune_covered_cuts(const SigSpec &root, const pool<SigBit> &hit,
+	                        pool<SigBit> &excluded)
+	{
+		const ConeGraph *gp = cone_graph(root);
+		if (gp == nullptr)
+			return prune_covered_cuts_hashed(hit, excluded);
+		const ConeGraph &g = *gp;
+		next_pc_gen(GetSize(g.bits), GetSize(g.cells));
+
+		// Intern the points once: each is asked about four times below, and
+		// the hash lookup is all that is left of the old walk's cost.
+		pc_ids.clear();
+		for (auto bit : hit) {
+			auto it = g.bit_id.find(bit);
+			if (it == g.bit_id.end())
+				continue;
+			pc_ids.push_back(it->second);
+			pc_hit[it->second] = pc_gen;
+		}
+
+		// Backward from every point at once. The edges are kept per cell
+		// rather than per bit pair: a wide cell would otherwise contribute
+		// fanin*driven edges, and that product, not the cone, is what made
+		// this walk expensive.
+		pc_queue.clear();
+		pc_fan_cell.clear();
+		pc_fan_next.clear();
+		pc_out_bit.clear();
+		pc_out_next.clear();
+		for (auto id : pc_ids)
+			if (g.bit_drv[id] >= 0 && pc_seen[id] != pc_gen) {
+				pc_seen[id] = pc_gen;
+				pc_queue.push_back(id);
+			}
+		for (int head = 0; head < GetSize(pc_queue) && !walk_exhausted(); head++) {
+			int id = pc_queue[head];
+			int cid = g.bit_drv[id];
+			if (cid < 0)
+				continue;
+			charge_walk(1);
+			bool first = pc_cell_gen[cid] != pc_gen;
+			if (first) {
+				pc_cell_gen[cid] = pc_gen;
+				pc_out_head[cid] = -1;
+			}
+			pc_out_bit.push_back(id);
+			pc_out_next.push_back(pc_out_head[cid]);
+			pc_out_head[cid] = GetSize(pc_out_bit) - 1;
+			// The fanin only has to be crossed once per cell: a later bit
+			// of the same cell finds every fanin bit already seeded or
+			// already a point, so the queue and the seen set come out the
+			// same as crossing it once per bit did.
+			if (!first)
+				continue;
+			for (int e = g.in_off[cid]; e < g.in_off[cid + 1]; e++) {
+				int in_id = g.in_bits[e];
+				if (pc_fan_gen[in_id] != pc_gen) {
+					pc_fan_gen[in_id] = pc_gen;
+					pc_fan_head[in_id] = -1;
+				}
+				pc_fan_cell.push_back(cid);
+				pc_fan_next.push_back(pc_fan_head[in_id]);
+				pc_fan_head[in_id] = GetSize(pc_fan_cell) - 1;
+				// A point is not walked through, only seeded, so the
+				// edges collected stay the ones a per-point walk saw.
+				if (pc_hit[in_id] != pc_gen && pc_seen[in_id] != pc_gen) {
+					pc_seen[in_id] = pc_gen;
+					pc_queue.push_back(in_id);
+				}
+			}
+		}
+
+		// Forward from the points, but starting one edge out so that a point
+		// is not reported as covering itself. Each cell's driven bits are
+		// handed out once, which is what keeps this pass linear.
+		pc_fwd_queue.clear();
+		auto push_succs = [&](int id) {
+			if (pc_fan_gen[id] != pc_gen)
+				return;
+			for (int e = pc_fan_head[id]; e != -1; e = pc_fan_next[e]) {
+				int cid = pc_fan_cell[e];
+				if (pc_cell_done[cid] == pc_gen)
+					continue;
+				pc_cell_done[cid] = pc_gen;
+				for (int f = pc_out_head[cid]; f != -1; f = pc_out_next[f]) {
+					int next = pc_out_bit[f];
+					if (pc_reached[next] != pc_gen) {
+						pc_reached[next] = pc_gen;
+						pc_fwd_queue.push_back(next);
+					}
+				}
+			}
+		};
+		for (auto id : pc_ids)
+			push_succs(id);
+		for (int head = 0; head < GetSize(pc_fwd_queue); head++)
+			push_succs(pc_fwd_queue[head]);
+
+		bool grew = false;
+		for (auto bit : hit) {
+			auto it = g.bit_id.find(bit);
+			if (it != g.bit_id.end() && pc_reached[it->second] == pc_gen &&
+			    excluded.insert(bit).second)
+				grew = true;
+		}
+		return grew;
+	}
+
+	// Same walk over hashed signal bits, for a cone too large to intern.
+	bool prune_covered_cuts_hashed(const pool<SigBit> &hit, pool<SigBit> &excluded)
 	{
 		dict<SigBit, vector<SigBit>> fwd;  // a bit -> the bits it feeds
 		pool<SigBit> seen;
@@ -226,8 +343,6 @@ struct OptModRedWorker : CutRegionWorker {
 			}
 		}
 
-		// Forward from the points, but starting one edge out so that a point
-		// is not reported as covering itself.
 		pool<SigBit> reached;
 		std::queue<SigBit> fq;  // the backward queue may have been cut short
 		auto push_succs = [&](const SigBit &b) {
@@ -251,6 +366,46 @@ struct OptModRedWorker : CutRegionWorker {
 			if (reached.count(bit) && excluded.insert(bit).second)
 				grew = true;
 		return grew;
+	}
+
+	// Scratch for prune_covered_cuts, kept across probes so a probe allocates
+	// nothing. Stamps are generation-counted rather than cleared; the edge
+	// lists are rebuilt per probe but keep their capacity.
+	vector<int> pc_queue, pc_fwd_queue, pc_ids;
+	vector<int> pc_fan_head, pc_fan_cell, pc_fan_next;  // bit -> cells it feeds
+	vector<int> pc_out_head, pc_out_bit, pc_out_next;   // cell -> bits it drove
+	vector<uint32_t> pc_seen, pc_hit, pc_reached, pc_fan_gen;
+	vector<uint32_t> pc_cell_gen, pc_cell_done;
+	uint32_t pc_gen = 0;
+
+	// Open a generation, growing the stamps to cover the graph. Growing must
+	// not disturb the counter: the bit and cell stamps grow independently, so
+	// restarting it would let a stamp left over from an earlier generation
+	// alias the current one. A new entry reads as generation 0, which no live
+	// generation ever uses.
+	void next_pc_gen(int nbits, int ncells)
+	{
+		if (GetSize(pc_seen) < nbits) {
+			pc_seen.resize(nbits, 0);
+			pc_hit.resize(nbits, 0);
+			pc_reached.resize(nbits, 0);
+			pc_fan_gen.resize(nbits, 0);
+			pc_fan_head.resize(nbits, -1);
+		}
+		if (GetSize(pc_cell_gen) < ncells) {
+			pc_cell_gen.resize(ncells, 0);
+			pc_cell_done.resize(ncells, 0);
+			pc_out_head.resize(ncells, -1);
+		}
+		if (++pc_gen == 0) {  // wrapped, so every stamp is stale
+			std::fill(pc_seen.begin(), pc_seen.end(), 0);
+			std::fill(pc_hit.begin(), pc_hit.end(), 0);
+			std::fill(pc_reached.begin(), pc_reached.end(), 0);
+			std::fill(pc_fan_gen.begin(), pc_fan_gen.end(), 0);
+			std::fill(pc_cell_gen.begin(), pc_cell_gen.end(), 0);
+			std::fill(pc_cell_done.begin(), pc_cell_done.end(), 0);
+			pc_gen = 1;
+		}
 	}
 
 	// Module wires exactly k bits wide, indexed by k so the sweep is paid once
@@ -508,7 +663,7 @@ struct OptModRedWorker : CutRegionWorker {
 			if (buses.empty() && GetSize(hit) > max_cut_bits)
 				return false;
 
-			if (prune_covered_cuts(hit, excluded)) {
+			if (prune_covered_cuts(root, hit, excluded)) {
 				prunes++;
 				continue;
 			}
