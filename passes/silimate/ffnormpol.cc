@@ -54,13 +54,14 @@ struct FfNormPolPass : public Pass {
 
 		Worker(Module *module) : module(module), sigmap(module), initvals(&sigmap, module) { }
 
-		SigSpec invert(SigSpec sig, const char *suffix, const std::string &src)
+		SigSpec invert(SigSpec sig, const char *suffix, Cell *cell)
 		{
 			sig = sigmap(sig);
 			if (inverted_signals.count(sig))
 				return inverted_signals.at(sig);
 
-			SigSpec inv = module->Not(NEW_ID_SUFFIX(suffix), sig, false, src);
+			// Name the inverter after the first flop that needed it, not $auto$file:line
+			SigSpec inv = module->Not(NEW_ID2_SUFFIX(suffix), sig, false, cell->get_src_attribute());
 			inverted_signals[sig] = inv;
 			return inv;
 		}
@@ -70,7 +71,7 @@ struct FfNormPolPass : public Pass {
 			if (pol)
 				return false;
 
-			sig = invert(sig, suffix, ff.attributes[ID::src].decode_string());
+			sig = invert(sig, suffix, ff.cell);
 			pol = true;
 			normalized_controls++;
 			return true;
