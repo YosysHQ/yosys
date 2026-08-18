@@ -6,6 +6,8 @@
 #   C: the exclusivity guards -- escapes to a port, to the select, or to the
 #      opposite arm all make the fold unsound.
 #   D: no implication, and -strict.
+#   E: batching -- a run applies every fold it finds at once, including folds
+#      that land in each other's cones.
 #
 # The pass deletes the decode that the select already forces, so the structural
 # check is that the compares feeding it are gone. equiv_opt cannot be used here:
@@ -300,4 +302,129 @@ prep -top top
 opt_mux_odc -strict
 opt_clean
 select -assert-min 1 t:$eq
+log -pop
+
+# ============================================================================
+# Group E: batching
+# ============================================================================
+#
+# A run decides every fold against one index and then applies them together,
+# because re-indexing per fold made the pass quadratic in the number of fold
+# sites. That is only sound because a fold cannot invalidate another's
+# justification -- it deletes a gate, so it can neither add a reader nor open an
+# escape -- so each case here checks the whole batch lands in a single run and
+# proves the module outputs with a miter.
+
+# E1: two unrelated sites under two different selects.
+log -header "E1: two independent folds in one run"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire w, input wire [7:0] f, input wire [7:0] g,
+            input wire [3:0] x, input wire [3:0] b1, input wire [3:0] b2,
+            output wire [3:0] y1, output wire [3:0] y2);
+  wire h1 = v | (f == 8'd10) | (f == 8'd20);
+  wire h2 = w | (g == 8'd30) | (g == 8'd40);
+  wire [3:0] r1 = h1 ? (x + 4'd1) : (x + 4'd2);
+  wire [3:0] r2 = h2 ? (x + 4'd5) : (x + 4'd6);
+  assign y1 = v ? r1 : b1;
+  assign y2 = w ? r2 : b2;
+endmodule
+EOF
+prep -top top
+design -save gold_e1
+select -assert-min 4 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
+log -header "E1m: output equivalence of the E1 batch"
+log -push
+design -load gold_e1
+rename top gate
+opt_mux_odc
+opt_clean
+design -save gate_e1
+design -load gold_e1
+design -copy-from gate_e1 -as gate gate
+miter -equiv -flatten top gate miter
+hierarchy -top miter
+sat -verify -prove trigger 0 miter
+log -pop
+
+# E2: one select driving two muxes, so the candidate search and the forward
+# walks are shared across the group rather than repeated per mux.
+log -header "E2: one select, two muxes"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] b1, input wire [3:0] b2,
+            output wire [3:0] y1, output wire [3:0] y2);
+  wire h1 = v | (f == 8'd10);
+  wire h2 = v | (f == 8'd20);
+  wire [3:0] r1 = h1 ? (x + 4'd1) : (x + 4'd2);
+  wire [3:0] r2 = h2 ? (x + 4'd5) : (x + 4'd6);
+  assign y1 = v ? r1 : b1;
+  assign y2 = v ? r2 : b2;
+endmodule
+EOF
+prep -top top
+design -save gold_e2
+select -assert-min 2 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
+log -header "E2m: output equivalence of the E2 batch"
+log -push
+design -load gold_e2
+rename top gate
+opt_mux_odc
+opt_clean
+design -save gate_e2
+design -load gold_e2
+design -copy-from gate_e2 -as gate gate
+miter -equiv -flatten top gate miter
+hierarchy -top miter
+sat -verify -prove trigger 0 miter
+log -pop
+
+# E3: h1 is itself an input of h2, so the batch applies a fold that sits inside
+# another fold's input cone -- the case where applying one rewrite could most
+# plausibly disturb the other's justification.
+log -header "E3: candidate feeding another candidate"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire v, input wire [7:0] f, input wire [3:0] x,
+            input wire [3:0] byp, output wire [3:0] y);
+  wire h1 = v | (f == 8'd10);
+  wire h2 = v | (h1 & (f == 8'd20));
+  wire [3:0] r = h2 ? (x + 4'd1) : (x + 4'd2);
+  assign y = v ? r : byp;
+endmodule
+EOF
+prep -top top
+design -save gold_e3
+select -assert-min 2 t:$eq
+opt_mux_odc
+opt_clean
+select -assert-count 0 t:$eq
+log -pop
+
+log -header "E3m: output equivalence of the E3 batch"
+log -push
+design -load gold_e3
+rename top gate
+opt_mux_odc
+opt_clean
+design -save gate_e3
+design -load gold_e3
+design -copy-from gate_e3 -as gate gate
+miter -equiv -flatten top gate miter
+hierarchy -top miter
+sat -verify -prove trigger 0 miter
 log -pop

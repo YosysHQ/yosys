@@ -68,6 +68,15 @@ PRIVATE_NAMESPACE_BEGIN
 // The rewrite is an observability don't-care: gold and gate genuinely differ on
 // internal nodes (that is the point), so `-strict` disables the pass for the
 // formal flow, the same way opt_argmax's learned-table mode is gated.
+//
+// Cost. Both expensive walks are kept off the common path, because the pass
+// runs on every design but folds on very few. Candidates are read straight out
+// of the select's fanout rather than searched for in the arm's cone; muxes are
+// grouped by select so that search happens once per select instead of once per
+// mux; and the module-wide backward cone is only walked for an arm that a cheap
+// bounded forward walk has already shown a candidate can reach. Folds are then
+// batched into one rewrite per run, since re-indexing after each one made the
+// pass quadratic in the number of fold sites.
 
 struct OptMuxOdcWorker
 {
@@ -181,6 +190,59 @@ struct OptMuxOdcWorker
 		return true;
 	}
 
+	// Collect into `hits` the muxes on this select that `start` reaches on the
+	// arm being specialized; false means the walk found an escape, so no mux on
+	// the select can take the fold.
+	//
+	// This is a deliberate relaxation of escapes(): it stops at every mux on the
+	// select instead of one chosen mux, and it skips the cone test, so the cells
+	// it walks are a subset of those escapes() walks for any mux it reports. It
+	// therefore only ever finds an escape that escapes() would find too, and
+	// never rules out a fold escapes() would accept. Its job is to keep the
+	// module-wide cone walk off the hot path: on a design that folds nothing, no
+	// candidate reaches an arm and no cone is ever built.
+	bool forward_arms(Cell *start, const pool<Cell *> &mux_group,
+	                  const dict<SigBit, pool<Cell *>> &arm_readers, pool<Cell *> &hits)
+	{
+		std::vector<Cell *> stack = {start};
+		pool<Cell *> seen;
+		while (!stack.empty()) {
+			Cell *cell = stack.back();
+			stack.pop_back();
+			if (!seen.insert(cell).second)
+				continue;
+			// Past this many cells the arm's cone is over budget as well, so
+			// escapes() could not accept whatever lies further out.
+			if (GetSize(seen) > max_cone_cells)
+				return false;
+			for (auto &conn : cell->connections()) {
+				if (!cell->output(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (escape_bits.count(bit))
+						return false;
+					for (auto reader : readers.at(bit, no_readers)) {
+						if (mux_group.count(reader)) {
+							// Stop here: only the arm being specialized can
+							// justify a fold, and escapes() rules on the
+							// select and the opposite arm itself.
+							if (arm_readers.at(bit, no_readers).count(reader))
+								hits.insert(reader);
+							continue;
+						}
+						// A state element here would hold the forced value
+						// past the cycle whose select justified it -- see
+						// condition 3.
+						if (!type_is_combinational(reader->type))
+							return false;
+						stack.push_back(reader);
+					}
+				}
+			}
+		}
+		return true;
+	}
+
 	// True when anything reachable forward from `start` is observed outside
 	// `mux`'s `arm` port -- see condition 2 in the header comment.
 	bool escapes(Cell *start, Cell *mux, const pool<Cell *> &cone, const pool<SigBit> &arm_bits,
@@ -276,17 +338,32 @@ struct OptMuxOdcWorker
 	{
 		index();
 
-		// Snapshot the mux list: the rewrite deletes cells as it goes.
-		std::vector<Cell *> muxes;
-		for (auto cell : module->selected_cells())
-			if (cell->type.in(ID($mux), ID($_MUX_)))
-				muxes.push_back(cell);
-
-		for (auto mux : muxes) {
-			SigSpec sel_sig = sigmap(mux->getPort(ID::S));
-			if (GetSize(sel_sig) != 1 || !sel_sig[0].is_wire())
+		// Muxes with a single-bit wire select, grouped by that select. Grouping
+		// lets one candidate search and one forward walk per candidate serve
+		// every mux the select drives, rather than repeating both per mux.
+		dict<SigBit, std::vector<Cell *>> muxes_by_sel;
+		for (auto cell : module->selected_cells()) {
+			if (!cell->type.in(ID($mux), ID($_MUX_)))
 				continue;
-			SigBit sel = sel_sig[0];
+			SigSpec sel_sig = sigmap(cell->getPort(ID::S));
+			if (GetSize(sel_sig) == 1 && sel_sig[0].is_wire())
+				muxes_by_sel[sel_sig[0]].push_back(cell);
+		}
+
+		// Folds are decided against the unmutated index and applied in one batch
+		// at the end. A fold only deletes a gate and ties its output to a
+		// constant, so it can neither add a reader nor open an escape that
+		// another fold's exclusivity check relied on being absent, and a fold it
+		// starves of readers merely becomes dead logic. Rewriting eagerly
+		// instead costs a full re-index and rescan per fold, which is quadratic
+		// on a design with many fold sites.
+		dict<Cell *, bool> folds;
+
+		for (auto &sel_muxes : muxes_by_sel) {
+			SigBit sel = sel_muxes.first;
+			pool<Cell *> mux_group;
+			for (auto mux : sel_muxes.second)
+				mux_group.insert(mux);
 
 			// $mux drives B when S is 1 and A when S is 0.
 			for (int arm = 0; arm < 2; arm++) {
@@ -294,56 +371,69 @@ struct OptMuxOdcWorker
 				IdString other_port = arm ? ID::A : ID::B;
 				bool value = arm != 0;
 
+				// Which mux consumes which bit on the arm being specialized, so
+				// the forward walk can recognize an arm in one lookup.
+				dict<SigBit, pool<Cell *>> arm_readers;
+				for (auto mux : sel_muxes.second)
+					for (auto bit : sigmap(mux->getPort(arm_port)))
+						arm_readers[bit].insert(mux);
+
 				// A cell can only be forced by the select if the select is one of
 				// its own inputs, so the candidates come straight off the index.
-				// Searching the arm's cone for them instead would cost a walk per
-				// mux, which dominates the run on a large design that folds
-				// nothing -- the common case by far.
-				std::vector<Cell *> candidates;
-				for (auto reader : readers.at(sel, no_readers))
+				dict<Cell *, std::vector<Cell *>> by_mux;
+				for (auto cand : readers.at(sel, no_readers)) {
 					// The cone spans the whole module, so a partial selection
 					// must not have its unselected cells rewritten.
-					if (selected.count(reader) && forces_output(reader, sel, value))
-						candidates.push_back(reader);
-				if (candidates.empty())
-					continue;
-
-				SigSpec arm_sig = sigmap(mux->getPort(arm_port));
-				pool<Cell *> cone;
-				if (!backward_cone(arm_sig, cone))
-					continue;
-
-				pool<SigBit> arm_bits;
-				for (auto bit : arm_sig)
-					arm_bits.insert(bit);
-				pool<SigBit> guard_bits;
-				guard_bits.insert(sel);
-				for (auto bit : sigmap(mux->getPort(other_port)))
-					guard_bits.insert(bit);
-
-				for (auto cell : candidates) {
-					// Only a cell the arm actually depends on is unobservable
-					// when the select takes the other value.
-					if (!cone.count(cell))
+					if (!selected.count(cand) || !forces_output(cand, sel, value))
 						continue;
-					if (escapes(cell, mux, cone, arm_bits, guard_bits))
+					pool<Cell *> hits;
+					if (forward_arms(cand, mux_group, arm_readers, hits))
+						for (auto mux : hits)
+							by_mux[mux].push_back(cand);
+				}
+
+				// Only an arm some candidate can actually reach is worth the
+				// module-wide cone walk below.
+				for (auto &group : by_mux) {
+					SigSpec arm_sig = sigmap(group.first->getPort(arm_port));
+					pool<Cell *> cone;
+					if (!backward_cone(arm_sig, cone))
 						continue;
 
-					SigSpec y = sigmap(cell->getPort(ID::Y));
-					log("  %s: forcing %s (%s) to %d under select %s\n",
-					    log_id(module), log_id(cell), log_id(cell->type), value ? 1 : 0,
-					    log_signal(sel));
-					// Drop the driver first; the wire is then free to take the
-					// constant that the select already implies along this arm.
-					module->remove(cell);
-					module->connect(y, value ? State::S1 : State::S0);
-					regions++;
-					cells_removed++;
-					// The index now describes a cell that is gone, so stop
-					// touching this module and let the caller re-run us.
-					return;
+					pool<SigBit> arm_bits;
+					for (auto bit : arm_sig)
+						arm_bits.insert(bit);
+					pool<SigBit> guard_bits;
+					guard_bits.insert(sel);
+					for (auto bit : sigmap(group.first->getPort(other_port)))
+						guard_bits.insert(bit);
+
+					for (auto cell : group.second) {
+						if (folds.count(cell))
+							continue;
+						// Only a cell the arm actually depends on is
+						// unobservable when the select takes the other value.
+						if (!cone.count(cell))
+							continue;
+						if (escapes(cell, group.first, cone, arm_bits, guard_bits))
+							continue;
+						log("  %s: forcing %s (%s) to %d under select %s\n",
+						    log_id(module), log_id(cell), log_id(cell->type),
+						    value ? 1 : 0, log_signal(sel));
+						folds[cell] = value;
+					}
 				}
 			}
+		}
+
+		for (auto &fold : folds) {
+			SigSpec y = sigmap(fold.first->getPort(ID::Y));
+			// Drop the driver first; the wire is then free to take the constant
+			// that the select already implies along its arm.
+			module->remove(fold.first);
+			module->connect(y, fold.second ? State::S1 : State::S0);
+			regions++;
+			cells_removed++;
 		}
 	}
 };
@@ -412,8 +502,11 @@ struct OptMuxOdcPass : public Pass {
 					    "(run proc first).\n", log_id(module));
 					continue;
 				}
-				// Each fold invalidates the index, so re-run until a pass over
-				// the module finds nothing left to do.
+				// A run applies its whole batch of folds at once and so leaves
+				// the index stale; re-run until a rebuilt one finds nothing
+				// left to do. Deleting a gate can uncover a fold that its
+				// fanout previously blocked, and each round removes at least
+				// one cell, so this terminates.
 				while (true) {
 					OptMuxOdcWorker worker(module);
 					worker.max_cone_cells = max_cone_cells;
