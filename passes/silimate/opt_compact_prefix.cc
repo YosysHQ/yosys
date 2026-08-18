@@ -1304,16 +1304,6 @@ struct OptCompactPrefixWorker : CutRegionWorker
 						continue;
 
 					closure_attempts++;
-					// The data bus covers at most `width` of the cone's
-					// leaves, so it leaves at least (leaves - width) for the
-					// enable probe to learn. Once that exceeds the probe
-					// limit no data bus can work, and the probe is a full
-					// hashed cone walk -- far too expensive to discover that
-					// once per candidate.
-					if (GetSize(leaf_bits) - width > max_learned_en_leaves) {
-						charge_cut_reject();
-						continue;
-					}
 					pool<SigBit> data_bits;
 					for (auto bit : mapped_bits(data.sig))
 						data_bits.insert(bit);
