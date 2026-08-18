@@ -108,9 +108,17 @@ void SatEffortBudget::charge_import(QuickConeSat &qcsat, int64_t &cells_charged)
 	cells_charged = GetSize(qcsat.imported_cells);
 }
 
+SatEffortBudget::Result SatEffortBudget::solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &assumptions)
+{
+	std::vector<bool> modelVals;
+	return solve(qcsat, cap, {}, modelVals, assumptions);
+}
+
 SatEffortBudget::Result SatEffortBudget::solve(QuickConeSat &qcsat, int64_t cap, const std::vector<int> &modelExprs,
 		std::vector<bool> &modelVals, const std::vector<int> &assumptions)
 {
+	if (spent())
+		return Result::LimitReached;
 	if (enabled())
 		cap = (cap > 0) ? std::min(cap, remaining) : remaining;
 	qcsat.ez->setSolverPropLimit(cap);
