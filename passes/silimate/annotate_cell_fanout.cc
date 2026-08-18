@@ -102,34 +102,22 @@ void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, 
 	}
 }
 
-// Assign statements fanin, fanout, traces the lhs2rhs and rhs2lhs sigspecs and precompute maps
-void lhs2rhs_rhs2lhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> &rhsSig2LhsSig,
-		     dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2rhsSig)
+// Record one load per module output port bit, keyed by the sigmapped bit driving it. Port bits
+// are stored un-sigmapped: SigMap folds every `connect` alias onto one canonical bit, so a set
+// of sigmapped bits collapses N output ports on a net into one entry (this is what made a
+// feedthrough net, whose whole fanout is output ports, come out as fanout 1). Internal
+// wire-to-wire aliases are not loads, matching how fanoutbuf and report_fanout count.
+void outputPortFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> &sig2SigsInFanout)
 {
-	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
-		RTLIL::SigSpec lhs = it->first;
-		RTLIL::SigSpec rhs = it->second;
-		if (!lhs.is_chunk()) {
-			std::vector<SigSpec> lhsBits;
-			for (int i = 0; i < lhs.size(); i++) {
-				SigSpec bit_sig = lhs.extract(i, 1);
-				lhsBits.push_back(bit_sig);
-			}
-			std::vector<SigSpec> rhsBits;
-			for (int i = 0; i < rhs.size(); i++) {
-				SigSpec bit_sig = rhs.extract(i, 1);
-				rhsBits.push_back(bit_sig);
-			}
-
-			for (uint32_t i = 0; i < lhsBits.size(); i++) {
-				if (i < rhsBits.size()) {
-					rhsSig2LhsSig[sigmap(rhsBits[i])].insert(sigmap(lhsBits[i]));
-					lhsSig2rhsSig[lhsBits[i]] = sigmap(rhsBits[i]);
-				}
-			}
-		} else {
-			rhsSig2LhsSig[sigmap(rhs)].insert(sigmap(lhs));
-			lhsSig2rhsSig[lhs] = sigmap(rhs);
+	for (Wire *wire : module->wires()) {
+		if (!wire->port_output)
+			continue;
+		for (int i = 0; i < wire->width; i++) {
+			SigSpec bit_sig(wire, i);
+			// A constant-driven output port loads no driver
+			if (sigmap(bit_sig).is_fully_const())
+				continue;
+			sig2SigsInFanout[sigmap(bit_sig)].insert(bit_sig);
 		}
 	}
 }
@@ -448,9 +436,8 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 {
 	// Precompute cell output sigspec to cell map
 	sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
-	// Precompute lhs2rhs and rhs2lhs sigspec map
-	dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
-	lhs2rhs_rhs2lhs(module, sigmap, sig2SigsInFanout, lhsSig2RhsSig);
+	// Precompute the output port bits loading each net
+	outputPortFanout(module, sigmap, sig2SigsInFanout);
 	// Accumulate fanout from cell connections
 	for (auto itrSig : sig2CellsInFanout) {
 		SigSpec sigspec = itrSig.first;
@@ -458,7 +445,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 		sigFanout[sigspec] = cells.size();
 	}
 
-	// Accumulate fanout from assign stmts connections
+	// Accumulate fanout from output port loads
 	for (auto itrSig : sig2SigsInFanout) {
 		SigSpec sigspec = itrSig.first;
 		std::set<RTLIL::SigSpec> &fanout = itrSig.second;
@@ -483,7 +470,7 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec,
 		}
 	}
 
-	// Find cells with no fanout info (connected to output ports, or not connected)
+	// Find cells with no fanout info (dangling, or driving only constants)
 	std::set<Cell *> noFanoutInfo;
 	for (auto cell : module->selected_cells()) {
 		if (!cellFanout.count(cell)) {
@@ -738,8 +725,9 @@ struct AnnotateCellFanout : public ScriptPass {
 								RTLIL::SigSpec cellOutSig = sigmap(actual);
 								for (int i = 0; i < cellOutSig.size(); i++) {
 									SigSpec bit_sig = cellOutSig.extract(i, 1);
+									// Only cell loads can be moved onto a buffer; sizing the tree for
+									// output port loads too would leave buffers with nothing on them
 									int bitfanout = sig2CellsInFanout[bit_sig].size();
-									bitfanout += sig2SigsInFanout[bit_sig].size();
 									fixfanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, insertedBuffers, bit_sig,
 										  bitfanout, limit, debug);
 								}
@@ -798,8 +786,8 @@ struct AnnotateCellFanout : public ScriptPass {
 				for (auto sig : sigsToFix) {
 					for (int i = 0; i < sig.first.size(); i++) {
 						SigSpec bit_sig = sig.first.extract(i, 1);
+						// Cell loads only, as above: fixfanout cannot rewire output port connections
 						int bitfanout = sig2CellsInFanout[bit_sig].size();
-						bitfanout += sig2SigsInFanout[bit_sig].size();
 						fixfanout(module, sigmap, sig2CellsInFanout, sig2CellsInFanin, insertedBuffers, bit_sig, bitfanout, limit, debug);
 					}
 					fixedFanout = true;

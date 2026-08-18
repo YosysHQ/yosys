@@ -1,0 +1,114 @@
+# A module output port is a load, exactly as fanoutbuf and report_fanout count it. These
+# tests pin that down for drivers whose loads are output ports: the fanout used to be read
+# out of module->connections(), where SigMap has already folded every alias onto one
+# canonical bit, so N output ports on a net collapsed to a single load. Feedthrough
+# (in2out) nets, whose entire fanout is output ports, came out as fanout 1.
+
+# Test 1
+log -header "Input port straight to 5 output ports, under the limit: fanout 5, no buffers"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, output o0, o1, o2, o3, o4);
+  assign o0 = a;
+  assign o1 = a;
+  assign o2 = a;
+  assign o3 = a;
+  assign o4 = a;
+endmodule
+EOF
+check -assert
+
+fanoutbuf -limit 7
+annotate_cell_fanout
+select -assert-none t:$buf
+select -assert-count 1 w:a a:$FANOUT=5 %i
+
+design -reset
+log -pop
+
+
+
+# Test 2
+log -header "Input port straight to 8 output ports: 6 loads kept, 2 moved onto one buffer"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, output o0, o1, o2, o3, o4, o5, o6, o7);
+  assign o0 = a;
+  assign o1 = a;
+  assign o2 = a;
+  assign o3 = a;
+  assign o4 = a;
+  assign o5 = a;
+  assign o6 = a;
+  assign o7 = a;
+endmodule
+EOF
+check -assert
+
+fanoutbuf -limit 7
+annotate_cell_fanout
+select -assert-count 1 t:$buf
+# 6 output ports still on the port plus the buffer, and 2 output ports on the buffer
+select -assert-count 1 w:a a:$FANOUT=7 %i
+select -assert-count 1 t:$buf a:$FANOUT=2 %i
+
+design -reset
+log -pop
+
+
+
+# Test 3
+log -header "Gate output to 8 output ports: same counts, driver is a cell"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, b, output o0, o1, o2, o3, o4, o5, o6, o7);
+  wire t;
+  assign t = a & b;
+  assign o0 = t;
+  assign o1 = t;
+  assign o2 = t;
+  assign o3 = t;
+  assign o4 = t;
+  assign o5 = t;
+  assign o6 = t;
+  assign o7 = t;
+endmodule
+EOF
+check -assert
+
+fanoutbuf -limit 7
+annotate_cell_fanout
+select -assert-count 1 t:$and a:$FANOUT=7 %i
+select -assert-count 1 t:$buf a:$FANOUT=2 %i
+
+design -reset
+log -pop
+
+
+
+# Test 4
+log -header "Gate output to 8 gates: cell loads were always counted, must not change"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input a, b, input [7:0] c, output [7:0] o);
+  wire t;
+  assign t = a & b;
+  genvar i;
+  generate for (i = 0; i < 8; i = i + 1) begin
+    assign o[i] = t | c[i];
+  end endgenerate
+endmodule
+EOF
+check -assert
+
+fanoutbuf -limit 7
+annotate_cell_fanout
+select -assert-count 1 t:$and a:$FANOUT=7 %i
+select -assert-count 1 t:$buf a:$FANOUT=2 %i
+
+design -reset
+log -pop
