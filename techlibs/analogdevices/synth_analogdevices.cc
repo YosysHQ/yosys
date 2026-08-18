@@ -276,7 +276,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("prepare")) {
-			run("proc");
+			run("proc -latches error");
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(with '-flatten')");
@@ -439,6 +439,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		}
 
 		if (check_label("map_ffs")) {
+			run("check -latchonly -assert");
 			run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r");
 			if (abc9 || help_mode) {
 				if (dff || help_mode)
