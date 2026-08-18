@@ -654,6 +654,92 @@ struct CutRegionWorker
 		return true;
 	}
 
+	// The facts a matcher phase needs about a candidate bus in order to rule
+	// out a cut before building it: how many distinct bits it can contribute,
+	// whether any of them has a combinational driver, whether the bus is
+	// usable as a fingerprint target at all (constant or repeated bits are
+	// not), and a Bloom filter over its bits so two buses can be shown
+	// disjoint without a set operation.
+	struct BusCutInfo {
+		int nbits = 0;
+		bool leaf_only = true;
+		bool has_const = false;
+		bool has_dup = false;
+		uint64_t bit_hash = 0;
+	};
+
+	// Bus facts are asked for once per candidate pair, so hundreds of times
+	// per root and repeatedly across roots, while depending only on the
+	// module. Memoize them on the bus signal.
+	//
+	// Returned by value on purpose: a pair test needs the facts for both
+	// buses at once, and looking up the second one can rehash the cache and
+	// invalidate a reference to the first.
+	dict<SigSpec, BusCutInfo> bus_cut_info_cache;
+
+	BusCutInfo bus_cut_info(const SigSpec &sig)
+	{
+		auto it = bus_cut_info_cache.find(sig);
+		if (it != bus_cut_info_cache.end())
+			return it->second;
+		BusCutInfo info;
+		pool<SigBit> distinct;
+		for (auto bit : mapped_bits(sig)) {
+			if (!bit.wire) {
+				info.has_const = true;
+				continue;
+			}
+			if (!distinct.insert(bit).second)
+				info.has_dup = true;
+			if (bit_to_driver.at(bit, nullptr) != nullptr)
+				info.leaf_only = false;
+			info.bit_hash |= uint64_t(1) << (run_hash(bit) & 63);
+		}
+		info.nbits = GetSize(distinct);
+		return bus_cut_info_cache[sig] = info;
+	}
+
+	// Sound one-word test for "these buses share no bit": the filters only
+	// ever over-approximate the bit sets, so a zero intersection is proof of
+	// disjointness (a non-zero one proves nothing).
+	static bool bus_bits_disjoint(const BusCutInfo &a, const BusCutInfo &b)
+	{
+		return (a.bit_hash & b.bit_hash) == 0;
+	}
+
+	// True when a cut bounded by these two buses provably cannot close, by
+	// the same argument cut_cone_walk makes on its walk-free path: if no bit
+	// of either bus has a combinational driver then no cut can shadow a cone
+	// leaf, so the cut has to cover every leaf, which takes at least as many
+	// distinct bits as the cone has leaves. `nbits` sums to an upper bound on
+	// the cut size (the buses may share bits), so this only ever agrees with
+	// the walk.
+	//
+	// This is the dominant verdict in the pair phases -- three quarters of
+	// all cut attempts on a large design end here -- and reaching it through
+	// cut_cone_walk costs a cut-set pool plus a driver lookup per bus bit,
+	// all to compute one integer comparison. Phases that can consult this
+	// first skip building the cut set at all; they must then charge the
+	// attempt with charge_cut_reject() so the search still terminates on the
+	// same budget.
+	bool cut_pair_cannot_close(const BusCutInfo &a, const BusCutInfo &b, int cone_leaves) const
+	{
+		return a.leaf_only && b.leaf_only && a.nbits + b.nbits < cone_leaves;
+	}
+
+	bool cut_single_cannot_close(const BusCutInfo &a, int cone_leaves) const
+	{
+		return a.leaf_only && a.nbits < cone_leaves;
+	}
+
+	// Account for a cut rejected by cut_pair_cannot_close() exactly as the
+	// cut_cone_walk call it stands in for would have.
+	void charge_cut_reject()
+	{
+		attempt_budget--;
+		last_cut_fail = "leaf count";
+	}
+
 	// Cut buses only need to consist of wire bits; FF outputs (cone leaves)
 	// are valid region boundaries even though they have no comb driver.
 	bool sig_bus_ok(const SigSpec &sig)

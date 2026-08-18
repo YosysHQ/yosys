@@ -72,6 +72,11 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 	int regions_rewritten = 0;
 	int cells_added = 0;
 
+	// Bus candidates indexed by width, and the compatible subset for one
+	// valid view. Kept as members so the per-root rebuild reuses the storage.
+	vector<vector<int>> width_buckets;
+	vector<int> src_cands;
+
 	OptPriorityOnehotWorker(Module *module) : CutRegionWorker(module)
 	{
 	}
@@ -538,6 +543,22 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 			                     return na > nb;
 			                 });
 
+			// Index the bus candidates by width. A src bus can only supply an
+			// index table when its width is a multiple of the valid width (or
+			// of that plus one) with at least idx_w bits per lane, so the
+			// search can walk those widths directly instead of testing every
+			// bus against every valid view -- a scan that is quadratic in bus
+			// count and rejects all but a few percent of what it touches.
+			int max_bus_width = 0;
+			for (auto &bus : buses)
+				max_bus_width = std::max(max_bus_width, GetSize(bus.sig));
+			if (GetSize(width_buckets) < max_bus_width + 1)
+				width_buckets.resize(max_bus_width + 1);
+			for (auto &bucket : width_buckets)
+				bucket.clear();
+			for (int bi = 0; bi < GetSize(buses); bi++)
+				width_buckets[GetSize(buses[bi].sig)].push_back(bi);
+
 			// Closure walks are cheap graph traversals; the full candidate
 			// check (ConstEval fingerprint) gets its own smaller budget.
 			const int max_attempts = 2048;
@@ -554,8 +575,21 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 				for (auto bit : mapped_bits(valid.sig))
 					if (bit.wire)
 						valid_bits.insert(bit);
+				const BusCutInfo valid_info = bus_cut_info(valid.sig);
 
-				for (auto &src : buses) {
+				// Gather the width-compatible buses, restoring candidate
+				// order so the search still settles on the same match it
+				// would have found while scanning.
+				src_cands.clear();
+				for (int lanes : {n, n + 1})
+					for (int total = lanes * idx_w; total <= max_bus_width; total += lanes)
+						for (int bi : width_buckets[total])
+							src_cands.push_back(bi);
+				std::sort(src_cands.begin(), src_cands.end());
+				src_cands.erase(std::unique(src_cands.begin(), src_cands.end()), src_cands.end());
+
+				for (int src_idx : src_cands) {
+					auto &src = buses[src_idx];
 					if (done || attempts >= max_attempts || fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
 						break;
 					if (src.sig == valid.sig)
@@ -565,16 +599,24 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 					// Index source views: the bus split into n lanes, or n
 					// contiguous lanes of an (n+1)-lane bus (e.g. ids[N:1]
 					// of an [N:0] table).
-					vector<std::pair<SigSpec, std::string>> src_views;
-					if (total % n == 0 && total / n >= idx_w)
-						src_views.push_back({src.sig, src.name});
-					else if (total % (n + 1) == 0 && total / (n + 1) >= idx_w) {
+					// A view is the bus itself, or one of the two lane-aligned
+					// windows of an (n+1)-lane bus. The window's name is only
+					// needed by a debug log or by a match, and this loop runs
+					// for millions of rejected candidates, so keep the lane
+					// number and spell the name out on demand.
+					vector<std::pair<SigSpec, int>> src_views;
+					if (total % n == 0 && total / n >= idx_w) {
+						src_views.push_back({src.sig, -1});
+					} else if (total % (n + 1) == 0 && total / (n + 1) >= idx_w) {
 						int s2 = total / (n + 1);
-						src_views.push_back({src.sig.extract(0, n * s2),
-						                     stringf("%s[lane0+]", src.name.c_str())});
-						src_views.push_back({src.sig.extract(s2, n * s2),
-						                     stringf("%s[lane1+]", src.name.c_str())});
+						src_views.push_back({src.sig.extract(0, n * s2), 0});
+						src_views.push_back({src.sig.extract(s2, n * s2), 1});
 					}
+
+					auto sv_name = [&](int lane) {
+						return lane < 0 ? src.name
+						                : stringf("%s[lane%d+]", src.name.c_str(), lane);
+					};
 
 					for (auto &sv : src_views) {
 						if (done || attempts >= max_attempts || fp_attempts >= max_fp_attempts || walk_exhausted() || eval_exhausted())
@@ -584,24 +626,37 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 						// Cut the root cone at valid+index bits: it must close
 						// without reaching other inputs, and the index bits the
 						// cone actually uses define the per-lane field layout.
+						attempts++;
+						// Most valid/index pairings cannot cover the cone's
+						// leaves at all; settle that before building the cut
+						// set (see cut_pair_cannot_close).
+						if (cut_pair_cannot_close(valid_info, bus_cut_info(sv.first), GetSize(leaf_bits))) {
+							charge_cut_reject();
+							if (ys_debug())
+								log_debug("  valid=%s index=%s: cut not closed (%s)\n",
+								          valid.name.c_str(), sv_name(sv.second).c_str(),
+								          last_cut_fail.c_str());
+							continue;
+						}
 						pool<SigBit> allowed = valid_bits;
 						for (auto bit : mapped_bits(sv.first))
 							if (bit.wire)
 								allowed.insert(bit);
 						pool<SigBit> hit_bits;
 						pool<Cell *> cut_cells;
-						attempts++;
 						if (!cut_cone_walk(root.sig, allowed, GetSize(cone_cells) + 16, &hit_bits, &cut_cells,
 						                   nullptr, &leaf_bits, &cone_cells)) {
-							log_debug("  valid=%s index=%s: cut not closed (%s)\n",
-							          valid.name.c_str(), sv.second.c_str(), last_cut_fail.c_str());
+							if (ys_debug())
+								log_debug("  valid=%s index=%s: cut not closed (%s)\n",
+								          valid.name.c_str(), sv_name(sv.second).c_str(),
+								          last_cut_fail.c_str());
 							continue;
 						}
 
 						SigSpec field_sig;
 						if (!infer_field(sv.first, n, idx_w, s, hit_bits, field_sig)) {
 							log_debug("  valid=%s index=%s (n=%d, s=%d): field layout inference failed\n",
-							          valid.name.c_str(), sv.second.c_str(), n, s);
+							          valid.name.c_str(), sv_name(sv.second).c_str(), n, s);
 							continue;
 						}
 
@@ -622,7 +677,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 						}
 						if (forced_conflict) {
 							log_debug("  valid=%s index=%s: forced bit driven inside cone\n",
-							          valid.name.c_str(), sv.second.c_str());
+							          valid.name.c_str(), sv_name(sv.second).c_str());
 							continue;
 						}
 
@@ -632,7 +687,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 						cand.valid_sig = valid.sig;
 						cand.field_sig = field_sig;
 						cand.valid_name = valid.name;
-						cand.index_name = sv.second;
+						cand.index_name = sv_name(sv.second);
 						cand.n = n;
 						cand.w = w;
 						cand.idx_w = idx_w;
@@ -644,7 +699,7 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 						claim_region(root.sig, cut_cells);
 						log("  %s: %s <- priority_onehot(valid=%s, index=%s) "
 						    "[N=%d, W=%d, IDX_W=%d, %s]\n",
-						    log_id(module), cand.out_name.c_str(), valid.name.c_str(), sv.second.c_str(),
+						    log_id(module), cand.out_name.c_str(), valid.name.c_str(), sv_name(sv.second).c_str(),
 						    cand.n, cand.w, cand.idx_w,
 						    cand.msb_first ? "MSB-first" : "LSB-first");
 						done = true;
