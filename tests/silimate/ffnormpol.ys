@@ -111,6 +111,9 @@ select -assert-count 0 r:SET_POLARITY=0
 select -assert-count 0 r:CLR_POLARITY=0
 select -assert-count 1 t:$_DFFE_PP_
 select -assert-count 7 t:$not
+select -assert-count 7 t:$not n:*ffnormpol* %i
+select -assert-count 1 t:$not n:adffe_neg_ffnormpol_arst %i
+select -assert-count 1 t:$not n:sdffce_neg_ffnormpol_srst %i
 
 design -reset
 log -pop
