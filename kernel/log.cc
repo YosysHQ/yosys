@@ -44,6 +44,12 @@ LogManager &logger()
     return instance;
 }
 
+std::chrono::steady_clock::time_point LogManager::get_initial_time() const
+{
+    static const auto initial_time = std::chrono::steady_clock::now();
+    return initial_time;
+}
+
 void (*log_error_atexit)() = NULL;
 void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
@@ -184,7 +190,11 @@ void LogManager::logv_string(std::string_view prefix, std::string_view format, s
 		log_hasher->update(str);
 
 	auto msg = LogMessage(severity, prefix, format, str_in);
-	log(msg);
+	for (auto &sink : log_sinks) {
+		if (sink->should_log(msg))
+			sink->log(msg);
+	}
+
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
@@ -253,12 +263,12 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
-			YOSYS_NAMESPACE_PREFIX log("Dumping current design to '%s'.\n", filename);
+			log("Dumping current design to '%s'.\n", filename);
 			if (yosys_xtrace)
 				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
 			if (yosys_xtrace)
-				YOSYS_NAMESPACE_PREFIX log("#X# -- end of dump --\n");
+				log("#X# -- end of dump --\n");
 		}
 	log_stderr_force = false;
 }
@@ -275,7 +285,7 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string mess
 
 	if (suppressed)
 	{
-		YOSYS_NAMESPACE_PREFIX log("Suppressed %s%s", prefix, message);
+		log("Suppressed %s%s", prefix, message);
 	}
 	else
 	{
@@ -326,7 +336,7 @@ void LogManager::log_formatted_file_warning(std::string_view filename, int linen
 
 void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string str)
 {
-	YOSYS_NAMESPACE_PREFIX log("%s:%d: Info: %s", filename, lineno, str);
+	log("%s:%d: Info: %s", filename, lineno, str);
 }
 
 void LogManager::log_suppressed() {
@@ -422,8 +432,8 @@ void LogManager::log_formatted_cmd_error(std::string message)
 
 void LogManager::log_spacer()
 {
-	if (log_newline_count < 2) YOSYS_NAMESPACE_PREFIX log("\n");
-	if (log_newline_count < 2) YOSYS_NAMESPACE_PREFIX log("\n");
+	if (log_newline_count < 2) log("\n");
+	if (log_newline_count < 2) log("\n");
 }
 
 void LogManager::log_push()
@@ -635,7 +645,7 @@ void LogManager::check_expected()
 	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == item.expected_count) {
 			log_warn_regexes.clear();
-			YOSYS_NAMESPACE_PREFIX log("Expected %s pattern '%s' found !!!\n", kind, pattern);
+			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
 			#if defined(_MSC_VER)
 				_exit(0);
@@ -664,10 +674,10 @@ void LogManager::report_unexpected_error()
 void LogManager::report_warning_stats()
 {
 	if (log_warnings_count)
-		YOSYS_NAMESPACE_PREFIX log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+		log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
 
 	if (!log_experimentals.empty())
-		YOSYS_NAMESPACE_PREFIX log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+		log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
 }
 
 void LogManager::add_expect(std::string type, std::string pattern, int count)

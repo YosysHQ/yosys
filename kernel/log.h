@@ -219,14 +219,6 @@ public:
 			func(*sink);
 	}
 
-	void log(const LogMessage &msg)
-	{
-		for (auto &sink : log_sinks) {
-			if (sink->should_log(msg))
-				sink->log(msg);
-		}
-	}
-
 	bool empty() { return log_sinks.empty(); }
 	void clear() { log_sinks.clear(); }
 	void flush() { for (auto &sink : log_sinks) sink->flush(); }
@@ -404,7 +396,7 @@ public:
 	bool get_error_stderr() const { return log_error_stderr; }
 	bool get_quiet_warnings() const { return log_quiet_warnings; }
 	bool get_stderr_force() const { return log_stderr_force; }
-	std::chrono::steady_clock::time_point get_initial_time() const { return initial_time; }
+	std::chrono::steady_clock::time_point get_initial_time() const;
 
 	void add_hdump(std::string name, std::string value) { log_hdump[name].insert(value); }
 
@@ -438,7 +430,6 @@ private:
 	void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity);
 	[[noreturn]] void log_error_with_prefix(std::string_view prefix, std::string message);
 
-	std::chrono::steady_clock::time_point initial_time = std::chrono::steady_clock::now();
 	std::vector<std::unique_ptr<LogSink>> log_sinks;
 	int log_verbose_level = 0;
 	int log_newline_count = 0;
