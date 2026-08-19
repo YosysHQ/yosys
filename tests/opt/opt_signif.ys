@@ -1339,3 +1339,71 @@ opt_signif -cross-flops
 select -assert-count 1 t:$mul r:A_WIDTH=8 %i
 design -reset
 log -pop
+
+# Test D8: a blasted unsigned register whose reset has its MSB set.
+#
+# Shape (icells, then blasted, so no cell drives the whole word):
+#   t[7:0] <= a[3:0]      unsigned $sdff, SRST_VALUE = 8'h80
+#   s = t + t             unsigned, 8+8 -> 16 (non-modular)
+#   y = s * c             signed
+#
+# The forced value is 128, not -128. Reading it as signed under-approximates t
+# as [-128, 15], so s lands in [-256, 30] and the multiply narrows to 9 bits --
+# which cannot hold the reset sum 256. Ten signed bits can. The same shape with
+# a small reset still narrows, so a failure of the first design is not just
+# "the pass refused to look at a blasted unsigned register".
+log -header "D8: unsigned MSB-set reset is not a signed value"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire clk,
+  input  wire rst,
+  input  wire [3:0] a,
+  input  wire signed [15:0] c,
+  output wire signed [15:0] y
+);
+  wire [7:0] d = {4'b0000, a};
+  wire [7:0] t;
+  wire [15:0] s;
+  $sdff #(.WIDTH(8), .CLK_POLARITY(1), .SRST_POLARITY(1), .SRST_VALUE(8'h80))
+    ff (.CLK(clk), .SRST(rst), .D(d), .Q(t));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(16))
+    add (.A(t), .B(t), .Y(s));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(16))
+    mul (.A(s), .B(c), .Y(y));
+endmodule
+EOF
+check -assert
+splitcells -blast t:$sdff
+select -assert-count 8 t:$sdff
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=10 %i
+
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire clk,
+  input  wire rst,
+  input  wire [3:0] a,
+  input  wire signed [15:0] c,
+  output wire signed [15:0] y
+);
+  wire [7:0] d = {4'b0000, a};
+  wire [7:0] t;
+  wire [15:0] s;
+  $sdff #(.WIDTH(8), .CLK_POLARITY(1), .SRST_POLARITY(1), .SRST_VALUE(8'h01))
+    ff (.CLK(clk), .SRST(rst), .D(d), .Q(t));
+  $add #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(8), .B_WIDTH(8), .Y_WIDTH(16))
+    add (.A(t), .B(t), .Y(s));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(16))
+    mul (.A(s), .B(c), .Y(y));
+endmodule
+EOF
+check -assert
+splitcells -blast t:$sdff
+select -assert-count 8 t:$sdff
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=6 %i
+design -reset
+log -pop

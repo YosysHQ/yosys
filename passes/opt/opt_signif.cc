@@ -382,18 +382,21 @@ struct SignifWorker
 			// A partially forced word says nothing about the bits it leaves alone.
 			if (GetSize(*val) != width)
 				return Range::unknown();
-			Range c = const_range(Const(*val), width);
+			Range c = const_range(Const(*val), width, is_signed);
 			if (c.top)
 				return Range::unknown();
 			out.lo = std::min(out.lo, c.lo);
 			out.hi = std::max(out.hi, c.hi);
 		}
 
-		// The cap cell_range applies, for the same reason: the register may be wider than
-		// the interval arithmetic can represent, which is the case most worth handling --
-		// a 128-bit accumulator holding a 40-bit value -- but the range it carries still
-		// has to stay negatable.
-		if (signed_width(out.lo, out.hi) > std::min(width, max_range_width))
+		// Keep the range inside the word the bits actually hold, and inside the
+		// interval arithmetic: a 128-bit accumulator holding an 8-bit value is the
+		// case most worth handling, but every endpoint still has to be negatable.
+		// Unsigned uses the same need the reader will: a negative lo means the forced
+		// bits were not a value in that encoding, not a signed wrap to keep.
+		int need = is_signed ? signed_width(out.lo, out.hi)
+				: (out.lo < 0 ? 128 : unsigned_width(out.hi));
+		if (need > std::min(width, max_range_width))
 			return Range::unknown();
 		return out;
 	}
@@ -558,20 +561,21 @@ struct SignifWorker
 
 	// Range of a constant that may carry undefined bits. setundef runs later in the
 	// flow, so an x could still become either value: treat it as the whole word.
-	static Range const_range(const Const &val, int width)
+	static Range const_range(const Const &val, int width, bool is_signed)
 	{
 		if (GetSize(val) > max_range_width)
-			return declared_range(width, true);
+			return declared_range(width, is_signed);
 		for (int i = 0; i < GetSize(val); i++)
 			if (val[i] != State::S0 && val[i] != State::S1)
-				return declared_range(width, true);
+				return declared_range(width, is_signed);
 		wideint_t v = 0;
 		for (int i = 0; i < GetSize(val); i++)
 			if (val[i] == State::S1)
 				v |= (wideint_t)1 << i;
 		// A flop's constant is a bit pattern of its own width; read it the same way the
-		// Q word is read, so a set-to-all-ones register lands at -1 rather than 2^w-1.
-		if (GetSize(val) > 0 && val[GetSize(val) - 1] == State::S1)
+		// Q word is read, so a set-to-all-ones register is -1 when signed and 2^w-1
+		// when unsigned.
+		if (is_signed && GetSize(val) > 0 && val[GetSize(val) - 1] == State::S1)
 			v -= (wideint_t)1 << GetSize(val);
 		return Range(v, v);
 	}
@@ -606,7 +610,7 @@ struct SignifWorker
 			if (!present)
 				continue;
 			Range c = const_range(i == 0 ? ff.val_arst : i == 1 ? ff.val_srst : ff.val_init,
-					ywidth);
+					ywidth, true);
 			if (c.top)
 				return Range::unknown();
 			out.lo = std::min(out.lo, c.lo);
