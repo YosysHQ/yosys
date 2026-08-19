@@ -417,7 +417,7 @@ struct SynthPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run(stringf("abc -lut %d -dress", lut));
+			run(stringf("abc9 -lut %d", lut));
 			run("clean");
 		}
 

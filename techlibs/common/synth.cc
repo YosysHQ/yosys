@@ -89,9 +89,6 @@ struct SynthPass : public ScriptPass {
 		log("        from label is synonymous to 'begin', and empty to label is\n");
 		log("        synonymous to the end of the command list.\n");
 		log("\n");
-		log("    -abc9\n");
-		log("        use new ABC9 flow (EXPERIMENTAL)\n");
-		log("\n");
 		log("    -no-rw-check\n");
 		log("        marks all recognized read ports as \"return don't-care value on\n");
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
@@ -174,6 +171,7 @@ struct SynthPass : public ScriptPass {
 			}
 			if (args[argidx] == "-lut" && argidx + 1 < args.size()) {
 				lut = atoi(args[++argidx].c_str());
+				abc = "abc9";
 				continue;
 			}
 			if (args[argidx] == "-nofsm") {
@@ -209,7 +207,7 @@ struct SynthPass : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				abc = "abc9";
+				// Removed: ABC9 is the default if -lut.
 				continue;
 			}
 			if (args[argidx] == "-no-rw-check") {
@@ -235,9 +233,6 @@ struct SynthPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (abc == "abc9" && !lut)
-			log_cmd_error("ABC9 flow only supported for FPGA synthesis (using '-lut' option)\n");
 
 		log_header(design, "Executing SYNTH pass.\n");
 		log_push();

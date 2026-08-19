@@ -57,9 +57,6 @@ struct SynthEfinixPass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
-		log("\n");
 		log("    -nobram\n");
 		log("        do not use EFX_RAM_5K cells in output netlist\n");
 		log("\n");
@@ -76,7 +73,7 @@ struct SynthEfinixPass : public ScriptPass
 	}
 
 	string top_opt, edif_file, json_file, latches;
-	bool flatten, retime, nobram;
+	bool flatten, nobram;
 
 	void clear_flags() override
 	{
@@ -84,7 +81,6 @@ struct SynthEfinixPass : public ScriptPass
 		edif_file = "";
 		json_file = "";
 		flatten = true;
-		retime = false;
 		nobram = false;
 		latches = "error";
 	}
@@ -122,7 +118,7 @@ struct SynthEfinixPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
-				retime = true;
+				// Removed: ABC9 does not support retiming.
 				continue;
 			}
 			if (args[argidx] == "-nobram") {
@@ -196,8 +192,6 @@ struct SynthEfinixPass : public ScriptPass
 		{
 			run("techmap -map +/techmap.v -map +/efinix/arith_map.v");
 			run("opt -fast");
-			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -212,7 +206,7 @@ struct SynthEfinixPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4");
+			run("abc9 -lut 4");
 			run("clean");
 		}
 

@@ -99,15 +99,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
-		log("        run 'abc'/'abc9' with -dff option\n");
-		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
-		log("        implies -dff.\n");
-		log("\n");
-		log("    -noabc9\n");
-		log("        disable use of new ABC9 flow\n");
-		log("\n");
+		log("        run 'abc9' with -dff option\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -115,8 +107,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	}
 
 	std::string top_opt, edif_file, json_file, tech, tech_param;
-	bool flatten, retime, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
-	bool abc9, dff;
+	bool flatten, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp;
+	bool dff;
 	bool flatten_before_abc;
 	int widemux;
 	int widelut_size;
@@ -128,7 +120,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		tech = "t16ffc";
 		tech_param = " -D IS_T16FFC";
 		flatten = true;
-		retime = false;
 		noiopad = false;
 		noclkbuf = false;
 		nocarry = false;
@@ -138,7 +129,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		nocarry = false;
 		nowidelut = false;
 		nodsp = false;
-		abc9 = true;
 		dff = false;
 		flatten_before_abc = false;
 		widemux = 0;
@@ -186,7 +176,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			}
 			if (args[argidx] == "-retime") {
 				dff = true;
-				retime = true;
+				// ABC9 does not support retiming
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -229,7 +219,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-noabc9") {
-				abc9 = false;
+				// removed: ABC9 is the default
 				continue;
 			}
 			if (args[argidx] == "-nodsp") {
@@ -256,9 +246,6 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (abc9 && retime)
-			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_ANALOGDEVICES pass.\n");
 		log_push();
@@ -440,11 +427,9 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 		if (check_label("map_ffs")) {
 			run("dfflegalize -cell $_DFFE_?P?P_ r -cell $_SDFFE_?P?P_ r");
-			if (abc9 || help_mode) {
-				if (dff || help_mode)
-					run("zinit -all w:* t:$_SDFFE_*", "('-dff' only)");
-				run("techmap -map +/analogdevices/ff_map.v", "('-abc9' only)");
-			}
+			if (dff || help_mode)
+				run("zinit -all w:* t:$_SDFFE_*", "('-dff' only)");
+			run("techmap -map +/analogdevices/ff_map.v");
 		}
 
 		if (check_label("map_luts")) {
@@ -453,39 +438,21 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				run("check");
 				run("flatten");
 			}
-			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
-			else if (abc9) {
-				run("read_verilog -icells -lib -specify +/analogdevices/abc9_model.v");
-				std::string abc9_opts;
-				std::string k = "synth_analogdevices.abc9.W";
-				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
-				else {
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at("synth_analogdevices.abc9.W").c_str());
-				}
-				if (nowidelut)
-					abc9_opts += stringf(" -maxlut 6");
-				if (dff)
-					abc9_opts += " -dff";
-				run("abc9" + abc9_opts);
-			}
+			run("read_verilog -icells -lib -specify +/analogdevices/abc9_model.v");
+			std::string abc9_opts;
+			std::string k = "synth_analogdevices.abc9.W";
+			if (active_design && active_design->scratchpad.count(k))
+				abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
 			else {
-				std::string abc_opts;
-				if (nowidelut)
-					abc_opts += " -luts 2:2,3,6:5";
-				else
-					abc_opts += " -luts 2:2,3,6:5,10,20";
-				if (dff)
-					abc_opts += " -dff";
-				if (retime)
-					abc_opts += " -D 1";
-				run("abc -dress" + abc_opts);
+				abc9_opts += stringf(" -W %s", RTLIL::constpad.at("synth_analogdevices.abc9.W").c_str());
 			}
+			if (nowidelut)
+				abc9_opts += stringf(" -maxlut 6");
+			if (dff)
+				abc9_opts += " -dff";
+			run("abc9" + abc9_opts);
 			run("clean");
 
-			if (help_mode || !abc9)
-				run("techmap -map +/analogdevices/ff_map.v", "(only if not '-abc9')");
 			// This shregmap call infers fixed length shift registers after abc
 			//   has performed any necessary retiming
 			if (!nosrl || help_mode)
