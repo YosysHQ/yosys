@@ -196,7 +196,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	for (auto &operand : muxed_operands) {
 		operand.sig.extend_u0(max_width, operand.is_signed);
 		if (operand.sign != muxed_operands[0].sign)
-			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
+			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed, mux->get_src_attribute()));
 	}
 
 	for (const auto& p : ports) {
@@ -241,9 +241,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	SigSpec mux_to_oper;
 	if (GetSize(shared_pmux_s) == 1) {
-		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->get_src_attribute());
 	} else {
-		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->get_src_attribute());
 	}
 
 	if (shared_op->type.in(ID($alu))) {
