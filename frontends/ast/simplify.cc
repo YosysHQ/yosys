@@ -2791,10 +2791,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		auto buf = children[0]->clone();
 		while (buf->simplify(true, stage, width_hint, sign_hint)) { }
 		if (buf->type != AST_CONSTANT) {
-			// for (auto &s : log_sinks) {
-			//   auto f = s->file_handle();
-			//   if (f)
-			// 	  dumpAst(f, "verilog-ast> ");
+			//logger().for_each_sink([&](LogSink &sink) {
+			//	FILE *f = sink.file_handle();
+			//	if (f)
+			//		dumpAst(f, "verilog-ast> ");
+			//});
 			input_error("Condition for generate if is not constant!\n");
 		}
 		if (buf->asBool() != 0) {
@@ -2830,10 +2831,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		auto buf = children[0]->clone();
 		while (buf->simplify(true, stage, width_hint, sign_hint)) { }
 		if (buf->type != AST_CONSTANT) {
-			// for (auto &s : log_sinks) {
-			//   auto f = s->file_handle();
-			//   if (f)
-			//     dumpAst(f, "verilog-ast> ");
+			//logger().for_each_sink([&](LogSink &sink) {
+			//	FILE *f = sink.file_handle();
+			//	if (f)
+			//		dumpAst(f, "verilog-ast> ");
+			//});
 			input_error("Condition for generate case is not constant!\n");
 		}
 
@@ -2866,10 +2868,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				buf->set_in_param_flag(true);
 				while (buf->simplify(true, stage, width_hint, sign_hint)) { }
 				if (buf->type != AST_CONSTANT) {
-					// for (auto &s : log_sinks) {
-					//   auto f = s->file_handle();
-					//   if (f)
-					//     dumpAst(f, "verilog-ast> ");
+					//logger().for_each_sink([&](LogSink &sink) {
+					//	FILE *f = sink.file_handle();
+					//	if (f)
+					//		dumpAst(f, "verilog-ast> ");
+					//});
 					input_error("Expression in generate case is not constant!\n");
 				}
 

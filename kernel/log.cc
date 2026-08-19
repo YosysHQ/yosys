@@ -38,40 +38,19 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::vector<std::unique_ptr<LogSink>> log_sinks;
-
-std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
-dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
-std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
-int log_warnings_count = 0;
-int log_warnings_count_noexpect = 0;
-bool log_expect_no_warnings = false;
-bool log_hdump_all = false;
-SHA1 *log_hasher = NULL;
-
-bool log_time = false;
-bool log_error_stderr = false;
-bool log_cmd_error_throw = false;
-bool log_quiet_warnings = false;
-int log_verbose_level;
+LogManager &logger()
+{
+    static LogManager instance;
+    return instance;
+}
 
 void (*log_error_atexit)() = NULL;
 void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
-int log_make_debug = 0;
-int log_force_debug = 0;
-int log_debug_suppressed = 0;
-
-bool log_stderr_force = false;
-
-vector<int> header_count;
+// TODO: remove when log_id is removed
 vector<char*> log_id_cache;
 
-static std::optional<std::chrono::steady_clock::time_point> initial_time;
 static bool next_print_log = false;
-static int log_newline_count = 0;
 
 FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
 	: file(fopen(filename.c_str(), append ? "at" : "wt"))
@@ -92,7 +71,7 @@ FileLogSink::~FileLogSink()
 
 void FileLogSink::log(const LogMessage &msg)
 {
-	fputs(msg.legacy_msg.c_str(), file);
+	fputs(msg.cached_msg.c_str(), file);
 }
 
 void FileLogSink::flush()
@@ -102,8 +81,8 @@ void FileLogSink::flush()
 
 void ConsoleLogSink::log(const LogMessage &msg)
 {
-	FILE *file = (msg.severity == LogSeverity::LOG_ERROR && log_error_stderr) ? stderr : stdout;
-	fputs(msg.legacy_msg.c_str(), file);
+	FILE *file = (msg.severity == LogSeverity::LOG_ERROR && logger().get_error_stderr()) ? stderr : stdout;
+	fputs(msg.cached_msg.c_str(), file);
 }
 
 void ConsoleLogSink::flush()
@@ -115,14 +94,13 @@ void ConsoleLogSink::flush()
 bool StderrLogSink::should_log(const LogMessage &msg) const
 {
 	return msg.severity == LogSeverity::LOG_ERROR ||
-			(msg.severity == LogSeverity::LOG_WARNING && !log_quiet_warnings) ||
-			/* (msg.severity == LogSeverity::LOG_HEADER && int(header_count.size()) <= log_verbose_level) || */
-			log_stderr_force;
+			(msg.severity == LogSeverity::LOG_WARNING && !logger().get_quiet_warnings()) ||
+			logger().get_stderr_force();
 }
 
 void StderrLogSink::log(const LogMessage &msg)
 {
-	fputs(msg.legacy_msg.c_str(), stderr);
+	fputs(msg.cached_msg.c_str(), stderr);
 }
 
 void StderrLogSink::flush()
@@ -131,7 +109,7 @@ void StderrLogSink::flush()
 }
 
 ScratchPadLogSink::ScratchPadLogSink(std::string scratchpad)
-    : scratchpad(std::move(scratchpad))
+	: scratchpad(std::move(scratchpad))
 {
 }
 
@@ -141,7 +119,7 @@ void ScratchPadLogSink::log(const LogMessage &msg)
 	if (!design)
 		return;
 
-	design->scratchpad[scratchpad].append(msg.legacy_msg);
+	design->scratchpad[scratchpad].append(msg.cached_msg);
 }
 
 LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message) :
@@ -152,13 +130,11 @@ LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::strin
 	timestamp(std::chrono::steady_clock::now())
 {
 	std::string time_str;
-	if (log_time)
+	if (logger().get_log_time())
 	{
-		if (next_print_log || !initial_time) {
+		if (next_print_log) {
 			next_print_log = false;
-			if (!initial_time)
-    			initial_time = std::chrono::steady_clock::now();
-			auto elapsed = std::chrono::steady_clock::now() - *initial_time;
+			auto elapsed = std::chrono::steady_clock::now() - logger().get_initial_time();
 			auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
 			time_str += stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
 		}
@@ -172,7 +148,7 @@ LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::strin
 		if (format == "%s" && message.back() == '\n')
 			next_print_log = true;
 	}
-	legacy_msg = stringf("%s%s%s", time_str, prefix, message);
+	cached_msg = stringf("%s%s%s", time_str, prefix, message);
 }
 
 static void log_id_cache_clear()
@@ -182,7 +158,7 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
-static void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
+void LogManager::logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
 		logv_string(prefix, "\n", "\n", severity);
@@ -208,10 +184,7 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 		log_hasher->update(str);
 
 	auto msg = LogMessage(severity, prefix, format, str_in);
-	for (auto &sink : log_sinks) {
-		if (sink->should_log(msg))
-			sink->log(msg);
-	}
+	log(msg);
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
@@ -245,16 +218,16 @@ static void logv_string(std::string_view prefix, std::string_view format, std::s
 	}
 }
 
-void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity)
+void LogManager::log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity)
 {
 	log_assert(!Multithreading::active());
 
-	if (log_make_debug && !ys_debug(1))
+	if (log_make_debug && !is_debug(1))
 		return;
 	logv_string(prefix, format, std::move(str), severity);
 }
 
-void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
+void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
 	log_assert(!Multithreading::active());
 
@@ -273,24 +246,24 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 
 	log_formatted_string(stringf("%s. ", header_id), {}, {}, LogSeverity::LOG_HEADER);
 	log_formatted_string({}, format, std::move(str), LogSeverity::LOG_HEADER);
-	log_flush();
+	flush();
 
 	if (log_hdump_all)
 		log_hdump[header_id].insert("yosys_dump_" + header_id + ".il");
 
 	if (log_hdump.count(header_id) && design != nullptr)
 		for (auto &filename : log_hdump.at(header_id)) {
-			log("Dumping current design to '%s'.\n", filename);
+			YOSYS_NAMESPACE_PREFIX log("Dumping current design to '%s'.\n", filename);
 			if (yosys_xtrace)
 				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
 			if (yosys_xtrace)
-				log("#X# -- end of dump --\n");
+				YOSYS_NAMESPACE_PREFIX log("#X# -- end of dump --\n");
 		}
 	log_stderr_force = false;
 }
 
-void log_formatted_warning(std::string_view prefix, std::string message)
+void LogManager::log_formatted_warning(std::string_view prefix, std::string message)
 {
 	log_assert(!Multithreading::active());
 
@@ -302,7 +275,7 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 
 	if (suppressed)
 	{
-		log("Suppressed %s%s", prefix, message);
+		YOSYS_NAMESPACE_PREFIX log("Suppressed %s%s", prefix, message);
 	}
 	else
 	{
@@ -329,12 +302,12 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 		if (log_warnings.count(message))
 		{
 			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_INFO);
-			log_flush();
+			flush();
 		}
 		else
 		{
 			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
-			log_flush();
+			flush();
 			log_warnings.insert(message);
 		}
 
@@ -345,18 +318,18 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 	}
 }
 
-void log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
 {
 	std::string prefix = stringf("%s:%d: Warning: ", filename, lineno);
 	log_formatted_warning(prefix, std::move(str));
 }
 
-void log_formatted_file_info(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string str)
 {
-	log("%s:%d: Info: %s", filename, lineno, str);
+	YOSYS_NAMESPACE_PREFIX log("%s:%d: Info: %s", filename, lineno, str);
 }
 
-void log_suppressed() {
+void LogManager::log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
 		logv_string({}, format, stringf(format, log_debug_suppressed),LogSeverity::LOG_INFO);
@@ -365,14 +338,14 @@ void log_suppressed() {
 }
 
 [[noreturn]]
-static void log_error_with_prefix(std::string_view prefix, std::string message)
+void LogManager::log_error_with_prefix(std::string_view prefix, std::string message)
 {
 	int bak_log_make_debug = log_make_debug;
 	log_make_debug = 0;
 	log_suppressed();
 
 	log_formatted_string(prefix, "%s", message, LogSeverity::LOG_ERROR);
-	log_flush();
+	flush();
 
 	log_make_debug = bak_log_make_debug;
 
@@ -384,7 +357,7 @@ static void log_error_with_prefix(std::string_view prefix, std::string message)
 		if (std::regex_search(string(prefix) + message, item.pattern))
 			item.current_count++;
 
-	log_check_expected();
+	check_expected();
 
 	if (log_error_atexit)
 		log_error_atexit();
@@ -401,13 +374,13 @@ static void log_error_with_prefix(std::string_view prefix, std::string message)
 #endif
 }
 
-void log_formatted_file_error(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_error(std::string_view filename, int lineno, std::string str)
 {
 	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
 	log_error_with_prefix(prefix, str);
 }
 
-void log_experimental(const std::string &str)
+void LogManager::log_experimental(const std::string &str)
 {
 	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
 		log_warning("Feature '%s' is experimental.\n", str);
@@ -415,7 +388,7 @@ void log_experimental(const std::string &str)
 	}
 }
 
-void log_formatted_error(std::string str)
+void LogManager::log_formatted_error(std::string str)
 {
 	log_error_with_prefix("ERROR: ", std::move(str));
 }
@@ -435,11 +408,11 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
 }
 
-void log_formatted_cmd_error(std::string message)
+void LogManager::log_formatted_cmd_error(std::string message)
 {
 	if (log_cmd_error_throw) {
 		log_formatted_string("ERROR: ", "%s", message, LogSeverity::LOG_ERROR);
-		log_flush();
+		flush();
 
 		throw log_cmd_error_exception();
 	}
@@ -447,22 +420,22 @@ void log_formatted_cmd_error(std::string message)
 	log_formatted_error(message);
 }
 
-void log_spacer()
+void LogManager::log_spacer()
 {
-	if (log_newline_count < 2) log("\n");
-	if (log_newline_count < 2) log("\n");
+	if (log_newline_count < 2) YOSYS_NAMESPACE_PREFIX log("\n");
+	if (log_newline_count < 2) YOSYS_NAMESPACE_PREFIX log("\n");
 }
 
-void log_push()
+void LogManager::log_push()
 {
 	header_count.push_back(0);
 }
 
-void log_pop()
+void LogManager::log_pop()
 {
 	header_count.pop_back();
 	log_id_cache_clear();
-	log_flush();
+	flush();
 }
 
 #if defined(YOSYS_ENABLE_DLOPEN)
@@ -562,18 +535,12 @@ void log_backtrace(const char *prefix, int levels)
 void log_backtrace(const char*, int) { }
 #endif
 
-void log_reset_stack()
+void LogManager::log_reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
 	log_id_cache_clear();
-	log_flush();
-}
-
-void log_flush()
-{
-	for (auto &sink : log_sinks)
-		sink->flush();
+	flush();
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
@@ -631,7 +598,7 @@ void log_wire(RTLIL::Wire *wire, std::string indent)
 	log("%s", buf.str());
 }
 
-void log_check_expected()
+void LogManager::check_expected()
 {
 	// copy out all of the expected logs so that they cannot be re-checked
 	// or match against themselves
@@ -668,7 +635,7 @@ void log_check_expected()
 	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == item.expected_count) {
 			log_warn_regexes.clear();
-			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
+			YOSYS_NAMESPACE_PREFIX log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
 			#if defined(_MSC_VER)
 				_exit(0);
@@ -686,4 +653,51 @@ void log_check_expected()
 		check_err("prefixed error", pattern, item);
 }
 
+void LogManager::report_unexpected_error()
+{
+	if (log_expect_no_warnings && log_warnings_count_noexpect)
+		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
+					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
+}
+
+
+void LogManager::report_warning_stats()
+{
+	if (log_warnings_count)
+		YOSYS_NAMESPACE_PREFIX log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+
+	if (!log_experimentals.empty())
+		YOSYS_NAMESPACE_PREFIX log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+}
+
+void LogManager::add_expect(std::string type, std::string pattern, int count)
+{
+	if (type == "error")
+		log_expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-error")
+		log_expect_prefix_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "warning")
+		log_expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-warning")
+		log_expect_prefix_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "log")
+		log_expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-log")
+		log_expect_prefix_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else log_abort();
+}
+void LogManager::start_hasher()
+{
+	log_hasher = std::make_unique<SHA1>();
+}
+
+std::string LogManager::finish_hasher()
+{
+	if (!log_hasher)
+		return {};
+
+	std::string hash = log_hasher->final().substr(0, 10);
+	log_hasher.reset();
+	return hash;
+}
 YOSYS_NAMESPACE_END

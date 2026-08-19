@@ -168,8 +168,8 @@ namespace pyosys {
 		m.doc() = "python access to libyosys";
 
 		if (!yosys_already_setup()) {
-			log_sinks.push_back(std::make_unique<ConsoleLogSink>());
-			log_error_stderr = true;
+			logger().add_sink<ConsoleLogSink>();
+			logger().set_error_stderr(true);
 			yosys_setup();
 
 			// Cleanup
@@ -179,17 +179,24 @@ namespace pyosys {
 		}
 
 		// Logging Methods
-		m.def("log_header", [](Design *d, std::string s) { log_formatted_header(d, "%s", s); });
-		m.def("log", [](std::string s) { log_formatted_string({}, "%s", s, LogSeverity::LOG_INFO); });
-		m.def("log_file_info", [](std::string_view file, int line, std::string s) { log_formatted_file_info(file, line, s); });
-		m.def("log_warning", [](std::string s) { log_formatted_warning("Warning: ", s); });
-		m.def("log_warning_noprefix", [](std::string s) { log_formatted_warning("", s); });
-		m.def("log_file_warning", [](std::string_view file, int line, std::string s) { log_formatted_file_warning(file, line, s); });
-		m.def("log_error", [](std::string s) { log_formatted_error(s); });
-		m.def("log_file_error", [](std::string_view file, int line, std::string s) { log_formatted_file_error(file, line, s); });
+		m.def("log_header", [](Design *d, std::string s) { logger().log_formatted_header(d, "%s", s); });
+		m.def("log", [](std::string s) { logger().log_formatted_string({}, "%s", s, LogSeverity::LOG_INFO); });
+		m.def("log_file_info", [](std::string_view file, int line, std::string s) { logger().log_formatted_file_info(file, line, s); });
+		m.def("log_warning", [](std::string s) { logger().log_formatted_warning("Warning: ", s); });
+		m.def("log_warning_noprefix", [](std::string s) { logger().log_formatted_warning("", s); });
+		m.def("log_file_warning", [](std::string_view file, int line, std::string s) { logger().log_formatted_file_warning(file, line, s); });
+		m.def("log_error", [](std::string s) { logger().log_formatted_error(s); });
+		m.def("log_file_error", [](std::string_view file, int line, std::string s) { logger().log_formatted_file_error(file, line, s); });
 
 		// Namespace to host global objects
 		auto global_variables = py::class_<Globals>(m, "Globals");
+		global_variables.def_property_readonly_static(
+			"logger",
+			[](const pyosys::Globals &) -> Yosys::LogManager & {
+				return logger();
+			},
+			pybind11::return_value_policy::reference
+		);
 
 		// Trampoline Classes
 		py::class_<Pass, pyosys::PassTrampoline, std::unique_ptr<Pass, py::nodelete>>(m, "Pass")

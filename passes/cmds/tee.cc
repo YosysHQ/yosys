@@ -58,17 +58,13 @@ struct TeePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		int backup_log_verbose_level = log_verbose_level;
-		auto backup_log_sinks = std::move(log_sinks);
-	    log_sinks.reserve(backup_log_sinks.size());
-	    for (const auto &sink : backup_log_sinks)
-    	    log_sinks.push_back(std::make_unique<LogSinkRef>(sink.get()));
+		auto log_scope = logger().scoped();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-q") {
-				log_sinks.clear();
+				logger().clear();
 				continue;
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
@@ -76,7 +72,7 @@ struct TeePass : public Pass {
 				auto path = args[++argidx];
 				rewrite_filename(path);
 				try {
-					log_sinks.push_back(std::make_unique<FileLogSink>(path.c_str(), false, is_append));
+					logger().add_sink<FileLogSink>(path.c_str(), false, is_append);
 				} catch (const std::runtime_error &e) {
 					std::cerr << e.what();
 					exit(1);
@@ -86,28 +82,18 @@ struct TeePass : public Pass {
 			if (args[argidx] == "-s" && argidx+1 < args.size()) {
 				auto name = args[++argidx];
 				design->scratchpad[name] = "";
-				log_sinks.push_back(std::make_unique<ScratchPadLogSink>(name));
+				logger().add_sink<ScratchPadLogSink>(name);
 				continue;
 			}
 			if (GetSize(args[argidx]) >= 2 && (args[argidx][0] == '-' || args[argidx][0] == '+') && args[argidx][1] >= '0' && args[argidx][1] <= '9') {
-				log_verbose_level += atoi(args[argidx].c_str());
+				logger().add_verbose_level(atoi(args[argidx].c_str()));
 				continue;
 			}
 			break;
 		}
 
-		try {
-			std::vector<std::string> new_args(args.begin() + argidx, args.end());
-			Pass::call(design, new_args);
-		} catch (...) {
-			log_sinks.clear();
-			log_sinks = std::move(backup_log_sinks);
-			throw;
-		}
-
-		log_verbose_level = backup_log_verbose_level;
-		log_sinks.clear();
-		log_sinks = std::move(backup_log_sinks);
+		std::vector<std::string> new_args(args.begin() + argidx, args.end());
+		Pass::call(design, new_args);
 	}
 } TeePass;
 

@@ -19,7 +19,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/hashlib.h"
-#include "libs/sha1/sha1.h"
 #define CXXOPTS_VECTOR_DELIMITER '\0'
 #include "libs/cxxopts/include/cxxopts.hpp"
 #include <iostream>
@@ -287,7 +286,7 @@ int main(int argc, char **argv)
 			run_shell = false;
 		}
 		if (result.count("C")) run_tcl_shell = true;
-		if (result.count("g")) log_force_debug++;
+		if (result.count("g")) logger().force_debug_on();
 		if (result.count("m")) plugin_filenames = result["m"].as<std::vector<std::string>>();
 		if (result.count("f")) frontend_command = result["f"].as<std::string>();
 		if (result.count("H")) {
@@ -316,7 +315,7 @@ int main(int argc, char **argv)
 			if (result.count(key)) {
 				for (const auto& filename : result[key].as<std::vector<std::string>>()) {
 					try {
-						log_sinks.push_back(std::make_unique<FileLogSink>(filename, key[0] == 'L', false));
+						logger().add_sink<FileLogSink>(filename, key[0] == 'L', false);
 					} catch (const std::runtime_error &e) {
  					   std::cerr << e.what();
 					   exit(1);
@@ -326,15 +325,15 @@ int main(int argc, char **argv)
 		}
 		if (result.count("q")) {
 			mode_q = true;
-			if (log_errfile == stderr) log_quiet_warnings = true;
+			if (log_errfile == stderr) logger().set_quiet_warnings(true);
 			log_errfile = stderr;
 		}
 		if (result.count("v")) {
 			mode_v = true;
 			log_errfile = stderr;
-			log_verbose_level = result["v"].as<int>();
+			logger().set_verbose_level(result["v"].as<int>());
 		}
-		if (result.count("t")) log_time = true;
+		if (result.count("t")) logger().set_log_time(true);
 		if (result.count("d")) timing_details = true;
 		for (const auto& key : {"s", "c"}) {
 			if (result.count(key)) {
@@ -353,11 +352,11 @@ int main(int argc, char **argv)
 				auto regexes = result[key].as<std::vector<std::string>>();
 				for (const auto& regex : regexes) {
 					if (std::string(key) == "W")
-						log_warn_regexes.push_back(std::regex(regex));
+						logger().add_warn(regex);
 					if (std::string(key) == "w")
-						log_nowarn_regexes.push_back(std::regex(regex));
+						logger().add_nowarn(regex);
 					if (std::string(key) == "e")
-						log_werror_regexes.push_back(std::regex(regex));
+						logger().add_werror(regex);
 				}
 			}
 		}
@@ -372,7 +371,7 @@ int main(int argc, char **argv)
 						std::cerr << "Invalid number of tokens in -P ALL." << std::endl;
 						exit(1);
 					}
-					log_hdump_all = true;
+					logger().set_hdump_all(true);
 				} else {
 					if (!tokens.empty() && !tokens[0].empty() && tokens[0].back() == '.')
 						tokens[0].pop_back();
@@ -382,14 +381,14 @@ int main(int argc, char **argv)
 						std::cerr << "Invalid number of tokens in -P." << std::endl;
 						exit(1);
 					}
-					log_hdump[tokens[0]].insert(tokens[1]);
+					logger().add_hdump(tokens[0],tokens[1]);
 				}
 			}
 		}
 		if (result.count("E")) depsfile = result["E"].as<std::string>();
 		if (result.count("x")) {
-			auto ignores = result["x"].as<std::vector<std::string>>();
-			log_experimentals_ignored.insert(ignores.begin(), ignores.end());
+			for (const auto &ignore : result["x"].as<std::vector<std::string>>())
+    			logger().add_experimental_ignore(ignore);
 		}
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
 		if (result.count("infile")) {
@@ -405,10 +404,10 @@ int main(int argc, char **argv)
 		}
 
 		if (log_errfile == NULL) {
-			log_sinks.push_back(std::make_unique<ConsoleLogSink>());
-			log_error_stderr = true;
+			logger().add_sink<ConsoleLogSink>();
+			logger().set_error_stderr(true);
 		} else {
-			log_sinks.push_back(std::make_unique<StderrLogSink>());
+			logger().add_sink<StderrLogSink>();
 		}
 
 		if (print_banner)
@@ -452,7 +451,7 @@ int main(int argc, char **argv)
 #endif
 
 	if (print_stats)
-		log_hasher = new SHA1;
+		logger().start_hasher();
 
 #if defined(__OpenBSD__)
 	// save the executable origin for proc_self_dirname()
@@ -596,28 +595,19 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
-	if (log_expect_no_warnings && log_warnings_count_noexpect)
-		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
-					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
+	logger().report_unexpected_error();
 
 	if (print_stats)
 	{
-		std::string hash = log_hasher->final().substr(0, 10);
-		delete log_hasher;
-		log_hasher = nullptr;
-
-		log_time = false;
+		std::string hash = logger().finish_hasher();
+		logger().set_log_time(false);
 		yosys_xtrace = 0;
 		log_spacer();
 
 		if (mode_v && !mode_q)
-			log_stderr_force = true;
+			logger().set_stderr_force(true);
 
-		if (log_warnings_count)
-			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
-
-		if (!log_experimentals.empty())
-			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
+		logger().report_warning_stats();
 
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
@@ -719,7 +709,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	log_check_expected();
+	logger().check_expected();
 
 	yosys_atexit();
 

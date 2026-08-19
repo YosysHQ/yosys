@@ -28,7 +28,7 @@ TEST(ModIndexSwapTest, has)
 
 TEST(ModIndexDeleteTest, has)
 {
-    if (log_sinks.empty()) log_sinks.push_back(std::make_unique<ConsoleLogSink>());
+    if (logger().empty()) logger().add_sink<ConsoleLogSink>();
     Design* d = new Design;
     Module* m = d->addModule("$m");
     Wire* w = m->addWire("$w");

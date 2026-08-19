@@ -11,7 +11,7 @@ YOSYS_NAMESPACE_BEGIN
 TEST(CellTypesTest, basic)
 {
 	yosys_setup();
-	if (log_sinks.empty()) log_sinks.push_back(std::make_unique<ConsoleLogSink>());
+	if (logger().empty()) logger().add_sink<ConsoleLogSink>();
 	CellTypes older;
 	NewCellTypes newer;
 	older.setup(nullptr);

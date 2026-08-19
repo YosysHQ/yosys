@@ -286,7 +286,7 @@ void yosys_shutdown()
 	yosys_design = NULL;
 	RTLIL::OwningIdString::collect_garbage();
 
-	log_sinks.clear();
+	logger().clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {
@@ -995,7 +995,7 @@ void shell(RTLIL::Design *design)
 	static int recursion_counter = 0;
 
 	recursion_counter++;
-	log_cmd_error_throw = true;
+	auto guard = logger().scoped_cmd_error_throw();
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	rl_readline_name = (char*)"yosys";
@@ -1055,7 +1055,6 @@ void shell(RTLIL::Design *design)
 		free(command);
 #endif
 	recursion_counter--;
-	log_cmd_error_throw = false;
 }
 
 struct ShellPass : public Pass {
