@@ -26,11 +26,6 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct RmportsPassPass : public Pass {
 	RmportsPassPass() : Pass("rmports", "remove module ports with no connections") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("techlibs/greenpak4");
-		return false;
-	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
