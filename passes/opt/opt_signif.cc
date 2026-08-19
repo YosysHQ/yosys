@@ -19,6 +19,8 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ff.h"
+#include "kernel/ffinit.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -88,8 +90,9 @@ struct SignifWorker
 {
 	Module *module;
 	SigMap sigmap;
+	FfInitVals initvals;   // init attributes, for bounding a flop's reset/power-up value
 
-	// Sigmapped Y bit -> the cell driving it and which output bit it is
+	// Sigmapped output bit -> the cell driving it and which output bit it is
 	dict<SigBit, std::pair<Cell *, int>> bit_driver;
 
 	dict<Cell *, Range> memo;
@@ -99,6 +102,7 @@ struct SignifWorker
 	int max_depth;         // recursion depth guard, since active.size() is the C++ depth
 
 	pool<IdString> narrow_types;
+	bool cross_flops;      // carry ranges across registers (assumes reset before use)
 
 	// One cell's narrowing decision. Flipping an unsigned cell to signed is a property
 	// of the whole cell, so ports cannot be decided independently.
@@ -125,23 +129,40 @@ struct SignifWorker
 	vector<Plan> plans;
 
 	SignifWorker(Module *module, int max_steps, int max_depth,
-			const pool<IdString> &narrow_types) :
-			module(module), sigmap(module), max_steps(max_steps), max_depth(max_depth),
-			narrow_types(narrow_types)
+			const pool<IdString> &narrow_types, bool cross_flops) :
+			module(module), sigmap(module), initvals(&sigmap, module),
+			max_steps(max_steps), max_depth(max_depth), narrow_types(narrow_types),
+			cross_flops(cross_flops)
 	{
 		// Index every cell output bit. Cells whose semantics we do not model still get
 		// indexed; their range rule falls through to the declared width.
 		for (auto cell : module->cells()) {
-			if (!cell->hasPort(ID::Y))
+			IdString out = out_port(cell);
+			if (out == IdString())
 				continue;
-			SigSpec y = sigmap(cell->getPort(ID::Y));
+			SigSpec y = sigmap(cell->getPort(out));
 			for (int i = 0; i < GetSize(y); i++)
 				if (y[i].is_wire())
 					bit_driver[y[i]] = std::make_pair(cell, i);
 		}
 	}
 
-	// The width parameter that governs a cell's Y word
+	// A flop's Q word is a value like any other: it only ever holds something its D
+	// input held, so the analysis can carry a range across it instead of stopping.
+	static bool is_ff(Cell *cell)
+	{
+		return RTLIL::builtin_ff_cell_types().count(cell->type) && cell->hasPort(ID::Q);
+	}
+
+	// The output word this cell drives, if the analysis can name one
+	IdString out_port(Cell *cell)
+	{
+		if (cell->hasPort(ID::Y))
+			return ID::Y;
+		return cross_flops && is_ff(cell) ? ID::Q : IdString();
+	}
+
+	// The width parameter that governs a cell's output word
 	static IdString out_width_param(Cell *cell)
 	{
 		return cell->hasParam(ID::Y_WIDTH) ? ID::Y_WIDTH : ID::WIDTH;
@@ -250,7 +271,131 @@ struct SignifWorker
 			return declared_range(GetSize(bits), is_signed);
 		}
 
+		// A word can also be driven bit by bit by a blasted register, which is the shape
+		// a pipeline register actually reaches this pass in: the flow splits every flop
+		// into one-bit cells for reporting, so the whole-output test above never matches
+		// one. Rebuilding the word its data inputs form recovers the range.
+		Range ff = ff_word_range(bits, is_signed);
+		if (!ff.top)
+			return ff;
+
 		return declared_range(GetSize(bits), is_signed);
+	}
+
+	// True when two flops capture on the same event, so a word split across them always
+	// holds one consistent snapshot of their data inputs. Without this a sign-extended
+	// range would be unsound: skewed bits could pair a negative high bit with a
+	// positive low word, which no single reachable value of the data word allows.
+	bool same_ff_control(const FfData &a, const FfData &b)
+	{
+		if (a.has_clk != b.has_clk || a.has_ce != b.has_ce || a.has_aload != b.has_aload ||
+				a.has_arst != b.has_arst || a.has_srst != b.has_srst ||
+				a.has_sr != b.has_sr || a.has_gclk != b.has_gclk)
+			return false;
+		if (a.has_clk && (sigmap(a.sig_clk) != sigmap(b.sig_clk) ||
+				a.pol_clk != b.pol_clk))
+			return false;
+		if (a.has_ce && (sigmap(a.sig_ce) != sigmap(b.sig_ce) || a.pol_ce != b.pol_ce))
+			return false;
+		if (a.has_arst && (sigmap(a.sig_arst) != sigmap(b.sig_arst) ||
+				a.pol_arst != b.pol_arst))
+			return false;
+		if (a.has_srst && (sigmap(a.sig_srst) != sigmap(b.sig_srst) ||
+				a.pol_srst != b.pol_srst || a.ce_over_srst != b.ce_over_srst))
+			return false;
+		if (a.has_aload && (sigmap(a.sig_aload) != sigmap(b.sig_aload) ||
+				a.pol_aload != b.pol_aload))
+			return false;
+		return true;
+	}
+
+	// Range of a word whose bits are driven by flops that all capture together. The word
+	// only ever holds a snapshot of the word its data inputs form, plus whatever the
+	// resets and init force, so the union of those bounds it.
+	Range ff_word_range(const std::vector<SigBit> &bits, bool is_signed)
+	{
+		if (!cross_flops || ++steps > max_steps)
+			return Range::unknown();
+
+		pool<Cell *> cells;
+		SigSpec sig_d, sig_ad;
+		std::vector<State> arst, srst, init;
+		FfData *ctrl = nullptr;
+		std::vector<std::unique_ptr<FfData>> ffs;
+
+		for (auto &bit : bits) {
+			auto it = bit.is_wire() ? bit_driver.find(bit) : bit_driver.end();
+			if (it == bit_driver.end() || !is_ff(it->second.first))
+				return Range::unknown();
+			Cell *cell = it->second.first;
+			// A flop already on the recursion stack means feedback: a genuine
+			// accumulator, which must keep its declared width.
+			if (active.count(cell) || GetSize(active) + GetSize(cells) >= max_depth)
+				return Range::unknown();
+			ffs.push_back(std::make_unique<FfData>(&initvals, cell));
+			FfData &ff = *ffs.back();
+			if (ff.has_sr || ff.is_fine || !ff.has_clk)
+				return Range::unknown();
+			if (ctrl == nullptr)
+				ctrl = &ff;
+			else if (!same_ff_control(*ctrl, ff))
+				return Range::unknown();
+			cells.insert(cell);
+
+			int off = it->second.second;
+			sig_d.append(ff.sig_d[off]);
+			if (ff.has_aload)
+				sig_ad.append(ff.sig_ad[off]);
+			if (ff.has_arst)
+				arst.push_back(ff.val_arst[off]);
+			if (ff.has_srst)
+				srst.push_back(ff.val_srst[off]);
+			init.push_back(GetSize(ff.val_init) > off ? ff.val_init[off] : State::Sx);
+		}
+
+		// Guard the whole run at once, so a cycle through any of its flops is caught.
+		for (auto cell : cells)
+			active.insert(cell);
+		Range out = sig_range(sig_d, is_signed);
+		if (!out.top && GetSize(sig_ad)) {
+			Range ad = sig_range(sig_ad, is_signed);
+			if (ad.top)
+				out = Range::unknown();
+			else {
+				out.lo = std::min(out.lo, ad.lo);
+				out.hi = std::max(out.hi, ad.hi);
+			}
+		}
+		for (auto cell : cells)
+			active.erase(cell);
+		if (out.top)
+			return Range::unknown();
+
+		// An all-undefined init word just means no flop in the run carried one.
+		if (std::all_of(init.begin(), init.end(), [](State s) { return s == State::Sx; }))
+			init.clear();
+
+		int width = GetSize(bits);
+		for (auto *val : {&arst, &srst, &init}) {
+			if (val->empty())
+				continue;
+			// A partially forced word says nothing about the bits it leaves alone.
+			if (GetSize(*val) != width)
+				return Range::unknown();
+			Range c = const_range(Const(*val), width);
+			if (c.top)
+				return Range::unknown();
+			out.lo = std::min(out.lo, c.lo);
+			out.hi = std::max(out.hi, c.hi);
+		}
+
+		// The cap cell_range applies, for the same reason: the register may be wider than
+		// the interval arithmetic can represent, which is the case most worth handling --
+		// a 128-bit accumulator holding a 40-bit value -- but the range it carries still
+		// has to stay negatable.
+		if (signed_width(out.lo, out.hi) > std::min(width, max_range_width))
+			return Range::unknown();
+		return out;
 	}
 
 	// Range of a cell's Y word, memoized; feedback and unknown cells yield top
@@ -385,6 +530,12 @@ struct SignifWorker
 			return Range(0, a.hi);
 		}
 
+		// A flop holds a value its data input held, or one of the constants it can be
+		// forced to, so the union of those bounds Q. Feedback is already broken by the
+		// `active` guard, which is what keeps a genuine accumulator at declared width.
+		if (is_ff(cell))
+			return ff_range(cell, ywidth);
+
 		// Multiplexers: the union over the arms
 		if (cell->type.in(ID($mux), ID($pmux))) {
 			Range out = sig_range(cell->getPort(ID::A), true);
@@ -403,6 +554,65 @@ struct SignifWorker
 		}
 
 		return Range::unknown();
+	}
+
+	// Range of a constant that may carry undefined bits. setundef runs later in the
+	// flow, so an x could still become either value: treat it as the whole word.
+	static Range const_range(const Const &val, int width)
+	{
+		if (GetSize(val) > max_range_width)
+			return declared_range(width, true);
+		for (int i = 0; i < GetSize(val); i++)
+			if (val[i] != State::S0 && val[i] != State::S1)
+				return declared_range(width, true);
+		wideint_t v = 0;
+		for (int i = 0; i < GetSize(val); i++)
+			if (val[i] == State::S1)
+				v |= (wideint_t)1 << i;
+		// A flop's constant is a bit pattern of its own width; read it the same way the
+		// Q word is read, so a set-to-all-ones register lands at -1 rather than 2^w-1.
+		if (GetSize(val) > 0 && val[GetSize(val) - 1] == State::S1)
+			v -= (wideint_t)1 << GetSize(val);
+		return Range(v, v);
+	}
+
+	// Q of a flip-flop: the union of everything it can latch and everything it can be
+	// forced to. Bit-level set/reset can produce arbitrary patterns, so those bail.
+	Range ff_range(Cell *cell, int ywidth)
+	{
+		FfData ff(&initvals, cell);
+		if (ff.has_sr || ff.is_fine)
+			return Range::unknown();
+
+		Range out = sig_range(ff.sig_d, true);
+		if (out.top)
+			return Range::unknown();
+
+		// An asynchronous load is a second data path into the same word.
+		if (ff.has_aload) {
+			Range ad = sig_range(ff.sig_ad, true);
+			if (ad.top)
+				return Range::unknown();
+			out.lo = std::min(out.lo, ad.lo);
+			out.hi = std::max(out.hi, ad.hi);
+		}
+
+		// An all-undefined init is the absence of one, not a value: this is where the
+		// reset-before-use assumption lives. A partly defined init says nothing about
+		// the bits it leaves alone, so const_range rejects it below.
+		for (int i = 0; i < 3; i++) {
+			bool present = i == 0 ? ff.has_arst : i == 1 ? ff.has_srst
+					: GetSize(ff.val_init) > 0 && !ff.val_init.is_fully_undef();
+			if (!present)
+				continue;
+			Range c = const_range(i == 0 ? ff.val_arst : i == 1 ? ff.val_srst : ff.val_init,
+					ywidth);
+			if (c.top)
+				return Range::unknown();
+			out.lo = std::min(out.lo, c.lo);
+			out.hi = std::max(out.hi, c.hi);
+		}
+		return out;
 	}
 
 	static IdString port_id(int idx) { return idx == 0 ? ID::A : ID::B; }
@@ -720,15 +930,40 @@ struct OptSignifPass : public Pass {
 		log("    $shr / $sshr             bounded by the operand range\n");
 		log("    compares / reductions    [0, 1]\n");
 		log("    $mux / $pmux             union over the arms\n");
+		log("    flip-flops               with -cross-flops only: union of D, async\n");
+		log("                             load, reset and init values\n");
 		log("    anything else            the declared width (no narrowing)\n");
 		log("\n");
-		log("Everything the analysis cannot interpret -- module inputs, flip-flop\n");
-		log("outputs, bit-level logic, undefined bits, and any range that overflows the\n");
-		log("128-bit interval arithmetic -- degrades to the declared width, so the pass\n");
-		log("can only ever narrow a port and never widens one. Feedback loops (an\n");
-		log("accumulator that genuinely grows) are broken by returning the declared\n");
-		log("width for the cell being revisited, which is why a self-accumulating\n");
-		log("register is left alone.\n");
+		log("Everything the analysis cannot interpret -- module inputs, flip-flop outputs\n");
+		log("without -cross-flops, bit-level logic, undefined bits, per-bit set/reset, and\n");
+		log("any range that overflows the 128-bit interval arithmetic -- degrades to the\n");
+		log("declared width, so the pass can only ever narrow a port and never widens one.\n");
+		log("Feedback loops (an accumulator that genuinely grows) are broken by returning\n");
+		log("the declared width for the cell being revisited, which is why a\n");
+		log("self-accumulating register is left alone.\n");
+		log("\n");
+		log("    -cross-flops\n");
+		log("        carry ranges across registers, including registers that have been\n");
+		log("        blasted to one-bit cells, whose data inputs are reassembled into a\n");
+		log("        word. Only bits captured on the same event are combined: skewed bits\n");
+		log("        could pair a negative high bit with a positive low word, which no\n");
+		log("        single reachable value of the data word allows.\n");
+		log("\n");
+		log("        This matters because a pipelined datapath puts a register in front of\n");
+		log("        every accumulate tree, and stopping there leaves each adder priced at\n");
+		log("        the declared accumulator width -- which real synthesis charges\n");
+		log("        nothing for, since those upper bits are all copies of the sign.\n");
+		log("\n");
+		log("        A reset or init value is a value the register can hold, so it is\n");
+		log("        unioned in; an all-undefined init is the absence of one and is\n");
+		log("        ignored, which is where the assumption below lives.\n");
+		log("\n");
+		log("        NOT equivalence-preserving from an arbitrary power-up state: a\n");
+		log("        register that has never been written can hold a value outside the\n");
+		log("        range its data input can produce, and the narrowed operand reads only\n");
+		log("        the low bits of it. The rule assumes every register is reset or\n");
+		log("        loaded before its value is used, so keep it off where the power-up\n");
+		log("        state is observable.\n");
 		log("\n");
 		log("    -types <type1>,<type2>,...\n");
 		log("        Only narrow ports of these cell types. Defaults to\n");
@@ -773,6 +1008,7 @@ struct OptSignifPass : public Pass {
 		int max_steps = 100000;
 		int max_iters = 4;
 		int max_depth = 1000;
+		bool cross_flops = false;
 		pool<IdString> narrow_types = default_narrow_types();
 
 		size_t argidx = 1;
@@ -795,6 +1031,10 @@ struct OptSignifPass : public Pass {
 					narrow_types.insert(RTLIL::escape_id(name));
 				continue;
 			}
+			if (args[argidx] == "-cross-flops") {
+				cross_flops = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -807,7 +1047,8 @@ struct OptSignifPass : public Pass {
 			// changes nothing is the fixed point and costs one analysis pass.
 			int ports = 0, cells = 0;
 			for (int iter = 0; iter < max_iters; iter++) {
-				SignifWorker worker(module, max_steps, max_depth, narrow_types);
+				SignifWorker worker(module, max_steps, max_depth, narrow_types,
+						cross_flops);
 				int found = worker.run();
 				total_steps += worker.steps_used();
 				if (found == 0)

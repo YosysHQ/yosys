@@ -1005,3 +1005,337 @@ select -assert-count 1500 t:$add
 select -assert-count 1364 t:$add r:A_WIDTH=12 %i
 design -reset
 log -pop
+
+# ============================================================================
+# Group D: Carrying ranges across registers (-cross-flops)
+# ============================================================================
+#
+# A pipelined datapath registers every lane term before the accumulate tree, so
+# without -cross-flops the analysis stops at Q and every adder in the tree is
+# priced at the declared accumulator width. With it, Q is bounded by the union of
+# everything the register can hold: its data input, an async load, a reset value,
+# and a defined init.
+#
+# An all-undefined init is read as the absence of one rather than as "any value",
+# which is what makes the flag an assumption rather than a theorem: it is sound
+# for every state reachable after reset, and D1 proves both halves of that with
+# the solver -- equivalent from a zero initial state, distinguishable from an
+# arbitrary one.
+
+# Test D1: two registered products feeding an adder.
+#
+# Shape:
+#   t0 <= a0 * b0;  t1 <= a1 * b1     (4x4 signed, held in 32-bit registers)
+#   y = t0 + t1
+#
+# Each product lands in [-56, 64], so eight signed bits carry it and the adder
+# should be 8+8 rather than 32+32. Off by default, so the first run pins that the
+# flag is opt-in.
+log -header "D1: registered products feeding an adder"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire signed [3:0] a0,
+  input  wire signed [3:0] b0,
+  input  wire signed [3:0] a1,
+  input  wire signed [3:0] b1,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t0, t1;
+  always @(posedge clk) begin
+    t0 <= a0 * b0;
+    t1 <= a1 * b1;
+  end
+  assign y = t0 + t1;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+design -save preopt
+opt_signif
+select -assert-count 1 t:$add r:A_WIDTH=32 r:B_WIDTH=32 %i %i
+design -load preopt
+opt_signif -cross-flops
+select -assert-count 1 t:$add r:A_WIDTH=8 r:B_WIDTH=8 %i %i
+
+# Equivalent from reset. equiv_opt cannot show this: its induction step assumes
+# only that the two register words agree, and a 32-bit value they could agree on
+# is outside the range the data input can produce, so it has to report a
+# difference. Bounded model checking from a zero initial state asks the question
+# the rule actually answers.
+design -load preopt
+design -save gold
+opt_signif -cross-flops
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+sat -verify -seq 8 -set-init-zero -prove-asserts miter
+
+# ... and not from an arbitrary power-up state. -falsify inverts the expectation,
+# so this passes by finding the counterexample, which pins the assumption as a
+# real one rather than an unproven claim.
+design -reset
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+sat -falsify -seq 1 -set-init-def -enable_undef -prove-asserts miter
+design -reset
+log -pop
+
+# Test D2: the same shape after the registers are blasted to one-bit cells.
+#
+# This is how a pipeline register reaches the pass in a flow that splits flops for
+# per-bit reporting: no cell drives the whole word, so the range has to come from
+# reassembling the word the data inputs form.
+log -header "D2: blasted registers are reassembled"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire signed [3:0] a0,
+  input  wire signed [3:0] b0,
+  input  wire signed [3:0] a1,
+  input  wire signed [3:0] b1,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t0, t1;
+  always @(posedge clk) begin
+    t0 <= a0 * b0;
+    t1 <= a1 * b1;
+  end
+  assign y = t0 + t1;
+endmodule
+EOF
+proc
+opt -full
+splitcells -blast t:$dff
+check -assert
+select -assert-count 64 t:$dff
+opt_signif -cross-flops
+select -assert-count 1 t:$add r:A_WIDTH=8 r:B_WIDTH=8 %i %i
+design -reset
+log -pop
+
+# Test D3: the range crosses two register stages.
+#
+# td holds what t held, which holds a product: the analysis has to recurse through
+# both flops rather than stopping at the first.
+log -header "D3: range crosses two register stages"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t, td;
+  always @(posedge clk) begin
+    t  <= a * b;
+    td <= t;
+  end
+  assign y = td * c;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=8 %i
+design -reset
+log -pop
+
+# Test D4: a word split across two registers, capturing together and apart.
+#
+# Shape (icells, so the split survives to the pass):
+#   lo: t[7:0]  <= p[7:0]
+#   hi: t[31:8] <= p[31:8]      p = a * b, so t holds a value in [-56, 64]
+#   y = t * c
+#
+# Reassembling {hi.D, lo.D} recovers p and narrows the multiply to 8 bits. Moving
+# hi to a second clock must stop that: bits that capture at different times can
+# pair a stale sign with a fresh low word, which no single value of p allows.
+log -header "D4: a word split across registers needs one capture event"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire clkA,
+  input  wire clkB,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] p;
+  wire [31:0] t;
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(32))
+    prod (.A(a), .B(b), .Y(p));
+  $dff #(.WIDTH(8),  .CLK_POLARITY(1)) lo (.CLK(clkA), .D(p[7:0]),  .Q(t[7:0]));
+  $dff #(.WIDTH(24), .CLK_POLARITY(1)) hi (.CLK(clkA), .D(p[31:8]), .Q(t[31:8]));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(4), .Y_WIDTH(32))
+    mult (.A(t), .B(c), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=8 %i
+
+design -reset
+read_verilog -icells <<EOF
+module top(
+  input  wire clkA,
+  input  wire clkB,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [31:0] y
+);
+  wire signed [31:0] p;
+  wire [31:0] t;
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(32))
+    prod (.A(a), .B(b), .Y(p));
+  $dff #(.WIDTH(8),  .CLK_POLARITY(1)) lo (.CLK(clkA), .D(p[7:0]),  .Q(t[7:0]));
+  $dff #(.WIDTH(24), .CLK_POLARITY(1)) hi (.CLK(clkB), .D(p[31:8]), .Q(t[31:8]));
+  $mul #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(32), .B_WIDTH(4), .Y_WIDTH(32))
+    mult (.A(t), .B(c), .Y(y));
+endmodule
+EOF
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+design -reset
+log -pop
+
+# Test D5: an accumulator behind registered terms.
+#
+#   t0 <= a0 * b0;  t1 <= a1 * b1;  acc <= acc + (t0 + t1)
+#
+# The tree add narrows to 8+8 and the sum it produces bounds the accumulator's B
+# port at 9 bits, but acc itself reaches the full datapath over time, so the
+# feedback operand has to stay 32. This is B2 with the flag on: crossing flops
+# must not turn a growing register into a narrow one.
+log -header "D5: an accumulator behind registered terms stays wide"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire signed [3:0] a0,
+  input  wire signed [3:0] b0,
+  input  wire signed [3:0] a1,
+  input  wire signed [3:0] b1,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t0, t1, acc;
+  always @(posedge clk) begin
+    t0  <= a0 * b0;
+    t1  <= a1 * b1;
+    acc <= acc + (t0 + t1);
+  end
+  assign y = acc;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$add r:A_WIDTH=8 r:B_WIDTH=8 %i %i
+select -assert-count 1 t:$add r:A_WIDTH=32 r:B_WIDTH=9 %i %i
+design -reset
+log -pop
+
+# Test D6: a reset value the data input cannot produce.
+#
+# The register holds a product in [-56, 64] or, on reset, 2^30. The union needs
+# the whole word, so nothing narrows -- a reset value is a value the register can
+# hold, not a special case to skip. The second design is the same shape with a
+# small reset constant, which keeps the first from passing for a reason unrelated
+# to the reset value.
+log -header "D6: a reset value widens the union"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire rst,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t;
+  always @(posedge clk) if (rst) t <= 32'sh4000_0000; else t <= a * b;
+  assign y = t * c;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=32 %i
+
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire rst,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [31:0] y
+);
+  reg signed [31:0] t;
+  always @(posedge clk) if (rst) t <= 32'sd1; else t <= a * b;
+  assign y = t * c;
+endmodule
+EOF
+proc
+opt -full
+check -assert
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=8 %i
+design -reset
+log -pop
+
+# Test D7: a blasted register wider than the interval arithmetic.
+#
+# A 128-bit accumulator holding an 8-bit value is the case most worth handling and
+# the one a width test on the register would refuse: the endpoints fit in the
+# 128-bit intervals even though the word does not. What has to stay capped is the
+# range carried out, so that the next $neg or $sub can still negate its endpoints
+# -- the same rule cell_range applies to a cell output.
+log -header "D7: a blasted register past the interval arithmetic"
+log -push
+design -reset
+read_verilog <<EOF
+module top(
+  input  wire clk,
+  input  wire signed [3:0] a,
+  input  wire signed [3:0] b,
+  input  wire signed [3:0] c,
+  output wire signed [127:0] y
+);
+  reg signed [127:0] t;
+  always @(posedge clk) t <= a * b;
+  assign y = t * c;
+endmodule
+EOF
+proc
+opt -full
+splitcells -blast t:$dff
+check -assert
+select -assert-count 128 t:$dff
+opt_signif -cross-flops
+select -assert-count 1 t:$mul r:A_WIDTH=8 %i
+design -reset
+log -pop
