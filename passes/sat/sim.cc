@@ -1774,6 +1774,24 @@ struct SimWorker : SimShared
 			log_warning("Can't find port '%s' on module '%s' in FST, leaving it undriven.\n", path.c_str(), log_id(mod));
 	}
 
+	// SILIMATE: bit-blasted dump is one FST var per HDL index, not one packed vector.
+	bool bind_fst_bits(SimInstance *t, Wire *wire, const std::string &path)
+	{
+		// Remap HDL indices onto this wire so [3:2]/[0:1] land on the right Yosys bits.
+		dict<int, fstHandle> mapped;
+		for (auto &kv : fst->getMemoryHandles(path)) {
+			int index = wire->from_hdl_index(kv.first);
+			if (index != INT_MIN)
+				mapped[index] = kv.second;  // skip indices outside this wire
+		}
+		// Incomplete coverage would silently leave bits undriven.
+		if (GetSize(mapped) != GetSize(wire))
+			return false;
+		for (auto &kv : mapped)
+			t->fst_input_sigs.emplace_back(SigSpec(wire, kv.first, 1), kv.second);
+		return true;
+	}
+
 	void run_cosim_fst(Module *topmod, int numcycles, int log_interval)
 	{
 		log_assert(tops.empty());
@@ -1799,7 +1817,8 @@ struct SimWorker : SimShared
 					if (!wire->port_input) continue;
 					fstHandle id = fst->getHandle(iscope + "." + wire->name.unescape());
 					if (id == 0) {
-						report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
+						if (!bind_fst_bits(t, wire, iscope + "." + wire->name.unescape()))
+							report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
 						continue;
 					}
 					t->fst_inputs[wire] = id;
@@ -1852,7 +1871,7 @@ struct SimWorker : SimShared
 					fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
 					if (id != 0)
 						top->fst_inputs[wire] = id;
-					else
+					else if (!bind_fst_bits(top, wire, scope + "." + RTLIL::unescape_id(wire->name)))
 						report_missing_fst_input(scope + "." + RTLIL::unescape_id(wire->name), topmod);
 				}
 			}
