@@ -647,6 +647,25 @@ struct SimInstance
 			return;
 		}
 
+		if (cell->type == ID($fa))
+		{
+			// Full adder: Y = A ^ B ^ C, X = (A & B) | (A & C) | (B & C)
+			Const a = get_state(cell->getPort(ID::A));
+			Const b = get_state(cell->getPort(ID::B));
+			Const c = get_state(cell->getPort(ID::C));
+			int width = GetSize(a);
+			Const ab = const_and(a, b, false, false, width);
+			Const ac = const_and(a, c, false, false, width);
+			Const bc = const_and(b, c, false, false, width);
+			set_state(cell->getPort(ID::X),
+					const_or(const_or(ab, ac, false, false, width),
+							bc, false, false, width));
+			set_state(cell->getPort(ID::Y),
+					const_xor(const_xor(a, b, false, false, width),
+							c, false, false, width));
+			return;
+		}
+
 		if (yosys_celltypes.cell_evaluable(cell->type))
 		{
 			RTLIL::SigSpec sig_a, sig_b, sig_c, sig_d, sig_s, sig_y;
