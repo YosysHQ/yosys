@@ -1033,6 +1033,8 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		} else if(!config.liberty_files.empty()) {
 			if (!config.abc_liberty_args.empty()) {
 				log("ABC: abc_liberty_args provided, using liberty format\n");
+			} else if (!scl_cache_enabled) {
+				log("ABC: SCL cache disabled, using liberty format\n");
 			} else {
 				log_warning("ABC: Merged scl conversion failed, using liberty format\n");
 			}

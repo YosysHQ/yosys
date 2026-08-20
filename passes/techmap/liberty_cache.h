@@ -3,6 +3,9 @@
 
 #include "kernel/yosys.h"
 
+#include <filesystem>
+#include <system_error>
+
 #ifdef YOSYS_LINK_ABC
 namespace abc {
 	int Abc_RealMain(int argc, char *argv[]);
@@ -11,6 +14,9 @@ namespace abc {
 
 YOSYS_NAMESPACE_BEGIN
 
+// Controlled by the libcache pass (-scl option), enabled by default
+extern bool scl_cache_enabled;
+
 /*
  * convert_liberty_files_to_merged_scl() - Convert multiple Liberty files to a single merged SCL cache file.
  * @liberty_files: Vector of liberty file paths to merge
@@ -18,10 +24,11 @@ YOSYS_NAMESPACE_BEGIN
  * @abc_exe: Path to ABC executable for conversion
  *
  * Return: Path to merged SCL cache file, or empty string if conversion fails
+ * or caching is disabled via libcache -scl -disable
  */
 inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::string> &liberty_files, const std::string &dont_use_args, const std::string &abc_exe)
 {
-	if (liberty_files.empty())
+	if (liberty_files.empty() || !scl_cache_enabled)
 		return "";
 
 	std::string cache_dir = get_base_tmpdir() + "/yosys-liberty-scl-cache";
@@ -36,6 +43,14 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	std::sort(sorted_files.begin(), sorted_files.end());
 	std::string hash_input;
 	time_t newest_mtime = 0;
+
+	// The SCL format is written/read by ABC and can change between ABC builds,
+	// so the cache key must identify the ABC executable.
+	if (!abc_exe.empty()) {
+		struct stat abc_stat;
+		if (stat(abc_exe.c_str(), &abc_stat) == 0)
+			hash_input += stringf("|abc:%s:%lld:%lld", abc_exe.c_str(), (long long)abc_stat.st_mtime, (long long)abc_stat.st_size);
+	}
 
 	for (const std::string &liberty_file : sorted_files) {
 		struct stat liberty_stat;
@@ -69,11 +84,18 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	}
 
 	if (need_convert) {
+		ScopedFileLock scl_lock(merged_scl + ".lock");
+		// Recheck under the lock: another process may have built the cache while we waited.
+		if (stat(merged_scl.c_str(), &scl_stat) == 0 && scl_stat.st_mtime >= newest_mtime) {
+			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			return merged_scl;
+		}
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
-		std::string temp_scl = merged_scl + ".tmp";
+		// Concurrent writers cannot corrupt each other even when running without the lock.
+		std::string temp_scl = stringf("%s.%u.tmp", merged_scl.c_str(), get_process_id());
 
 #ifdef YOSYS_LINK_ABC
-		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x.script", cache_dir.c_str(), hash);
+		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x_%u.script", cache_dir.c_str(), hash, get_process_id());
 		FILE *f = fopen(script_path.c_str(), "w");
 
 		if (f == NULL) {
@@ -132,7 +154,9 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 			return "";
 		}
 #endif
-		if (rename(temp_scl.c_str(), merged_scl.c_str()) != 0) {
+		std::error_code rename_ec;
+		std::filesystem::rename(temp_scl, merged_scl, rename_ec);
+		if (rename_ec) {
 			log_warning("ABC: failed to rename %s to %s, falling back to liberty format\n", temp_scl.c_str(), merged_scl.c_str());
 			remove(temp_scl.c_str());
 			return "";
