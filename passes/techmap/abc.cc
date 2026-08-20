@@ -1182,7 +1182,10 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	bool seen_source_cmd = false;
 	bool seen_yosys_abc_done = false;
 	while (true) {
-		int ret = read(fd, buf, sizeof(buf) - 1);
+		int ret;
+		do {
+			ret = read(fd, buf, sizeof(buf) - 1);
+		} while (ret == -1 && errno == EINTR);
 		if (ret < 0) {
 			logs.log_error("Failed to read from ABC, errno=%d\n", errno);
 			return false;
