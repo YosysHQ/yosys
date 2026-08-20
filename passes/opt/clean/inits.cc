@@ -17,7 +17,7 @@
  *
  */
 
-#include "passes/opt/opt_clean/opt_clean.h"
+#include "passes/opt/clean/opt_clean.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

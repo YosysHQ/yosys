@@ -20,7 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/log.h"
 #include "kernel/log_help.h"
-#include "passes/opt/opt_clean/opt_clean.h"
+#include "passes/opt/clean/opt_clean.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
