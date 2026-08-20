@@ -56,7 +56,7 @@ void (*log_verific_callback)(int msg_type, const char *message_id, const char* f
 // TODO: remove when log_id is removed
 vector<char*> log_id_cache;
 
-static bool next_print_log = false;
+static bool next_print_log = true;
 
 FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
 	: file(fopen(filename.c_str(), append ? "at" : "wt"))
