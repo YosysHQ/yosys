@@ -197,12 +197,6 @@ private:
 public:
 	LogManager() = default;
 
-	LogManager(const LogManager &) = delete;
-	LogManager &operator=(const LogManager &) = delete;
-
-	LogManager(LogManager &&) = default;
-	LogManager &operator=(LogManager &&) = default;
-
 	template<typename T, typename... Args>
 	T &add_sink(Args&&... args)
 	{

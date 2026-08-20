@@ -190,13 +190,6 @@ namespace pyosys {
 
 		// Namespace to host global objects
 		auto global_variables = py::class_<Globals>(m, "Globals");
-		global_variables.def_property_readonly_static(
-			"logger",
-			[](const pyosys::Globals &) -> Yosys::LogManager & {
-				return logger();
-			},
-			pybind11::return_value_policy::reference
-		);
 
 		// Trampoline Classes
 		py::class_<Pass, pyosys::PassTrampoline, std::unique_ptr<Pass, py::nodelete>>(m, "Pass")
