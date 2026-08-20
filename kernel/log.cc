@@ -273,7 +273,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 	log_stderr_force = false;
 }
 
-void LogManager::log_formatted_warning(std::string_view prefix, std::string message)
+void LogManager::log_formatted_warning(std::string_view prefix, std::string_view format, std::string message)
 {
 	log_assert(!Multithreading::active());
 
@@ -294,7 +294,7 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string mess
 
 		for (auto &re : log_werror_regexes)
 			if (std::regex_search(message, re))
-				log_formatted_error(message);
+				log_formatted_error(format, message);
 
 		bool warning_match = false;
 		for (auto &[_, item] : log_expect_warning)
@@ -311,12 +311,12 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string mess
 
 		if (log_warnings.count(message))
 		{
-			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_INFO);
+			log_formatted_string(prefix, format, message, LogSeverity::LOG_INFO);
 			flush();
 		}
 		else
 		{
-			log_formatted_string(prefix, "%s", message, LogSeverity::LOG_WARNING);
+			log_formatted_string(prefix, format, message, LogSeverity::LOG_WARNING);
 			flush();
 			log_warnings.insert(message);
 		}
@@ -328,15 +328,16 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string mess
 	}
 }
 
-void LogManager::log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: Warning: ", filename, lineno);
-	log_formatted_warning(prefix, std::move(str));
+	log_formatted_warning(prefix, format, std::move(str));
 }
 
-void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
-	log("%s:%d: Info: %s", filename, lineno, str);
+	std::string prefix = stringf("%s:%d: Info: ", filename, lineno);
+	log_formatted_string(prefix, format, std::move(str), LogSeverity::LOG_INFO);
 }
 
 void LogManager::log_suppressed() {
@@ -348,13 +349,13 @@ void LogManager::log_suppressed() {
 }
 
 [[noreturn]]
-void LogManager::log_error_with_prefix(std::string_view prefix, std::string message)
+void LogManager::log_error_with_prefix(std::string_view prefix, std::string_view format, std::string message)
 {
 	int bak_log_make_debug = log_make_debug;
 	log_make_debug = 0;
 	log_suppressed();
 
-	log_formatted_string(prefix, "%s", message, LogSeverity::LOG_ERROR);
+	log_formatted_string(prefix, format, message, LogSeverity::LOG_ERROR);
 	flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -384,10 +385,10 @@ void LogManager::log_error_with_prefix(std::string_view prefix, std::string mess
 #endif
 }
 
-void LogManager::log_formatted_file_error(std::string_view filename, int lineno, std::string str)
+void LogManager::log_formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
-	log_error_with_prefix(prefix, str);
+	log_error_with_prefix(prefix, format, str);
 }
 
 void LogManager::log_experimental(const std::string &str)
@@ -398,9 +399,9 @@ void LogManager::log_experimental(const std::string &str)
 	}
 }
 
-void LogManager::log_formatted_error(std::string str)
+void LogManager::log_formatted_error(std::string_view format, std::string str)
 {
-	log_error_with_prefix("ERROR: ", std::move(str));
+	log_error_with_prefix("ERROR: ", format, std::move(str));
 }
 
 void log_assert_failure(const char *expr, const char *file, int line)
@@ -418,16 +419,16 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
 }
 
-void LogManager::log_formatted_cmd_error(std::string message)
+void LogManager::log_formatted_cmd_error(std::string_view format, std::string message)
 {
 	if (log_cmd_error_throw) {
-		log_formatted_string("ERROR: ", "%s", message, LogSeverity::LOG_ERROR);
+		log_formatted_string("ERROR: ", format, message, LogSeverity::LOG_ERROR);
 		flush();
 
 		throw log_cmd_error_exception();
 	}
 
-	log_formatted_error(message);
+	log_formatted_error(format, message);
 }
 
 void LogManager::log_spacer()

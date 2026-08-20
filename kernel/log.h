@@ -394,14 +394,14 @@ public:
 
 	void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity);
 	void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
-	void log_formatted_warning(std::string_view prefix, std::string message);
-	void log_formatted_file_warning(std::string_view filename, int lineno, std::string str);
-	void log_formatted_file_info(std::string_view filename, int lineno, std::string str);
+	void log_formatted_warning(std::string_view prefix, std::string_view format, std::string message);
+	void log_formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str);
+	void log_formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str);
 	void log_suppressed();
-	[[noreturn]] void log_formatted_file_error(std::string_view filename, int lineno, std::string str);
+	[[noreturn]] void log_formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str);
 	void log_experimental(const std::string &str);
-	[[noreturn]] void log_formatted_error(std::string str);
-	[[noreturn]] void log_formatted_cmd_error(std::string message);
+	[[noreturn]] void log_formatted_error(std::string_view format, std::string str);
+	[[noreturn]] void log_formatted_cmd_error(std::string_view format, std::string message);
 	void log_spacer();
 	void log_push();
 	void log_pop();
@@ -420,7 +420,7 @@ public:
 
 private:
 	void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity);
-	[[noreturn]] void log_error_with_prefix(std::string_view prefix, std::string message);
+	[[noreturn]] void log_error_with_prefix(std::string_view prefix, std::string_view format, std::string message);
 
 	std::vector<std::unique_ptr<LogSink>> log_sinks;
 	int log_verbose_level = 0;
@@ -488,13 +488,13 @@ inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> f
 template <typename... Args>
 inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_warning("Warning: ", fmt.format(args...));
+	logger().log_formatted_warning("Warning: ", fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_warning({}, fmt.format(args...));
+	logger().log_formatted_warning({}, fmt.format_string(), fmt.format(args...));
 }
 
 inline void log_experimental(const std::string &str)
@@ -506,31 +506,31 @@ inline void log_experimental(const std::string &str)
 template <typename... Args>
 void log_file_warning(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_warning(filename, lineno, fmt.format(args...));
+	logger().log_formatted_file_warning(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_info(filename, lineno, fmt.format(args...));
+	logger().log_formatted_file_info(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_error(fmt.format(args...));
+	logger().log_formatted_error(fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_file_error(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_error(filename, lineno, fmt.format(args...));
+	logger().log_formatted_file_error(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_cmd_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_cmd_error(fmt.format(args...));
+	logger().log_formatted_cmd_error(fmt.format_string(), fmt.format(args...));
 }
 
 inline void log_suppressed()
