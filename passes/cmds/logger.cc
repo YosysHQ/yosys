@@ -42,9 +42,6 @@ struct LoggerPass : public Pass {
 		log("    -[no]time\n");
 		log("        enable/disable display of timestamp in log output.\n");
 		log("\n");
-		log("    -[no]stderr\n");
-		log("        enable/disable logging errors to stderr.\n");
-		log("\n");
 		log("    -warn regex\n");
 		log("        print a warning for all log messages matching the regex.\n");
 		log("\n");
@@ -92,16 +89,6 @@ struct LoggerPass : public Pass {
 			if (args[argidx] == "-notime") {
 				logger().set_log_time(false);
 				log("Disabled timestamp in logs.\n");
-				continue;
-			}
-			if (args[argidx] == "-stderr") {
-				logger().set_error_stderr(true);
-				log("Enabled loggint errors to stderr.\n");
-				continue;
-			}
-			if (args[argidx] == "-nostderr") {
-				logger().set_error_stderr(false);
-				log("Disabled loggint errors to stderr.\n");
 				continue;
 			}
 			if (args[argidx] == "-warn" && argidx+1 < args.size()) {

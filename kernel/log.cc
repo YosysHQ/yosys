@@ -87,7 +87,7 @@ void FileLogSink::flush()
 
 void ConsoleLogSink::log(const LogMessage &msg)
 {
-	FILE *file = (msg.severity == LogSeverity::LOG_ERROR && logger().get_error_stderr()) ? stderr : stdout;
+	FILE *file = (msg.severity == LogSeverity::LOG_ERROR) ? stderr : stdout;
 	fputs(msg.cached_msg.c_str(), file);
 }
 
@@ -100,7 +100,7 @@ void ConsoleLogSink::flush()
 bool StderrLogSink::should_log(const LogMessage &msg) const
 {
 	return msg.severity == LogSeverity::LOG_ERROR ||
-			(msg.severity == LogSeverity::LOG_WARNING && !logger().get_quiet_warnings()) ||
+			(msg.severity == LogSeverity::LOG_WARNING && !quiet_warnings) ||
 			logger().get_stderr_force();
 }
 
@@ -671,8 +671,9 @@ void LogManager::report_unexpected_error()
 }
 
 
-void LogManager::report_warning_stats()
+void LogManager::report_warning_stats(bool stderr_force)
 {
+	log_stderr_force = stderr_force;
 	if (log_warnings_count)
 		log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
 

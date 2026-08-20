@@ -169,7 +169,6 @@ namespace pyosys {
 
 		if (!yosys_already_setup()) {
 			logger().add_sink<ConsoleLogSink>();
-			logger().set_error_stderr(true);
 			yosys_setup();
 
 			// Cleanup

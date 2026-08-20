@@ -154,9 +154,12 @@ public:
 class StderrLogSink : public LogSink
 {
 public:
+	explicit StderrLogSink(bool quiet) : quiet_warnings(quiet) {}
 	bool should_log(const LogMessage &msg) const override;
 	void log(const LogMessage &msg) override;
 	void flush() override;
+private:
+	bool quiet_warnings;
 };
 
 class StreamLogSink : public LogSink
@@ -368,7 +371,7 @@ public:
 	void set_force_debug(bool enabled) { log_force_debug = enabled ? 1 : 0;	}
 
 	void report_unexpected_error();
-	void report_warning_stats();
+	void report_warning_stats(bool stderr_force);
 
 	void add_experimental_ignore(std::string name) { log_experimentals_ignored.insert(name); }
 	void add_warn(std::string pattern) { log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
@@ -380,15 +383,10 @@ public:
 	void add_verbose_level(int level) { log_verbose_level += level; }
 	void set_expect_no_warnings(bool value) { log_expect_no_warnings = value; }
 	void set_log_time(bool value) { log_time = value; }
-	void set_error_stderr(bool value) { log_error_stderr = value; }
 	void set_cmd_error_throw(bool value) { log_cmd_error_throw = value; }
-	void set_quiet_warnings(bool value) { log_quiet_warnings = value; }
-	void set_stderr_force(bool value) { log_stderr_force = value; }
 	void set_hdump_all(bool value) { log_hdump_all = value; }
 	int get_verbose_level() const { return log_verbose_level; }
 	bool get_log_time() const { return log_time; }
-	bool get_error_stderr() const { return log_error_stderr; }
-	bool get_quiet_warnings() const { return log_quiet_warnings; }
 	bool get_stderr_force() const { return log_stderr_force; }
 	std::chrono::steady_clock::time_point get_initial_time() const;
 
@@ -437,9 +435,7 @@ private:
 	dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
 	bool log_expect_no_warnings = false;
 	bool log_time = false;
-	bool log_error_stderr = false;
 	bool log_cmd_error_throw = false;
-	bool log_quiet_warnings = false;
 	bool log_stderr_force = false;
 	std::map<std::string, std::set<std::string>> log_hdump;
 	bool log_hdump_all = false;

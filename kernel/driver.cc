@@ -160,6 +160,7 @@ int main(int argc, char **argv)
 	bool run_tcl_shell = false;
 	bool mode_v = false;
 	bool mode_q = false;
+	bool quiet_warnings = false;
 	FILE *log_errfile = NULL;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
@@ -325,7 +326,7 @@ int main(int argc, char **argv)
 		}
 		if (result.count("q")) {
 			mode_q = true;
-			if (log_errfile == stderr) logger().set_quiet_warnings(true);
+			if (log_errfile == stderr) quiet_warnings = true;
 			log_errfile = stderr;
 		}
 		if (result.count("v")) {
@@ -405,9 +406,8 @@ int main(int argc, char **argv)
 
 		if (log_errfile == NULL) {
 			logger().add_sink<ConsoleLogSink>();
-			logger().set_error_stderr(true);
 		} else {
-			logger().add_sink<StderrLogSink>();
+			logger().add_sink<StderrLogSink>(quiet_warnings);
 		}
 
 		if (print_banner)
@@ -604,10 +604,7 @@ int main(int argc, char **argv)
 		yosys_xtrace = 0;
 		log_spacer();
 
-		if (mode_v && !mode_q)
-			logger().set_stderr_force(true);
-
-		logger().report_warning_stats();
+		logger().report_warning_stats(mode_v && !mode_q);
 
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
