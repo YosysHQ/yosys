@@ -76,13 +76,10 @@ struct SynthGateMatePass : public ScriptPass
 		log("        legacy p_r.\n");
 		log("\n");
 		log("    -dff\n");
-		log("        run 'abc' with -dff option\n");
-		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
+		log("        run 'abc9' with -dff option\n");
 		log("\n");
 		log("    -abc_new\n");
-		log("        use 'abc_new' instead of 'abc' for mapping. (EXPERIMENTAL)\n");
+		log("        use 'abc_new' instead of 'abc -genlib' for mapping. (EXPERIMENTAL)\n");
 		log("\n");
 		log("    -noiopad\n");
 		log("        disable I/O buffer insertion (useful for hierarchical or \n");
@@ -97,7 +94,7 @@ struct SynthGateMatePass : public ScriptPass
 	}
 
 	string top_opt, vlog_file, json_file;
-	bool noflatten, scopename, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, retime, noiopad, noclkbuf, abc_new;
+	bool noflatten, scopename, nobram, noaddf, nomult, nomx4, nomx8, luttree, dff, noiopad, noclkbuf, abc_new;
 
 	void clear_flags() override
 	{
@@ -113,7 +110,6 @@ struct SynthGateMatePass : public ScriptPass
 		nomx8 = false;
 		luttree = false;
 		dff = false;
-		retime = false;
 		noiopad = false;
 		noclkbuf = false;
 		abc_new = false;
@@ -184,7 +180,7 @@ struct SynthGateMatePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
-				retime = true;
+				// Removed
 				continue;
 			}
 			if (args[argidx] == "-noiopad") {
@@ -283,9 +279,6 @@ struct SynthGateMatePass : public ScriptPass
 			}
 			run("techmap -map +/techmap.v " + techmap_args);
 			run("opt -fast");
-			if (retime) {
-				run("abc -dff -D 1", "(only if -retime)");
-			}
 		}
 
 		if (check_label("map_io", "(skip if '-noiopad')") && !noiopad)
@@ -333,6 +326,7 @@ struct SynthGateMatePass : public ScriptPass
 				}
 				if (abc_new) {
 					run("abc_new " + abc_args, "(with -luttree and -abc_new)");
+					run("scratchpad -unset abc9.script");
 				} else {
 					run("abc " + abc_args, "(with -luttree, without -abc_new)");
 				}
@@ -341,11 +335,11 @@ struct SynthGateMatePass : public ScriptPass
 				run("techmap -map +/gatemate/inv_map.v", "(with -luttree)");
 			}
 			if (!luttree || help_mode) {
-				std::string abc_args = " -dress -lut 4";
+				std::string abc_args = " -lut 4";
 				if (dff) {
 					abc_args += " -dff";
 				}
-				run("abc " + abc_args, "(without -luttree)");
+				run("abc9 " + abc_args, "(without -luttree)");
 			}
 			run("clean");
 		}
