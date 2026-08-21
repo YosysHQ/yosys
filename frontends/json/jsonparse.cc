@@ -452,6 +452,12 @@ void json_import(Design *design, string &modname, JsonNode *node)
 					wire->start_offset = val->data_number;
 			}
 
+			if (net_node->data_dict.count("signed") != 0) {
+				JsonNode *val = net_node->data_dict.at("signed");
+				if (val->type == 'N')
+					wire->is_signed = val->data_number != 0;
+			}
+
 			for (int i = 0; i < GetSize(bits_node->data_array); i++)
 			{
 				JsonNode *bitval_node = bits_node->data_array.at(i);
