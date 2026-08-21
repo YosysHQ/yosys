@@ -18,30 +18,30 @@ YOSYS_NAMESPACE_BEGIN
 #ifdef YOSYS_ENABLE_ZLIB
 
 gzip_ostream::obuf::obuf() {
-    setp(buffer, buffer + buffer_size - 1);
+	setp(buffer, buffer + buffer_size - 1);
 }
 
 bool gzip_ostream::obuf::open(const std::string &filename) {
-    gzf = Zlib::gzopen(filename.c_str(), "wb");
-    return gzf != nullptr;
+	gzf = Zlib::gzopen(filename.c_str(), "wb");
+	return gzf != nullptr;
 }
 
 int gzip_ostream::obuf::sync() {
-    int num = pptr() - pbase();
-    if (num > 0) {
-        if (Zlib::gzwrite(gzf, reinterpret_cast<const void*>(pbase()), num) != num) {
-            return -1;
-        }
-        pbump(-num);
-    }
-    return 0;
+	int num = pptr() - pbase();
+	if (num > 0) {
+		if (Zlib::gzwrite(gzf, reinterpret_cast<const void*>(pbase()), num) != num) {
+			return -1;
+		}
+		pbump(-num);
+	}
+	return 0;
 }
 
 gzip_ostream::obuf::~obuf() {
-    if (gzf) {
-        sync();
-        Zlib::gzclose(gzf);
-    }
+	if (gzf) {
+		sync();
+		Zlib::gzclose(gzf);
+	}
 }
 
 bool gzip_istream::ibuf::open(const std::string& filename) {

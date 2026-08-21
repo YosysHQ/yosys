@@ -412,7 +412,7 @@ struct ClockgatePass : public Pass {
 		}
 
 		log("Converted %d FFs.\n", gated_flop_count);
-    }
+	}
 } ClockgatePass;
 
 

@@ -225,7 +225,7 @@ struct ptr_has_name_member : decltype(ptr_has_name_member_imp<T>(0)){};
 // dynamic width/precision args for the next format conversion specifier.
 template <typename Arg, typename... Args>
 constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escapes, FoundFormatSpec* specs,
-        DynamicIntCount int_args_consumed)
+		DynamicIntCount int_args_consumed)
 {
 	FoundFormatSpec found = find_next_format_spec(fmt, fmt_start, has_escapes);
 	if (found.num_dynamic_ints > int_args_consumed) {

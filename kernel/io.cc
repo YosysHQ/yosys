@@ -554,8 +554,8 @@ void format_emit_unsigned_long_long(std::string &result, std::string_view spec, 
 		return;
 	}
 	if (spec_parameter_size(spec) <= 4) {
-                // On some platforms (Wasm) we must ensure that the arg is properly aligned
-                // after the dynamic `int` parameters.
+		// On some platforms (Wasm) we must ensure that the arg is properly aligned
+		// after the dynamic `int` parameters.
 		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, (unsigned int)arg);
 	} else {
 		format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);

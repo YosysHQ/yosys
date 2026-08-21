@@ -368,10 +368,10 @@ struct IFExpander
 // something. or null otherwise (the module should be blackbox or we couldn't
 // find it and check is not set).
 RTLIL::Module *get_module(RTLIL::Design                  &design,
-                          RTLIL::Cell                    &cell,
-                          RTLIL::Module                  &parent,
-                          bool                            check,
-                          const std::vector<std::string> &libdirs)
+						  RTLIL::Cell                    &cell,
+						  RTLIL::Module                  &parent,
+						  bool                            check,
+						  const std::vector<std::string> &libdirs)
 {
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);

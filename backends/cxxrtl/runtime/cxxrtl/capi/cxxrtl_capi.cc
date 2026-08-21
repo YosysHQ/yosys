@@ -81,8 +81,8 @@ struct cxxrtl_object *cxxrtl_get_parts(cxxrtl_handle handle, const char *name, s
 }
 
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
-                 void (*callback)(void *data, const char *name,
-                                  cxxrtl_object *object, size_t parts)) {
+				 void (*callback)(void *data, const char *name,
+								  cxxrtl_object *object, size_t parts)) {
 	for (auto &it : handle->objects.table)
 		callback(data, it.first.c_str(), static_cast<cxxrtl_object*>(&it.second[0]), it.second.size());
 }

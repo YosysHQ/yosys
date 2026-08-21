@@ -323,8 +323,8 @@ struct SmtrModule {
 struct FunctionalSmtrBackend : public Backend {
 	FunctionalSmtrBackend() : Backend("functional_rosette", "Generate Rosette compatible Racket from Functional IR") {}
 
-    	void help() override {
-        	//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
+	void help() override {
+		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    write_functional_rosette [options] [filename]\n");
 		log("\n");

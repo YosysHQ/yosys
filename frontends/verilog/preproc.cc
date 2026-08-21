@@ -644,8 +644,8 @@ read_define_args()
 // "`define".
 static void
 read_define(const std::string &filename,
-            define_map_t      &defines_map,
-            define_map_t      &global_defines_cache)
+			define_map_t      &defines_map,
+			define_map_t      &global_defines_cache)
 {
 	std::string name, value;
 	arg_map_t args;
@@ -747,12 +747,12 @@ read_define(const std::string &filename,
 
 std::string
 frontend_verilog_preproc(std::istream                 &f,
-                         std::string                   filename,
-                         const define_map_t           &pre_defines,
-                         define_map_t                 &global_defines_cache,
-                         const std::list<std::string> &include_dirs,
-                         ParseState                   &parse_state,
-                         ParseMode                    &parse_mode)
+						 std::string                   filename,
+						 const define_map_t           &pre_defines,
+						 define_map_t                 &global_defines_cache,
+						 const std::list<std::string> &include_dirs,
+						 ParseState                   &parse_state,
+						 ParseMode                    &parse_mode)
 {
 	define_map_t defines;
 	defines.merge(pre_defines);

@@ -1331,9 +1331,9 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 RTLIL::Module *
 AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
-                                         RTLIL::Module *old_module,
-                                         AST::AstNode *new_ast,
-                                         std::unique_ptr<AstNode> original_ast)
+										 RTLIL::Module *old_module,
+										 AST::AstNode *new_ast,
+										 std::unique_ptr<AstNode> original_ast)
 {
 	// The old module will be deleted. Rename and mark for deletion, using
 	// a static counter to make sure we get a unique name.
