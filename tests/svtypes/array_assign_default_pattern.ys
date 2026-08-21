@@ -1,0 +1,18 @@
+read_verilog -sv <<EOT
+module t (input logic [31:0] d, output logic [31:0] q);
+  logic [31:0] m [0:3];
+  assign m = '{default: 32'h0};
+  assign q = m[0] ^ d;
+endmodule
+EOT
+
+hierarchy -top t
+design -reset
+
+logger -expect error "Assignment patterns with 'default:' cannot have further elements." 1
+read_verilog -sv <<EOT
+module top;
+    wire a [2];
+    assign a = '{default: 1'b0, 1'b1};
+endmodule
+EOT

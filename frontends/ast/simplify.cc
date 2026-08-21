@@ -3372,9 +3372,30 @@ skip_dynamic_range_lvalue_expansion:;
 				return add_indices_to_id(std::move(id), array_indices_from_position(mem, position));
 			};
 
+			// Return the value of a `'{default: <value>}` pattern, or nullptr for positional patterns.
+			auto pattern_default_value = [](AstNode *pattern) -> AstNode* {
+				if (pattern->type == AST_ASSIGN_PATTERN && pattern->integer != 0)
+					return pattern->children[0].get();
+				return nullptr;
+			};
+
 			// Validate nested assignment pattern shape against unpacked dimensions.
 			std::function<void(AstNode*, int)> validate_pattern_shape = [&](AstNode *pattern, int dim) {
 				log_assert(pattern->type == AST_ASSIGN_PATTERN);
+
+				if (AstNode *def = pattern_default_value(pattern)) {
+					// A default applies to every element of this dimension. If the value is
+					// itself an assignment pattern, it maps onto the next unpacked dimension;
+					// otherwise it applies recursively down to the leaf elements.
+					if (dim + 1 < num_dims) {
+						if (def->type == AST_ASSIGN_PATTERN)
+							validate_pattern_shape(def, dim + 1);
+						else if (is_unexpanded_array_ref(def) &&
+								!arrays_have_compatible_dims_from(lhs_mem, dim + 1, def->id2ast))
+							input_error("Array dimension mismatch in 'default:' assignment pattern value\n");
+					}
+					return;
+				}
 
 				int expected = lhs_mem->dimensions[dim].range_width;
 				if (GetSize(pattern->children) != expected)
@@ -3404,16 +3425,21 @@ skip_dynamic_range_lvalue_expansion:;
 				AstNode *pattern = rhs;
 				for (int d = 0; d < num_dims; d++) {
 					log_assert(pattern->type == AST_ASSIGN_PATTERN);
-					AstNode *element = pattern->children[position[d]].get();
+					AstNode *def = pattern_default_value(pattern);
+					AstNode *element = def ? def : pattern->children[position[d]].get();
 
 					if (d + 1 == num_dims)
 						return element->clone();
 
 					if (element->type == AST_ASSIGN_PATTERN) {
 						pattern = element;
-					} else {
+					} else if (is_unexpanded_array_ref(element)) {
 						std::vector<int> subposition(position.begin() + d + 1, position.end());
 						return add_position_to_id(element->clone(), element->id2ast, subposition);
+					} else {
+						// A non-aggregate default value applies recursively to the leaf elements.
+						log_assert(def != nullptr);
+						return def->clone();
 					}
 				}
 				log_abort();
@@ -3431,7 +3457,9 @@ skip_dynamic_range_lvalue_expansion:;
 				    !arrays_have_compatible_dims(lhs_mem, false_mem))
 					input_error("Array dimension mismatch in ternary expression\n");
 			} else {
-				if (num_dims > 1 && GetSize(rhs->children) == lhs_mem->dimensions[0].range_width) {
+				if (pattern_default_value(rhs)) {
+					validate_pattern_shape(rhs, 0);
+				} else if (num_dims > 1 && GetSize(rhs->children) == lhs_mem->dimensions[0].range_width) {
 					validate_pattern_shape(rhs, 0);
 				} else if (num_dims == 1 && GetSize(rhs->children) == total_elements) {
 					pattern_is_flat = true;
