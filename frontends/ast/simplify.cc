@@ -380,12 +380,16 @@ static int size_packed_struct(AstNode *snode, int base_offset)
 	for (auto it = snode->children.rbegin(); it != snode->children.rend(); ++it) {
 		auto node = it->get();
 		int width;
+
 		if (node->type == AST_STRUCT || node->type == AST_UNION) {
 			// embedded struct or union
 			width = size_packed_struct(node, base_offset + offset);
 		}
 		else {
-			log_assert(node->type == AST_STRUCT_ITEM);
+			if (!(node->type == AST_STRUCT_ITEM)) {
+				std::string err = "Invalid struct member type: " + type2str(node->type) + " at " + node->loc_string();
+				log_formatted_error(err);
+			}
 			if (node->children.size() > 0 && node->children[0]->type == AST_RANGE) {
 				// member width e.g. bit [7:0] a
 				width = range_width(node, node->children[0].get());
@@ -612,7 +616,10 @@ static void add_members_to_scope(AstNode *snode, std::string name)
 {
 	// add all the members in a struct or union to local scope
 	// in case later referenced in assignments
-	log_assert(snode->type==AST_STRUCT || snode->type==AST_UNION);
+	if (!(snode->type==AST_STRUCT || snode->type==AST_UNION)) {
+		std::string err = "Invalid struct member type: " + type2str(snode->type) + " at " + snode->loc_string();
+		log_formatted_error(err);
+	}
 	for (auto &node : snode->children) {
 		auto member_name = name + "." + node->str;
 		current_scope[member_name] = node.get();
