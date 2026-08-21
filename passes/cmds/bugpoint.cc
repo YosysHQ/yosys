@@ -208,7 +208,7 @@ struct BugpointPass : public Pass {
 					continue;
 
 				if (module->get_bool_attribute(ID::bugpoint_keep))
-				    continue;
+					continue;
 
 				if (index++ == seed)
 				{

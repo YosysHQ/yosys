@@ -95,7 +95,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		std::string hole_name = bit_assn? bit_m[3].str() : m[3].str();
 		unsigned int hole_offset = bit_assn? atoi(bit_m[4].str().c_str()) : 0;
 		RTLIL::State hole_value = bit_assn? (atoi(bit_m[5].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0)
-		                                  : (atoi(m[4].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0);
+										  : (atoi(m[4].str().c_str()) == 1? RTLIL::State::S1 : RTLIL::State::S0);
 
 		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
 		//then try to find a cell with a matching location.
@@ -313,7 +313,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 			if (cur_thresh != 0) {
 				//Add thresholding logic (but not on the initial run when we don't have a sense of where to start):
 				RTLIL::SigSpec comparator = maximize? module->Ge(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
-				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
+													: module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
 				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
 				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);

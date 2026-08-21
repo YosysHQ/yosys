@@ -241,9 +241,9 @@ struct ClockgatePass : public Pass {
 		}
 		bool operator==(const ClkNetInfo& other) const {
 			return (clk_bit == other.clk_bit) &&
-			       (ce_bit == other.ce_bit) &&
-			       (pol_clk == other.pol_clk) &&
-			       (pol_ce == other.pol_ce);
+				   (ce_bit == other.ce_bit) &&
+				   (pol_clk == other.pol_clk) &&
+				   (pol_ce == other.pol_ce);
 		}
 	};
 

@@ -1223,8 +1223,8 @@ struct TestCellPass : public Pass {
 			}
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "
-					    "with worst offender being by %d (%.1f%%)\n",
-					    cell_type.c_str(), 100 * (float)failed / (float)num_iter,
+						"with worst offender being by %d (%.1f%%)\n",
+						cell_type.c_str(), 100 * (float)failed / (float)num_iter,
 						worst_abs, 100 * worst_rel);
 			}
 		}

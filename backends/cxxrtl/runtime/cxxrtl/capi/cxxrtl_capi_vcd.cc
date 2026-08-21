@@ -53,7 +53,7 @@ void cxxrtl_vcd_add_from(cxxrtl_vcd vcd, cxxrtl_handle handle) {
 
 void cxxrtl_vcd_add_from_if(cxxrtl_vcd vcd, cxxrtl_handle handle, void *data,
 														int (*filter)(void *data, const char *name,
-														              const cxxrtl_object *object)) {
+																	  const cxxrtl_object *object)) {
 	vcd->writer.add(cxxrtl_debug_items_from_handle(handle),
 		[=](const std::string &name, const cxxrtl::debug_item &item) {
 			return filter(data, name.c_str(), static_cast<const cxxrtl_object*>(&item));

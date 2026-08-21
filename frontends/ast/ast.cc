@@ -1637,8 +1637,8 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 							// Get all members of this non-overridden dummy interface instance:
 							RTLIL::Module *intfmodule = design->module(interface_type); // All interfaces should at this point in time (assuming
-							                                                              // reprocess_module is called from the hierarchy pass) be
-							                                                              // present in design->modules_
+																						// reprocess_module is called from the hierarchy pass) be
+																						// present in design->modules_
 							AstModule *ast_module_of_interface = (AstModule*)intfmodule;
 							std::string interface_modport_compare_str = "\\" + interface_modport;
 							AstNode *modport = find_modport(ast_module_of_interface->ast.get(), interface_modport_compare_str); // modport == NULL if no modport

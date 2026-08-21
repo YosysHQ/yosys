@@ -265,7 +265,7 @@ constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escap
 		break;
 	case CONVSPEC_CHAR_PTR:
 		if constexpr (!std::is_convertible_v<Arg, const char *> &&
-		        !std::is_convertible_v<Arg, const std::string &> &&
+			!std::is_convertible_v<Arg, const std::string &> &&
 			!std::is_convertible_v<Arg, const std::string_view &> &&
 			!std::is_convertible_v<Arg, const RTLIL::IdString &> &&
 			!has_name_member<Arg>() &&
@@ -423,7 +423,7 @@ inline void format_emit(std::string &result, std::string_view fmt, int fmt_start
 			YOSYS_ABORT("Internal error");
 		}
 		format_emit(result, fmt, fmt_start, has_escapes, specs, dynamic_ints,
-		            static_cast<DynamicIntCount>(static_cast<uint8_t>(num_dynamic_ints) + 1), args...);
+					static_cast<DynamicIntCount>(static_cast<uint8_t>(num_dynamic_ints) + 1), args...);
 		return;
 	}
 	std::string_view str = fmt.substr(fmt_start, specs->start - fmt_start);

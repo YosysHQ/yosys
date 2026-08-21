@@ -207,9 +207,9 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		// them doesn't matter so they can be collapsed together into one rule
 		// with the disjunction of triggers
 		if (!async_rules.empty() &&
-		    std::all_of(async_rules.begin(), async_rules.end(), [&](auto& p) {
-		        return p.first == async_rules.front().first;
-		    }))
+			std::all_of(async_rules.begin(), async_rules.end(), [&](auto& p) {
+				return p.first == async_rules.front().first;
+			}))
 		{
 			const auto rstval = async_rules.front().first;
 

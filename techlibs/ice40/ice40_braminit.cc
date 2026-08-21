@@ -34,9 +34,9 @@ static void run_ice40_braminit(Module *module)
 
 		/* Only consider cells we're interested in */
 		if (cell->type != ID(SB_RAM40_4K) &&
-		    cell->type != ID(SB_RAM40_4KNR) &&
-		    cell->type != ID(SB_RAM40_4KNW) &&
-		    cell->type != ID(SB_RAM40_4KNRNW))
+			cell->type != ID(SB_RAM40_4KNR) &&
+			cell->type != ID(SB_RAM40_4KNW) &&
+			cell->type != ID(SB_RAM40_4KNRNW))
 			continue;
 		if (!cell->hasParam(ID(INIT_FILE)))
 			continue;

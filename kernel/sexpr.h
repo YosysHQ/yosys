@@ -37,7 +37,7 @@ public:
 	// It would be nicer to have an std::initializer_list constructor,
 	// but that causes confusing issues with overload resolution sometimes.
 	template<typename... Args> static SExpr list(Args&&... args) {
-	    return SExpr(std::vector<SExpr>{std::forward<Args>(args)...});
+		return SExpr(std::vector<SExpr>{std::forward<Args>(args)...});
 	}
 	bool is_atom() const { return std::holds_alternative<std::string>(_v); }
 	std::string const &atom() const { return std::get<std::string>(_v); }
@@ -51,7 +51,7 @@ std::ostream &operator<<(std::ostream &os, SExpr const &sexpr);
 namespace SExprUtil {
 	// A little hack so that `using SExprUtil::list` lets you import a shortcut to `SExpr::list`
 	template<typename... Args> SExpr list(Args&&... args) {
-	    return SExpr(std::vector<SExpr>{std::forward<Args>(args)...});
+		return SExpr(std::vector<SExpr>{std::forward<Args>(args)...});
 	}
 }
 

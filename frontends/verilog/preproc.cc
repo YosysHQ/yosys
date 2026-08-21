@@ -302,9 +302,9 @@ struct arg_map_t
 				val = given;
 			else
 				log_error("Cannot expand macro `%s by giving only %d argument%s "
-				          "(argument %d has no default).\n",
-				          macro_name.c_str(), GetSize(arg_vals),
-				          (GetSize(arg_vals) == 1 ? "" : "s"), i + 1);
+						  "(argument %d has no default).\n",
+						  macro_name.c_str(), GetSize(arg_vals),
+						  (GetSize(arg_vals) == 1 ? "" : "s"), i + 1);
 
 			assert(val);
 			ret.push_back(std::make_pair(str_token(macro_name, i), * val));
@@ -321,8 +321,8 @@ struct define_body_t
 {
 	define_body_t(const std::string &body, const arg_map_t *args = nullptr)
 	  : body(body),
-	    has_args(args != nullptr),
-	    args(args ? *args : arg_map_t())
+		has_args(args != nullptr),
+		args(args ? *args : arg_map_t())
 	{}
 
 	std::string body;
@@ -382,7 +382,7 @@ void define_map_t::log() const
 		const std::string &name = it.first;
 		const define_body_t &body = *it.second;
 		Yosys::log("`define %s%s %s\n",
-		           name.c_str(), body.has_args ? "()" : "", body.body.c_str());
+				   name.c_str(), body.has_args ? "()" : "", body.body.c_str());
 	}
 }
 
@@ -419,7 +419,7 @@ static bool read_argument(std::string &dest)
 			}
 			if (openers.back() != '(')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
-				          openers.back(), tok[0]);
+						  openers.back(), tok[0]);
 
 			openers.pop_back();
 			dest += tok;
@@ -429,7 +429,7 @@ static bool read_argument(std::string &dest)
 			char opener = openers.empty() ? '(' : openers.back();
 			if (opener != '[')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
-				          opener, tok[0]);
+						  opener, tok[0]);
 
 			openers.pop_back();
 			dest += tok;
@@ -439,7 +439,7 @@ static bool read_argument(std::string &dest)
 			char opener = openers.empty() ? '(' : openers.back();
 			if (opener != '{')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
-				          opener, tok[0]);
+						  opener, tok[0]);
 
 			openers.pop_back();
 			dest += tok;

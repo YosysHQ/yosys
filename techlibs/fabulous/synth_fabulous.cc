@@ -324,15 +324,15 @@ struct SynthPass : public ScriptPass {
 				run("wreduce t:$mul");
 				if (help_mode) {
 					run("techmap -map +/mul2dsp.v -map <multiplier_map> -D DSP_A_MAXWIDTH=<a_max> -D DSP_B_MAXWIDTH=<b_max> "
-					    "-D DSP_A_MINWIDTH=<a_min> -D DSP_B_MINWIDTH=<b_min> -D DSP_Y_MINWIDTH=<y_min> "
-					    "-D DSP_NAME=$__FABULOUS_MUL",
-					    "(if -multiplier-map)");
+						"-D DSP_A_MINWIDTH=<a_min> -D DSP_B_MINWIDTH=<b_min> -D DSP_Y_MINWIDTH=<y_min> "
+						"-D DSP_NAME=$__FABULOUS_MUL",
+						"(if -multiplier-map)");
 				} else {
 					run(stringf("techmap -map +/mul2dsp.v -map %s -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d "
-						    "-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_Y_MINWIDTH=%d "
-						    "-D DSP_NAME=$__FABULOUS_MUL",
-						    multiplier_map.c_str(), multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min,
-						    multiplier_y_min));
+								"-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_Y_MINWIDTH=%d "
+								"-D DSP_NAME=$__FABULOUS_MUL",
+								multiplier_map.c_str(), multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min,
+								multiplier_y_min));
 				}
 				run("select a:mul2dsp", "              (if -multiplier-map)");
 				run("setattr -unset mul2dsp", "        (if -multiplier-map)");
@@ -383,10 +383,10 @@ struct SynthPass : public ScriptPass {
 		if (check_label("map_iopad", "(skip if -noiopad)") && !noiopad) {
 			run("opt -full");
 			run("iopadmap -bits "
-			    "-inpad $__FABULOUS_IBUF OUT:PAD "
-			    "-outpad $__FABULOUS_OBUF IN:PAD "
-			    "-toutpad $__FABULOUS_TBUF EN:IN:PAD "
-			    "-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD");
+				"-inpad $__FABULOUS_IBUF OUT:PAD "
+				"-outpad $__FABULOUS_OBUF IN:PAD "
+				"-toutpad $__FABULOUS_TBUF EN:IN:PAD "
+				"-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD");
 		}
 
 		if (check_label("map_ffs")) {

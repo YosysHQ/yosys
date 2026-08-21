@@ -214,7 +214,7 @@ struct SmtModule {
 		w.push();
 		w.open(list("define-fun", name,
 			list(list("inputs", input_struct.name),
-			     list("state", state_struct.name)),
+				 list("state", state_struct.name)),
 			list("Pair", output_struct.name, state_struct.name)));
 		auto inlined = [&](Functional::Node n) {
 			return n.fn() == Functional::Fn::constant;

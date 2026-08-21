@@ -106,7 +106,7 @@ struct JsonNode
 				type = 'N';
 				if (ch == '-') {
 					data_number = 0;
-				       	negative = true;
+					negative = true;
 				} else {
 					data_number = ch - '0';
 				}

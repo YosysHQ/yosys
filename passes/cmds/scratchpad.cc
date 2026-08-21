@@ -122,7 +122,7 @@ struct ScratchpadPass : public Pass {
 				string value = design->scratchpad_get_string(identifier);
 				if (value != expected) {
 					log_error("scratchpad entry '%s' is set to '%s' instead of the asserted '%s'\n",
-					           identifier.c_str(), value.c_str(), expected.c_str());
+							   identifier.c_str(), value.c_str(), expected.c_str());
 				}
 				continue;
 			}

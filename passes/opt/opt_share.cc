@@ -520,8 +520,8 @@ struct OptSharePass : public Pass {
 						const OpMuxConn *next_p = &(*port_conns.begin());
 
 						if ((next_p->op_outsig_offset == seed->op_outsig_offset) &&
-						    (next_p->mux_port_offset == seed->mux_port_offset) && mergeable(next_p->op, seed->op) &&
-						    next_p->sig.size() == seed->sig.size())
+							(next_p->mux_port_offset == seed->mux_port_offset) && mergeable(next_p->op, seed->op) &&
+							next_p->sig.size() == seed->sig.size())
 							mergeable_conns.push_back(next_p);
 					}
 
@@ -558,9 +558,9 @@ struct OptSharePass : public Pass {
 
 			for (auto &shared : merged_ops) {
 				log("    Found cells that share an operand and can be merged by moving the %s %s in front "
-				    "of "
-				    "them:\n",
-				    shared.mux->type.unescape(), shared.mux);
+					"of "
+					"them:\n",
+					shared.mux->type.unescape(), shared.mux);
 				for (const auto& op : shared.ports)
 					log("        %s\n", op.op);
 				log("\n");

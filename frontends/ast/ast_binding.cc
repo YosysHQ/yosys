@@ -38,11 +38,11 @@ AST::Binding::describe() const
 {
 	std::ostringstream oss;
 	oss << "directive to bind " << ast_node->str
-	    << " to " << target_name.str();
+		<< " to " << target_name.str();
 	if (!target_type.empty())
 		oss << " (target type: "
-		    << target_type.str()
-		    << ")";
+			<< target_type.str()
+			<< ")";
 	return oss.str();
 }
 
