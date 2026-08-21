@@ -189,4 +189,14 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 			essentials
 		BOOTSTRAP
 	)
+
+	yosys_core(yc
+		yc.cc
+		REQUIRES
+			essentials
+		LIBRARIES
+			fmt::fmt
+			slang::slang
+		BOOTSTRAP
+	)
 endif()
