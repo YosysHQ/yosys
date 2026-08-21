@@ -11,7 +11,7 @@ YOSYS_NAMESPACE_BEGIN
 TEST(CellTypesTest, basic)
 {
 	yosys_setup();
-	log_files.push_back(stdout);
+	if (logger().empty()) logger().add_sink<ConsoleLogSink>();
 	CellTypes older;
 	NewCellTypes newer;
 	older.setup(nullptr);
