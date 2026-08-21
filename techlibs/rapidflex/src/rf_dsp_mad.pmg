@@ -1,0 +1,26 @@
+pattern rf_dsp_mad
+
+state <IdString> add_ba
+
+state <int> mul_nusers
+state <int> add_nusers
+
+match mul
+    select mul->type.in($mul)
+    select nusers(port(mul, \Y)) <= 3
+    set mul_nusers nusers(port(mul, \Y))
+endmatch
+
+match add
+    select add->type.in($add, $sub)
+    choice <IdString> AB {\A, \B}
+    define <IdString> BA (AB == \A ? \B : \A)
+    index <SigSpec> port(add, AB) === port(mul, \Y)
+    select nusers(port(add, \Y)) <= 3
+    set add_nusers nusers(port(add, \Y))
+    set add_ba BA
+endmatch
+
+code
+    accept;
+endcode
