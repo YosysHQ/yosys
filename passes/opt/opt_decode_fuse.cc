@@ -77,6 +77,13 @@ PRIVATE_NAMESPACE_BEGIN
 //      still rise -- many 1-bit cells replacing a few wide ones -- while bit
 //      counts fall, which is the trade this pass exists to make.
 //
+//      That budget is a pre-fold estimate: it counts the bit-cells the emit
+//      writes down, before boolopt and the mapper absorb the constant compares a
+//      deep fold leaves behind, so it reads a fold-heavy push as growth that
+//      never reaches the netlist. -max-growth trades exactness for those cases,
+//      allowing the estimate to overshoot by a bounded fraction. The depth test
+//      is untouched, so the overshoot still has to buy levels.
+//
 // Eligibility has to be recomputed after each batch: a stage's own select is
 // often a compare on the stage below it (`fmt_e == 25` above), and that compare
 // is only the last reader of that stage once the stage above it is gone.
@@ -123,6 +130,7 @@ struct OptDecodeFuseWorker
 	int max_var_leaves = 4;
 	int max_emit_cells = 512;
 	int max_rounds = 8;
+	int max_growth_pct = 0;
 
 	int regions = 0;
 	int tests_pushed = 0;
@@ -703,14 +711,17 @@ struct OptDecodeFuseWorker
 			}
 		}
 		int dies = (plan_nodes + codes) * width;
+		// 64-bit: -max-growth is unbounded above, so the scaled budget must not
+		// wrap into a negative int and refuse everything.
+		int64_t budget = dies + int64_t(dies) * max_growth_pct / 100;
 		if (after >= before) {
 			log_debug("  skipping %s: %d level(s) pushed vs %d now, no depth win\n",
 			          log_signal(v), after, before);
 			return false;
 		}
-		if (born > dies) {
-			log_debug("  skipping %s: %d bit-cell(s) emitted against %d removed\n",
-			          log_signal(v), born, dies);
+		if (born > budget) {
+			log_debug("  skipping %s: %d bit-cell(s) emitted against %d removed "
+			          "(budget %lld)\n", log_signal(v), born, dies, (long long)budget);
 			return false;
 		}
 
@@ -835,8 +846,8 @@ struct OptDecodeFusePass : public Pass {
 		log("    single path the push is depth neutral, so every level of win comes\n");
 		log("    from folding;\n");
 		log("  - the 1-bit cells it emits must fit in the bit count of the network and\n");
-		log("    wide compares it deletes. Cell counts still rise (many 1-bit cells for\n");
-		log("    a few wide ones) while bit counts fall.\n");
+		log("    wide compares it deletes, within -max-growth. Cell counts still rise\n");
+		log("    (many 1-bit cells for a few wide ones) while bit counts fall.\n");
 		log("\n");
 		log("    -max-nodes N, -max_nodes N\n");
 		log("        maximum select nodes in one network (default 64).\n");
@@ -858,6 +869,14 @@ struct OptDecodeFusePass : public Pass {
 		log("        how many times to re-derive candidates per module (default 8).\n");
 		log("        Each round exposes the select compare of the stage below.\n");
 		log("\n");
+		log("    -max-growth PCT, -max_growth PCT\n");
+		log("        percent by which the emitted bit-cell count may exceed the\n");
+		log("        removed one (default 0, i.e. it may not). The emit estimate is\n");
+		log("        taken before boolopt folds the constant compares a deep push\n");
+		log("        leaves behind, so on a network that folds hard it overstates the\n");
+		log("        area that survives mapping. Raising this lets those pushes\n");
+		log("        through; the depth win is still required either way.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -869,6 +888,7 @@ struct OptDecodeFusePass : public Pass {
 		int max_var_leaves = 4;
 		int max_emit_cells = 512;
 		int max_rounds = 8;
+		int max_growth_pct = 0;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -897,6 +917,13 @@ struct OptDecodeFusePass : public Pass {
 				max_rounds = std::stoi(args[++argidx]);
 				continue;
 			}
+			if ((args[argidx] == "-max-growth" || args[argidx] == "-max_growth") &&
+			    argidx + 1 < args.size()) {
+				max_growth_pct = std::stoi(args[++argidx]);
+				if (max_growth_pct < 0)
+					log_cmd_error("-max-growth must not be negative.\n");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -916,6 +943,7 @@ struct OptDecodeFusePass : public Pass {
 			worker.max_var_leaves = max_var_leaves;
 			worker.max_emit_cells = max_emit_cells;
 			worker.max_rounds = max_rounds;
+			worker.max_growth_pct = max_growth_pct;
 			worker.run();
 			total_regions += worker.regions;
 			total_tests += worker.tests_pushed;
