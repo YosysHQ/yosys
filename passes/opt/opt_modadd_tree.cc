@@ -767,7 +767,8 @@ struct OptModAddTreeWorker : CutRegionWorker
 			Cell *cell = c;
 			Cell *nc = module->addCell(NEW_ID2_SUFFIX("modadd_step"), c->type);
 			nc->parameters = c->parameters;
-			nc->attributes = c->attributes;
+			if (c->has_attribute(ID::src))
+				nc->attributes[ID::src] = c->attributes.at(ID::src);
 			for (auto &conn : c->connections())
 				nc->setPort(conn.first, lookup(conn.second));
 			cells_added++;

@@ -888,7 +888,6 @@ struct OptMuxPushWorker
         RTLIL::IdString branch_b_name = NEW_ID2;
         RTLIL::Cell *branch_b = module->addCell(branch_b_name, cell->type);
         branch_b->parameters = cell->parameters;
-        branch_b->attributes = cell->attributes;
         branch_b->set_src_attribute(cell->get_src_attribute());
 
         RTLIL::SigSpec orig_y = cell->getPort(ID::Y);
