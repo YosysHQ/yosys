@@ -10,4 +10,3 @@ EOT
 hierarchy -top top
 techmap
 abc_new -liberty ../liberty/normal.lib -liberty ../liberty/dff.lib
-
