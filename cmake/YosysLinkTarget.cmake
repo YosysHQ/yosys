@@ -19,7 +19,7 @@ function(yosys_cxx_library arg_TARGET arg_SCOPE)
 	set_target_properties(${arg_TARGET} PROPERTIES
 		PREFIX "${YOSYS_PROGRAM_PREFIX}"
 		OUTPUT_NAME "${arg_OUTPUT_NAME}"
-		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+		RUNTIME_OUTPUT_DIRECTORY ${YOSYS_CMAKE_BINARY_DIR}
 	)
 	if (${arg_INSTALL_IF})
 		install(TARGETS ${arg_TARGET} DESTINATION ${YOSYS_INSTALL_LIBDIR})
@@ -49,7 +49,7 @@ function(yosys_cxx_executable arg_TARGET)
 	set_target_properties(${arg_TARGET} PROPERTIES
 		PREFIX "${YOSYS_PROGRAM_PREFIX}"
 		OUTPUT_NAME "${arg_OUTPUT_NAME}"
-		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+		RUNTIME_OUTPUT_DIRECTORY ${YOSYS_CMAKE_BINARY_DIR}
 	)
 	if (${arg_INSTALL_IF})
 		install(TARGETS ${arg_TARGET} DESTINATION ${YOSYS_INSTALL_BINDIR})
@@ -82,9 +82,9 @@ function(yosys_python_executable basename source)
 			COMMAND_ERROR_IS_FATAL ANY
 		)
 
-		add_executable(${basename} ${CMAKE_SOURCE_DIR}/misc/launcher.c)
+		add_executable(${basename} ${YOSYS_CMAKE_SOURCE_DIR}/misc/launcher.c)
 		target_compile_definitions(${basename} GUI=0)
-		set(scriptname ${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}${basename}-script.py)
+		set(scriptname ${YOSYS_CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}${basename}-script.py)
 		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${source} ${scriptname} @ONLY)
 		if (${arg_INSTALL_IF})
 			install(TARGETS ${basename} DESTINATION ${YOSYS_INSTALL_BINDIR})
@@ -92,7 +92,7 @@ function(yosys_python_executable basename source)
 		endif()
 	else()
 		set(PYTHON_SHEBANG "/usr/bin/env python3")
-		set(scriptname ${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}${basename}${CMAKE_EXECUTABLE_SUFFIX})
+		set(scriptname ${YOSYS_CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}${basename}${CMAKE_EXECUTABLE_SUFFIX})
 		configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${source} ${scriptname} USE_SOURCE_PERMISSIONS @ONLY)
 		if (${arg_INSTALL_IF})
 			install(PROGRAMS ${scriptname} DESTINATION ${YOSYS_INSTALL_BINDIR})
