@@ -1,0 +1,65 @@
+read_verilog << EOT
+`define WIDTH 5
+module top(input CLK, input [`WIDTH-1:0] D, input RST, output [`WIDTH-1:0] Q_w);
+  reg [`WIDTH-1:0] Q;
+  assign Q_w = Q;
+
+  always @(posedge CLK, posedge RST)
+  if (RST)
+       {Q[`WIDTH-1], Q[0]} <= 0;
+  else
+	Q <= D;
+endmodule // top
+EOT
+
+proc
+opt
+check -assert
+select -assert-count 1 t:$dffe
+select -assert-count 2 t:$adff
+
+design -reset
+read_verilog << EOT
+`define WIDTH 9
+module top(input CLK, input [`WIDTH-1:0] D, input RST, input [`WIDTH-1:0] DR, output [`WIDTH-1:0] Q_w);
+  reg [`WIDTH-1:0] Q2;
+  assign Q_w = Q2;
+
+  always @(posedge CLK, posedge RST)
+  if (RST)
+    Q2 = { 2'b11, Q2[`WIDTH-3:3], DR[2:1], 1'b 0};
+  else
+    Q2 <= D;
+endmodule // top
+EOT
+proc
+opt
+check -assert
+select -assert-count 1 t:$dffe
+select -assert-count 2 t:$adff
+select -assert-count 1 t:$aldff
+
+design -reset
+read_verilog << EOT
+`define WIDTH 4
+module top(input CLK, input [`WIDTH-1:0] D, input RST, input [`WIDTH-1:0] DR, output [`WIDTH-1:0] Q_w,  output [`WIDTH-1:0] Q3_w);
+  reg [`WIDTH-1:0] Q2;
+  reg [`WIDTH-1:0] Q3;
+  assign Q_w = Q2;
+  assign Q3_w = Q3;
+
+  always @(posedge CLK, posedge RST)
+  if (RST)
+    {Q2[3:2], Q3[3:2], Q2[1:0],Q3[1:0]} = {Q2[3:1], 2'b11, Q3[2:0]};
+  else begin
+      Q2 <= D;
+      Q3 <= DR;
+  end
+endmodule // top
+EOT
+proc
+opt
+check -assert
+select -assert-count 2 t:$dffe
+select -assert-count 2 t:$adff
+select -assert-count 2 t:$aldff
