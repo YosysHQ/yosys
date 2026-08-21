@@ -81,14 +81,7 @@ struct SynthMicrochipPass : public ScriptPass {
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
-		log("        Run 'abc'/'abc9' with -dff option\n");
-		log("\n");
-		log("    -retime\n");
-		log("        Run 'abc' with '-D 1' option to enable flip-flop retiming.\n");
-		log("        implies -dff.\n");
-		log("\n");
-		log("    -noabc9\n");
-		log("        Use classic ABC flow instead of ABC9\n");
+		log("        Run 'abc9' with -dff option\n");
 		log("\n");
 		log("    -discard-ffinit\n");
 		log("        discard FF init value instead of emitting an error\n");
@@ -100,8 +93,8 @@ struct SynthMicrochipPass : public ScriptPass {
 	}
 
 	std::string top_opt, edif_file, blif_file, vlog_file, family;
-	bool flatten, retime, noiopad, noclkbuf, nobram, nocarry, nowidelut, nodsp;
-	bool abc9, dff;
+	bool flatten, noiopad, noclkbuf, nobram, nocarry, nowidelut, nodsp;
+	bool dff;
 	bool discard_ffinit;
 	int lut_size;
 
@@ -116,14 +109,12 @@ struct SynthMicrochipPass : public ScriptPass {
 		vlog_file.clear();
 		family = "polarfire";
 		flatten = true;
-		retime = false;
 		noiopad = false;
 		noclkbuf = false;
 		nocarry = false;
 		nobram = false;
 		nowidelut = false;
 		nodsp = false;
-		abc9 = true;
 		dff = false;
 		lut_size = 4;
 		discard_ffinit = false;
@@ -173,7 +164,7 @@ struct SynthMicrochipPass : public ScriptPass {
 			}
 			if (args[argidx] == "-retime") {
 				dff = true;
-				retime = true;
+				// Removed: ABC9 does not support retiming.
 				continue;
 			}
 			if (args[argidx] == "-nocarry") {
@@ -204,7 +195,7 @@ struct SynthMicrochipPass : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-noabc9") {
-				abc9 = false;
+				// Removed: ABC9 is now the default.
 				continue;
 			}
 			if (args[argidx] == "-nodsp") {
@@ -239,9 +230,6 @@ struct SynthMicrochipPass : public ScriptPass {
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (abc9 && retime)
-			log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_MICROCHIP pass.\n");
 		log_push();
@@ -480,41 +468,25 @@ struct SynthMicrochipPass : public ScriptPass {
 				run("dfflegalize" + params, "(Converts FFs to supported types)");
 			}
 
-			if (abc9 || help_mode) {
-				if (dff || help_mode)
-					run("zinit -all w:* t:$_SDFFCE_*", "('-dff' only)");
-				run("techmap -D NO_LUT -map +/microchip/cells_map.v", "('-abc9' only)");
-			}
+			if (dff || help_mode)
+				run("zinit -all w:* t:$_SDFFCE_*", "('-dff' only)");
+			run("techmap -D NO_LUT -map +/microchip/cells_map.v");
 		}
 
 		if (check_label("map_luts")) {
 			run("opt_expr -mux_undef -noclkinv");
-			if (help_mode)
-				run("abc -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff', '-retime')");
-			else if (abc9) {
-
-				std::string abc9_opts;
-				// for the if command in abc to specify wire delay between adjacent LUTs (default = 0)
-				// NOTE: should not have 0 wire delay between LUTs,
-				//		 otherwise abc might use LUT2+LUT3 instead of single LUT4
-				abc9_opts += " -W 300";
-				if (nowidelut)
-					abc9_opts += stringf(" -maxlut %d", lut_size);
-				if (dff)
-					abc9_opts += " -dff";
-				run("abc9" + abc9_opts);
-			} else {
-				std::string abc_opts = " -lut " + lut_size_s;
-				if (dff)
-					abc_opts += " -dff";
-				if (retime)
-					abc_opts += " -D 1";
-				run("abc" + abc_opts);
-			}
+			std::string abc9_opts;
+			// for the if command in abc to specify wire delay between adjacent LUTs (default = 0)
+			// NOTE: should not have 0 wire delay between LUTs,
+			//		 otherwise abc might use LUT2+LUT3 instead of single LUT4
+			abc9_opts += " -W 300";
+			if (nowidelut)
+				abc9_opts += stringf(" -maxlut %d", lut_size);
+			if (dff)
+				abc9_opts += " -dff";
+			run("abc9" + abc9_opts);
 			run("clean");
 
-			if (help_mode || !abc9)
-				run("techmap -D NO_LUT -map +/microchip/cells_map.v", "(only if not '-abc9')");
 			std::string techmap_args = "-map +/microchip/cells_map.v -D FINAL_MAP";
 			techmap_args += " -D LUT_WIDTH=" + lut_size_s;
 			run("techmap " + techmap_args);

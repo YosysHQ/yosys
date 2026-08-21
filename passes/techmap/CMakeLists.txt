@@ -166,13 +166,6 @@ yosys_pass(lut2mux
 yosys_pass(lut2bmux
 	lut2bmux.cc
 )
-yosys_pass(nlutmap
-	nlutmap.cc
-	REQUIRES
-		abc
-		lut2mux
-		opt_clean
-)
 yosys_pass(shregmap
 	shregmap.cc
 )

@@ -11,9 +11,6 @@ yosys_pass(annotate_ff_width
 yosys_pass(breakreduce
 	breakreduce.cc
 )
-yosys_pass(breaksop
-	breaksop.cc
-)
 yosys_pass(bus_rebuild
 	bus_rebuild.cc
 )

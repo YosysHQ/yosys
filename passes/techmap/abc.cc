@@ -32,7 +32,6 @@
 #define ABC_COMMAND_LIB "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 #define ABC_COMMAND_CTR "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put; buffer; upsize {D}; dnsize {D}; stime -p"
 #define ABC_COMMAND_LUT "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; if; mfs2"
-#define ABC_COMMAND_SOP "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; dch -f; cover {I} {P}"
 #define ABC_COMMAND_DFL "strash; &get -n; &fraig -x; &put; scorr; dc2; dretime; strash; &get -n; &dch -f; &nf {D}; &put"
 
 #include "kernel/register.h"
@@ -128,13 +127,10 @@ struct AbcConfig
 	std::string abc_liberty_args;
 	vector<int> lut_costs;
 	std::string delay_target;
-	std::string sop_inputs;
-	std::string sop_products;
 	std::vector<std::string> dont_use_cells;
 	bool cleanup = true;
 	bool keepff = false;
 	bool show_tempdir = false;
-	bool sop_mode = false;
 	bool word_mode = false;
 	bool abc_dress = false;
 	bool map_mux4 = false;
@@ -1088,8 +1084,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			run_abc.abc_script += "; lutpack -S 1";
 	} else if (!config.liberty_files.empty() || !config.genlib_files.empty())
 		run_abc.abc_script += config.constr_file.empty() ? ABC_COMMAND_LIB : ABC_COMMAND_CTR;
-	else if (config.sop_mode)
-		run_abc.abc_script += ABC_COMMAND_SOP;
 	else
 		run_abc.abc_script += ABC_COMMAND_DFL;
 
@@ -1099,12 +1093,6 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 
 	for (size_t pos = run_abc.abc_script.find("{D}"); pos != std::string::npos; pos = run_abc.abc_script.find("{D}", pos))
 		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.delay_target + run_abc.abc_script.substr(pos+3);
-
-	for (size_t pos = run_abc.abc_script.find("{I}"); pos != std::string::npos; pos = run_abc.abc_script.find("{I}", pos))
-		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_inputs + run_abc.abc_script.substr(pos+3);
-
-	for (size_t pos = run_abc.abc_script.find("{P}"); pos != std::string::npos; pos = run_abc.abc_script.find("{P}", pos))
-		run_abc.abc_script = run_abc.abc_script.substr(0, pos) + config.sop_products + run_abc.abc_script.substr(pos+3);
 
 	if (config.abc_dress)
 		run_abc.abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
@@ -1185,7 +1173,10 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	std::string line;
 	char buf[1024];
 	while (true) {
-		int ret = read(fd, buf, sizeof(buf) - 1);
+		int ret;
+		do {
+			ret = read(fd, buf, sizeof(buf) - 1);
+		} while (ret == -1 && errno == EINTR);
 		if (ret < 0) {
 			logs.log_error("Failed to read from ABC, errno=%d", errno);
 			return false;
@@ -1540,7 +1531,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, dict<SigSpec, std::string> &
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
 	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), false, run_abc.config.sop_mode);
+	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_));
 
 	ifs.close();
 
@@ -1995,9 +1986,6 @@ struct AbcPass : public Pass {
 		log("        for -lut/-luts (different LUT sizes):\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
 		log("\n");
-		log("        for -sop:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_SOP));
-		log("\n");
 		log("        otherwise:\n");
 		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL));
 		log("\n");
@@ -2033,14 +2021,6 @@ struct AbcPass : public Pass {
 		log("        this also replaces 'dretime' with 'dretime; retime -o {D}' in the\n");
 		log("        default scripts above.\n");
 		log("\n");
-		log("    -I <num>\n");
-		log("        maximum number of SOP inputs.\n");
-		log("        (replaces {I} in the default scripts above)\n");
-		log("\n");
-		log("    -P <num>\n");
-		log("        maximum number of SOP products.\n");
-		log("        (replaces {P} in the default scripts above)\n");
-		log("\n");
 		log("    -lut <width>\n");
 		log("        generate netlist using luts of (max) the specified width.\n");
 		log("\n");
@@ -2053,9 +2033,6 @@ struct AbcPass : public Pass {
 		log("    -luts <cost1>,<cost2>,<cost3>,<sizeN>:<cost4-N>,..\n");
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
-		log("\n");
-		log("    -sop\n");
-		log("        map to sum-of-product cells and inverters\n");
 		log("\n");
 		// log("    -mux4, -mux8, -mux16\n");
 		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
@@ -2166,15 +2143,8 @@ struct AbcPass : public Pass {
 		if (design->scratchpad.count("abc.D")) {
 			config.delay_target = "-D " + design->scratchpad_get_string("abc.D");
 		}
-		if (design->scratchpad.count("abc.I")) {
-			config.sop_inputs = "-I " + design->scratchpad_get_string("abc.I");
-		}
-		if (design->scratchpad.count("abc.P")) {
-			config.sop_products = "-P " + design->scratchpad_get_string("abc.P");
-		}
 		lut_arg = design->scratchpad_get_string("abc.lut", lut_arg);
 		luts_arg = design->scratchpad_get_string("abc.luts", luts_arg);
-		config.sop_mode = design->scratchpad_get_bool("abc.sop", false);
 		config.word_mode = design->scratchpad_get_bool("abc.word", false);
 		config.map_mux4 = design->scratchpad_get_bool("abc.mux4", false);
 		config.map_mux8 = design->scratchpad_get_bool("abc.mux8", false);
@@ -2252,24 +2222,12 @@ struct AbcPass : public Pass {
 				config.delay_target = "-D " + args[++argidx];
 				continue;
 			}
-			if (arg == "-I" && argidx+1 < args.size()) {
-				config.sop_inputs = "-I " + args[++argidx];
-				continue;
-			}
-			if (arg == "-P" && argidx+1 < args.size()) {
-				config.sop_products = "-P " + args[++argidx];
-				continue;
-			}
 			if (arg == "-lut" && argidx+1 < args.size()) {
 				lut_arg = args[++argidx];
 				continue;
 			}
 			if (arg == "-luts" && argidx+1 < args.size()) {
 				luts_arg = args[++argidx];
-				continue;
-			}
-			if (arg == "-sop") {
-				config.sop_mode = true;
 				continue;
 			}
 			if (arg == "-word") {

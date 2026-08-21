@@ -68,10 +68,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        write the design to the specified verilog file. writing of an output\n");
 		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("    -abc\n");
-		log("        use old ABC flow, which has generally worse mapping results but is less\n");
-		log("        likely to have bugs.\n");
-		log("\n");
 		log("    -latches <info|warn|error>\n");
 		log("        select the behaviour for latches that cannot be mapped to a\n");
 		log("        dedicated hardware primitive and are implemented using LUTs\n");
@@ -85,7 +81,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 	}
 
 	string top_opt, blif_file, edif_file, family, currmodule, verilog_file, lib_path, latches;
-	bool abc9, inferAdder, nobram, bramTypes, dsp, ioff, flatten;
+	bool inferAdder, nobram, bramTypes, dsp, ioff, flatten;
 
 	void clear_flags() override
 	{
@@ -95,7 +91,6 @@ struct SynthQuickLogicPass : public ScriptPass {
 		verilog_file = "";
 		currmodule = "";
 		family = "pp3";
-		abc9 = true;
 		inferAdder = true;
 		nobram = false;
 		bramTypes = false;
@@ -149,7 +144,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 				continue;
 			}
 			if (args[argidx] == "-abc") {
-				abc9 = false;
+				// Removed: ABC9 is the default.
 				continue;
 			}
 			if (args[argidx] == "-nocarry" || args[argidx] == "-no_adder") {
@@ -193,7 +188,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		if (latches != "info" && latches != "warn" && latches != "error")
 			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
-		if (abc9 && design->scratchpad_get_int("abc9.D", 0) == 0) {
+		if (design->scratchpad_get_int("abc9.D", 0) == 0) {
 			log_warning("delay target has not been set via SDC or scratchpad; assuming 12 MHz clock.\n");
 			design->scratchpad_set_int("abc9.D", 41667); // 12MHz = 83.33.. ns; divided by two to allow for interconnect delay.
 		}
@@ -333,23 +328,15 @@ struct SynthQuickLogicPass : public ScriptPass {
 			if (latches == "error" || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -map " + lib_path + family + "/latches_map.v");
-			if (abc9) {
-				run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");
-				run("techmap -map " + lib_path + family + "/abc9_map.v");
-				run("abc9 -maxlut 4 -dff");
-				run("techmap -map " + lib_path + family + "/abc9_unmap.v");
-			} else {
-				run("abc -luts 1,2,2,4 -dress");
-			}
+			run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");
+			run("techmap -map " + lib_path + family + "/abc9_map.v");
+			run("abc9 -maxlut 4 -dff");
+			run("techmap -map " + lib_path + family + "/abc9_unmap.v");
 			run("clean");
 		}
 
 		if (check_label("map_luts", "(for qlf_k6n10f)") && (help_mode || family == "qlf_k6n10f")) {
-			if (abc9) {
-				run("abc9 -maxlut 6");
-			} else {
-				run("abc -lut 6 -dress");
-			}
+			run("abc9 -maxlut 6");
 			run("clean");
 			run("opt_lut");
 		}
