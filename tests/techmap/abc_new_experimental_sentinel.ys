@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module top(input a, output y); assign y = a; endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+logger -expect log "ABC: .*i/o = +1/ +1" 3
+logger -expect log "ABC: Warning: The network is combinational\." 1
+logger -expect warning "Feature 'abc_new' is experimental" 1
+logger -expect warning "Feature 'write_xaiger2' is experimental" 1
+logger -expect warning "Feature 'read_xaiger2' is experimental" 1
+logger -expect error "Missing mapping \(no 'M' section\)" 1
+abc_new -liberty ../../examples/cmos/cmos_cells.lib
+
+

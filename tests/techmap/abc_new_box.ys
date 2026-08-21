@@ -1,0 +1,18 @@
+read_verilog -icells -specify <<EOT
+(* abc9_box, blackbox *)
+module box1(input i, output o);
+specify
+	(i => o) = 1;
+endspecify
+endmodule
+
+module top(input a, input b, output o);
+	wire z;
+	$_AND_ gate(.A(a), .B(b), .Y(o));
+	box1 u_box(.i(a), .o(z));
+endmodule
+EOT
+
+hierarchy -check -top top
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+select -assert-min 1 t:*
