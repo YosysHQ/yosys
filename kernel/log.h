@@ -371,7 +371,6 @@ public:
 	void set_force_debug(bool enabled) { log_force_debug = enabled ? 1 : 0;	}
 
 	void report_unexpected_error();
-	void report_warning_stats(bool stderr_force);
 
 	void add_experimental_ignore(std::string name) { log_experimentals_ignored.insert(name); }
 	void add_warn(std::string pattern) { log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
@@ -385,9 +384,14 @@ public:
 	void set_log_time(bool value) { log_time = value; }
 	void set_cmd_error_throw(bool value) { log_cmd_error_throw = value; }
 	void set_hdump_all(bool value) { log_hdump_all = value; }
+	void set_log_forced(bool value) { log_forced = value; }
 	int get_verbose_level() const { return log_verbose_level; }
 	bool get_log_time() const { return log_time; }
-	bool get_stderr_force() const { return log_stderr_force; }
+	bool get_log_forced() const { return log_forced; }
+	int get_warnings_unique() const { return GetSize(log_warnings); }
+	int get_warnings_total() const { return log_warnings_count; }
+	int get_errors_total() const { return log_errors_count; }
+	int get_experimentals_num() const { return GetSize(log_experimentals); }
 	std::chrono::steady_clock::time_point get_initial_time() const;
 
 	void add_hdump(std::string name, std::string value) { log_hdump[name].insert(value); }
@@ -426,6 +430,7 @@ private:
 	int log_verbose_level = 0;
 	int log_newline_count = 0;
 	vector<int> header_count;
+	int log_errors_count = 0;
 	int log_warnings_count = 0;
 	int log_warnings_count_noexpect = 0;
 	std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
@@ -436,7 +441,7 @@ private:
 	bool log_expect_no_warnings = false;
 	bool log_time = false;
 	bool log_cmd_error_throw = false;
-	bool log_stderr_force = false;
+	bool log_forced = false;
 	std::map<std::string, std::set<std::string>> log_hdump;
 	bool log_hdump_all = false;
 

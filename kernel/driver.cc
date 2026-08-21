@@ -604,7 +604,12 @@ int main(int argc, char **argv)
 		yosys_xtrace = 0;
 		log_spacer();
 
-		logger().report_warning_stats(mode_v && !mode_q);
+		logger().set_log_forced(mode_v && !mode_q);
+		if (logger().get_warnings_total())
+			log("Warnings: %d unique messages, %d total\n", logger().get_warnings_unique(), logger().get_warnings_total());
+
+		if (logger().get_experimentals_num() != 0)
+			log("Warnings: %d experimental features used (not excluded with -x).\n", logger().get_experimentals_num());
 
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);

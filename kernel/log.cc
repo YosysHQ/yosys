@@ -101,7 +101,7 @@ bool StderrLogSink::should_log(const LogMessage &msg) const
 {
 	return msg.severity == LogSeverity::LOG_ERROR ||
 			(msg.severity == LogSeverity::LOG_WARNING && !quiet_warnings) ||
-			logger().get_stderr_force();
+			logger().get_log_forced();
 }
 
 void StderrLogSink::log(const LogMessage &msg)
@@ -248,7 +248,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 		header_count.back()++;
 
 	if (int(header_count.size()) <= log_verbose_level) {
-		log_stderr_force = true;
+		log_forced = true;
 	}
 
 	std::string header_id;
@@ -271,7 +271,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 			if (yosys_xtrace)
 				log("#X# -- end of dump --\n");
 		}
-	log_stderr_force = false;
+	log_forced = false;
 }
 
 void LogManager::log_formatted_warning(std::string_view prefix, std::string_view format, std::string message)
@@ -368,6 +368,8 @@ void LogManager::log_error_with_prefix(std::string_view prefix, std::string_view
 	for (auto &[_, item] : log_expect_prefix_error)
 		if (std::regex_search(string(prefix) + message, item.pattern))
 			item.current_count++;
+
+	log_errors_count++;
 
 	check_expected();
 
@@ -670,17 +672,6 @@ void LogManager::report_unexpected_error()
 	if (log_expect_no_warnings && log_warnings_count_noexpect)
 		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
 					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
-}
-
-
-void LogManager::report_warning_stats(bool stderr_force)
-{
-	log_stderr_force = stderr_force;
-	if (log_warnings_count)
-		log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
-
-	if (!log_experimentals.empty())
-		log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
 }
 
 void LogManager::add_expect(std::string type, std::string pattern, int count)
