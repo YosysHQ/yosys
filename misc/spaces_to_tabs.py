@@ -14,18 +14,18 @@ for filename in sys.argv[1:]:
     except UnicodeDecodeError:
         continue
 
-    # Determine whether this file uses tabs for indentation.
-    uses_tabs = any(
-        re.match(r"^\t+", line)
-        for line in text.splitlines()
-    )
-
-    if not uses_tabs:
+    # Only modify files that already use tabs for indentation.
+    if not re.search(r"(?m)^\t+", text):
         continue
 
+    def convert(match):
+        tabs = match.group(1)
+        spaces = match.group(2)
+        return tabs + "\t" * (len(spaces) // 4) + spaces[len(spaces) // 4 * 4:]
+
     new_text = re.sub(
-        r"^(?: {4})+",
-        lambda m: "\t" * (len(m.group()) // 4),
+        r"^(\t*)( +)",
+        convert,
         text,
         flags=re.MULTILINE,
     )
