@@ -725,31 +725,31 @@ public:
 
 IR IR::from_module(Module *module) {
 	IR ir;
-    auto factory = ir.factory();
-    FunctionalIRConstruction ctor(module, factory);
-    ctor.process_queue();
-    ir.topological_sort();
-    ir.forward_buf();
-    return ir;
+	auto factory = ir.factory();
+	FunctionalIRConstruction ctor(module, factory);
+	ctor.process_queue();
+	ir.topological_sort();
+	ir.forward_buf();
+	return ir;
 }
 
 void IR::topological_sort() {
-    Graph::SccAdaptor compute_graph_scc(_graph);
-    bool scc = false;
-    std::vector<int> perm;
-    TopoSortedSccs toposort(compute_graph_scc, [&](int *begin, int *end) {
-        perm.insert(perm.end(), begin, end);
-        if (end > begin + 1)
-        {
-            log_warning("Combinational loop:\n");
-            for (int *i = begin; i != end; ++i) {
+	Graph::SccAdaptor compute_graph_scc(_graph);
+	bool scc = false;
+	std::vector<int> perm;
+	TopoSortedSccs toposort(compute_graph_scc, [&](int *begin, int *end) {
+		perm.insert(perm.end(), begin, end);
+		if (end > begin + 1)
+		{
+			log_warning("Combinational loop:\n");
+			for (int *i = begin; i != end; ++i) {
 				Node node(_graph[*i]);
-                log("- %s = %s\n", node.name().unescape(), node.to_string());
+				log("- %s = %s\n", node.name().unescape(), node.to_string());
 			}
-            log("\n");
-            scc = true;
-        }
-    });
+			log("\n");
+			scc = true;
+		}
+	});
 	for(const auto &[name, state]: _states)
 		if(state.has_next_value())
 			toposort.process(state.next_value().id());
@@ -757,8 +757,8 @@ void IR::topological_sort() {
 		if(output.has_value())
 			toposort.process(output.value().id());
 	// any nodes untouched by this point are dead code and will be removed by permute
-    _graph.permute(perm);
-    if(scc) log_error("The design contains combinational loops. This is not supported by the functional backend. "
+	_graph.permute(perm);
+	if(scc) log_error("The design contains combinational loops. This is not supported by the functional backend. "
 		"Try `scc -select; simplemap; select -clear` to avoid this error.\n");
 }
 
@@ -770,16 +770,16 @@ static IdString merge_name(IdString a, IdString b) {
 }
 
 void IR::forward_buf() {
-    std::vector<int> perm, alias;
-    perm.clear();
+	std::vector<int> perm, alias;
+	perm.clear();
 
-    for (int i = 0; i < _graph.size(); ++i)
-    {
-        auto node = _graph[i];
-        if (node.function().fn() == Fn::buf && node.arg(0).index() < i)
-        {
-            int target_index = alias[node.arg(0).index()];
-            auto target_node = _graph[perm[target_index]];
+	for (int i = 0; i < _graph.size(); ++i)
+	{
+		auto node = _graph[i];
+		if (node.function().fn() == Fn::buf && node.arg(0).index() < i)
+		{
+			int target_index = alias[node.arg(0).index()];
+			auto target_node = _graph[perm[target_index]];
 			if(node.has_sparse_attr()) {
 				if(target_node.has_sparse_attr()) {
 					IdString id = merge_name(node.sparse_attr(), target_node.sparse_attr());
@@ -789,15 +789,15 @@ void IR::forward_buf() {
 					target_node.sparse_attr() = id;
 				}
 			}
-            alias.push_back(target_index);
-        }
-        else
-        {
-            alias.push_back(GetSize(perm));
-            perm.push_back(i);
-        }
-    }
-    _graph.permute(perm, alias);
+			alias.push_back(target_index);
+		}
+		else
+		{
+			alias.push_back(GetSize(perm));
+			perm.push_back(i);
+		}
+	}
+	_graph.permute(perm, alias);
 }
 
 // Quoting routine to make error messages nicer

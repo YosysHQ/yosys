@@ -1035,7 +1035,7 @@ std::vector<RTLIL::Binding *> AstNode::genBindings() const
 			log_assert(cell_child.type == AST_CELL);
 
 			ret.push_back(new AST::Binding(tgt_type, tgt_child.str,
-			                               cell_child));
+										   cell_child));
 		}
 	}
 

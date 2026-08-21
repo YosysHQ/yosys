@@ -532,11 +532,11 @@ struct RecoverNamesWorker {
     }
 
     int popcount(equiv_cls_t cls) {
-    	int result = 0;
-    	for (unsigned i = 0; i < 8*sizeof(equiv_cls_t); i++)
-    		if ((cls >> i) & 0x1)
-    			++result;
-    	return result;
+        int result = 0;
+        for (unsigned i = 0; i < 8*sizeof(equiv_cls_t); i++)
+            if ((cls >> i) & 0x1)
+                ++result;
+        return result;
     }
 
     bool prove_equiv(RecoverModuleWorker &gold_worker, RecoverModuleWorker &gate_worker,
@@ -624,12 +624,12 @@ struct RecoverNamesWorker {
         dict<IdBit, InvBit> gate2gold;
         // Solve starting from shallowest
         for (auto cls : cls_depth) {
-        	int pop = popcount(cls.first);
-        	// Equivalence classes with only one set bit are invariably a waste of SAT time
-        	if (pop == 1 || pop == (8*sizeof(equiv_cls_t) - 1))
-        		continue;
+            int pop = popcount(cls.first);
+            // Equivalence classes with only one set bit are invariably a waste of SAT time
+            if (pop == 1 || pop == (8*sizeof(equiv_cls_t) - 1))
+                continue;
 
-        	log_debug("equivalence class: %016" PRIx64 "\n", cls.first);
+            log_debug("equivalence class: %016" PRIx64 "\n", cls.first);
             const pool<IdBit> &gold_bits = cls2bits.at(cls.first).first;
             const pool<InvBit> &gate_bits = cls2bits.at(cls.first).second;
             if (gold_bits.empty() || gate_bits.empty())
@@ -691,11 +691,11 @@ struct RecoverNamesWorker {
 
 struct RecoverNamesPass : public Pass {
     RecoverNamesPass() : Pass("recover_names", "Execute a lossy mapping command and recover original netnames") { }
-	bool formatted_help() override {
-		auto *help = PrettyHelp::get_current();
-		help->set_group("passes/opt");
-		return false;
-	}
+    bool formatted_help() override {
+        auto *help = PrettyHelp::get_current();
+        help->set_group("passes/opt");
+        return false;
+    }
     void help() override
     {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

@@ -305,8 +305,8 @@ static inline struct cxxrtl_object *cxxrtl_get(cxxrtl_handle handle, const char 
 // hierarchical name of the object (see `cxxrtl_get` for details), and the object parts.
 // The provided `name` and `object` values are valid until the design is destroyed.
 void cxxrtl_enum(cxxrtl_handle handle, void *data,
-                 void (*callback)(void *data, const char *name,
-                                  struct cxxrtl_object *object, size_t parts));
+				 void (*callback)(void *data, const char *name,
+								  struct cxxrtl_object *object, size_t parts));
 
 // Opaque reference to an outline.
 //

@@ -4,7 +4,7 @@ library(test) {
     latch("IQ", "IQN") {
       data_in : "D";
       enable : "!ENA";
-    } 
+    }
     pin(D) {
       direction : input;
     }
@@ -18,6 +18,6 @@ library(test) {
     pin(QN) {
       direction: output;
       function : "IQN";
-    } 
+    }
   }
 }

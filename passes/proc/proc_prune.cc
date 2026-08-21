@@ -59,7 +59,7 @@ struct PruneWorker
 	}
 
 	pool<RTLIL::SigBit> do_case(RTLIL::CaseRule *cs, pool<RTLIL::SigBit> assigned, pool<RTLIL::SigBit> &affected,
-	                            bool root = false)
+								bool root = false)
 	{
 		for (auto it = cs->switches.rbegin(); it != cs->switches.rend(); ++it) {
 			pool<RTLIL::SigBit> sw_assigned = do_switch((*it), assigned, affected);
@@ -136,9 +136,9 @@ struct ProcPrunePass : public Pass {
 		}
 
 		log("Removed %d redundant assignment%s.\n",
-		    total_removed_count, total_removed_count == 1 ? "" : "s");
+			total_removed_count, total_removed_count == 1 ? "" : "s");
 		log("Promoted %d assignment%s to connection%s.\n",
-		    total_promoted_count, total_promoted_count == 1 ? "" : "s", total_promoted_count == 1 ? "" : "s");
+			total_promoted_count, total_promoted_count == 1 ? "" : "s", total_promoted_count == 1 ? "" : "s");
 	}
 } ProcPrunePass;
 

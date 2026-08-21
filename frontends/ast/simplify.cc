@@ -3315,7 +3315,7 @@ skip_dynamic_range_lvalue_expansion:;
 	// Expand array assignment: arr_out = arr_in OR arr_out = cond ? arr_a : arr_b OR arr_out = '{a, b}
 	// Supports multi-dimensional unpacked arrays
 	if ((type == AST_ASSIGN_EQ || type == AST_ASSIGN_LE || type == AST_ASSIGN) &&
-	    is_unexpanded_array_ref(children[0].get()))
+		is_unexpanded_array_ref(children[0].get()))
 	{
 		AstNode *lhs = children[0].get();
 		AstNode *rhs = children[1].get();
@@ -3326,8 +3326,8 @@ skip_dynamic_range_lvalue_expansion:;
 
 		// Case 2: Ternary array assignment (out = sel ? a : b)
 		bool is_ternary_assign = (rhs->type == AST_TERNARY &&
-		                          is_unexpanded_array_ref(rhs->children[1].get()) &&
-		                          is_unexpanded_array_ref(rhs->children[2].get()));
+								  is_unexpanded_array_ref(rhs->children[1].get()) &&
+								  is_unexpanded_array_ref(rhs->children[2].get()));
 
 		// Case 3: Positional assignment pattern (out = '{a, b})
 		bool is_pattern_assign = rhs->type == AST_ASSIGN_PATTERN;
@@ -3428,7 +3428,7 @@ skip_dynamic_range_lvalue_expansion:;
 				true_mem = rhs->children[1]->id2ast;
 				false_mem = rhs->children[2]->id2ast;
 				if (!arrays_have_compatible_dims(lhs_mem, true_mem) ||
-				    !arrays_have_compatible_dims(lhs_mem, false_mem))
+					!arrays_have_compatible_dims(lhs_mem, false_mem))
 					input_error("Array dimension mismatch in ternary expression\n");
 			} else {
 				if (num_dims > 1 && GetSize(rhs->children) == lhs_mem->dimensions[0].range_width) {

@@ -103,26 +103,26 @@ std::unique_ptr<AST::AstNode> AST::dpi_call(AstSrcLocType loc, const std::string
 		}
 	}
 
-        if (rtype == "integer") {
-                types[args.size()] = &ffi_type_slong;
-                values[args.size()] = &value_store[args.size()].i32;
-        } else if (rtype == "shortreal") {
-                types[args.size()] = &ffi_type_float;
-                values[args.size()] = &value_store[args.size()].f32;
-        } else if (rtype == "real") {
-                types[args.size()] = &ffi_type_double;
-                values[args.size()] = &value_store[args.size()].f64;
-        } else if (rtype == "chandle") {
-                types[args.size()] = &ffi_type_pointer;
-                values[args.size()] = &value_store[args.size()].ptr;
-        } else {
-                log_error("invalid rtype '%s'.\n", rtype);
-        }
+	if (rtype == "integer") {
+		types[args.size()] = &ffi_type_slong;
+		values[args.size()] = &value_store[args.size()].i32;
+	} else if (rtype == "shortreal") {
+		types[args.size()] = &ffi_type_float;
+		values[args.size()] = &value_store[args.size()].f32;
+	} else if (rtype == "real") {
+		types[args.size()] = &ffi_type_double;
+		values[args.size()] = &value_store[args.size()].f64;
+	} else if (rtype == "chandle") {
+		types[args.size()] = &ffi_type_pointer;
+		values[args.size()] = &value_store[args.size()].ptr;
+	} else {
+		log_error("invalid rtype '%s'.\n", rtype);
+	}
 
-        if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, args.size(), types[args.size()], types.data())) != FFI_OK)
-                log_error("ffi_prep_cif failed: status %d.\n", status);
+	if ((status = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, args.size(), types[args.size()], types.data())) != FFI_OK)
+		log_error("ffi_prep_cif failed: status %d.\n", status);
 
-        ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values.data());
+	ffi_call(&cif, resolve_fn(fname.c_str()), values[args.size()], values.data());
 
 	if (rtype == "real") {
 		newNode = std::make_unique<AstNode>(loc, AST_REALVALUE);

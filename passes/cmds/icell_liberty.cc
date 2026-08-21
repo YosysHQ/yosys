@@ -93,7 +93,7 @@ struct LibertyStubber {
 				log_assert(clock_pin_name.size());
 				i.item("related_pin", clock_pin_name);
 				i.indent--;
-            	f << "\t\t\t}\n";
+				f << "\t\t\t}\n";
 			}
 			f << "\t\t}\n";
 		}

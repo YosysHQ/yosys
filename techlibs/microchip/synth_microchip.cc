@@ -284,13 +284,13 @@ struct SynthMicrochipPass : public ScriptPass {
 					run("techmap -map +/mul2dsp.v -map +/microchip/{family}_dsp_map.v {options}");
 				else if (family == "polarfire") // Microchip - map multipliers to DSP
 					run("techmap -map +/mul2dsp.v -map +/microchip/polarfire_dsp_map.v -D DSP_A_MAXWIDTH=18 -D DSP_B_MAXWIDTH=18 "
-					    "-D DSP_A_MAXWIDTH_PARTIAL=18 " // Partial multipliers are intentionally
-									    // limited to 18x18 in order to take
-									    // advantage of the (PCOUT >> 17) -> PCIN
-									    // dedicated cascade chain capability
-					    "-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
-					    "-D DSP_Y_MINWIDTH=9 "
-					    "-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
+						"-D DSP_A_MAXWIDTH_PARTIAL=18 " // Partial multipliers are intentionally
+														// limited to 18x18 in order to take
+														// advantage of the (PCOUT >> 17) -> PCIN
+														// dedicated cascade chain capability
+						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 " // Blocks Nx1 multipliers
+						"-D DSP_Y_MINWIDTH=9 "
+						"-D DSP_SIGNEDONLY=1 -D DSP_NAME=$__MUL18X18");
 
 				run("select a:mul2dsp");
 				run("setattr -unset mul2dsp");
@@ -406,7 +406,7 @@ struct SynthMicrochipPass : public ScriptPass {
 			// 			here because of negative-polarity output enable) are handled.
 			if (help_mode || !noiopad) {
 				run("iopadmap -bits -inpad INBUF Y:PAD -outpad OUTBUF D:PAD -toutpad TRIBUFF E:D:PAD -tinoutpad BIBUF E:Y:D:PAD",
-				    "(unless -noiobs)");
+					"(unless -noiobs)");
 			}
 
 			std::string techmap_args = "-map +/techmap.v -map +/microchip/cells_map.v";

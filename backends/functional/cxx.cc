@@ -242,13 +242,13 @@ struct FunctionalCxxBackend : public Backend
 {
 	FunctionalCxxBackend() : Backend("functional_cxx", "convert design to C++ using the functional backend") {}
 
-    void help() override
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("TODO: add help message\n");
 		log("\n");
-    }
+	}
 
 	void printCxx(std::ostream &stream, std::string, Module *module)
 	{
@@ -262,13 +262,13 @@ struct FunctionalCxxBackend : public Backend
 
 	void execute(std::ostream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
-        log_header(design, "Executing Functional C++ backend.\n");
+		log_header(design, "Executing Functional C++ backend.\n");
 
 		size_t argidx = 1;
 		extra_args(f, filename, args, argidx, design);
 
 		for (auto module : design->selected_modules()) {
-            log("Dumping module `%s'.\n", module->name);
+			log("Dumping module `%s'.\n", module->name);
 			printCxx(*f, filename, module);
 		}
 	}

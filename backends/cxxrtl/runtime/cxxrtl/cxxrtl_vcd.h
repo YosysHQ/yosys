@@ -44,7 +44,7 @@ class vcd_writer {
 		assert(!streaming);
 		assert(number == 1 || number == 10 || number == 100);
 		assert(unit == "s" || unit == "ms" || unit == "us" ||
-		       unit == "ns" || unit == "ps" || unit == "fs");
+			   unit == "ns" || unit == "ps" || unit == "fs");
 		buffer += "$timescale " + std::to_string(number) + " " + unit + " $end\n";
 	}
 
@@ -86,7 +86,7 @@ class vcd_writer {
 	}
 
 	void emit_var(const variable &var, const std::string &type, const std::string &name,
-	              size_t lsb_at, bool multipart) {
+				  size_t lsb_at, bool multipart) {
 		assert(!streaming);
 		buffer += "$var " + type + " " + std::to_string(var.width) + " ";
 		emit_ident(var.ident);
@@ -205,11 +205,11 @@ public:
 			// Not the best naming but oh well...
 			case debug_item::VALUE:
 				emit_var(register_variable(item.width, item.curr, /*constant=*/item.next == nullptr),
-				         "wire", name, item.lsb_at, multipart);
+						 "wire", name, item.lsb_at, multipart);
 				break;
 			case debug_item::WIRE:
 				emit_var(register_variable(item.width, item.curr),
-				         "reg", name, item.lsb_at, multipart);
+						 "reg", name, item.lsb_at, multipart);
 				break;
 			case debug_item::MEMORY: {
 				const size_t stride = (item.width + (sizeof(chunk_t) * 8 - 1)) / (sizeof(chunk_t) * 8);
@@ -217,7 +217,7 @@ public:
 					chunk_t *nth_curr = &item.curr[stride * index];
 					std::string nth_name = name + '[' + std::to_string(index) + ']';
 					emit_var(register_variable(item.width, nth_curr),
-					         "reg", nth_name, item.lsb_at, multipart);
+							 "reg", nth_name, item.lsb_at, multipart);
 				}
 				break;
 			}
@@ -227,11 +227,11 @@ public:
 				// unified with the aliased reg, but we should handle the case where only the alias is
 				// added to the VCD writer, too.
 				emit_var(register_variable(item.width, item.curr),
-				         "wire", name, item.lsb_at, multipart);
+						 "wire", name, item.lsb_at, multipart);
 				break;
 			case debug_item::OUTLINE:
 				emit_var(register_variable(item.width, item.curr, /*constant=*/false, item.outline),
-				         "wire", name, item.lsb_at, multipart);
+						 "wire", name, item.lsb_at, multipart);
 				break;
 		}
 	}

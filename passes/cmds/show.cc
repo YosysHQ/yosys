@@ -430,7 +430,7 @@ struct ShowWorker
 
 		std::map<std::string, std::string> wires_on_demand;
 		for (auto wire : module->selected_wires()) {
-		    std::string shape = wireshape;
+			std::string shape = wireshape;
 			if (wire->port_input || wire->port_output)
 				shape = "octagon";
 			const bool is_borderless = (shape == "plaintext") || (shape == "plain") || (shape == "none");
@@ -441,7 +441,7 @@ struct ShowWorker
 				fprintf(f, "n%d [ shape=%s,%s label=\"%s\", %s%s];\n",
 						id2num(wire->name), shape.c_str(), is_borderless? " margin=0, width=0" : "",  findLabel(wire->name.str()),
 						is_borderless
-						    ? "color=\"none\", fontcolor=\"black\""
+							? "color=\"none\", fontcolor=\"black\""
 							: nextColor(RTLIL::SigSpec(wire), "color=\"black\", fontcolor=\"black\"").c_str(),
 						src_href.c_str());
 				if (wire->port_input)

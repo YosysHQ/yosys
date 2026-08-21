@@ -444,7 +444,7 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 									part.type = FmtPart::INTEGER;
 									part.base = 10;
 								} else if (fmt[i] == 'h' || fmt[i] == 'H' ||
-								           fmt[i] == 'x' || fmt[i] == 'X') {
+										   fmt[i] == 'x' || fmt[i] == 'X') {
 									// hex digits always printed in lowercase for %h%x as well as %H%X
 									part.type = FmtPart::INTEGER;
 									part.base = 16;

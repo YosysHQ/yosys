@@ -225,13 +225,13 @@ struct IFExpander
 		// about it and don't set has_interfaces_not_found (to avoid a
 		// loop).
 		log_warning("Could not find interface instance for `%s' in `%s'\n",
-			    interface_name.unescape(), &module);
+					interface_name.unescape(), &module);
 	}
 
 	// Handle an interface connection from the module
 	void on_interface(RTLIL::Module        &submodule,
-	                  RTLIL::IdString       conn_name,
-	                  const RTLIL::SigSpec &conn_signals)
+					  RTLIL::IdString       conn_name,
+					  const RTLIL::SigSpec &conn_signals)
 	{
 		// Check if the connected wire is a potential interface in the parent module
 		std::string interface_name_str = conn_signals[0].wire->name.str();
@@ -295,8 +295,8 @@ struct IFExpander
 	// Handle a single connection from the module, making a note to expand
 	// it if it's an interface connection.
 	void on_connection(RTLIL::Module        &submodule,
-	                   RTLIL::IdString       conn_name,
-	                   const RTLIL::SigSpec &conn_signals)
+					   RTLIL::IdString       conn_name,
+					   const RTLIL::SigSpec &conn_signals)
 	{
 		// Does the connection look like an interface
 		if (
@@ -339,7 +339,7 @@ struct IFExpander
 	// Iterate over the connections in a cell, tracking any interface
 	// connections
 	void visit_connections(const RTLIL::Cell &cell,
-			       RTLIL::Module     &submodule)
+				   RTLIL::Module     &submodule)
 	{
 		for (const auto &conn : cell.connections()) {
 			on_connection(submodule, conn.first, conn.second);
@@ -368,10 +368,10 @@ struct IFExpander
 // something. or null otherwise (the module should be blackbox or we couldn't
 // find it and check is not set).
 RTLIL::Module *get_module(RTLIL::Design                  &design,
-                          RTLIL::Cell                    &cell,
-                          RTLIL::Module                  &parent,
-                          bool                            check,
-                          const std::vector<std::string> &libdirs)
+						  RTLIL::Cell                    &cell,
+						  RTLIL::Module                  &parent,
+						  bool                            check,
+						  const std::vector<std::string> &libdirs)
 {
 	std::string cell_type = cell.type.str();
 	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
@@ -405,7 +405,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			RTLIL::Module *mod = design.module(cell.type);
 			if (!mod)
 				log_error("File `%s' from libdir does not declare module `%s'.\n",
-				          filename.c_str(), cell_type.c_str());
+						  filename.c_str(), cell_type.c_str());
 			return mod;
 		}
 	}
@@ -413,7 +413,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	// We couldn't find the module anywhere. Complain if check is set.
 	if (check)
 		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-		          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
+				  cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
 
 	return nullptr;
 }
@@ -431,37 +431,37 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 		if (read_id_num(conn.first, &id)) {
 			if (id <= 0 || id > GetSize(mod.ports))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
-				          "has only %d ports, requested port %d.\n",
-				          cell.type.unescape(), &module, &cell,
-				          GetSize(mod.ports), id);
+						  "has only %d ports, requested port %d.\n",
+						  cell.type.unescape(), &module, &cell,
+						  GetSize(mod.ports), id);
 			continue;
 		}
 
 		const RTLIL::Wire* wire = mod.wire(conn.first);
 		if (!wire || wire->port_id == 0) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
-			          "does not have a port named '%s'.\n",
-			          cell.type.unescape(), &module, &cell,
-			          conn.first.unescape());
+					  "does not have a port named '%s'.\n",
+					  cell.type.unescape(), &module, &cell,
+					  conn.first.unescape());
 		}
 	}
 	for (auto &param : cell.parameters) {
 		if (read_id_num(param.first, &id)) {
 			if (id <= 0 || id > GetSize(mod.avail_parameters))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' "
-				          "has only %d parameters, requested parameter %d.\n",
-				          cell.type.unescape(), &module, &cell,
-				          GetSize(mod.avail_parameters), id);
+						  "has only %d parameters, requested parameter %d.\n",
+						  cell.type.unescape(), &module, &cell,
+						  GetSize(mod.avail_parameters), id);
 			continue;
 		}
 
 		if (mod.avail_parameters.count(param.first) == 0 &&
-		    param.first[0] != '$' &&
-		    strchr(param.first.c_str(), '.') == NULL) {
+			param.first[0] != '$' &&
+			strchr(param.first.c_str(), '.') == NULL) {
 			log_error("Module `%s' referenced in module `%s' in cell `%s' "
-			          "does not have a parameter named '%s'.\n",
-			          cell.type.unescape(), &module, &cell,
-			          param.first.unescape());
+					  "does not have a parameter named '%s'.\n",
+					  cell.type.unescape(), &module, &cell,
+					  param.first.unescape());
 		}
 	}
 }
@@ -544,8 +544,8 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		// If there are no overridden parameters AND not interfaces, then we can use the existing module instance as the type
 		// for the cell:
 		if (cell->parameters.size() == 0 &&
-		    (if_expander.interfaces_to_add_to_submodule.size() == 0 ||
-		     !(cell->get_bool_attribute(ID::module_not_derived)))) {
+			(if_expander.interfaces_to_add_to_submodule.size() == 0 ||
+			 !(cell->get_bool_attribute(ID::module_not_derived)))) {
 			// If the cell being processed is an the interface instance itself, go down to "handle_interface_instance:",
 			// so that the signals of the interface are added to the parent module.
 			if (mod->get_bool_attribute(ID::is_interface)) {

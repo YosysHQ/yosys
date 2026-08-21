@@ -182,32 +182,32 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
 }
 
 struct QlDspMacc : public Pass {
-	QlDspMacc() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
+    QlDspMacc() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
 
-	void help() override
-	{
+    void help() override
+    {
         //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    ql_dsp_macc [selection]\n");
+        log("\n");
+        log("    ql_dsp_macc [selection]\n");
         log("\n");
         log("This pass looks for a multiply-accumulate pattern based on which it infers a\n");
         log("QuickLogic DSP cell.\n");
-		log("\n");
-	}
+        log("\n");
+    }
 
-	void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
-	{
-		log_header(a_Design, "Executing QL_DSP_MACC pass.\n");
+    void execute(std::vector<std::string> a_Args, RTLIL::Design *a_Design) override
+    {
+        log_header(a_Design, "Executing QL_DSP_MACC pass.\n");
 
-		size_t argidx;
-		for (argidx = 1; argidx < a_Args.size(); argidx++) {
-			break;
-		}
-		extra_args(a_Args, argidx, a_Design);
+        size_t argidx;
+        for (argidx = 1; argidx < a_Args.size(); argidx++) {
+            break;
+        }
+        extra_args(a_Args, argidx, a_Design);
 
-		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
-	}
+        for (auto module : a_Design->selected_modules())
+            ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+    }
 
 } QlDspMacc;
 

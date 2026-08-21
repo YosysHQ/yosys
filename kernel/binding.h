@@ -32,7 +32,7 @@ struct RTLIL::Binding
 	// target_name (see comments above the fields).
 
 	Binding(RTLIL::IdString target_type,
-	        RTLIL::IdString target_name);
+			RTLIL::IdString target_name);
 
 	virtual ~Binding() {}
 

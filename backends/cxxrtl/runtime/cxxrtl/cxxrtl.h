@@ -100,7 +100,7 @@ typedef uint64_t wide_chunk_t;
 template<typename T>
 struct chunk_traits {
 	static_assert(std::is_integral<T>::value && std::is_unsigned<T>::value,
-	              "chunk type must be an unsigned integral type");
+				  "chunk type must be an unsigned integral type");
 	using type = T;
 	static constexpr size_t bits = std::numeric_limits<T>::digits;
 	static constexpr T mask = std::numeric_limits<T>::max();
@@ -151,9 +151,9 @@ struct value : public expr_base<value<Bits>> {
 	CXXRTL_ALWAYS_INLINE
 	IntegerT get() const {
 		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
-		              "get<T>() requires T to be an unsigned integral type");
+					  "get<T>() requires T to be an unsigned integral type");
 		static_assert(std::numeric_limits<IntegerT>::digits >= Bits,
-		              "get<T>() requires T to be at least as wide as the value is");
+					  "get<T>() requires T to be at least as wide as the value is");
 		IntegerT result = 0;
 		for (size_t n = 0; n < chunks; n++)
 			result |= IntegerT(data[n]) << (n * chunk::bits);
@@ -173,9 +173,9 @@ struct value : public expr_base<value<Bits>> {
 	CXXRTL_ALWAYS_INLINE
 	void set(IntegerT value) {
 		static_assert(std::numeric_limits<IntegerT>::is_integer && !std::numeric_limits<IntegerT>::is_signed,
-		              "set<T>() requires T to be an unsigned integral type");
+					  "set<T>() requires T to be an unsigned integral type");
 		static_assert(std::numeric_limits<IntegerT>::digits >= Bits,
-		              "set<T>() requires the value to be at least as wide as T is");
+					  "set<T>() requires the value to be at least as wide as T is");
 		for (size_t n = 0; n < chunks; n++)
 			data[n] = (value >> (n * chunk::bits)) & chunk::mask;
 	}
@@ -582,7 +582,7 @@ struct value : public expr_base<value<Bits>> {
 			if (result.chunks - 1 == n)
 				result.data[result.chunks - 1] &= result.msb_mask;
 			carry = (result.data[n] <  data[n]) ||
-			        (result.data[n] == data[n] && carry);
+					(result.data[n] == data[n] && carry);
 		}
 		return {result, carry};
 	}
@@ -1327,7 +1327,7 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(value<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
 		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
-		              "value<Bits> is not compatible with C layout");
+					  "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = flags_;
 		width   = Bits;
@@ -1343,7 +1343,7 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(const value<Bits> &item, size_t lsb_offset = 0) {
 		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
-		              "value<Bits> is not compatible with C layout");
+					  "value<Bits> is not compatible with C layout");
 		type    = VALUE;
 		flags   = DRIVEN_COMB;
 		width   = Bits;
@@ -1359,9 +1359,9 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(wire<Bits> &item, size_t lsb_offset = 0, uint32_t flags_ = 0) {
 		static_assert(Bits == 0 ||
-		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
-		              "wire<Bits> is not compatible with C layout");
+					  (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+					   sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
+					  "wire<Bits> is not compatible with C layout");
 		type    = WIRE;
 		flags   = flags_;
 		width   = Bits;
@@ -1377,7 +1377,7 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Width>
 	debug_item(memory<Width> &item, size_t zero_offset = 0) {
 		static_assert(Width == 0 || sizeof(item.data[0]) == value<Width>::chunks * sizeof(chunk_t),
-		              "memory<Width> is not compatible with C layout");
+					  "memory<Width> is not compatible with C layout");
 		type    = MEMORY;
 		flags   = 0;
 		width   = Width;
@@ -1393,7 +1393,7 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(debug_alias, const value<Bits> &item, size_t lsb_offset = 0) {
 		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
-		              "value<Bits> is not compatible with C layout");
+					  "value<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
 		width   = Bits;
@@ -1409,9 +1409,9 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(debug_alias, const wire<Bits> &item, size_t lsb_offset = 0) {
 		static_assert(Bits == 0 ||
-		              (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
-		               sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
-		              "wire<Bits> is not compatible with C layout");
+					  (sizeof(item.curr) == value<Bits>::chunks * sizeof(chunk_t) &&
+					   sizeof(item.next) == value<Bits>::chunks * sizeof(chunk_t)),
+					  "wire<Bits> is not compatible with C layout");
 		type    = ALIAS;
 		flags   = DRIVEN_COMB;
 		width   = Bits;
@@ -1427,7 +1427,7 @@ struct debug_item : ::cxxrtl_object {
 	template<size_t Bits>
 	debug_item(debug_outline &group, const value<Bits> &item, size_t lsb_offset = 0) {
 		static_assert(Bits == 0 || sizeof(item) == value<Bits>::chunks * sizeof(chunk_t),
-		              "value<Bits> is not compatible with C layout");
+					  "value<Bits> is not compatible with C layout");
 		type    = OUTLINE;
 		flags   = DRIVEN_COMB;
 		width   = Bits;

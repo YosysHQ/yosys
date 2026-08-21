@@ -32,8 +32,8 @@ struct SynthAnalogDevicesPass : public ScriptPass
 
 	void on_register() override
 	{
-		RTLIL::constpad["synth_analogdevices.abc9.W"] = "300"; // Number with which ABC will map a 6-input gate
-								    // to one LUT6 (instead of a LUT5 + LUT2)
+		RTLIL::constpad["synth_analogdevices.abc9.W"] = "300";  // Number with which ABC will map a 6-input gate
+																// to one LUT6 (instead of a LUT5 + LUT2)
 	}
 
 	void help() override
@@ -362,7 +362,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		if (check_label("map_ffram")) {
 			if (widemux > 0) {
 				run("opt -fast -mux_bool -undriven -fine"); // Necessary to omit -mux_undef otherwise muxcover
-									    // performs less efficiently
+															// performs less efficiently
 			} else {
 				run("opt -fast -full");
 			}

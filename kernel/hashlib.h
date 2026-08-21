@@ -244,14 +244,14 @@ template<typename T> struct hash_ops<std::vector<T>> {
 };
 
 template<typename T, size_t N> struct hash_ops<std::array<T, N>> {
-    static inline bool cmp(const std::array<T, N> &a, const std::array<T, N> &b) {
-        return a == b;
-    }
-    [[nodiscard]] static inline Hasher hash_into(const std::array<T, N> &a, Hasher h) {
-        for (const auto& k : a)
-            h = hash_ops<T>::hash_into(k, h);
-        return h;
-    }
+	static inline bool cmp(const std::array<T, N> &a, const std::array<T, N> &b) {
+		return a == b;
+	}
+	[[nodiscard]] static inline Hasher hash_into(const std::array<T, N> &a, Hasher h) {
+		for (const auto& k : a)
+			h = hash_ops<T>::hash_into(k, h);
+		return h;
+	}
 	HASH_TOP_LOOP_FST (const std::array<T, N> &a) HASH_TOP_LOOP_SND
 };
 

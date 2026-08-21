@@ -167,9 +167,9 @@ struct SynthIntelPass : public ScriptPass {
 			log_cmd_error("Cyclone V synthesis has been moved to synth_intel_alm.\n");
 
 		if (family_opt != "max10" &&
-		    family_opt != "cycloneiv" &&
-		    family_opt != "cycloneive" &&
-		    family_opt != "cyclone10lp")
+			family_opt != "cycloneiv" &&
+			family_opt != "cycloneive" &&
+			family_opt != "cyclone10lp")
 			log_cmd_error("Invalid or no family specified: '%s'\n", family_opt);
 
 		if (family_opt != "max10")
@@ -237,9 +237,9 @@ struct SynthIntelPass : public ScriptPass {
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 				if (family_opt == "cycloneiv" ||
-				    family_opt == "cycloneive" ||
-				    family_opt == "max10" ||
-				    help_mode) {
+					family_opt == "cycloneive" ||
+					family_opt == "max10" ||
+					help_mode) {
 				run("memory_bram -rules +/intel/common/brams_m9k.txt", "(if applicable for family)");
 				run("techmap -map +/intel/common/brams_map_m9k.v", "(if applicable for family)");
 			} else {
@@ -287,7 +287,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("vqm")) {
 			if (!vout_file.empty() || help_mode)
 				run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
-					    help_mode ? "<file-name>" : vout_file.c_str()));
+							help_mode ? "<file-name>" : vout_file.c_str()));
 		}
 
 		if (check_label("vpr")) {
