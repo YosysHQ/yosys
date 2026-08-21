@@ -195,6 +195,8 @@ void LogManager::logv_string(std::string_view prefix, std::string_view format, s
 			sink->log(msg);
 	}
 
+	if (severity == LogSeverity::LOG_HEADER)
+		str = str_in;
 
 	static std::string linebuffer;
 	static bool log_warn_regex_recusion_guard = false;
@@ -254,8 +256,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log_formatted_string(stringf("%s. ", header_id), {}, {}, LogSeverity::LOG_HEADER);
-	log_formatted_string({}, format, std::move(str), LogSeverity::LOG_HEADER);
+	log_formatted_string(stringf("%s. ", header_id), format, std::move(str), LogSeverity::LOG_HEADER);
 	flush();
 
 	if (log_hdump_all)
