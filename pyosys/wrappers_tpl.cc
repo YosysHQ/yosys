@@ -179,7 +179,7 @@ namespace pyosys {
 
 		// Logging Methods
 		m.def("log_header", [](Design *d, std::string s) { logger().log_formatted_header(d, "%s", s); });
-		m.def("log", [](std::string s) { logger().log_formatted_string({}, "%s", s, LogSeverity::LOG_INFO); });
+		m.def("log", [](std::string s) { logger().log_formatted_string({}, "%s", s, LogSeverity::Info); });
 		m.def("log_file_info", [](std::string_view file, int line, std::string s) { logger().log_formatted_file_info(file, line, "%s", s); });
 		m.def("log_warning", [](std::string s) { logger().log_formatted_warning("Warning: ", "%s", s); });
 		m.def("log_warning_noprefix", [](std::string s) { logger().log_formatted_warning("", "%s", s); });

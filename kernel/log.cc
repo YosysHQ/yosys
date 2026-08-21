@@ -40,14 +40,14 @@ YOSYS_NAMESPACE_BEGIN
 
 LogManager &logger()
 {
-    static LogManager instance;
-    return instance;
+	static LogManager instance;
+	return instance;
 }
 
 std::chrono::steady_clock::time_point LogManager::get_initial_time() const
 {
-    static const auto initial_time = std::chrono::steady_clock::now();
-    return initial_time;
+	static const auto initial_time = std::chrono::steady_clock::now();
+	return initial_time;
 }
 
 void (*log_error_atexit)() = NULL;
@@ -87,7 +87,7 @@ void FileLogSink::flush()
 
 void ConsoleLogSink::log(const LogMessage &msg)
 {
-	FILE *file = (msg.severity == LogSeverity::LOG_ERROR) ? stderr : stdout;
+	FILE *file = (msg.severity == LogSeverity::Error) ? stderr : stdout;
 	fputs(msg.cached_msg.c_str(), file);
 }
 
@@ -99,8 +99,8 @@ void ConsoleLogSink::flush()
 
 bool StderrLogSink::should_log(const LogMessage &msg) const
 {
-	return msg.severity == LogSeverity::LOG_ERROR ||
-			(msg.severity == LogSeverity::LOG_WARNING && !quiet_warnings) ||
+	return msg.severity == LogSeverity::Error ||
+			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
 			logger().get_log_forced();
 }
 
@@ -151,7 +151,7 @@ LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::strin
 		// Special case to detect newlines in Python log output, since
 		// the binding always calls `log("%s", payload)` and the newline
 		// is then in the first formatted argument
-		if (format == "%s" && message.back() == '\n')
+		if (format == "%s" && !message.empty() && message.back() == '\n')
 			next_print_log = true;
 	}
 	cached_msg = stringf("%s%s%s", time_str, prefix, message);
@@ -195,7 +195,7 @@ void LogManager::logv_string(std::string_view prefix, std::string_view format, s
 			sink->log(msg);
 	}
 
-	if (severity == LogSeverity::LOG_HEADER)
+	if (severity == LogSeverity::Header)
 		str = str_in;
 
 	static std::string linebuffer;
@@ -256,7 +256,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log_formatted_string(stringf("%s. ", header_id), format, std::move(str), LogSeverity::LOG_HEADER);
+	log_formatted_string(stringf("%s. ", header_id), format, std::move(str), LogSeverity::Header);
 	flush();
 
 	if (log_hdump_all)
@@ -312,12 +312,12 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string_view
 
 		if (log_warnings.count(message))
 		{
-			log_formatted_string(prefix, format, message, LogSeverity::LOG_INFO);
+			log_formatted_string(prefix, format, message, LogSeverity::Info);
 			flush();
 		}
 		else
 		{
-			log_formatted_string(prefix, format, message, LogSeverity::LOG_WARNING);
+			log_formatted_string(prefix, format, message, LogSeverity::Warning);
 			flush();
 			log_warnings.insert(message);
 		}
@@ -338,13 +338,13 @@ void LogManager::log_formatted_file_warning(std::string_view filename, int linen
 void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: Info: ", filename, lineno);
-	log_formatted_string(prefix, format, std::move(str), LogSeverity::LOG_INFO);
+	log_formatted_string(prefix, format, std::move(str), LogSeverity::Info);
 }
 
 void LogManager::log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
-		logv_string({}, format, stringf(format, log_debug_suppressed),LogSeverity::LOG_INFO);
+		logv_string({}, format, stringf(format, log_debug_suppressed),LogSeverity::Info);
 		log_debug_suppressed = 0;
 	}
 }
@@ -356,7 +356,7 @@ void LogManager::log_error_with_prefix(std::string_view prefix, std::string_view
 	log_make_debug = 0;
 	log_suppressed();
 
-	log_formatted_string(prefix, format, message, LogSeverity::LOG_ERROR);
+	log_formatted_string(prefix, format, message, LogSeverity::Error);
 	flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -425,7 +425,7 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 void LogManager::log_formatted_cmd_error(std::string_view format, std::string message)
 {
 	if (log_cmd_error_throw) {
-		log_formatted_string("ERROR: ", format, message, LogSeverity::LOG_ERROR);
+		log_formatted_string("ERROR: ", format, message, LogSeverity::Error);
 		flush();
 
 		throw log_cmd_error_exception();
@@ -690,6 +690,7 @@ void LogManager::add_expect(std::string type, std::string pattern, int count)
 		log_expect_prefix_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else log_abort();
 }
+
 void LogManager::start_hasher()
 {
 	log_hasher = std::make_unique<SHA1>();
@@ -704,4 +705,5 @@ std::string LogManager::finish_hasher()
 	log_hasher.reset();
 	return hash;
 }
+
 YOSYS_NAMESPACE_END

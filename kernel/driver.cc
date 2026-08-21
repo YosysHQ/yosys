@@ -161,7 +161,7 @@ int main(int argc, char **argv)
 	bool mode_v = false;
 	bool mode_q = false;
 	bool quiet_warnings = false;
-	FILE *log_errfile = NULL;
+	bool log_stderr = false;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
 	options.set_width(SIZE_MAX);
@@ -326,12 +326,12 @@ int main(int argc, char **argv)
 		}
 		if (result.count("q")) {
 			mode_q = true;
-			if (log_errfile == stderr) quiet_warnings = true;
-			log_errfile = stderr;
+			if (log_stderr) quiet_warnings = true;
+			log_stderr = true;
 		}
 		if (result.count("v")) {
 			mode_v = true;
-			log_errfile = stderr;
+			log_stderr = true;
 			logger().set_verbose_level(result["v"].as<int>());
 		}
 		if (result.count("t")) logger().set_log_time(true);
@@ -404,7 +404,7 @@ int main(int argc, char **argv)
 			Hasher::set_fudge((Hasher::hash_t)seed);
 		}
 
-		if (log_errfile == NULL) {
+		if (!log_stderr) {
 			logger().add_sink<ConsoleLogSink>();
 		} else {
 			logger().add_sink<StderrLogSink>(quiet_warnings);

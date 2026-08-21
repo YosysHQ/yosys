@@ -64,7 +64,7 @@ struct TeePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-q") {
-				logger().clear();
+				logger().clear_original();
 				continue;
 			}
 			if ((args[argidx] == "-o" || args[argidx] == "-a") && argidx+1 < args.size()) {
@@ -73,9 +73,8 @@ struct TeePass : public Pass {
 				rewrite_filename(path);
 				try {
 					logger().add_sink<FileLogSink>(path.c_str(), false, is_append);
-				} catch (const std::runtime_error &e) {
-					std::cerr << e.what();
-					exit(1);
+				} catch (const std::runtime_error &) {
+					log_cmd_error("Can't create file %s.\n", args[argidx]);
 				}
 				continue;
 			}

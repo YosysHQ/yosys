@@ -86,13 +86,13 @@ YOSYS_NAMESPACE_BEGIN
 
 struct log_cmd_error_exception { };
 
-enum LogSeverity {
-	LOG_DEBUG,
-	LOG_COMMENT,
-	LOG_INFO,
-	LOG_HEADER,
-	LOG_WARNING,
-	LOG_ERROR
+enum class LogSeverity {
+	Debug,
+	Comment,
+	Info,
+	Header,
+	Warning,
+	Error
 };
 
 struct LogMessage {
@@ -148,7 +148,7 @@ class ConsoleLogSink : public LogSink
 public:
 	void log(const LogMessage &msg) override;
 	void flush() override;
-	FILE *file_handle() override { return stdout; };
+	FILE *file_handle() override { return stdout; }
 };
 
 class StderrLogSink : public LogSink
@@ -218,6 +218,10 @@ public:
 
 	bool empty() { return log_sinks.empty(); }
 	void clear() { log_sinks.clear(); }
+	void clear_original()
+	{
+		std::erase_if(log_sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
+	}
 	void flush() { for (auto &sink : log_sinks) sink->flush(); }
 
 	class Scoped
@@ -467,13 +471,13 @@ static inline bool ys_debug(int = 0) { return false; }
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_INFO);
+	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Info);
 }
 
 template <typename... Args>
 inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_COMMENT);
+	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Comment);
 }
 
 template <typename... Args>
@@ -481,7 +485,7 @@ inline void log_debug(FmtString<TypeIdentity<Args>...> fmt, const Args &... args
 {
 	if (!ys_debug(1))
 		return;
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::LOG_DEBUG);
+	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Debug);
 }
 
 template <typename... Args>

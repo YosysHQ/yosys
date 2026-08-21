@@ -126,8 +126,6 @@ global_denylist = frozenset(
         "log_verific_callback",
         # incomplete type
         "yosys_get_tcl_interp",
-        # manually added later
-        "logger",
     }
 )
 pyosys_headers = [
