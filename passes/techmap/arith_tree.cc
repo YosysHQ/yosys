@@ -119,8 +119,30 @@ struct ArithTreeWorker {
 		return true;
 	}
 
-	Cell *sole_chainable_consumer(SigSpec sig, const pool<Cell *> &candidates)
+	// A link truncates its result at its own Y width, so flattening it into a wider
+	// consumer is only sound when that truncation provably never fires. This is the
+	// same question macc_may_overflow() answers for the structurally identical $macc
+	// merge in alumacc, and it is answered the same way: from operand widths alone.
+	bool link_may_overflow(Cell *link)
 	{
+		// Only unsigned addition has a bound this simple. Subtraction borrows below
+		// zero and wraps into the discarded bits, and a signed operand changes what
+		// those bits mean, so neither is proven here.
+		if (!(link->type == ID($add) || (is_alu(link) && is_add(link))))
+			return true;
+		if (link->getParam(ID::A_SIGNED).as_bool() || link->getParam(ID::B_SIGNED).as_bool())
+			return true;
+
+		// a + b never needs more than one bit beyond the wider operand, since
+		// (2**wa - 1) + (2**wb - 1) < 2**(max(wa, wb) + 1).
+		int wa = GetSize(link->getPort(ID::A)), wb = GetSize(link->getPort(ID::B));
+		int need = wb ? std::max(wa, wb) + 1 : wa;
+		return GetSize(link->getPort(ID::Y)) < need;
+	}
+
+	Cell *sole_chainable_consumer(Cell *cell, const pool<Cell *> &candidates)
+	{
+		SigSpec sig = sigmap(cell->getPort(ID::Y));
 		Cell *consumer = nullptr;
 		for (auto bit : sig) {
 			if (!fanout.count(bit) || fanout[bit] != 1)
@@ -137,13 +159,17 @@ struct ArithTreeWorker {
 			else if (consumer != c)
 				return nullptr;
 		}
-		// A link truncates its own result at its own Y width. That truncation
-		// is invisible only if the consumer truncates at least as hard, since
-		// (x % 2**link) % 2**parent == x % 2**parent only when parent <= link.
-		// A link narrower than its consumer discards a carry that the wider
-		// consumer would otherwise see, so it must not be flattened away.
-		if (consumer != nullptr && GetSize(sig) < GetSize(consumer->getPort(ID::Y)))
-			return nullptr;
+		// A link narrower than its consumer discards a carry the wider consumer would
+		// otherwise see, since (x % 2**link) % 2**parent == x % 2**parent only when
+		// parent <= link. Flatten it anyway when the link cannot reach that carry, but
+		// only if the consumer zero-extends it: a sign-extended narrow link means
+		// something different from the full-width sum that replaces it.
+		if (consumer != nullptr && GetSize(sig) < GetSize(consumer->getPort(ID::Y))) {
+			bool consumer_extends_unsigned = !consumer->getParam(ID::A_SIGNED).as_bool() &&
+			                                 !consumer->getParam(ID::B_SIGNED).as_bool();
+			if (!consumer_extends_unsigned || link_may_overflow(cell))
+				return nullptr;
+		}
 		return consumer;
 	}
 
@@ -151,7 +177,7 @@ struct ArithTreeWorker {
 	{
 		dict<Cell *, Cell *> parent_of;
 		for (auto cell : candidates) {
-			Cell *consumer = sole_chainable_consumer(sigmap(cell->getPort(ID::Y)), candidates);
+			Cell *consumer = sole_chainable_consumer(cell, candidates);
 			if (consumer && consumer != cell)
 				parent_of[cell] = consumer;
 		}
