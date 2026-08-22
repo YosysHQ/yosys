@@ -1,0 +1,22 @@
+log -header "-farm-gain rejects a threshold below one"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input [53:0] a, input [4:0] s, input [53:0] sel, output [53:0] y);
+  reg [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? a[i] : 1'b0;
+  assign y = p >> s;
+endmodule
+EOF
+proc
+
+# A farm push trades one shift for three, so it only ever pays through the fold
+# an arm's own barrel gives it. At zero the guard accepts farms where no arm
+# folds, which buys nothing and costs two barrels, so the option must not accept
+# a threshold that disables it. An expected error ends the script, which is why
+# this check lives in a file of its own rather than in mux_push.ys.
+logger -expect error "-farm-gain must be at least 1" 1
+muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select -farm-gain 0
+logger -check-expected
+log -pop
