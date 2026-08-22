@@ -215,3 +215,22 @@ design -load postopt
 select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
 design -reset
+
+# Only the truncating link must be excluded: with a truncated t entering the
+# wider (t+c+d) chain as a leaf, the wide part still folds into a tree and the
+# whole result stays equivalent.
+read_verilog <<EOT
+module equiv_trunc_mixed(
+	input [7:0] a, b, c, d,
+	output [9:0] y
+);
+	wire [7:0] t = a + b;
+	assign y = t + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-min 1 t:$fa
+design -reset
