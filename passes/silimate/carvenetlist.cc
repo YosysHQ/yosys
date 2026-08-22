@@ -67,7 +67,9 @@ static bool is_set_reset_pin(const std::string &pin)
 	std::string p;
 	for (char c : pin)
 		p += std::tolower((unsigned char)c);
-	for (const char *k : {"reset", "set", "clr", "clear", "arst", "srst", "aload", "sload"})
+	// "rst" covers RST/RSTN/RSTB; "reset" already matches RESET. "set" also matches
+	// RESET (substring), which is intentional -- RESET is never the captured-data pin.
+	for (const char *k : {"reset", "rst", "set", "clr", "clear", "arst", "srst", "aload", "sload"})
 		if (p.find(k) != std::string::npos)
 			return true;
 	return false;
@@ -124,11 +126,21 @@ struct CarveNetlistPass : public Pass {
 		log("\n");
 		log("  - launch flop  = hop forward from each data input port through any\n");
 		log("                   drive-strength buffers/inverters (1-in/1-out cells) to the\n");
-		log("                   first >2-port cell;\n");
+		log("                   first >2-port cell, unless that cell is the sequential\n");
+		log("                   cell-under-test (see below);\n");
 		log("  - capture flop = the mirror backward hop from each data output port;\n");
 		log("  - cell-under-test = the logic cone walked forward from the launch flops'\n");
 		log("                      outputs, excluding the boundary flops; tagged \\submod and\n");
 		log("                      carved by submod.\n");
+		log("\n");
+		log("A sequential cell-under-test (adff/dff/...) is itself a flop. If synthesis drops\n");
+		log("the surround launch flop on a reset pin, hop_fwd from that port lands on the\n");
+		log("cell-under-test's RESET/SET/ARST pin. Treating that flop as a launch/boundary\n");
+		log("cell would exclude it from the cone and leave the carved module gate-less (or\n");
+		log("with only a polarity-restore inverter, when the library flop exposes QN not Q).\n");
+		log("Such a flop is kept in the cone: hop_fwd arriving on a set/reset pin, or a\n");
+		log("hop_fwd flop driven by another hop_fwd flop, is the cell-under-test, not a\n");
+		log("surround launch flop.\n");
 		log("\n");
 		log("The shared clock network (fast_clk/slow_clk and their buffer tree) is treated as\n");
 		log("a hard boundary: cones never expand through it, so a carve can't leak across the\n");
@@ -309,29 +321,34 @@ struct CarveNetlistPass : public Pass {
 			}
 		}
 
-		// Forward-hop from an input-port net through buffers to the launch flop (or null)
-		auto hop_fwd = [&](SigBit bit) -> Cell * {
+		// Forward-hop from an input-port net through buffers to the first >2-port cell
+		// and the input pin we arrived on (or {nullptr, {}} if there is no clean hop).
+		// The arrived pin distinguishes a surround launch flop (D) from a sequential
+		// cell-under-test whose reset pin the hop landed on (RESET/SET/ARST).
+		auto hop_fwd = [&](SigBit bit) -> std::pair<Cell *, IdString> {
 			pool<Cell *> seen;
 			while (true) {
 				if (clk_nets.count(bit))
-					return nullptr; // never walk into the shared clock network
+					return {}; // never walk into the shared clock network
 				auto it = loads.find(bit);
 				if (it == loads.end())
-					return nullptr;
+					return {};
 				Cell *c = nullptr;
+				IdString pin;
 				for (auto &pr : it->second) {
 					if (c && pr.first != c)
-						return nullptr; // fork: no clean single boundary
+						return {}; // fork: no clean single boundary
 					c = pr.first;
+					pin = pr.second;
 				}
 				if (c == nullptr || seen.count(c))
-					return nullptr;
+					return {};
 				seen.insert(c);
 				if (!is_passthrough(c))
-					return c;
+					return {c, pin};
 				auto &outs = cell_out_bits[c];
 				if (outs.size() != 1)
-					return nullptr;
+					return {};
 				bit = outs[0];
 			}
 		};
@@ -364,40 +381,104 @@ struct CarveNetlistPass : public Pass {
 			const std::string &base = grp.first;
 			Group &g = grp.second;
 
-			// Launch flops drive the inputs; hop through buffers, seed the cone from the
-			// flop output that drives the cell, and record (type, out-pin) as the driver.
-			pool<Cell *> launch, capture, boundary_cells;
+			// Capture flops first: hop back through buffers from each data output.
+			pool<Cell *> launch, capture, cut_flops, boundary_cells, logic;
 			pool<SigBit> seed;
 			std::string drv_cell, drv_pin;
+			for (auto bit : g.outs) {
+				Cell *flop = hop_back(bit);
+				if (flop != nullptr)
+					capture.insert(flop);
+			}
+
+			// Launch flops drive the inputs. hop_fwd returns the first >2-port cell and the
+			// pin we arrived on. A sequential cell-under-test is itself a flop: if synthesis
+			// dropped the surround launch flop on a reset pin, hop_fwd lands on that cell's
+			// RESET/SET/ARST. Putting it in `launch` would exclude it from the cone and carve
+			// the cell gate-less. Keep those as cut_flops (in-cone), not boundary.
 			for (auto bit : g.ins) {
-				Cell *flop = hop_fwd(bit);
+				auto hop = hop_fwd(bit);
+				Cell *flop = hop.first;
 				if (flop == nullptr)
 					continue;
+				if (is_set_reset_pin(unescape(hop.second.str()))) {
+					cut_flops.insert(flop);
+					continue;
+				}
 				launch.insert(flop);
 				for (auto ob : cell_out_bits[flop]) {
 					if (clk_nets.count(ob))
 						continue; // a launch flop's data output, never a generated clock
 					if (!loads.count(ob))
 						continue; // only the flop output that actually drives the cell
-					if (drv_cell.empty()) {
-						drv_cell = unescape(flop->type.str());
-						drv_pin = unescape(driver[ob].second.str());
-					}
 					seed.insert(ob);
 				}
 			}
-			// Capture flops load the outputs; hop back through buffers to the real flop.
-			for (auto bit : g.outs) {
-				Cell *flop = hop_back(bit);
-				if (flop != nullptr)
-					capture.insert(flop);
+
+			// A hop_fwd flop driven by another hop_fwd flop is the cell-under-test (e.g. D
+			// wired straight to the sequential cell while ARST still has a launch flop).
+			{
+				pool<Cell *> false_launch;
+				for (auto b : launch) {
+					for (auto ib : cell_in_bits[b]) {
+						if (clk_nets.count(ib))
+							continue;
+						auto dit = driver.find(ib);
+						if (dit != driver.end() && launch.count(dit->second.first) &&
+						    dit->second.first != b)
+							false_launch.insert(b);
+					}
+				}
+				for (auto c : false_launch) {
+					launch.erase(c);
+					cut_flops.insert(c);
+				}
 			}
+
+			// A flop that hop_fwd and hop_back both find is the cell-under-test (both
+			// surround flops were optimized away: in_port -> CUT -> out_port).
+			for (auto c : launch)
+				if (capture.count(c))
+					cut_flops.insert(c);
+
+			// The cell-under-test is never a surround launch or capture flop
+			for (auto c : cut_flops) {
+				launch.erase(c);
+				capture.erase(c);
+			}
+
 			boundary_cells = launch;
 			for (auto c : capture)
 				boundary_cells.insert(c);
 
+			// Record the surround launch (type, out-pin) after dropping any false launch
+			// that was actually the sequential cell-under-test.
+			for (auto flop : launch) {
+				if (!drv_cell.empty())
+					break;
+				for (auto ob : cell_out_bits[flop]) {
+					if (clk_nets.count(ob) || !loads.count(ob))
+						continue;
+					drv_cell = unescape(flop->type.str());
+					drv_pin = unescape(driver[ob].second.str());
+					break;
+				}
+			}
+
+			// Both surround launches gone: seed from the CUT's outputs so the cone still
+			// includes it (and any polarity-restore inverter on QN).
+			if (launch.empty()) {
+				for (auto c : cut_flops) {
+					logic.insert(c);
+					for (auto ob : cell_out_bits[c]) {
+						if (clk_nets.count(ob) || !loads.count(ob))
+							continue;
+						seed.insert(ob);
+					}
+				}
+			}
+
 			// Walk the logic cone forward from the launch outputs, excluding boundary flops
-			pool<Cell *> logic;
 			pool<SigBit> driven = seed;
 			std::vector<SigBit> stack(seed.begin(), seed.end());
 			while (!stack.empty()) {
@@ -627,7 +708,7 @@ struct CarveNetlistPass : public Pass {
 				for (auto pw : g.in_wires) {
 					Wire *cwi = nullptr;
 					for (int i = 0; i < pw->width; i++) {
-						Cell *fc = hop_fwd(sigmap(SigBit(pw, i)));
+						Cell *fc = hop_fwd(sigmap(SigBit(pw, i))).first;
 						if (fc == nullptr || !launch.count(fc))
 							continue;
 						SigBit qi;
@@ -671,6 +752,7 @@ struct CarveNetlistPass : public Pass {
 			// in_remap is empty, so this only folds constants/ties, ties undriven nets to 0, and
 			// pulls in forward-walk-missed gates -- a no-op on an already-clean cone.
 			{
+				pool<SigBit> group_ins(g.ins.begin(), g.ins.end());
 				std::vector<Cell *> proc(logic.begin(), logic.end());
 				pool<Cell *> queued = logic;
 				while (!proc.empty()) {
@@ -698,6 +780,11 @@ struct CarveNetlistPass : public Pass {
 							if (dit != driver.end() && boundary_cells.count(dit->second.first))
 								continue; // launch-flop output the remap above missed: keep as input
 							if (dit == driver.end()) {
+								// A group input port with no cell driver (ARST wired straight
+								// to the sequential cell's RESET) is a primary input, not an
+								// undriven scan pin -- keep it so submod exports the port.
+								if (group_ins.count(s))
+									continue;
 								// Undriven internal net (inserted scan/test pin, etc.): tie to 0.
 								bit = State::S0;
 								changed = true;
