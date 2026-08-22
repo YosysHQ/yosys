@@ -1,0 +1,87 @@
+log -header "-chain: a low-padded gather of (x << s) becomes one barrel"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [1:0]  s,
+  input wire [2:0]  t,
+  output wire [15:0] y
+);
+  wire [15:0] shl = x << s;
+  wire [23:0] pad = {shl, 8'b0};
+  assign y = pad >> t;
+endmodule
+EOF
+prep -top top
+check -assert
+# -combine cannot see the padded A; both barrels stay
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+equiv_opt -assert opt_shift -chain
+design -load postopt
+opt_clean
+select -assert-count 0 t:$shl
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "-chain refuses when the inner shift still has a reader"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [1:0]  s,
+  input wire [2:0]  t,
+  output wire [15:0] y,
+  output wire [15:0] z
+);
+  wire [15:0] shl = x << s;
+  wire [23:0] pad = {shl, 8'b0};
+  assign y = pad >> t;
+  assign z = shl;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -chain
+design -load postopt
+opt_clean
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "-chain-keep still composes when that reader stays"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [1:0]  s,
+  input wire [2:0]  t,
+  output wire [15:0] y,
+  output wire [15:0] z
+);
+  wire [15:0] shl = x << s;
+  wire [23:0] pad = {shl, 8'b0};
+  assign y = pad >> t;
+  assign z = shl;
+endmodule
+EOF
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -chain-keep
+design -load postopt
+opt_clean
+# inner lives for z; outer is one composed $shr from x
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+select -assert-none t:$shr %ci t:$shl %i
+design -reset
+log -pop
