@@ -49,6 +49,7 @@ struct OptVpsWorker
 	int vps_reads_replaced = 0;
 	int gathers_folded = 0;
 	int min_stride;
+	bool msb_inv_sext;
 	pool<Cell *> vps_shr_cells;
 
 	// Decoder $shl output bit -> (decoder, one-hot position).  Lets the
@@ -65,8 +66,9 @@ struct OptVpsWorker
 	dict<SigSpec, Cell *> reduce_or_map;
 	bool reduce_or_map_valid = false;
 
-	OptVpsWorker(Module *module, int min_stride)
-		: module(module), sigmap(module), min_stride(min_stride)
+	OptVpsWorker(Module *module, int min_stride, bool msb_inv_sext = false)
+		: module(module), sigmap(module), min_stride(min_stride),
+		  msb_inv_sext(msb_inv_sext)
 	{
 		rebuild_maps();
 	}
@@ -608,6 +610,38 @@ struct OptVpsWorker
 		return k;
 	}
 
+	// Undo the MSB inversion described at the call site: if `core` is {~b, low}
+	// and {b, low} is one driver's result, the signed value of `core` is that
+	// result less 2^(c-1). Only accepted when the rebuilt value provably fits
+	// signed-`c`, which is the same contract the generic path has to meet.
+	bool recover_msb_inv(const SigSpec &core, int c, int depth, Affine &out)
+	{
+		if (c < 2)
+			return false;
+		Cell *inv = bit_drivers.at(core[c - 1], nullptr);
+		if (!inv || inv->type != ID($not) ||
+		    inv->getParam(ID::A_WIDTH).as_int() != 1 ||
+		    inv->getParam(ID::Y_WIDTH).as_int() != 1)
+			return false;
+
+		SigSpec base = core.extract(0, c - 1);
+		base.append(sigmap(inv->getPort(ID::A))[0]);
+		Affine a = affine_of(base, depth + 1);
+		if (!a.ok || a.exact_bits < c)
+			return false;
+
+		a.konst -= int64_t(1) << (c - 1);
+		int64_t lo, hi;
+		if (!coeff_range(a.coeffs, lo, hi) ||
+		    lo + a.konst < -(int64_t(1) << (c - 1)) ||
+		    hi + a.konst >= (int64_t(1) << (c - 1)))
+			return false;
+
+		a.exact_bits = AFFINE_EXACT;
+		out = a;
+		return true;
+	}
+
 	// Tighten exactness: an affine form that provably stays inside [0, 2^w) is
 	// the value of the w-bit signal itself, not just congruent to it.
 	static void tighten_exact(Affine &r, int w)
@@ -690,6 +724,20 @@ struct OptVpsWorker
 				a.exact_bits = AFFINE_EXACT;
 				affine_cache[sig] = a;
 				return a;
+			}
+			// Verific spells a possibly-negative narrow result by inverting the
+			// MSB of an unsigned sum, since as a signed value
+			//   {~b, low} == {b, low} - 2^(c-1)
+			// The bound above cannot see that: b is the sum's own carry, so it
+			// is correlated with low, and interval arithmetic on the two as
+			// independent atoms is far too wide. Rebuilding the value from the
+			// uninverted sum keeps it exact, which matters because the wide and
+			// narrow spellings of one index expression have to reduce to the
+			// same atoms to land in the same gather group.
+			Affine b;
+			if (msb_inv_sext && recover_msb_inv(core, c, depth, b)) {
+				affine_cache[sig] = b;
+				return b;
 			}
 			r.ok = true;
 			r.exact_bits = AFFINE_EXACT;
@@ -2458,12 +2506,26 @@ struct OptVpsPass : public Pass {
 		log("    -max_gather_table <n>\n");
 		log("        Maximum gather table entries to consider. Default: 4096.\n");
 		log("\n");
+		log("    -msb-inv-sext\n");
+		log("        Read a sign extension whose core has an inverted MSB,\n");
+		log("        {~b, low}, as the uninverted sum {b, low} less 2^(c-1).\n");
+		log("        Verific emits that for a narrow result that may go\n");
+		log("        negative, such as the `i - 1` in a bit-sliced field\n");
+		log("        select. Without it the carry bit b and the sum low are\n");
+		log("        treated as independent atoms, whose interval bound is far\n");
+		log("        wider than the real range, so the value is not provably\n");
+		log("        exact and the index collapses to an opaque atom. That\n");
+		log("        splits one entry out of its gather group, costing a whole\n");
+		log("        extra barrel and leaving the group misaligned with the\n");
+		log("        select farm reading it.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_stride = 4;
 		int min_gather = 4;
 		int max_gather_table = 4096;
+		bool msb_inv_sext = false;
 
 		log_header(design, "Executing OPT_VPS pass (optimize Verific VPS patterns).\n");
 
@@ -2481,6 +2543,10 @@ struct OptVpsPass : public Pass {
 				max_gather_table = std::stoi(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-msb-inv-sext" || args[argidx] == "-msb_inv_sext") {
+				msb_inv_sext = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2492,7 +2558,7 @@ struct OptVpsPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			OptVpsWorker worker(module, min_stride);
+			OptVpsWorker worker(module, min_stride, msb_inv_sext);
 			worker.run(min_gather, max_gather_table);
 
 			if (worker.groups_optimized > 0)
