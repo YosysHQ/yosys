@@ -8,6 +8,9 @@ yosys_pass(exec
 yosys_pass(add
 	add.cc
 )
+yosys_pass(hdlname_recover
+	hdlname_recover.cc
+)
 yosys_pass(delete
 	delete.cc
 )
