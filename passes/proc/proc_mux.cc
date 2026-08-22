@@ -318,12 +318,26 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 	return swcache.full_case_bits_cache.at(sw);
 }
 
-RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool> &swpara,
-		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
+bool maybe_touches_sig_wires(const RTLIL::SigSpec &signal, const pool<RTLIL::Wire*> &sig_wires)
+{
+	for (auto &chunk : signal.chunks())
+		if (chunk.wire != NULL && sig_wires.count(chunk.wire))
+			return true;
+	return false;
+}
+
+RTLIL::SigSpec signal_to_mux_tree_worker(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool> &swpara,
+		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const pool<RTLIL::Wire*> &sig_wires,
+		const RTLIL::SigSpec &defval, bool ifxmode, bool wire_prefilter)
 {
 	RTLIL::SigSpec result = defval;
 
 	for (auto &action : cs->actions) {
+		if (action.first.empty())
+			continue;
+		// Fast prefilter: avoid replace/remove2 when this action can not touch `sig`.
+		if (wire_prefilter && !maybe_touches_sig_wires(action.first, sig_wires))
+			continue;
 		sig.replace(action.first, action.second, &result);
 		action.first.remove2(sig, &action.second);
 	}
@@ -399,7 +413,7 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			RTLIL::CaseRule *cs2 = sw->cases[case_idx];
-			RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, cs2, sig, initial_val, ifxmode);
+			RTLIL::SigSpec value = signal_to_mux_tree_worker(mod, swcache, swpara, cs2, sig, sig_wires, initial_val, ifxmode, wire_prefilter);
 			if (last_mux_cell && pgroups[case_idx] == pgroups[case_idx+1])
 				append_pmux(mod, sw->signal, cs2->compare, value, last_mux_cell, sw, cs2, ifxmode);
 			else
@@ -410,7 +424,18 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 	return result;
 }
 
-void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
+RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool> &swpara,
+		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode, bool wire_prefilter)
+{
+	pool<RTLIL::Wire*> sig_wires;
+	if (wire_prefilter)
+		for (auto &chunk : sig.chunks())
+			if (chunk.wire != NULL)
+				sig_wires.insert(chunk.wire);
+	return signal_to_mux_tree_worker(mod, swcache, swpara, cs, sig, sig_wires, defval, ifxmode, wire_prefilter);
+}
+
+void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode, bool wire_prefilter)
 {
 	log("Creating decoders for process `%s.%s'.\n", mod->name, proc->name);
 
@@ -431,7 +456,7 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 		log("%6d/%d: %s\n", ++cnt, GetSize(sigsnip.snippets), log_signal(sig));
 
-		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()), ifxmode);
+		RTLIL::SigSpec value = signal_to_mux_tree(mod, swcache, swpara, &proc->root_case, sig, RTLIL::SigSpec(RTLIL::State::Sx, sig.size()), ifxmode, wire_prefilter);
 		mod->connect(RTLIL::SigSig(sig, value));
 	}
 }
@@ -451,10 +476,15 @@ struct ProcMuxPass : public Pass {
 		log("        Use Verilog simulation behavior with respect to undef values in\n");
 		log("        'case' expressions and 'if' conditions.\n");
 		log("\n");
+		log("    -no-wire-prefilter\n");
+		log("        Disable the fast action-wire prefilter. This is useful for\n");
+		log("        debugging and equivalence testing against the legacy behavior.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool ifxmode = false;
+		bool wire_prefilter = true;
 		log_header(design, "Executing PROC_MUX pass (convert decision trees to multiplexers).\n");
 
 		size_t argidx;
@@ -464,13 +494,17 @@ struct ProcMuxPass : public Pass {
 				ifxmode = true;
 				continue;
 			}
+			if (args[argidx] == "-no-wire-prefilter") {
+				wire_prefilter = false;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->all_selected_modules())
 			for (auto proc : mod->selected_processes())
-				proc_mux(mod, proc, ifxmode);
+				proc_mux(mod, proc, ifxmode, wire_prefilter);
 	}
 } ProcMuxPass;
 
