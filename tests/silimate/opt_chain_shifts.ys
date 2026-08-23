@@ -85,3 +85,30 @@ select -assert-count 1 t:$shr
 select -assert-none t:$shr %ci t:$shl %i
 design -reset
 log -pop
+
+
+
+log -header "-chain leaves an align pair (x >> s) << t alone"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] x,
+  input wire [2:0]  s,
+  input wire [2:0]  t,
+  output wire [15:0] y
+);
+  assign y = (x >> s) << t;
+endmodule
+EOF
+prep -top top
+check -assert
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+equiv_opt -assert opt_shift -chain-keep
+design -load postopt
+opt_clean
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+design -reset
+log -pop
