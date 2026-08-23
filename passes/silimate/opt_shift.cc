@@ -452,6 +452,10 @@ struct ChainCombiner
       return no(why);
 
     int so = direction(outer), si = direction(inner);
+    // Only gather leftover `(x << b) >> c`. Inverse align `(x >> b) << c`
+    // composed 15 times on qor_fold_tree_2 and cost 4 LoL.
+    if (so <= 0 || si >= 0)
+      return no("not a right-shift of a leftover left-shift");
     int olo, ohi, ilo, ihi, obits, ibits;
     if (!signed_amount_range(outer, so, olo, ohi, obits) ||
         !signed_amount_range(inner, si, ilo, ihi, ibits))
@@ -955,13 +959,14 @@ struct OptShiftPass : public Pass {
     log("      the outer one reads its operand as a constant-padded slice rather\n");
     log("      than as the inner output whole, which is what a part-select or an\n");
     log("      opt_vps gather table leaves behind:\n");
-    log("        pad(x >>/<< b)[j + c]  ===>  pad'(x)[j + (c +/- b + k)]\n");
-    log("      Unlike -fuse the result stays a plain shift, so the amount needs\n");
-    log("      clog2 of the sum rather than of the modulus and the barrel is\n");
-    log("      narrower than the pair it replaces. Where the two shifts oppose,\n");
-    log("      the sum can go negative, so the operand is pre-padded by that much\n");
-    log("      and one unsigned shift is left. Only fires when the inner barrel\n");
-    log("      dies with it and the composed amount is genuinely narrower.\n");
+    log("        pad(x << b) >> c  ===>  pad'(x) >> (c - b + k)\n");
+    log("      Only a right-shift of a leftover left-shift: that is the opt_vps\n");
+    log("      gather reading `(x >> 1) << s`. The inverse align pair\n");
+    log("      `(x >> b) << c` is left alone. Unlike -fuse the result stays a\n");
+    log("      plain shift, so the amount needs clog2 of the sum rather than of\n");
+    log("      the modulus. The sum can go negative, so the operand is\n");
+    log("      pre-padded and one unsigned $shr is left. Only fires when the\n");
+    log("      inner barrel dies with it and the composed amount is narrower.\n");
     log("\n");
     log("  -chain-keep\n");
     log("      Like -chain, but keep the inner barrel when another reader still\n");
