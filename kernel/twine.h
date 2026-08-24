@@ -5,8 +5,11 @@
 #include "kernel/yosys_common.h"
 
 #include <algorithm>
+#include <bit>
+#include <cstdint>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -16,27 +19,43 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct Twine;
+struct TwineSpec;
 struct TwinePool;
 struct IdString;
 
-// An IdString now references a Twine in a per-Design TwinePool.
-// Twines are designed to deduplicate prefixes if appropriately constructed.
-// Statically, compile-time allocated indices defined in kernel/constids.inc
-// are handled with a global read-only pool.
-// A general IdString can't be constructed, converted to a string, or printed
-// without a pointer to the pool.
-// Two IdStrings that resolve to the same string won't generally compare
-// equal with operator== but alternate mechanisms are provided for cases
-// where that is absolutely necessary but it should be avoided for performance,
-// see DeepTwine and TwineSearch.
-// Twines are deduplicated within a TwinePool in a "shallow" way, similar to FRAIGing.
-// Lookup from a string to IdString is expensive and provided by TwineSearch.
-// Instead of backslash escaping, identifier "publicity" is implemented
-// with a publicity bit on the IdString reference integer.
-// TwinePool is backed by an std::deque and a free list
-// and provides stable indices outside of garbage collection.
-// "Content" refers to the untagged backing.
+/**
+ * A twine is a data structure designed to deduplicate prefixes.
+ * The key idea is that a twine is a suffix node or a leaf node.
+ * A leaf node holds a string,
+ * while a suffix node appends a string to a twine.
+ *
+ * Twines are used here to implement IdString, the Yosys interned
+ * string type. They're extended to the needs of Yosys, specifically
+ * with efficient static NEW_ID prefixes,
+ * and IdString holding a special bit marking the publicity of a name.
+ * When public, a backslash is prepended when printing an IdString.
+ *
+ * An IdString references a TwineNode in a per-Design TwinePool
+ * by indexing into it. It is constructed by interning a TwineSpec
+ * into a TwinePool.
+ *
+ * A general IdString can't be constructed, converted to a string, or printed
+ * without a pointer to the TwinePool.
+ * Compile-time allocated indices defined in kernel/constids.inc
+ * live in a global read-only pool, so they're an exception to that.
+ *
+ * Two IdStrings that resolve to the same string won't generally compare
+ * equal with operator== so that comparisons are cheap,
+ * but alternate mechanisms are provided for cases
+ * where that is absolutely necessary but it should be avoided for performance,
+ * like DeepTwine and TwineSearch.
+ * Twines are deduplicated within a TwinePool in a "shallow" way, similar to FRAIGing.
+ * Lookup from a string to IdString is expensive and provided by TwineSearch.
+ *
+ * TwinePool is backed by an std::deque and a free list
+ * and provides stable indices outside of garbage collection.
+ * "Content" refers to the untagged backing.
+ */
 
 struct NullIdString {
 	constexpr operator IdString() const;
@@ -45,13 +64,20 @@ struct NullIdString {
 
 struct IdString {
 private:
-	size_t value;
+#ifdef YOSYS_ENABLE_TWINE_PROVENANCE
+	using bits_t = uint64_t;
+#else
+	using bits_t = uint32_t;
+#endif
+	bits_t value;
 
-	static constexpr size_t TWINE_PUBLIC_BIT = 1ULL << 63;
-	static constexpr size_t TWINE_NULL_VAL = ~size_t{0};
-	static constexpr int TWINE_SERIAL_SHIFT = 32;
-	static constexpr size_t TWINE_INDEX_MASK = (size_t{1} << TWINE_SERIAL_SHIFT) - 1;
-	static constexpr size_t TWINE_SERIAL_MASK = ~(TWINE_INDEX_MASK | TWINE_PUBLIC_BIT);
+	static constexpr int TWINE_WIDTH = std::numeric_limits<bits_t>::digits;
+	static constexpr int TWINE_PUBLIC_SHIFT = TWINE_WIDTH - 1;
+	static constexpr bits_t TWINE_PUBLIC_BIT = bits_t{1} << TWINE_PUBLIC_SHIFT;
+	static constexpr bits_t TWINE_NULL_VAL = ~bits_t{0};
+	static constexpr int TWINE_SERIAL_SHIFT = TWINE_WIDTH == 64 ? 32 : TWINE_PUBLIC_SHIFT;
+	static constexpr bits_t TWINE_INDEX_MASK = (bits_t{1} << TWINE_SERIAL_SHIFT) - 1;
+	static constexpr bits_t TWINE_SERIAL_MASK = bits_t(~(TWINE_INDEX_MASK | TWINE_PUBLIC_BIT));
 
 public:
 	static constexpr NullIdString Null{};
@@ -66,25 +92,27 @@ public:
 	// raw() with the pool serial kept
 	constexpr size_t bits() const { return value; }
 
+	constexpr size_t order_key() const { return std::rotl((bits_t) eq_key(), 1); }
+
 	constexpr size_t serial() const {
 		return value == TWINE_NULL_VAL ? 0 : ((value & TWINE_SERIAL_MASK) >> TWINE_SERIAL_SHIFT);
 	}
 
 	constexpr IdString stamped(size_t pool_serial) const {
 		return value == TWINE_NULL_VAL ? *this
-			: IdString((value & ~TWINE_SERIAL_MASK) | (pool_serial << TWINE_SERIAL_SHIFT));
+			: IdString((value & ~TWINE_SERIAL_MASK)
+					| (bits_t(pool_serial << TWINE_SERIAL_SHIFT) & TWINE_SERIAL_MASK));
 	}
 
 	constexpr IdString() : value(TWINE_NULL_VAL) {}
-	explicit constexpr IdString(size_t val) : value(val) {}
+	explicit constexpr IdString(size_t val) : value((bits_t) val) {}
 
-	constexpr bool operator==(const IdString &rhs) const { return raw() == rhs.raw(); }
-	constexpr bool operator!=(const IdString &rhs) const { return raw() != rhs.raw(); }
+	constexpr size_t eq_key() const { return value & ~TWINE_SERIAL_MASK; }
+
+	constexpr bool operator==(const IdString &rhs) const { return eq_key() == rhs.eq_key(); }
+	constexpr bool operator!=(const IdString &rhs) const { return eq_key() != rhs.eq_key(); }
 	constexpr std::strong_ordering operator<=>(const IdString &rhs) const {
-		size_t a = raw(), b = rhs.raw();
-		if (auto cmp = (a & ~TWINE_PUBLIC_BIT) <=> (b & ~TWINE_PUBLIC_BIT); cmp != 0)
-			return cmp;
-		return (a & TWINE_PUBLIC_BIT) <=> (b & TWINE_PUBLIC_BIT);
+		return order_key() <=> rhs.order_key();
 	}
 
 	template <typename... Args>
@@ -120,6 +148,22 @@ public:
 
 constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
+
+namespace hashlib {
+	template<>
+	struct hash_ops<IdString> {
+		static inline bool cmp(IdString a, IdString b) { return a == b; }
+		[[nodiscard]] static inline Hasher hash(IdString id) {
+			Hasher h;
+			h.force((Hasher::hash_t) id.bits());
+			return h;
+		}
+		[[nodiscard]] static inline Hasher hash_into(IdString id, Hasher h) {
+			h.hash64(id.eq_key());
+			return h;
+		}
+	};
+}
 
 
 enum : short {
@@ -173,9 +217,9 @@ template<size_t Raw> inline constexpr IdString constid = IdString(Raw);
 
 #define ID(id) (YOSYS_NAMESPACE_PREFIX constid<YOSYS_NAMESPACE_PREFIX ID::lookup(#id).raw()>)
 
-// Twine is the object that lives in the TwinePool,
-// while IdString points to a Twine and carries publicity information
-struct Twine {
+// TwineSpec is the object that lives in the TwinePool,
+// while IdString points to a TwineSpec and carries publicity information
+struct TwineSpec {
 	// deduplicates shared prefixes
 	struct Suffix {
 		IdString prefix;
@@ -186,7 +230,7 @@ struct Twine {
 	// transient suffix constructed with NEW_ID and NEW_ID_SUFFIX
 	// turned into a regular Suffix when added to a TwinePool
 	struct AutoSuffix {
-		std::string_view prefix;
+		const std::string *prefix;
 		std::string tail;
 		auto operator<=>(const AutoSuffix&) const = default;
 	};
@@ -199,29 +243,87 @@ struct Twine {
 
 	std::variant<Leaf, Suffix, AutoSuffix> data;
 
-	Twine(Leaf v);
-	Twine(Suffix v);
-	Twine(AutoSuffix v);
+	TwineSpec(Leaf v);
+	TwineSpec(Suffix v);
+	TwineSpec(AutoSuffix v);
 
-	bool is_leaf() const;
-	bool is_suffix() const;
+	bool holds_leaf() const;
+	bool holds_suffix() const;
 	// Only for the pool-free variants, Leaf and AutoSuffix
 	std::string content_str() const;
 };
 
+struct SmallString {
+	static constexpr uint32_t INLINE_CAP = 8;
+	static constexpr size_t MAX_LEN = std::numeric_limits<uint32_t>::max();
+
+	SmallString() = default;
+	explicit SmallString(std::string_view content);
+	SmallString(const SmallString &other);
+	SmallString(SmallString &&other) noexcept;
+	SmallString &operator=(const SmallString &other);
+	SmallString &operator=(SmallString &&other) noexcept;
+	~SmallString();
+
+	std::string_view view() const { return {len_ <= INLINE_CAP ? inl_ : ptr_, len_}; }
+
+private:
+	void store(std::string_view content);
+	void release();
+
+	union {
+		char inl_[INLINE_CAP];
+		char *ptr_;
+	};
+	uint32_t len_ = 0;
+};
+
+// TwineNode is the in-memory version of TwineSpec
 struct TwineNode {
-	std::variant<std::monostate, Twine::Leaf, Twine::Suffix> data;
+	static constexpr uint32_t NO_PREFIX = ~uint32_t{0};
+	static constexpr uint32_t DEAD = NO_PREFIX - 1;
+
+	struct Key {
+		uint32_t prefix;
+		std::string_view text;
+	};
 
 	TwineNode() = default;
-	TwineNode(Twine::Leaf v);
-	TwineNode(Twine::Suffix v);
+	explicit TwineNode(std::string_view content) : text_(content), prefix_(NO_PREFIX) {}
+	TwineNode(uint32_t prefix, std::string_view tail) : text_(tail), prefix_(prefix) {}
+	TwineNode(const TwineNode &other) = default;
+	TwineNode(TwineNode &&other) noexcept;
+	TwineNode &operator=(const TwineNode &other) = default;
+	TwineNode &operator=(TwineNode &&other) noexcept;
+	~TwineNode() = default;
 
-	bool is_dead() const;
-	bool is_leaf() const;
-	bool is_suffix() const;
-	const std::string &leaf() const;
-	const Twine::Suffix &suffix() const;
+	enum class Kind { Dead, Leaf, Suffix };
+
+	constexpr bool is_dead() const { return prefix_ == DEAD; }
+	constexpr bool is_leaf() const { return prefix_ == NO_PREFIX; }
+	constexpr bool is_suffix() const { return prefix_ < DEAD; }
+
+	constexpr Kind kind() const {
+		return prefix_ == DEAD ? Kind::Dead
+			: prefix_ == NO_PREFIX ? Kind::Leaf
+			: Kind::Suffix;
+	}
+
+	std::string_view text() const { return text_.view(); }
+	IdString prefix() const { return IdString(prefix_); }
+	Key key() const { return {prefix_, text()}; }
+
+	bool operator==(const TwineNode &other) const
+		{ return prefix_ == other.prefix_ && text() == other.text(); }
+	bool operator==(const Key &other) const
+		{ return prefix_ == other.prefix && text() == other.text; }
+
+private:
+	YS_NO_UNIQUE_ADDRESS SmallString text_;
+	uint32_t prefix_ = DEAD;
 };
+
+static_assert(sizeof(TwineNode) == 16);
 
 struct StaticTwines {
 	static constexpr size_t count = STATIC_TWINE_END;
@@ -260,11 +362,19 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	static void check_ready();
 	static void canonicalize(TwineNode& t);
 	static size_t hash_node(const TwineNode& t);
+	static size_t hash_key(const TwineNode::Key& k);
 
 	template<typename F>
 	static void for_each_child(const TwineNode& t, F&& f) {
 		if (t.is_suffix())
-			f(t.suffix().prefix);
+			f(t.prefix());
+	}
+
+	template<typename Roots>
+	size_t gc(Roots& roots) {
+		for (auto &it : auto_prefixes)
+			roots.insert(it.second);
+		return HashConsPool::gc(roots);
 	}
 
 	void dump(IdString ref, std::ostream& os = std::cout) const;
@@ -282,12 +392,15 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	bool name_equal(IdString ref, std::string_view name) const;
 	bool content_equal(IdString a, IdString b) const;
 	int compare_by_name(IdString a, IdString b) const;
+	IdString prefix_of(IdString ref) const;
 
 	// Only finds leaves. For compatibility only
 	IdString find(const std::string &name) const;
-	IdString find(Twine t) const;
+	IdString find(TwineSpec t) const;
 	// Doesn't infer publicity
-	IdString add(Twine t);
+	IdString add(TwineSpec t);
+	IdString add(IdString prefix, std::string_view tail);
+	IdString auto_prefix(const std::string *prefix);
 	// Infers publicity from first character
 	IdString add(std::string s);
 	IdString copy_from(const TwinePool& src, IdString ref);
@@ -303,11 +416,11 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 
 private:
 	IdString add_inner(TwineNode t);
+	IdString intern(uint32_t prefix, std::string_view text);
+	IdString find_content(uint32_t prefix, std::string_view text) const;
 	static size_t next_serial();
+	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
-
-	static bool inherits_publicity(const Twine &t);
-	static TwineNode to_node(Twine t);
 };
 
 /**

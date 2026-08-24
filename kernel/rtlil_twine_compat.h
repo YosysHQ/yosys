@@ -161,4 +161,23 @@ private:
 
 }
 
+namespace hashlib {
+	template<typename T>
+	struct masq_hash_ops {
+		static inline bool cmp(const T &a, const T &b) { return a == b; }
+		[[nodiscard]] static inline Hasher hash(const T &a) {
+			return hash_ops<IdString>::hash(a.ref());
+		}
+		[[nodiscard]] static inline Hasher hash_into(const T &a, Hasher h) {
+			return hash_ops<IdString>::hash_into(a.ref(), h);
+		}
+	};
+
+	template<typename Owner>
+	struct hash_ops<RTLIL::ObjNameMasq<Owner>> : masq_hash_ops<RTLIL::ObjNameMasq<Owner>> {};
+	template<> struct hash_ops<RTLIL::CellTypeMasq> : masq_hash_ops<RTLIL::CellTypeMasq> {};
+	template<> struct hash_ops<RTLIL::ModuleNameMasq> : masq_hash_ops<RTLIL::ModuleNameMasq> {};
+	template<> struct hash_ops<RTLIL::PooledName> : masq_hash_ops<RTLIL::PooledName> {};
+}
+
 #endif
