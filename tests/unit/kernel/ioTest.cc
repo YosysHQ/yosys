@@ -15,8 +15,8 @@ TEST(KernelStringfTest, integerTruncation)
 
 TEST(KernelStringfTest, charFormat)
 {
-        EXPECT_EQ(stringf("%c", 256), std::string_view("\0", 1));
-        EXPECT_EQ(stringf("%c", -1), "\377");
+	EXPECT_EQ(stringf("%c", 256), std::string_view("\0", 1));
+	EXPECT_EQ(stringf("%c", -1), "\377");
 }
 
 TEST(KernelStringfTest, floatFormat)
@@ -26,29 +26,29 @@ TEST(KernelStringfTest, floatFormat)
 
 TEST(KernelStringfTest, intToFloat)
 {
-        EXPECT_EQ(stringf("%g", 1), "1");
+	EXPECT_EQ(stringf("%g", 1), "1");
 }
 
 TEST(KernelStringfTest, floatToInt)
 {
-        EXPECT_EQ(stringf("%d", 1.0), "1");
-        EXPECT_EQ(stringf("%d", -1.6), "-1");
+	EXPECT_EQ(stringf("%d", 1.0), "1");
+	EXPECT_EQ(stringf("%d", -1.6), "-1");
 }
 
 TEST(KernelStringfTest, stringParam)
 {
-        EXPECT_EQ(stringf("%s", std::string("hello")), "hello");
+	EXPECT_EQ(stringf("%s", std::string("hello")), "hello");
 }
 
 TEST(KernelStringfTest, stringViewParam)
 {
-        EXPECT_EQ(stringf("%s", std::string_view("hello")), "hello");
+	EXPECT_EQ(stringf("%s", std::string_view("hello")), "hello");
 }
 
 TEST(KernelStringfTest, idStringParam)
 {
-        RTLIL::IdString id("$hello");
-        EXPECT_EQ(stringf("%s", id), "$hello");
+	RTLIL::IdString id("$hello");
+	EXPECT_EQ(stringf("%s", id), "$hello");
 }
 
 TEST(KernelStringfTest, escapePercent)
@@ -63,27 +63,27 @@ TEST(KernelStringfTest, trailingPercent)
 
 TEST(KernelStringfTest, dynamicWidth)
 {
-        EXPECT_EQ(stringf("%*s", 8, "hello"), "   hello");
+	EXPECT_EQ(stringf("%*s", 8, "hello"), "   hello");
 }
 
 TEST(KernelStringfTest, dynamicPrecision)
 {
-        EXPECT_EQ(stringf("%.*f", 4, 1.0), "1.0000");
+	EXPECT_EQ(stringf("%.*f", 4, 1.0), "1.0000");
 }
 
 TEST(KernelStringfTest, dynamicWidthAndPrecision)
 {
-        EXPECT_EQ(stringf("%*.*f", 8, 4, 1.0), "  1.0000");
+	EXPECT_EQ(stringf("%*.*f", 8, 4, 1.0), "  1.0000");
 }
 
 TEST(KernelStringfTest, dynamicPrecisionInt)
 {
-        EXPECT_EQ(stringf("%.*d", 4, 7), "0007");
+	EXPECT_EQ(stringf("%.*d", 4, 7), "0007");
 }
 
 TEST(KernelStringfTest, dynamicWidthAndPrecisionInt)
 {
-        EXPECT_EQ(stringf("%*.*d", 8, 4, 7), "    0007");
+	EXPECT_EQ(stringf("%*.*d", 8, 4, 7), "    0007");
 }
 
 YOSYS_NAMESPACE_END

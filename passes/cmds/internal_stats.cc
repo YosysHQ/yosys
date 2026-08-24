@@ -37,31 +37,31 @@ PRIVATE_NAMESPACE_BEGIN
 std::optional<uint64_t> current_mem_bytes() {
 
 #if defined(__APPLE__)
-    task_basic_info_64_data_t basicInfo;
-    mach_msg_type_number_t count = TASK_BASIC_INFO_64_COUNT;
-    kern_return_t error = task_info(mach_task_self(), TASK_BASIC_INFO_64, (task_info_t)&basicInfo, &count);
-    if (error != KERN_SUCCESS) {
-        return {}; // Error getting task information
-    }
-    return basicInfo.resident_size; // Return RSS in KB
+	task_basic_info_64_data_t basicInfo;
+	mach_msg_type_number_t count = TASK_BASIC_INFO_64_COUNT;
+	kern_return_t error = task_info(mach_task_self(), TASK_BASIC_INFO_64, (task_info_t)&basicInfo, &count);
+	if (error != KERN_SUCCESS) {
+		return {}; // Error getting task information
+	}
+	return basicInfo.resident_size; // Return RSS in KB
 
 #elif defined(__linux__)
 	// Not all linux distributions have to have this file
-    std::ifstream statusFile("/proc/self/status");
-    std::string line;
-    while (std::getline(statusFile, line)) {
-        if (line.find("VmRSS:") == 0) {
-            std::istringstream iss(line);
-            std::string token;
+	std::ifstream statusFile("/proc/self/status");
+	std::string line;
+	while (std::getline(statusFile, line)) {
+		if (line.find("VmRSS:") == 0) {
+			std::istringstream iss(line);
+			std::string token;
 			// Skip prefix
-            iss >> token;
-            uint64_t rss;
-            iss >> rss;
-            return rss * 1024;
-        }
-    }
+			iss >> token;
+			uint64_t rss;
+			iss >> rss;
+			return rss * 1024;
+		}
+	}
 	// Error reading /proc/self/status
-    return {};
+	return {};
 
 #else
 	return {};

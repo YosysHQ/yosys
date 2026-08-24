@@ -483,7 +483,7 @@ public:
 				return false; // some other packet
 			uint32_t type = header & DIAGNOSTIC_MASK;
 			assert(type == diagnostic::BREAK  || type == diagnostic::PRINT ||
-			       type == diagnostic::ASSERT || type == diagnostic::ASSUME);
+				   type == diagnostic::ASSERT || type == diagnostic::ASSUME);
 			diagnostic.type = (diagnostic::flavor)type;
 			diagnostic.message = absorb_string();
 			diagnostic.location = absorb_string();

@@ -203,8 +203,8 @@ struct statdata_t {
 					cell_type =
 					  stringf("%s_%d_%d", cell_type, GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::S)));
 				else if (cell_type.in(ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($adffe),
-						      ID($sdff), ID($sdffe), ID($sdffce), ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch),
-						      ID($dlatchsr)))
+							  ID($sdff), ID($sdffe), ID($sdffce), ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch),
+							  ID($dlatchsr)))
 					cell_type = stringf("%s_%d", cell_type, GetSize(cell->getPort(ID::Q)));
 			}
 
@@ -229,7 +229,7 @@ struct statdata_t {
 
 						} else {
 							log_warning("too small single_parameter_area %s width: %d size: %d\n", cell_type, max_width,
-							       (int)cell_data.single_parameter_area.size());
+								   (int)cell_data.single_parameter_area.size());
 							cell_area.at(cell_type).area = cell_data.single_parameter_area.back();
 							cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 						}
@@ -269,14 +269,14 @@ struct statdata_t {
 							unsigned int width_b = widths.at(1);
 							if (width_a > 0 && width_b > 0) {
 								if (cell_data.double_parameter_area.size() > width_a - 1 &&
-								    cell_data.double_parameter_area.at(width_a - 1).size() > width_b - 1) {
+									cell_data.double_parameter_area.at(width_a - 1).size() > width_b - 1) {
 									cell_area.at(cell_type).area =
 									  cell_data.double_parameter_area.at(width_a - 1).at(width_b - 1);
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								} else {
 									log_warning("too small double_parameter_area %s, width_a: %d, width_b: %d, size_a: %d, size_b: %d\n", cell_type,
-									       width_a, width_b, (int)cell_data.double_parameter_area.size(),
-									       (int)cell_data.double_parameter_area.at(width_a - 1).size());
+										   width_a, width_b, (int)cell_data.double_parameter_area.size(),
+										   (int)cell_data.double_parameter_area.at(width_a - 1).size());
 									cell_area.at(cell_type).area = cell_data.double_parameter_area.back().back();
 									cell_area.at(cell_type).is_sequential = cell_data.is_sequential;
 								}
@@ -286,7 +286,7 @@ struct statdata_t {
 							}
 						} else {
 							log_error("double_parameter_area for %s has %d parameters, but only 2 are expected.\n", cell_type,
-							       (int)cell_data.double_parameter_area.size());
+								   (int)cell_data.double_parameter_area.size());
 						}
 					}
 				}
@@ -441,7 +441,7 @@ struct statdata_t {
 	}
 
 	void print_log_line(const std::string &name, unsigned int count_local, double area_local, unsigned int count_global, double area_global,
-			    int spacer = 0, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
+				int spacer = 0, bool print_area = true, bool print_hierarchical = true, bool print_global_only = false)
 	{
 		const std::string indent(2 * spacer, ' ');
 
@@ -453,7 +453,7 @@ struct statdata_t {
 		if (print_area) {
 			if (print_hierarchical) {
 				log(" %s %s %s %s %s%s\n", count_global_str, area_global_str, count_local_str,
-				    area_local_str.c_str(), indent.c_str(), name.c_str());
+					area_local_str.c_str(), indent.c_str(), name.c_str());
 			} else if (print_global_only) {
 				log(" %s %s %s%s\n", count_global_str, area_global_str, indent, name);
 			} else {
@@ -514,7 +514,7 @@ struct statdata_t {
 		print_log_line("wire bits", local_num_wire_bits, 0, num_wire_bits, 0, 0, print_area, print_hierarchical, print_global_only);
 		print_log_line("public wires", local_num_pub_wires, 0, num_pub_wires, 0, 0, print_area, print_hierarchical, print_global_only);
 		print_log_line("public wire bits", local_num_pub_wire_bits, 0, num_pub_wire_bits, 0, 0, print_area, print_hierarchical,
-			       print_global_only);
+				   print_global_only);
 		print_log_line("ports", local_num_ports, 0, num_ports, 0, 0, print_area, print_hierarchical, print_global_only);
 		print_log_line("port bits", local_num_port_bits, 0, num_port_bits, 0, 0, print_area, print_hierarchical, print_global_only);
 		print_log_line("memories", local_num_memories, 0, num_memories, 0, 0, print_area, print_hierarchical, print_global_only);
@@ -525,17 +525,17 @@ struct statdata_t {
 			if (it.second) {
 				auto name = string(it.first.unescape());
 				print_log_line(name, local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
-					       local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
-					       area_cells_by_type.at(it.first), 1, print_area, print_hierarchical, print_global_only);
+						   local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
+						   area_cells_by_type.at(it.first), 1, print_area, print_hierarchical, print_global_only);
 			}
 		if (num_submodules > 0) {
 			print_log_line("submodules", num_submodules, 0, num_submodules, submodule_area, 0, print_area, print_hierarchical,
-				       print_global_only);
+					   print_global_only);
 			for (auto &it : num_submodules_by_type)
 				if (it.second)
 					print_log_line(string(it.first.unescape()), it.second, 0, it.second,
-						       submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0, 1,
-						       print_area, print_hierarchical, print_global_only);
+							   submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0, 1,
+							   print_area, print_hierarchical, print_global_only);
 		}
 		if (!unknown_cell_area.empty()) {
 			log("\n");
@@ -557,7 +557,7 @@ struct statdata_t {
 					local_sequential_area += it.second;
 				log("   Chip area for %smodule '%s': %f\n", (top_mod) ? "top " : "", mod_name, local_area);
 				log("     of which used for sequential elements: %f (%.2f%%)\n", local_sequential_area,
-				    100.0 * local_sequential_area / local_area);
+					100.0 * local_sequential_area / local_area);
 			}
 		}
 
@@ -579,7 +579,7 @@ struct statdata_t {
 	{
 
 		return stringf("{ \"count\": \"%u\", \"area\": \"%f\", \"local_count\": \"%u\", \"local_area\": \"%f\" }", count_global, area_global,
-			       count_local, area_local);
+				   count_local, area_local);
 	}
 
 	void log_data_json(const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
@@ -608,10 +608,10 @@ struct statdata_t {
 					if (!first_line)
 						log(",\n");
 					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
-					    json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
-						      local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
-						      area_cells_by_type.at(it.first))
-					      .c_str());
+						json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
+							  local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
+							  area_cells_by_type.at(it.first))
+						  .c_str());
 					first_line = false;
 				}
 			log("\n      },\n");
@@ -622,9 +622,9 @@ struct statdata_t {
 					if (!first_line)
 						log(",\n");
 					log("            %s: %s", json11::Json(it.first.unescape()).dump(),
-					    json_line(0, 0, it.second,
-						      submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
-					      .c_str());
+						json_line(0, 0, it.second,
+							  submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
+						  .c_str());
 					first_line = false;
 				}
 			log("\n      }\n");
@@ -727,7 +727,7 @@ struct statdata_t {
 };
 
 statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTLIL::IdString mod, int level, bool quiet = false, bool has_area = true,
-			    bool hierarchy_mode = true)
+				bool hierarchy_mode = true)
 {
 	statdata_t mod_data = mod_stat.at(mod);
 
@@ -745,7 +745,7 @@ statdata_t hierarchy_worker(std::map<RTLIL::IdString, statdata_t> &mod_stat, RTL
 }
 
 statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *top_mod, std::map<RTLIL::IdString, statdata_t> &mod_stat,
-			     bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
+				 bool width_mode, dict<IdString, cell_area_t> &cell_area, string techname)
 {
 	if (top_mod == nullptr)
 		top_mod = design->top_module();
@@ -766,14 +766,14 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 					  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
 					mod_data.num_cells_by_type.erase(cell->type);
 					mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
-								      ? mod_data.local_num_cells_by_type.at(cell->type)
-								      : 0;
+									  ? mod_data.local_num_cells_by_type.at(cell->type)
+									  : 0;
 					mod_data.local_num_cells_by_type.erase(cell->type);
 					mod_data.local_area_cells_by_type.erase(cell->type);
 				} else {
 					// deal with blackbox cells
 					if (design->module(cell->type)->attributes.count(ID::area) &&
-					    design->module(cell->type)->attributes.at(ID::area).size() == 0) {
+						design->module(cell->type)->attributes.at(ID::area).size() == 0) {
 						mod_data.num_submodules_by_type[cell->type]++;
 						mod_data.num_submodules++;
 						mod_data.submodules_area_by_type[cell->type] +=
@@ -784,8 +784,8 @@ statdata_t hierarchy_builder(const RTLIL::Design *design, const RTLIL::Module *t
 						  (mod_data.num_cells_by_type.count(cell->type) != 0) ? mod_data.num_cells_by_type.at(cell->type) : 0;
 						mod_data.num_cells_by_type.erase(cell->type);
 						mod_data.local_num_cells -= (mod_data.local_num_cells_by_type.count(cell->type) != 0)
-									      ? mod_data.local_num_cells_by_type.at(cell->type)
-									      : 0;
+										  ? mod_data.local_num_cells_by_type.at(cell->type)
+										  : 0;
 						mod_data.local_num_cells_by_type.erase(cell->type);
 						mod_data.local_area_cells_by_type.erase(cell->type);
 					}
@@ -875,7 +875,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 		if (ar != nullptr && !ar->value.empty()) {
 			string prefix = cell->args[0].substr(0, 1) == "$" ? "" : "\\";
 			cell_area[prefix + cell->args[0]] = {atof(ar->value.c_str()), is_flip_flop, single_parameter_area, double_parameter_area,
-							     port_names};
+								 port_names};
 		}
 	}
 }
@@ -1027,8 +1027,8 @@ struct StatPass : public Pass {
 				log("\n");
 				mod_stat[top_mod->name].print_log_header(has_area, hierarchy_mode, true);
 				mod_stat[top_mod->name].print_log_line(top_mod->name.unescape(), mod_stat[top_mod->name].local_num_cells,
-								       mod_stat[top_mod->name].local_area, mod_stat[top_mod->name].num_cells,
-								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
+									   mod_stat[top_mod->name].local_area, mod_stat[top_mod->name].num_cells,
+									   mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}
 
 			statdata_t data = hierarchy_worker(mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);

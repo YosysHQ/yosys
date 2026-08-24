@@ -120,17 +120,17 @@ struct FunctionalTestGeneric : public Pass
 		internal();
 	}
 
-    void help() override
+	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("TODO: add help message\n");
 		log("\n");
-    }
+	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-        log_header(design, "Executing Test Generic.\n");
+		log_header(design, "Executing Test Generic.\n");
 
 		size_t argidx = 1;
 		extra_args(args, argidx, design);
@@ -143,7 +143,7 @@ struct FunctionalTestGeneric : public Pass
 */
 
 		for (auto module : design->selected_modules()) {
-            log("Dumping module `%s'.\n", module->name);
+			log("Dumping module `%s'.\n", module->name);
 			auto fir = Functional::IR::from_module(module);
 			for(auto node : fir)
 				std::cout << node.name().unescape() << " = " << node.to_string([](auto n) { return n.name().unescape(); }) << "\n";

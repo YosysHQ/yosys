@@ -28,3 +28,10 @@ repos:
   - id: mixed-line-ending
     args: [--fix,lf]
   - id: trailing-whitespace
+- repo: local
+  hooks:
+    - id: indent-fix
+      name: Convert indentation spaces to tabs
+      entry: python3 misc/spaces_to_tabs.py
+      language: system
+      files: \.(cc|h)$

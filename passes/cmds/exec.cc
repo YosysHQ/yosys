@@ -184,13 +184,13 @@ struct ExecPass : public Pass {
 		status = pclose(f);
 
 		if(WIFEXITED(status)) {
-		    retval = WEXITSTATUS(status);
+			retval = WEXITSTATUS(status);
 		}
 		else if(WIFSIGNALED(status)) {
-		    retval = WTERMSIG(status);
+			retval = WTERMSIG(status);
 		}
 		else if(WIFSTOPPED(status)) {
-		    retval = WSTOPSIG(status);
+			retval = WSTOPSIG(status);
 		}
 
 		if (flag_expect_return && retval != expect_return_value)

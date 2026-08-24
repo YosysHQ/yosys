@@ -724,40 +724,40 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		design = yosys_design;
 
 	if (command == "auto") {
-	  std::string filename_trim = filename;
+		std::string filename_trim = filename;
 
-	  auto has_extension = [](const std::string& filename, const std::string& extension) {
-	    if (filename.size() >= extension.size()) {
-	      return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
-	    }
-	    return false;
-	  };
+	  	auto has_extension = [](const std::string& filename, const std::string& extension) {
+			if (filename.size() >= extension.size()) {
+		  		return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
+			}
+			return false;
+	  	};
 
-	  if (has_extension(filename_trim, ".gz")) {
-	    filename_trim.erase(filename_trim.size() - 3);
-	  }
+	  	if (has_extension(filename_trim, ".gz")) {
+			filename_trim.erase(filename_trim.size() - 3);
+	  	}
 
-	  if (has_extension(filename_trim, ".v")) {
-	    command = " -vlog2k";
-	  } else if (has_extension(filename_trim, ".sv")) {
-	    command = " -sv";
-	  } else if (has_extension(filename_trim, ".vhd") || has_extension(filename_trim, ".vhdl")) {
-	    command = " -vhdl";
-	  } else if (has_extension(filename_trim, ".blif") || has_extension(filename_trim, ".eblif")) {
-	    command = "blif";
-	  } else if (has_extension(filename_trim, ".json")) {
-	    command = "json";
-	  } else if (has_extension(filename_trim, ".il")) {
-	    command = "rtlil";
-	  } else if (has_extension(filename_trim, ".ys")) {
-	    command = "script";
-	  } else if (has_extension(filename_trim, ".tcl")) {
-	    command = "tcl";
-	  } else if (filename == "-") {
-	    command = "script";
-	  } else {
-	    log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename);
-	  }
+	  	if (has_extension(filename_trim, ".v")) {
+			command = " -vlog2k";
+	  	} else if (has_extension(filename_trim, ".sv")) {
+			command = " -sv";
+	  	} else if (has_extension(filename_trim, ".vhd") || has_extension(filename_trim, ".vhdl")) {
+			command = " -vhdl";
+	  	} else if (has_extension(filename_trim, ".blif") || has_extension(filename_trim, ".eblif")) {
+			command = "blif";
+	  	} else if (has_extension(filename_trim, ".json")) {
+			command = "json";
+	  	} else if (has_extension(filename_trim, ".il")) {
+			command = "rtlil";
+	  	} else if (has_extension(filename_trim, ".ys")) {
+			command = "script";
+	  	} else if (has_extension(filename_trim, ".tcl")) {
+			command = "tcl";
+	  	} else if (filename == "-") {
+			command = "script";
+	  	} else {
+			log_error("Can't guess frontend for input file `%s' (missing -f option)!\n", filename);
+	  	}
 	}
 
 	if (command == "script")

@@ -117,9 +117,9 @@ struct Smt2Worker
 
 	Smt2Worker(RTLIL::Module *module, bool bvmode, bool memmode, bool wiresmode, bool verbose, bool statebv, bool statedt, bool forallmode,
 		   dict<IdString, int> &mod_stbv_width, dict<IdString, dict<IdString, pair<bool, bool>>> &mod_clk_cache)
-	    : ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode), verbose(verbose),
-	      statebv(statebv), statedt(statedt), forallmode(forallmode), mod_stbv_width(mod_stbv_width),
-	      is_smtlib2_module(module->has_attribute(ID::smtlib2_module))
+		: ct(module->design), sigmap(module), module(module), bvmode(bvmode), memmode(memmode), wiresmode(wiresmode), verbose(verbose),
+		  statebv(statebv), statedt(statedt), forallmode(forallmode), mod_stbv_width(mod_stbv_width),
+		  is_smtlib2_module(module->has_attribute(ID::smtlib2_module))
 	{
 		pool<SigBit> noclock;
 
@@ -703,15 +703,15 @@ struct Smt2Worker
 					int width = max(GetSize(cell->getPort(ID::A)), GetSize(cell->getPort(ID::B)));
 					width = max(width, GetSize(cell->getPort(ID::Y)));
 					auto expr = stringf("(let ("
-							    "(a_neg (bvslt A #b%0*d)) "
-							    "(b_neg (bvslt B #b%0*d))) "
-							    "(let ((abs_a (ite a_neg (bvneg A) A)) "
-							    "(abs_b (ite b_neg (bvneg B) B))) "
-							    "(let ((u (bvudiv abs_a abs_b)) "
-							    "(adj (ite (= #b%0*d (bvurem abs_a abs_b)) #b%0*d #b%0*d))) "
-							    "(ite (= a_neg b_neg) u "
-							    "(bvneg (bvadd u adj))))))",
-							    width, 0, width, 0, width, 0, width, 0, width, 1);
+								"(a_neg (bvslt A #b%0*d)) "
+								"(b_neg (bvslt B #b%0*d))) "
+								"(let ((abs_a (ite a_neg (bvneg A) A)) "
+								"(abs_b (ite b_neg (bvneg B) B))) "
+								"(let ((u (bvudiv abs_a abs_b)) "
+								"(adj (ite (= #b%0*d (bvurem abs_a abs_b)) #b%0*d #b%0*d))) "
+								"(ite (= a_neg b_neg) u "
+								"(bvneg (bvadd u adj))))))",
+								width, 0, width, 0, width, 0, width, 0, width, 1);
 					return export_bvop(cell, expr, 'd');
 				} else {
 					return export_bvop(cell, "(bvudiv A B)", 'd');

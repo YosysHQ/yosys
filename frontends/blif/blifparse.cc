@@ -257,10 +257,10 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, bool 
 			}
 
 			if (!strcmp(cmd, ".area") || !strcmp(cmd, ".delay") || !strcmp(cmd, ".wire_load_slope") || !strcmp(cmd, ".wire") ||
-			    !strcmp(cmd, ".input_arrival") || !strcmp(cmd, ".default_input_arrival") || !strcmp(cmd, ".output_required") ||
-			    !strcmp(cmd, ".default_output_required") || !strcmp(cmd, ".input_drive") || !strcmp(cmd, ".default_input_drive") ||
-			    !strcmp(cmd, ".max_input_load") || !strcmp(cmd, ".default_max_input_load") || !strcmp(cmd, ".output_load") ||
-			    !strcmp(cmd, ".default_output_load"))
+				!strcmp(cmd, ".input_arrival") || !strcmp(cmd, ".default_input_arrival") || !strcmp(cmd, ".output_required") ||
+				!strcmp(cmd, ".default_output_required") || !strcmp(cmd, ".input_drive") || !strcmp(cmd, ".default_input_drive") ||
+				!strcmp(cmd, ".max_input_load") || !strcmp(cmd, ".default_max_input_load") || !strcmp(cmd, ".output_load") ||
+				!strcmp(cmd, ".default_output_load"))
 			{
 				log_warning("Blif delay constraints (%s) are not supported.", cmd);
 				continue;

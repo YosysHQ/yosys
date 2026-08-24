@@ -48,10 +48,10 @@ static std::list<std::vector<std::string>> verilog_defaults_stack;
 
 static void error_on_dpi_function(AST::AstNode *node)
 {
-    if (node->type == AST::AST_DPI_FUNCTION)
-        err_at_loc(node->location, "Found DPI function %s.\n", node->str);
-    for (auto& child : node->children)
-        error_on_dpi_function(child.get());
+	if (node->type == AST::AST_DPI_FUNCTION)
+		err_at_loc(node->location, "Found DPI function %s.\n", node->str);
+	for (auto& child : node->children)
+		error_on_dpi_function(child.get());
 }
 
 static void add_package_types(dict<std::string, AST::AstNode *> &user_types, std::vector<std::unique_ptr<AST::AstNode>> &package_list)

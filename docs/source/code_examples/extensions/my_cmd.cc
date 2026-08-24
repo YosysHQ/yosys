@@ -42,7 +42,7 @@ struct Test1Pass : public Pass {
         module->addNeg(NEW_ID, a, a_inv, true);
         module->addMux(NEW_ID, a, a_inv, RTLIL::SigSpec(a, 3), y);
 
-	module->fixup_ports();
+    module->fixup_ports();
     }
 } Test1Pass;
 

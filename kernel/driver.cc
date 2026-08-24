@@ -209,7 +209,7 @@ int main(int argc, char **argv)
 		("q,quiet", "quiet operation. Only write warnings and error messages to console. " \
 					"Use this option twice to also quiet warning messages")
 		("v,verbose", "print log headers up to <level> to the console. " \
-                      "Implies -q for everything except the 'End of script.' message.",
+					  "Implies -q for everything except the 'End of script.' message.",
 			cxxopts::value<int>(), "<level>")
 		("t,timestamp", "annotate all log messages with a time stamp")
 		("d,detailed-timing", "print more detailed timing stats at exit")

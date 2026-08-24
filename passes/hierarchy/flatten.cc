@@ -31,15 +31,15 @@ PRIVATE_NAMESPACE_BEGIN
 
 template <typename... Args>
 [[nodiscard]] std::string concat_views(const Args&... views) {
-    static_assert((std::is_convertible_v<Args, std::string_view> && ...),
-                  "All arguments must be convertible to std::string_view.");
-    const std::size_t total_size = (std::string_view(views).size() + ... + 0);
+	static_assert((std::is_convertible_v<Args, std::string_view> && ...),
+				  "All arguments must be convertible to std::string_view.");
+	const std::size_t total_size = (std::string_view(views).size() + ... + 0);
 
-    std::string result;
-    result.reserve(total_size);
+	std::string result;
+	result.reserve(total_size);
 
-    (result.append(views), ...);
-    return result;
+	(result.append(views), ...);
+	return result;
 }
 
 IdString concat_name(RTLIL::Cell *cell, IdString const &object_name, const std::string &separator = ".")
@@ -427,7 +427,7 @@ struct FlattenPass : public Pass {
 			for (auto cell : module->selected_cells()) {
 				RTLIL::Module *tpl = design->module(cell->type);
 				if (tpl != nullptr) {
-                                        if (!topo_modules.has_node(tpl))
+					if (!topo_modules.has_node(tpl))
 						worklist.insert(tpl);
 					topo_modules.edge(tpl, module);
 				}

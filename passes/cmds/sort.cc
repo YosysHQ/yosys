@@ -17,9 +17,9 @@ struct SortPass : Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *d) override
 	{
 		log_header(d, "Executing SORT pass.\n");
-        if (args.size() != 1)
-            log_cmd_error("This pass takes no arguments.\n");
-        d->sort();
+		if (args.size() != 1)
+			log_cmd_error("This pass takes no arguments.\n");
+		d->sort();
 	}
 } SortPass;
 

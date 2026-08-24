@@ -273,7 +273,7 @@ struct arrow_proxy {
 inline int ceil_log2(int x)
 {
 #if defined(__GNUC__)
-        return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
+	return x > 1 ? (8*sizeof(int)) - __builtin_clz(x-1) : 0;
 #else
 	if (x <= 0)
 		return 0;

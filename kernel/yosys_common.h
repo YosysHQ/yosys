@@ -56,8 +56,8 @@
 
 #ifndef _YOSYS_
 #  error It looks like you are trying to build Yosys without the config defines set. \
-         When building Yosys with a custom make system, make sure you set all the \
-         defines the Yosys Makefile would set for your build configuration.
+		 When building Yosys with a custom make system, make sure you set all the \
+		 defines the Yosys Makefile would set for your build configuration.
 #endif
 
 #include "kernel/yosys_config.h"

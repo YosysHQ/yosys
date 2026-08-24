@@ -251,7 +251,7 @@ struct ProcRomPass : public Pass {
 		}
 
 		log("Converted %d switch%s.\n",
-		    total_count, total_count == 1 ? "" : "es");
+			total_count, total_count == 1 ? "" : "es");
 	}
 } ProcRomPass;
 

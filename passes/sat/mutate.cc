@@ -379,16 +379,16 @@ void database_reduce(std::vector<mutate_t> &database, const mutate_opts_t &opts,
 		}
 
 #define X(__wght, __queue)                               \
-    k -= __wght;                                         \
-    if (k < 0) {                                         \
-      mutate_t *m = __queue.pick(rng, coverdb, opts);    \
-      if (m != nullptr) {                                \
-        m->used = true;                                  \
-        coverdb.update(*m);                              \
-        new_database.push_back(*m);                      \
-      };                                                 \
-      continue;                                          \
-    }
+	k -= __wght;                                         \
+	if (k < 0) {                                         \
+	  mutate_t *m = __queue.pick(rng, coverdb, opts);    \
+	  if (m != nullptr) {                                \
+		m->used = true;                                  \
+		coverdb.update(*m);                              \
+		new_database.push_back(*m);                      \
+	  };                                                 \
+	  continue;                                          \
+	}
 
 		X(opts.weight_pq_w, primary_queue_wire)
 		X(opts.weight_pq_b, primary_queue_bit)

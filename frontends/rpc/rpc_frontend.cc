@@ -39,12 +39,12 @@ YOSYS_NAMESPACE_BEGIN
 
 #if defined(_WIN32)
 static std::wstring str2wstr(const std::string &in) {
-    if(in == "") return L"";
-    std::wstring out;
-    out.resize(MultiByteToWideChar(/*CodePage=*/CP_UTF8, /*dwFlags=*/0, /*lpMultiByteStr=*/&in[0], /*cbMultiByte=*/(int)in.length(), /*lpWideCharStr=*/NULL, /*cchWideChar=*/0));
-    int written = MultiByteToWideChar(/*CodePage=*/CP_UTF8, /*dwFlags=*/0, /*lpMultiByteStr=*/&in[0], /*cbMultiByte=*/(int)in.length(), /*lpWideCharStr=*/&out[0], /*cchWideChar=*/(int)out.length());
-    log_assert(written == (int)out.length());
-    return out;
+	if(in == "") return L"";
+	std::wstring out;
+	out.resize(MultiByteToWideChar(/*CodePage=*/CP_UTF8, /*dwFlags=*/0, /*lpMultiByteStr=*/&in[0], /*cbMultiByte=*/(int)in.length(), /*lpWideCharStr=*/NULL, /*cchWideChar=*/0));
+	int written = MultiByteToWideChar(/*CodePage=*/CP_UTF8, /*dwFlags=*/0, /*lpMultiByteStr=*/&in[0], /*cbMultiByte=*/(int)in.length(), /*lpWideCharStr=*/&out[0], /*cchWideChar=*/(int)out.length());
+	log_assert(written == (int)out.length());
+	return out;
 }
 
 static std::string wstr2str(const std::wstring &in) {

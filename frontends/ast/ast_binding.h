@@ -42,8 +42,8 @@ namespace AST
 	{
 	public:
 		Binding(RTLIL::IdString  target_type,
-		        RTLIL::IdString  target_name,
-		        const AstNode   &cell);
+				RTLIL::IdString  target_name,
+				const AstNode   &cell);
 
 		std::string describe() const override;
 

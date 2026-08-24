@@ -302,11 +302,11 @@ struct RTLIL::IdString
 		std::optional<std::string_view> next() {
 			if (suffix_number < 0)
 				return std::nullopt;
-                       int i = sizeof(buf);
+			int i = sizeof(buf);
 			do {
 				--i;
-                               buf[i] = (suffix_number % 10) + '0';
-                               suffix_number /= 10;
+				buf[i] = (suffix_number % 10) + '0';
+				suffix_number /= 10;
 			} while (suffix_number > 0);
 			suffix_number = -1;
 			return std::string_view(buf + i, sizeof(buf) - i);
@@ -746,7 +746,7 @@ template <> struct IDMacroHelper<-1> {
 			static const YOSYS_NAMESPACE_PREFIX RTLIL::IdString id = \
 				YOSYS_NAMESPACE_PREFIX RTLIL::OwningIdString::immortal(q); \
 			return id; \
-        })
+		})
 
 namespace RTLIL {
 	extern dict<std::string, std::string> constpad;
@@ -1109,8 +1109,8 @@ public:
 		bits_internal()[i] = state;
 	}
 	void resize(int size, RTLIL::State fill) {
-    log_assert(size >= 0 && size < RTLIL::WIDTH_LIMIT);
-		bits_internal().resize(size, fill);
+		log_assert(size >= 0 && size < RTLIL::WIDTH_LIMIT);
+			bits_internal().resize(size, fill);
 	}
 
 	class const_iterator {

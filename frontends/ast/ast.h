@@ -464,9 +464,9 @@ namespace AST_INTERNAL
 	// new module. Otherwise, new_ast will be used.
 	RTLIL::Module *
 	process_and_replace_module(RTLIL::Design *design,
-	                           RTLIL::Module *old_module,
-	                           AST::AstNode *new_ast,
-	                           std::unique_ptr<AST::AstNode> original_ast = nullptr);
+							   RTLIL::Module *old_module,
+							   AST::AstNode *new_ast,
+							   std::unique_ptr<AST::AstNode> original_ast = nullptr);
 }
 
 YOSYS_NAMESPACE_END
