@@ -123,7 +123,6 @@ function(yosys_component arg_PREFIX arg_NAME)
 			cmake_path(APPEND out_dir ${dst_parent})
 			cmake_path(GET dst_file FILENAME dst_filename)
 			cmake_path(APPEND out_dir ${dst_filename} OUTPUT_VARIABLE out_file)
-            message(STATUS "Create directory ${share_root}/${out_dir}")
 			file(MAKE_DIRECTORY ${share_root}/${out_dir})
 			add_custom_command(
 				DEPENDS ${src_file}
