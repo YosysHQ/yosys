@@ -110,7 +110,7 @@ function(yosys_component arg_PREFIX arg_NAME)
 	list(APPEND share_file_pairs ${arg_DATA_EXPLICIT})
 	if (share_file_pairs)
 		set(data_depends)
-		set(share_root ${CMAKE_BINARY_DIR}/share)
+		set(share_root ${YOSYS_CMAKE_BINARY_DIR}/share)
 		while (share_file_pairs)
 			list(LENGTH share_file_pairs share_file_unpaired)
 			if (share_file_unpaired EQUAL 1)
@@ -123,6 +123,7 @@ function(yosys_component arg_PREFIX arg_NAME)
 			cmake_path(APPEND out_dir ${dst_parent})
 			cmake_path(GET dst_file FILENAME dst_filename)
 			cmake_path(APPEND out_dir ${dst_filename} OUTPUT_VARIABLE out_file)
+            message(STATUS "Create directory ${share_root}/${out_dir}")
 			file(MAKE_DIRECTORY ${share_root}/${out_dir})
 			add_custom_command(
 				DEPENDS ${src_file}
@@ -302,7 +303,7 @@ endfunction()
 # 	yosys_install_component_data(<component>... DESTINATION <directory>)
 #
 # Install data files for every `<component>` into `<directory>`.
-# Equivalent to copying `${CMAKE_BINARY_DIR}/share/.` to `<directory>/.` after a clean rebuild.
+# Equivalent to copying `${YOSYS_CMAKE_BINARY_DIR}/share/.` to `<directory>/.` after a clean rebuild.
 #
 function(yosys_install_component_data)
 	cmake_parse_arguments(PARSE_ARGV 0 arg "" "DESTINATION" "")
@@ -315,7 +316,7 @@ function(yosys_install_component_data)
 		get_target_property(data_files ${namespace}_${component} YOSYS_DATA_FILES)
 		foreach (data_file ${data_files})
 			cmake_path(GET data_file PARENT_PATH data_dir)
-			install(FILES ${CMAKE_BINARY_DIR}/share/${data_file} DESTINATION ${arg_DESTINATION}/${data_dir})
+			install(FILES ${YOSYS_CMAKE_BINARY_DIR}/share/${data_file} DESTINATION ${arg_DESTINATION}/${data_dir})
 		endforeach()
 	endforeach()
 endfunction()
