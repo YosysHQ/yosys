@@ -46,7 +46,7 @@ TEST(NameMasqTest, SuffixQueries)
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
 	IdString prefix = design.twines.add(std::string("\\zz_bus"));
-	IdString suffixed = design.twines.add(Twine{Twine::Suffix{prefix, "_hi"}});
+	IdString suffixed = design.twines.add(TwineSpec{TwineSpec::Suffix{prefix, "_hi"}});
 	Wire *w = mod->addWire(suffixed, 1);
 
 	EXPECT_EQ(w->name.escaped(), "\\zz_bus_hi");

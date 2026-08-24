@@ -8,8 +8,8 @@
 #include <unordered_set>
 #include <vector>
 
-/** 
- * Implements TwinePool shallow deduplicating backing storage
+/**
+ * Implements shallow deduplicating backing storage
  */
 
 YOSYS_NAMESPACE_BEGIN
@@ -21,6 +21,7 @@ struct HashConsNodeHash {
 	const Derived* pool = nullptr;
 
 	size_t operator()(const Node& n) const noexcept { return Derived::hash_node(n); }
+	size_t operator()(const typename Node::Key& k) const noexcept { return Derived::hash_key(k); }
 	size_t operator()(Ref ref) const noexcept { return Derived::hash_node((*pool)[ref]); }
 };
 
@@ -44,9 +45,11 @@ struct HashConsPool {
 	struct NodeEq {
 		using is_transparent = void;
 		const Derived* pool = nullptr;
-		bool operator()(Ref a, Ref b) const noexcept { return (*pool)[a].data == (*pool)[b].data; }
-		bool operator()(Ref a, const Node& b) const noexcept { return (*pool)[a].data == b.data; }
-		bool operator()(const Node& a, Ref b) const noexcept { return a.data == (*pool)[b].data; }
+		bool operator()(Ref a, Ref b) const noexcept { return (*pool)[a] == (*pool)[b]; }
+		bool operator()(Ref a, const Node& b) const noexcept { return (*pool)[a] == b; }
+		bool operator()(const Node& a, Ref b) const noexcept { return a == (*pool)[b]; }
+		bool operator()(Ref a, const typename Node::Key& b) const noexcept { return (*pool)[a] == b; }
+		bool operator()(const typename Node::Key& a, Ref b) const noexcept { return (*pool)[b] == a; }
 	};
 
 	using Index = std::unordered_set<Ref, NodeHash, NodeEq>;
@@ -180,6 +183,12 @@ public:
 	Ref find(Node t) const {
 		Derived::canonicalize(t);
 		if (auto it = index.find(t); it != index.end())
+			return *it;
+		return Ref();
+	}
+
+	Ref find_key(const typename Node::Key& k) const {
+		if (auto it = index.find(k); it != index.end())
 			return *it;
 		return Ref();
 	}

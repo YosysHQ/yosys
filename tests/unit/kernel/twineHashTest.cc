@@ -18,7 +18,7 @@ TEST(TwineHashTest, Fragmentation)
 
 	IdString flat = pool.add(std::string("$abcdefghij"));
 	IdString base = pool.add(std::string("$abcde"));
-	IdString split = pool.add(Twine::Suffix{base, "fghij"});
+	IdString split = pool.add(TwineSpec::Suffix{base, "fghij"});
 
 	EXPECT_EQ(hash(flat.untag()), hash(split.untag()));
 	EXPECT_EQ(hash(flat.untag()), hash(std::string_view("$abcdefghij")));
@@ -35,7 +35,7 @@ TEST(TwineHashTest, SplitPoints)
 
 	for (size_t cut = 1; cut < content.size(); cut++) {
 		IdString base = pool.add(content.substr(0, cut));
-		IdString split = pool.add(Twine::Suffix{base, content.substr(cut)});
+		IdString split = pool.add(TwineSpec::Suffix{base, content.substr(cut)});
 		EXPECT_EQ(hash(split.untag()), want) << "split after " << cut;
 	}
 }
@@ -65,7 +65,7 @@ TEST(TwineHashTest, BenchmarkIntern)
 	std::vector<IdString> refs;
 	refs.reserve(kNames);
 	for (int i = 0; i < kNames; i++)
-		refs.push_back(pool.add(Twine::Suffix{prefix, stringf("$%d", i)}));
+		refs.push_back(pool.add(TwineSpec::Suffix{prefix, stringf("$%d", i)}));
 	auto t1 = std::chrono::steady_clock::now();
 
 	TwineSearch search(&pool);

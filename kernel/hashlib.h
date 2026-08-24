@@ -174,7 +174,7 @@ struct hash_ops {
 			return hash_ops<u_type>::hash_into((u_type) a, h);
 		} else if constexpr (std::is_pointer_v<T>) {
 			return hash_ops<uintptr_t>::hash_into((uintptr_t) a, h);
-		} else if constexpr (std::is_same_v<T, std::string>) {
+		} else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view>) {
 			int size = a.size();
 			int i = 0;
 			while (i + 8 < size) {
