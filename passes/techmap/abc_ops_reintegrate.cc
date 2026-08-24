@@ -49,7 +49,7 @@ inline IdString ref_from_token(RTLIL::Design *design, const std::string &tok)
 
 inline IdString indexed_name(RTLIL::Design *design, IdString base, int index)
 {
-	return design->twines.add(Twine::Suffix{base.untag(), stringf("[%d]", index)})
+	return design->twines.add(TwineSpec::Suffix{base.untag(), stringf("[%d]", index)})
 			.tag(base.isPublic());
 }
 

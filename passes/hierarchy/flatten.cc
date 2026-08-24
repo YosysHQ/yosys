@@ -72,21 +72,21 @@ IdString remap_flattened_name(RTLIL::Design *design, IdString obj_ref,
 		return it->second;
 
 	const TwineNode &node = design->twines[obj_ref];
+	IdString parent = design->twines.prefix_of(obj_ref);
 	IdString result;
-	if (node.is_suffix()) {
-		const Twine::Suffix &sfx = node.suffix();
-		IdString prefix = remap_flattened_name(design, sfx.prefix.tag(obj_ref.isPublic()),
+	if (parent != IdString::Null) {
+		IdString prefix = remap_flattened_name(design, parent,
 				pub_prefix_ref, priv_prefix_ref, separator, memo);
-		result = design->twines.add(Twine::Suffix{prefix, sfx.tail});
+		result = design->twines.add(TwineSpec::Suffix{prefix, std::string(node.text())});
 	} else {
-		std::string_view obj = node.leaf();
+		std::string_view obj = node.text();
 		if (obj_ref.isPublic()) {
-			result = design->twines.add(Twine::Suffix{pub_prefix_ref, separator + std::string(obj)});
+			result = design->twines.add(TwineSpec::Suffix{pub_prefix_ref, separator + std::string(obj)});
 		} else {
 			constexpr std::string_view flatten_prefix = "$flatten";
 			if (obj.substr(0, flatten_prefix.size()) == flatten_prefix)
 				obj.remove_prefix(flatten_prefix.size());
-			result = design->twines.add(Twine::Suffix{priv_prefix_ref, std::string(obj)});
+			result = design->twines.add(TwineSpec::Suffix{priv_prefix_ref, std::string(obj)});
 		}
 	}
 	memo[obj_ref] = result;

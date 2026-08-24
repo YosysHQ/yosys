@@ -297,7 +297,7 @@ struct DesignPass : public Pass {
 					if (done.count(cell->type) == 0)
 					{
 						IdString trg_ref = copy_to_design->twines.add(
-								Twine::Suffix{as_name_ref, "." + cell->type.unescape()});
+								TwineSpec::Suffix{as_name_ref, "." + cell->type.unescape()});
 
 						log("Importing %s as %s.\n", fmod, PooledName(copy_to_design, trg_ref).unescape());
 

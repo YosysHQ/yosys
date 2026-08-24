@@ -1271,18 +1271,22 @@ struct define_map_t;
 
 template<typename N>
 inline constexpr bool is_unpooled_name_v =
-	std::is_same_v<std::decay_t<N>, Twine> || std::is_same_v<std::decay_t<N>, Twine::Leaf> ||
-	std::is_same_v<std::decay_t<N>, Twine::Suffix> || std::is_same_v<std::decay_t<N>, Twine::AutoSuffix> ||
+	std::is_same_v<std::decay_t<N>, TwineSpec> || std::is_same_v<std::decay_t<N>, TwineSpec::Leaf> ||
+	std::is_same_v<std::decay_t<N>, TwineSpec::Suffix> || std::is_same_v<std::decay_t<N>, TwineSpec::AutoSuffix> ||
 	std::is_same_v<std::decay_t<N>, std::string> ||
 	std::is_same_v<std::decay_t<N>, const char*> || std::is_same_v<std::decay_t<N>, char*>;
 
 #define YS_UNPOOLED_NAME(N) std::enable_if_t<is_unpooled_name_v<N>, int> = 0
 
+// Forwarders from various string-representing types into a canonical IdString method
+
+// Forwards _func(name, arg1...)
 #define YS_NAME_FWD_POOL(_func, _pool) \
 	template<typename N, typename... Rest, YS_UNPOOLED_NAME(N)> \
 	decltype(auto) _func(N name, Rest&&... rest) \
 		{ return _func(_pool.add(std::move(name)), std::forward<Rest>(rest)...); }
 
+// Forwards _func(arg0, name, arg2...)
 #define YS_NAME_FWD_2ND_POOL(_func, _pool) \
 	template<typename T, typename N, YS_UNPOOLED_NAME(N)> \
 	decltype(auto) _func(T &&first, N name) \
@@ -1478,7 +1482,7 @@ struct RTLIL::Module : public RTLIL::NamedObject
 	friend struct RTLIL::Cell;
 	friend struct RTLIL::Design;
 
-	[[no_unique_address]] RTLIL::ModuleNameMasq name;
+	YS_NO_UNIQUE_ADDRESS RTLIL::ModuleNameMasq name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1903,7 +1907,7 @@ public:
 
 struct RTLIL::Wire : public RTLIL::NamedObject
 {
-	[[no_unique_address]] RTLIL::WireNameMasq name;
+	YS_NO_UNIQUE_ADDRESS RTLIL::WireNameMasq name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1971,7 +1975,7 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 
-	[[no_unique_address]] RTLIL::MemoryNameMasq name;
+	YS_NO_UNIQUE_ADDRESS RTLIL::MemoryNameMasq name;
 
 	int width, start_offset, size;
 #ifdef YOSYS_ENABLE_PYTHON
@@ -1995,7 +1999,7 @@ private:
 
 	bool bufnorm_handle_setPort(IdString portname, RTLIL::SigSpec &signal, dict<IdString, RTLIL::SigSpec>::iterator conn_it);
 public:
-	[[no_unique_address]] RTLIL::CellNameMasq name;
+	YS_NO_UNIQUE_ADDRESS RTLIL::CellNameMasq name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -2016,7 +2020,7 @@ public:
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 
 	IdString type_impl;
-	[[no_unique_address]] RTLIL::CellTypeMasq type;
+	YS_NO_UNIQUE_ADDRESS RTLIL::CellTypeMasq type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
@@ -2136,7 +2140,7 @@ public:
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 
-	[[no_unique_address]] RTLIL::ProcessNameMasq name;
+	YS_NO_UNIQUE_ADDRESS RTLIL::ProcessNameMasq name;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
@@ -2184,7 +2188,7 @@ inline Hasher RTLIL::SigBit::hash_top() const {
 	Hasher h;
 	if (wire) {
 		IdString name = wire->name.ref();
-		uint32_t n = (uint32_t)name.raw() ^ (uint32_t)(name.raw() >> 32);
+		uint32_t n = (uint32_t)name.bits();
 		h.force(hashlib::legacy::djb2_add(n, offset));
 		return h;
 	}

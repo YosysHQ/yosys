@@ -46,11 +46,12 @@ using namespace AST_INTERNAL;
 // helper function for creating RTLIL code for unary operations
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
-	IdString name = current_module->design->twines.add(stringf("%s$%s:%d$%d", current_module->design->twines.str(type).c_str(), RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++));
+	IdString name = intern_src_name(current_module->design, that->location,
+			current_module->design->twines.str(type), autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
-	RTLIL::Wire *wire = current_module->addWire(Twine::Suffix{cell->name, "_Y"}, result_width);
+	RTLIL::Wire *wire = current_module->addWire(TwineSpec::Suffix{cell->name, "_Y"}, result_width);
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
@@ -78,7 +79,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-	IdString name = current_module->design->twines.add(stringf("$extend$%s:%d$%d", RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++));
+	IdString name = intern_src_name(current_module->design, that->location, "$extend", autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
 	set_src_attr(cell, that);
 
@@ -105,11 +106,12 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	IdString name = current_module->design->twines.add(stringf("%s$%s:%d$%d", current_module->design->twines.str(type).c_str(), RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++));
+	IdString name = intern_src_name(current_module->design, that->location,
+			current_module->design->twines.str(type), autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
-	RTLIL::Wire *wire = current_module->addWire(Twine::Suffix{cell->name, "_Y"}, result_width);
+	RTLIL::Wire *wire = current_module->addWire(TwineSpec::Suffix{cell->name, "_Y"}, result_width);
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
@@ -138,10 +140,9 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 {
 	log_assert(cond.size() == 1);
 
-	std::stringstream sstr;
-	sstr << "$ternary$" << RTLIL::encode_filename(*that->location.begin.filename) << ":" << that->location.begin.line << "$" << (autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location, "$ternary", autoidx++);
 
-	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
+	RTLIL::Cell *cell = current_module->addCell(name, ID($mux));
 	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
@@ -353,7 +354,7 @@ struct AST_INTERNAL::ProcessGenerator
 		LookaheadRewriter la_rewriter(always.get());
 
 		// generate process and simple root case
-		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(*always->location.begin.filename), always->location.begin.line, autoidx++));
+		proc = current_module->addProcess(intern_src_name(current_module->design, always->location, "$proc", autoidx++));
 		set_src_attr(proc, always.get());
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -799,10 +800,9 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_TCALL:
 			if (ast->str == "$display" || ast->str == "$displayb" || ast->str == "$displayh" || ast->str == "$displayo" ||
 		  ast->str == "$write"   || ast->str == "$writeb"   || ast->str == "$writeh"   || ast->str == "$writeo") {
-				std::stringstream sstr;
-				sstr << ast->str << "$" << ast->location.begin.filename << ":" << ast->location.begin.line << "$" << (autoidx++);
+				IdString name = intern_src_name(current_module->design, ast->location, ast->str, autoidx++);
 
-				Wire *en = current_module->addWire(sstr.str() + "_EN", 1);
+				Wire *en = current_module->addWire(TwineSpec::Suffix{name, "_EN"}, 1);
 				set_src_attr(en, ast);
 				proc->root_case.actions.push_back({en, SigSpec(false)});
 				current_case->actions.push_back({en, SigSpec(true)});
@@ -820,7 +820,7 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 				RTLIL::Const polarity = polarity_builder.build();
 
-				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
+				RTLIL::Cell *cell = current_module->addCell(name, ID($print));
 				set_src_attr(cell, ast);
 				cell->setParam(ID::TRG_WIDTH, triggers.size());
 				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
@@ -889,18 +889,19 @@ struct AST_INTERNAL::ProcessGenerator
 				if (ast->type == AST_FAIR) { flavor = "fair"; desc = "assume (eventually)"; }
 				if (ast->type == AST_COVER) { flavor = "cover"; desc = "cover ()"; }
 
-				std::string cellname;
+				IdString cellname;
 				if (ast->str.empty())
-					cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*ast->location.begin.filename), ast->location.begin.line, autoidx++);
+					cellname = intern_src_name(current_module->design, ast->location,
+							stringf("$%s", flavor), autoidx++);
 				else
-					cellname = ast->str;
-				check_unique_id(current_module, cellname, ast, "procedural assertion");
+					cellname = current_module->design->twines.add(std::string{ast->str});
+				check_unique_id(current_module, current_module->design->twines.str(cellname), ast, "procedural assertion");
 
 				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
 				if (GetSize(check) != 1)
 					check = current_module->ReduceBool(NEW_ID, check);
 
-				Wire *en = current_module->addWire(cellname + "_EN", 1);
+				Wire *en = current_module->addWire(TwineSpec::Suffix{cellname, "_EN"}, 1);
 				set_src_attr(en, ast);
 				proc->root_case.actions.push_back({en, SigSpec(false)});
 				current_case->actions.push_back({en, SigSpec(true)});
@@ -2028,10 +2029,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $memrd cells for memory read ports
 	case AST_MEMRD:
 		{
-			std::stringstream sstr;
-			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+			IdString name = current_module->design->twines.add(TwineSpec::Suffix{
+					intern_src_name(current_module->design, location, "$memrd", autoidx++),
+					stringf("$%s", str)});
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
+			RTLIL::Cell *cell = current_module->addCell(name, ID($memrd));
 			set_src_attr(cell, this);
 
 			IdString mem_tw = current_module->design->twines.find(str);
@@ -2067,12 +2069,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $meminit cells
 	case AST_MEMINIT:
 		{
-			std::stringstream sstr;
-			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+			IdString name = current_module->design->twines.add(TwineSpec::Suffix{
+					intern_src_name(current_module->design, location, "$meminit", autoidx++),
+					stringf("$%s", str)});
 
 			SigSpec en_sig = children[2]->genRTLIL();
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($meminit_v2));
+			RTLIL::Cell *cell = current_module->addCell(name, ID($meminit_v2));
 			set_src_attr(cell, this);
 
 			int mem_width, mem_size, addr_bits;
@@ -2112,12 +2115,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (type == AST_FAIR) { flavor = "fair"; desc = "assume property (eventually)"; }
 			if (type == AST_COVER) { flavor = "cover"; desc = "cover property ()"; }
 
-			std::string cellname;
+			IdString cellname;
 			if (str.empty())
-				cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+				cellname = intern_src_name(current_module->design, location,
+						stringf("$%s", flavor), autoidx++);
 			else
-				cellname = str;
-			check_unique_id(current_module, cellname, this, "procedural assertion");
+				cellname = current_module->design->twines.add(std::string{str});
+			check_unique_id(current_module, current_module->design->twines.str(cellname), this, "procedural assertion");
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
 			if (GetSize(check) != 1)

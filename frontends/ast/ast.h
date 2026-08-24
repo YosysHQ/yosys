@@ -441,6 +441,10 @@ namespace AST
 
 	IdString intern_hier_name(RTLIL::Design *design, std::string_view escaped);
 
+	IdString intern_src_loc(RTLIL::Design *design, const AstSrcLocType &location);
+	IdString intern_src_name(RTLIL::Design *design, const AstSrcLocType &location,
+			std::string_view kind, int idx);
+
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 

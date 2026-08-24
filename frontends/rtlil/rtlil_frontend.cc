@@ -530,9 +530,9 @@ struct RTLILFrontendWorker {
 			const TwineDesc &desc = twine_descs.at(id);
 			IdString found;
 			if (desc.kind == TwineDesc::Leaf)
-				found = design->twines.find(Twine{Twine::Leaf{desc.text}});
+				found = design->twines.find(TwineSpec{TwineSpec::Leaf{desc.text}});
 			else
-				found = design->twines.find(Twine{Twine::Suffix{
+				found = design->twines.find(TwineSpec{TwineSpec::Suffix{
 						IdString(desc.parent), desc.text}});
 			if (found == IdString::Null || found.untag().raw() != id)
 				return false;
@@ -563,10 +563,10 @@ struct RTLILFrontendWorker {
 		IdString ref;
 		switch (desc.kind) {
 		case TwineDesc::Leaf:
-			ref = design->twines.add(Twine::Leaf{desc.text});
+			ref = design->twines.add(TwineSpec::Leaf{desc.text});
 			break;
 		case TwineDesc::Suffix:
-			ref = design->twines.add(Twine::Suffix{
+			ref = design->twines.add(TwineSpec::Suffix{
 					materialize_file_twine(desc.parent),
 					desc.text});
 			break;

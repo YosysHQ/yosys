@@ -27,7 +27,7 @@ select -assert-count 1 w:$e
 # Colliding with keyword
 select -assert-count 1 w:wire
 # Don't touch internal names
-select -assert-count 1 w:$add$<<EOF:*$1_Y
+select -assert-count 1 w:$<<EOF:*$add$*_Y
 
 rename -unescape
 
@@ -38,7 +38,7 @@ select -assert-count 1 w:d_
 select -assert-count 1 w:d__1
 select -assert-count 1 w:_e
 select -assert-count 1 w:wire_
-select -assert-count 1 w:$add$<<EOF:*$1_Y
+select -assert-count 1 w:$<<EOF:*$add$*_Y
 
 # Ports are updated during rename
 design -reset

@@ -1112,7 +1112,7 @@ static IdString build_hier_content(TwinePool &pool, std::string_view content)
 	if (dot == std::string_view::npos)
 		return pool.add(std::string{content}).tag(true);
 	IdString prefix = build_hier_content(pool, content.substr(0, dot));
-	return pool.add(Twine::Suffix{prefix, std::string{content.substr(dot)}});
+	return pool.add(TwineSpec::Suffix{prefix, std::string{content.substr(dot)}});
 }
 
 IdString AST::intern_hier_name(RTLIL::Design *design, std::string_view escaped)
@@ -1120,6 +1120,19 @@ IdString AST::intern_hier_name(RTLIL::Design *design, std::string_view escaped)
 	if (escaped.size() > 1 && escaped[0] == '\\')
 		return build_hier_content(design->twines, escaped.substr(1));
 	return design->twines.add(std::string{escaped});
+}
+
+IdString AST::intern_src_loc(RTLIL::Design *design, const AstSrcLocType &location)
+{
+	return design->twines.add(stringf("$%s:%d",
+			RTLIL::encode_filename(*location.begin.filename), location.begin.line));
+}
+
+IdString AST::intern_src_name(RTLIL::Design *design, const AstSrcLocType &location,
+		std::string_view kind, int idx)
+{
+	return design->twines.add(TwineSpec::Suffix{intern_src_loc(design, location),
+			stringf("%s$%d", kind, idx)});
 }
 
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
