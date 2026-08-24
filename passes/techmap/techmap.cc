@@ -59,7 +59,7 @@ struct PrefixApplier
 	PrefixApplier(RTLIL::Design *dst, IdString prefix, RTLIL::Design *src)
 		: dst(dst), src(src), cell_name(prefix)
 	{
-		pub_prefix = dst->twines.add(Twine::Suffix{prefix, "."});
+		pub_prefix = dst->twines.add(TwineSpec::Suffix{prefix, "."});
 	}
 
 	IdString techmap_prefix()
@@ -75,14 +75,14 @@ struct PrefixApplier
 			return it->second;
 
 		const TwineNode &node = src->twines[obj_ref];
+		IdString parent = src->twines.prefix_of(obj_ref);
 		IdString result;
-		if (node.is_suffix()) {
-			const Twine::Suffix &sfx = node.suffix();
-			IdString prefix = name(sfx.prefix.tag(obj_ref.isPublic()));
-			result = dst->twines.add(Twine::Suffix{prefix, sfx.tail});
+		if (parent != IdString::Null) {
+			IdString prefix = name(parent);
+			result = dst->twines.add(prefix, node.text());
 		} else {
 			IdString prefix = obj_ref.isPublic() ? pub_prefix : techmap_prefix();
-			result = dst->twines.add(Twine::Suffix{prefix, node.leaf()});
+			result = dst->twines.add(prefix, node.text());
 		}
 		memo[obj_ref] = result;
 		return result;
@@ -103,7 +103,7 @@ struct PrefixApplier
 
 static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString name)
 {
-	return tpl->wire(tpl->design->twines.find(src->twines.str(name)));
+	return tpl->wire(tpl->design->twines.find_from(src->twines, name));
 }
 
 struct TechmapWorker
@@ -165,7 +165,7 @@ struct TechmapWorker
 			return result;
 
 		for (auto w : module->wires()) {
-			if (w->name.str()[0] == '$')
+			if (!w->name.isPublic())
 				continue;
 
 			if (w->name.contains("_TECHMAP_") && !w->name.contains("_TECHMAP_REPLACE_")) {
@@ -239,7 +239,7 @@ struct TechmapWorker
 				IdString posportref = module->design->twines.add(std::string{stringf("$%d", tpl_w->port_id)});
 				positional_ports.emplace(posportref, tpl_w->name);
 
-				IdString tpl_portname = module->design->twines.find(tpl_w->name.str());
+				IdString tpl_portname = module->design->twines.find_from(tpl->design->twines, tpl_w->name);
 				if (tpl_w->get_bool_attribute(ID::techmap_autopurge) &&
 						(!cell->hasPort(tpl_portname) || !GetSize(cell->getPort(tpl_portname))) &&
 						(!cell->hasPort(posportref) || !GetSize(cell->getPort(posportref))))
@@ -300,7 +300,7 @@ struct TechmapWorker
 			else
 				w = map_port(tpl, design, portname);
 			if (w == nullptr || w->port_id == 0) {
-				if (design->twines.str(portname).starts_with("$"))
+				if (!portname.isPublic())
 					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell->name.unescape(), tpl->name.unescape());
 				continue;
 			}

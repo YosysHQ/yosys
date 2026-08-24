@@ -142,21 +142,26 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 		for (IdString id = used_id; id != IdString::Null && closed.insert(id).second; ) {
 			ids.push_back(id);
 			const TwineNode &n = design->twines[id];
-			id = n.is_suffix() ? n.suffix().prefix.untag() : IdString();
+			id = n.is_suffix() ? n.prefix() : IdString();
 		}
 	std::sort(ids.begin(), ids.end());
 
 	f << stringf("twines\n");
 	for (IdString id : ids) {
 		const TwineNode &n = design->twines[id];
-		if (n.is_leaf()) {
+		switch (n.kind()) {
+		case TwineNode::Kind::Leaf:
 			f << stringf("  leaf %zu ", id.raw());
-			dump_const(f, RTLIL::Const(n.leaf()));
+			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
-		} else if (n.is_suffix()) {
-			f << stringf("  suffix %zu %zu ", id.raw(), n.suffix().prefix.raw());
-			dump_const(f, RTLIL::Const(n.suffix().tail));
+			break;
+		case TwineNode::Kind::Suffix:
+			f << stringf("  suffix %zu %zu ", id.raw(), n.prefix().raw());
+			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
+			break;
+		case TwineNode::Kind::Dead:
+			break;
 		}
 	}
 	f << stringf("end\n");

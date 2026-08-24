@@ -834,7 +834,7 @@ struct DftTagWorker {
 	}
 
 
-	SigSpec autoAnd(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoAnd(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a.is_fully_zero() || sig_b.is_fully_ones() || sig_a == sig_b)
@@ -845,7 +845,7 @@ struct DftTagWorker {
 		return module->And(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoOr(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoOr(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a.is_fully_ones() || sig_b.is_fully_zero() || sig_a == sig_b)
@@ -856,7 +856,7 @@ struct DftTagWorker {
 		return module->Or(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoXor(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoXor(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a == sig_b)
@@ -872,7 +872,7 @@ struct DftTagWorker {
 		return module->Xor(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoXnor(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoXnor(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a == sig_b)
@@ -888,7 +888,7 @@ struct DftTagWorker {
 		return module->Xnor(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoNot(Twine &&name, const SigSpec &sig_a)
+	SigSpec autoNot(TwineSpec &&name, const SigSpec &sig_a)
 	{
 		if (sig_a.is_fully_const()) {
 			auto const_val = sig_a.as_const();
@@ -901,7 +901,7 @@ struct DftTagWorker {
 		return module->Not(std::move(name), sig_a);
 	}
 
-	SigSpec autoEq(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoEq(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a == sig_b)
@@ -919,7 +919,7 @@ struct DftTagWorker {
 		return module->Eq(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoGe(Twine &&name, const SigSpec &sig_a, const SigSpec &sig_b)
+	SigSpec autoGe(TwineSpec &&name, const SigSpec &sig_a, const SigSpec &sig_b)
 	{
 		log_assert(GetSize(sig_a) == GetSize(sig_b));
 		if (sig_a == sig_b || sig_a.is_fully_ones())
@@ -930,7 +930,7 @@ struct DftTagWorker {
 		return module->Ge(std::move(name), sig_a, sig_b);
 	}
 
-	SigSpec autoReduceAnd(Twine &&name, const SigSpec &sig_a)
+	SigSpec autoReduceAnd(TwineSpec &&name, const SigSpec &sig_a)
 	{
 		if (GetSize(sig_a) == 0)
 			return State::S1;
@@ -945,7 +945,7 @@ struct DftTagWorker {
 		return module->ReduceAnd(std::move(name), sig_a);
 	}
 
-	SigSpec autoReduceOr(Twine &&name, const SigSpec &sig_a)
+	SigSpec autoReduceOr(TwineSpec &&name, const SigSpec &sig_a)
 	{
 		if (GetSize(sig_a) == 0)
 			return State::S0;

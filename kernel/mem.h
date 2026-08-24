@@ -223,7 +223,7 @@ struct Mem : RTLIL::AttrObject {
 	void emulate_read_first(FfInitVals *initvals);
 
 	Mem(Module *module, IdString memid, int width, int start_offset, int size) : module(module), memid(module->design, memid), packed(false), mem(nullptr), cell(nullptr), width(width), start_offset(start_offset), size(size) {}
-	Mem(Module *module, Twine &&memid, int width, int start_offset, int size)
+	Mem(Module *module, TwineSpec &&memid, int width, int start_offset, int size)
 			: Mem(module, module->design->twines.add(std::move(memid)), width, start_offset, size) {}
 };
 

@@ -123,6 +123,12 @@
 #  define YS_MAYBE_UNUSED
 #endif
 
+#if defined(_MSC_VER)
+#  define YS_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#  define YS_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
 #if __cplusplus >= 202002L
 #  define YS_FALLTHROUGH [[fallthrough]];
 #else
@@ -309,14 +315,14 @@ extern bool yosys_write_versions;
 const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
 
 #define NEW_ID \
-	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoSuffix{[](std::string_view func) -> std::string_view { \
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](std::string_view func) -> const std::string * { \
 		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
-		return *prefix; \
+		return prefix.get(); \
 	}(__FUNCTION__), std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 #define NEW_ID_SUFFIX(suffix) \
-	YOSYS_NAMESPACE_PREFIX Twine{YOSYS_NAMESPACE_PREFIX Twine::AutoSuffix{[](std::string_view func) -> std::string_view { \
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](std::string_view func) -> const std::string * { \
 		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
-		return *prefix; \
+		return prefix.get(); \
 	}(__FUNCTION__), std::string(suffix) + "$" + std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 
 YOSYS_NAMESPACE_END
