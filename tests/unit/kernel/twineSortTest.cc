@@ -15,7 +15,7 @@ std::vector<IdString> bench_refs(TwinePool &twines, int count)
 	std::vector<IdString> refs;
 	refs.reserve(count);
 	for (int i = 0; i < count; i++)
-		refs.push_back(twines.add(Twine::Suffix{prefix, stringf("$%08d", (count - i) * 7919 % count)}));
+		refs.push_back(twines.add(TwineSpec::Suffix{prefix, stringf("$%08d", (count - i) * 7919 % count)}));
 	return refs;
 }
 
@@ -69,14 +69,14 @@ TEST(TwineSortTest, GeneralWalk)
 
 	IdString deep = a;
 	for (int i = 0; i < 12; i++) {
-		deep = twines.add(Twine::Suffix{deep, stringf(".lvl%d", i)});
+		deep = twines.add(TwineSpec::Suffix{deep, stringf(".lvl%d", i)});
 		refs.push_back(deep);
 		refs.push_back(deep.tag(true));
 	}
 
 	IdString other = twines.add(std::string("$alpha."));
 	for (int i = 0; i < 12; i++) {
-		other = twines.add(Twine::Suffix{other, stringf("lvl%d.", i)});
+		other = twines.add(TwineSpec::Suffix{other, stringf("lvl%d.", i)});
 		refs.push_back(other);
 	}
 

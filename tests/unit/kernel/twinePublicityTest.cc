@@ -47,8 +47,8 @@ TEST(TwinePublicityTest, SuffixPublicity)
 	IdString pub = pool.add(std::string("\\base"));
 	IdString priv = pool.add(std::string("$base"));
 
-	IdString pub_sfx = pool.add(Twine{Twine::Suffix{pub, "_1"}});
-	IdString priv_sfx = pool.add(Twine{Twine::Suffix{priv, "_1"}});
+	IdString pub_sfx = pool.add(TwineSpec{TwineSpec::Suffix{pub, "_1"}});
+	IdString priv_sfx = pool.add(TwineSpec{TwineSpec::Suffix{priv, "_1"}});
 
 	EXPECT_TRUE(pub_sfx.isPublic());
 	EXPECT_FALSE(priv_sfx.isPublic());
@@ -82,9 +82,9 @@ TEST(TwinePublicityTest, LookupTag)
 TEST(TwinePublicityTest, SearchUnifies)
 {
 	TwinePool pool;
-	IdString flat = pool.add(Twine::Leaf{"$abc"});
-	IdString head = pool.add(Twine::Leaf{"$a"});
-	IdString split = pool.add(Twine::Suffix{head, "bc"});
+	IdString flat = pool.add(TwineSpec::Leaf{"$abc"});
+	IdString head = pool.add(TwineSpec::Leaf{"$a"});
+	IdString split = pool.add(TwineSpec::Suffix{head, "bc"});
 
 	ASSERT_NE(flat, split);
 	ASSERT_EQ(pool.str(flat), pool.str(split));
@@ -100,7 +100,7 @@ TEST(TwinePublicityTest, SearchUnifies)
 TEST(TwinePublicityTest, SearchPublicity)
 {
 	TwinePool pool;
-	IdString priv = pool.add(Twine::Leaf{"sig"});
+	IdString priv = pool.add(TwineSpec::Leaf{"sig"});
 	IdString pub = pool.add(std::string("\\sig"));
 
 	ASSERT_EQ(priv, pub.untag());
