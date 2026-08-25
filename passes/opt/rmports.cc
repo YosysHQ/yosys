@@ -33,7 +33,10 @@ struct RmportsPassPass : public Pass {
 		log("    rmports [selection]\n");
 		log("\n");
 		log("This pass identifies ports in the selected modules which are not used or\n");
-		log("driven and removes them.\n");
+		log("driven and removes them. Output ports which are driven inside the module\n");
+		log("are also removed if their connections on all instances of the module lead\n");
+		log("nowhere. This does not apply to the top module and to modules which are\n");
+		log("never instantiated.\n");
 		log("\n");
 	}
 
@@ -47,14 +50,61 @@ struct RmportsPassPass : public Pass {
 		// The set of ports we removed
 		dict<IdString, pool<IdString>> removed_ports;
 
+		// Find the ports which are used by some instance in the design
+		dict<IdString, pool<IdString>> used_instance_ports;
+		pool<IdString> instantiated;
+		ScanInstances(design, used_instance_ports, instantiated);
+
 		// Find all of the unused ports, and remove them from that module
 		auto modules = design->selected_modules();
 		for(auto mod : modules)
-			ScanModule(mod, removed_ports);
+			ScanModule(mod, removed_ports, used_instance_ports[mod->name], instantiated.count(mod->name));
 
 		// Remove the unused ports from all instances of those modules
 		for(auto mod : modules)
 			CleanupModule(mod, removed_ports);
+	}
+
+	// A port is used by an instance if some bit of its connection goes anywhere
+	// else in the parent module: a public, port or kept wire, a second reference
+	// to the same bit, or any wire at all if the parent still contains processes
+	void ScanInstances(Design *design, dict<IdString, pool<IdString>> &used_instance_ports, pool<IdString> &instantiated)
+	{
+		// Count how often each wire bit is referenced anywhere in the design
+		dict<SigBit, int> bit_refs;
+		for(auto mod : design->modules())
+		{
+			for(auto &conn : mod->connections())
+				for(auto bit : SigSpec{conn.first, conn.second})
+					if(bit.wire != NULL)
+						bit_refs[bit]++;
+			for(auto cell : mod->cells())
+			{
+				instantiated.insert(cell->type);
+				for(auto &conn : cell->connections())
+					for(auto bit : conn.second)
+						if(bit.wire != NULL)
+							bit_refs[bit]++;
+			}
+		}
+
+		for(auto mod : design->modules())
+		{
+			bool has_procs = !mod->processes.empty();
+			for(auto cell : mod->cells())
+				for(auto &conn : cell->connections())
+					for(auto bit : conn.second)
+					{
+						if(bit.wire == NULL)
+							continue;
+						if(has_procs || bit.wire->name.isPublic() || bit.wire->port_input || bit.wire->port_output ||
+								bit.wire->get_bool_attribute(ID::keep) || bit_refs.at(bit) > 1)
+						{
+							used_instance_ports[cell->type].insert(conn.first);
+							break;
+						}
+					}
+		}
 	}
 
 	void CleanupModule(Module *module, dict<IdString, pool<IdString>> &removed_ports)
@@ -81,7 +131,8 @@ struct RmportsPassPass : public Pass {
 		}
 	}
 
-	void ScanModule(Module* module, dict<IdString, pool<IdString>> &removed_ports)
+	void ScanModule(Module* module, dict<IdString, pool<IdString>> &removed_ports,
+			const pool<IdString> &used_instance_ports, bool is_instantiated)
 	{
 		log("Finding unconnected ports in module %s\n", module->name);
 
@@ -139,12 +190,27 @@ struct RmportsPassPass : public Pass {
 		}
 
 		// Now that we know what IS used, get rid of anything that isn't in that list
+		bool keep_outputs = !is_instantiated || module->get_bool_attribute(ID::top);
 		pool<IdString> unused_ports;
 		for(auto port : module->ports)
 		{
-			if(used_ports.find(port) != used_ports.end())
+			if(used_ports.find(port) == used_ports.end())
+			{
+				unused_ports.insert(port);
 				continue;
-			unused_ports.insert(port);
+			}
+
+			// An output which no instance of this module uses can be removed
+			// even if it is driven internally
+			auto wire = module->wire(port);
+			if(
+				wire->port_output &&
+				!wire->port_input &&
+				!keep_outputs &&
+				used_instance_ports.find(port) == used_instance_ports.end() &&
+				!wire->get_bool_attribute(ID::keep)
+			)
+				unused_ports.insert(port);
 		}
 
 		// Print the ports out as we go through them

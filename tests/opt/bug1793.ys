@@ -1,0 +1,56 @@
+# rmports: remove output ports which are driven internally but unused by all instances
+
+read_verilog <<EOT
+module sub(input a, output x, output y);
+assign x = a;
+assign y = ~a;
+endmodule
+module top(input a, output o);
+sub s(.a(a), .x(o), .y());
+endmodule
+EOT
+hierarchy -top top
+proc
+
+select -assert-count 2 sub/o:*
+rmports
+select -assert-count 1 sub/o:x
+select -assert-count 1 sub/o:*
+select -assert-count 1 sub/i:*
+# ports of the top module are kept
+select -assert-count 1 top/o:*
+select -assert-count 1 top/i:*
+
+# repro #1793
+design -reset
+read_verilog <<EOT
+module TOP(a, b, y);
+  input [3:0] a, b;
+  output [2:0] y;
+  reg [2:0] tmp;
+  wire NC;
+  sub p(a, b, {NC, tmp});
+  assign y = tmp;
+endmodule
+
+module sub(as, bs, ys);
+  input [3:0] as, bs;
+  output [3:0] ys;
+  assign ys = as & bs;
+endmodule
+EOT
+prep
+splitnets
+rmports
+delete w:NC
+clean -purge
+rmports
+splitnets -ports
+rmports
+clean -purge
+opt_clean -purge
+
+select -assert-count 3 sub/o:*
+select -assert-count 8 sub/i:*
+select -assert-count 3 TOP/o:*
+select -assert-count 8 TOP/i:*
