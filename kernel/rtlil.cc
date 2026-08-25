@@ -757,6 +757,28 @@ namespace {
 			}
 		}
 	}
+
+	// The srcs a process holds outside its AttrObjects: one per assignment,
+	// one per case selector, one per switch expression.
+	template<typename F>
+	void walk_process_srcs(const RTLIL::Process *process, F visit) {
+		std::vector<RTLIL::CaseRule*> case_stack{const_cast<RTLIL::CaseRule*>(&process->root_case)};
+		while (!case_stack.empty()) {
+			RTLIL::CaseRule *cs = case_stack.back();
+			case_stack.pop_back();
+			visit(cs->compare_src);
+			for (auto &action : cs->actions)
+				visit(action.src);
+			for (auto *sw : cs->switches) {
+				visit(sw->signal_src);
+				for (auto *case_ : sw->cases)
+					case_stack.push_back(case_);
+			}
+		}
+		for (auto *sync : process->syncs)
+			for (auto &action : sync->actions)
+				visit(action.src);
+	}
 }
 
 
@@ -770,12 +792,20 @@ size_t RTLIL::Design::gc_twines()
 	};
 	pool<SrcRef> live_srcs;
 
+	auto src_root = [&](SrcRef ref) {
+		if (ref != SrcRef::Null)
+			live_srcs.insert(ref);
+	};
+
 	walk_attr_objects(this, [&](const RTLIL::AttrObject *obj) {
 		for (auto &attr : obj->attributes)
 			root(attr.first);
-		if (obj->src_ != SrcRef::Null)
-			live_srcs.insert(obj->src_);
+		src_root(obj->src_);
 	});
+
+	for (auto &[_, module] : modules_)
+		for (auto &[_, process] : module->processes)
+			walk_process_srcs(process, src_root);
 
 	root(selected_active_module);
 
@@ -3254,6 +3284,22 @@ namespace {
 		return dst_design->twines.copy_from(src_design->twines, id);
 	}
 
+	SrcRef migrate_src(SrcRef src, const RTLIL::Design *src_design, RTLIL::Design *dst_design)
+	{
+		if (src == SrcRef::Null || src_design == dst_design)
+			return src;
+		return dst_design->srcs.copy_from(src_design->srcs, src);
+	}
+
+	void migrate_actions_src(const std::vector<RTLIL::SyncAction> &src_actions,
+			std::vector<RTLIL::SyncAction> &dst_actions,
+			const RTLIL::Design *src_design, RTLIL::Design *dst_design)
+	{
+		log_assert(src_actions.size() == dst_actions.size());
+		for (size_t i = 0; i < src_actions.size(); i++)
+			dst_actions[i].src = migrate_src(src_actions[i].src, src_design, dst_design);
+	}
+
 	void migrate_process_tree_src(const RTLIL::Process *src, const RTLIL::Design *src_design,
 			RTLIL::Process *dst, RTLIL::Design *dst_design)
 	{
@@ -3265,11 +3311,14 @@ namespace {
 			auto [s_cs, d_cs] = case_stack.back();
 			case_stack.pop_back();
 			copy_src_into(s_cs, src_design, d_cs, dst_design);
+			d_cs->compare_src = migrate_src(s_cs->compare_src, src_design, dst_design);
+			migrate_actions_src(s_cs->actions, d_cs->actions, src_design, dst_design);
 			log_assert(s_cs->switches.size() == d_cs->switches.size());
 			for (size_t i = 0; i < s_cs->switches.size(); i++) {
 				const auto *s_sw = s_cs->switches[i];
 				auto *d_sw = d_cs->switches[i];
 				copy_src_into(s_sw, src_design, d_sw, dst_design);
+				d_sw->signal_src = migrate_src(s_sw->signal_src, src_design, dst_design);
 				log_assert(s_sw->cases.size() == d_sw->cases.size());
 				for (size_t j = 0; j < s_sw->cases.size(); j++)
 					case_stack.emplace_back(s_sw->cases[j], d_sw->cases[j]);
@@ -3279,6 +3328,7 @@ namespace {
 		for (size_t i = 0; i < src->syncs.size(); i++) {
 			const auto *s_sync = src->syncs[i];
 			auto *d_sync = dst->syncs[i];
+			migrate_actions_src(s_sync->actions, d_sync->actions, src_design, dst_design);
 			log_assert(s_sync->mem_write_actions.size() == d_sync->mem_write_actions.size());
 			for (size_t j = 0; j < s_sync->mem_write_actions.size(); j++) {
 				copy_src_into(&s_sync->mem_write_actions[j], src_design,
@@ -6012,6 +6062,7 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	new_caserule->compare = compare;
 	new_caserule->actions = actions;
 	new_caserule->attributes = attributes;
+	new_caserule->compare_src = compare_src;
 	for (auto &it : switches)
 		new_caserule->switches.push_back(it->clone());
 	return new_caserule;
@@ -6033,6 +6084,7 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 	RTLIL::SwitchRule *new_switchrule = new RTLIL::SwitchRule;
 	new_switchrule->signal = signal;
 	new_switchrule->attributes = attributes;
+	new_switchrule->signal_src = signal_src;
 	for (auto &it : cases)
 		new_switchrule->cases.push_back(it->clone());
 	return new_switchrule;
