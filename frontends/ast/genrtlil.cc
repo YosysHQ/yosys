@@ -729,26 +729,21 @@ struct AST_INTERNAL::ProcessGenerator
 					current_case = new RTLIL::CaseRule;
 					pool<RTLIL::SigBit> backup_assigned_bits = std::move(current_case_assigned_bits);
 					current_case_assigned_bits.clear();
+					set_src_attr(current_case, child.get());
 					last_generated_case = current_case;
-					std::optional<AstNode*> block;
-					for (auto& node : child->children) {
-						if (node->type == AST_DEFAULT) {
-							default_case = current_case;
-						} else if (node->type == AST_BLOCK) {
-							log_assert(!block.has_value());
-							block = node.get();
-						} else {
-							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
-						}
-					}
-					log_assert(block.has_value());
-					set_src_attr(current_case, *block);
 					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, child.get());
 					// Track temp assignments
 					for (auto &bit : this_case_eq_ltemp)
 						if (bit.wire != NULL)
 							current_case_assigned_bits.insert(bit);
-					processAst(*block);
+					for (auto& node : child->children) {
+						if (node->type == AST_DEFAULT)
+							default_case = current_case;
+						else if (node->type == AST_BLOCK)
+							processAst(node.get());
+						else
+							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
+					}
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
 					else

@@ -191,11 +191,13 @@ struct SnippetSwCache
 	}
 };
 
-// The cell keeps the src it was given from the fused action locations;
-// src lives in a field of its own, not in `attributes`.
+// A cell that already carries fused action locations keeps them; anything
+// else inherits the case's own location.
 void apply_attrs(RTLIL::Cell *cell, const RTLIL::CaseRule *cs)
 {
+	SrcRef own_src = cell->src_id();
 	cell->attributes = cs->attributes;
+	cell->set_src_id(own_src != SrcRef::Null ? own_src : cs->src_id());
 }
 
 struct MuxGenCtx {
