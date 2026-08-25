@@ -71,7 +71,7 @@ struct RegLayout {
 	}
 };
 
-// Peel trailing "[digits]" groups: "q[3][7]" -> base "q", idx {3, 7}.
+// Peel trailing "[digits]" groups from a signal name and populate idx vector
 static std::string split_word_indices(const std::string &name, std::vector<int> &idx)
 {
 	size_t end = name.size();
