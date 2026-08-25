@@ -438,6 +438,9 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	IdString auto_prefix(const std::string *prefix);
 	// Infers publicity from first character
 	IdString add(std::string s);
+	// Intern `t` at exactly `idx`; see HashConsPool::place
+	IdString place(size_t idx, TwineSpec t);
+	void finish_placement();
 	IdString copy_from(const TwinePool& src, IdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
@@ -535,6 +538,25 @@ struct SrcPool : HashConsPool<SrcPool, Src, SrcRef> {
 		return intern(std::vector<IdString>(members.begin(), members.end()));
 	}
 
+	// Interning at a caller-chosen index; see HashConsPool::place
+	SrcRef place(size_t idx, std::span<const IdString> members) {
+		std::vector<IdString> canon(members.begin(), members.end());
+		canonicalize_members(canon);
+		if (canon.empty())
+			return SrcRef::Null;
+		return HashConsPool::place(idx, Src{std::move(canon)});
+	}
+
+	void finish_placement() { rebuild_index(); }
+
+	SrcRef find_members(std::span<const IdString> members) const {
+		std::vector<IdString> canon(members.begin(), members.end());
+		canonicalize_members(canon);
+		if (canon.empty())
+			return SrcRef::Null;
+		return find_key(canon);
+	}
+
 	SrcRef copy_from(const SrcPool &other, SrcRef ref) {
 		if (ref == SrcRef::Null)
 			return ref;
@@ -600,11 +622,15 @@ struct SrcPool : HashConsPool<SrcPool, Src, SrcRef> {
 	}
 
 private:
-	SrcRef intern(std::vector<IdString> members) {
+	static void canonicalize_members(std::vector<IdString> &members) {
 		for (IdString &member : members)
 			member = member.untag().stamped(0);
 		std::sort(members.begin(), members.end());
 		members.erase(std::unique(members.begin(), members.end()), members.end());
+	}
+
+	SrcRef intern(std::vector<IdString> members) {
+		canonicalize_members(members);
 		if (members.empty())
 			return SrcRef::Null;
 		return add_inner(Src{std::move(members)});
@@ -612,6 +638,7 @@ private:
 
 	using HashConsPool::add_inner;
 	using HashConsPool::find;
+	using HashConsPool::find_key;
 	using HashConsPool::gc;
 };
 

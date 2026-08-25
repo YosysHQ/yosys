@@ -63,6 +63,11 @@ struct RTLILFrontendWorker {
 	};
 	dict<size_t, TwineDesc> twine_descs;
 
+	// Set while a twines block is read into a design that has no twines of its
+	// own yet, so the file's handles can be kept as written.
+	bool preserve_twine_ids = false;
+	bool preserve_src_ids = false;
+
 	dict<size_t, SrcRef> src_remap;
 	dict<size_t, std::vector<size_t>> src_descs;
 
@@ -571,7 +576,10 @@ struct RTLILFrontendWorker {
 		members.reserve(dit->second.size());
 		for (size_t c : dit->second)
 			members.push_back(materialize_file_twine(c));
-		SrcRef ref = design->srcs.adopt(std::span<const IdString>{members});
+		std::span<const IdString> span{members};
+		SrcRef ref = preserve_src_ids && design->srcs.find_members(span) == SrcRef::Null
+				? design->srcs.place(id, span)
+				: design->srcs.adopt(span);
 		src_remap[id] = ref;
 		return ref;
 	}
@@ -596,8 +604,15 @@ struct RTLILFrontendWorker {
 		for (auto &it : src_descs)
 			ordered_ids.push_back(it.first);
 		std::sort(ordered_ids.begin(), ordered_ids.end());
+		size_t max_id = ordered_ids.empty() ? 0 : ordered_ids.back();
+		preserve_src_ids = design->srcs.size() == 0 && !ordered_ids.empty()
+				&& max_id < 2 * ordered_ids.size() + 64;
 		for (size_t id : ordered_ids)
 			materialize_file_src(id);
+		if (preserve_src_ids) {
+			design->srcs.finish_placement();
+			preserve_src_ids = false;
+		}
 		src_descs.clear();
 		expect_eol();
 	}
@@ -640,17 +655,13 @@ struct RTLILFrontendWorker {
 		if (desc.materializing)
 			error("Cyclic twine reference @%zu at line %d", id, line_num);
 		desc.materializing = true;
-		IdString ref;
-		switch (desc.kind) {
-		case TwineDesc::Leaf:
-			ref = design->twines.add(TwineSpec::Leaf{desc.text});
-			break;
-		case TwineDesc::Suffix:
-			ref = design->twines.add(TwineSpec::Suffix{
-					materialize_file_twine(desc.parent),
-					desc.text});
-			break;
-		}
+		TwineSpec spec = desc.kind == TwineDesc::Leaf
+				? TwineSpec{TwineSpec::Leaf{desc.text}}
+				: TwineSpec{TwineSpec::Suffix{materialize_file_twine(desc.parent), desc.text}};
+		IdString ref = preserve_twine_ids && id >= STATIC_TWINE_END
+					&& design->twines.find(spec) == IdString::Null
+				? design->twines.place(id, std::move(spec))
+				: design->twines.add(std::move(spec));
 		desc.materializing = false;
 		twine_remap[id] = ref;
 		return ref;
@@ -726,8 +737,23 @@ struct RTLILFrontendWorker {
 			}
 			ordered_ids.swap(dynamic_ids);
 		}
+		// Keeping the file's handles is only worth it when they look like this
+		// version's numbering; a file from a build with different constids
+		// would otherwise reserve a huge run of empty slots.
+		size_t dynamic_count = 0;
+		for (size_t id : ordered_ids)
+			if (id >= STATIC_TWINE_END)
+				dynamic_count++;
+		size_t max_id = ordered_ids.empty() ? 0 : ordered_ids.back();
+		preserve_twine_ids = design->twines.size() == 0 && dynamic_count != 0
+				&& max_id >= STATIC_TWINE_END
+				&& max_id - STATIC_TWINE_END < 2 * dynamic_count + 64;
 		for (size_t id : ordered_ids)
 			materialize_file_twine(id);
+		if (preserve_twine_ids) {
+			design->twines.finish_placement();
+			preserve_twine_ids = false;
+		}
 		twine_descs.clear();
 		expect_eol();
 	}

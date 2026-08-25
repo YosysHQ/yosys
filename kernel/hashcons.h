@@ -228,6 +228,22 @@ public:
 
 	size_t size() const { return backing.size() - free_list.size(); }
 
+	// Interning at a caller-chosen index, so that a design read back from a
+	// file can keep the handles the file names. Every placed index must be
+	// free and hold content no live node holds; call rebuild_index() once the
+	// whole batch is placed to put the skipped slots back on the free list.
+	Ref place(size_t abs, Node t) {
+		Derived::canonicalize(t);
+		log_assert(abs >= Derived::STATIC_COUNT);
+		size_t slot = abs - Derived::STATIC_COUNT;
+		while (backing.size() <= slot)
+			backing.push_back(Node{});
+		log_assert(backing[slot].is_dead());
+		backing[slot] = std::move(t);
+		index.insert(Ref(abs));
+		return Ref(abs);
+	}
+
 	bool slot_live(size_t abs) const {
 		if (abs < Derived::STATIC_COUNT)
 			return true;

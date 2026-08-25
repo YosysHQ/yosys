@@ -347,6 +347,18 @@ IdString TwinePool::add(std::string s) {
 	return stamp(intern(TwineNode::NO_PREFIX, content).tag(is_public));
 }
 
+IdString TwinePool::place(size_t idx, TwineSpec t) {
+	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
+		return stamp(HashConsPool::place(idx, TwineNode{leaf->s}));
+	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
+	return stamp(HashConsPool::place(idx,
+			TwineNode{(uint32_t)sfx.prefix.untag().raw(), sfx.tail}).tag(sfx.prefix.isPublic()));
+}
+
+void TwinePool::finish_placement() {
+	rebuild_index();
+}
+
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
 	if (ref == IdString::Null)
 		return ref;
