@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/bitpattern.h"
 #include "kernel/log.h"
+#include "kernel/rtlil.h"
 #include <sstream>
 #include <stdlib.h>
 #include <stdio.h>
@@ -27,11 +28,54 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+/**
+ * Actions are assignments in cases of switches.
+ * Snippets are non-overlapping slices of signals on the left-hand side
+ * of actions. For example, if you have these two actions for r[7:0]:
+ *   r = a; r[1:2] = 2'b0;
+ * you will arrive at three snippets:
+ *   r[0], r[2:1], r[7:3]
+ * For each snippet, multiplexers ($mux or $pmux) are emitted
+ * based on the full switch.
+ * $pmux are only emitted when legal based on whether the cases can be
+ * evaluated in parallel.
+ * In that case, instead of a $pmux, you get a chain of $mux.
+ * Nested switches build branching trees of muxes.
+ */
+
+using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, SrcRef>>;
+struct SnippetSourceMapBuilder {
+	SnippetSourceMap map;
+	void insert(int snippet, const RTLIL::CaseRule* cs, const RTLIL::SyncAction& action) {
+		map.resize(std::max(map.size(), (size_t)snippet + 1));
+		if (action.src != SrcRef::Null)
+			map[snippet][cs] = action.src;
+	}
+
+};
+struct SnippetSourceMapper {
+	const SnippetSourceMap map;
+	void try_map_into(std::vector<SrcRef>& sources, int snippet, const RTLIL::CaseRule* cs) const {
+		if ((size_t)snippet < map.size()) {
+			const auto& snippet_map = map[snippet];
+			auto src_it = snippet_map.find(cs);
+			if (src_it != snippet_map.end()) {
+				sources.push_back(src_it->second);
+				return;
+			}
+		}
+		if (cs->src_id() != SrcRef::Null)
+			sources.push_back(cs->src_id());
+	}
+
+};
+
 struct SigSnippets
 {
 	idict<SigSpec> sigidx;
 	dict<SigBit, int> bit2snippet;
 	pool<int> snippets;
+	SnippetSourceMapBuilder source_builder;
 
 	void insert(SigSpec sig)
 	{
@@ -97,8 +141,11 @@ struct SigSnippets
 
 	void insert(const RTLIL::CaseRule *cs)
 	{
-		for (auto &action : cs->actions)
+		for (auto &action : cs->actions) {
 			insert(action.lhs);
+			int idx = sigidx(action.lhs);
+			source_builder.insert(idx, cs, action);
+		}
 
 		for (auto sw : cs->switches)
 		for (auto cs2 : sw->cases)
@@ -144,10 +191,11 @@ struct SnippetSwCache
 	}
 };
 
-void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
+// The cell keeps the src it was given from the fused action locations;
+// src lives in a field of its own, not in `attributes`.
+void apply_attrs(RTLIL::Cell *cell, const RTLIL::CaseRule *cs)
 {
-	cell->attributes = sw->attributes;
-	cell->module->design->merge_src(cell, cs);
+	cell->attributes = cs->attributes;
 }
 
 struct MuxGenCtx {
@@ -158,7 +206,11 @@ struct MuxGenCtx {
 	RTLIL::SwitchRule *sw;
 	RTLIL::CaseRule *cs;
 	bool ifxmode;
+	const SnippetSourceMapper& source_mapper;
+	int current_snippet;
+	std::vector<SrcRef>& snippet_sources;
 
+	// Returns signal for the select input of a mux
 	RTLIL::SigSpec gen_cmp() {
 		std::stringstream sstr;
 		sstr << "$procmux$" << (autoidx++);
@@ -187,7 +239,7 @@ struct MuxGenCtx {
 			{
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
-				apply_attrs(eq_cell, sw, cs);
+				apply_attrs(eq_cell, cs);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -213,7 +265,7 @@ struct MuxGenCtx {
 
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
-			apply_attrs(any_cell, sw, cs);
+			apply_attrs(any_cell, cs);
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
@@ -247,13 +299,14 @@ struct MuxGenCtx {
 
 		// create the multiplexer itself
 		RTLIL::Cell *mux_cell = mod->addCell(sstr.str(), ID($mux));
-		apply_attrs(mux_cell, sw, cs);
 
 		mux_cell->parameters[ID::WIDTH] = RTLIL::Const(when_signal.size());
 		mux_cell->setPort(ID::A, else_signal);
 		mux_cell->setPort(ID::B, when_signal);
 		mux_cell->setPort(ID::S, ctrl_sig);
 		mux_cell->setPort(ID::Y, RTLIL::SigSpec(result_wire));
+
+		source_mapper.try_map_into(snippet_sources, current_snippet, cs);
 
 		last_mux_cell = mux_cell;
 		return RTLIL::SigSpec(result_wire);
@@ -263,8 +316,10 @@ struct MuxGenCtx {
 		log_assert(last_mux_cell != NULL);
 		log_assert(when_signal.size() == last_mux_cell->getPort(ID::A).size());
 
-		if (when_signal == last_mux_cell->getPort(ID::A))
+		if (when_signal == last_mux_cell->getPort(ID::A)) {
+			// when_signal already covered by the default value at port A
 			return;
+		}
 
 		RTLIL::SigSpec ctrl_sig = gen_cmp();
 		log_assert(ctrl_sig.size() == 1);
@@ -279,8 +334,9 @@ struct MuxGenCtx {
 		last_mux_cell->setPort(ID::B, new_b);
 
 		last_mux_cell->parameters[ID::S_WIDTH] = last_mux_cell->getPort(ID::S).size();
-	}
 
+		source_mapper.try_map_into(snippet_sources, current_snippet, cs);
+	}
 };
 
 const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)
@@ -328,12 +384,70 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 struct MuxTreeContext {
 	RTLIL::Module* mod;
 	SnippetSwCache& swcache;
+	const SnippetSourceMapper& source_mapper;
 	dict<RTLIL::SwitchRule*, bool> &swpara;
 	RTLIL::CaseRule *cs;
 	const RTLIL::SigSpec &sig;
 	RTLIL::SigSpec defval;
 	const bool ifxmode;
 };
+
+bool is_simple_parallel_case(RTLIL::SwitchRule* sw, dict<RTLIL::SwitchRule*, bool> &swpara)
+{
+	bool ret = true;
+	if (!sw->get_bool_attribute(ID::parallel_case)) {
+		if (!swpara.count(sw)) {
+			pool<Const> case_values;
+			for (size_t i = 0; i < sw->cases.size(); i++) {
+				RTLIL::CaseRule *cs2 = sw->cases[i];
+				for (auto pat : cs2->compare) {
+					if (!pat.is_fully_def())
+						return false;
+					Const cpat = pat.as_const();
+					if (case_values.count(cpat))
+						return false;
+					case_values.insert(cpat);
+				}
+			}
+			swpara[sw] = ret;
+		} else {
+			return swpara.at(sw);
+		}
+	}
+	return ret;
+}
+
+std::vector<int> parallel_groups(MuxTreeContext ctx, RTLIL::SwitchRule* sw)
+{
+	std::vector<int> pgroups(sw->cases.size());
+	if (!is_simple_parallel_case(sw, ctx.swpara)) {
+		BitPatternPool pool(sw->signal.size());
+		bool extra_group_for_next_case = false;
+		for (size_t i = 0; i < sw->cases.size(); i++) {
+			RTLIL::CaseRule *cs2 = sw->cases[i];
+			if (i != 0) {
+				pgroups[i] = pgroups[i-1];
+				if (extra_group_for_next_case) {
+					pgroups[i] = pgroups[i-1]+1;
+					extra_group_for_next_case = false;
+				}
+				for (auto pat : cs2->compare)
+					if (!pat.is_fully_const() || !pool.has_all(pat))
+						pgroups[i] = pgroups[i-1]+1;
+				if (cs2->compare.empty())
+					pgroups[i] = pgroups[i-1]+1;
+				if (pgroups[i] != pgroups[i-1])
+					pool = BitPatternPool(sw->signal.size());
+			}
+			for (auto pat : cs2->compare)
+				if (!pat.is_fully_const())
+					extra_group_for_next_case = true;
+				else if (!ctx.ifxmode)
+					pool.take(pat);
+		}
+	}
+	return pgroups;
+}
 
 RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 {
@@ -349,60 +463,16 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 		if (!ctx.swcache.check(sw))
 			continue;
 
-		// detect groups of parallel cases
-		std::vector<int> pgroups(sw->cases.size());
-		bool is_simple_parallel_case = true;
-
-		if (!sw->get_bool_attribute(ID::parallel_case)) {
-			if (!ctx.swpara.count(sw)) {
-				pool<Const> case_values;
-				for (size_t i = 0; i < sw->cases.size(); i++) {
-					RTLIL::CaseRule *cs2 = sw->cases[i];
-					for (auto pat : cs2->compare) {
-						if (!pat.is_fully_def())
-							goto not_simple_parallel_case;
-						Const cpat = pat.as_const();
-						if (case_values.count(cpat))
-							goto not_simple_parallel_case;
-						case_values.insert(cpat);
-					}
-				}
-				if (0)
-			not_simple_parallel_case:
-					is_simple_parallel_case = false;
-				ctx.swpara[sw] = is_simple_parallel_case;
-			} else {
-				is_simple_parallel_case = ctx.swpara.at(sw);
+		// Detect groups of parallel cases
+		std::vector<int> pgroups = parallel_groups(ctx, sw);
+		std::vector<SrcRef> case_sources;
+		// Create sources for default cases
+		for (auto cs2 : sw -> cases) {
+			if (cs2->compare.empty()) {
+				int sn = ctx.swcache.current_snippet;
+				ctx.source_mapper.try_map_into(case_sources, sn, cs2);
 			}
 		}
-
-		if (!is_simple_parallel_case) {
-			BitPatternPool pool(sw->signal.size());
-			bool extra_group_for_next_case = false;
-			for (size_t i = 0; i < sw->cases.size(); i++) {
-				RTLIL::CaseRule *cs2 = sw->cases[i];
-				if (i != 0) {
-					pgroups[i] = pgroups[i-1];
-					if (extra_group_for_next_case) {
-						pgroups[i] = pgroups[i-1]+1;
-						extra_group_for_next_case = false;
-					}
-					for (auto pat : cs2->compare)
-						if (!pat.is_fully_const() || !pool.has_all(pat))
-							pgroups[i] = pgroups[i-1]+1;
-					if (cs2->compare.empty())
-						pgroups[i] = pgroups[i-1]+1;
-					if (pgroups[i] != pgroups[i-1])
-						pool = BitPatternPool(sw->signal.size());
-				}
-				for (auto pat : cs2->compare)
-					if (!pat.is_fully_const())
-						extra_group_for_next_case = true;
-					else if (!ctx.ifxmode)
-						pool.take(pat);
-			}
-		}
-
 		// mask default bits that are irrelevant because the output is driven by a full case
 		const pool<SigBit> &full_case_bits = get_full_case_bits(ctx.swcache, sw);
 		for (int i = 0; i < GetSize(ctx.sig); i++)
@@ -410,15 +480,19 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 				result[i] = State::Sx;
 
 		RTLIL::SigSpec initial_val = result;
-		MuxGenCtx mux_gen_ctx {ctx.mod,
+		MuxGenCtx mux_gen_ctx {
+			ctx.mod,
 			sw->signal,
 			nullptr,
 			nullptr,
 			sw,
 			nullptr,
-			ctx.ifxmode
+			ctx.ifxmode,
+			ctx.source_mapper,
+			ctx.swcache.current_snippet,
+			case_sources
 		};
-		// evaluate in reverse order to give the first entry the top priority
+		// Evaluate in reverse order to give the first entry the top priority
 		for (size_t i = 0; i < sw->cases.size(); i++) {
 			int case_idx = sw->cases.size() - i - 1;
 			MuxTreeContext new_ctx = ctx;
@@ -432,6 +506,10 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 			} else {
 				result = mux_gen_ctx.gen_mux(value, result);
 			}
+		}
+		if (mux_gen_ctx.last_mux_cell && !case_sources.empty()) {
+			SrcRef fused = ctx.mod->design->srcs.merge(std::span<const SrcRef>{case_sources});
+			mux_gen_ctx.last_mux_cell->set_src_id(fused);
 		}
 	}
 
@@ -459,9 +537,11 @@ void proc_mux(RTLIL::Module *mod, RTLIL::Process *proc, bool ifxmode)
 
 		log_debug("%6d/%d: %s\n", ++cnt, GetSize(sigsnip.snippets), log_signal(sig));
 
+		const SnippetSourceMapper mapper{sigsnip.source_builder.map};
 		RTLIL::SigSpec value = signal_to_mux_tree({
 			mod,
 			swcache,
+			mapper,
 			swpara,
 			&proc->root_case,
 			sig,
