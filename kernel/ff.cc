@@ -21,6 +21,14 @@
 
 USING_YOSYS_NAMESPACE
 
+static std::vector<RTLIL::Cell*> cells_added_since(RTLIL::Module *module, int mark)
+{
+	std::vector<RTLIL::Cell*> cells;
+	for (int i = 0, n = module->cells_size() - mark; i < n; i++)
+		cells.push_back(module->cell_at(i));
+	return cells;
+}
+
 // sorry
 template<typename InputType, typename OutputType, typename = std::enable_if_t<std::is_base_of_v<FfTypeData, OutputType>>>
 void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
@@ -38,6 +46,8 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.sig_q = cell->getPort(ID::Q);
 		info.width = GetSize(info.sig_q);
 		info.attributes = cell->attributes;
+		if (cell->src_id() != SrcRef::Null && cell->module && cell->module->design)
+			info.src_twine = cell->src_id();
 		if (initvals)
 			info.val_init = (*initvals)(info.sig_q);
 	}
@@ -358,6 +368,7 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	res.pol_clr = pol_clr;
 	res.pol_set = pol_set;
 	res.attributes = attributes;
+	res.src_twine = src_twine;
 	std::optional<Const::Builder> arst_bits;
 	if (has_arst)
 		arst_bits.emplace(bits.size());
@@ -484,6 +495,7 @@ void FfData::aload_to_sr() {
 	log_assert(!has_sr);
 	has_sr = true;
 	has_aload = false;
+	int patch_mark = module->cells_size();
 	if (!is_fine) {
 		pol_clr = false;
 		pol_set = true;
@@ -505,11 +517,13 @@ void FfData::aload_to_sr() {
 			sig_set = module->OrnotGate(NEW_ID, sig_aload, sig_ad);
 		}
 	}
+	merge_cell_src(module, {cell}, cells_added_since(module, patch_mark));
 }
 
 void FfData::convert_ce_over_srst(bool val) {
 	if (!has_ce || !has_srst || ce_over_srst == val)
 		return;
+	int patch_mark = module->cells_size();
 	if (val) {
 		// sdffe to sdffce
 		if (!is_fine) {
@@ -548,35 +562,36 @@ void FfData::convert_ce_over_srst(bool val) {
 		if (!is_fine) {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->And(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->And(NEW_ID, sig_srst, sig_ce);
 				} else {
 					SigSpec tmp = module->Not(NEW_ID, sig_ce);
-					sig_srst = cell->module->And(NEW_ID, sig_srst, tmp);
+					sig_srst = module->And(NEW_ID, sig_srst, tmp);
 				}
 			} else {
 				if (pol_ce) {
 					SigSpec tmp = module->Not(NEW_ID, sig_ce);
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, tmp);
+					sig_srst = module->Or(NEW_ID, sig_srst, tmp);
 				} else {
-					sig_srst = cell->module->Or(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->Or(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		} else {
 			if (pol_srst) {
 				if (pol_ce) {
-					sig_srst = cell->module->AndGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->AndGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->AndnotGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->AndnotGate(NEW_ID, sig_srst, sig_ce);
 				}
 			} else {
 				if (pol_ce) {
-					sig_srst = cell->module->OrnotGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->OrnotGate(NEW_ID, sig_srst, sig_ce);
 				} else {
-					sig_srst = cell->module->OrGate(NEW_ID, sig_srst, sig_ce);
+					sig_srst = module->OrGate(NEW_ID, sig_srst, sig_ce);
 				}
 			}
 		}
 	}
+	merge_cell_src(module, {cell}, cells_added_since(module, patch_mark));
 	ce_over_srst = val;
 }
 
@@ -587,6 +602,7 @@ void FfData::unmap_ce() {
 	if (has_srst && ce_over_srst)
 		unmap_srst();
 
+	int patch_mark = module->cells_size();
 	if (!is_fine) {
 		if (pol_ce)
 			sig_d = module->Mux(NEW_ID, sig_q, sig_d, sig_ce);
@@ -598,6 +614,7 @@ void FfData::unmap_ce() {
 		else
 			sig_d = module->MuxGate(NEW_ID, sig_d, sig_q, sig_ce);
 	}
+	merge_cell_src(module, {cell}, cells_added_since(module, patch_mark));
 	has_ce = false;
 }
 
@@ -607,6 +624,7 @@ void FfData::unmap_srst() {
 	if (has_ce && !ce_over_srst)
 		unmap_ce();
 
+	int patch_mark = module->cells_size();
 	if (!is_fine) {
 		if (pol_srst)
 			sig_d = module->Mux(NEW_ID, sig_d, val_srst, sig_srst);
@@ -618,6 +636,7 @@ void FfData::unmap_srst() {
 		else
 			sig_d = module->MuxGate(NEW_ID, val_srst[0], sig_d, sig_srst);
 	}
+	merge_cell_src(module, {cell}, cells_added_since(module, patch_mark));
 	has_srst = false;
 }
 
@@ -635,8 +654,6 @@ Cell *FfData::emit() {
 			return nullptr;
 		}
 	}
-	if (initvals && !is_anyinit)
-		initvals->set_init(sig_q, val_init);
 	if (!is_fine) {
 		if (has_gclk) {
 			log_assert(!has_clk);
@@ -747,6 +764,10 @@ Cell *FfData::emit() {
 		}
 	}
 	cell->attributes = attributes;
+	if (src_twine != SrcRef::Null && cell->module && cell->module->design)
+		cell->set_src_id(src_twine);
+	if (initvals && !is_anyinit)
+		initvals->set_init(cell->getPort(ID::Q), val_init);
 	return cell;
 }
 

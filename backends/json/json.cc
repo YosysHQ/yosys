@@ -130,9 +130,14 @@ struct JsonWriter
 		}
 	}
 
-	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
+	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false, const RTLIL::AttrObject *src_obj=nullptr)
 	{
 		bool first = true;
+		if (src_obj && design && design->obj_src_id(src_obj) != SrcRef::Null) {
+			f << stringf("\n        %s%s: ", for_module ? "" : "    ", get_name(RTLIL::ID::src));
+			write_parameter_value(RTLIL::Const(design->get_src_attribute(src_obj)));
+			first = false;
+		}
 		for (auto &param : parameters) {
 			f << stringf("%s\n", first ? "" : ",");
 			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first));
@@ -158,7 +163,7 @@ struct JsonWriter
 		f << stringf("    %s: {\n", get_name(module->name));
 
 		f << stringf("      \"attributes\": {");
-		write_parameters(module->attributes, /*for_module=*/true);
+		write_parameters(module->attributes, /*for_module=*/true, module);
 		f << stringf("\n      },\n");
 
 		if (module->parameter_default_values.size()) {
@@ -210,7 +215,7 @@ struct JsonWriter
 			write_parameters(c->parameters);
 			f << stringf("\n          },\n");
 			f << stringf("          \"attributes\": {");
-			write_parameters(c->attributes);
+			write_parameters(c->attributes, false, c);
 			f << stringf("\n          },\n");
 			if (c->known()) {
 				f << stringf("          \"port_directions\": {");
@@ -248,7 +253,7 @@ struct JsonWriter
 				f << stringf("        %s: {\n", get_name(it.second->name));
 				f << stringf("          \"hide_name\": %s,\n", it.second->name.isPublic() ? "0" : "1");
 				f << stringf("          \"attributes\": {");
-				write_parameters(it.second->attributes);
+				write_parameters(it.second->attributes, false, it.second);
 				f << stringf("\n          },\n");
 				f << stringf("          \"width\": %d,\n", it.second->width);
 				f << stringf("          \"start_offset\": %d,\n", it.second->start_offset);
@@ -275,7 +280,7 @@ struct JsonWriter
 			if (w->is_signed)
 				f << stringf("          \"signed\": %d,\n", w->is_signed);
 			f << stringf("          \"attributes\": {");
-			write_parameters(w->attributes);
+			write_parameters(w->attributes, false, w);
 			f << stringf("\n          }\n");
 			f << stringf("        }");
 			first = false;

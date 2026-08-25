@@ -129,10 +129,12 @@ TEST(TwinePublicityTest, CopyTag)
 TEST(TwinePublicityTest, GcRoots)
 {
 	TwinePool twines;
+	SrcPool srcs(&twines);
 	IdString pub = twines.add(std::string("\\keep"));
 	twines.add(std::string("\\drop"));
+	Yosys::pool<SrcRef> live_srcs;
 	Yosys::pool<IdString> roots{pub};
-	EXPECT_EQ(twines.gc(roots), 1u);
+	EXPECT_EQ(srcs.gc_with_twines(live_srcs, roots), 1u);
 	EXPECT_EQ(twines.str(pub), "\\keep");
 }
 

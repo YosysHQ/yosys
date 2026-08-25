@@ -47,6 +47,8 @@ struct RTLILFrontendWorker {
 
 	RTLIL::Module *current_module;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
+
+	SrcRef pending_src = SrcRef::Null;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
@@ -60,6 +62,9 @@ struct RTLILFrontendWorker {
 		bool materializing = false;
 	};
 	dict<size_t, TwineDesc> twine_descs;
+
+	dict<size_t, SrcRef> src_remap;
+	dict<size_t, std::vector<size_t>> src_descs;
 
 
 
@@ -462,10 +467,16 @@ struct RTLILFrontendWorker {
 		}
 
 		current_module = new RTLIL::Module;
-		current_module->name = std::move(module_name);
-		current_module->attributes = std::move(attrbuf);
-		if (!delete_current_module)
+		current_module->name = module_name;
+		if (delete_current_module) {
+			attrbuf.erase(ID::src);
+			pending_src = SrcRef::Null;
+			current_module->attributes = std::move(attrbuf);
+		} else {
 			design->add(current_module);
+			design->absorb_attrs(current_module, std::move(attrbuf));
+			flush_src(current_module);
+		}
 
 		while (true)
 		{
@@ -518,7 +529,76 @@ struct RTLILFrontendWorker {
 	{
 		IdString id = parse_twine();
 		RTLIL::Const c = parse_const();
+		if (id == RTLIL::ID::src && (c.flags & RTLIL::CONST_FLAG_STRING)) {
+			std::string raw = c.decode_string();
+			if (!raw.empty() && raw[0] == '@') {
+				size_t file_id = 0;
+				auto [ptr, ec] = std::from_chars(raw.data() + 1, raw.data() + raw.size(), file_id);
+				if (ec != std::errc() || ptr != raw.data() + raw.size())
+					error("Malformed src reference %s at line %d", raw.c_str(), line_num);
+				pending_src = materialize_file_src(file_id);
+				expect_eol();
+				return;
+			}
+			if (raw.find('|') != std::string::npos)
+				log_warning("line %d: src attribute %s contains '|' separators. "
+						"That convention is Yosys-internal; the producing tool "
+						"should emit a single path:line.col per attribute and "
+						"let Yosys merge through the src pool.\n",
+						line_num, raw.c_str());
+		}
 		attrbuf.insert({std::move(id), std::move(c)});
+		expect_eol();
+	}
+
+	void flush_src(RTLIL::AttrObject *obj)
+	{
+		if (pending_src != SrcRef::Null) {
+			design->set_src_attribute(obj, pending_src);
+			pending_src = SrcRef::Null;
+		}
+	}
+
+	SrcRef materialize_file_src(size_t id)
+	{
+		auto rit = src_remap.find(id);
+		if (rit != src_remap.end())
+			return rit->second;
+		auto dit = src_descs.find(id);
+		if (dit == src_descs.end())
+			error("Unknown src reference @%zu at line %d", id, line_num);
+		std::vector<IdString> members;
+		members.reserve(dit->second.size());
+		for (size_t c : dit->second)
+			members.push_back(materialize_file_twine(c));
+		SrcRef ref = design->srcs.adopt(std::span<const IdString>{members});
+		src_remap[id] = ref;
+		return ref;
+	}
+
+	void parse_srcs()
+	{
+		expect_eol();
+		while (true) {
+			if (try_parse_keyword("end"))
+				break;
+			if (try_parse_keyword("set")) {
+				size_t file_id = parse_integer();
+				std::vector<size_t> &members = src_descs[file_id];
+				while (!try_parse_eol())
+					members.push_back(parse_integer());
+				continue;
+			}
+			error("Expected `set` inside srcs block, got `%s'.", error_token());
+		}
+		std::vector<size_t> ordered_ids;
+		ordered_ids.reserve(src_descs.size());
+		for (auto &it : src_descs)
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		for (size_t id : ordered_ids)
+			materialize_file_src(id);
+		src_descs.clear();
 		expect_eol();
 	}
 
@@ -722,7 +802,8 @@ struct RTLILFrontendWorker {
 				error("Unexpected wire option: %s", error_token());
 		}
 
-		wire->attributes = std::move(attrbuf);
+		design->absorb_attrs(wire, std::move(attrbuf));
+		flush_src(wire);
 		wire->width = width;
 		wire->upto = upto;
 		wire->start_offset = start_offset;
@@ -736,7 +817,8 @@ struct RTLILFrontendWorker {
 	void parse_memory()
 	{
 		RTLIL::Memory *memory = new RTLIL::Memory;
-		memory->attributes = std::move(attrbuf);
+		design->absorb_attrs(memory, std::move(attrbuf));
+		flush_src(memory);
 
 		int width = 1;
 		int start_offset = 0;
@@ -820,7 +902,8 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of cell %s.", design->twines.str(cell_name_ref).c_str());
 		}
 		RTLIL::Cell *cell = current_module->addCell(cell_name_ref, cell_type_ref);
-		cell->attributes = std::move(attrbuf);
+		design->absorb_attrs(cell, std::move(attrbuf));
+		flush_src(cell);
 
 		while (true)
 		{
@@ -910,7 +993,8 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
 		rule->signal = parse_sigspec();
-		rule->attributes = std::move(attrbuf);
+		design->absorb_attrs(rule, std::move(attrbuf));
+		flush_src(rule);
 		switch_stack.back()->push_back(rule);
 		expect_eol();
 
@@ -927,7 +1011,8 @@ struct RTLILFrontendWorker {
 
 			expect_keyword("case");
 			RTLIL::CaseRule *case_rule = new RTLIL::CaseRule;
-			case_rule->attributes = std::move(attrbuf);
+			design->absorb_attrs(case_rule, std::move(attrbuf));
+			flush_src(case_rule);
 			rule->cases.push_back(case_rule);
 			switch_stack.push_back(&case_rule->switches);
 			case_stack.push_back(case_rule);
@@ -961,7 +1046,8 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of process %s.", design->twines.str(proc_name).c_str());
 		}
 		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
-		proc->attributes = std::move(attrbuf);
+		design->absorb_attrs(proc, std::move(attrbuf));
+		flush_src(proc);
 
 		switch_stack.clear();
 		switch_stack.push_back(&proc->root_case.switches);
@@ -1010,7 +1096,8 @@ struct RTLILFrontendWorker {
 					break;
 
 				RTLIL::MemWriteAction act;
-				act.attributes = std::move(attrbuf);
+				design->absorb_attrs(&act, std::move(attrbuf));
+				flush_src(&act);
 				act.memid = parse_twine();
 				act.address = parse_sigspec();
 				act.data = parse_sigspec();
@@ -1051,6 +1138,10 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
+			if (try_parse_keyword("srcs")) {
+				parse_srcs();
+				continue;
+			}
 			if (try_parse_keyword("twines")) {
 				parse_twines();
 				continue;
@@ -1062,6 +1153,7 @@ struct RTLILFrontendWorker {
 
 		twine_parser_holds.clear();
 		twine_remap.clear();
+		src_remap.clear();
 	}
 };
 

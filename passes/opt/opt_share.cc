@@ -194,11 +194,17 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	if (std::any_of(muxed_operands.begin(), muxed_operands.end(), [&](ExtSigSpec &op) { return op.sign != muxed_operands[0].sign; }))
 		max_width = std::max(max_width, shared_op->getParam(ID::Y_WIDTH).as_int());
 
-	for (auto &operand : muxed_operands) {
+	for (int i = 0; i < GetSize(muxed_operands); i++) {
+		auto &operand = muxed_operands[i];
 		operand.sig.extend_u0(max_width, operand.is_signed);
 		if (operand.sign != muxed_operands[0].sign)
-			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed));
+			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed, ports[i].op->src_id()));
 	}
+
+	std::vector<RTLIL::Cell*> merged_ops;
+	for (const auto& p : ports)
+		merged_ops.push_back(p.op);
+	merge_cell_src(module, merged_ops, {shared_op});
 
 	for (const auto& p : ports) {
 		auto op = p.op;
@@ -242,9 +248,9 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 
 	SigSpec mux_to_oper;
 	if (GetSize(shared_pmux_s) == 1) {
-		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Mux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->src_id());
 	} else {
-		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s);
+		mux_to_oper = module->Pmux(NEW_ID, shared_pmux_a, shared_pmux_b, shared_pmux_s, mux->src_id());
 	}
 
 	if (shared_op->type.in(ID($alu))) {

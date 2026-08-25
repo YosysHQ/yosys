@@ -146,8 +146,24 @@ struct BtorWorker
 	{
 		string infostr = obj->name.unescape();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
-		if (obj->attributes.count(ID::src)) {
-			string src = obj->attributes.at(ID::src).decode_string().c_str();
+		if (obj->has_attribute(ID::src)) {
+			string src = module && module->design ? module->design->get_src_attribute(obj) : std::string();
+			if (srcsym && infostr[0] == '$') {
+				std::replace(src.begin(), src.end(), ' ', '_');
+				infostr = uniquify_srcsym(std::move(src));
+			} else {
+				infostr += " ; " + src;
+			}
+		}
+		return " " + infostr;
+	}
+
+	string getinfo(Mem *mem, bool srcsym = false)
+	{
+		string infostr = module->design->twines.unescaped_str(mem->memid);
+		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
+		if (mem->has_attribute(ID::src)) {
+			string src = module && module->design ? module->design->get_src_attribute(mem) : std::string();
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
 				infostr = uniquify_srcsym(std::move(src));
@@ -1448,7 +1464,7 @@ struct BtorWorker
 				}
 
 				int nid2 = next_nid++;
-				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, (mem->cell ? getinfo(mem->cell) : getinfo(mem->mem)));
+				btorf("%d next %d %d %d%s\n", nid2, sid, nid, nid_head, getinfo(mem));
 
 				btorf_pop(stringf("next %s", mem->memid.unescape()));
 			}

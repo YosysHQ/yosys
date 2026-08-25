@@ -127,6 +127,7 @@ void Mem::emit() {
 		}
 		cell->type = ID($mem_v2);
 		cell->attributes = attributes;
+		module->design->adopt_src_from(cell, this);
 		cell->parameters[ID::MEMID] = Const(memid.str());
 		cell->parameters[ID::WIDTH] = Const(width);
 		cell->parameters[ID::OFFSET] = Const(start_offset);
@@ -298,6 +299,7 @@ void Mem::emit() {
 		mem->start_offset = start_offset;
 		mem->size = size;
 		mem->attributes = attributes;
+		module->design->adopt_src_from(mem, this);
 		for (auto &port : rd_ports) {
 			if (!port.cell)
 				port.cell = module->addCell(NEW_ID, ID($memrd_v2));
@@ -564,6 +566,7 @@ namespace {
 		res.packed = false;
 		res.mem = mem;
 		res.attributes = mem->attributes;
+		module->design->adopt_src_from(&res, mem);
 		std::vector<bool> rd_transparent;
 		std::vector<int> wr_portid;
 		if (index.rd_ports.count(memid)) {
@@ -726,6 +729,7 @@ namespace {
 		res.packed = true;
 		res.cell = cell;
 		res.attributes = cell->attributes;
+		cell->module->design->adopt_src_from(&res, cell);
 		Const &init = cell->parameters.at(ID::INIT);
 		if (!init.is_fully_undef()) {
 			int pos = 0;
@@ -888,6 +892,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 		return nullptr;
 
 	log_assert(module && module->design);
+	SrcRef mem_src = module->design->obj_src_id(this);
 	std::string memid_str = memid.str();
 
 	Cell *c;
@@ -936,7 +941,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 					port.addr[i] = sig_q[pos++];
 				}
 
-			c = module->addDff(stringf("$%s$rdreg[%d]", memid_str, idx), port.clk, sig_d, sig_q, port.clk_polarity);
+			c = module->addDff(stringf("$%s$rdreg[%d]", memid_str, idx), port.clk, sig_d, sig_q, port.clk_polarity, mem_src);
 		} else {
 			c = nullptr;
 		}
@@ -968,7 +973,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						raddr = port.sub_addr(sub);
 					SigSpec addr_eq;
 					if (raddr != waddr)
-						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid_str, idx, i, sub), raddr, waddr);
+						addr_eq = module->Eq(stringf("$%s$rdtransen[%d][%d][%d]$d", memid_str, idx, i, sub), raddr, waddr, false, mem_src);
 					int pos = 0;
 					int ewidth = width << min_wide_log2;
 					int wsub = wide_write ? sub : 0;
@@ -981,10 +986,10 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 						SigSpec other = port.transparency_mask[i] ? wport.data.extract(pos + wsub * width, epos-pos) : Const(State::Sx, epos-pos);
 						SigSpec cond;
 						if (raddr != waddr)
-							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq);
+							cond = module->And(stringf("$%s$rdtransgate[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), wport.en[pos + wsub * width], addr_eq, false, mem_src);
 						else
 							cond = wport.en[pos + wsub * width];
-						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), cur, other, cond);
+						SigSpec merged = module->Mux(stringf("$%s$rdtransmux[%d][%d][%d][%d]$d", memid_str, idx, i, sub, pos), cur, other, cond, mem_src);
 						sig_d.replace(pos + rsub * width, merged);
 						pos = epos;
 					}
@@ -994,6 +999,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		IdString name = module->design->twines.add(stringf("$%s$rdreg[%d]", memid_str, idx));
 		FfData ff(module, initvals, name);
+		ff.src_twine = mem_src;
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;
 		ff.sig_clk = port.clk;

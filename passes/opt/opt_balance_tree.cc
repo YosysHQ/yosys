@@ -96,8 +96,9 @@ struct OptBalanceTreeWorker {
 			// Create a new cell of the same type
 			Cell* new_cell = module->addCell(NEW_ID, cell_type);
 
-			// Copy attributes from reference cell
+			// Copy attributes and src from reference cell
 			new_cell->attributes = cell->attributes;
+			new_cell->adopt_src_from(cell);
 
 			// Create output wire
 			int out_width = cell->getParam(ID::Y_WIDTH).as_int();

@@ -615,7 +615,7 @@ struct Smt2Worker
 			{
 				auto QY = cell->type == ID($anyinit) ? ID::Q : ID::Y;
 				registers.insert(cell);
-				string infostr = cell->attributes.count(ID::src) ? cell->attributes.at(ID::src).decode_string().c_str() : get_id(cell);
+				string infostr = cell->has_attribute(ID::src) ? cell->get_src_attribute() : std::string(get_id(cell));
 				if (cell->attributes.count(ID::reg))
 					infostr += " " + cell->attributes.at(ID::reg).decode_string();
 				decls.push_back(stringf("; yosys-smt2-%s %s#%d %d %s\n", cell->type.str().substr(1), get_id(module), idcounter, GetSize(cell->getPort(QY)), infostr));
@@ -1131,7 +1131,7 @@ struct Smt2Worker
 					}
 				}
 
-				if (private_name && cell->attributes.count(ID::src))
+				if (private_name && cell->has_attribute(ID::src))
 					decls.push_back(stringf("; yosys-smt2-%s %d %s %s\n", cell->type.str().substr(1), id, get_id(cell), cell->get_src_attribute()));
 				else
 					decls.push_back(stringf("; yosys-smt2-%s %d %s\n", cell->type.str().substr(1), id, get_id(cell)));

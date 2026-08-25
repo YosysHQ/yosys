@@ -36,6 +36,7 @@ namespace RTLIL_BACKEND {
 	void dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design = nullptr, DumpMode mode = DumpMode::Replayable);
 
 	void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used);
+	void dump_srcs(std::ostream &f, const RTLIL::Design *design, const pool<SrcRef> &used);
 	void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool autoint = true);
 	void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool autoint = true, DumpMode mode = DumpMode::Replayable);
 	void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint = true, DumpMode mode = DumpMode::Replayable);

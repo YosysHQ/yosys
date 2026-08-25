@@ -532,14 +532,12 @@ void counter_worker(
 	RTLIL::Wire* port_wire = port.as_wire();
 	bool force_extract = false;
 	bool never_extract = false;
-	string count_reg_src = port_wire->attributes[ID::src].decode_string().c_str();
+	string count_reg_src = port_wire->get_src_attribute().c_str();
 	if(port_wire->attributes.find(ID(COUNT_EXTRACT)) != port_wire->attributes.end())
 	{
-		pool<string> sa = port_wire->get_strpool_attribute(ID(COUNT_EXTRACT));
-		string extract_value;
-		if(sa.size() >= 1)
+		string extract_value = port_wire->get_string_attribute(ID::COUNT_EXTRACT);
+		if(!extract_value.empty())
 		{
-			extract_value = *sa.begin();
 			log("  Signal %s declared at %s has COUNT_EXTRACT = %s\n",
 				port_wire,
 				count_reg_src.c_str(),

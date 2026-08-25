@@ -361,7 +361,7 @@ struct Pmux2ShiftxPass : public Pass {
 				if (cell->type != ID($pmux))
 					continue;
 
-				string src = cell->get_src_attribute();
+				SrcRef src = cell->src_id();
 				int width = cell->getParam(ID::WIDTH).as_int();
 				int width_bits = ceil_log2(width);
 				int extwidth = width;

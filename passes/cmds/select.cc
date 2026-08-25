@@ -145,6 +145,20 @@ static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const>
 	return match_attr(pool, attributes, match_expr, std::string(), 0);
 }
 
+static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &match_expr)
+{
+	if (design && design->obj_src_id(obj) != SrcRef::Null) {
+		size_t pos = match_expr.find_first_of("<!=>");
+		std::string name_part = (pos == std::string::npos) ? match_expr : match_expr.substr(0, pos);
+		if (name_part == "src" || name_part == "\\src") {
+			dict<IdString, RTLIL::Const> synthesized;
+			synthesized[RTLIL::ID::src] = RTLIL::Const(design->get_src_attribute(obj));
+			return match_attr(design->twines, synthesized, match_expr);
+		}
+	}
+	return match_attr(design->twines, obj->attributes, match_expr);
+}
+
 static void select_all(RTLIL::Design *design, RTLIL::Selection &lhs)
 {
 	if (!lhs.selects_all())
@@ -962,16 +976,16 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto wire : mod->wires())
-				if (match_attr(design->twines, wire->attributes, arg_memb.substr(2)))
+				if (match_attr(design, wire, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
-				if (match_attr(design->twines, it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines, cell->attributes, arg_memb.substr(2)))
+				if (match_attr(design, cell, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
-				if (match_attr(design->twines, it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {

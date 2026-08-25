@@ -127,8 +127,6 @@ static void run_ice40_opts(Module *module)
 						std::string aname = twines.str(a.first);
 						if (aname.starts_with("\\SB_LUT4.\\"))
 							new_attr[twines.add(aname.substr(strlen("\\SB_LUT4.")))] = a.second;
-						else if (a.first == ID::src)
-							new_attr.insert(std::make_pair(a.first, a.second));
 						else if (a.first.in(lut_name_attr, ID::keep, ID::module_not_derived))
 							continue;
 						else if (aname.starts_with("\\SB_CARRY.\\"))

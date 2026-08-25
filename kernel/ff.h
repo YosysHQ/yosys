@@ -170,6 +170,7 @@ struct FfData : FfTypeData {
 	// The FF data width in bits.
 	int width;
 	dict<IdString, Const> attributes;
+	SrcRef src_twine = SrcRef::Null;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

@@ -453,7 +453,6 @@ struct WreduceWorker
 	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	{
 		int count = w->attributes.size();
-		count -= w->attributes.count(ID::src);
 		count -= w->attributes.count(ID::unused_bits);
 		return count;
 	}
@@ -513,6 +512,7 @@ struct WreduceWorker
 
 			log("Removed top %d bits (of %d) from wire %s.%s.\n", unused_top_bits, GetSize(w), module, w);
 			Wire *nw = module->addWire(NEW_ID, GetSize(w) - unused_top_bits);
+			nw->adopt_src_from(w);
 			module->connect(nw, SigSpec(w).extract(0, GetSize(nw)));
 			module->swap_names(w, nw);
 		}

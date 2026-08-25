@@ -551,6 +551,7 @@ struct ShareWorker
 			supercell_aux.insert(module->addPos(NEW_ID, y, y2));
 
 			supercell_aux.insert(supercell);
+			merge_cell_src(module, {c1, c2}, {supercell});
 			return supercell;
 		}
 
@@ -690,6 +691,7 @@ struct ShareWorker
 			}
 
 			supercell_aux.insert(supercell);
+			merge_cell_src(module, {c1, c2}, {supercell});
 			return supercell;
 		}
 
@@ -699,12 +701,14 @@ struct ShareWorker
 			supercell_aux.insert(supercell);
 			share_macc(c1, c2, act, supercell, &supercell_aux);
 			supercell->check();
+			merge_cell_src(module, {c1, c2}, {supercell});
 			return supercell;
 		}
 
 		if (c1->type.in(ID($memrd), ID($memrd_v2)))
 		{
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1);
+			module->design->merge_src(supercell, c2);
 			RTLIL::SigSpec addr1 = c1->getPort(ID::ADDR);
 			RTLIL::SigSpec addr2 = c2->getPort(ID::ADDR);
 			if (GetSize(addr1) < GetSize(addr2))

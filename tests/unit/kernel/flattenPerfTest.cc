@@ -46,12 +46,13 @@ std::string name_padding;
 bool attach_src = false;
 int src_counter = 0;
 
-void set_src(RTLIL::AttrObject *object)
+void set_src(RTLIL::Design *design, RTLIL::AttrObject *object)
 {
 	if (!attach_src)
 		return;
 	src_counter++;
-	object->set_src_attribute(stringf("flatten_perf_source_file.v:%d.1-%d.20", src_counter, src_counter));
+	design->set_src_attribute(object,
+			design->srcs.add(stringf("flatten_perf_source_file.v:%d.1-%d.20", src_counter, src_counter)));
 }
 
 std::string pad(std::string name)
@@ -71,10 +72,10 @@ RTLIL::Module *build_leaf(RTLIL::Design *design, int chain_length)
 
 	RTLIL::Wire *in = m->addWire(pad("\\leaf_module_data_input_port"));
 	in->port_input = true;
-	set_src(in);
+	set_src(design, in);
 	RTLIL::Wire *out = m->addWire(pad("\\leaf_module_data_output_port"));
 	out->port_output = true;
-	set_src(out);
+	set_src(design, out);
 	m->fixup_ports();
 
 	RTLIL::SigBit prev = in;
@@ -83,8 +84,8 @@ RTLIL::Module *build_leaf(RTLIL::Design *design, int chain_length)
 			? RTLIL::SigBit(out)
 			: RTLIL::SigBit(m->addWire(pad(stringf("\\leaf_intermediate_signal_wire_number_%d", i))));
 		if (next.wire != nullptr)
-			set_src(next.wire);
-		set_src(m->addNotGate(pad(stringf("$leaf_inverter_cell_instance_number_%d", i)), prev, next));
+			set_src(design, next.wire);
+		set_src(design, m->addNotGate(pad(stringf("$leaf_inverter_cell_instance_number_%d", i)), prev, next));
 		prev = next;
 	}
 	return m;
@@ -96,10 +97,10 @@ RTLIL::Module *build_level(RTLIL::Design *design, RTLIL::Module *child, int leve
 
 	RTLIL::Wire *in = m->addWire(pad(stringf("\\level_%d_module_data_input_port", level)));
 	in->port_input = true;
-	set_src(in);
+	set_src(design, in);
 	RTLIL::Wire *out = m->addWire(pad(stringf("\\level_%d_module_data_output_port", level)));
 	out->port_output = true;
-	set_src(out);
+	set_src(design, out);
 	m->fixup_ports();
 
 	RTLIL::Wire *child_in = child->wire(child->ports.at(0));
@@ -112,7 +113,7 @@ RTLIL::Module *build_level(RTLIL::Design *design, RTLIL::Module *child, int leve
 			: RTLIL::SigBit(m->addWire(pad(stringf("\\level_%d_interconnect_signal_wire_number_%d", level, k))));
 		RTLIL::Cell *cell = m->addCell(
 			pad(stringf("\\hierarchical_child_instance_at_level_%d_branch_%d", level, k)), child->name);
-		set_src(cell);
+		set_src(design, cell);
 		cell->setPort(child_in->name, prev);
 		cell->setPort(child_out->name, next);
 		prev = next;

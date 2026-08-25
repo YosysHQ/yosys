@@ -528,7 +528,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		IdString cell_type = cell->type;
 		IdString cell_name = cell->name;
 		auto cell_connections = cell->connections();
-		std::string src = cell->get_src_attribute();
+		SrcRef src = cell->src_id();
 
 		module->remove(cell);
 

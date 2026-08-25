@@ -434,6 +434,10 @@ void TwinePool::dump(std::ostream& os) const {
 	os << "--------------------------------\n";
 }
 
+bool TwinePool::shares_index_space_with(const TwinePool &other) const {
+	return backing.size() == other.backing.size() && free_list == other.free_list;
+}
+
 /**
  * TwineSegments holds a sequence of string_views refering to the strings
  * an IdString is composed of. It's used for lightweight comparisons.

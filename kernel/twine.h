@@ -22,6 +22,12 @@ YOSYS_NAMESPACE_BEGIN
 struct TwineSpec;
 struct TwinePool;
 struct IdString;
+struct SrcRef;
+
+struct NullSrcRef {
+	constexpr operator SrcRef() const;
+	constexpr bool operator==(SrcRef ref) const;
+};
 
 /**
  * A twine is a data structure designed to deduplicate prefixes.
@@ -148,6 +154,35 @@ public:
 
 constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
+
+/**
+ * A source location set. Each member is an untagged twine holding one
+ * "file:line.col-line.col" location; a set with more than one member is a
+ * location fused from several objects. Interned in a per-design SrcPool so
+ * that RTLIL objects carry a single handle instead of a string attribute.
+ */
+struct SrcRef {
+	size_t value;
+
+	static constexpr NullSrcRef Null{};
+
+	static constexpr size_t kNull = ~size_t{0};
+
+	constexpr SrcRef() : value(kNull) {}
+	explicit constexpr SrcRef(size_t val) : value(val) {}
+
+	constexpr bool operator==(const SrcRef&) const = default;
+	constexpr auto operator<=>(const SrcRef&) const = default;
+
+	constexpr size_t raw() const { return value; }
+	constexpr SrcRef untag() const { return *this; }
+	constexpr bool empty() const { return value == kNull; }
+
+	Hasher hash_into(Hasher h) const { h.hash64(value); return h; }
+};
+
+constexpr NullSrcRef::operator SrcRef() const { return SrcRef(); }
+constexpr bool NullSrcRef::operator==(SrcRef ref) const { return ref.value == SrcRef::kNull; }
 
 namespace hashlib {
 	template<>
@@ -412,6 +447,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	// Null unless the token names a live twine stamped by this pool
 	IdString ref_from_token(std::string_view token) const;
 	void dump(std::ostream& os = std::cout) const;
+	bool shares_index_space_with(const TwinePool &other) const;
 	using HashConsPool::gc;
 
 private:
@@ -421,6 +457,162 @@ private:
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
+};
+
+/**
+ * A set of source locations. Members are twines with the publicity bit and the
+ * pool serial stripped: the strings are not names, and a Src set survives a
+ * verbatim clone of the twine pool it points into.
+ */
+struct Src {
+	using Key = std::vector<IdString>;
+
+	std::vector<IdString> data;
+
+	bool is_dead() const { return data.empty(); }
+	const std::vector<IdString> &members() const { return data; }
+
+	bool operator==(const Src &other) const { return data == other.data; }
+	bool operator==(const Key &key) const { return data == key; }
+};
+
+struct SrcPool : HashConsPool<SrcPool, Src, SrcRef> {
+	static constexpr size_t STATIC_COUNT = 0;
+
+	TwinePool *twines = nullptr;
+
+	explicit SrcPool(TwinePool *twines) : twines(twines) {}
+
+	SrcPool(const SrcPool &) = delete;
+	SrcPool(SrcPool &&) = delete;
+	SrcPool &operator=(const SrcPool &) = delete;
+	SrcPool &operator=(SrcPool &&) = delete;
+
+	// Src nodes hold handles into `other.twines`, so they are only meaningful
+	// here once this pool's twines are a verbatim copy of the source's.
+	void clone_from(const SrcPool &other) {
+		log_assert(twines->shares_index_space_with(*other.twines));
+		HashConsPool::operator=(static_cast<const HashConsPool &>(other));
+	}
+
+	static void canonicalize(Src&) {}
+
+	static size_t hash_node(const Src &n) { return hash_key(n.data); }
+
+	static size_t hash_key(const Src::Key &k) {
+		Hasher h;
+		for (IdString member : k)
+			h.eat(member);
+		return h.yield();
+	}
+
+	template<typename F>
+	static void for_each_child(const Src&, F&&) {}
+
+	SrcRef add(const std::string &location) {
+		return intern({twines->add(TwineSpec{TwineSpec::Leaf{location}})});
+	}
+
+	SrcRef add(const std::string &file, const std::string &tail) {
+		IdString prefix = twines->add(TwineSpec{TwineSpec::Leaf{file}});
+		return intern({twines->add(TwineSpec{TwineSpec::Suffix{prefix, tail}})});
+	}
+
+	SrcRef merge(std::span<const SrcRef> refs) {
+		std::vector<IdString> members;
+		for (SrcRef ref : refs)
+			if (ref != SrcRef::Null)
+				members.insert(members.end(), (*this)[ref].data.begin(), (*this)[ref].data.end());
+		return intern(std::move(members));
+	}
+
+	SrcRef merge(SrcRef a, SrcRef b) {
+		SrcRef both[] = {a, b};
+		return merge(std::span<const SrcRef>{both});
+	}
+
+	SrcRef adopt(std::span<const IdString> members) {
+		return intern(std::vector<IdString>(members.begin(), members.end()));
+	}
+
+	SrcRef copy_from(const SrcPool &other, SrcRef ref) {
+		if (ref == SrcRef::Null)
+			return ref;
+		std::vector<IdString> members;
+		members.reserve(other[ref].data.size());
+		for (IdString member : other[ref].data)
+			members.push_back(twines->copy_from(*other.twines, member));
+		return intern(std::move(members));
+	}
+
+	void append_str(SrcRef ref, std::string &out) const {
+		if (ref == SrcRef::Null)
+			return;
+		bool first = true;
+		for (IdString member : (*this)[ref].data) {
+			if (!first)
+				out += '|';
+			first = false;
+			twines->append_str(member, out);
+		}
+	}
+
+	std::string str(SrcRef ref) const {
+		std::string out;
+		append_str(ref, out);
+		return out;
+	}
+
+	void leaves(SrcRef ref, pool<std::string> &out) const {
+		if (ref == SrcRef::Null)
+			return;
+		for (IdString member : (*this)[ref].data)
+			out.insert(twines->str(member));
+	}
+
+	size_t gc_with_twines(const pool<SrcRef> &live_srcs, pool<IdString> &live_twines) {
+		for (SrcRef ref : live_srcs)
+			for (IdString member : (*this)[ref].data)
+				live_twines.insert(member);
+		return twines->gc(live_twines) + gc(live_srcs);
+	}
+
+	void dump(SrcRef ref, std::ostream &os = std::cout) const {
+		os << "Set[";
+		bool first = true;
+		for (IdString member : (*this)[ref].data) {
+			if (!first)
+				os << ", ";
+			first = false;
+			os << "@" << member.raw();
+		}
+		os << "]";
+	}
+
+	void dump(std::ostream &os = std::cout) const {
+		os << "--- SrcPool Dump (" << size() << " nodes) ---\n";
+		for (SrcRef ref : refs()) {
+			os << ref.value << " -> ";
+			dump(ref, os);
+			os << '\n';
+		}
+		os << "--------------------------------\n";
+	}
+
+private:
+	SrcRef intern(std::vector<IdString> members) {
+		for (IdString &member : members)
+			member = member.untag().stamped(0);
+		std::sort(members.begin(), members.end());
+		members.erase(std::unique(members.begin(), members.end()), members.end());
+		if (members.empty())
+			return SrcRef::Null;
+		return add_inner(Src{std::move(members)});
+	}
+
+	using HashConsPool::add_inner;
+	using HashConsPool::find;
+	using HashConsPool::gc;
 };
 
 /**

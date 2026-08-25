@@ -147,7 +147,7 @@ struct SnippetSwCache
 void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
 {
 	cell->attributes = sw->attributes;
-	cell->add_strpool_attribute(ID::src, cs->get_strpool_attribute(ID::src));
+	cell->module->design->merge_src(cell, cs);
 }
 
 RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
