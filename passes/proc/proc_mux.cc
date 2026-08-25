@@ -218,6 +218,7 @@ struct MuxGenCtx {
 		sstr << "$procmux$" << (autoidx++);
 
 		RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
+		cmp_wire->adopt_src_from(sw);
 
 		for (auto comp : *compare)
 		{
@@ -242,6 +243,10 @@ struct MuxGenCtx {
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 				apply_attrs(eq_cell, cs);
+				// A comparison stands for both sides of it
+				SrcRef eq_src = mod->design->srcs.merge(sw->signal_src, cs->compare_src);
+				if (eq_src != SrcRef::Null)
+					eq_cell->set_src_id(eq_src);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -268,6 +273,8 @@ struct MuxGenCtx {
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
 			apply_attrs(any_cell, cs);
+			if (cs->compare_src != SrcRef::Null)
+				any_cell->set_src_id(cs->compare_src);
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
@@ -509,9 +516,11 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 				result = mux_gen_ctx.gen_mux(value, result);
 			}
 		}
-		if (mux_gen_ctx.last_mux_cell && !case_sources.empty()) {
-			SrcRef fused = ctx.mod->design->srcs.merge(std::span<const SrcRef>{case_sources});
-			mux_gen_ctx.last_mux_cell->set_src_id(fused);
+		if (auto *mux = mux_gen_ctx.last_mux_cell) {
+			if (!case_sources.empty())
+				mux->set_src_id(ctx.mod->design->srcs.merge(std::span<const SrcRef>{case_sources}));
+			log_assert(mux->getPort(ID::Y).is_wire());
+			mux->getPort(ID::Y).as_wire()->adopt_src_from(mux);
 		}
 	}
 
