@@ -9,8 +9,8 @@ function(yosys_check_abc_submodule)
 
 	yosys_call_git(submodule status abc)
 	set(git_commit)
-	if (EXISTS "${CMAKE_SOURCE_DIR}/abc/.gitcommit")
-		file(READ "${CMAKE_SOURCE_DIR}/abc/.gitcommit" git_commit)
+	if (EXISTS "${YOSYS_CMAKE_SOURCE_DIR}/abc/.gitcommit")
+		file(READ "${YOSYS_CMAKE_SOURCE_DIR}/abc/.gitcommit" git_commit)
 		string(STRIP "${git_commit}" git_commit)
 	endif()
 	set(abc_status "none")
@@ -55,7 +55,7 @@ function(yosys_check_abc_submodule)
 		)
 	else() #
 		message(FATAL_ERROR
-			"${CMAKE_SOURCE_DIR} is not configured as a git repository, and 'abc' folder is missing.\n"
+			"${YOSYS_CMAKE_SOURCE_DIR} is not configured as a git repository, and 'abc' folder is missing.\n"
 			"If you already have ABC, set 'YOSYS_ABC_EXECUTABLE' CMake variable to point to ABC executable.\n"
 			"Otherwise, download release archive 'yosys.tar.gz' from https://github.com/YosysHQ/yosys/releases.\n"
 			"    ('Source code' archive does not contain submodules.)\n"

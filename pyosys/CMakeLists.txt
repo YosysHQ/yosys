@@ -15,7 +15,7 @@ add_custom_command(
 		-- ${PyosysEnv_PYTHON}
 			${CMAKE_CURRENT_SOURCE_DIR}/generator.py
 			${CMAKE_CURRENT_BINARY_DIR}/wrappers.cc
-			--build-dir ${CMAKE_BINARY_DIR}
+			--build-dir ${YOSYS_CMAKE_BINARY_DIR}
 	VERBATIM
 	COMMENT "Generating Python wrappers"
 )

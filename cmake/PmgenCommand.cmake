@@ -36,9 +36,9 @@ function(pmgen_command arg_NAME)
 	cmake_parse_arguments(PARSE_ARGV 1 arg "DEBUG" "PREFIX" "")
 	set(arg_INPUTS ${arg_UNPARSED_ARGUMENTS})
 
-	set(pmgen_script ${CMAKE_SOURCE_DIR}/passes/pmgen/pmgen.py)
+	set(pmgen_script ${YOSYS_CMAKE_SOURCE_DIR}/passes/pmgen/pmgen.py)
 	set(pmgen_output ${CMAKE_CURRENT_BINARY_DIR}/${arg_NAME}_pm.h)
-	cmake_path(RELATIVE_PATH pmgen_output BASE_DIRECTORY ${CMAKE_BINARY_DIR} OUTPUT_VARIABLE pmgen_output_rel)
+	cmake_path(RELATIVE_PATH pmgen_output BASE_DIRECTORY ${YOSYS_CMAKE_BINARY_DIR} OUTPUT_VARIABLE pmgen_output_rel)
 	add_custom_command(
 		DEPENDS ${pmgen_script} ${arg_INPUTS}
 		OUTPUT ${pmgen_output}

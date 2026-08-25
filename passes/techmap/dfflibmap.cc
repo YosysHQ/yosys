@@ -443,14 +443,14 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		auto cell_type = cell->type;
 		auto cell_name = cell->name;
 		auto cell_connections = cell->connections();
-		std::string src = cell->get_src_attribute();
+		dict<RTLIL::IdString, RTLIL::Const> attributes = std::move(cell->attributes);
 
 		module->remove(cell);
 
 		cell_mapping &cm = cell_mappings[cell_type];
 		RTLIL::Cell *new_cell = module->addCell(cell_name, cm.cell_name);
 
-		new_cell->set_src_attribute(src);
+		new_cell->attributes = std::move(attributes);
 
 		bool has_q = false, has_qn = false;
 		for (auto &port : cm.ports) {
