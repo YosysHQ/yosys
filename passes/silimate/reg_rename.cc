@@ -1,8 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
- *                2026  Stan Lee          <stan@silimate.com>
+ *  Copyright (C) 2026  Stan Lee          <stan@silimate.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -18,11 +17,11 @@
  *
  */
 
+#include <algorithm>
+
 #include "kernel/fstdata.h"
 #include "kernel/yosys.h"
 #include "passes/silimate/reg_rename.h"
-
-#include <algorithm>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
