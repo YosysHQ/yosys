@@ -1373,6 +1373,10 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		clear_boxes();
+
+		design->scratchpad_set_int("write_xaiger.num_inputs", ninputs);
+		design->scratchpad_set_int("write_xaiger.num_outputs", noutputs);
+		design->scratchpad_set_int("write_xaiger.num_ands", lit_counter / 2);
 	}
 };
 
