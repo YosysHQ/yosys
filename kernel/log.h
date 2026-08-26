@@ -166,7 +166,7 @@ class StreamLogSink : public LogSink
 {
 public:
 	explicit StreamLogSink(std::ostream &stream) : stream(stream) {}
-	void log(const LogMessage &msg) override { stream << msg.message; }
+	void log(const LogMessage &msg) override { stream << msg.cached_msg; }
 	void flush() override { stream.flush(); }
 
 private:

@@ -404,8 +404,10 @@ void LogManager::log_experimental(const std::string &str)
 
 void LogManager::log_deprecated(const std::string &str)
 {
-	log_warning("Feature '%s' is deprecated.\n", str);
-	deprecated.insert(str);
+	if (deprecated.count(str) == 0) {
+		log_warning("Feature '%s' is deprecated.\n", str);
+		deprecated.insert(str);
+	}
 }
 
 void LogManager::log_formatted_error(std::string_view format, std::string str)
