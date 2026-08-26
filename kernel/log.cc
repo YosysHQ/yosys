@@ -396,10 +396,16 @@ void LogManager::log_formatted_file_error(std::string_view filename, int lineno,
 
 void LogManager::log_experimental(const std::string &str)
 {
-	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
+	if (experimental_ignored.count(str) == 0 && experimental.count(str) == 0) {
 		log_warning("Feature '%s' is experimental.\n", str);
-		log_experimentals.insert(str);
+		experimental.insert(str);
 	}
+}
+
+void LogManager::log_deprecated(const std::string &str)
+{
+	log_warning("Feature '%s' is deprecated.\n", str);
+	deprecated.insert(str);
 }
 
 void LogManager::log_formatted_error(std::string_view format, std::string str)

@@ -376,7 +376,7 @@ public:
 
 	void report_unexpected_error();
 
-	void add_experimental_ignore(std::string name) { log_experimentals_ignored.insert(name); }
+	void add_experimental_ignore(std::string name) { experimental_ignored.insert(name); }
 	void add_warn(std::string pattern) { log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
 	void add_nowarn(std::string pattern) { log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
 	void add_werror(std::string pattern) { log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
@@ -395,7 +395,8 @@ public:
 	int get_warnings_unique() const { return GetSize(log_warnings); }
 	int get_warnings_total() const { return log_warnings_count; }
 	int get_errors_total() const { return log_errors_count; }
-	int get_experimentals_num() const { return GetSize(log_experimentals); }
+	const std::set<std::string> &get_experimental() const { return experimental; }
+	const std::set<std::string> &get_deprecated() const { return deprecated; }
 	std::chrono::steady_clock::time_point get_initial_time() const;
 
 	void add_hdump(std::string name, std::string value) { log_hdump[name].insert(value); }
@@ -408,6 +409,7 @@ public:
 	void log_suppressed();
 	[[noreturn]] void log_formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str);
 	void log_experimental(const std::string &str);
+	void log_deprecated(const std::string &str);
 	[[noreturn]] void log_formatted_error(std::string_view format, std::string str);
 	[[noreturn]] void log_formatted_cmd_error(std::string_view format, std::string message);
 	void log_spacer();
@@ -437,7 +439,7 @@ private:
 	int log_errors_count = 0;
 	int log_warnings_count = 0;
 	int log_warnings_count_noexpect = 0;
-	std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
+	std::set<std::string> log_warnings, experimental, experimental_ignored, deprecated;
 
 	std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
 	dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
@@ -509,6 +511,11 @@ inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Arg
 inline void log_experimental(const std::string &str)
 {
 	logger().log_experimental(str);
+}
+
+inline void log_deprecated(const std::string &str)
+{
+	logger().log_deprecated(str);
 }
 
 // Log with filename to report a problem in a source file.

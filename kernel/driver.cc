@@ -608,9 +608,14 @@ int main(int argc, char **argv)
 		if (logger().get_warnings_total())
 			log("Warnings: %d unique messages, %d total\n", logger().get_warnings_unique(), logger().get_warnings_total());
 
-		if (logger().get_experimentals_num() != 0)
-			log("Warnings: %d experimental features used (not excluded with -x).\n", logger().get_experimentals_num());
+		if (GetSize(logger().get_experimental()) != 0)
+			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(logger().get_experimental()));
 
+		if (GetSize(logger().get_deprecated()) != 0) {
+			log("Deprecated features used:\n");
+			for(auto &feature : logger().get_deprecated())
+				log("    %s\n", feature);
+		}
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
 		(void)wall_clock_start;
