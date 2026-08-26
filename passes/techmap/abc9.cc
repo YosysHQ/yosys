@@ -409,7 +409,7 @@ struct Abc9Pass : public ScriptPass
 						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name));
 					if (box_file.empty())
 						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name));
-					run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
+					run_nocheck(stringf("write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
