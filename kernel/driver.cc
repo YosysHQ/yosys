@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/hashlib.h"
+#include "kernel/json.h"
 #include "libs/sha1/sha1.h"
 #define CXXOPTS_VECTOR_DELIMITER '\0'
 #include "libs/cxxopts/include/cxxopts.hpp"
@@ -68,16 +69,27 @@ namespace py = pybind11;
 #if !defined(_WIN32) || defined(__MINGW32__)
 #  include <unistd.h>
 #endif
+#include <filesystem>
 
 USING_YOSYS_NAMESPACE
+
+PrettyJson json;
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 int yosys_history_offset = 0;
 std::string yosys_history_file;
 #endif
 
+namespace Yosys {
+	extern void (*telemetry_callback)(std::string prefix, const std::vector<std::string> &args, int level);
+};
+
 void yosys_atexit()
 {
+	if (telemetry_callback) {
+		json.end_array();
+		json.flush();
+	}
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	if (!yosys_history_file.empty()) {
 #if defined(YOSYS_ENABLE_READLINE)
@@ -112,6 +124,21 @@ namespace Yosys {
 	extern void yosys_tcl_activate_repl();
 };
 #endif
+
+void add_telemetry(std::string prefix, const std::vector<std::string> &args, int level)
+{
+	json.begin_object();
+	json.entry("level", level);
+	json.entry("pass", prefix + args[0]);
+	json.name("options");
+	json.begin_array();
+	for (size_t i = 1; i < args.size(); ++i) {
+		if (!args[i].empty() && args[i][0]=='-')
+			json.value(args[i]);
+	}
+	json.end_array();
+	json.end_object();
+}
 
 #ifdef _WIN32
 int wmain(int argc, wchar_t **wargv)
@@ -248,6 +275,17 @@ int main(int argc, char **argv)
 
 	options.parse_positional({"infile"});
 	options.positional_help("[<infile> [..]]");
+
+	const char *telemetry_dir = std::getenv("YOSYS_TELEMETRY_DIR");
+	if (telemetry_dir) {
+		telemetry_callback = add_telemetry;
+		auto filename = std::filesystem::path(telemetry_dir) / stringf("yosys_telemetry_%d.json", get_process_id());
+		if (!json.write_to_file(filename.string())) {
+			std::cerr << "Error opening file for telemetry !!!" << std::endl;
+			exit(1);
+		}
+		json.begin_array();
+	}
 
 	// We can't have -h optionally require an argument
 	// cxxopts does have an implit argument concept but that doesn't work for us

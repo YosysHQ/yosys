@@ -47,6 +47,8 @@ std::vector<std::string> Frontend::next_args;
 bool GarbageCollectionGuard::is_enabled_ = true;
 
 static bool garbage_collection_requested = false;
+static int telemetry_level = 0;
+void (*telemetry_callback)(std::string prefix, const std::vector<std::string> &args, int level) = NULL;
 
 void request_garbage_collection()
 {
@@ -289,6 +291,9 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0]);
 	Pass *pass = pass_register[args[0]];
 
+	if (telemetry_callback)
+		telemetry_callback("", args, telemetry_level);
+
 	// Collect garbage before the next pass if requested. No need to collect garbage after the last pass.
 	try_collect_garbage();
 	GarbageCollectionGuard gc_guard(pass->allow_garbage_collection_during_pass());
@@ -297,9 +302,11 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_experimental(args[0]);
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
+	telemetry_level++;
 	auto state = pass->pre_execute();
 	pass->execute(args, design);
 	pass->post_execute(state);
+	telemetry_level--;
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->pop_selection();
 }
@@ -554,7 +561,11 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 		return;
 	if (frontend_register.count(args[0]) == 0)
 		log_cmd_error("No such frontend: %s\n", args[0]);
+	
+	if (telemetry_callback)
+		telemetry_callback("read_", args, telemetry_level);
 
+	telemetry_level++;
 	if (f != NULL) {
 		auto state = frontend_register[args[0]]->pre_execute();
 		frontend_register[args[0]]->execute(f, filename, args, design);
@@ -569,6 +580,7 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 			args.push_back(filename);
 		frontend_register[args[0]]->execute(args, design);
 	}
+	telemetry_level--;
 }
 
 Backend::Backend(std::string name, std::string short_help, source_location location) :
@@ -675,8 +687,12 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	if (backend_register.count(args[0]) == 0)
 		log_cmd_error("No such backend: %s\n", args[0]);
 
+	if (telemetry_callback)
+		telemetry_callback("write_", args, telemetry_level);
+
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 
+	telemetry_level++;
 	if (f != NULL) {
 		auto state = backend_register[args[0]]->pre_execute();
 		backend_register[args[0]]->execute(f, filename, args, design);
@@ -691,7 +707,7 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 			args.push_back(filename);
 		backend_register[args[0]]->execute(args, design);
 	}
-
+	telemetry_level--;
 	while (design->selection_stack.size() > orig_sel_stack_pos)
 		design->pop_selection();
 }
