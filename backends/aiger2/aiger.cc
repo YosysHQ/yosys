@@ -1133,8 +1133,10 @@ struct XAigerWriter : AigerWriter {
 		}
 
 		for (auto [cursor, box, def] : nonopaque_boxes) {
+			// no whitebox model: holes outputs are tied to zero
+			bool have_model = def->get_bool_attribute(ID::whitebox);
 			// use `def->name` not `box->type` as we want the derived type
-			Cell *holes_wb = holes_module->addCell(NEW_ID, def->name);
+			Cell *holes_wb = have_model ? holes_module->addCell(NEW_ID, def->name) : nullptr;
 			int holes_pi_idx = 0;
 
 			if (map_file.is_open()) {
@@ -1183,7 +1185,8 @@ struct XAigerWriter : AigerWriter {
 						in_conn.append(holes_pis[holes_pi_idx]);
 						holes_pi_idx++;
 					}
-					holes_wb->setPort(port_id, in_conn);
+					if (holes_wb)
+						holes_wb->setPort(port_id, in_conn);
 				} else if (port->port_output) {
 					// primary
 					for (int i = 0; i < port->width; i++) {
@@ -1207,7 +1210,11 @@ struct XAigerWriter : AigerWriter {
 					Wire *w = holes_module->addWire(NEW_ID, port->width);
 					w->port_output = true;
 					holes_module->ports.push_back(w->name);
-					holes_wb->setPort(port_id, w);
+					if (holes_wb)
+						holes_wb->setPort(port_id, w);
+					else
+						for (int i = 0; i < port->width; i++)
+							holes_module->addBufGate(NEW_ID, State::S0, SigBit(w, i));
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
 							  box->type.unescape(), port_id.unescape());
