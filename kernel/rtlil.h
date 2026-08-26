@@ -132,6 +132,8 @@ namespace RTLIL
 	struct PortBit;
 };
 
+struct SigMap;
+
 // TODO clean up?
 extern int64_t signorm_ns;
 extern int signorm_count;
@@ -2145,6 +2147,12 @@ public:
 	std::vector<Cell *> dirty_cells(int starting_from);
 	const pool<PortBit> &fanout(SigBit bit);
 	const dict<SigBit, pool<PortBit>> &signorm_fanout() const;
+
+	bool signorm_indexed() const { return sig_norm_index != nullptr; }
+
+	const SigMap *signorm_sigmap();
+
+	void connect_incremental(const SigSpec &lhs, const SigSpec &rhs);
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);

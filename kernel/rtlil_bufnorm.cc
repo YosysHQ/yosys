@@ -135,6 +135,8 @@ struct RTLIL::SigNormIndex
 				xlog("\t%s = %s\n", port, log_signal(sig));
 				if (cell->port_dir(port) == RTLIL::PD_INPUT)
 					continue;
+				if (GetSize(sig) == 0)
+					continue;
 				xlog("%s is not an input in design %p\n", port, module->design);
 				if (sig.is_wire()) {
 					Wire * wire = sig.as_wire();
@@ -176,54 +178,53 @@ struct RTLIL::SigNormIndex
 		}
 	}
 
-	void flush_connections() {
+	void flush_one_connection(SigSpec lhs, SigSpec rhs) {
 		std::vector<SigBit> connect_lhs;
 		std::vector<SigBit> connect_rhs;
 
+		sigmap.apply(lhs);
+		sigmap.apply(rhs);
+		auto rhs_bits = rhs.bits().begin();
+
+		for (auto l : lhs.bits()) {
+			auto r = *rhs_bits;
+			++rhs_bits;
+			if (l == r)
+				continue;
+			// TODO figure out what should happen with 'z
+			bool l_driven = !l.is_wire() || l.wire->known_driver();
+			bool r_driven = !r.is_wire() || r.wire->known_driver();
+			if (l_driven && r_driven) {
+				connect_lhs.push_back(l);
+				connect_rhs.push_back(r);
+				continue;
+			}
+
+			sigmap.add(l, r);
+			if (l_driven) {
+				sigmap.database.promote(l);
+				newly_driven.insert(r);
+			} else {
+				sigmap.database.promote(r);
+				newly_driven.insert(l);
+			}
+		}
+
+		if (!connect_lhs.empty()) {
+			Cell *cell = module->addCell(NEW_ID, ID($connect));
+			xlog("add connect (1) %s\n", cell->name);
+			cell->setParam(ID::WIDTH, GetSize(connect_lhs));
+			cell->setPort(ID::A, std::move(connect_lhs));
+			cell->setPort(ID::B, std::move(connect_rhs));
+		}
+	}
+
+	void flush_connections() {
 		auto begin = module->connections_.begin() + restored_connections;
 		auto end = module->connections_.end();
 
-		for (auto it = begin; it != end; ++it) {
-			auto &[lhs, rhs] = *it;
-			sigmap.apply(lhs);
-			sigmap.apply(rhs);
-			auto rhs_bits = rhs.bits().begin();
-
-			connect_lhs.clear();
-			connect_rhs.clear();
-
-			for (auto l : lhs.bits()) {
-				auto r = *rhs_bits;
-				++rhs_bits;
-				if (l == r)
-					continue;
-				// TODO figure out what should happen with 'z
-				bool l_driven = !l.is_wire() || l.wire->known_driver();
-				bool r_driven = !r.is_wire() || r.wire->known_driver();
-				if (l_driven && r_driven) {
-					connect_lhs.push_back(l);
-					connect_rhs.push_back(r);
-					continue;
-				}
-
-				sigmap.add(l, r);
-				if (l_driven) {
-					sigmap.database.promote(l);
-					newly_driven.insert(r);
-				} else {
-					sigmap.database.promote(r);
-					newly_driven.insert(l);
-				}
-			}
-
-			if (!connect_lhs.empty()) {
-				Cell *cell = module->addCell(NEW_ID, ID($connect));
-				xlog("add connect (1) %s\n", cell->name);
-				cell->setParam(ID::WIDTH, GetSize(connect_lhs));
-				cell->setPort(ID::A, std::move(connect_lhs));
-				cell->setPort(ID::B, std::move(connect_rhs));
-			}
-		}
+		for (auto it = begin; it != end; ++it)
+			flush_one_connection(it->first, it->second);
 
 		module->connections_.clear();
 		restored_connections = 0;
@@ -354,8 +355,16 @@ void RTLIL::Design::sigNormalize(bool enable)
 			// TODO inefficient?
 			std::vector<Cell*> cells_snapshot = module->cells();
 			for (auto cell : cells_snapshot) {
-				if (cell->type == ID($input_port))
+				if (cell->type == ID($input_port)) {
 					module->remove(cell);
+				} else if (cell->type == ID($connect) && !cell->has_keep_attr()) {
+					SigSpec a = cell->getPort(ID::A);
+					SigSpec b = cell->getPort(ID::B);
+					if (a.has_const() && !b.has_const())
+						std::swap(a, b);
+					module->remove(cell);
+					module->connect(a, b);
+				}
 			}
 		}
 
@@ -413,6 +422,21 @@ const std::vector<RTLIL::SigSig> &RTLIL::Module::connections() const
 	if (sig_norm_index != nullptr)
 		sig_norm_index->restore_connections();
 	return connections_;
+}
+
+const SigMap *RTLIL::Module::signorm_sigmap()
+{
+	if (sig_norm_index == nullptr)
+		return nullptr;
+
+	int64_t start = PerformanceTimer::query();
+	sig_norm_index->flush_connections();
+	int64_t time_ns = PerformanceTimer::query() - start;
+	Pass::subtract_from_current_runtime_ns(time_ns);
+	signorm_restore_ns += time_ns;
+	++signorm_restore_count;
+
+	return &sig_norm_index->sigmap;
 }
 
 void RTLIL::Module::new_connections(const std::vector<RTLIL::SigSig> &new_conn)
@@ -505,6 +529,14 @@ const pool<RTLIL::PortBit> &RTLIL::Module::fanout(SigBit bit) {
 const dict<RTLIL::SigBit, pool<RTLIL::PortBit>> &RTLIL::Module::signorm_fanout() const {
 	log_assert(sig_norm_index != nullptr);
 	return sig_norm_index->fanout;
+}
+
+void RTLIL::Module::connect_incremental(const SigSpec &lhs, const SigSpec &rhs)
+{
+	log_assert(sig_norm_index != nullptr);
+	log_assert(GetSize(lhs) == GetSize(rhs));
+	sig_norm_index->flush_one_connection(lhs, rhs);
+	sig_norm_index->flush_newly_driven();
 }
 
 void RTLIL::Module::remove(RTLIL::Cell *cell)
