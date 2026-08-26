@@ -13,7 +13,7 @@ select -assert-count 1 t:$_DLATCH_P_
 select -assert-count 1 t:$_DLATCH_N_
 select -assert-count 1 t:$_DLATCH_PN0_
 select -assert-count 1 t:$_DLATCH_NN0_
-select -assert-count 4 t:*
+select -assert-count 4 t:* t:$*_port %d t:$public %d
 design -load gold
 equiv_opt -assert -multiclock simplemap
 

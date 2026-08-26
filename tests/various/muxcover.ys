@@ -539,7 +539,7 @@ simplemap t:\$mux
 muxcover
 opt_clean -purge
 select -assert-count 1 t:$_MUX8_
-select -assert-none t:$_MUX8_ %% t:* %D
+select -assert-none t:$_MUX8_ %% t:* %D t:$*_port %d
 techmap -map +/simcells.v t:$_MUX8_
 design -stash gate
 
