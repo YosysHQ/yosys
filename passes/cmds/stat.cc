@@ -801,7 +801,7 @@ void read_liberty_cellarea(dict<IdString, cell_area_t> &cell_area, string libert
 {
 	std::istream *f = uncompressed(liberty_file.c_str());
 	yosys_input_files.insert(liberty_file);
-	LibertyParser libparser(*f, liberty_file);
+	LibertyParser libparser(*f, liberty_file, liberty_synth_filter);
 	delete f;
 
 	for (auto cell : libparser.ast->children) {
