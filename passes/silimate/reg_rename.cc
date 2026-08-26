@@ -1,8 +1,7 @@
 /*
  *  yosys -- Yosys Open SYnthesis Suite
  *
- *  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
- *                2026  Stan Lee          <stan@silimate.com>
+ *  Copyright (C) 2026  Stan Lee          <stan@silimate.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +17,8 @@
  *
  */
 
+#include <algorithm>
+
 #include "kernel/fstdata.h"
 #include "kernel/yosys.h"
 #include "passes/silimate/reg_rename.h"
@@ -25,11 +26,90 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Struct stores the width and index offset of a register in VCD file.
-struct RegInfo {
+// One dumped element of a register: the waveform name minus its bit range, the word indices
+// parsed out of that name, its RTL bit range, and where its lsb sits in the register's flat
+// bit vector.
+struct RegElem {
+	std::string name;
+	std::vector<int> idx;
 	int width = 0;
 	int offset = 0;
+	int flat = 0;
 };
+
+// Every dumped element of one register, ordered least-significant first.
+struct RegLayout {
+	int total_width = 0;
+	std::vector<RegElem> elems;
+
+	// How many index groups the waveform spells each element with
+	int rank() const { return elems.empty() ? 0 : GetSize(elems[0].idx); }
+
+	// Element the waveform spells with exactly these word indices.
+	const RegElem *at_idx(const std::vector<int> &idx) const
+	{
+		for (auto &e : elems)
+			if (e.idx == idx)
+				return &e;
+		return nullptr;
+	}
+
+	// Element covering a flat bit position, or nullptr when out of range.
+	const RegElem *at_flat(int bit) const
+	{
+		size_t lo = 0, hi = elems.size(); // elems is sorted by flat
+		while (lo < hi) {
+			size_t mid = (lo + hi) / 2;
+			if (bit < elems[mid].flat)
+				hi = mid;
+			else if (bit >= elems[mid].flat + elems[mid].width)
+				lo = mid + 1;
+			else
+				return &elems[mid];
+		}
+		return nullptr;
+	}
+};
+
+// Peel trailing "[digits]" groups from a signal name and populate idx vector
+static std::string split_word_indices(const std::string &name, std::vector<int> &idx)
+{
+	size_t end = name.size();
+	std::vector<int> rev;
+	while (end && name[end - 1] == ']') {
+		size_t open = name.rfind('[', end - 1);
+		if (open == std::string::npos)
+			break;
+		std::string inner = name.substr(open + 1, end - open - 2);
+		if (inner.empty() || inner.find_first_not_of("0123456789") != std::string::npos)
+			break;
+		rev.push_back(std::stoi(inner));
+		end = open;
+	}
+	idx.assign(rev.rbegin(), rev.rend());
+	return name.substr(0, end);
+}
+
+// Split a register cell name, spelled \name[word]_reg[bit] or \name_reg[word][bit], into the
+// register, the word indices selecting a dumped element, and the bit inside it. False when the
+// cell is not a named register.
+static bool split_reg_cell(IdString cell_name, std::string &reg, std::vector<int> &word, int &bit)
+{
+	std::vector<int> post, pre;
+	std::string stem = split_word_indices(cell_name.str(), post);
+	if (GetSize(stem) < 4 || stem.compare(GetSize(stem) - 4, 4, "_reg") != 0)
+		return false;
+	reg = RTLIL::unescape_id(split_word_indices(stem.substr(0, GetSize(stem) - 4), pre));
+
+	// Trailing groups are the bit index preceded by more word indices
+	word = pre;
+	bit = 0;
+	if (!post.empty()) {
+		word.insert(word.end(), post.begin(), post.end() - 1);
+		bit = post.back();
+	}
+	return true;
+}
 
 struct RegRenameInstance {
 	std::string vcd_scope;
@@ -64,7 +144,7 @@ struct RegRenameInstance {
 
 	// Processes registers in a given module hierarchy
 	// and renames to allow for correct register annotation
-	void process_registers(dict<std::string, RegInfo> &vcd_reg_widths)
+	void process_registers(dict<std::string, RegLayout> &reg_layouts)
 	{
 		if (debug)
 			log("Processing registers in scope: %s (module: %s)\n", 
@@ -80,7 +160,23 @@ struct RegRenameInstance {
 		// Caches of target wires and wires to remove
 		dict<IdString, Wire*> targetWireCache;
 		pool<Wire *> wireRemoveCache;
-		
+
+		// Word grid of every register as the netlist spells it: one past the largest index at
+		// each position. A reshaping alias makes this differ from the dumped shape.
+		dict<std::string, std::vector<int>> word_grids;
+		for (auto cell : module->cells()) {
+			std::string reg;
+			std::vector<int> word;
+			int bit = 0;
+			if (!RTLIL::builtin_ff_cell_types().count(cell->type) ||
+					!split_reg_cell(cell->name, reg, word, bit))
+				continue;
+			auto &grid = word_grids[reg];
+			grid.resize(std::max(GetSize(grid), GetSize(word)), 0);
+			for (int i = 0; i < GetSize(word); i++)
+				grid[i] = std::max(grid[i], word[i] + 1);
+		}
+
 		// Loop through all cells in the module
 		for (auto cell : module->cells()) {
 
@@ -89,127 +185,124 @@ struct RegRenameInstance {
 				continue;
 			}
 
-			// Accept both \name_reg[bit] and \name[word]_reg[bit].
-			std::string cellName = cell->name.c_str();
-			size_t end = cellName.size();
+			// Which register this cell belongs to, and which bit of it it holds
+			std::string reg;
+			std::vector<int> word;
+			int bit = 0;
+			if (!split_reg_cell(cell->name, reg, word, bit))
+				continue;
 
-			// Walk right-to-left, removing each trailing "[digits]" group.
-			while (end && cellName[end - 1] == ']') {
-				size_t open = cellName.rfind('[', end - 1);
-				if (open == std::string::npos)
-					break;
-				std::string inner = cellName.substr(open + 1, end - open - 2);
-				if (inner.empty() || inner.find_first_not_of("0123456789") != std::string::npos)
-					break;
-				end = open;
-			}
+			// Process Q output connection for the cell
+			for (auto &conn : cell->connections()) {
+				if (conn.first != ID::Q || !conn.second.is_wire()) continue;
 
-			// After peeling, the name is a register if the base ends in "_reg".
-			bool is_reg = end >= 4 && cellName.compare(end - 4, 4, "_reg") == 0;
-			if (is_reg) {
-				size_t reg_pos = end - 4; // position of "_reg"
+				Wire *oldWire = conn.second.as_wire();
+				if (oldWire->port_input || oldWire->port_output) continue;
 
-				// Remove "_reg" to get the target wire specification
-				cellName.erase(reg_pos, 4);
+				auto layout_it = reg_layouts.find(vcd_scope + "." + reg);
+				if (layout_it == reg_layouts.end()) {
+					log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
+						reg.c_str(), log_id(cell->name), vcd_scope.c_str());
+					continue;
+				}
+				const RegLayout &layout = layout_it->second;
+				const std::vector<int> &grid = word_grids.at(reg);
 
-				// Index comes from the right-most brackets
-				std::string wireName = cellName;
-				int bitIndex = 0;
-				size_t last_open = cellName.rfind('[');
-				size_t last_close = cellName.rfind(']');
-				if (last_open != std::string::npos && last_close != std::string::npos && last_close > last_open) {
-					// Validate bracket content is just a single bit slice
-					std::string inner = cellName.substr(last_open + 1, last_close - last_open - 1);
-					if (!inner.empty() && inner.find_first_not_of("0123456789") == std::string::npos) {
-						wireName = cellName.substr(0, last_open);
-						bitIndex = std::stoi(inner);
+				const RegElem *elem = nullptr;
+				int bitIndex = bit;
+				if (GetSize(word) == layout.rank()) {
+					// Netlist and waveform spell the register the same way
+					elem = layout.at_idx(word);
+				} else {
+					// The netlist reaches the register through an alias of a different rank,
+					// so place the word by its row-major position instead of by name.
+					int slots = 1, slot = 0;
+					for (int i = 0; i < GetSize(word); i++) {
+						slot = slot * grid[i] + word[i];
+						slots *= grid[i];
+					}
+					if (layout.total_width % slots == 0) {
+						int flat = slot * (layout.total_width / slots) + bit;
+						elem = layout.at_flat(flat);
+						if (elem)
+							bitIndex = elem->offset + (flat - elem->flat);
 					}
 				}
-
-				// Process Q output connection for the cell
-				for (auto &conn : cell->connections()) {
-					if (conn.first != ID::Q || !conn.second.is_wire()) continue;
-
-					Wire *oldWire = conn.second.as_wire();
-					if (oldWire->port_input || oldWire->port_output) continue;
-
-					// Lookup wire information from VCD
-					std::string regName = RTLIL::unescape_id(wireName);
-					RegInfo regInfo = vcd_reg_widths[vcd_scope + "." + regName];
-
-					int wireWidth = regInfo.width;
-					int wireOffset = regInfo.offset;
-					if (wireWidth == 0) {
-						log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
-							regName.c_str(), cellName.c_str(), vcd_scope.c_str());
-						continue;
-					}
-
-					// Validate bit index
-					int maxIndex = wireOffset + wireWidth - 1;
-					int minIndex = wireOffset;
-					if (bitIndex < minIndex || bitIndex > maxIndex) {
-						log_warning("Bit index %d is invalid for wire indices [%d:%d] for '%s'\n",
-												bitIndex, maxIndex, minIndex, wireName.c_str());
-						continue;
-					}
-
-					IdString wireId = RTLIL::escape_id(wireName);
-
-					// Find or create the target wire of the correct VCD-derived width
-					Wire *targetWire = nullptr;
-
-					// Check if the target wire was already created
-					auto cache_it = targetWireCache.find(wireId);
-					if (cache_it != targetWireCache.end()) {
-						targetWire = cache_it->second;
-					} else {
-
-						// If the cache misses, create the target wire
-						targetWire = module->wire(wireId);
-						if (!targetWire) {
-							if (debug)
-								log("Creating wire %s[%d:%d] in scope %s\n", 
-										wireName.c_str(), maxIndex, minIndex, vcd_scope.c_str());
-							targetWire = module->addWire(wireId, wireWidth);
-							targetWire->start_offset = wireOffset;
-						}
-						targetWireCache[wireId] = targetWire;
-					}
-
-					// Skip self-mapping (e.g. oldWire is already the target wire)
-					if (targetWire == oldWire)
-						continue;
-
-					int normalizedIndex = bitIndex - wireOffset;
-
-					// Check for conflicts with other cells (multiple drivers guard)
-					bool conflict = false;
-					for (int i = 0; i < GetSize(oldWire); i++) {
-						if (claimed_bits.count(SigBit(targetWire, normalizedIndex + i))) {
-							conflict = true;
-							break;
-						}
-					}
-					if (conflict) {
-						log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
-							log_id(cell->name), wireName.c_str(), bitIndex);
-						continue;
-					}
-
-					// Create the new connection.
-					if (debug)
-						log("Connecting %s to %s[%d]\n", 
-								log_id(oldWire), wireName.c_str(), bitIndex);
-
-					// Record the mapping for each bit of the old wire to the target wire.
-					for (int i = 0; i < GetSize(oldWire); i++) {
-						SigBit target(targetWire, normalizedIndex + i);
-						bit_map[SigBit(oldWire, i)] = target;
-						claimed_bits.insert(target);
-					}
-					wireRemoveCache.insert(oldWire);
+				if (elem == nullptr) {
+					log_warning("Cannot place cell %s in register %s, dumped as %d bits in %d "
+						"elements, in scope %s\n", log_id(cell->name), reg.c_str(),
+						layout.total_width, GetSize(layout.elems), vcd_scope.c_str());
+					continue;
 				}
+
+				std::string wireName = elem->name;
+				int wireWidth = elem->width;
+				int wireOffset = elem->offset;
+				int maxIndex = wireOffset + wireWidth - 1;
+				int minIndex = wireOffset;
+
+				// Validate bit index, and that an unsplit cell fits in one dumped element
+				if (bitIndex < minIndex || bitIndex + GetSize(oldWire) - 1 > maxIndex) {
+					log_warning("Bit index %d is invalid for wire indices [%d:%d] for '%s'\n",
+											bitIndex, maxIndex, minIndex, wireName.c_str());
+					continue;
+				}
+
+				IdString wireId = RTLIL::escape_id(wireName);
+
+				// Find or create the target wire of the correct VCD-derived width
+				Wire *targetWire = nullptr;
+
+				// Check if the target wire was already created
+				auto cache_it = targetWireCache.find(wireId);
+				if (cache_it != targetWireCache.end()) {
+					targetWire = cache_it->second;
+				} else {
+
+					// If the cache misses, create the target wire
+					targetWire = module->wire(wireId);
+					if (!targetWire) {
+						if (debug)
+							log("Creating wire %s[%d:%d] in scope %s\n", 
+									wireName.c_str(), maxIndex, minIndex, vcd_scope.c_str());
+						targetWire = module->addWire(wireId, wireWidth);
+						targetWire->start_offset = wireOffset;
+					}
+					targetWireCache[wireId] = targetWire;
+				}
+
+				// Skip self-mapping (e.g. oldWire is already the target wire)
+				if (targetWire == oldWire)
+					continue;
+
+				int normalizedIndex = bitIndex - wireOffset;
+
+				// Check for conflicts with other cells (multiple drivers guard)
+				bool conflict = false;
+				for (int i = 0; i < GetSize(oldWire); i++) {
+					if (claimed_bits.count(SigBit(targetWire, normalizedIndex + i))) {
+						conflict = true;
+						break;
+					}
+				}
+				if (conflict) {
+					log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
+						log_id(cell->name), wireName.c_str(), bitIndex);
+					continue;
+				}
+
+				// Create the new connection.
+				if (debug)
+					log("Connecting %s to %s[%d]\n", 
+							log_id(oldWire), wireName.c_str(), bitIndex);
+
+				// Record the mapping for each bit of the old wire to the target wire.
+				for (int i = 0; i < GetSize(oldWire); i++) {
+					SigBit target(targetWire, normalizedIndex + i);
+					bit_map[SigBit(oldWire, i)] = target;
+					claimed_bits.insert(target);
+				}
+				wireRemoveCache.insert(oldWire);
 			}
 		}
 
@@ -254,11 +347,11 @@ struct RegRenameInstance {
 		}
 	}
 
-	void process_all(dict<std::string, RegInfo> &vcd_reg_widths)
+	void process_all(dict<std::string, RegLayout> &reg_layouts)
 	{
-		process_registers(vcd_reg_widths);
+		process_registers(reg_layouts);
 		for (auto &it : children)
-			it.second->process_all(vcd_reg_widths);
+			it.second->process_all(reg_layouts);
 	}
 };
 
@@ -317,7 +410,7 @@ struct RegRenamePass : public Pass {
 			log_error("No top module found!\n");
 
 		// Extract pre-optimization signal widths from waveform file
-		dict<std::string, RegInfo> vcd_reg_widths;
+		dict<std::string, RegLayout> reg_layouts;
 		if (!waveform_filename.empty()) {
 			log("Reading waveform file: %s\n", waveform_filename.c_str());
 			try {
@@ -363,16 +456,36 @@ struct RegRenamePass : public Pass {
 					int width  = var.width;
 					int offset = std::min(msb, lsb);
 
-					// Map the register's scope and name to
-					// its original width and offset for later lookup.
+					// Group each element under its register, so a register dumped word by
+					// word is one layout rather than several unrelated signals.
 					signal_name = RTLIL::unescape_id(signal_name);
-					vcd_reg_widths[vcd_scope + "." + signal_name] = {width, offset};
+					RegElem elem;
+					elem.name = signal_name;
+					elem.width = width;
+					elem.offset = offset;
+					std::string base = split_word_indices(signal_name, elem.idx);
+					reg_layouts[vcd_scope + "." + base].elems.push_back(elem);
 					if (debug)
 						log("Found signal '%s' in scope '%s' with range [%d:%d] (width %d)\n",
 							signal_name.c_str(), vcd_scope.c_str(),
 							offset + width - 1, offset, width);
 				}
-				log("Extracted %d signal widths from waveform\n", GetSize(vcd_reg_widths));
+
+				// Order each register least-significant element first and assign flat bit
+				// positions. Word index 0 is the lsb, matching [N-1:0] declarations.
+				for (auto &it : reg_layouts) {
+					auto &elems = it.second.elems;
+					std::sort(elems.begin(), elems.end(), [](const RegElem &a, const RegElem &b) {
+						return a.idx != b.idx ? a.idx < b.idx : a.offset < b.offset;
+					});
+					int flat = 0;
+					for (auto &e : elems) {
+						e.flat = flat;
+						flat += e.width;
+					}
+					it.second.total_width = flat;
+				}
+				log("Extracted %d registers from waveform\n", GetSize(reg_layouts));
 			} catch (const std::exception &e) {
 				log_error("Failed to read waveform file '%s': %s\n", 
 					waveform_filename.c_str(), e.what());
@@ -386,7 +499,7 @@ struct RegRenamePass : public Pass {
 
 		// Build hierarchy and process register renamings
 		RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
-		root->process_all(vcd_reg_widths);
+		root->process_all(reg_layouts);
 		delete root;
 
 		log_flush();
