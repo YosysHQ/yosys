@@ -362,7 +362,6 @@ struct Abc9Pass : public ScriptPass
 				else active_design->push_complete_selection();
 				run("techmap -wb -map %$abc9 -map +/techmap.v");
 				run("opt -purge");
-				run("aigmap");
 				run("design -stash $abc9_holes");
 				run("design -load $abc9");
 				run("design -delete $abc9");
