@@ -3151,9 +3151,16 @@ RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, RTLIL::IdString type)
 RTLIL::Cell *RTLIL::Module::addCell(RTLIL::IdString name, const RTLIL::Cell *other)
 {
 	RTLIL::Cell *cell = addCell(std::move(name), other->type);
-	cell->connections_ = other->connections_;
 	cell->parameters = other->parameters;
 	cell->attributes = other->attributes;
+
+	bool indexed = signorm_indexed();
+	for (auto &c : other->connections_) {
+		if (indexed)
+			cell->setPort(c.first, c.second);
+		else
+			cell->connections_[c.first] = c.second;
+	}
 	return cell;
 }
 
@@ -4317,13 +4324,28 @@ bool RTLIL::Cell::known() const
 	return false;
 }
 
+static RTLIL::Wire *find_port(RTLIL::Module *m, RTLIL::IdString portname)
+{
+	if (m == nullptr)
+		return nullptr;
+	if (RTLIL::Wire *w = m->wire(portname))
+		return w;
+
+	const char *name = portname.c_str();
+	if (name[0] != '$' || name[1] < '0' || name[1] > '9')
+		return nullptr;
+	int port_id = atoi(name + 1);
+	if (port_id < 1 || port_id > GetSize(m->ports))
+		return nullptr;
+	return m->wire(m->ports[port_id - 1]);
+}
+
 bool RTLIL::Cell::input(RTLIL::IdString portname) const
 {
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_input(type, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
-		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		RTLIL::Wire *w = find_port(module->design->module(type), portname);
 		return w && w->port_input;
 	}
 	return false;
@@ -4334,8 +4356,7 @@ bool RTLIL::Cell::output(RTLIL::IdString portname) const
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
-		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
+		RTLIL::Wire *w = find_port(module->design->module(type), portname);
 		return w && w->port_output;
 	}
 	return false;
@@ -4346,10 +4367,7 @@ RTLIL::PortDir RTLIL::Cell::port_dir(RTLIL::IdString portname) const
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_port_dir(type, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type);
-		if (m == nullptr)
-			return PortDir::PD_UNKNOWN;
-		RTLIL::Wire *w = m->wire(portname);
+		RTLIL::Wire *w = find_port(module->design->module(type), portname);
 		if (w == nullptr)
 			return PortDir::PD_UNKNOWN;
 		return PortDir(w->port_input + w->port_output * 2);
