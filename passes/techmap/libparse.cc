@@ -49,17 +49,20 @@ using namespace Yosys;
 
 LibertyAstCache LibertyAstCache::instance;
 
-std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string &fname)
+std::shared_ptr<const LibertyAst> LibertyAstCache::cached_ast(const std::string &fname, const LibertyFilter &filter)
 {
 	auto it = cached.find(fname);
 	if (it == cached.end())
 		return nullptr;
+	if (!it->second.filter.covers(filter))
+		return nullptr;
 	if (verbose)
 		log("Using cached data for liberty file `%s'\n", fname);
-	return it->second;
+	return it->second.ast;
 }
 
-void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast)
+void LibertyAstCache::parsed_ast(const std::string &fname, const LibertyFilter &filter,
+		const std::shared_ptr<const LibertyAst> &ast)
 {
 	auto it = cache_path.find(fname);
 	bool should_cache = it == cache_path.end() ? cache_by_default : it->second;
@@ -67,7 +70,7 @@ void LibertyAstCache::parsed_ast(const std::string &fname, const std::shared_ptr
 		return;
 	if (verbose)
 		log("Caching data for liberty file `%s'\n", fname);
-	cached.emplace(fname, ast);
+	cached.emplace(fname, CacheEntry{filter, ast});
 }
 
 #endif
@@ -138,6 +141,7 @@ LibertyAst::~LibertyAst()
 
 const LibertyAst *LibertyAst::find(std::string name) const
 {
+	log_assert(filter.allows(name));
 	for (auto child : children)
 		if (child->id == name)
 			return child;
@@ -628,7 +632,7 @@ int LibertyParser::consume_wrecked_str(int tok, std::string& out_str) {
 	return tok;
 }
 
-LibertyAst *LibertyParser::parse(bool top_level)
+LibertyParser::ParseResult LibertyParser::try_parse(bool top_level, bool skip_all)
 {
 	std::string str;
 
@@ -644,19 +648,23 @@ LibertyAst *LibertyParser::parse(bool top_level)
 
 	if (tok == EOF) {
 		if (top_level)
-			return NULL;
+			return ParseResult::closed();
 		report_unexpected_token(tok);
 	}
 
 	if (tok == '}')
-		return NULL;
+		return ParseResult::closed();
 
 	if (tok != 'v') {
 		report_unexpected_token(tok);
 	}
 
-	LibertyAst *ast = new LibertyAst;
-	ast->id = str;
+	std::string id = std::move(str);
+	bool skip = skip_all || !filter.allows(id);
+
+	std::string value;
+	std::vector<std::string> args;
+	std::vector<LibertyAst *> children;
 
 	while (1)
 	{
@@ -667,8 +675,8 @@ LibertyAst *LibertyParser::parse(bool top_level)
 		if ((tok == ';') || (tok == 'n'))
 			break;
 
-		if (tok == ':' && ast->value.empty()) {
-			tok = lexer(ast->value);
+		if (tok == ':' && value.empty()) {
+			tok = lexer(value);
 			if (tok == 'v') {
 				tok = lexer(str);
 				if (tok == '[') {
@@ -676,19 +684,19 @@ LibertyAst *LibertyParser::parse(bool top_level)
 					tok = lexer(str);
 				} else {
 					// Hack for when an expression string is unquoted
-					tok = consume_wrecked_str(tok, ast->value);
+					tok = consume_wrecked_str(tok, value);
 				}
 			} else if (tok == '(') {
 				// Hack for when an expression string is unquoted and starts with
 				// parentheses
-				tok = consume_wrecked_str(tok, ast->value);
+				tok = consume_wrecked_str(tok, value);
 			}
 			while (tok == '+' || tok == '-' || tok == '*' || tok == '/' || tok == '!') {
-				ast->value += tok;
+				value += tok;
 				tok = lexer(str);
 				if (tok != 'v')
 					error();
-				ast->value += str;
+				value += str;
 				tok = lexer(str);
 			}
 
@@ -722,7 +730,7 @@ LibertyAst *LibertyParser::parse(bool top_level)
 				if (tok != 'v') {
 					report_unexpected_token(tok);
 				}
-				ast->args.push_back(arg);
+				args.push_back(std::move(arg));
 			}
 			continue;
 		}
@@ -730,12 +738,12 @@ LibertyAst *LibertyParser::parse(bool top_level)
 		if (tok == '{') {
 			bool terminated = false;
 			while (1) {
-				LibertyAst *child = parse(false);
+				LibertyAst *child = parse(false, skip);
 				if (child == NULL) {
 					terminated = true;
 					break;
 				}
-				ast->children.push_back(child);
+				children.push_back(child);
 			}
 			if (!terminated) {
 				report_unexpected_token(EOF);
@@ -746,7 +754,25 @@ LibertyAst *LibertyParser::parse(bool top_level)
 		report_unexpected_token(tok);
 	}
 
-	return ast;
+	if (skip)
+		return ParseResult::skipped();
+
+	return ParseResult::node(new LibertyAst{std::move(id), std::move(value), std::move(args),
+			std::move(children), filter});
+}
+
+LibertyAst *LibertyParser::parse(bool top_level, bool skip_all)
+{
+	while (1) {
+		ParseResult result = try_parse(top_level, skip_all);
+		// We got our statement, return it
+		if (result.kind == ParseResult::Node)
+			return result.ast;
+		// We didn't parse a statement, and there aren't any more, so we're done
+		if (result.kind == ParseResult::Closed)
+			return NULL;
+		// Otherwise, we skipped a node due to filtering, keep going
+	}
 }
 
 #ifndef FILTERLIB
