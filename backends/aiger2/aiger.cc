@@ -960,6 +960,36 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 	}
 };
 
+// ABC requires cin to be the last box input and cout the last box output
+std::vector<IdString> box_ports(Module *def)
+{
+	std::vector<IdString> ports;
+	IdString carry_in, carry_out;
+
+	for (auto port_id : def->ports) {
+		Wire *w = def->wire(port_id);
+		log_assert(w);
+
+		if (!w->get_bool_attribute(ID::abc9_carry)) {
+			ports.push_back(port_id);
+			continue;
+		}
+
+		log_assert(w->port_input != w->port_output);
+		if (w->port_input)
+			carry_in = port_id;
+		else
+			carry_out = port_id;
+	}
+
+	if (carry_in != IdString()) {
+		ports.push_back(carry_in);
+		ports.push_back(carry_out);
+	}
+
+	return ports;
+}
+
 struct XAigerWriter : AigerWriter {
 	XAigerWriter()
 	{
@@ -1145,7 +1175,7 @@ struct XAigerWriter : AigerWriter {
 			}
 			box_seq++;
 
-			for (auto port_id : def->ports) {
+			for (auto port_id : box_ports(def)) {
 				Wire *port = def->wire(port_id);
 				log_assert(port);
 
