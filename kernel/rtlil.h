@@ -2152,6 +2152,8 @@ public:
 
 	const SigMap *signorm_sigmap();
 
+	void signorm_compact(const pool<RTLIL::Wire *> &dead_wires);
+
 	void connect_incremental(const SigSpec &lhs, const SigSpec &rhs);
 
 	template<typename T> void rewrite_sigspecs(T &functor);

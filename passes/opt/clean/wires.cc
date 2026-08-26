@@ -142,18 +142,6 @@ bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const Sha
 	return w2->name.lt_by_name(w1->name);
 }
 
-bool check_public_name(RTLIL::IdString id)
-{
-	if (id.begins_with("$"))
-		return false;
-	const std::string &id_str = id.str();
-	if (id.begins_with("\\_") && (id.ends_with("_") || id_str.find("_[") != std::string::npos))
-		return false;
-	if (id_str.find(".$") != std::string::npos)
-		return false;
-	return true;
-}
-
 void add_spec(ShardedSigPool::Builder &builder, const ThreadIndex &thread, const RTLIL::SigSpec &spec) {
 	for (SigBit bit : spec)
 		if (bit.wire != nullptr)
@@ -480,6 +468,18 @@ struct WireDeleter {
 PRIVATE_NAMESPACE_END
 
 YOSYS_NAMESPACE_BEGIN
+
+bool check_public_name(RTLIL::IdString id)
+{
+	if (id.begins_with("$"))
+		return false;
+	const std::string &id_str = id.str();
+	if (id.begins_with("\\_") && (id.ends_with("_") || id_str.find("_[") != std::string::npos))
+		return false;
+	if (id_str.find(".$") != std::string::npos)
+		return false;
+	return true;
+}
 
 bool rmunused_module_signals(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx)
 {

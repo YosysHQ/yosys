@@ -26,6 +26,11 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+inline int opt_clean_work_units(const RTLIL::Module *module)
+{
+	return std::max(module->cells_size(), module->wires_size());
+}
+
 struct AnalysisContext {
 	SigMap assign_map;
 	const RTLIL::Module *mod;
@@ -64,7 +69,7 @@ private:
 		int thread_pool_size = 0;
 		for (auto module : selected_modules)
 			thread_pool_size = std::max(thread_pool_size,
-				ThreadPool::work_pool_size(0, module->cells_size(), 10000));
+				ThreadPool::work_pool_size(0, opt_clean_work_units(module), 10000));
 		return thread_pool_size;
 	}
 
@@ -81,6 +86,10 @@ public:
 		ct_all.clear();
 	}
 };
+
+bool check_public_name(RTLIL::IdString id);
+
+void rmunused_module_signorm(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
 
 void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::Subpool &subpool, bool verbose);
 void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &subpool, CleanRunContext &clean_ctx);
