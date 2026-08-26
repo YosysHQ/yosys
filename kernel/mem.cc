@@ -1916,3 +1916,24 @@ RTLIL::Const::iterator MemContents::_range_write(RTLIL::Const::iterator it, RTLI
 	std::fill(to_end, it_next, State::S0);
 	return it_next;
 }
+
+void Yosys::set_ram_cell_port(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig, bool is_output)
+{
+	static const IdString generated = RTLIL::escape_id("generated_ram_blackbox");
+	RTLIL::Design *design = cell->module->design;
+
+	RTLIL::Module *mod = design->module(cell->type);
+	if (mod == nullptr) {
+		mod = design->addModule(cell->type);
+		mod->set_bool_attribute(ID::blackbox);
+		mod->set_bool_attribute(generated);
+	}
+
+	if (mod->get_bool_attribute(generated) && mod->wire(port) == nullptr) {
+		RTLIL::Wire *wire = mod->addWire(port, GetSize(sig));
+		(is_output ? wire->port_output : wire->port_input) = true;
+		mod->fixup_ports();
+	}
+
+	cell->setPort(port, sig);
+}
