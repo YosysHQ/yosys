@@ -45,8 +45,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 #define CMP_OPS ID($eq), ID($ne), ID($lt), ID($le), ID($ge), ID($gt)
 
-// TODO
-//#define ARITH_OPS ID($add), ID($sub), ID($neg)
+#define ARITH_OPS ID($add), ID($sub), ID($neg)
 
 static constexpr auto known_ops = []() constexpr {
 	StaticCellTypes::Categories::Category c{};
@@ -60,10 +59,26 @@ static constexpr auto known_ops = []() constexpr {
 		c.set_id(id);
 	for (auto id : {CMP_OPS})
 		c.set_id(id);
+	for (auto id : {ARITH_OPS})
+		c.set_id(id);
 	for (auto id : {ID($pos), ID($pmux), ID($bmux)})
 		c.set_id(id);
 	return c;
 }();
+
+// Resolve a cell to the module we should descend into
+Module *cell_def(Design *design, Cell *cell)
+{
+	Module *def = design->module(cell->type);
+
+	if (def && !cell->parameters.empty()) {
+		def = design->module(def->derive(design, cell->parameters));
+		if (def)
+			def->bufNormalize();
+	}
+
+	return def;
+}
 
 template<typename Writer, typename Lit, Lit CFALSE, Lit CTRUE>
 struct Index {
@@ -109,10 +124,10 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (known_ops(cell->type) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($input_port)))
+			if (known_ops(cell->type) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($specrule), ID($input_port)))
 				continue;
 
-			Module *submodule = m->design->module(cell->type);
+			Module *submodule = cell_def(m->design, cell);
 
 			if (submodule && flatten &&
 					!submodule->get_bool_attribute(ID::keep_hierarchy) &&
@@ -278,8 +293,67 @@ struct Index {
 			return lits.front();
 	}
 
+	void arith_operands(Cell *cell, SigSpec &aport, SigSpec &bport)
+	{
+		int width = cell->getParam(ID::Y_WIDTH).as_int();
+
+		if (cell->type == ID($neg)) {
+			aport = SigSpec(State::S0, width);
+			bport = cell->getPort(ID::A);
+			bport.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
+		} else {
+			aport = cell->getPort(ID::A);
+			aport.extend_u0(width, cell->getParam(ID::A_SIGNED).as_bool());
+			bport = cell->getPort(ID::B);
+			bport.extend_u0(width, cell->getParam(ID::B_SIGNED).as_bool());
+		}
+	}
+
+	// A cell reached through one specific instance path
+	using CellInstance = std::pair<int, Cell *>;
+
+	// Carry out of each bit of an arithmetic cell
+	dict<CellInstance, std::vector<Lit>> carry_chains;
+
+	// Carry into obit
+	Lit arith_carry(HierCursor &cursor, Cell *cell, SigSpec &aport, SigSpec &bport,
+					bool complement, int obit)
+	{
+		CellInstance key(cursor.instance_offset, cell);
+		Lit carry_in = complement ? CTRUE : CFALSE;
+
+		while (GetSize(carry_chains[key]) < obit) {
+			int i = GetSize(carry_chains[key]);
+			Lit prev = i ? carry_chains[key][i - 1] : carry_in;
+			Lit a = visit(cursor, aport[i]);
+			Lit b = visit(cursor, bport[i]);
+			Lit carry = CARRY(a, complement ? NOT(b) : b, prev);
+			carry_chains[key].push_back(carry);
+		}
+
+		return obit ? carry_chains[key][obit - 1] : carry_in;
+	}
+
+	Lit impl_arith(HierCursor &cursor, Cell *cell, int obit)
+	{
+		SigSpec aport, bport;
+		arith_operands(cell, aport, bport);
+
+		if (obit >= aport.size())
+			return CFALSE;
+
+		bool complement = cell->type.in(ID($sub), ID($neg));
+		Lit carry = arith_carry(cursor, cell, aport, bport, complement, obit);
+		Lit a = visit(cursor, aport[obit]);
+		Lit b = visit(cursor, bport[obit]);
+		return XOR(XOR(a, complement ? NOT(b) : b), carry);
+	}
+
 	Lit impl_op(HierCursor &cursor, Cell *cell, IdString oport, int obit)
 	{
+		if (cell->type.in(ARITH_OPS))
+			return impl_arith(cursor, cell, obit);
+
 		if (cell->type.in(REDUCE_OPS, LOGIC_OPS, CMP_OPS) && obit != 0) {
 			return CFALSE;
 		} else if (cell->type.in(CMP_OPS)) {
@@ -538,7 +612,7 @@ struct Index {
 			auto &minfo = leaf_minfo(index);
 			if (!minfo.suboffsets.count(cell))
 				log_error("Reached unsupported cell %s (%s in %s)\n", cell->type.unescape(), cell, cell->module);
-			Module *def = design->module(cell->type);
+			Module *def = cell_def(design, cell);
 			log_assert(def);
 			levels.push_back(Level(index.modules.at(def), cell));
 			instance_offset += minfo.suboffsets.at(cell);
@@ -604,7 +678,7 @@ struct Index {
 				return CTRUE;
 			else if (bit == State::S0)
 				return CFALSE;
-			else if (bit == State::Sx)
+			else if (bit == State::Sx || bit == State::Sz)
 				return CFALSE;
 			else
 				log_error("Unhandled state %s\n", log_signal(bit));
@@ -814,13 +888,16 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 
 		// now the guts
 		std::vector<std::pair<SigBit, int>> outputs;
-		for (auto w : top->wires())
+		for (auto id : top->ports) {
+			Wire *w = top->wire(id);
+			log_assert(w);
 			if (w->port_output) {
 				for (auto bit : SigSpec(w))
 					// Each call to eval_po eventually reaches emit_gate and
 					// encode which writes to f.
 					outputs.push_back({bit, eval_po(bit)});
 			}
+		}
 
 		auto data_end = f->tellp();
 
@@ -905,7 +982,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		int max = 1;
 		for (auto wire : mod->wires()) {
 			if (wire->port_input && !wire->port_output) {
-				SigSpec port = driver->getPort(wire->name);
+				SigSpec port = driver->hasPort(wire->name) ? driver->getPort(wire->name) : SigSpec{};
 				for (int i = 0; i < std::min(wire->width, port.size()); i++) {
 					int ilevel = visit(cursor, port[i]);
 					max = std::max(max, ilevel + 1);
@@ -1028,7 +1105,7 @@ struct XAigerWriter : AigerWriter {
 			if (map_file.is_open() && !box_port) {
 				log_assert(cursor.is_top()); // TODO
 				driven_by_opaque_box.insert(bit);
-				map_file << "input " << pis.size() - 1 << " " << bit.offset
+				map_file << "input " << pis.size() - 1 << " " << bit.wire->start_offset + bit.offset
 						<< " " << bit.wire->name.c_str() << "\n";
 			}
 		} else {
@@ -1242,9 +1319,8 @@ struct XAigerWriter : AigerWriter {
 					holes_module->ports.push_back(w->name);
 					if (holes_wb)
 						holes_wb->setPort(port_id, w);
-					else
-						for (int i = 0; i < port->width; i++)
-							holes_module->addBufGate(NEW_ID, State::S0, SigBit(w, i));
+					else if (port->width)
+						holes_module->addBuf(NEW_ID, SigSpec(State::S0, port->width), w);
 				} else {
 					log_error("Ambiguous port direction on %s/%s\n",
 							  box->type.unescape(), port_id.unescape());
@@ -1311,7 +1387,7 @@ struct XAigerWriter : AigerWriter {
 			if (w->port_output)
 				for (int i = 0; i < w->width; i++) {
 					if (map_file.is_open()) {
-						map_file << "output " << proper_pos_counter << " " << i
+						map_file << "output " << proper_pos_counter << " " << w->start_offset + i
 									<< " " << w->name.c_str() << "\n";
 					}
 					proper_pos_counter++;
