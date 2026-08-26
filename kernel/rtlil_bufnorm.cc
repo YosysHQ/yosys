@@ -44,38 +44,37 @@ void RTLIL::Design::bufNormalize(bool enable)
 				wire->driverPort_ = IdString();
 			}
 			module->buf_norm_connect_index.clear();
+			module->buf_norm_initialized = false;
 		}
 
 		flagBufferedNormalized = false;
 		return;
 	}
 
-	if (!flagBufferedNormalized)
-	{
-		for (auto module : modules())
-		{
-			// When entering buf normalized mode, we need the first module-level bufNormalize
-			// call to know about all drivers, about all module ports (whether represented by
-			// a cell or not) and about all used but undriven wires (whether represented by a
-			// cell or not). We ensure this by enqueing all cell output ports and all wires.
-
-			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
-				if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
-					continue;
-				module->buf_norm_cell_queue.insert(cell);
-				module->buf_norm_cell_port_queue.emplace(cell, conn.first);
-			}
-			for (auto wire : module->wires())
-				module->buf_norm_wire_queue.insert(wire);
-
-		}
-
-		flagBufferedNormalized = true;
-	}
+	flagBufferedNormalized = true;
 
 	for (auto module : modules())
 		module->bufNormalize();
+}
+
+void RTLIL::Module::bufNormalizeInit()
+{
+	// When entering buf normalized mode, we need the first module-level bufNormalize
+	// call to know about all drivers, about all module ports (whether represented by
+	// a cell or not) and about all used but undriven wires (whether represented by a
+	// cell or not). We ensure this by enqueing all cell output ports and all wires.
+
+	for (auto cell : cells())
+	for (auto &conn : cell->connections()) {
+		if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
+			continue;
+		buf_norm_cell_queue.insert(cell);
+		buf_norm_cell_port_queue.emplace(cell, conn.first);
+	}
+	for (auto wire : wires())
+		buf_norm_wire_queue.insert(wire);
+
+	buf_norm_initialized = true;
 }
 
 struct bit_drive_data_t {
@@ -95,11 +94,16 @@ void RTLIL::Module::bufNormalize()
 	if (!design->flagBufferedNormalized)
 		return;
 
+	// A module added after the design entered buf normalized mode has to be
+	// enqueued before its first pass
+	if (!buf_norm_initialized)
+		bufNormalizeInit();
+
 	if (!buf_norm_cell_queue.empty() || !buf_norm_wire_queue.empty() || !connections_.empty())
 	{
 		// Ensure that every enqueued input port is represented by a cell
 		for (auto wire : buf_norm_wire_queue) {
-			if (wire->port_input && !wire->port_output) {
+			if (wire->port_input && !wire->port_output && GetSize(wire) != 0) {
 				if (wire->driverCell_ != nullptr && wire->driverCell_->type != ID($input_port)) {
 					wire->driverCell_ = nullptr;
 					wire->driverPort_.clear();
@@ -425,6 +429,10 @@ void RTLIL::Module::bufNormalize()
 		// connected via `$connect` cells but every wire of the net has the
 		// corresponding bit still driven by a buffered `Sz`.
 		for (auto wire : wire_queue_entries) {
+			// A zero-width wire carries no bits and needs no driver
+			if (GetSize(wire) == 0)
+				continue;
+
 			SigSpec wire_drivers;
 			for (int i = 0; i < GetSize(wire); ++i) {
 				SigBit bit(wire, i);
