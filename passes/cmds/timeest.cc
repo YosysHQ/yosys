@@ -417,6 +417,8 @@ struct TimeestPass : Pass {
 		}
 		extra_args(args, argidx, d);
 
+		d->sigNormalize(false);
+
 		if (select && d->selected_modules().size() > 1)
 			log_cmd_error("The -select option operates on a single selected module\n");
 

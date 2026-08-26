@@ -436,6 +436,8 @@ struct FsmExtractPass : public Pass {
 		log_header(design, "Executing FSM_EXTRACT pass (extracting FSM from design).\n");
 		extra_args(args, 1, design);
 
+		design->sigNormalize(false);
+
 		CellTypes ct(design);
 
 		for (auto mod : design->selected_modules())

@@ -46,6 +46,8 @@ struct BlackboxPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(false);
+
 		for (auto module : design->selected_whole_modules_warn(true))
 		{
 			module->makeblackbox();

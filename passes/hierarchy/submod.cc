@@ -379,6 +379,8 @@ struct SubmodPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
+		design->sigNormalize(false);
+
 		if (opt_name.empty())
 		{
 			Pass::call(design, "opt_clean");

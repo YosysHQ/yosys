@@ -183,6 +183,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	if (max_fanout > 0)
 		for (auto cell : mod->cells())
 		{
+			if (cell->type == ID($input_port))
+				continue;
 			if (!sel || sel->selected(mod, cell))
 				for (auto &conn : cell->connections()) {
 					RTLIL::SigSpec conn_sig = conn.second;
@@ -197,6 +199,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	for (auto cell : mod->cells())
 	{
 		if (sel && !sel->selected(mod, cell))
+			continue;
+		if (cell->type == ID($input_port))
 			continue;
 
 		std::string type = cell->type.str();
@@ -252,6 +256,8 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	// mark external signals (used in non-selected cells)
 	for (auto cell : mod->cells())
 	{
+		if (cell->type == ID($input_port))
+			continue;
 		if (sel && !sel->selected(mod, cell))
 			for (auto &conn : cell->connections())
 			{
