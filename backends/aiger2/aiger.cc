@@ -1141,7 +1141,7 @@ struct XAigerWriter : AigerWriter {
 
 			if (map_file.is_open()) {
 				log_assert(cursor.is_top());
-				map_file << "box " << box_seq << " " << box->name.c_str() << "\n";
+				map_file << "box " << box_seq << " 0 " << box->name.c_str() << "\n";
 			}
 			box_seq++;
 
