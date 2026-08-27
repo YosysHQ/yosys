@@ -538,3 +538,62 @@ select -assert-count 4 t:$shr
 select -assert-count 2 t:$bmux
 design -reset
 log -pop
+
+# =============================================================================
+# Test 18: grouping key — overlapping tables must never fold a cell in half
+# Test 17's two banks read wholly disjoint tables, so no strided slice of one
+# bank's table can ever equal a slice of the other's and a cell folds
+# all-or-nothing whichever way grouping is keyed. Overlapping-but-not-identical
+# tables are the only shape that tells the two keys apart, which is why the
+# fixture is built that way: four lanes whose tables agree on element bit 0 and
+# differ on element bit 1.
+#
+# Keyed on the whole A port those are four distinct tables, hence four groups of
+# one, and none of them folds. Keyed on a stride-WIDTH slice of A the four bit-0
+# slices are one identical SigSpec that clears min_gather while each bit-1 slice
+# is a group of one that does not, so folding bit 0 retires all four cells and
+# leaves y_ovl[l][1] with no driver -- a silently broken netlist. `check -assert`
+# is the direct signal for that; the counts pin the structure behind it.
+#
+# The second bank reads a wholly shared table and must still fold, so the
+# overlap bank's survival cannot be explained by the fold never firing at all.
+# =============================================================================
+log -header "Grouping key: overlapping gather tables never fold in half"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+rename opt_vps_gather_overlap gold
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+rename opt_vps_gather_overlap gate
+
+# Scoped to `gate`, so `gold` really is the unoptimized reference.
+opt_vps gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+select -assert-count 8 t:$bmux
+
+opt_vps; opt_clean
+# Half-folded cells lose the driver for their unfolded element bits.
+check -assert
+# Overlap bank: four distinct tables, four groups of one, nothing folds.
+select -assert-count 4 t:$bmux
+# Shared-table bank still folds, to one barrel per element bit.
+select -assert-count 2 t:$shr
+design -reset
+log -pop
