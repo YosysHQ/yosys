@@ -30,6 +30,11 @@ YOSYS_NAMESPACE_BEGIN
 
 static void buf_norm_seed_queues(RTLIL::Module *module)
 {
+	// When entering buf normalized mode, we need the first module-level bufNormalize
+	// call to know about all drivers, about all module ports (whether represented by
+	// a cell or not) and about all used but undriven wires (whether represented by a
+	// cell or not). We ensure this by enqueing all cell output ports and all wires.
+
 	for (auto cell : module->cells())
 	for (auto &conn : cell->connections()) {
 		if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
