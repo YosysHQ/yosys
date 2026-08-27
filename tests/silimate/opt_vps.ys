@@ -491,3 +491,50 @@ select -assert-count 16 t:$bmux
 select -assert-count 0 t:$shr
 design -reset
 log -pop
+
+# =============================================================================
+# Test 17: mixed foldability — unfoldable multi-bit gathers must survive whole
+# Two banks read at the same affine index but from different tables: 8 lanes
+# clears min_gather, 2 lanes does not. The foldable bank collapses to one barrel
+# per element bit; the other bank's $bmux must be left standing and still driving.
+#
+# This pins why grouping is keyed on the whole table rather than a strided slice
+# of it. Per-slice keying lets one element bit of a cell clear min_gather while
+# another does not, and retiring the cell after folding the first bit leaves the
+# second's output undriven -- a silent functional change. SAT covers that: an
+# undriven y_b would not match the reference.
+# =============================================================================
+log -header "Mixed foldability: unfoldable gathers survive intact"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+rename opt_vps_gather_mixed gold
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+opt_vps; opt_clean
+rename opt_vps_gather_mixed gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+select -assert-count 10 t:$bmux
+
+opt_vps; opt_clean
+# 8-lane bank -> 4 barrels (one per element bit); 2-lane bank untouched.
+select -assert-count 4 t:$shr
+select -assert-count 2 t:$bmux
+design -reset
+log -pop

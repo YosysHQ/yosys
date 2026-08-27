@@ -803,7 +803,7 @@ struct OptVpsWorker
 
 	struct GatherCand {
 		Cell *cell;
-		SigBit ybit;
+		SigSpec ysig; // this cell's gathered element: 1 bit for $shr, WIDTH for $bmux
 		SigSpec index;
 		int width; // meaningful index bits for this cell
 		int64_t konst;
@@ -812,6 +812,10 @@ struct OptVpsWorker
 	struct GatherKey {
 		int kind;  // 0 = modular ($bmux), 1 = zero-fill ($shr)
 		int width; // S_WIDTH for $bmux; 0 for $shr (folded per candidate)
+		// Whole table, so every element bit of a cell shares one group and
+		// folds as a unit. Keying on per-bit slices instead would let one bit
+		// of a $bmux fold while another stayed below min_gather, and retiring
+		// the cell would then leave that live bit undriven.
 		SigSpec table;
 		CoeffMap coeffs;
 		bool operator<(const GatherKey &o) const
@@ -826,9 +830,9 @@ struct OptVpsWorker
 	// Bits read by any cell input, module connection or output port.
 	pool<SigBit> read_bits;
 
-	// Folded gather cells, retired only once every group has been emitted: a
-	// multi-bit $bmux feeds one group per output bit, and the later groups still
-	// read the cell for its index and src attribute.
+	// Folded gather cells, retired only after every group has been emitted: the
+	// emitters read each cell for its index and src attribute, so removing one
+	// mid-loop would dangle for the groups still to come.
 	pool<Cell *> gather_dead;
 
 	void collect_read_bits()
@@ -856,14 +860,10 @@ struct OptVpsWorker
 		for (auto cell : module->selected_cells()) {
 			GatherKey key;
 			Affine idx;
-			SigBit ybit;
+			SigSpec ysig;
 			SigSpec index;
 			int cand_width = 0;
 			int64_t bitpos = 0;
-			// One (table, ybit) pair per gather this cell contributes. A $bmux of
-			// WIDTH W is W independent gathers sharing one index, so it lands in W
-			// groups; a $shr gather always yields exactly one pair.
-			std::vector<std::pair<SigSpec, SigBit>> slices;
 
 			if (cell->type == ID($bmux)) {
 				int sw = cell->getParam(ID::S_WIDTH).as_int();
@@ -876,23 +876,18 @@ struct OptVpsWorker
 				idx = affine_of(index, 0);
 				if (!idx.ok || idx.exact_bits < sw)
 					continue;
-				SigSpec a = sigmap(cell->getPort(ID::A));
 				SigSpec y = sigmap(cell->getPort(ID::Y));
 				int64_t m = int64_t(1) << sw;
-				if (w < 1 || GetSize(a) != w * m || GetSize(y) != w)
+				if (w < 1 || GetSize(cell->getPort(ID::A)) != w * m ||
+				    GetSize(y) != w)
 					continue;
-				// $bmux is entry-major (Y = A[S*WIDTH +: WIDTH]), so output bit b
-				// gathers over the stride-W slice A[b], A[W+b], A[2W+b], ... Each
-				// slice is its own table, hence its own shared barrel shift; the
-				// W shifts together cost what one W*M-bit shift would.
-				for (int b = 0; b < w; b++) {
-					if (!read_bits.count(y[b]))
-						continue; // dead bit: nothing to drive
-					SigSpec tbl;
-					for (int64_t e = 0; e < m; e++)
-						tbl.append(a[e * w + b]);
-					slices.emplace_back(tbl, y[b]);
-				}
+				// Nothing downstream: opt_clean's job, not ours.
+				bool any_read = false;
+				for (int b = 0; b < w && !any_read; b++)
+					any_read = read_bits.count(y[b]);
+				if (!any_read)
+					continue;
+				ysig = y;
 			} else if (cell->type == ID($shr) &&
 			           !cell->getParam(ID::A_SIGNED).as_bool() &&
 			           !cell->getParam(ID::B_SIGNED).as_bool()) {
@@ -918,40 +913,36 @@ struct OptVpsWorker
 				if (!idx.ok || idx.exact_bits < cand_width ||
 				    cand_width > AFFINE_MAX_ATOM_BITS)
 					continue;
-				ybit = y[used];
+				ysig = y[used];
 				bitpos = used;
-				slices.emplace_back(sigmap(cell->getPort(ID::A)), ybit);
 			} else {
 				continue;
 			}
 
 			if (idx.coeffs.empty())
 				continue; // constant index: plain const-folding territory
+			key.table = sigmap(cell->getPort(ID::A));
+			// $bmux tables are bounded by max_table in entries above; this cap
+			// is for $shr, whose table is the raw A port.
+			if (key.kind == 1 && GetSize(key.table) > 2 * max_table)
+				continue;
+
+			if (key.kind == 1) {
+				// opt_expr folds different constants to different index widths,
+				// so check the wrap guard per cell and let the group span widths:
+				// negative values must read as 0, not alias back into the table.
+				int64_t clo, chi;
+				if (!coeff_range(idx.coeffs, clo, chi))
+					continue;
+				int64_t mod = int64_t(1) << cand_width;
+				if (chi + idx.konst + bitpos >= mod ||
+				    clo + idx.konst + bitpos < GetSize(key.table) - mod)
+					continue;
+			}
 
 			key.coeffs = idx.coeffs;
-			for (auto &slice : slices) {
-				key.table = slice.first;
-				if (GetSize(key.table) > 2 * max_table)
-					continue;
-
-				if (key.kind == 1) {
-					// opt_expr folds different constants to different index
-					// widths, so check the wrap guard per cell and let the
-					// group span widths: negative values must read as 0, not
-					// alias back into the table.
-					int64_t clo, chi;
-					if (!coeff_range(idx.coeffs, clo, chi))
-						continue;
-					int64_t mod = int64_t(1) << cand_width;
-					if (chi + idx.konst + bitpos >= mod ||
-					    clo + idx.konst + bitpos <
-						    GetSize(key.table) - mod)
-						continue;
-				}
-
-				groups[key].push_back({cell, slice.second, index, cand_width,
-						       idx.konst + bitpos});
-			}
+			groups[key].push_back({cell, ysig, index, cand_width,
+					       idx.konst + bitpos});
 		}
 
 		for (auto &it : groups) {
@@ -980,7 +971,8 @@ struct OptVpsWorker
 
 			if (key.kind == 0) {
 				int64_t M = int64_t(1) << key.width;
-				if (GetSize(key.table) != M)
+				// Table is M entries of the cells' element width.
+				if (GetSize(key.table) % M != 0)
 					continue;
 				if (span >= M) {
 					// No narrowing possible: the raw index is the amount.
@@ -1018,11 +1010,9 @@ struct OptVpsWorker
 
 		int64_t out_w = std::min(emax, M - 1) + 1;
 		int64_t src_w = std::min<int64_t>(2 * M, out_w + span);
+		int elem_w = GetSize(key.table) / M; // element width of this group
 
-		SigSpec source;
-		for (int64_t j = 0; j < src_w; j++)
-			source.append(key.table[(j + lomod) % M]);
-
+		// One amount, shared by every element bit's barrel.
 		SigSpec amount = ref_index;
 		if (lomod != 0) {
 			Wire *sub_w = module->addWire(NEW_ID_SUFFIX("vps_gather_amt"), key.width);
@@ -1032,19 +1022,41 @@ struct OptVpsWorker
 		}
 		amount = amount.extract(0, amt_bits);
 
-		Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
-		module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
-			       SigSpec(shifted), false, cell_src(ref));
+		// $bmux is entry-major (Y = A[S*WIDTH +: WIDTH]), so element bit b gathers
+		// over the stride-elem_w slice A[b], A[elem_w+b], ... Each bit gets its own
+		// barrel; the elem_w of them together cost what one elem_w*M-bit barrel
+		// would. Bits no candidate reads are skipped, and since the whole group is
+		// emitted here every cell in it ends up fully driven.
+		int barrels = 0;
+		for (int b = 0; b < elem_w; b++) {
+			bool any_read = false;
+			for (auto &c : cands)
+				if (read_bits.count(c.ysig[b])) { any_read = true; break; }
+			if (!any_read)
+				continue;
 
-		for (auto &c : cands) {
-			module->connect(c.ybit, SigBit(shifted, (c.konst - dmin) % M));
-			if (gather_dead.insert(c.cell).second)
-				pmux_replaced++;
+			SigSpec source;
+			for (int64_t j = 0; j < src_w; j++)
+				source.append(key.table[((j + lomod) % M) * elem_w + b]);
+
+			Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
+			module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
+				       SigSpec(shifted), false, cell_src(ref));
+			barrels++;
+
+			for (auto &c : cands)
+				if (read_bits.count(c.ysig[b]))
+					module->connect(c.ysig[b],
+							SigBit(shifted, (c.konst - dmin) % M));
 		}
 
-		log("  VPS gather: %d modular bit-select(s) (M=%d) -> $shr src=%d, "
+		for (auto &c : cands)
+			if (gather_dead.insert(c.cell).second)
+				pmux_replaced++;
+
+		log("  VPS gather: %d modular select(s) (M=%d, elem=%d) -> %d $shr src=%d, "
 		    "out=%d, amt=%d bit(s)\n",
-		    GetSize(cands), (int)M, (int)src_w, (int)out_w, amt_bits);
+		    GetSize(cands), (int)M, elem_w, barrels, (int)src_w, (int)out_w, amt_bits);
 		gathers_folded++;
 		groups_optimized++;
 	}
@@ -1083,7 +1095,7 @@ struct OptVpsWorker
 			       SigSpec(shifted), false, cell_src(ref));
 
 		for (auto &c : cands) {
-			module->connect(c.ybit, SigBit(shifted, c.konst - dmin));
+			module->connect(c.ysig[0], SigBit(shifted, c.konst - dmin));
 			if (gather_dead.insert(c.cell).second)
 				pmux_replaced++;
 		}
