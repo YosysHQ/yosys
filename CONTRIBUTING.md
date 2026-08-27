@@ -13,3 +13,5 @@ Check out our [Contributing guidelines](https://yosys.readthedocs.io/en/latest/y
 + review code
 
 If you're reading this file offline and don't have internet access, you can [read the contributing.rst file locally](docs/source/yosys_internals/extending_yosys/contributing.rst).
+
+Please also make sure to read our [Interim LLM Policy](https://blog.yosyshq.com/p/interim-yosyshq-llm-policy/).
