@@ -255,6 +255,10 @@ struct Abc9Pass : public ScriptPass
 		if (maxlut && lut_mode)
 			log_cmd_error("abc9 '-maxlut' option only applicable without '-lut' nor '-luts'.\n");
 
+		// write_xaiger2 doesn't yet support `-dff`.
+		if (dff_mode)
+			xaiger = 1;
+
 		log_assert(design);
 		if (design->selected_modules().empty()) {
 			log_warning("No modules selected for ABC9 techmapping.\n");
