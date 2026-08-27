@@ -1,0 +1,74 @@
+# Activity annotation measures the sampled window, not absolute time.
+#
+# The three activity_window_*.vcd dumps carry identical stimulus, shifted to different
+# points on the timeline (see activity_window_gen.py). They reproduce a customer dump at
+# a 1fs timescale whose last timestamp was 5_587_907_000, far past INT_MAX:
+#
+#   base   0             .. 128_000_000     fits in 32 bits
+#   late   5_320_000_000 .. 5_448_000_000   wholly past INT_MAX, every tick wraps
+#   cross  2_147_400_000 .. 2_275_400_000   straddles INT_MAX, so time runs backwards
+#                                           partway through as a signed int
+#
+# All three describe the same waveform, so all three must produce the same numbers, and
+# those numbers must be the ones derived by hand in activity_window_gen.py.
+#
+# Measuring absolute time instead gives, on the late dump, a $DURATION of 1_153_032_704
+# (the int32-wrapped absolute end time), a 111_011_595 Hz clock, and duty cycles pushed to
+# the rails: 0.944494 for clk and a, 0.027753 for d. Activity survives, because the same
+# wrong time appears in the cycle count it divides by. That asymmetry is what makes the
+# corruption hard to spot downstream: act and duty simply stop agreeing with each other.
+
+read_verilog activity_window.v
+prep -top activity_window
+design -save gold
+
+# $ACKT/$DUTY hold a space-separated per-bit list, hence the trailing glob. A module
+# attribute selects the whole module, so match those with -assert-any, not a count.
+
+sim -r activity_window_base.vcd -scope tb.uut -activity -q
+select -assert-any A:$DURATION=128000000
+select -assert-any A:$FREQUENCY=1000000000.000000
+select -assert-count 1 w:clk a:$ACKT=1.000000* %i
+select -assert-count 1 w:clk a:$DUTY=0.500000* %i
+select -assert-count 1 w:a a:$ACKT=0.250000* %i
+select -assert-count 1 w:a a:$DUTY=0.500000* %i
+select -assert-count 1 w:b a:$ACKT=0.125000* %i
+select -assert-count 1 w:b a:$DUTY=0.500000* %i
+select -assert-count 1 w:c a:$ACKT=0.000000* %i
+select -assert-count 1 w:c a:$DUTY=1.000000* %i
+select -assert-count 1 w:d a:$ACKT=0.125000* %i
+select -assert-count 1 w:d a:$DUTY=0.250000* %i
+select -assert-count 1 w:y a:$DUTY=0.500000* %i
+
+design -load gold
+sim -r activity_window_late.vcd -scope tb.uut -activity -q
+select -assert-any A:$DURATION=128000000
+select -assert-none A:$DURATION=1153032704
+select -assert-any A:$FREQUENCY=1000000000.000000
+select -assert-count 1 w:clk a:$ACKT=1.000000* %i
+select -assert-count 1 w:clk a:$DUTY=0.500000* %i
+select -assert-count 1 w:a a:$ACKT=0.250000* %i
+select -assert-count 1 w:a a:$DUTY=0.500000* %i
+select -assert-count 1 w:b a:$ACKT=0.125000* %i
+select -assert-count 1 w:b a:$DUTY=0.500000* %i
+select -assert-count 1 w:c a:$ACKT=0.000000* %i
+select -assert-count 1 w:c a:$DUTY=1.000000* %i
+select -assert-count 1 w:d a:$ACKT=0.125000* %i
+select -assert-count 1 w:d a:$DUTY=0.250000* %i
+select -assert-count 1 w:y a:$DUTY=0.500000* %i
+
+design -load gold
+sim -r activity_window_cross.vcd -scope tb.uut -activity -q
+select -assert-any A:$DURATION=128000000
+select -assert-any A:$FREQUENCY=1000000000.000000
+select -assert-count 1 w:clk a:$ACKT=1.000000* %i
+select -assert-count 1 w:clk a:$DUTY=0.500000* %i
+select -assert-count 1 w:a a:$ACKT=0.250000* %i
+select -assert-count 1 w:a a:$DUTY=0.500000* %i
+select -assert-count 1 w:b a:$ACKT=0.125000* %i
+select -assert-count 1 w:b a:$DUTY=0.500000* %i
+select -assert-count 1 w:c a:$ACKT=0.000000* %i
+select -assert-count 1 w:c a:$DUTY=1.000000* %i
+select -assert-count 1 w:d a:$ACKT=0.125000* %i
+select -assert-count 1 w:d a:$DUTY=0.250000* %i
+select -assert-count 1 w:y a:$DUTY=0.500000* %i
