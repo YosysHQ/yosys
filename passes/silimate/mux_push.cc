@@ -1101,6 +1101,10 @@ struct OptMuxPushWorker
     int lane_width = 0;
   };
 
+  // The match walks every lane and the emit rebuilds every entry, so refuse a
+  // select so wide that 1 << its width is not a sane table size to begin with.
+  static const int max_sel_bits = 20;
+
   // Select bits a gather is indexed by, and so the mux levels it costs.
   static int gather_sel_bits(RTLIL::Cell *cell)
   {
@@ -1110,16 +1114,22 @@ struct OptMuxPushWorker
   bool gather_geometry(RTLIL::Cell *cell, Gather &g)
   {
     if (cell->type == ID($bmux)) {
+      int sel_bits = GetSize(cell->getPort(ID::S));
       g.lane_width = cell->getParam(ID::WIDTH).as_int();
+      if (g.lane_width < 1 || sel_bits < 1 || sel_bits > max_sel_bits)
+        return false;
       g.sel = sigmap(cell->getPort(ID::S));
       g.table = sigmap(cell->getPort(ID::A));
-      return g.lane_width >= 1;
+      // The emit masks the column index with cols - 1, so the table has to be
+      // exactly the power of two the select reaches. RTLIL requires that of
+      // $bmux, but only check() enforces it, so do not trust it blindly.
+      return (long long)g.lane_width << sel_bits == (long long)GetSize(g.table);
     }
     if (cell->type != ID($shiftx))
       return false;
     int sel_bits = cell->getParam(ID::B_WIDTH).as_int();
     // 1 << sel_bits below, and the emit walks every lane, so bound the width.
-    if (cell->getParam(ID::Y_WIDTH).as_int() != 1 || sel_bits < 1 || sel_bits > 20)
+    if (cell->getParam(ID::Y_WIDTH).as_int() != 1 || sel_bits < 1 || sel_bits > max_sel_bits)
       return false;
     // A signed index reaches negative lanes, where $shiftx returns x rather
     // than a lane, so the permutation below would not be an identity.
