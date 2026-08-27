@@ -1,0 +1,24 @@
+logger -werror "solver effort budget"
+scratchpad -set opt_dff.sat_effort 1
+
+read_verilog <<EOT
+module top(input clk, input en, output reg qc, output reg qw);
+	initial qc = 1'b0;
+	initial qw = 1'b0;
+	always @(posedge clk) qc <= 1'b0;
+	always @(posedge clk) qw <= qw & en;
+endmodule
+EOT
+
+proc
+design -save gold
+
+# qc folds without a solver, qw needs a proof and must survive
+equiv_opt -undef -assert -multiclock opt_dff
+design -load postopt
+select -assert-count 1 t:$dff
+
+design -load gold
+scratchpad -set opt_dff.sat_effort 0
+opt_dff -sat
+select -assert-count 0 t:$dff

@@ -63,6 +63,15 @@ struct ConstBitsContext
 		return val;
 	}
 
+	// candidate constant of one ff bit, with every constant input already folded in
+	struct ConstCandidate {
+		State val = State::Sm;
+		SigBit d;
+		SigBit ad;
+
+		bool needs_proof() const { return d.wire || ad.wire; }
+	};
+
 	// one suspected-constant ff bit: q (output of cell at bit idx) looks stuck
 	// at val, and sat must show that every target feeds val back into the bit
 	struct ConstObligation {
@@ -102,13 +111,13 @@ struct ConstBitsContext
 		}
 	};
 
-	void commit_const(dict<Cell *, pool<int>> &const_bits, const ConstObligation &ob)
+	void commit_const(dict<Cell *, pool<int>> &const_bits, Cell *cell, int idx, SigBit q, State val)
 	{
 		log("Setting constant %d-bit at position %d on %s (%s) from module %s.\n",
-				ob.val == State::S1 ? 1 : 0, ob.idx, ob.cell, ob.cell->type.unescape(), worker.module);
-		worker.initvals.remove_init(ob.q);
-		worker.module->connect(ob.q, ob.val);
-		const_bits[ob.cell].insert(ob.idx);
+				val == State::S1 ? 1 : 0, idx, cell, cell->type.unescape(), worker.module);
+		worker.initvals.remove_init(q);
+		worker.module->connect(q, val);
+		const_bits[cell].insert(idx);
 	}
 
 	// a wire input can only be proven against a definite candidate value that
@@ -151,10 +160,40 @@ struct ConstBitsContext
 		return false;
 	}
 
-	// fold constant D/AD inputs into the candidate value; bits with remaining
-	// wire inputs get sat proof targets (only when -sat is in effect), bits
-	// with none are trivially proven
-	std::vector<ConstObligation> gather_const_obligations()
+	// fold every constant input into the candidate from check_constbit, so a
+	// wire input that sigmaps to a constant counts as constant too
+	ConstCandidate fold_const_inputs(FfData &ff, int i)
+	{
+		ConstCandidate cand;
+
+		State val = check_constbit(ff, i);
+		if (val == State::Sm)
+			return cand;
+
+		bool has_d = ff.has_clk || ff.has_gclk;
+		SigBit d = has_d ? worker.sigmap(ff.sig_d[i]) : SigBit();
+		SigBit ad = ff.has_aload ? worker.sigmap(ff.sig_ad[i]) : SigBit();
+
+		if (has_d) {
+			if (d.wire)
+				cand.d = d;
+			else
+				val = combine_const(val, d.data);
+		}
+		if (ff.has_aload) {
+			if (ad.wire)
+				cand.ad = ad;
+			else
+				val = combine_const(val, ad.data);
+		}
+
+		cand.val = val;
+		return cand;
+	}
+
+	// commit the bits that are constant by folding alone and return the ones
+	// that still have a wire input
+	std::vector<ConstObligation> fold_const_bits(dict<Cell *, pool<int>> &const_bits)
 	{
 		std::vector<ConstObligation> obligations;
 
@@ -165,45 +204,32 @@ struct ConstBitsContext
 			FfData ff(&worker.initvals, cell);
 
 			for (int i = 0; i < ff.width; i++) {
-				State val = check_constbit(ff, i);
-				if (val == State::Sm)
+				ConstCandidate cand = fold_const_inputs(ff, i);
+				if (cand.val == State::Sm)
 					continue;
 
-				bool has_d = ff.has_clk || ff.has_gclk;
-				SigBit d = has_d ? worker.sigmap(ff.sig_d[i]) : SigBit();
-				SigBit ad = ff.has_aload ? worker.sigmap(ff.sig_ad[i]) : SigBit();
-
-				// fold all const inputs first, so the sat targets are checked
-				// against the final candidate
-				if (has_d && !d.wire)
-					val = combine_const(val, d.data);
-				if (ff.has_aload && !ad.wire)
-					val = combine_const(val, ad.data);
-				if (val == State::Sm)
+				if (!cand.needs_proof()) {
+					commit_const(const_bits, cell, i, ff.sig_q[i], cand.val);
 					continue;
+				}
 
-				// remaining wire inputs need a sat proof, without -sat only
-				// bits with all-constant inputs are candidates (proven trivially)
-				bool needs_sat = (has_d && d.wire) || (ff.has_aload && ad.wire);
-				if (needs_sat && !worker.opt.sat)
+				if (!worker.opt.sat)
 					continue;
 
 				ConstObligation ob;
 				ob.cell = cell;
 				ob.idx = i;
-				ob.val = val;
+				ob.val = cand.val;
 				ob.q = ff.sig_q[i];
 
 				bool feasible = true;
-				if (has_d && d.wire)
-					feasible = add_const_target(ob, d);
-				if (feasible && ff.has_aload && ad.wire)
-					feasible = add_const_target(ob, ad);
+				if (cand.d.wire)
+					feasible = add_const_target(ob, cand.d);
+				if (feasible && cand.ad.wire)
+					feasible = add_const_target(ob, cand.ad);
 				if (!feasible)
 					continue;
 
-				if (ob.targets.empty())
-					ob.status = ConstObligation::Proven;
 				obligations.push_back(std::move(ob));
 			}
 		}
@@ -270,12 +296,11 @@ struct ConstBitsContext
 		}
 	}
 
-	// sat: prove or drop the still-pending obligations in place
+	// sat: prove or drop the pending obligations in place
 	void solve_const_obligations(std::vector<ConstObligation> &obligations)
 	{
-		int64_t num_queries = 0;
-		for (auto &ob : obligations)
-			num_queries += (ob.status == ConstObligation::Pending);
+		log_assert(worker.opt.sat);
+		int64_t num_queries = GetSize(obligations);
 		if (num_queries == 0)
 			return;
 
@@ -300,14 +325,16 @@ struct ConstBitsContext
 
 	bool run_constbits()
 	{
-		std::vector<ConstObligation> obligations = gather_const_obligations();
-
-		solve_const_obligations(obligations);
-
 		dict<Cell *, pool<int>> const_bits;
-		for (auto &ob : obligations)
-			if (ob.status == ConstObligation::Proven)
-				commit_const(const_bits, ob);
+
+		std::vector<ConstObligation> obligations = fold_const_bits(const_bits);
+
+		if (worker.opt.sat) {
+			solve_const_obligations(obligations);
+			for (auto &ob : obligations)
+				if (ob.status == ConstObligation::Proven)
+					commit_const(const_bits, ob.cell, ob.idx, ob.q, ob.val);
+		}
 
 		for (auto &[cell, drop] : const_bits)
 			worker.remove_ff_bits(cell, drop);
