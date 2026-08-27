@@ -530,7 +530,9 @@ struct OptAccumEnableWorker
 
 	int run()
 	{
-		for (auto cell : module->cells())
+		// Analysis above spans the whole module, but only selected registers
+		// are candidates for the rewrite.
+		for (auto cell : module->selected_cells())
 			run_ff(cell);
 		// Cones are exclusive to one accumulate each, so no two plans can touch
 		// the same cells and they can all be applied off the same analysis.
