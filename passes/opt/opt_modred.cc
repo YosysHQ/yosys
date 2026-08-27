@@ -573,9 +573,11 @@ struct OptModRedWorker : CutRegionWorker {
 		SigSpec leafsig;
 		for (auto bit : leaves)
 			leafsig.append(bit);
-		int64_t combos = int64_t(1) << GetSize(leafsig);
-		if (combos > (int64_t(1) << max_cut_bits))
+		// Compared before the shift, not after: max_bound_bits is a user option,
+		// and a cone that wide would shift past the width of the count itself.
+		if (GetSize(leafsig) > max_cut_bits)
 			return -1;
+		int64_t combos = int64_t(1) << GetSize(leafsig);
 
 		ConstEval &ce = shared_ce();
 		vector<Cell *> order;
@@ -2503,6 +2505,10 @@ struct OptModRedPass : public Pass {
 			if ((args[argidx] == "-max-bound-bits" || args[argidx] == "-max_bound_bits") &&
 			    argidx + 1 < args.size()) {
 				max_bound_bits = std::stoi(args[++argidx]);
+				// The sweep counts combinations in an int64_t, so a wider cone
+				// than that has no representable iteration count.
+				if (max_bound_bits < 0 || max_bound_bits > 62)
+					log_cmd_error("-max-bound-bits must be in 0..62\n");
 				continue;
 			}
 			break;
