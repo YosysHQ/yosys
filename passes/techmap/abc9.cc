@@ -178,7 +178,7 @@ struct Abc9Pass : public ScriptPass
 	std::stringstream exe_cmd;
 	bool dff_mode, cleanup;
 	bool lut_mode;
-	int maxlut;
+	int maxlut, xaiger;
 	std::string box_file;
 
 	void clear_flags() override
@@ -189,6 +189,7 @@ struct Abc9Pass : public ScriptPass
 		cleanup = true;
 		lut_mode = false;
 		maxlut = 0;
+		xaiger = 2;
 		box_file = "";
 	}
 
@@ -200,6 +201,7 @@ struct Abc9Pass : public ScriptPass
 		// get arguments from scratchpad first, then override by command arguments
 		dff_mode = design->scratchpad_get_bool("abc9.dff", dff_mode);
 		cleanup = !design->scratchpad_get_bool("abc9.nocleanup", !cleanup);
+		xaiger = design->scratchpad_get_int("abc9.xaiger", 2);
 
 		if (design->scratchpad_get_bool("abc9.debug")) {
 			cleanup = false;
@@ -361,6 +363,8 @@ struct Abc9Pass : public ScriptPass
 				if (help_mode) run("select =*");
 				else active_design->push_complete_selection();
 				run("techmap -wb -map %$abc9 -map +/techmap.v");
+				if (xaiger == 1)
+					run("aigmap");
 				run("opt -purge");
 				run("design -stash $abc9_holes");
 				run("design -load $abc9");
@@ -408,7 +412,10 @@ struct Abc9Pass : public ScriptPass
 						run_nocheck(stringf("abc9_ops -write_lut %s/input.lut", tempdir_name));
 					if (box_file.empty())
 						run_nocheck(stringf("abc9_ops -write_box %s/input.box", tempdir_name));
-					run_nocheck(stringf("write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
+					if (xaiger == 1)
+						run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
+					else
+						run_nocheck(stringf("write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
