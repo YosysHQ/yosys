@@ -936,6 +936,15 @@ struct OptShiftPass : public Pass {
     log("        (a OP b) >> c    ===>  (a >> c) OP (b >> c)\n");
     log("        where OP in {$and, $or, $xor, $add, $sub}\n");
     log("\n");
+    log("  -expand-keep-arith\n");
+    log("      Restrict -expand so a variable shift amount is not expanded\n");
+    log("      across $add/$sub, only a constant one. A constant amount is\n");
+    log("      free rewiring, but a variable amount is a barrel: expanding it\n");
+    log("      duplicates the barrel and moves it ahead of the carry chain, so\n");
+    log("      the amount's own cone gains the adder's whole depth instead of\n");
+    log("      bypassing it. On an N-operand add tree the rewrite cascades, so\n");
+    log("      one barrel behind the tree becomes N barrels in front of it.\n");
+    log("\n");
     log("  -sink\n");
     log("      Sink an add through a left shift, so the adder leaves the\n");
     log("      shifter output and can merge with the arithmetic feeding it:\n");
@@ -1009,6 +1018,7 @@ struct OptShiftPass : public Pass {
 
     bool run_combine = false;
     bool run_expand = false;
+    bool expand_keep_arith = false;
     bool run_sink = false;
     bool run_fuse = false;
     bool run_chain = false;
@@ -1028,6 +1038,11 @@ struct OptShiftPass : public Pass {
       }
       if (args[argidx] == "-expand") {
         run_expand = true;
+        continue;
+      }
+      if (args[argidx] == "-expand-keep-arith" ||
+          args[argidx] == "-expand_keep_arith") {
+        expand_keep_arith = true;
         continue;
       }
       if (args[argidx] == "-sink") {
@@ -1093,8 +1108,11 @@ struct OptShiftPass : public Pass {
           pm.setup(module->selected_cells());
           if (run_combine)
             pm.run_combine_shifts();
-          if (run_expand)
+          if (run_expand) {
+            // setup() zeroes udata, so the flag has to be set after it
+            pm.ud_expand_shifts.keep_arith = expand_keep_arith;
             pm.run_expand_shifts();
+          }
         }
         // Indexing the drivers and every $add is only worth it once we know a
         // variable-amount shifter exists; most modules have none and skip it
