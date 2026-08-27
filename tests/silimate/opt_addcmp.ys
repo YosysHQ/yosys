@@ -1,0 +1,209 @@
+# Tests for opt_addcmp.
+
+# ---------------------------------------------------------------------------
+log -header "Functional equivalence: all four relations, sum on the left"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {s >= c, s > c, s <= c, s < c};
+endmodule
+EOF
+proc; opt_clean
+rename ac gold
+
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {s >= c, s > c, s <= c, s < c};
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing ac
+opt_clean ac
+rename ac gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Functional equivalence: all four relations, sum on the right"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {c >= s, c > s, c <= s, c < s};
+endmodule
+EOF
+proc; opt_clean
+rename ac gold
+
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {c >= s, c > s, c <= s, c < s};
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing ac
+opt_clean ac
+rename ac gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Functional equivalence: mismatched operand widths, sum also used"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [15:0] a, input [9:0] b, input [17:0] c, output y, output [17:0] s_out);
+  wire [17:0] s = a + b;
+  assign y = s >= c;
+  assign s_out = s;
+endmodule
+EOF
+proc; opt_clean
+rename ac gold
+
+read_verilog -sv <<EOF
+module ac(input [15:0] a, input [9:0] b, input [17:0] c, output y, output [17:0] s_out);
+  wire [17:0] s = a + b;
+  assign y = s >= c;
+  assign s_out = s;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing ac
+opt_clean ac
+rename ac gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Structural rewrite: sole reader leaves the adder dead"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output y);
+  wire [12:0] s = a + b;
+  assign y = s >= c;
+endmodule
+EOF
+proc; opt_clean
+select -assert-count 1 t:$add
+select -assert-count 1 t:$ge
+opt_addcmp
+opt_clean
+# the adder is gone; one carry-save level plus the surviving comparator remain
+select -assert-count 0 t:$add
+select -assert-count 1 t:$ge
+select -assert-count 2 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: sum has other readers and -timing was not given"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output y, output [12:0] s_out);
+  wire [12:0] s = a + b;
+  assign y = s >= c;
+  assign s_out = s;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp
+select -assert-count 1 t:$add
+select -assert-count 0 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: shared sum on a comparator well off the critical path"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c,
+          input [11:0] p, input [11:0] q,
+          output y, output [12:0] s_out, output [47:0] deep);
+  wire [12:0] s = a + b;   // shallow: one add feeding one compare
+  assign y = s >= c;
+  assign s_out = s;
+  wire [23:0] m0 = p * q;  // multiplier cone the guard should call critical
+  assign deep = m0 * m0;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing
+select -assert-count 1 t:$add
+select -assert-count 0 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: truncating add compares a residue"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [11:0] c, output y);
+  wire [11:0] s = a + b;   // wraps: the comparison sees (a+b) mod 2**12
+  assign y = s >= c;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing
+select -assert-count 1 t:$add
+select -assert-count 0 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: signed compare"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input signed [11:0] a, input signed [11:0] b, input signed [12:0] c, output y);
+  wire signed [12:0] s = a + b;
+  assign y = s >= c;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing
+select -assert-count 1 t:$add
+select -assert-count 0 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: adder narrower than -min-width"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [3:0] a, input [3:0] b, input [4:0] c, output y);
+  wire [4:0] s = a + b;
+  assign y = s >= c;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing
+select -assert-count 1 t:$add
+select -assert-count 0 t:$xor
+design -reset
+log -pop

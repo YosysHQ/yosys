@@ -30,57 +30,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Unit-level delay heuristic, same shape as opt_timing_balance's: carry-chain
-// operators cost their log-depth, bitwise operators and muxes one level.
-static int log2p1_int(int w)
-{
-  int n = 0;
-  while (w > 0) { w >>= 1; n++; }
-  return n < 1 ? 1 : n;
-}
+#include "passes/silimate/unit_delay.h"
 
-static int estimate_cell_delay(RTLIL::Cell *cell)
-{
-  IdString t = cell->type;
-  if (t.in(ID($not), ID($pos), ID($_NOT_), ID($_BUF_)))
-    return 0;
-  int width = 1;
-  if (cell->hasParam(ID::Y_WIDTH))
-    width = cell->getParam(ID::Y_WIDTH).as_int();
-  else if (cell->hasParam(ID::WIDTH))
-    width = cell->getParam(ID::WIDTH).as_int();
-  if (t.in(ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor)))
-    return width < 1 ? 1 : width;
-  if (t.in(ID($add), ID($sub), ID($neg), ID($alu),
-           ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
-    return log2p1_int(width);
-  // Comparators and reductions collapse their operand width to one bit.
-  if (t.in(ID($lt), ID($le), ID($gt), ID($ge), ID($eq), ID($ne), ID($eqx), ID($nex),
-           ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor),
-           ID($reduce_bool), ID($logic_not), ID($logic_and), ID($logic_or)))
-    return log2p1_int(cell->hasParam(ID::A_WIDTH) ? cell->getParam(ID::A_WIDTH).as_int() : width);
-  if (t == ID($pmux))
-    return log2p1_int(cell->hasParam(ID::S_WIDTH) ? cell->getParam(ID::S_WIDTH).as_int() : 1);
-  return 1;
-}
-
-struct OptMuxPushWorker
+struct OptMuxPushWorker : UnitDelayTiming
 {
   RTLIL::Design *design;
-  RTLIL::Module *module;
-  SigMap sigmap;
 
-  dict<SigBit, RTLIL::Cell*> driver_map;
   dict<SigBit, int> fanout_map;
-  dict<SigBit, std::vector<RTLIL::Cell*>> consumer_map;
   pool<SigBit> keep_bits;
   pool<SigBit> port_out_bits;
-  dict<SigBit, int> arrival_cache;
-  pool<SigBit> arrival_active;
-  dict<SigBit, int> depart_cache;
-  pool<SigBit> depart_active;
-  int module_depth;
-  bool module_depth_valid;
 
   pool<IdString> target_types;
   int fanout_limit;
@@ -103,190 +61,13 @@ struct OptMuxPushWorker
       const pool<IdString> &target_types, int fanout_limit, bool timing_guard,
       int slack_margin, bool recover_folded, int hoist_gain, int farm_gain,
       int reindex_gain, int reindex_max_bits) :
-      design(design), module(module), sigmap(module), module_depth(0),
-      module_depth_valid(false),
+      UnitDelayTiming(module), design(design),
       target_types(target_types), fanout_limit(fanout_limit),
       timing_guard(timing_guard), slack_margin(slack_margin),
       recover_folded(recover_folded), hoist_gain(hoist_gain), farm_gain(farm_gain),
       reindex_gain(reindex_gain), reindex_max_bits(reindex_max_bits),
       total_count(0), hoist_count(0), farm_count(0), reindex_count(0)
   {
-  }
-
-  // Cached level, or 0 when absent (start point, constant, or broken loop edge).
-  static int level_of(const dict<SigBit, int> &cache, RTLIL::SigBit bit)
-  {
-    auto it = cache.find(bit);
-    return it == cache.end() ? 0 : it->second;
-  }
-
-  // Combinational driver of `bit`, and the bits feeding it. Null at a start
-  // point (constant, undriven / multi-driven, or register output).
-  RTLIL::Cell *driver_inputs(RTLIL::SigBit bit, std::vector<RTLIL::SigBit> &ins)
-  {
-    ins.clear();
-    auto it = driver_map.find(bit);
-    RTLIL::Cell *drv = it == driver_map.end() ? nullptr : it->second;
-    if (drv == nullptr || drv->is_builtin_ff())
-      return nullptr;
-    for (auto &conn : drv->connections())
-      if (drv->input(conn.first))
-        for (auto &in_bit : sigmap(conn.second))
-          ins.push_back(in_bit);
-    return drv;
-  }
-
-  // Output bits of a cell, flattened across its output ports.
-  void cell_outputs(RTLIL::Cell *cell, std::vector<RTLIL::SigBit> &outs)
-  {
-    outs.clear();
-    for (auto &conn : cell->connections())
-      if (cell->output(conn.first))
-        for (auto &out_bit : sigmap(conn.second))
-          outs.push_back(out_bit);
-  }
-
-  // Levels from a start point up to this bit.
-  int arrival_bit(RTLIL::SigBit bit)
-  {
-    if (bit.wire == nullptr)
-      return 0;
-    if (arrival_cache.count(bit))
-      return arrival_cache.at(bit);
-
-    std::vector<RTLIL::SigBit> stack{bit}, ins;
-    while (!stack.empty()) {
-      RTLIL::SigBit b = stack.back();
-      if (b.wire == nullptr || arrival_cache.count(b)) {
-        stack.pop_back();
-        continue;
-      }
-
-      // Push unresolved inputs; skip actives (loop) and constants (never cached).
-      RTLIL::Cell *drv = driver_inputs(b, ins);
-      bool ready = true;
-      for (auto &in_bit : ins)
-        if (in_bit.wire != nullptr && !arrival_cache.count(in_bit) &&
-            !arrival_active.count(in_bit)) {
-          stack.push_back(in_bit);
-          ready = false;
-        }
-      if (!ready) {
-        arrival_active.insert(b);
-        continue; // leave b on the stack; neighbours are above it now
-      }
-
-      int latest = 0;
-      for (auto &in_bit : ins)
-        latest = std::max(latest, level_of(arrival_cache, in_bit));
-      arrival_cache[b] = drv == nullptr ? 0 : latest + estimate_cell_delay(drv);
-      arrival_active.erase(b);
-      stack.pop_back();
-    }
-    return arrival_cache.at(bit);
-  }
-
-  int arrival(const RTLIL::SigSpec &sig)
-  {
-    int t = 0;
-    for (auto &bit : sigmap(sig))
-      t = std::max(t, arrival_bit(bit));
-    return t;
-  }
-
-  // Levels from this bit down to the latest endpoint that reads it.
-  int depart_bit(RTLIL::SigBit bit)
-  {
-    if (bit.wire == nullptr)
-      return 0;
-    if (depart_cache.count(bit))
-      return depart_cache.at(bit);
-
-    std::vector<RTLIL::SigBit> stack{bit}, outs;
-    while (!stack.empty()) {
-      RTLIL::SigBit b = stack.back();
-      if (b.wire == nullptr || depart_cache.count(b)) {
-        stack.pop_back();
-        continue;
-      }
-
-      // Push unresolved fanout bits; registers end a path (no neighbours).
-      bool ready = true;
-      auto it_cons = consumer_map.find(b);
-      if (it_cons != consumer_map.end())
-        for (auto cons : it_cons->second) {
-          if (cons->is_builtin_ff())
-            continue;
-          cell_outputs(cons, outs);
-          for (auto &out_bit : outs)
-            if (out_bit.wire != nullptr && !depart_cache.count(out_bit) &&
-                !depart_active.count(out_bit)) {
-              stack.push_back(out_bit);
-              ready = false;
-            }
-        }
-      if (!ready) {
-        depart_active.insert(b);
-        continue;
-      }
-
-      int worst = 0;
-      if (it_cons != consumer_map.end())
-        for (auto cons : it_cons->second) {
-          if (cons->is_builtin_ff())
-            continue;
-          int latest = 0;
-          cell_outputs(cons, outs);
-          for (auto &out_bit : outs)
-            latest = std::max(latest, level_of(depart_cache, out_bit));
-          worst = std::max(worst, estimate_cell_delay(cons) + latest);
-        }
-      depart_cache[b] = worst;
-      depart_active.erase(b);
-      stack.pop_back();
-    }
-    return depart_cache.at(bit);
-  }
-
-  // Longest path through this signal, in the same unit-delay currency as the
-  // module's own depth.
-  int path_depth(const RTLIL::SigSpec &sig)
-  {
-    int t = 0;
-    for (auto &bit : sigmap(sig))
-      t = std::max(t, arrival_bit(bit) + depart_bit(bit));
-    return t;
-  }
-
-  // The slack guard needs the module's longest path, which costs a full
-  // arrival+depart walk of every cell. Most modules never reach the guard --
-  // they hold no candidate of a target type, or none whose operand a mux
-  // drives -- so pay for the walk on first use rather than up front.
-  int longest_path()
-  {
-    if (module_depth_valid)
-      return module_depth;
-    module_depth_valid = true;
-    module_depth = 0;
-    for (auto cell : module->cells()) {
-      for (auto &conn : cell->connections()) {
-        if (!cell->output(conn.first))
-          continue;
-        for (auto &bit : sigmap(conn.second))
-          module_depth = std::max(module_depth, arrival_bit(bit) + depart_bit(bit));
-      }
-    }
-    return module_depth;
-  }
-
-  // Every rewrite invalidates the cached levels, so the next guard rebuilds.
-  void reset_timing()
-  {
-    arrival_cache.clear();
-    arrival_active.clear();
-    depart_cache.clear();
-    depart_active.clear();
-    module_depth_valid = false;
   }
 
   // A mux between two associable operators blocks the arithmetic tree
