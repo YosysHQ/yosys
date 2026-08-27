@@ -579,6 +579,26 @@ struct Index {
 				return OR(a, b);
 			else
 				log_abort();
+		} else if (cell->type.in(ID($mux), ID($bwmux), ID($_MUX_), ID($_NMUX_))) {
+			Lit s;
+			if (cell->type.in(ID($mux), ID($_MUX_)))
+				s = visit(cursor, cell->getPort(ID::S));
+			else
+				s = visit(cursor, cell->getPort(ID::S)[obit]);
+
+			Lit y;
+			if (const_folding && s == CFALSE) {
+				y = visit(cursor, cell->getPort(ID::A)[obit]);
+			} else if (const_folding && s == CTRUE) {
+				y = visit(cursor, cell->getPort(ID::B)[obit]);
+			} else {
+				Lit a = visit(cursor, cell->getPort(ID::A)[obit]);
+				Lit b = visit(cursor, cell->getPort(ID::B)[obit]);
+				y = MUX(a, b, s);
+			}
+			if (cell->type == ID($_NMUX_))
+				y = NOT(y);
+			return y;
 		} else if (cell->type.in(BITWISE_OPS, GATE_OPS, ID($pos))) {
 			SigSpec aport = cell->getPort(ID::A);
 			Lit a;
@@ -623,15 +643,6 @@ struct Index {
 					return AND(a, NOT(b));
 				} else if (cell->type.in(ID($_ORNOT_))) {
 					return OR(a, NOT(b));
-				} else if (cell->type.in(ID($mux), ID($_MUX_))) {
-					Lit s = visit(cursor, cell->getPort(ID::S));
-					return MUX(a, b, s);
-				} else if (cell->type.in(ID($bwmux))) {
-					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
-					return MUX(a, b, s);
-				} else if (cell->type.in(ID($_NMUX_))) {
-					Lit s = visit(cursor, cell->getPort(ID::S)[obit]);
-					return NOT(MUX(a, b, s));
 				} else if (cell->type.in(ID($fa))) {
 					Lit c = visit(cursor, cell->getPort(ID::C)[obit]);
 					Lit ab = XOR(a, b);
@@ -670,15 +681,22 @@ struct Index {
 			SigSpec sport = cell->getPort(ID::S);
 			int width = aport.size();
 
-			Lit a = visit(cursor, aport[obit]);
-
 			std::vector<Lit> bar, sels;
+			bool a_selectable = true;
 			for (int i = 0; i < sport.size(); i++) {
 				Lit s = visit(cursor, sport[i]);
+				if (const_folding && s == CFALSE)
+					continue;
+				if (const_folding && s == CTRUE)
+					a_selectable = false;
 				Lit b = visit(cursor, bport[width * i + obit]);
 				bar.push_back(NOT(AND(s, b)));
 				sels.push_back(NOT(s));
 			}
+
+			Lit a = CFALSE;
+			if (a_selectable)
+				a = visit(cursor, aport[obit]);
 
 			Lit reduce_sels = REDUCE(sels);
 			Lit reduce_sels_and_a = AND(reduce_sels, a);
@@ -828,10 +846,13 @@ struct Index {
 		}
 
 		int idx = cursor.bitwire_index(*this, bit);
+		if (lits[idx] == Writer::EMPTY_LIT - 1)
+			log_error("Combinational cycle through %s in %s\n", log_signal(bit), log_id(cursor.leaf_module(*this)));
 		if (lits[idx] != Writer::EMPTY_LIT) {
 			// literal already assigned
 			return lits[idx];
 		}
+		lits[idx] = Writer::EMPTY_LIT - 1;
 
 		// provide means for the derived class to override
 		// the visit behavior
