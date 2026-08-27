@@ -429,3 +429,65 @@ opt_vps -msb-inv-sext; opt_clean
 select -assert-count 1 t:$shr
 design -reset
 log -pop
+
+# =============================================================================
+# Test 15: SAT self-equivalence — gather over multi-bit elements
+# The fold treats a WIDTH=W $bmux as W gathers over strided slices of the table,
+# so one cell now lands in W groups and is retired by whichever folds first.
+# Prove the assembled words are unchanged before pinning the structure below.
+# =============================================================================
+log -header "SAT self-equivalence: multi-bit gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+rename opt_vps_gather_wide gold
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+opt_vps; opt_clean
+rename opt_vps_gather_wide gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 16: Cell counts — multi-bit gather folds to one barrel per element bit
+# Two banks of 8 lanes read a 16-entry table of 4-bit elements, giving 16 WIDTH=4
+# $bmux. Folding is per element bit, so the result is 4 barrels per bank and no
+# $bmux left. Before the width generalization every one of these was skipped.
+# =============================================================================
+log -header "Cell counts: multi-bit gather post-opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+
+select -assert-count 16 t:$bmux
+design -save pregather_wide
+
+opt_vps; opt_clean
+select -assert-count 0 t:$bmux
+select -assert-count 8 t:$shr
+
+# -min_gather 0 disables the fold, so every $bmux survives. This keeps the
+# assertions above from passing on a netlist that had nothing foldable.
+design -load pregather_wide
+opt_vps -min_gather 0; opt_clean
+select -assert-count 16 t:$bmux
+select -assert-count 0 t:$shr
+design -reset
+log -pop

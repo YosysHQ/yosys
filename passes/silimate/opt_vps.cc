@@ -381,9 +381,10 @@ struct OptVpsWorker
 	}
 
 	// Uniform bit-gather -> shared barrel shift.  With an arithmetic index
-	// expression Verific lowers `for (i...) y[i] = t[i - k]` per output bit
-	// (1-bit $bmux, or $shr with one used Y bit), never emitting the
-	// decoder + sliding-window $pmux the phases above match on.
+	// expression Verific lowers `for (i...) y[i] = t[i - k]` per output element
+	// ($bmux, or $shr with one used Y bit), never emitting the decoder +
+	// sliding-window $pmux the phases above match on.  Elements wider than a
+	// bit are split into one gather per element bit over a strided table slice.
 
 	typedef std::pair<SigSpec, bool> AffineAtom; // (signal, read as signed)
 	typedef std::map<AffineAtom, int64_t> CoeffMap;
@@ -825,6 +826,11 @@ struct OptVpsWorker
 	// Bits read by any cell input, module connection or output port.
 	pool<SigBit> read_bits;
 
+	// Folded gather cells, retired only once every group has been emitted: a
+	// multi-bit $bmux feeds one group per output bit, and the later groups still
+	// read the cell for its index and src attribute.
+	pool<Cell *> gather_dead;
+
 	void collect_read_bits()
 	{
 		for (auto cell : module->cells())
@@ -854,9 +860,14 @@ struct OptVpsWorker
 			SigSpec index;
 			int cand_width = 0;
 			int64_t bitpos = 0;
+			// One (table, ybit) pair per gather this cell contributes. A $bmux of
+			// WIDTH W is W independent gathers sharing one index, so it lands in W
+			// groups; a $shr gather always yields exactly one pair.
+			std::vector<std::pair<SigSpec, SigBit>> slices;
 
-			if (cell->type == ID($bmux) && cell->getParam(ID::WIDTH).as_int() == 1) {
+			if (cell->type == ID($bmux)) {
 				int sw = cell->getParam(ID::S_WIDTH).as_int();
+				int w = cell->getParam(ID::WIDTH).as_int();
 				if (sw < 2 || (1 << sw) > max_table)
 					continue;
 				key.kind = 0;
@@ -865,7 +876,23 @@ struct OptVpsWorker
 				idx = affine_of(index, 0);
 				if (!idx.ok || idx.exact_bits < sw)
 					continue;
-				ybit = sigmap(cell->getPort(ID::Y)[0]);
+				SigSpec a = sigmap(cell->getPort(ID::A));
+				SigSpec y = sigmap(cell->getPort(ID::Y));
+				int64_t m = int64_t(1) << sw;
+				if (w < 1 || GetSize(a) != w * m || GetSize(y) != w)
+					continue;
+				// $bmux is entry-major (Y = A[S*WIDTH +: WIDTH]), so output bit b
+				// gathers over the stride-W slice A[b], A[W+b], A[2W+b], ... Each
+				// slice is its own table, hence its own shared barrel shift; the
+				// W shifts together cost what one W*M-bit shift would.
+				for (int b = 0; b < w; b++) {
+					if (!read_bits.count(y[b]))
+						continue; // dead bit: nothing to drive
+					SigSpec tbl;
+					for (int64_t e = 0; e < m; e++)
+						tbl.append(a[e * w + b]);
+					slices.emplace_back(tbl, y[b]);
+				}
 			} else if (cell->type == ID($shr) &&
 			           !cell->getParam(ID::A_SIGNED).as_bool() &&
 			           !cell->getParam(ID::B_SIGNED).as_bool()) {
@@ -893,32 +920,38 @@ struct OptVpsWorker
 					continue;
 				ybit = y[used];
 				bitpos = used;
+				slices.emplace_back(sigmap(cell->getPort(ID::A)), ybit);
 			} else {
 				continue;
 			}
 
 			if (idx.coeffs.empty())
 				continue; // constant index: plain const-folding territory
-			key.table = sigmap(cell->getPort(ID::A));
-			if (GetSize(key.table) > 2 * max_table)
-				continue;
-
-			if (key.kind == 1) {
-				// opt_expr folds different constants to different index widths,
-				// so check the wrap guard per cell and let the group span widths:
-				// negative values must read as 0, not alias back into the table.
-				int64_t clo, chi;
-				if (!coeff_range(idx.coeffs, clo, chi))
-					continue;
-				int64_t mod = int64_t(1) << cand_width;
-				if (chi + idx.konst + bitpos >= mod ||
-				    clo + idx.konst + bitpos < GetSize(key.table) - mod)
-					continue;
-			}
 
 			key.coeffs = idx.coeffs;
-			groups[key].push_back({cell, ybit, index, cand_width,
-					       idx.konst + bitpos});
+			for (auto &slice : slices) {
+				key.table = slice.first;
+				if (GetSize(key.table) > 2 * max_table)
+					continue;
+
+				if (key.kind == 1) {
+					// opt_expr folds different constants to different index
+					// widths, so check the wrap guard per cell and let the
+					// group span widths: negative values must read as 0, not
+					// alias back into the table.
+					int64_t clo, chi;
+					if (!coeff_range(idx.coeffs, clo, chi))
+						continue;
+					int64_t mod = int64_t(1) << cand_width;
+					if (chi + idx.konst + bitpos >= mod ||
+					    clo + idx.konst + bitpos <
+						    GetSize(key.table) - mod)
+						continue;
+				}
+
+				groups[key].push_back({cell, slice.second, index, cand_width,
+						       idx.konst + bitpos});
+			}
 		}
 
 		for (auto &it : groups) {
@@ -964,6 +997,10 @@ struct OptVpsWorker
 				emit_zerofill_gather(key, cands, dmin, emax, lo, span, amt_bits);
 			}
 		}
+
+		for (auto cell : gather_dead)
+			remove_cell(cell);
+		gather_dead.clear();
 	}
 
 	// y_c = T[(v + lo + e_c) mod M], emitted as one $shr over T rotated by
@@ -1001,8 +1038,8 @@ struct OptVpsWorker
 
 		for (auto &c : cands) {
 			module->connect(c.ybit, SigBit(shifted, (c.konst - dmin) % M));
-			remove_cell(c.cell);
-			pmux_replaced++;
+			if (gather_dead.insert(c.cell).second)
+				pmux_replaced++;
 		}
 
 		log("  VPS gather: %d modular bit-select(s) (M=%d) -> $shr src=%d, "
@@ -1047,8 +1084,8 @@ struct OptVpsWorker
 
 		for (auto &c : cands) {
 			module->connect(c.ybit, SigBit(shifted, c.konst - dmin));
-			remove_cell(c.cell);
-			pmux_replaced++;
+			if (gather_dead.insert(c.cell).second)
+				pmux_replaced++;
 		}
 
 		log("  VPS gather: %d zero-fill bit-select(s) -> $shr src=%d, "
@@ -2487,13 +2524,14 @@ struct OptVpsPass : public Pass {
 		log("from O(N*W) to O(log(N)*W).\n");
 		log("\n");
 		log("UNIFORM GATHERS: with an arithmetic index expression Verific keeps\n");
-		log("the select per output bit (a 1-bit $bmux, or a $shr with a single\n");
-		log("used Y bit) instead of the decoder + $pmux form above. When a group\n");
-		log("of those shares one table and their indices are the same dynamic\n");
-		log("expression plus a per-bit constant, the group is one barrel shift:\n");
-		log("this pass proves the affine relation, then replaces the group with a\n");
-		log("single $shr whose shift amount is narrowed to the provable range of\n");
-		log("that expression.\n");
+		log("the select per output element (a $bmux, or a $shr with a single used\n");
+		log("Y bit) instead of the decoder + $pmux form above. When a group of\n");
+		log("those shares one table and their indices are the same dynamic\n");
+		log("expression plus a per-element constant, the group is one barrel\n");
+		log("shift: this pass proves the affine relation, then replaces the group\n");
+		log("with a single $shr whose shift amount is narrowed to the provable\n");
+		log("range of that expression. Elements wider than one bit fold into one\n");
+		log("$shr per element bit, over a strided slice of the table.\n");
 		log("\n");
 		log("    -min_stride <n>\n");
 		log("        Minimum stride (S_WIDTH of the VPS write $pmux cells) to\n");
