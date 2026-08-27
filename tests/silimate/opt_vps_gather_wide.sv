@@ -7,8 +7,7 @@
 // barrel over W*M bits would, so splitting the fold per bit is free.
 //
 // Two banks, added and subtracted index, as in the byte-FIFO staging windows
-// this targets. They cannot share a group, so each cell contributes a candidate
-// to W groups and is retired by whichever of them folds first.
+// this targets. They cannot share a group, so each bank folds on its own.
 module opt_vps_gather_wide (
 	input  wire [15:0][3:0] tbl,
 	input  wire [3:0]       base,
