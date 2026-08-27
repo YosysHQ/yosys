@@ -1,0 +1,98 @@
+# muxpush -gather-reindex: swap a two-level gather onto the early column index.
+#
+# `base` is deliberately the output of an adder chain: the reindex only pays
+# when the shared base is what makes the read late, so a nest whose indices are
+# all module inputs is correctly left alone.
+
+# A set/way pair derived from one computed base: row = ka ^ base and
+# col = kb ^ base[3:0], so the column index is an early function of the row one
+# and the inner stage comes off the late path.
+read_verilog -sv <<EOT
+module pos(input [5:0] s0, input [5:0] s1, input [5:0] s2,
+           input [5:0] ka, input [3:0] kb, input [1023:0] tab, output y);
+  wire [5:0] base = (s0 + s1) + s2;
+  wire [5:0] row = ka ^ base;
+  wire [3:0] col = kb ^ base[3:0];
+  wire [63:0] cols [0:15];
+  wire [15:0] picked;
+  genvar p, r;
+  generate
+    for (p = 0; p < 16; p = p + 1) begin
+      for (r = 0; r < 64; r = r + 1)
+        assign cols[p][r] = tab[r*16 + p];
+      assign picked[p] = cols[p][row];
+    end
+  endgenerate
+  assign y = picked[col];
+endmodule
+EOT
+hierarchy -top pos
+proc
+opt_clean
+
+# 16 column gathers plus the root.
+select -assert-count 17 t:$shiftx
+equiv_opt -assert muxpush -gather-reindex
+design -load postopt
+opt_clean
+# 64 row gathers plus the root. The column xor is dead once the root reads the
+# row index instead, leaving the row xor and the emitted rebase.
+select -assert-count 65 t:$shiftx
+select -assert-count 2 t:$xor
+
+# The two indices must be offsets of one shared base. Here the column index is
+# computed from an unrelated input, so no xor identity relates them and the swap
+# would not preserve equivalence: the pass must leave the nest alone.
+design -reset
+read_verilog -sv <<EOT
+module neg(input [5:0] s0, input [5:0] s1, input [5:0] s2, input [3:0] other,
+           input [5:0] ka, input [3:0] kb, input [1023:0] tab, output y);
+  wire [5:0] base = (s0 + s1) + s2;
+  wire [5:0] row = ka ^ base;
+  wire [3:0] col = kb ^ other;
+  wire [63:0] cols [0:15];
+  wire [15:0] picked;
+  genvar p, r;
+  generate
+    for (p = 0; p < 16; p = p + 1) begin
+      for (r = 0; r < 64; r = r + 1)
+        assign cols[p][r] = tab[r*16 + p];
+      assign picked[p] = cols[p][row];
+    end
+  endgenerate
+  assign y = picked[col];
+endmodule
+EOT
+hierarchy -top neg
+proc
+opt_clean
+select -assert-count 17 t:$shiftx
+muxpush -gather-reindex
+select -assert-count 17 t:$shiftx
+
+# Off by default: the matching design must come out untouched without the flag.
+design -reset
+read_verilog -sv <<EOT
+module def(input [5:0] s0, input [5:0] s1, input [5:0] s2,
+           input [5:0] ka, input [3:0] kb, input [1023:0] tab, output y);
+  wire [5:0] base = (s0 + s1) + s2;
+  wire [5:0] row = ka ^ base;
+  wire [3:0] col = kb ^ base[3:0];
+  wire [63:0] cols [0:15];
+  wire [15:0] picked;
+  genvar p, r;
+  generate
+    for (p = 0; p < 16; p = p + 1) begin
+      for (r = 0; r < 64; r = r + 1)
+        assign cols[p][r] = tab[r*16 + p];
+      assign picked[p] = cols[p][row];
+    end
+  endgenerate
+  assign y = picked[col];
+endmodule
+EOT
+hierarchy -top def
+proc
+opt_clean
+muxpush
+select -assert-count 17 t:$shiftx
