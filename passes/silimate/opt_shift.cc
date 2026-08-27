@@ -734,7 +734,16 @@ void descale_find_candidates(Module *module, SigMap &sigmap, const dict<SigBit, 
       }
       shr = it->second;
     }
-    if (!whole || sigmap(shr->getPort(ID::A)) != sum)
+    if (!whole)
+      continue;
+
+    // The shifter may read the sum zero-extended: RTL that declares the scaled
+    // word wider than the increment needs leaves hard zeros above the sum, and
+    // shifting a zero right is still a zero. Anything else up there is a value
+    // the rescaled shifter, which reads x rather than the sum, cannot reproduce.
+    SigSpec shifted = sigmap(shr->getPort(ID::A));
+    if (GetSize(shifted) < GetSize(sum) || shifted.extract(0, GetSize(sum)) != sum ||
+        !shifted.extract_end(GetSize(sum)).is_fully_zero())
       continue;
 
     SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
