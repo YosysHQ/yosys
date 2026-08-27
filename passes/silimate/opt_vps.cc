@@ -617,9 +617,13 @@ struct OptVpsWorker
 		lo += a.konst;
 		hi += a.konst;
 		// The interval bounds the operand only while the form stays inside its
-		// own exactness; past that the form is a residue, not a value.
-		if (lo < 0 || hi >= n || a.exact_bits < 1 ||
-		    hi >= (int64_t(1) << a.exact_bits))
+		// own exactness; past that the form is a residue, not a value. Clamp
+		// before shifting: a wide $shl can carry exact_bits past 63, where the
+		// shift would be UB. Anything that exact already covers hi, which
+		// coeff_range caps well below 2^62, so the clamp changes no decision.
+		int64_t exact_bits = std::min<int64_t>(a.exact_bits, AFFINE_EXACT);
+		if (lo < 0 || hi >= n || exact_bits < 1 ||
+		    hi >= (int64_t(1) << exact_bits))
 			return SigSpec();
 		return cell->getPort(ID::A);
 	}
