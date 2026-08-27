@@ -72,6 +72,21 @@ code
 			reject;
 	}
 
+	// The OP pads a narrow operand out to its own width with its own signedness,
+	// but the expanded form hands that operand straight to a shift that pads with
+	// the shift's instead. Those agree only when there is nothing to pad or the
+	// two flags match, so a signed operand under an unsigned shift (or the
+	// reverse) has to stay where it is.
+	{
+		int op_bits = GetSize(port(op_gate, \Y));
+		bool shift_signed = shift_gate->getParam(\A_SIGNED).as_bool();
+		if ((GetSize(port(op_gate, \A)) < op_bits &&
+		     op_gate->getParam(\A_SIGNED).as_bool() != shift_signed) ||
+		    (GetSize(port(op_gate, \B)) < op_bits &&
+		     op_gate->getParam(\B_SIGNED).as_bool() != shift_signed))
+			reject;
+	}
+
 	// Only a left shift reaches here on $add/$sub, and that rewrite is sound but
 	// not free. A constant amount is rewiring, so splitting it in two costs
 	// nothing; a variable one is a barrel, and duplicating it also moves it ahead

@@ -487,3 +487,50 @@ select -assert-count 1 t:$add
 select -assert-count 2 t:$shl
 design -reset
 log -pop
+
+
+
+log -header "Negative: a signed ADD whose operands need padding, under an unsigned SHL"
+log -push
+design -reset
+# Only RTLIL can hold this: Verilog widens the operands before the add, and
+# wreduce materializes the padding as explicit bit replication on the shift's A,
+# which no longer reads the add's Y whole.
+read_rtlil <<EOT
+module \top
+  wire signed width 4 input 1 \a
+  wire signed width 4 input 2 \b
+  wire width 2 input 3 \c
+  wire width 8 output 4 \y
+  wire width 8 \t
+  cell $add \op
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 1
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $shl \sh
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \y
+  end
+end
+EOT
+hierarchy -top top
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# the add sign-extends a and b to 8 bits; an unsigned shift would zero-extend
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
