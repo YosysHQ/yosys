@@ -1,5 +1,6 @@
 logger -nowarn "Yosys has only limited support for tri-state logic at the moment\. .*"
 logger -nowarn "Ignoring boxed module .*\."
+logger -nowarn "Feature 'write_xaiger2' is experimental\."
 
 read_verilog <<EOT
 module top(input [24:0] A, input [17:0] B, output [47:0] P);

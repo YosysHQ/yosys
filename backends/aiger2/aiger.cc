@@ -1430,7 +1430,7 @@ struct XAigerWriter : AigerWriter {
 							bit = conn[i];
 						} else {
 							// FIXME: hierarchical path
-							log_warning("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
+							log_debug("connection on port %s[%d] of instance %s (type %s) missing, using 1'bx\n",
 										port_id.unescape(), i, box, box->type.unescape());
 							bit = RTLIL::Sx;
 						}
@@ -1466,7 +1466,7 @@ struct XAigerWriter : AigerWriter {
 							bit = conn[i];
 						} else {
 							// FIXME: hierarchical path
-							log_warning("connection on port %s[%d] of instance %s (type %s) missing\n",
+							log_debug("connection on port %s[%d] of instance %s (type %s) missing\n",
 										port_id.unescape(), i, box, box->type.unescape());
 							pad_pi();
 							continue;
