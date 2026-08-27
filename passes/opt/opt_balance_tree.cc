@@ -48,6 +48,9 @@ struct OptBalanceTreeWorker {
 	pool<SigSpec> input_port_sigs;
 	pool<Cell*> consumed_cells;
 
+	// Width the sliced-add cluster currently being extracted truncates to
+	int sliced_head_width = 0;
+
 	// Check if cell is of the right type and has matching input/output widths
 	// Only allow cells with "natural" output widths (no truncation) to prevent
 	// equivalence issues when rebalancing (see YosysHQ/yosys#5605)
@@ -86,6 +89,28 @@ struct OptBalanceTreeWorker {
 				!cell->getParam(ID::B_SIGNED).as_bool();
 	}
 
+	// SILIMATE: is_right_type() admits an $add that discards its own carry out, but a
+	// tree rebuilt from that cell's operands computes the carry back. The restored bit
+	// only stays invisible where something downstream discards it again, so every
+	// carry-dropping link needs the callers below to prove that.
+	bool drops_carry(Cell *cell)
+	{
+		if (!cell || cell->type != ID($add))
+			return false;
+		int a_width = cell->getParam(ID::A_WIDTH).as_int();
+		int b_width = cell->getParam(ID::B_WIDTH).as_int();
+		return cell->getParam(ID::Y_WIDTH).as_int() < std::max(a_width, b_width) + 1;
+	}
+
+	// SILIMATE: merging drv into sink is only sound when sink truncates at least as
+	// hard as drv, since mod-2**n addition is associative but mod-2**n then mod-2**m
+	// with m > n is not
+	bool carry_link_unsafe(Cell *drv, Cell *sink)
+	{
+		return drops_carry(drv) &&
+				drv->getParam(ID::Y_WIDTH).as_int() < sink->getParam(ID::Y_WIDTH).as_int();
+	}
+
 	bool is_nonzero(const SigSpec &sig)
 	{
 		for (auto bit : sig)
@@ -106,6 +131,10 @@ struct OptBalanceTreeWorker {
 		auto sig = sigmap(cell->getPort(port));
 		Cell *drv = sig_to_driver[sig];
 		if (!drv || !is_right_type(drv, cell_type))
+			return nullptr;
+		// SILIMATE: the rebuilt tree keeps only the head cell's truncation, so a
+		// carry-dropping driver cannot join a wider consumer
+		if (carry_link_unsafe(drv, cell))
 			return nullptr;
 		for (auto bit : sig)
 			if (input_port_sigs.count(bit) && !consumed_cells.count(drv))
@@ -238,6 +267,11 @@ struct OptBalanceTreeWorker {
 			int child_width = 0;
 			if (full_child_output_at(sig, i, child, child_width, ctx))
 			{
+				// SILIMATE: a carry-dropping child placed below the head's truncation
+				// would have its restored carry land on a bit the head still keeps,
+				// where it collides with whatever else drives that position.
+				if (drops_carry(child) && base_offset + i + child_width < sliced_head_width)
+					return false;
 				if (i != 0 || child_width != GetSize(sig))
 					saw_sliced_edge = true;
 				if (!extract_sliced_add(child, base_offset + i, summands, cluster, visiting, ctx, saw_sliced_edge))
@@ -350,6 +384,7 @@ struct OptBalanceTreeWorker {
 		vector<SigSpec> summands;
 		pool<Cell*> cluster, visiting;
 		bool saw_sliced_edge = false;
+		sliced_head_width = GetSize(sigmap(head_cell->getPort(ID::Y)));
 		if (!extract_sliced_add(head_cell, 0, summands, cluster, visiting, ctx, saw_sliced_edge))
 			return false;
 		if (!saw_sliced_edge || GetSize(cluster) <= 1 || GetSize(summands) <= 2)
@@ -437,6 +472,15 @@ struct OptBalanceTreeWorker {
 				// Pick the longest one
 				auto y = sigmap(cell->getPort(ID::Y));
 				pool<Cell*> sinks;
+
+				// SILIMATE: a sink the carry guard refuses to merge ends the chain
+				// here, so this cell heads its own subchain
+				for (auto x : sig_to_sink[y])
+					if (is_right_type(x, cell_type) && carry_link_unsafe(cell, x)) {
+						sinks.insert(cell);
+						break;
+					}
+
 				pool<Cell*> current_loads = sig_to_sink[y];
 				pool<Cell*> next_loads;
 				pool<Cell*> visited_loads;

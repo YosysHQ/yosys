@@ -1514,3 +1514,199 @@ select i:v %co4 o:x %i -assert-count 1
 
 design -reset
 log -pop
+
+
+# Test 35
+log -header "Truncating ADD is not merged into a wider ADD"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0]  a, b,
+  input  wire [15:0] c,
+  output wire [15:0] y
+);
+  wire [7:0] t = a + b;      // carry out of bit 7 is discarded here
+  assign y = c + {8'd0, t};  // but a rebalanced tree would compute it back
+endmodule
+EOF
+check -assert
+proc
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+wreduce
+
+# Both adds survive: the chain is cut at the truncating one
+select t:$add -assert-count 2
+
+design -reset
+log -pop
+
+
+# Test 36
+log -header "Truncating ADD still heads its own subchain"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] a, b, c, d, e,
+  output wire [8:0] y
+);
+  // The sink takes t directly, so cutting the chain there would leave t's own
+  // adders with no chain head at all unless the cut cell becomes one.
+  wire [7:0] t = a + b + c + d;  // modular chain, safe to rebalance on its own
+  assign y = t + e;
+endmodule
+EOF
+check -assert
+proc
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+wreduce
+
+# The wide add stays outside the tree, which is balanced as (a + b) + (c + d)
+select t:$add -assert-count 4
+select o:y %ci2 t:$add %i -assert-count 1
+select i:a %co2 t:$add %i -set a_cell
+select i:b %co2 t:$add %i -set b_cell
+select i:c %co2 t:$add %i -set c_cell
+select i:d %co2 t:$add %i -set d_cell
+select @a_cell @b_cell %i -assert-count 1
+select @c_cell @d_cell %i -assert-count 1
+
+design -reset
+log -pop
+
+
+# Test 37
+log -header "Same-width modular ADD chain is still balanced"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [31:0] a, b, c, d,
+  output wire [31:0] y
+);
+  assign y = a + b + c + d;  // every add truncates to 32 bits, so mod-2**32 assoc
+endmodule
+EOF
+check -assert
+proc
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+wreduce
+
+# Balanced to depth 2: (a + b) + (c + d)
+select t:$add -assert-count 3
+select i:a %co2 t:$add %i -set a_cell
+select i:b %co2 t:$add %i -set b_cell
+select i:c %co2 t:$add %i -set c_cell
+select i:d %co2 t:$add %i -set d_cell
+select @a_cell @b_cell %i -assert-count 1
+select @c_cell @d_cell %i -assert-count 1
+
+design -reset
+log -pop
+
+
+# Test 38
+log -header "Sliced ADD chain with a truncating child is skipped"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a, b, c,
+  output wire [31:0] y
+);
+  wire [15:0] s0;
+
+  // s0 discards its carry, and s0 sits at bit 14 of add1's operand, so that
+  // carry would land on bit 30 -- a bit add1 still keeps.
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(16), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B({14'b0, b[15:14]}), .Y(s0));
+  \$add #(.A_WIDTH(30), .B_WIDTH(30), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0, b[13:0]}), .B({14'b0, c}), .Y(y));
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 1 c:add0
+select -assert-count 1 c:add1
+
+design -reset
+log -pop
+
+
+# Test 39
+log -header "Sliced ADD chain with a discarded child carry is balanced"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top (
+  input  wire [15:0] a, b, c, d,
+  output wire [31:0] y
+);
+  wire [15:0] s0;
+
+  // s0 discards its carry too, but at bit 16 of add1's operand that carry
+  // lands on bit 32, which add1 truncates away anyway.
+  \$add #(.A_WIDTH(16), .B_WIDTH(16), .Y_WIDTH(16), .A_SIGNED(0), .B_SIGNED(0))
+    add0 (.A(a), .B(b), .Y(s0));
+  \$add #(.A_WIDTH(32), .B_WIDTH(32), .Y_WIDTH(32), .A_SIGNED(0), .B_SIGNED(0))
+    add1 (.A({s0, c}), .B({16'b0, d}), .Y(y));
+endmodule
+EOF
+check -assert
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+select -assert-count 0 c:add0 c:add1
+
+design -reset
+log -pop
+
+
+# Test 40
+log -header "Truncating ADD is not merged into a wider ADD that zero-extends it"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input  wire [7:0] a, b, c,
+  output wire [8:0] y
+);
+  // No concatenation here: the extension lives in the sink's port widths, so
+  // this reaches the plain chain matcher rather than the sliced-add one.
+  wire [7:0] t = a + b;
+  assign y = t + c;
+endmodule
+EOF
+check -assert
+proc
+
+design -save preopt
+equiv_opt -assert opt_balance_tree
+design -load preopt
+opt_balance_tree
+wreduce
+
+# Both adds survive: the chain is cut at the truncating one
+select t:$add -assert-count 2
+
+design -reset
+log -pop
