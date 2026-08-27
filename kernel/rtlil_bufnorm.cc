@@ -28,6 +28,19 @@
 YOSYS_NAMESPACE_BEGIN
 
 
+static void buf_norm_seed_queues(RTLIL::Module *module)
+{
+	for (auto cell : module->cells())
+	for (auto &conn : cell->connections()) {
+		if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
+			continue;
+		module->buf_norm_cell_queue.insert(cell);
+		module->buf_norm_cell_port_queue.emplace(cell, conn.first);
+	}
+	for (auto wire : module->wires())
+		module->buf_norm_wire_queue.insert(wire);
+}
+
 void RTLIL::Design::bufNormalize(bool enable)
 {
 	if (!enable)
@@ -44,37 +57,22 @@ void RTLIL::Design::bufNormalize(bool enable)
 				wire->driverPort_ = IdString();
 			}
 			module->buf_norm_connect_index.clear();
-			module->buf_norm_initialized = false;
 		}
 
 		flagBufferedNormalized = false;
 		return;
 	}
 
-	flagBufferedNormalized = true;
+	if (!flagBufferedNormalized)
+	{
+		for (auto module : modules())
+			buf_norm_seed_queues(module);
+
+		flagBufferedNormalized = true;
+	}
 
 	for (auto module : modules())
 		module->bufNormalize();
-}
-
-void RTLIL::Module::bufNormalizeInit()
-{
-	// When entering buf normalized mode, we need the first module-level bufNormalize
-	// call to know about all drivers, about all module ports (whether represented by
-	// a cell or not) and about all used but undriven wires (whether represented by a
-	// cell or not). We ensure this by enqueing all cell output ports and all wires.
-
-	for (auto cell : cells())
-	for (auto &conn : cell->connections()) {
-		if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
-			continue;
-		buf_norm_cell_queue.insert(cell);
-		buf_norm_cell_port_queue.emplace(cell, conn.first);
-	}
-	for (auto wire : wires())
-		buf_norm_wire_queue.insert(wire);
-
-	buf_norm_initialized = true;
 }
 
 struct bit_drive_data_t {
@@ -93,11 +91,6 @@ void RTLIL::Module::bufNormalize()
 
 	if (!design->flagBufferedNormalized)
 		return;
-
-	// A module added after the design entered buf normalized mode has to be
-	// enqueued before its first pass
-	if (!buf_norm_initialized)
-		bufNormalizeInit();
 
 	if (!buf_norm_cell_queue.empty() || !buf_norm_wire_queue.empty() || !connections_.empty())
 	{
@@ -676,6 +669,27 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	}
 	conn_it->second = std::move(signal);
 
+}
+
+void RTLIL::Design::add(RTLIL::Module *module)
+{
+	log_assert(modules_.count(module->name) == 0);
+	log_assert(refcount_modules_ == 0);
+	modules_[module->name] = module;
+	module->design = this;
+
+	for (auto mon : monitors)
+		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", module);
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	if (flagBufferedNormalized) {
+		buf_norm_seed_queues(module);
+		module->bufNormalize();
+	}
 }
 
 YOSYS_NAMESPACE_END

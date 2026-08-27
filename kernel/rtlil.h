@@ -2115,8 +2115,6 @@ public:
 	pool<RTLIL::Wire *> buf_norm_wire_queue;
 	pool<RTLIL::Cell *> pending_deleted_cells;
 	dict<RTLIL::Wire *, pool<RTLIL::Cell *>> buf_norm_connect_index;
-	bool buf_norm_initialized = false;
-	void bufNormalizeInit();
 	void bufNormalize();
 
 	template<typename T> void rewrite_sigspecs(T &functor);
