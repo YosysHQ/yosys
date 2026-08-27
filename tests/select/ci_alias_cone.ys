@@ -1,0 +1,26 @@
+read_rtlil <<RTLIL
+autoidx 1
+module \top
+  wire input 1 \a
+  wire output 1 \y
+  wire \n0
+  wire \n1
+  wire \n2
+  cell $_NOT_ \u0
+    connect \A \a
+    connect \Y \n0
+  end
+  connect \n1 \n0
+  connect \n2 \n1
+  connect \y \n2
+end
+RTLIL
+
+select -assert-count 5 o:y %ci1
+select -assert-count 1 o:y %ci1 t:$_NOT_ %i
+select -assert-count 0 o:y %ci1 i:a %i
+select -assert-count 6 o:y %ci2
+
+select -assert-count 2 i:a %co1
+select -assert-count 6 i:a %co2
+select -assert-count 1 i:a %co2 o:y %i

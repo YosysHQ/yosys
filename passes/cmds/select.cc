@@ -486,6 +486,69 @@ static int parse_comma_list(std::set<RTLIL::IdString> &tokens, const std::string
 	}
 }
 
+static bool select_add_wire(RTLIL::Selection &lhs, RTLIL::Module *mod, RTLIL::Wire *wire,
+		pool<RTLIL::IdString> &selected_members, int &sel_objects, int &max_objects)
+{
+	if (!selected_members.insert(wire->name).second)
+		return false;
+
+	lhs.selected_members[mod->name].insert(wire->name);
+	sel_objects++;
+	max_objects--;
+	return true;
+}
+
+static bool select_reach_wire(RTLIL::Selection &lhs, RTLIL::Module *mod, RTLIL::Wire *wire,
+		std::set<RTLIL::Wire*> &selected_wires, pool<RTLIL::IdString> &selected_members,
+		std::set<RTLIL::IdString> &limits, int &sel_objects, int &max_objects)
+{
+	if (!select_add_wire(lhs, mod, wire, selected_members, sel_objects, max_objects))
+		return false;
+	if (limits.count(wire->name))
+		return false;
+
+	return selected_wires.insert(wire).second;
+}
+
+static bool select_expand_aliases(RTLIL::Selection &lhs, RTLIL::Module *mod, std::set<RTLIL::Wire*> &selected_wires,
+		pool<RTLIL::IdString> &selected_members, std::set<RTLIL::IdString> &limits, char mode,
+		int &sel_objects, int &max_objects)
+{
+	bool expanded = false;
+
+	for (auto &conn : mod->connections())
+	{
+		std::vector<RTLIL::SigBit> conn_lhs = conn.first.to_sigbit_vector();
+		std::vector<RTLIL::SigBit> conn_rhs = conn.second.to_sigbit_vector();
+
+		for (size_t i = 0; i < conn_lhs.size(); i++)
+		{
+			RTLIL::Wire *lhs_wire = conn_lhs[i].wire;
+			RTLIL::Wire *rhs_wire = conn_rhs[i].wire;
+
+			if (lhs_wire == nullptr || rhs_wire == nullptr)
+				continue;
+
+			if (mode != 'i' && selected_wires.count(rhs_wire))
+				expanded |= select_reach_wire(lhs, mod, lhs_wire, selected_wires, selected_members, limits, sel_objects, max_objects);
+
+			if (mode != 'o' && selected_wires.count(lhs_wire))
+				expanded |= select_reach_wire(lhs, mod, rhs_wire, selected_wires, selected_members, limits, sel_objects, max_objects);
+		}
+	}
+
+	return expanded;
+}
+
+static void select_close_aliases(RTLIL::Selection &lhs, RTLIL::Module *mod, std::set<RTLIL::Wire*> &selected_wires,
+		pool<RTLIL::IdString> &selected_members, std::set<RTLIL::IdString> &limits, char mode,
+		int &sel_objects, int &max_objects)
+{
+	bool expanded = true;
+	while (expanded && max_objects != 0)
+		expanded = select_expand_aliases(lhs, mod, selected_wires, selected_members, limits, mode, sel_objects, max_objects);
+}
+
 static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::vector<expand_rule_t> &rules, std::set<RTLIL::IdString> &limits, int max_objects, char mode, NewCellTypes &ct, bool eval_only)
 {
 	int sel_objects = 0;
@@ -502,20 +565,9 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			if (lhs.selected_member(mod->name, wire->name) && limits.count(wire->name) == 0)
 				selected_wires.insert(wire);
 
-		for (auto &conn : mod->connections())
-		{
-			std::vector<RTLIL::SigBit> conn_lhs = conn.first.to_sigbit_vector();
-			std::vector<RTLIL::SigBit> conn_rhs = conn.second.to_sigbit_vector();
+		select_close_aliases(lhs, mod, selected_wires, selected_members, limits, mode, sel_objects, max_objects);
 
-			for (size_t i = 0; i < conn_lhs.size(); i++) {
-				if (conn_lhs[i].wire == nullptr || conn_rhs[i].wire == nullptr)
-					continue;
-				if (mode != 'i' && selected_wires.count(conn_rhs[i].wire) && selected_members.count(conn_lhs[i].wire->name) == 0)
-					lhs.selected_members[mod->name].insert(conn_lhs[i].wire->name), sel_objects++, max_objects--;
-				if (mode != 'o' && selected_wires.count(conn_lhs[i].wire) && selected_members.count(conn_rhs[i].wire->name) == 0)
-					lhs.selected_members[mod->name].insert(conn_rhs[i].wire->name), sel_objects++, max_objects--;
-			}
-		}
+		std::set<RTLIL::Wire*> cell_wires;
 
 		for (auto cell : mod->cells())
 		for (auto &conn : cell->connections())
@@ -544,12 +596,19 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 					if (max_objects != 0 && selected_wires.count(chunk.wire) > 0 && selected_members.count(cell->name) == 0)
 						if (mode == 'x' || (mode == 'i' && is_output) || (mode == 'o' && is_input))
 							lhs.selected_members[mod->name].insert(cell->name), sel_objects++, max_objects--;
-					if (max_objects != 0 && selected_members.count(cell->name) > 0 && limits.count(cell->name) == 0 && selected_members.count(chunk.wire->name) == 0)
+					if (max_objects != 0 && selected_members.count(cell->name) > 0 && limits.count(cell->name) == 0)
 						if (mode == 'x' || (mode == 'i' && is_input) || (mode == 'o' && is_output))
-							lhs.selected_members[mod->name].insert(chunk.wire->name), sel_objects++, max_objects--;
+							if (select_add_wire(lhs, mod, chunk.wire, selected_members, sel_objects, max_objects))
+								cell_wires.insert(chunk.wire);
 				}
 		exclude_match:;
 		}
+
+		for (auto wire : cell_wires)
+			if (limits.count(wire->name) == 0)
+				selected_wires.insert(wire);
+
+		select_close_aliases(lhs, mod, selected_wires, selected_members, limits, mode, sel_objects, max_objects);
 	}
 
 	return sel_objects;
