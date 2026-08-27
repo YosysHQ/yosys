@@ -28,6 +28,7 @@
 #include "kernel/register.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/rtlil.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -43,9 +44,11 @@ PRIVATE_NAMESPACE_BEGIN
 				 ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_), \
 				 ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)
 
-#define CMP_OPS ID($eq), ID($ne), ID($lt), ID($le), ID($ge), ID($gt)
+#define CMP_OPS ID($eq), ID($ne), ID($eqx), ID($nex), ID($lt), ID($le), ID($ge), ID($gt)
 
 #define ARITH_OPS ID($add), ID($sub), ID($neg)
+
+#define SHIFT_OPS ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)
 
 static constexpr auto known_ops = []() constexpr {
 	StaticCellTypes::Categories::Category c{};
@@ -61,7 +64,9 @@ static constexpr auto known_ops = []() constexpr {
 		c.set_id(id);
 	for (auto id : {ARITH_OPS})
 		c.set_id(id);
-	for (auto id : {ID($pos), ID($pmux), ID($bmux)})
+	for (auto id : {SHIFT_OPS})
+		c.set_id(id);
+	for (auto id : {ID($pos), ID($pmux), ID($bmux), ID($mul)})
 		c.set_id(id);
 	return c;
 }();
@@ -315,6 +320,9 @@ struct Index {
 	// Carry out of each bit of an arithmetic cell
 	dict<CellInstance, std::vector<Lit>> carry_chains;
 
+	// Product bits of a multiplier cell
+	dict<CellInstance, std::vector<Lit>> mul_products;
+
 	// Carry into obit
 	Lit arith_carry(HierCursor &cursor, Cell *cell, SigSpec &aport, SigSpec &bport,
 					bool complement, int obit)
@@ -349,10 +357,145 @@ struct Index {
 		return XOR(XOR(a, complement ? NOT(b) : b), carry);
 	}
 
+	// Shift-add multiplier
+	Lit impl_mul(HierCursor &cursor, Cell *cell, int obit)
+	{
+		CellInstance key(cursor.instance_offset, cell);
+
+		if (!mul_products.count(key)) {
+			int width = cell->getParam(ID::Y_WIDTH).as_int();
+			SigSpec aport, bport;
+			arith_operands(cell, aport, bport);
+
+			std::vector<Lit> alits;
+			for (int i = 0; i < width; i++)
+				alits.push_back(visit(cursor, aport[i]));
+
+			std::vector<Lit> acc(width, CFALSE);
+			for (int j = 0; j < width; j++) {
+				Lit b = visit(cursor, bport[j]);
+				Lit carry = CFALSE;
+				for (int i = j; i < width; i++) {
+					Lit p = AND(alits[i - j], b);
+					Lit sum = XOR(XOR(acc[i], p), carry);
+					if (i != width - 1)
+						carry = CARRY(acc[i], p, carry);
+					acc[i] = sum;
+				}
+			}
+			mul_products[key] = acc;
+		}
+
+		auto &products = mul_products.at(key);
+		if (obit >= (int) products.size())
+			return CFALSE;
+		return products[obit];
+	}
+
+	struct ShiftDesc {
+		SigSpec aport;
+		SigSpec bport;
+		int width; // width of the vector being shifted 
+		Lit pad;
+		Lit fill;
+		bool left;
+	};
+
+	Lit shift_source_bit(HierCursor &cursor, ShiftDesc &desc, long long idx)
+	{
+		if (idx < 0)
+			return CFALSE;
+		if (idx < desc.aport.size())
+			return visit(cursor, desc.aport[(int) idx]);
+		if (idx < desc.width)
+			return desc.pad;
+		return desc.fill;
+	}
+
+	Lit shift_bit(HierCursor &cursor, ShiftDesc &desc, long long idx, int nbits)
+	{
+		if (!desc.left && idx >= desc.width)
+			return desc.fill;
+		if (!desc.left && idx + (1LL << nbits) <= 0)
+			return CFALSE;
+		if (desc.left && idx < 0)
+			return CFALSE;
+		if (nbits == 0)
+			return shift_source_bit(cursor, desc, idx);
+
+		int k = nbits - 1;
+		Lit b = visit(cursor, desc.bport[k]);
+		Lit low = shift_bit(cursor, desc, idx, k);
+		long long step = 1LL << k;
+		if (desc.left)
+			step = -step;
+		Lit high = shift_bit(cursor, desc, idx + step, k);
+		return MUX(low, high, b);
+	}
+
+	Lit impl_shift(HierCursor &cursor, Cell *cell, int obit)
+	{
+		ShiftDesc desc;
+		desc.aport = cell->getPort(ID::A);
+		desc.bport = cell->getPort(ID::B);
+		bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
+		bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+		int ywidth = cell->getParam(ID::Y_WIDTH).as_int();
+
+		log_assert(!b_signed || cell->type.in(ID($shift), ID($shiftx)));
+
+		desc.left = cell->type.in(ID($shl), ID($sshl));
+		desc.width = std::max(desc.aport.size(), ywidth);
+
+		desc.pad = CFALSE;
+		if (a_signed && !desc.aport.empty())
+			desc.pad = visit(cursor, desc.aport.msb());
+		desc.fill = CFALSE;
+		if (cell->type == ID($sshr))
+			desc.fill = desc.pad;
+
+		// number of shift amount bits to mux over
+		int bb = ceil_log2(desc.width) + 1;
+		if (b_signed)
+			bb++;
+		if (bb > desc.bport.size())
+			bb = desc.bport.size();
+
+		Lit bsign = CFALSE;
+		if (b_signed && bb > 0)
+			bsign = visit(cursor, desc.bport[bb - 1]);
+
+		Lit overflow = CFALSE;
+		for (int i = bb; i < desc.bport.size(); i++) {
+			Lit b = visit(cursor, desc.bport[i]);
+			if (b_signed)
+				b = XOR(b, bsign);
+			overflow = OR(overflow, b);
+		}
+
+		Lit y;
+		if (b_signed && bb > 0) {
+			// top bit of a signed shift amount has negative weight
+			Lit bpos = shift_bit(cursor, desc, obit, bb - 1);
+			Lit bneg = shift_bit(cursor, desc, (long long) obit - (1LL << (bb - 1)), bb - 1);
+			y = MUX(bpos, bneg, bsign);
+		} else {
+			y = shift_bit(cursor, desc, obit, bb);
+		}
+
+		return MUX(y, desc.fill, overflow);
+	}
+
 	Lit impl_op(HierCursor &cursor, Cell *cell, IdString oport, int obit)
 	{
 		if (cell->type.in(ARITH_OPS))
 			return impl_arith(cursor, cell, obit);
+
+		if (cell->type.in(SHIFT_OPS))
+			return impl_shift(cursor, cell, obit);
+
+		if (cell->type == ID($mul))
+			return impl_mul(cursor, cell, obit);
 
 		if (cell->type.in(REDUCE_OPS, LOGIC_OPS, CMP_OPS) && obit != 0) {
 			return CFALSE;
@@ -366,14 +509,14 @@ struct Index {
 			aport.extend_u0(width, asigned);
 			bport.extend_u0(width, bsigned);
 
-			if (cell->type.in(ID($eq), ID($ne))) {
+			if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex))) {
 				int carry = CTRUE;
 				for (int i = 0; i < width; i++) {
 					Lit a = visit(cursor, aport[i]);
 					Lit b = visit(cursor, bport[i]);
 					carry = AND(carry, XNOR(a, b));
 				}
-				return (cell->type == ID($eq)) ? carry : /* $ne */ NOT(carry);
+				return cell->type.in(ID($eq), ID($eqx)) ? carry : /* $ne, $nex */ NOT(carry);
 			} else if (cell->type.in(ID($lt), ID($le), ID($gt), ID($ge))) {
 				if (cell->type.in(ID($gt), ID($ge)))
 					std::swap(aport, bport);

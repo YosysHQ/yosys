@@ -224,3 +224,76 @@ rename top gold
 read_aiger -module_name gate aiger2_flatten.aig
 miter -equiv -flatten gold gate miter
 sat -verify -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module test();
+
+`define BIOP(name,op,w1,w2,wy) \
+wire [w1-1:0] name``_a1; \
+wire [w2-1:0] name``_b1; \
+wire [wy-1:0] name``_y1; \
+assign name``_y1 = name``_a1 op name``_b1; \
+wire signed [w1-1:0] name``_a2; \
+wire signed [w2-1:0] name``_b2; \
+wire [wy-1:0] name``_y2; \
+assign name``_y2 = name``_a2 op name``_b2;
+
+`BIOP(shl, <<, 3, 6, 6)
+`BIOP(shr, >>, 6, 6, 3)
+`BIOP(sshl, <<<, 3, 6, 6)
+`BIOP(sshr, >>>, 6, 6, 3)
+`BIOP(eqx, ===, 3, 4, 1)
+`BIOP(nex, !==, 3, 4, 1)
+`BIOP(mul, *, 3, 4, 6)
+`BIOP(mul_trunc, *, 4, 4, 3)
+
+wire [5:0] shift1_a; wire [3:0] shift1_b; wire [2:0] shift1_y;
+\$shift #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(6), .B_WIDTH(4), .Y_WIDTH(3)) shift1 (.A(shift1_a), .B(shift1_b), .Y(shift1_y));
+wire [2:0] shift2_a; wire [3:0] shift2_b; wire [5:0] shift2_y;
+\$shift #(.A_SIGNED(1), .B_SIGNED(0), .A_WIDTH(3), .B_WIDTH(4), .Y_WIDTH(6)) shift2 (.A(shift2_a), .B(shift2_b), .Y(shift2_y));
+wire [5:0] shift3_a; wire [6:0] shift3_b; wire [2:0] shift3_y;
+\$shift #(.A_SIGNED(0), .B_SIGNED(1), .A_WIDTH(6), .B_WIDTH(7), .Y_WIDTH(3)) shift3 (.A(shift3_a), .B(shift3_b), .Y(shift3_y));
+wire [2:0] shift4_a; wire [6:0] shift4_b; wire [5:0] shift4_y;
+\$shift #(.A_SIGNED(1), .B_SIGNED(1), .A_WIDTH(3), .B_WIDTH(7), .Y_WIDTH(6)) shift4 (.A(shift4_a), .B(shift4_b), .Y(shift4_y));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+copy test gold
+select test
+write_aiger2 aiger2_shift_mul.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_shift_mul.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+miter -equiv -make_outcmp -flatten gold test miter
+sat -verify -show-ports -prove trigger 0 miter
+
+design -reset
+read_verilog -icells <<EOF
+module test();
+wire [5:0] shiftx1_a; wire [6:0] shiftx1_b; wire [2:0] shiftx1_y;
+\$shiftx #(.A_SIGNED(0), .B_SIGNED(1), .A_WIDTH(6), .B_WIDTH(7), .Y_WIDTH(3)) shiftx1 (.A(shiftx1_a), .B(shiftx1_b), .Y(shiftx1_y));
+wire [5:0] shiftx2_a; wire [2:0] shiftx2_b; wire [2:0] shiftx2_y;
+\$shiftx #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(6), .B_WIDTH(3), .Y_WIDTH(3)) shiftx2 (.A(shiftx2_a), .B(shiftx2_b), .Y(shiftx2_y));
+endmodule
+EOF
+
+expose -input c:* %ci* w:* %i
+expose c:* %co* w:* %i
+splitnets -ports
+opt_clean
+copy test gold
+select test
+write_aiger2 aiger2_shiftx.aig
+select -clear
+delete test
+read_aiger -module_name test aiger2_shiftx.aig
+select -assert-none test/t:$_AND_ test/t:$_NOT_ %% test/c:* %D
+
+equiv_make gold test equiv
+equiv_induct -undef equiv
+equiv_status -assert equiv
