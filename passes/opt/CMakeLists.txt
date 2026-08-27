@@ -144,6 +144,10 @@ yosys_pass(opt_disjoint_add
 	opt_disjoint_add.cc
 )
 
+yosys_pass(opt_accum_enable
+	opt_accum_enable.cc
+)
+
 pmgen_command(peepopt
 	peepopt_shiftmul_right.pmg
 	peepopt_shiftmul_left.pmg
