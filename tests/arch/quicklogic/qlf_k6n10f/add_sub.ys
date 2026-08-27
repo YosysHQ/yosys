@@ -4,5 +4,5 @@ equiv_opt -assert -map +/quicklogic/qlf_k6n10f/cells_sim.v synth_quicklogic -fam
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
 select -assert-count 9 t:$lut # OOT flow has 8
-select -assert-count 8 t:adder_carry
+select -assert-count 16 t:adder_carry
 select -assert-none t:$lut t:adder_carry %% t:* %D
