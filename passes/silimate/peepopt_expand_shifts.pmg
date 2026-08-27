@@ -11,6 +11,12 @@ pattern expand_shifts
 //
 // where OP in {$and, $or, $xor, $add, $sub}
 //
+// A right shift discards the low bits, so it only commutes with an OP that
+// computes each result bit from the same position of its operands. $add/$sub
+// carry across positions, and the carry out of the discarded window is lost:
+// (0 - 1) >> 2 is 8'h3f, while (0 >> 2) - (1 >> 2) is 0. Those are restricted
+// to left shifts, which discard nothing.
+//
 
 state <SigSpec> op_a op_b op_y  shift_amt shift_y
 
@@ -43,12 +49,35 @@ match shift_gate
 endmatch
 
 code
-	// A constant amount is free rewiring, so splitting it in two costs nothing,
-	// but a variable one is a barrel. Duplicating that is bad enough on its own;
-	// across $add/$sub it also moves the barrel ahead of the carry chain, so the
-	// amount's cone gains the adder's whole depth instead of bypassing it. On an
-	// N-operand add tree the rewrite cascades, ending with N barrels in front of
-	// the tree rather than one behind it.
+	// Soundness first, then cost: the guards below reject rewrites that are
+	// wrong, the -expand-keep-arith one at the end rejects one that is merely
+	// expensive.
+
+	// Only an OP that is bitwise in its operand positions survives the discard
+	if (shift_gate->type.in($shr, $sshr) && !op_gate->type.in($and, $or, $xor))
+		reject;
+
+	// The OP truncates at its own width while the expanded form truncates at the
+	// shift's, so a bit the OP drops must not be able to come back underneath a
+	// wider shifted result. A $sub wraps whenever it goes negative, whatever its
+	// operand widths; an $add only when it has no room for the carry out; a
+	// bitwise OP only when an operand reaches above its own result.
+	{
+		int op_bits = GetSize(port(op_gate, \Y));
+		int operand_bits = std::max(GetSize(port(op_gate, \A)), GetSize(port(op_gate, \B)));
+		bool drops_bits = op_gate->type.in($sub) ? true
+			: op_gate->type.in($add) ? op_bits <= operand_bits
+			: op_bits < operand_bits;
+		if (drops_bits && op_bits < GetSize(port(shift_gate, \Y)))
+			reject;
+	}
+
+	// Only a left shift reaches here on $add/$sub, and that rewrite is sound but
+	// not free. A constant amount is rewiring, so splitting it in two costs
+	// nothing; a variable one is a barrel, and duplicating it also moves it ahead
+	// of the carry chain, so the amount's cone gains the adder's whole depth
+	// instead of bypassing it. On an N-operand add tree the rewrite cascades,
+	// ending with N barrels in front of the tree rather than one behind it.
 	if (keep_arith && op_gate->type.in($add, $sub) && !shift_amt.is_fully_const())
 		reject;
 endcode

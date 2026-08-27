@@ -391,3 +391,99 @@ select -assert-count 1 t:$add
 select -assert-count 4 t:$shl
 design -reset
 log -pop
+
+
+log -header "Negative: SHR across SUB loses the borrow out of the discarded window"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  wire [7:0] d = a - 8'd1;
+  assign x = d >> c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# (0 - 1) >> 2 is 8'h3f, while (0 >> 2) - (1 >> 2) is 0
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: SHR across ADD loses the carry out of the discarded window"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b) >> c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: a truncating ADD under a wider SHL"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [1:0] c,
+  output wire [15:0] x
+);
+  wire [7:0] s = a + b;
+  assign x = s << c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# the carry the add drops at bit 8 would come back inside the 16-bit result
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across a non-truncating ADD, observed wider than the add"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [1:0] c,
+  output wire [15:0] x
+);
+  wire [8:0] s = a + b;
+  assign x = s << c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# 9 bits hold every sum, so there is nothing for the wider shift to expose
+select -assert-count 1 t:$add
+select -assert-count 2 t:$shl
+design -reset
+log -pop

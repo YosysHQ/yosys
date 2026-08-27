@@ -465,3 +465,56 @@ select -assert-count 1 t:$shr
 select -assert-count 0 c:*_descale
 design -reset
 log -pop
+
+
+log -header "Padded sum: the shifter reads the increment zero-extended"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [13:0] x,
+  input wire [4:0]  s,
+  output wire [15:0] y
+);
+  wire [14:0] xp1 = x + 1'b1;
+  wire [16:0] a   = {2'b00, xp1} >> s;
+  assign y = (a == 0) ? 16'd0 : a[15:0] - 16'd1;
+endmodule
+EOT
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# high zero padding does not change the value, so the round trip still collapses
+select -assert-count 0 t:$add
+# the shifter, the decrement and the zero test all get renamed for formal
+select -assert-count 3 c:*_descale
+design -reset
+log -pop
+
+
+
+log -header "Negative: padding that is not a constant zero"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [13:0] x,
+  input wire [4:0]  s,
+  input wire        p,
+  output wire [15:0] y
+);
+  wire [14:0] xp1 = x + 1'b1;
+  wire [16:0] a   = {p, 1'b0, xp1} >> s;
+  assign y = (a == 0) ? 16'd0 : a[15:0] - 16'd1;
+endmodule
+EOT
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the pad carries a value of its own, so dropping it would change the shift
+select -assert-count 1 t:$add
+select -assert-count 0 c:*_descale
+design -reset
+log -pop
