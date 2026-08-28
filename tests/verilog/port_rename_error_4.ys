@@ -1,0 +1,16 @@
+# Swapping names for two ports
+logger -expect error "not declared in module header" 1
+read_verilog << EOF
+module gate_swap (
+    .a(b),
+    .b(a),
+    c
+);
+    input a;
+    input b;
+    output c;
+    assign c = a & !b;
+endmodule
+EOF
+logger -check-expected
+design -reset
