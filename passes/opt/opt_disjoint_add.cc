@@ -161,7 +161,7 @@ struct OptDisjointAddWorker : CutRegionWorker
 		if (eval_exhausted())
 			return false;
 
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		for (int v = 0; v < cases; v++) {
 			ce.push();
 			ce.set(support_sig, const_u64((uint64_t)v, n));

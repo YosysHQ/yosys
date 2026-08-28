@@ -80,6 +80,7 @@ struct OptMuxPushWorker
   dict<SigBit, int> depart_cache;
   pool<SigBit> depart_active;
   int module_depth;
+  bool module_depth_valid;
 
   pool<IdString> target_types;
   int fanout_limit;
@@ -103,6 +104,7 @@ struct OptMuxPushWorker
       int slack_margin, bool recover_folded, int hoist_gain, int farm_gain,
       int reindex_gain, int reindex_max_bits) :
       design(design), module(module), sigmap(module), module_depth(0),
+      module_depth_valid(false),
       target_types(target_types), fanout_limit(fanout_limit),
       timing_guard(timing_guard), slack_margin(slack_margin),
       recover_folded(recover_folded), hoist_gain(hoist_gain), farm_gain(farm_gain),
@@ -256,8 +258,15 @@ struct OptMuxPushWorker
     return t;
   }
 
-  void compute_module_depth()
+  // The slack guard needs the module's longest path, which costs a full
+  // arrival+depart walk of every cell. Most modules never reach the guard --
+  // they hold no candidate of a target type, or none whose operand a mux
+  // drives -- so pay for the walk on first use rather than up front.
+  int longest_path()
   {
+    if (module_depth_valid)
+      return module_depth;
+    module_depth_valid = true;
     module_depth = 0;
     for (auto cell : module->cells()) {
       for (auto &conn : cell->connections()) {
@@ -267,6 +276,17 @@ struct OptMuxPushWorker
           module_depth = std::max(module_depth, arrival_bit(bit) + depart_bit(bit));
       }
     }
+    return module_depth;
+  }
+
+  // Every rewrite invalidates the cached levels, so the next guard rebuilds.
+  void reset_timing()
+  {
+    arrival_cache.clear();
+    arrival_active.clear();
+    depart_cache.clear();
+    depart_active.clear();
+    module_depth_valid = false;
   }
 
   // A mux between two associable operators blocks the arithmetic tree
@@ -381,7 +401,7 @@ struct OptMuxPushWorker
     // Whatever depth the push buys locally, it can only shorten the module's
     // longest path if this operator sits on one. Anywhere else it duplicates
     // the operator for a win no endpoint ever sees.
-    int slack = module_depth - path_depth(cell->getPort(ID::Y));
+    int slack = longest_path() - path_depth(cell->getPort(ID::Y));
     if (slack > slack_margin)
       return false;
 
@@ -734,12 +754,7 @@ struct OptMuxPushWorker
   void run_hoist()
   {
     build_connectivity();
-    arrival_cache.clear();
-    arrival_active.clear();
-    depart_cache.clear();
-    depart_active.clear();
-    if (timing_guard)
-      compute_module_depth();
+    reset_timing();
 
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
@@ -772,7 +787,7 @@ struct OptMuxPushWorker
         chains_cheap++;
         continue;
       }
-      if (timing_guard && path_depth(out) < module_depth - slack_margin) {
+      if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
         chains_slack++;
         continue;
       }
@@ -1012,12 +1027,7 @@ struct OptMuxPushWorker
   {
     for (int iter = 0; iter < max_farm_iters; iter++) {
       build_connectivity();
-      arrival_cache.clear();
-      arrival_active.clear();
-      depart_cache.clear();
-      depart_active.clear();
-      if (timing_guard)
-        compute_module_depth();
+      reset_timing();
 
       pool<RTLIL::Cell*> cells_to_remove;
       pool<RTLIL::SigBit> touched_bits;
@@ -1048,7 +1058,7 @@ struct OptMuxPushWorker
           farms_cheap++;
           continue;
         }
-        if (timing_guard && path_depth(out) < module_depth - slack_margin) {
+        if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
           farms_slack++;
           continue;
         }
@@ -1329,12 +1339,7 @@ struct OptMuxPushWorker
   void run_reindex()
   {
     build_connectivity();
-    arrival_cache.clear();
-    arrival_active.clear();
-    depart_cache.clear();
-    depart_active.clear();
-    if (timing_guard)
-      compute_module_depth();
+    reset_timing();
 
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
@@ -1377,7 +1382,7 @@ struct OptMuxPushWorker
         nests_cheap++;
         continue;
       }
-      if (timing_guard && path_depth(out) < module_depth - slack_margin) {
+      if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
         nests_slack++;
         continue;
       }
@@ -1397,12 +1402,7 @@ struct OptMuxPushWorker
     while (true)
     {
       build_connectivity();
-      arrival_cache.clear();
-      arrival_active.clear();
-      depart_cache.clear();
-      depart_active.clear();
-      if (timing_guard)
-        compute_module_depth();
+      reset_timing();
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
@@ -1759,9 +1759,30 @@ struct OptMuxPushPass : public Pass {
       target_types.insert(type);
     }
 
+    // run() and the farm sweep start from a cell of a target type, -hoist-late
+    // also from a bare mux chain, and -gather-reindex from a gather nest. A
+    // module holding none of those can produce no candidate, so skip it before
+    // the worker builds a sigmap and a connectivity map over it. On a design of
+    // many small modules that bookkeeping, not the matching, is what the pass
+    // spends its time on. Anything added here that sweeps from a new root type
+    // has to be admitted below, or its candidates go unseen.
+    auto module_has_work = [&](RTLIL::Module *mod) {
+      for (auto cell : mod->cells()) {
+        if (target_types.count(cell->type))
+          return true;
+        if (hoist_late && cell->type.in(ID($mux), ID($pmux)))
+          return true;
+        if (gather_reindex && cell->type.in(ID($bmux), ID($shiftx)))
+          return true;
+      }
+      return false;
+    };
+
     int total_count = 0, hoist_count = 0, farm_count = 0, reindex_count = 0;
     for (auto module : design->selected_modules()) {
       if (module->get_bool_attribute(ID::blackbox))
+        continue;
+      if (!module_has_work(module))
         continue;
       OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard,
           slack_margin, recover_folded, hoist_gain, farm_gain, reindex_gain,
