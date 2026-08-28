@@ -50,6 +50,7 @@ struct OptVpsWorker
 	int gathers_folded = 0;
 	int min_stride;
 	bool msb_inv_sext;
+	bool dead_mod;
 	pool<Cell *> vps_shr_cells;
 
 	// Decoder $shl output bit -> (decoder, one-hot position).  Lets the
@@ -66,9 +67,10 @@ struct OptVpsWorker
 	dict<SigSpec, Cell *> reduce_or_map;
 	bool reduce_or_map_valid = false;
 
-	OptVpsWorker(Module *module, int min_stride, bool msb_inv_sext = false)
+	OptVpsWorker(Module *module, int min_stride, bool msb_inv_sext = false,
+		     bool dead_mod = false)
 		: module(module), sigmap(module), min_stride(min_stride),
-		  msb_inv_sext(msb_inv_sext)
+		  msb_inv_sext(msb_inv_sext), dead_mod(dead_mod)
 	{
 		rebuild_maps();
 	}
@@ -585,7 +587,67 @@ struct OptVpsWorker
 			return r;
 		}
 
+		if (!dead_mod_operand(cell, depth).empty()) {
+			r = affine_of(cell->getPort(ID::A), depth + 1);
+			r.exact_bits = AFFINE_EXACT;
+			return r;
+		}
+
 		return r;
+	}
+
+	// `x % const` is the identity when the operand provably never reaches the
+	// divisor. RTL guards a circular index that way even where the wrap is
+	// unreachable, and the modulo alone stops the gather group it indexes from
+	// being affine. Returns the operand it passes through, else an empty spec.
+	SigSpec dead_mod_operand(Cell *cell, int depth)
+	{
+		if (!dead_mod || !cell->type.in(ID($mod), ID($modfloor)) ||
+		    !cell->getPort(ID::B).is_fully_const() ||
+		    cell->getParam(ID::A_SIGNED).as_bool() ||
+		    cell->getParam(ID::B_SIGNED).as_bool())
+			return SigSpec();
+		int64_t n;
+		if (!const_to_i64(cell->getPort(ID::B), n) || n < 1)
+			return SigSpec();
+		Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+		int64_t lo, hi;
+		if (!a.ok || !coeff_range(a.coeffs, lo, hi))
+			return SigSpec();
+		lo += a.konst;
+		hi += a.konst;
+		// The interval bounds the operand only while the form stays inside its
+		// own exactness; past that the form is a residue, not a value. Clamp
+		// before shifting: a wide $shl can carry exact_bits past 63, where the
+		// shift would be UB. Anything that exact already covers hi, which
+		// coeff_range caps well below 2^62, so the clamp changes no decision.
+		int64_t exact_bits = std::min<int64_t>(a.exact_bits, AFFINE_EXACT);
+		if (lo < 0 || hi >= n || exact_bits < 1 ||
+		    hi >= (int64_t(1) << exact_bits))
+			return SigSpec();
+		return cell->getPort(ID::A);
+	}
+
+	// The emitted barrel takes its amount from the index signal itself, so a
+	// modulo the affine reading looked through has to be bypassed here too or
+	// the gather trades a mux network for a divider on its amount path.
+	// Bounded because a combinational loop would otherwise not terminate.
+	static const int MAX_DEAD_MOD_DEPTH = 8;
+	SigSpec strip_dead_mod(SigSpec index)
+	{
+		for (int guard = 0; guard < MAX_DEAD_MOD_DEPTH; guard++) {
+			SigSpec s = sigmap(index);
+			if (s.empty())
+				break;
+			Cell *drv = bit_drivers.at(s[0], nullptr);
+			if (!drv || !drv->hasPort(ID::Y) || sigmap(drv->getPort(ID::Y)) != s)
+				break;
+			SigSpec a = dead_mod_operand(drv, 0);
+			if (a.empty())
+				break;
+			index = a;
+		}
+		return index;
 	}
 
 	// Length of the maximal prefix of `sig` that is one coherent value: either
@@ -872,7 +934,7 @@ struct OptVpsWorker
 					continue;
 				key.kind = 0;
 				key.width = sw;
-				index = cell->getPort(ID::S);
+				index = strip_dead_mod(cell->getPort(ID::S));
 				idx = affine_of(index, 0);
 				if (!idx.ok || idx.exact_bits < sw)
 					continue;
@@ -904,7 +966,7 @@ struct OptVpsWorker
 					continue;
 				key.kind = 1;
 				key.width = 0;
-				index = cell->getPort(ID::B);
+				index = strip_dead_mod(cell->getPort(ID::B));
 				SigSpec bsig = sigmap(index);
 				cand_width = GetSize(bsig);
 				while (cand_width > 1 && bsig[cand_width - 1] == State::S0)
@@ -2569,6 +2631,15 @@ struct OptVpsPass : public Pass {
 		log("        extra barrel and leaving the group misaligned with the\n");
 		log("        select farm reading it.\n");
 		log("\n");
+		log("    -dead-mod\n");
+		log("        Read `x %% const` as x where the operand provably never\n");
+		log("        reaches the divisor. RTL guards a circular index that way\n");
+		log("        even where the wrap is unreachable, and the modulo alone\n");
+		log("        stops the gather group it indexes from being affine, so\n");
+		log("        the whole group stays one mux network per output bit. A\n");
+		log("        divisor the index can really reach is a rotate, not a\n");
+		log("        window read, and is left alone.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
@@ -2576,6 +2647,7 @@ struct OptVpsPass : public Pass {
 		int min_gather = 4;
 		int max_gather_table = 4096;
 		bool msb_inv_sext = false;
+		bool dead_mod = false;
 
 		log_header(design, "Executing OPT_VPS pass (optimize Verific VPS patterns).\n");
 
@@ -2597,6 +2669,10 @@ struct OptVpsPass : public Pass {
 				msb_inv_sext = true;
 				continue;
 			}
+			if (args[argidx] == "-dead-mod" || args[argidx] == "-dead_mod") {
+				dead_mod = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2608,7 +2684,7 @@ struct OptVpsPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			OptVpsWorker worker(module, min_stride, msb_inv_sext);
+			OptVpsWorker worker(module, min_stride, msb_inv_sext, dead_mod);
 			worker.run(min_gather, max_gather_table);
 
 			if (worker.groups_optimized > 0)

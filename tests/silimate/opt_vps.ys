@@ -608,3 +608,66 @@ select -assert-count 4 t:$bmux
 select -assert-count 2 t:$shr
 design -reset
 log -pop
+
+# =============================================================================
+# Test 19: SAT self-equivalence — dead-modulo gather before vs after opt_vps
+# =============================================================================
+log -header "SAT self-equivalence: dead-modulo gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+rename opt_vps_gather_deadmod gold
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+rename opt_vps_gather_deadmod gate
+# Scoped to gate: a bare opt_vps folds gold too and the miter proves nothing.
+opt_vps -dead-mod gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 20: Cell counts — only the unreachable modulo may fold
+# The `% 54` guard cannot fire, so that loop is a window read and collapses to
+# one barrel beside the `>> sh` feeding it. The `% 22` guard really does wrap,
+# so its loop is a rotate and has to stay the per-bit selects Verific emitted.
+# =============================================================================
+log -header "Cell counts: dead modulo folds, live modulo does not"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+
+# Both loops start out as one $bmux per output bit over a padded table.
+select -assert-count 44 t:$bmux
+select -assert-count 1 t:$shr
+design -save predeadmod
+
+# Without the flag the modulo is opaque and neither loop is affine.
+opt_vps; opt_clean
+select -assert-count 44 t:$bmux
+select -assert-count 1 t:$shr
+
+# With it the 22 dead-modulo lanes become one barrel beside the `>> sh` feeding
+# them, and the 22 rotate lanes are still untouched.
+design -load predeadmod
+opt_vps -dead-mod; opt_clean
+select -assert-count 22 t:$bmux
+select -assert-count 2 t:$shr
+design -reset
+log -pop
