@@ -1,6 +1,4 @@
-# The power operator `**` is right-associative per IEEE 1364-2005 sec 5.1 /
-# 1800-2017 sec 11.4.1: `2**3**2` is `2**(3**2)` = 512. A `%left` declaration
-# in the grammar parsed it as `(2**3)**2` = 64.
+# `**` is right-associative: 2**3**2 is 2**(3**2) = 512.
 
 read_verilog << EOT
 module top(output [15:0] unparen, output [15:0] right, output [15:0] left);
