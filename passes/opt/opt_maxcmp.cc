@@ -433,9 +433,10 @@ struct OptMaxCmpWorker : CutRegionWorker
 		for (auto &bus : collect_cone_split_buses(leaf_bits))
 			add(bus.sig, bus.name);
 		// Whole single-bit leaf wires, so a broadcast (M==1) enable is reachable.
-		for (auto w : module->wires()) {
-			if (GetSize(w) != 1)
-				continue;
+		// This runs per compare candidate, so it takes the width index rather
+		// than re-walking every wire in the module each time; same wires, same
+		// module order.
+		for (auto w : wires_of_width(1)) {
 			SigBit b = sigmap(SigSpec(w))[0];
 			if (b.wire && leaf_bits.count(b))
 				add(SigSpec(b), w->name.str());

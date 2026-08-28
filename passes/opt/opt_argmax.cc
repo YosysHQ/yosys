@@ -189,7 +189,7 @@ struct OptArgmaxWorker : CutRegionWorker
 	                       vector<int> &ok_index)
 	{
 		int n = cand.width;
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec out_sig = sigmap(cand.out_sig);
 		SigSpec valid_sig = sigmap(cand.valid_sig);
 		SigSpec index_sig = sigmap(cand.index_sig);
@@ -377,7 +377,7 @@ struct OptArgmaxWorker : CutRegionWorker
 
 	bool fingerprint(const Candidate &cand)
 	{
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec out_sig = sigmap(cand.out_sig);
 		SigSpec valid_sig = sigmap(cand.valid_sig);
 		SigSpec index_sig = cand.identity_index ? SigSpec() : sigmap(cand.index_sig);
@@ -641,7 +641,7 @@ struct OptArgmaxWorker : CutRegionWorker
 		uint64_t vmask = value_mask(vw);
 		bool has_mask = !cand.mask_sig.empty();
 
-		ConstEval ce(module);
+		ConstEval &ce = shared_ce();
 		SigSpec out_sig = sigmap(cand.out_sig);
 		SigSpec values_sig = sigmap(cand.values_sig);
 		SigSpec mask_sig = sigmap(cand.mask_sig);

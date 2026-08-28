@@ -967,6 +967,11 @@ struct CutRegionWorker
 			}
 		}
 		(void)anchor;
+		// Rewiring a port in place moves no cell or connection count, so the
+		// size check in shared_ce() cannot see it. Drop the driver index here
+		// instead: a pass that keeps matching after a rewrite must not go on
+		// evaluating through the port this just detached.
+		shared_ce_ptr.reset();
 	}
 
 	// Claim the root and every signal produced inside the matched region, so
@@ -1000,10 +1005,14 @@ struct CutRegionWorker
 	// this way).
 	bool parse_indexed_port_name(Wire *wire, std::string &base, int &index)
 	{
+		// Asked of every wire touching a cone, once per root candidate. Most
+		// wires are not lane wires, and materializing the name to find that
+		// out is what the scan spends its time on, so reject on the interned
+		// string before copying it.
+		if (!wire->name.ends_with("]"))
+			return false;
 		std::string name = wire->name.str();
 		size_t rbrack = name.size();
-		if (rbrack == 0 || name[rbrack - 1] != ']')
-			return false;
 		size_t lbrack = name.rfind('[');
 		if (lbrack == std::string::npos || lbrack + 1 >= rbrack - 1)
 			return false;
@@ -1097,6 +1106,26 @@ struct CutRegionWorker
 					bit_to_wires[bit].push_back(w);
 			}
 		}
+	}
+
+	// Wires of a given width, in module order. Callers ask once per root
+	// candidate, and walking every wire in the module each time is what makes
+	// that scan visible on designs with many roots.
+	dict<int, vector<Wire *>> wires_by_width;
+	int wires_by_width_count = -1;
+	const vector<Wire *> no_wires;
+
+	const vector<Wire *> &wires_of_width(int width)
+	{
+		int count = GetSize(module->wires());
+		if (wires_by_width_count != count) {
+			wires_by_width_count = count;
+			wires_by_width.clear();
+			for (auto w : module->wires())
+				wires_by_width[GetSize(w)].push_back(w);
+		}
+		auto it = wires_by_width.find(width);
+		return it == wires_by_width.end() ? no_wires : it->second;
 	}
 
 	// Wires with at least one bit in the cone, in module order so that the
@@ -1319,16 +1348,32 @@ struct CutRegionWorker
 		return sig;
 	}
 
-	// Shared ConstEval for the whole matching phase. The netlist is not
-	// modified until rewrites are applied, so one instance (built once, at
-	// O(module) cost) serves every fingerprint eval instead of rebuilding
-	// one per candidate. Callers keep push/pop balanced, so the base state
-	// stays clean between uses (asserted on each hand-out).
+	// Shared ConstEval for the whole matching phase. The constructor indexes
+	// every cell in the module, so building one per candidate charges a
+	// module-sized cost even to candidates that are rejected before they
+	// evaluate anything; built once, it serves every fingerprint eval
+	// instead. Callers keep push/pop balanced, so the base state stays clean
+	// between uses (asserted on each hand-out).
+	//
+	// A pass that applies a rewrite between two matches, rather than
+	// collecting every match first, would otherwise keep evaluating against
+	// a driver index describing a netlist that no longer exists. Cell and
+	// connection counts are O(1) to read and cannot move while matching, so
+	// checking them costs nothing on the passes that never mutate mid-match
+	// and drops the stale instance on the passes that do. A pass that
+	// removes cells goes through clear_cell_caches(), which resets this
+	// along with the other indexes.
 	std::unique_ptr<ConstEval> shared_ce_ptr;
+	int shared_ce_cells = -1, shared_ce_conns = -1;
 	ConstEval &shared_ce()
 	{
-		if (!shared_ce_ptr)
+		int cells = GetSize(module->cells());
+		int conns = GetSize(module->connections());
+		if (!shared_ce_ptr || shared_ce_cells != cells || shared_ce_conns != conns) {
 			shared_ce_ptr = std::make_unique<ConstEval>(module);
+			shared_ce_cells = cells;
+			shared_ce_conns = conns;
+		}
 		log_assert(shared_ce_ptr->stack.empty());
 		return *shared_ce_ptr;
 	}

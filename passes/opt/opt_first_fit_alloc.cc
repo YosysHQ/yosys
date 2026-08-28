@@ -99,6 +99,16 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		return cnt;
 	}
 
+	// Handed to the matchers in place of a live ConstEval so that threading it
+	// down the call chain does not itself force one to be built. Most root
+	// candidates are rejected structurally, without ever evaluating anything,
+	// and this pass rewrites between matches, so shared_ce() rebuilds when
+	// the emitted cells make the previous index stale.
+	struct LazyEval {
+		OptFirstFitAllocWorker &worker;
+		ConstEval &get() { return worker.shared_ce(); }
+	};
+
 	// ----------------------------------------------------------------
 	// Reference closed-form semantics of the greedy first-fit allocator.
 	//
@@ -452,21 +462,22 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// ----------------------------------------------------------------
 	// Evaluate `out_sig` under input assignments, returning the full Const.
 	// ----------------------------------------------------------------
-	bool eval_root(ConstEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
+	bool eval_root(LazyEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
 	               const SigSpec &out_sig, Const &result, int64_t cone_est)
 	{
 		charge_eval(cone_est);
-		ce.push();
+		ConstEval &ev = ce.get();
+		ev.push();
 		for (auto &s : sets)
-			ce.set(s.first, s.second);
+			ev.set(s.first, s.second);
 		SigSpec out = out_sig;
 		SigSpec undef;
-		bool ok = ce.eval(out, undef);
+		bool ok = ev.eval(out, undef);
 		if (ok && out.is_fully_const())
 			result = out.as_const();
 		else
 			ok = false;
-		ce.pop();
+		ev.pop();
 		return ok;
 	}
 
@@ -1360,47 +1371,67 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 					return false;
 			return true;
 		};
-		auto add = [&](const SigSpec &sig, const std::string &nm) {
+		// The name is only wanted for a candidate that survives, and most
+		// width-n wires in a module are not one, so build it on acceptance
+		// rather than on offer.
+		auto add = [&](const SigSpec &sig, auto &&name_of) {
 			SigSpec s = sigmap(sig);
 			if (GetSize(s) != n || !sig_bus_ok(s) || !all_internal_or_input(s))
 				return;
 			if (!seen.insert(s).second)
 				return;
-			width_n_buses.push_back({s, nm, 0, 0});
+			width_n_buses.push_back({s, name_of(), 0, 0});
 		};
 
-		for (auto w : module->wires())
-			if (GetSize(w) == n)
-				add(SigSpec(w), w->name.str());
+		for (auto w : wires_of_width(n))
+			add(SigSpec(w), [&] { return w->name.str(); });
 		for (auto &bus : collect_cone_split_buses(internal_bits))
 			if (bus.elem_width == 1 && bus.entries == n)
-				add(bus.sig, bus.name);
+				add(bus.sig, [&] { return bus.name; });
 
 		// Region inputs (enable/broadcast) sit just above the leaves; order
 		// candidates shallowest-first so the deep intermediate nets of the
-		// allocation network are only reached if the budget allows.
-		dict<Cell *, int> depth = compute_cone_depths(cone_cells);
-		auto bus_depth = [&](const SigSpec &s) {
-			int d = 0;
-			for (auto bit : s) {
-				Cell *drv = bit_to_driver.at(bit, nullptr);
-				if (drv != nullptr)
-					d = std::max(d, depth.at(drv, 1 << 30));
+		// allocation network are only reached if the budget allows. Ranking
+		// them costs a topological pass over the whole cone, so skip it when
+		// there is no order to decide.
+		vector<int> bus_depths;
+		if (GetSize(width_n_buses) > 1) {
+			dict<Cell *, int> depth = compute_cone_depths(cone_cells);
+			for (auto &b : width_n_buses) {
+				int d = 0;
+				for (auto bit : b.sig) {
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr)
+						d = std::max(d, depth.at(drv, 1 << 30));
+				}
+				bus_depths.push_back(d);
 			}
-			return d;
-		};
-		std::stable_sort(width_n_buses.begin(), width_n_buses.end(),
-		                 [&](const BusCand &a, const BusCand &b) {
-		                     return bus_depth(a.sig) < bus_depth(b.sig);
-		                 });
+			vector<int> order(GetSize(width_n_buses));
+			for (int i = 0; i < GetSize(order); i++)
+				order[i] = i;
+			std::stable_sort(order.begin(), order.end(),
+			                 [&](int a, int b) { return bus_depths[a] < bus_depths[b]; });
+			vector<BusCand> sorted;
+			vector<int> sorted_depths;
+			sorted.reserve(GetSize(order));
+			for (int i : order) {
+				sorted.push_back(width_n_buses[i]);
+				sorted_depths.push_back(bus_depths[i]);
+			}
+			width_n_buses.swap(sorted);
+			bus_depths.swap(sorted_depths);
+		} else {
+			bus_depths.assign(GetSize(width_n_buses), 0);
+		}
 		const int max_en_bc = 24;
 		if (GetSize(width_n_buses) > max_en_bc)
 			width_n_buses.resize(max_en_bc);
 
 		log_debug("    collect_lane_buses: %d width-%d internal bus(es) (capped)\n",
 		          GetSize(width_n_buses), n);
-		for (auto &b : width_n_buses)
-			log_debug("      en/bc cand %s (depth %d)\n", b.name.c_str(), bus_depth(b.sig));
+		for (int i = 0; i < GetSize(width_n_buses); i++)
+			log_debug("      en/bc cand %s (depth %d)\n", width_n_buses[i].name.c_str(),
+			          bus_depths[i]);
 	}
 
 	// ----------------------------------------------------------------
@@ -1435,7 +1466,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		log_debug("  %d width-%d lane bus candidate(s)\n", GetSize(lane_buses), n);
 		for (auto &b : lane_buses)
 			log_debug("    lane bus %s\n", b.name.c_str());
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		int64_t cone_est = GetSize(cone_cells) + 16;
 		const int max_fp = 48;
 		int fp = 0;
@@ -1687,7 +1718,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// (compute_alloc_dir). Returns true iff all lanes match on every vector,
 	// i.e. the region implements the first-fit dsel for the given direction.
 	// Any eval failure or single mismatch rejects the candidate.
-	bool fingerprint_dsel(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                      const SigSpec &en_sig, const SigSpec &bc_sig, bool has_bc,
 	                      const SigSpec &cat_sig, int c, bool msb_first, int64_t cone_est,
 	                      bool coalesce = false)
@@ -1744,7 +1775,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// root. In priority order the granted lanes take ranks 0,1,2,...,nb-1 and
 	// later lanes saturate to 0, so nb is the length of the leading 0,1,2,...
 	// run. Returns false if the very first lane is nonzero (not exclusive).
-	bool learn_exclusive_nb(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool learn_exclusive_nb(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                        const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
 	{
 		vector<int> en(n, 1);
@@ -1767,7 +1798,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 
 	// Same, for the and2 enable (drive both run halves so every lane's AND
 	// enable is asserted).
-	bool learn_exclusive_nb_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool learn_exclusive_nb_and2(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                             const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
 	{
 		vector<int> en(n, 1);
@@ -1790,7 +1821,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 
 	// Fingerprint a candidate dsel region against the exclusive saturating
 	// closed form for the given direction and learned nb.
-	bool fingerprint_dsel_exclusive(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel_exclusive(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                                const SigSpec &en_sig, bool msb_first, int nb,
 	                                int64_t cone_est)
 	{
@@ -1813,7 +1844,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		return true;
 	}
 
-	bool fingerprint_dsel_exclusive_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel_exclusive_and2(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                                     const SigSpec &en_sig, bool msb_first, int nb,
 	                                     int64_t cone_est)
 	{
@@ -1837,7 +1868,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	}
 
 	// Fingerprint a candidate done bus == grant[] for the exclusive region.
-	bool fingerprint_done_exclusive(ConstEval &ce, const SigSpec &done_root, const Region &rg,
+	bool fingerprint_done_exclusive(LazyEval &ce, const SigSpec &done_root, const Region &rg,
 	                                int64_t cone_est)
 	{
 		int n = rg.n, nb = rg.nb;
@@ -1880,7 +1911,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// the gather is a pure function of (dsel,done,data), and for the and2
 	// enable the en leaves overlap the low data words -- forcing en here would
 	// double-assign those bits, so we drive only (dsel,done,data).
-	bool fingerprint_gather_exclusive(ConstEval &ce, const SigSpec &root, const Region &rg,
+	bool fingerprint_gather_exclusive(LazyEval &ce, const SigSpec &root, const Region &rg,
 	                                  const SigSpec &dsel_sig, const SigSpec &done_sig,
 	                                  bool has_done, const SigSpec &attr_sig, int a,
 	                                  int slots, int slot_w, int64_t cone_est,
@@ -2045,7 +2076,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		// We do not strictly require this for correctness (the fingerprint
 		// is authoritative), but it weeds out unrelated buses cheaply.
 
-		ConstEval ce(module);
+		LazyEval ce{*this};
 
 		// Learn f(v): force lane 0 (priority E0) the sole leader with attr=v.
 		int e0_lane = rg.msb_first ? (rg.n - 1) : 0;
@@ -2240,7 +2271,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	bool match_exclusive_done(const Region &rg, SigSpec &done_sig)
 	{
 		int n = rg.n;
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		vector<SigSpec> cands;
 		pool<SigSpec> seen;
 		SigSpec en_map = sigmap(rg.en_sig);
@@ -2515,7 +2546,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			}
 		}
 
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		int64_t cone_est = GetSize(cone_cells) + 16;
 		// Hold-Q leaves must be forced for ConstEval; value is don't-care when
 		// the update mux selects the new payload (identity / fingerprint cases).
