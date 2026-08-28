@@ -944,6 +944,13 @@ struct OptShiftPass : public Pass {
     log("        (a OP b) << c    ===>  (a << c) OP (b << c)\n");
     log("        (a OP b) >> c    ===>  (a >> c) OP (b >> c)\n");
     log("        where OP in {$and, $or, $xor, $add, $sub}\n");
+    log("      A right shift discards the low bits, so it only commutes with an\n");
+    log("      OP that reads each result bit from the same operand position:\n");
+    log("      $add/$sub carry across positions and are restricted to $shl and\n");
+    log("      $sshl. The rewrite is also refused where the OP's own width would\n");
+    log("      drop a bit the wider shifted result brings back, or where the OP\n");
+    log("      and the shift disagree on the signedness a narrow operand is\n");
+    log("      padded with.\n");
     log("\n");
     log("  -expand-keep-arith\n");
     log("      Restrict -expand so a variable shift amount is not expanded\n");
