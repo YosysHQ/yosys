@@ -51,8 +51,17 @@ PRIVATE_NAMESPACE_BEGIN
 //
 // and the strict form drops the +1, which turns >= into >. The other two
 // relations are these two inverted, and a sum on the comparator's right-hand
-// side is the mirror image, so all four cell types are handled by choosing a
-// relation and an inversion.
+// side is the mirror image, so all four ordering cell types are handled by
+// choosing a relation and an inversion.
+//
+// Equality comes off the same pair: a + b == c iff a + b + ~c == 2**W-1, i.e.
+// s + d == 2**W-1, and two values summing to all-ones can share no set bit (it
+// would carry and clear one), so that is exactly s == ~d.
+//
+// A whole tree of adds collapses into one comparison the same way, since
+// run_csa() reduces n summands to the two the identity expects. Only a child
+// add its parent solely reads is absorbed, so every adder the walk takes in is
+// dead afterwards.
 //
 // Soundness conditions, all structural:
 //
@@ -64,6 +73,10 @@ PRIVATE_NAMESPACE_BEGIN
 //   2. Unsigned. Both the add and the comparator must be unsigned; a signed
 //      compare orders the same bits differently.
 //
+// $sub is deliberately not matched. No width condition makes an unsigned
+// subtract exact the way one does an add: a - b wraps whenever a < b, and
+// ruling that out needs a value range the pass cannot establish locally.
+//
 // Profitability. When the sum feeds nothing but this comparator the adder
 // disappears, so the rewrite is a strict win in both area and depth and fires
 // unconditionally. When the sum has other readers the adder stays and the
@@ -71,6 +84,15 @@ PRIVATE_NAMESPACE_BEGIN
 // where the comparator sits on the module's longest path in the shared
 // unit-delay model, which is where trading ~2 gates per bit for a carry chain
 // pays.
+// Relation the rewrite emits for `sum <rel> other`; the other comparisons are
+// these inverted.
+enum class Rel { Ge, Gt, Eq };
+
+inline bool is_cmp_type(IdString type)
+{
+	return type.in(ID($lt), ID($le), ID($gt), ID($ge), ID($eq), ID($ne));
+}
+
 struct OptAddCmpWorker : UnitDelayTiming
 {
 	pool<SigBit> output_bits;
@@ -80,7 +102,7 @@ struct OptAddCmpWorker : UnitDelayTiming
 	bool timing_guard = false;
 	int slack_margin = 0;
 
-	int fused_exclusive = 0, fused_shared = 0;
+	int fused_exclusive = 0, fused_shared = 0, fused_wide = 0;
 	int skipped_slack = 0, skipped_narrow = 0;
 
 	OptAddCmpWorker(Module *module) : UnitDelayTiming(module)
@@ -147,27 +169,100 @@ struct OptAddCmpWorker : UnitDelayTiming
 		return add;
 	}
 
-	// Does anything but `cmp` read the sum? If not, the adder dies with it.
-	bool sum_is_shared(Cell *add, Cell *cmp)
+	// Is `sig` read by anything other than `reader`?
+	bool escapes(const SigSpec &sig, Cell *reader)
 	{
-		for (auto bit : sigmap(add->getPort(ID::Y))) {
+		for (auto bit : sigmap(sig)) {
 			if (bit.wire == nullptr)
 				continue;
 			if (output_bits.count(bit))
-				return true; // escapes the module, so the adder survives
+				return true;
 			auto it = consumer_map.find(bit);
 			if (it == consumer_map.end())
 				continue;
 			for (auto cons : it->second)
-				if (cons != cmp)
+				if (cons != reader)
 					return true;
 		}
 		return false;
 	}
 
+	// Flatten an add tree into its summands, descending into a child add only
+	// when the parent is its sole reader, so every adder the walk absorbs dies.
+	// A child that truncates is left as an operand: its wrapped result is a
+	// different value from the exact sum of its own operands.
+	void collect_operands(Cell *add, std::vector<SigSpec> &operands, pool<Cell *> &tree)
+	{
+		tree.insert(add);
+		for (IdString port : {ID::A, ID::B}) {
+			SigSpec operand = add->getPort(port);
+			Cell *child = sum_driver(operand);
+			if (child != nullptr && !tree.count(child) && !escapes(child->getPort(ID::Y), add) &&
+					GetSize(tree) + 1 < max_summands)
+				collect_operands(child, operands, tree);
+			else
+				operands.push_back(operand);
+		}
+	}
+
+	// Absorbing one adder adds one summand, so the tree ends with tree+1 of them.
+	// Past a handful the carry-save levels cost more than the adders they remove.
+	static const int max_summands = 6;
+
+	// Does anything but `cmp` read the sum? If not, the adder dies with it.
+	bool sum_is_shared(Cell *add, Cell *cmp) { return escapes(add->getPort(ID::Y), cmp); }
+
+	// One 3:2 carry-save level: x + y + z == sum + (carry << 1), exactly, as long
+	// as the shift keeps the top carry bit. `run_csa` establishes that.
+	void csa_level(Cell *cell, const SigSpec &x, const SigSpec &y, const SigSpec &z,
+			SigSpec &sum, SigSpec &carry)
+	{
+		std::string src = cell_src(cell);
+		int width = GetSize(x);
+		SigSpec xxy = module->Xor(NEW_ID2_SUFFIX("addcmp_cx"), x, y, false, src);
+		sum = module->Xor(NEW_ID2_SUFFIX("addcmp_cs"), xxy, z, false, src);
+		SigSpec c = module->Or(NEW_ID2_SUFFIX("addcmp_cv"),
+		                       module->And(NEW_ID2_SUFFIX("addcmp_cxy"), x, y, false, src),
+		                       module->And(NEW_ID2_SUFFIX("addcmp_cxz"), xxy, z, false, src),
+		                       false, src);
+		carry = SigSpec(State::S0);
+		carry.append(c.extract(0, width - 1));
+	}
+
+	// Reduce n >= 3 operands to the two that sum to the same value, so the
+	// comparator identity below sees its usual pair.
+	//
+	// Everything runs at width W = max(|o_i|) + ceil(log2 n), which makes the
+	// total T = sum(o_i) < 2**W. Every level replaces x, y, z with s and 2c
+	// where s + 2c == x + y + z, so the multiset total stays T; since the values
+	// are non-negative and sum to T < 2**W, each one is itself below 2**W, so
+	// 2c < 2**W and the shift never drops a set bit. That is what keeps the
+	// reduction exact instead of modular.
+	void run_csa(Cell *cell, std::vector<SigSpec> operands, SigSpec &s, SigSpec &d)
+	{
+		int width = 0;
+		for (auto &o : operands)
+			width = std::max(width, GetSize(o));
+		width += log2p1_int(GetSize(operands) - 1); // ceil(log2 n) for n >= 2
+		for (auto &o : operands)
+			o.extend_u0(width, false);
+
+		while (GetSize(operands) > 2) {
+			SigSpec x = operands.back(); operands.pop_back();
+			SigSpec y = operands.back(); operands.pop_back();
+			SigSpec z = operands.back(); operands.pop_back();
+			SigSpec sum, carry;
+			csa_level(cell, x, y, z, sum, carry);
+			operands.push_back(sum);
+			operands.push_back(carry);
+		}
+		s = operands[0];
+		d = operands[1];
+	}
+
 	// (a + b) >= c, or the strict form: one carry-save level plus one compare.
 	// `cell` is the comparator being replaced; NEW_ID2_SUFFIX names after it.
-	SigSpec emit_fused(Cell *cell, SigSpec a, SigSpec b, SigSpec c, bool strict)
+	SigSpec emit_fused(Cell *cell, SigSpec a, SigSpec b, SigSpec c, Rel rel)
 	{
 		int width = std::max({GetSize(a), GetSize(b), GetSize(c)}) + 1;
 		a.extend_u0(width, false);
@@ -189,21 +284,35 @@ struct OptAddCmpWorker : UnitDelayTiming
 		ncarry.append(module->Not(NEW_ID2_SUFFIX("addcmp_nv"),
 		                          carry.extract(0, width - 1), false, src));
 
-		return strict ? module->Gt(NEW_ID2_SUFFIX("addcmp_gt"), sum, ncarry, false, src)
-		              : module->Ge(NEW_ID2_SUFFIX("addcmp_ge"), sum, ncarry, false, src);
+		// Equality needs no ordering: sum + d == 2**W-1 holds only when the two
+		// are bit-complements, since a shared set bit would carry and clear one.
+		if (rel == Rel::Eq)
+			return module->Eq(NEW_ID2_SUFFIX("addcmp_eq"), sum, ncarry, false, src);
+		return rel == Rel::Gt ? module->Gt(NEW_ID2_SUFFIX("addcmp_gt"), sum, ncarry, false, src)
+		                      : module->Ge(NEW_ID2_SUFFIX("addcmp_ge"), sum, ncarry, false, src);
 	}
 
-	void fuse(Cell *cell, Cell *add, bool sum_on_a)
+	void fuse(Cell *cell, const std::vector<SigSpec> &operands, bool sum_on_a)
 	{
 		// Relation to emit for `sum <rel> other`, and whether to invert it.
 		// With the sum on the right the comparison is read backwards, which
-		// swaps >= against > and flips the inversion with it.
+		// swaps >= against > and flips the inversion with it; equality reads the
+		// same either way.
 		IdString t = cell->type;
-		bool strict = sum_on_a ? t.in(ID($gt), ID($le)) : t.in(ID($lt), ID($ge));
-		bool invert = sum_on_a ? t.in(ID($lt), ID($le)) : t.in(ID($gt), ID($ge));
+		Rel rel = t.in(ID($eq), ID($ne)) ? Rel::Eq
+		        : (sum_on_a ? t.in(ID($gt), ID($le)) : t.in(ID($lt), ID($ge))) ? Rel::Gt
+		        : Rel::Ge;
+		bool invert = t == ID($ne) ||
+				(sum_on_a ? t.in(ID($lt), ID($le)) : t.in(ID($gt), ID($ge)));
+
+		// More than two summands reduce to two first, which is the pair the
+		// identity below expects
+		SigSpec a = operands[0], b = operands[1];
+		if (GetSize(operands) > 2)
+			run_csa(cell, operands, a, b);
 
 		SigSpec other = cell->getPort(sum_on_a ? ID::B : ID::A);
-		SigSpec y = emit_fused(cell, add->getPort(ID::A), add->getPort(ID::B), other, strict);
+		SigSpec y = emit_fused(cell, a, b, other, rel);
 		if (invert)
 			y = module->Not(NEW_ID2_SUFFIX("addcmp_inv"), y, false, cell_src(cell));
 
@@ -215,9 +324,9 @@ struct OptAddCmpWorker : UnitDelayTiming
 
 	int run()
 	{
-		std::vector<std::tuple<Cell *, Cell *, bool>> hits;
+		std::vector<std::tuple<Cell *, std::vector<SigSpec>, bool>> hits;
 		for (auto cmp : module->selected_cells()) {
-			if (!cmp->type.in(ID($lt), ID($le), ID($gt), ID($ge)))
+			if (!is_cmp_type(cmp->type))
 				continue;
 			if (cmp->getParam(ID::A_SIGNED).as_bool() || cmp->getParam(ID::B_SIGNED).as_bool())
 				continue;
@@ -249,16 +358,23 @@ struct OptAddCmpWorker : UnitDelayTiming
 					}
 				}
 
-				log_debug("  %s: fusing %s %s (%s)\n", log_id(cmp), log_id(add->type),
-				          log_id(add), exclusive ? "sole reader" : "critical");
-				hits.emplace_back(cmp, add, sum_on_a);
+				std::vector<SigSpec> operands;
+				pool<Cell *> tree;
+				collect_operands(add, operands, tree);
+
+				log_debug("  %s: fusing %s (%d summand(s) from %d add(s), %s)\n",
+				          log_id(cmp), log_id(add), GetSize(operands), GetSize(tree),
+				          exclusive ? "sole reader" : "critical");
+				hits.emplace_back(cmp, operands, sum_on_a);
 				(exclusive ? fused_exclusive : fused_shared)++;
+				if (GetSize(operands) > 2)
+					fused_wide++;
 				break;
 			}
 		}
 
-		for (auto &[cmp, add, sum_on_a] : hits)
-			fuse(cmp, add, sum_on_a);
+		for (auto &[cmp, operands, sum_on_a] : hits)
+			fuse(cmp, operands, sum_on_a);
 
 		if (skipped_narrow || skipped_slack)
 			log_debug("  %s: skipped %d narrow adder(s), %d off-critical comparator(s).\n",
@@ -294,10 +410,16 @@ struct OptAddCmpPass : public Pass {
 		log("the shift drops nothing -- and it is why an add whose result is narrower\n");
 		log("than its operands (comparing a residue) is rejected instead. The other\n");
 		log("two relations are these two inverted, and a sum on the comparator's\n");
-		log("right-hand side is the mirror image, so all four cell types are handled.\n");
+		log("right-hand side is the mirror image, so all four orderings are handled.\n");
+		log("\n");
+		log("$eq and $ne fuse off the same pair, since a sum and a carry vector adding\n");
+		log("to all-ones must be bit-complements. A tree of adds is flattened into one\n");
+		log("carry-save reduction, absorbing only child adders their parent solely\n");
+		log("reads so that each one absorbed is dead afterwards.\n");
 		log("\n");
 		log("Signed adds and signed comparisons are rejected: the carry-save identity\n");
-		log("is an unsigned one.\n");
+		log("is an unsigned one. $sub is rejected too -- an unsigned subtract wraps\n");
+		log("whenever a < b, which no width condition rules out.\n");
 		log("\n");
 		log("When the comparator is the sum's only reader the adder is dead after the\n");
 		log("rewrite, so the fusion is a strict win and always taken. When the sum has\n");
@@ -344,19 +466,32 @@ struct OptAddCmpPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		int total = 0, exclusive = 0;
+		int total = 0, exclusive = 0, wide = 0;
 		for (auto module : design->selected_modules()) {
+			// The worker indexes every bit in the module, so check there is
+			// something to match before paying for it
+			bool candidate = false;
+			for (auto cell : module->selected_cells())
+				if (is_cmp_type(cell->type)) {
+					candidate = true;
+					break;
+				}
+			if (!candidate)
+				continue;
+
 			OptAddCmpWorker worker(module);
 			worker.min_width = min_width;
 			worker.timing_guard = timing_guard;
 			worker.slack_margin = slack_margin;
 			total += worker.run();
 			exclusive += worker.fused_exclusive;
+			wide += worker.fused_wide;
 		}
 
 		if (total)
 			design->scratchpad_set_bool("opt.did_something", true);
-		log("Fused %d add-compare region(s); %d left the adder dead.\n", total, exclusive);
+		log("Fused %d add-compare region(s); %d left the adder dead, %d flattened "
+		    "more than two summands.\n", total, exclusive, wide);
 	}
 } OptAddCmpPass;
 

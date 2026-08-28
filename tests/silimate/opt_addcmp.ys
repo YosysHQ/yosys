@@ -96,6 +96,155 @@ design -reset
 log -pop
 
 # ---------------------------------------------------------------------------
+log -header "Functional equivalence: equality and disequality against a sum"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {s == c, s != c, c == s, c != s};
+endmodule
+EOF
+proc; opt_clean
+rename ac gold
+
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output [3:0] y);
+  wire [12:0] s = a + b;
+  assign y = {s == c, s != c, c == s, c != s};
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing ac
+opt_clean ac
+rename ac gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Functional equivalence: three and four summands flattened"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [9:0] a, input [9:0] b, input [9:0] c, input [9:0] d,
+          input [13:0] e, output [1:0] y);
+  wire [10:0] s1 = a + b;
+  wire [11:0] s2 = s1 + c;
+  wire [12:0] s3 = s2 + d;
+  assign y = {s3 >= e, s2 > e};
+endmodule
+EOF
+proc; opt_clean
+rename ac gold
+
+read_verilog -sv <<EOF
+module ac(input [9:0] a, input [9:0] b, input [9:0] c, input [9:0] d,
+          input [13:0] e, output [1:0] y);
+  wire [10:0] s1 = a + b;
+  wire [11:0] s2 = s1 + c;
+  wire [12:0] s3 = s2 + d;
+  assign y = {s3 >= e, s2 > e};
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing ac
+opt_clean ac
+rename ac gate
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Structural rewrite: a three-summand tree leaves both adders dead"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [11:0] c, input [13:0] d, output y);
+  wire [12:0] s1 = a + b;
+  wire [13:0] s  = s1 + c;
+  assign y = s >= d;
+endmodule
+EOF
+proc; opt_clean
+select -assert-count 2 t:$add
+opt_addcmp
+opt_clean
+# both adders gone; one carry-save level to fold three summands into two, then
+# the level the comparator identity needs
+select -assert-count 0 t:$add
+select -assert-count 1 t:$ge
+select -assert-count 4 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: a child sum with another reader is not absorbed"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [11:0] c, input [13:0] d,
+          output y, output [12:0] s1_out);
+  wire [12:0] s1 = a + b;
+  wire [13:0] s  = s1 + c;
+  assign y = s >= d;
+  assign s1_out = s1;   // keeps the inner adder alive, so it stays an operand
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp
+opt_clean
+# the outer adder still fuses, the inner one survives with its own reader
+select -assert-count 1 t:$add
+select -assert-count 2 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: a truncating child is an operand, not a summand"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [11:0] c, input [12:0] d, output y);
+  wire [11:0] s1 = a + b;   // wraps, so its operands cannot be lifted out
+  wire [12:0] s  = s1 + c;
+  assign y = s >= d;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp
+opt_clean
+select -assert-count 1 t:$add
+select -assert-count 2 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
+log -header "Negative: $sub is not matched"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module ac(input [11:0] a, input [11:0] b, input [12:0] c, output y);
+  wire [12:0] s = a - b;   // wraps whenever a < b, whatever the width
+  assign y = s >= c;
+endmodule
+EOF
+proc; opt_clean
+opt_addcmp -timing
+select -assert-count 1 t:$sub
+select -assert-count 0 t:$xor
+design -reset
+log -pop
+
+# ---------------------------------------------------------------------------
 log -header "Structural rewrite: sole reader leaves the adder dead"
 log -push
 design -reset

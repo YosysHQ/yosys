@@ -79,8 +79,12 @@ struct UnitDelayTiming
 	dict<RTLIL::SigBit, RTLIL::Cell *> driver_map;
 	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> consumer_map;
 
-	dict<RTLIL::SigBit, int> arrival_cache, depart_cache;
-	pool<RTLIL::SigBit> arrival_active, depart_active;
+	// Memoized per cell, not per bit: every output bit of a cell shares one
+	// arrival (the max over all its inputs) and every input bit shares one
+	// departure, so a per-bit cache recomputed the same number once per bit and
+	// rescanned the cell's whole port list each time -- O(width**2) per cell.
+	dict<RTLIL::Cell *, int> cell_arrival, cell_depart;
+	pool<RTLIL::Cell *> arrival_active, depart_active;
 	int module_depth = 0;
 	bool module_depth_valid = false;
 
@@ -90,86 +94,75 @@ struct UnitDelayTiming
 	// The connectivity maps the derived worker owns are its own to refresh.
 	void reset_timing()
 	{
-		arrival_cache.clear();
+		cell_arrival.clear();
 		arrival_active.clear();
-		depart_cache.clear();
+		cell_depart.clear();
 		depart_active.clear();
 		module_depth_valid = false;
 	}
 
-	// Cached level, or 0 when absent (start point, constant, or broken loop edge).
-	static int level_of(const dict<RTLIL::SigBit, int> &cache, RTLIL::SigBit bit)
-	{
-		auto it = cache.find(bit);
-		return it == cache.end() ? 0 : it->second;
-	}
-
-	// Combinational driver of `bit`, and the bits feeding it. Null at a start
-	// point (constant, undriven / multi-driven, or register output).
-	RTLIL::Cell *driver_inputs(RTLIL::SigBit bit, std::vector<RTLIL::SigBit> &ins)
-	{
-		ins.clear();
-		auto it = driver_map.find(bit);
-		RTLIL::Cell *drv = it == driver_map.end() ? nullptr : it->second;
-		if (drv == nullptr || drv->is_builtin_ff())
-			return nullptr;
-		for (auto &conn : drv->connections())
-			if (drv->input(conn.first))
-				for (auto &in_bit : sigmap(conn.second))
-					ins.push_back(in_bit);
-		return drv;
-	}
-
-	// Output bits of a cell, flattened across its output ports.
-	void cell_outputs(RTLIL::Cell *cell, std::vector<RTLIL::SigBit> &outs)
-	{
-		outs.clear();
-		for (auto &conn : cell->connections())
-			if (cell->output(conn.first))
-				for (auto &out_bit : sigmap(conn.second))
-					outs.push_back(out_bit);
-	}
-
-	// Levels from a start point up to this bit. Iterative so a deep datapath
-	// cannot blow the C stack; `*_active` breaks combinational loops.
-	int arrival_bit(RTLIL::SigBit bit)
+	// Combinational driver of `bit`, or null at a start point (constant,
+	// undriven / multi-driven, or register output).
+	RTLIL::Cell *driver_of(RTLIL::SigBit bit)
 	{
 		if (bit.wire == nullptr)
-			return 0;
-		if (arrival_cache.count(bit))
-			return arrival_cache.at(bit);
+			return nullptr;
+		auto it = driver_map.find(bit);
+		RTLIL::Cell *drv = it == driver_map.end() ? nullptr : it->second;
+		return drv == nullptr || drv->is_builtin_ff() ? nullptr : drv;
+	}
 
-		std::vector<RTLIL::SigBit> stack{bit}, ins;
+	// Levels from a start point up to this cell's outputs. Iterative so a deep
+	// datapath cannot blow the C stack; `*_active` breaks combinational loops by
+	// charging the back edge zero.
+	int arrival_of(RTLIL::Cell *cell)
+	{
+		if (cell == nullptr)
+			return 0;
+		auto hit = cell_arrival.find(cell);
+		if (hit != cell_arrival.end())
+			return hit->second;
+
+		std::vector<RTLIL::Cell *> stack{cell};
 		while (!stack.empty()) {
-			RTLIL::SigBit b = stack.back();
-			if (b.wire == nullptr || arrival_cache.count(b)) {
+			RTLIL::Cell *c = stack.back();
+			if (cell_arrival.count(c)) {
 				stack.pop_back();
 				continue;
 			}
 
-			// Push unresolved inputs; skip actives (loop) and constants (never cached).
-			RTLIL::Cell *drv = driver_inputs(b, ins);
+			// Resolve the driving cells, pushing the ones not yet known
 			bool ready = true;
-			for (auto &in_bit : ins)
-				if (in_bit.wire != nullptr && !arrival_cache.count(in_bit) &&
-				    !arrival_active.count(in_bit)) {
-					stack.push_back(in_bit);
-					ready = false;
+			int latest = 0;
+			for (auto &conn : c->connections()) {
+				if (!c->input(conn.first))
+					continue;
+				for (auto &in_bit : sigmap(conn.second)) {
+					RTLIL::Cell *drv = driver_of(in_bit);
+					if (drv == nullptr)
+						continue; // start point, contributes 0
+					auto it = cell_arrival.find(drv);
+					if (it != cell_arrival.end())
+						latest = std::max(latest, it->second);
+					else if (!arrival_active.count(drv)) {
+						stack.push_back(drv);
+						ready = false;
+					}
 				}
+			}
 			if (!ready) {
-				arrival_active.insert(b);
-				continue; // leave b on the stack; neighbours are above it now
+				arrival_active.insert(c);
+				continue; // leave c on the stack; its drivers are above it now
 			}
 
-			int latest = 0;
-			for (auto &in_bit : ins)
-				latest = std::max(latest, level_of(arrival_cache, in_bit));
-			arrival_cache[b] = drv == nullptr ? 0 : latest + estimate_cell_delay(drv);
-			arrival_active.erase(b);
+			cell_arrival[c] = latest + estimate_cell_delay(c);
+			arrival_active.erase(c);
 			stack.pop_back();
 		}
-		return arrival_cache.at(bit);
+		return cell_arrival.at(cell);
 	}
+
+	int arrival_bit(RTLIL::SigBit bit) { return arrival_of(driver_of(bit)); }
 
 	int arrival(const RTLIL::SigSpec &sig)
 	{
@@ -179,58 +172,71 @@ struct UnitDelayTiming
 		return t;
 	}
 
-	// Levels from this bit down to the latest endpoint that reads it.
-	int depart_bit(RTLIL::SigBit bit)
+	// Levels from this cell's inputs down to the latest endpoint below it.
+	int depart_of(RTLIL::Cell *cell)
 	{
-		if (bit.wire == nullptr)
+		if (cell == nullptr || cell->is_builtin_ff())
 			return 0;
-		if (depart_cache.count(bit))
-			return depart_cache.at(bit);
+		auto hit = cell_depart.find(cell);
+		if (hit != cell_depart.end())
+			return hit->second;
 
-		std::vector<RTLIL::SigBit> stack{bit}, outs;
+		std::vector<RTLIL::Cell *> stack{cell};
 		while (!stack.empty()) {
-			RTLIL::SigBit b = stack.back();
-			if (b.wire == nullptr || depart_cache.count(b)) {
+			RTLIL::Cell *c = stack.back();
+			if (cell_depart.count(c)) {
 				stack.pop_back();
 				continue;
 			}
 
-			// Push unresolved fanout bits; registers end a path (no neighbours).
+			// Resolve the reading cells; registers end a path
 			bool ready = true;
-			auto it_cons = consumer_map.find(b);
-			if (it_cons != consumer_map.end())
-				for (auto cons : it_cons->second) {
-					if (cons->is_builtin_ff())
+			int worst = 0;
+			for (auto &conn : c->connections()) {
+				if (!c->output(conn.first))
+					continue;
+				for (auto &out_bit : sigmap(conn.second)) {
+					if (out_bit.wire == nullptr)
 						continue;
-					cell_outputs(cons, outs);
-					for (auto &out_bit : outs)
-						if (out_bit.wire != nullptr && !depart_cache.count(out_bit) &&
-						    !depart_active.count(out_bit)) {
-							stack.push_back(out_bit);
+					auto it_cons = consumer_map.find(out_bit);
+					if (it_cons == consumer_map.end())
+						continue;
+					for (auto cons : it_cons->second) {
+						if (cons->is_builtin_ff())
+							continue;
+						auto it = cell_depart.find(cons);
+						if (it != cell_depart.end())
+							worst = std::max(worst, it->second);
+						else if (!depart_active.count(cons)) {
+							stack.push_back(cons);
 							ready = false;
 						}
+					}
 				}
+			}
 			if (!ready) {
-				depart_active.insert(b);
+				depart_active.insert(c);
 				continue;
 			}
 
-			int worst = 0;
-			if (it_cons != consumer_map.end())
-				for (auto cons : it_cons->second) {
-					if (cons->is_builtin_ff())
-						continue;
-					int latest = 0;
-					cell_outputs(cons, outs);
-					for (auto &out_bit : outs)
-						latest = std::max(latest, level_of(depart_cache, out_bit));
-					worst = std::max(worst, estimate_cell_delay(cons) + latest);
-				}
-			depart_cache[b] = worst;
-			depart_active.erase(b);
+			cell_depart[c] = worst + estimate_cell_delay(c);
+			depart_active.erase(c);
 			stack.pop_back();
 		}
-		return depart_cache.at(bit);
+		return cell_depart.at(cell);
+	}
+
+	int depart_bit(RTLIL::SigBit bit)
+	{
+		if (bit.wire == nullptr)
+			return 0;
+		auto it = consumer_map.find(bit);
+		if (it == consumer_map.end())
+			return 0;
+		int worst = 0;
+		for (auto cons : it->second)
+			worst = std::max(worst, depart_of(cons));
+		return worst;
 	}
 
 	// Longest path through this signal, in the same unit-delay currency as the
