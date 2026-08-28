@@ -6,6 +6,7 @@
 #   C: pushing through a $mux.
 #   D: pushing through a barrel shifter.
 #   E: k is not hard-coded -- the same mechanism at mod 15.
+#   H: opaque residue leaves under -opaque-digits.
 #   F: rejection guards -- non-Mersenne modulus, plain adder, vacuous modulus,
 #      idempotence.
 #
@@ -292,6 +293,143 @@ opt_clean
 check -assert
 logger -expect log "1 add\(s\), 1 mux\(es\), 1 shift\(s\)" 1
 equiv_opt -assert opt_modred -push-shift-sub
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# ============================================================================
+# Group H: opaque residue leaves (-opaque-digits)
+# ============================================================================
+
+# H1: the fold spelled as a const table rather than an adder -- a 7x7 row per
+# digit pair, and 0 for anything else. That table is not the residue of its own
+# 6-bit input (it answers 0 where the true residue is nonzero), so a leaf never
+# proves; but its *range* is 0..6, which is what the level above needs, and with
+# that bound the whole tree above the leaves proves and folds into one tree.
+log -header "H1: opaque const-table digit tree (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] a, output wire [2:0] y);
+  function automatic [2:0] c7 (input [5:0] v);
+    integer i, j;
+    reg [2:0] s;
+    begin
+      c7 = 3'd0;
+      for (i = 0; i < 7; i = i + 1)
+        for (j = 0; j < 7; j = j + 1) begin
+          s = (i + j) % 7;
+          c7 = c7 | ({3{v == {i[2:0], j[2:0]}}} & s);
+        end
+    end
+  endfunction
+  wire [2:0] c0 = c7(a[5:0]);
+  wire [2:0] c1 = c7(a[11:6]);
+  wire [2:0] c2 = c7(a[17:12]);
+  wire [2:0] c3 = c7(a[23:18]);
+  wire [2:0] d0 = c7({c1, c0});
+  wire [2:0] d1 = c7({c3, c2});
+  assign y = c7({d1, d0});
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "Rewrote 1 mod-\(2\^k-1\) reduction\(s\)" 1
+equiv_opt -assert opt_modred -opaque-digits
+logger -check-expected
+design -load postopt
+design -reset
+log -pop
+
+# H2: the same design without the flag. Bounding a leaf costs a sweep of its own
+# cone, so it is opt-in, and the pass has to be a no-op without it.
+log -header "H2: opaque leaves are not bounded by default"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] a, output wire [2:0] y);
+  function automatic [2:0] c7 (input [5:0] v);
+    integer i, j;
+    reg [2:0] s;
+    begin
+      c7 = 3'd0;
+      for (i = 0; i < 7; i = i + 1)
+        for (j = 0; j < 7; j = j + 1) begin
+          s = (i + j) % 7;
+          c7 = c7 | ({3{v == {i[2:0], j[2:0]}}} & s);
+        end
+    end
+  endfunction
+  wire [2:0] c0 = c7(a[5:0]);
+  wire [2:0] c1 = c7(a[11:6]);
+  wire [2:0] c2 = c7(a[17:12]);
+  wire [2:0] c3 = c7(a[23:18]);
+  wire [2:0] d0 = c7({c1, c0});
+  wire [2:0] d1 = c7({c3, c2});
+  assign y = c7({d1, d0});
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# H3: the bound has to be believed. The leaves here are a truncating table, so
+# they do reach the all-ones digit that the level above answers 0 for -- that
+# level is genuinely non-linear and must stay. Only the level whose own slots
+# are the (0..6) outputs of a mod-7 table comes off, hence a single 4-cell tree
+# rather than the 16 of H1. Under-reporting a leaf's range would rewrite the
+# level below too, which equiv_opt would then catch.
+log -header "H3: a leaf that reaches the all-ones digit is not bounded away"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] a, output wire [2:0] y);
+  function automatic [2:0] c7 (input [5:0] v);
+    integer i, j;
+    reg [2:0] s;
+    begin
+      c7 = 3'd0;
+      for (i = 0; i < 7; i = i + 1)
+        for (j = 0; j < 7; j = j + 1) begin
+          s = (i + j) % 7;
+          c7 = c7 | ({3{v == {i[2:0], j[2:0]}}} & s);
+        end
+    end
+  endfunction
+  function automatic [2:0] t8 (input [5:0] v);
+    integer i, j;
+    reg [2:0] s;
+    begin
+      t8 = 3'd0;
+      for (i = 0; i < 7; i = i + 1)
+        for (j = 0; j < 7; j = j + 1) begin
+          s = (i + j) % 8;
+          t8 = t8 | ({3{v == {i[2:0], j[2:0]}}} & s);
+        end
+    end
+  endfunction
+  wire [2:0] c0 = t8(a[5:0]);
+  wire [2:0] c1 = t8(a[11:6]);
+  wire [2:0] c2 = t8(a[17:12]);
+  wire [2:0] c3 = t8(a[23:18]);
+  wire [2:0] d0 = c7({c1, c0});
+  wire [2:0] d1 = c7({c3, c2});
+  assign y = c7({d1, d0});
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+logger -expect log "emitted 4 new cell\(s\)" 1
+equiv_opt -assert opt_modred -opaque-digits
 logger -check-expected
 design -load postopt
 design -reset

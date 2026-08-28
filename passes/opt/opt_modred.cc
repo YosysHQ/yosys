@@ -90,8 +90,13 @@ struct OptModRedWorker : CutRegionWorker {
 	// few hundred cells once the frontend has vectorized it, and the walk is
 	// the only way to see through the cell-level loops it leaves behind.
 	int max_bits_eval_cells = 256;
+	// Largest cone the value-range prover will sweep, in leaf bits. A leaf digit
+	// of a fold reads one narrow field, so a handful of bits covers the shape
+	// this is for while keeping the sweep to a few thousand evaluations.
+	int max_bound_bits = 12;
 	bool fit_fn = true;
 	bool push_shift_sub = false;
+	bool opaque_digits = false;
 
 	int k = 0;      // modulus width
 	int mod_c = 0;  // 2^k - 1
@@ -120,6 +125,13 @@ struct OptModRedWorker : CutRegionWorker {
 		// Largest value seen over the whole (exhaustive) proof, so a node above
 		// this one knows the range its input can actually take.
 		int maxval = 0;
+		// Largest weighted sum the terms can actually reach, or -1 to price it
+		// from `weights` alone. Only an opaque digit needs the distinction: its
+		// k bits carry weights summing to coeff*(2^k-1), but its proven bound
+		// caps the value it can really take. Set once anything below rests on
+		// such a bound, and propagated upward so a parent prices its slots by
+		// range too rather than re-inflating them. See cannot_wrap().
+		int reach = -1;
 	};
 
 	dict<SigSpec, int> prove_memo_ok;
@@ -128,6 +140,7 @@ struct OptModRedWorker : CutRegionWorker {
 	int64_t reentries = 0;
 	dict<SigSpec, dict<SigBit, int>> prove_memo;
 	dict<SigSpec, int> prove_memo_max;
+	dict<SigSpec, int> prove_memo_reach;
 	dict<SigSpec, pool<Cell *>> prove_memo_region;
 
 	// Candidate places to cut a reduction cone, in two flavours.
@@ -533,6 +546,72 @@ struct OptModRedWorker : CutRegionWorker {
 		return true;
 	}
 
+	// Largest value `sig` can take, or -1 when that cannot be shown cheaply.
+	// Keyed on the signal alone and independent of k, since it only asks what the
+	// producer can emit.
+	dict<SigSpec, int> bound_memo;
+
+	// Sweep `sig`'s own cone exhaustively for its largest reachable value.
+	//
+	// A k-bit signal that never reaches 2^k-1 only ever carries a canonical
+	// residue, and that is exactly what makes the level above it linear: a fold
+	// spelled as a one-hot table decodes 0..C-1 and answers 0 for the 2^k-1 input
+	// its producer cannot emit, so over the full k-bit domain the table reads as
+	// non-linear and the whole tree above it is lost.
+	int value_bound(const SigSpec &sig)
+	{
+		if (bound_memo.count(sig))
+			return bound_memo.at(sig);
+		bound_memo[sig] = -1;  // pessimistic unless the sweep below completes
+
+		pool<Cell *> cone;
+		pool<SigBit> leaves;
+		if (!sig_fully_driven(sig) ||
+		    !get_cone(sig, cone, leaves, max_region_cells, max_bound_bits))
+			return -1;
+
+		SigSpec leafsig;
+		for (auto bit : leaves)
+			leafsig.append(bit);
+		// Compared before the shift, not after: max_bound_bits is a user option,
+		// and a cone that wide would shift past the width of the count itself.
+		if (GetSize(leafsig) > max_cut_bits)
+			return -1;
+		int64_t combos = int64_t(1) << GetSize(leafsig);
+
+		ConstEval &ce = shared_ce();
+		vector<Cell *> order;
+		compute_cone_depths(cone, &order);
+		vector<std::pair<SigSpec, Const>> sets{{leafsig, Const(State::S0, GetSize(leafsig))}};
+		int cells = GetSize(cone);
+		// Same one-way switch as check_linear: a vectorized fold leaves cells
+		// that each need a bit of another's output, which ConstEval cannot
+		// resolve whole even though the cone is acyclic bit by bit.
+		bool allow_bits = cells <= max_bits_eval_cells && cone_has_cell_loop(cone);
+		bool bits_mode = false;
+		int bound = 0;
+		for (int64_t v = 0; v < combos; v++) {
+			set_const_u64(sets[0].second, uint64_t(v));
+			uint64_t out = 0;
+			if (eval_exhausted())
+				return -1;
+			if (!bits_mode) {
+				if (eval_with(ce, sets, sig, out, cells, &order)) {
+					bound = std::max(bound, int(out));
+					continue;
+				}
+				if (!allow_bits)
+					return -1;
+				bits_mode = true;
+			}
+			if (!eval_with_bits(sets, sig, out, cells))
+				return -1;
+			bound = std::max(bound, int(out));
+		}
+		bound_memo[sig] = bound;
+		return bound;
+	}
+
 	// Prove that `root` is a mod-C reduction, returning the weight of every raw
 	// bit that feeds it. Cuts are pushed outward on failure: a normalizer sitting
 	// between two tree levels makes the inner cut unprovable (7 maps to 0 there,
@@ -551,6 +630,7 @@ struct OptModRedWorker : CutRegionWorker {
 				return false;
 			out.weights = prove_memo.at(root);
 			out.maxval = prove_memo_max.at(root);
+			out.reach = prove_memo_reach.at(root, -1);
 			out.region = prove_memo_region.at(root);
 			return true;
 		}
@@ -697,11 +777,20 @@ struct OptModRedWorker : CutRegionWorker {
 			vector<int> slot_max(GetSize(slots), 1);
 			vector<Proof> sub(GetSize(slots));
 			vector<bool> sub_ok(GetSize(slots), false);
+			// Unproven slots that still only ever carry a canonical residue, so
+			// they can ride in as opaque digits (see the lin branch below).
+			vector<bool> opaque(GetSize(slots), false);
 			for (int i = 0; i < GetSize(slots); i++) {
 				if (bus_slot[i] < 0)
 					continue;
 				sub_ok[i] = prove(slots[i], sub[i], depth + 1);
-				slot_max[i] = sub_ok[i] ? sub[i].maxval : (1 << k) - 1;
+				if (sub_ok[i]) {
+					slot_max[i] = sub[i].maxval;
+					continue;
+				}
+				int bound = opaque_digits ? value_bound(slots[i]) : -1;
+				opaque[i] = bound >= 0 && bound < mod_c;
+				slot_max[i] = opaque[i] ? bound : (1 << k) - 1;
 			}
 
 			vector<int> coeffs;
@@ -717,40 +806,80 @@ struct OptModRedWorker : CutRegionWorker {
 			          lin ? "linear" : "not linear");
 			if (ys_debug() && GetSize(slots) <= 16)
 				for (int i = 0; i < GetSize(slots); i++)
-					log_debug("%*s  slot %s max %d coeff %d\n", 2 * depth + 4, "",
+					log_debug("%*s  slot %s max %d coeff %d%s\n", 2 * depth + 4, "",
 					          log_signal(slots[i]), slot_max[i],
-					          i < GetSize(coeffs) ? coeffs[i] : -1);
+					          i < GetSize(coeffs) ? coeffs[i] : -1,
+					          opaque[i] ? " (opaque digit)" : "");
 			if (lin) {
 				bool ok = true;
+				bool any_opaque = false;
 				dict<SigBit, int> weights;
+				// Every slot priced by the range it can actually take, which
+				// for a proven slot is its own maxval and for an opaque digit
+				// is its bound. Only used once something below is opaque.
+				int64_t reach = 0;
+				// Cells the rewrite would replace: everything between the root
+				// and the cut, plus whatever each proven slot covers.
+				pool<Cell *> claimed = cut_cells;
 				for (int i = 0; ok && i < GetSize(slots); i++) {
 					if (coeffs[i] == 0)
 						continue;
+					reach += int64_t(coeffs[i]) * slot_max[i];
 					if (bus_slot[i] < 0) {
 						SigBit bit = slots[i][0];
 						weights[bit] = (weights.at(bit, 0) + coeffs[i]) % mod_c;
 						continue;
 					}
 					if (!sub_ok[i]) {
-						ok = false;
-						break;
+						if (!opaque[i]) {
+							ok = false;
+							break;
+						}
+						// slot == sum of 2^j * bit_j holds for any bus, so an
+						// opaque digit needs no proof of its own -- only the
+						// bound above, which is what the linearity check just
+						// covered. The tree then reads the digit where it is
+						// instead of pushing past it.
+						for (int j = 0; j < k; j++)
+							weights[slots[i][j]] =
+							    int((int64_t(weights.at(slots[i][j], 0)) +
+							         int64_t(coeffs[i]) * (1 << j)) % mod_c);
+						any_opaque = true;
+						continue;
 					}
+					// A slot whose own proof rests on a bound taints this one:
+					// its inflated bit weights would otherwise reappear here as
+					// reach the design cannot actually produce.
+					if (sub[i].reach >= 0)
+						any_opaque = true;
 					for (auto &it : sub[i].weights)
 						weights[it.first] =
 						    int((int64_t(weights.at(it.first, 0)) +
 						         int64_t(coeffs[i]) * it.second) % mod_c);
 					for (auto c : sub[i].region)
 						out.region.insert(c);
+					for (auto c : sub[i].region)
+						claimed.insert(c);
 				}
+				// The cone behind an opaque digit survives the rewrite, so it
+				// must not count toward the depth the tree claims to save.
+				if (ok && any_opaque)
+					out.region = claimed;
 				if (ok) {
 					for (auto it = weights.begin(); it != weights.end();)
 						it = (it->second == 0) ? weights.erase(it) : ++it;
+					// Only opaque digits make the weight sum an overestimate,
+					// so leave `reach` unset otherwise and keep the plain
+					// pricing (and its results) exactly as they were.
+					int r = any_opaque ? int(std::min<int64_t>(reach, mod_c)) : -1;
 					prove_memo_ok[root] = 1;
 					prove_memo[root] = weights;
 					prove_memo_max[root] = maxval;
+					prove_memo_reach[root] = r;
 					prove_memo_region[root] = out.region;
 					out.weights = weights;
 					out.maxval = maxval;
+					out.reach = r;
 					return true;
 				}
 			}
@@ -1352,12 +1481,19 @@ struct OptModRedWorker : CutRegionWorker {
 	// would explode already contributes a full C here, as its digits are the
 	// powers of two. A reach of exactly C does wrap, at the one point where
 	// every term is set, and is left to the profitability guards below.
-	bool cannot_wrap(const dict<SigBit, int> &weights) const
+	//
+	// `reach` overrides the weight sum for a proof carrying opaque digits, whose
+	// bit weights add up to a full C no matter how narrow the digit's proven
+	// range is -- which would otherwise retire this guard for every such proof.
+	bool cannot_wrap(const dict<SigBit, int> &weights, int reach = -1) const
 	{
-		int64_t reach = 0;
-		for (auto &it : weights)
-			reach += it.second;  // each weighted bit is worth at most its weight
-		return reach < mod_c;
+		int64_t total = reach;
+		if (reach < 0) {
+			total = 0;
+			for (auto &it : weights)
+				total += it.second;  // each weighted bit is worth at most its weight
+		}
+		return total < mod_c;
 	}
 
 	// True when a tree over `terms` would not land enough earlier than `root`
@@ -1367,6 +1503,17 @@ struct OptModRedWorker : CutRegionWorker {
 	static constexpr int min_arrival_gain = 2;
 	bool arrival_no_better(const SigSpec &root, const vector<SigSpec> &terms, int slack)
 	{
+		int tree = tree_levels(GetSize(terms)) + slack;
+		int span = term_to_root_levels(root, terms);
+		log_debug("    arrival: tree %d + gain %d vs %d level(s) of matched logic\n", tree,
+		          min_arrival_gain, span);
+		return tree + min_arrival_gain > span;
+	}
+
+	// Levels of logic the rewrite would actually replace: how much later the
+	// root lands than the terms it is a function of.
+	int term_to_root_levels(const SigSpec &root, const vector<SigSpec> &terms)
+	{
 		int term_level = 0;
 		for (auto &t : terms)
 			for (auto bit : t)
@@ -1374,17 +1521,14 @@ struct OptModRedWorker : CutRegionWorker {
 		int root_level = 0;
 		for (auto bit : root)
 			root_level = std::max(root_level, bit_level(bit));
-		int tree = tree_levels(GetSize(terms)) + slack;
-		log_debug("    arrival: terms at %d + tree %d vs root at %d\n", term_level, tree,
-		          root_level);
-		return term_level + tree + min_arrival_gain > root_level;
+		return root_level - term_level;
 	}
 
 	bool rewrite(const SigSpec &root, Proof &pf)
 	{
 		if (GetSize(pf.weights) < min_terms || GetSize(pf.weights) > max_terms)
 			return false;
-		if (cannot_wrap(pf.weights)) {
+		if (cannot_wrap(pf.weights, pf.reach)) {
 			log_debug("  %s: terms cannot reach the modulus\n", log_signal(root));
 			return false;
 		}
@@ -1396,15 +1540,23 @@ struct OptModRedWorker : CutRegionWorker {
 		// signal alone, so it cannot outlive the k it was filled for.
 		prove_memo_ok.clear();
 		prove_memo.clear();
+		prove_memo_reach.clear();
+		bound_memo.clear();
+
+		vector<SigSpec> terms;
+		if (!weight_terms(pf.weights, terms) || GetSize(terms) > max_terms)
+			return false;
 
 		auto depths = compute_cone_depths(pf.region);
 		int region_depth = 0;
 		for (auto &it : depths)
 			region_depth = std::max(region_depth, it.second);
-
-		vector<SigSpec> terms;
-		if (!weight_terms(pf.weights, terms) || GetSize(terms) > max_terms)
-			return false;
+		// A const-table fold vectorizes into cells that each want a bit of
+		// another's output, and the topological walk above never brings those
+		// ready, so a cone hundreds of levels deep measures as two. The bit
+		// walk treats a back edge as level 0 and does see through it.
+		if (opaque_digits && GetSize(depths) < GetSize(pf.region))
+			region_depth = std::max(region_depth, term_to_root_levels(root, terms));
 
 		// Profitability: the emitted tree is one FA level per Wallace stage plus
 		// the final fold, against the matched region's own depth. Measured after
@@ -1914,26 +2066,39 @@ struct OptModRedWorker : CutRegionWorker {
 	}
 
 	// Combined weights of the group under the fitted coefficients: the residue
-	// the table is going to read.
+	// the table is going to read. `reach` follows the same combination, and
+	// stays -1 unless some member priced an opaque digit below its bit weights.
 	void fn_weights(const FnMatch &m, const dict<SigSpec, Proof> &proofs,
-	                dict<SigBit, int> &weights)
+	                dict<SigBit, int> &weights, int *reach = nullptr)
 	{
-		for (int i = 0; i < GetSize(m.group); i++)
-			for (auto &it : proofs.at(m.group[i]).weights)
+		int64_t total = 0;
+		bool any_reach = false;
+		for (int i = 0; i < GetSize(m.group); i++) {
+			const Proof &p = proofs.at(m.group[i]);
+			for (auto &it : p.weights)
 				weights[it.first] = int((int64_t(weights.at(it.first, 0)) +
 				                         int64_t(m.coeff[i]) * it.second) %
 				                        mod_c);
+			// Each group member reads as a residue, so its range is what it
+			// contributes -- but only price it that way once some member rests
+			// on a bound, to leave the plain path's pricing untouched.
+			total += int64_t(m.coeff[i]) * p.maxval;
+			any_reach |= p.reach >= 0;
+		}
 		for (auto it = weights.begin(); it != weights.end();)
 			it = (it->second == 0) ? weights.erase(it) : ++it;
+		if (reach)
+			*reach = any_reach ? int(std::min<int64_t>(total, mod_c)) : -1;
 	}
 
 	bool rewrite_fn(FnMatch &m, const dict<SigSpec, Proof> &proofs)
 	{
 		dict<SigBit, int> weights;
-		fn_weights(m, proofs, weights);
+		int reach = -1;
+		fn_weights(m, proofs, weights, &reach);
 		if (GetSize(weights) < min_terms || GetSize(weights) > max_terms)
 			return false;
-		if (cannot_wrap(weights)) {
+		if (cannot_wrap(weights, reach)) {
 			log_debug("  fn %s: terms cannot reach the modulus\n", log_signal(m.outs));
 			return false;
 		}
@@ -1943,6 +2108,8 @@ struct OptModRedWorker : CutRegionWorker {
 		cell_name = anchor->name;
 		prove_memo_ok.clear();
 		prove_memo.clear();
+		prove_memo_reach.clear();
+		bound_memo.clear();
 
 		pool<Cell *> region = m.cone;
 		for (auto &r : m.group)
@@ -2255,6 +2422,19 @@ struct OptModRedPass : public Pass {
 		log("        a push into x's producer, which only pays when that producer's\n");
 		log("        operands are shallower than the producer itself.\n");
 		log("\n");
+		log("    -opaque-digits\n");
+		log("        let a cut slot that is not itself a provable reduction still ride\n");
+		log("        into the tree as one digit, when its own cone is swept and shown\n");
+		log("        never to reach 2^k-1. That is what a leaf of a const-table fold is:\n");
+		log("        a field map answering 0..C-1 only, so the mod-C adds stacked above\n");
+		log("        it are a real reduction even though the leaf is not. Without this\n");
+		log("        the leaf's full k-bit domain includes the 2^k-1 the table sends to\n");
+		log("        zero, every level reads as non-linear, and the tree is not matched.\n");
+		log("\n");
+		log("    -max-bound-bits N\n");
+		log("        largest cone the -opaque-digits sweep will bound, in leaf bits\n");
+		log("        (default 12).\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -2263,8 +2443,8 @@ struct OptModRedPass : public Pass {
 		                   "trees).\n");
 		int min_mod_bits = 2, max_mod_bits = 6, max_cut_bits = 14;
 		int min_terms = 4, max_terms = 512, max_push_depth = 6, min_push_add_width = 8;
-		int max_bits_eval_cells = 256;
-		bool push_shift_sub = false;
+		int max_bits_eval_cells = 256, max_bound_bits = 12;
+		bool push_shift_sub = false, opaque_digits = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
@@ -2318,6 +2498,19 @@ struct OptModRedPass : public Pass {
 				push_shift_sub = true;
 				continue;
 			}
+			if (args[argidx] == "-opaque-digits" || args[argidx] == "-opaque_digits") {
+				opaque_digits = true;
+				continue;
+			}
+			if ((args[argidx] == "-max-bound-bits" || args[argidx] == "-max_bound_bits") &&
+			    argidx + 1 < args.size()) {
+				max_bound_bits = std::stoi(args[++argidx]);
+				// The sweep counts combinations in an int64_t, so a wider cone
+				// than that has no representable iteration count.
+				if (max_bound_bits < 0 || max_bound_bits > 62)
+					log_cmd_error("-max-bound-bits must be in 0..62\n");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2340,6 +2533,8 @@ struct OptModRedPass : public Pass {
 				worker.min_push_add_width = min_push_add_width;
 				worker.push_shift_sub = push_shift_sub;
 				worker.max_bits_eval_cells = max_bits_eval_cells;
+				worker.max_bound_bits = max_bound_bits;
+				worker.opaque_digits = opaque_digits;
 				worker.run();
 				total_regions += worker.regions;
 				total_cells += worker.cells_added;
