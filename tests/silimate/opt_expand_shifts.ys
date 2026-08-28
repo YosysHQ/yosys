@@ -255,6 +255,121 @@ log -pop
 
 
 
+log -header "-expand-keep-arith: variable amount stays on the ADD output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: variable amount stays on the SUB output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a - b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: a constant amount is free, so it still expands"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire [7:0] x
+);
+  assign x = (a + b) << 3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: bitwise ops are untouched by the guard"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a & b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: the add tree keeps one barrel, not one per operand"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] d,
+  input wire [7:0] e,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b + d + e) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 3 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
 log -header "Chained shifts: ((a + b) << c) << d"
 log -push
 design -reset

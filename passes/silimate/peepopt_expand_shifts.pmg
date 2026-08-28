@@ -14,6 +14,9 @@ pattern expand_shifts
 
 state <SigSpec> op_a op_b op_y  shift_amt shift_y
 
+// Set by -expand-keep-arith to hold a variable-amount shift on $add/$sub output
+udata <bool> keep_arith
+
 match op_gate
 	// Select inner binary operation gate
 	select op_gate->type.in($and, $or, $xor, $add, $sub)
@@ -38,6 +41,17 @@ match shift_gate
 	set shift_amt port(shift_gate, \B)
 	set shift_y port(shift_gate, \Y)
 endmatch
+
+code
+	// A constant amount is free rewiring, so splitting it in two costs nothing,
+	// but a variable one is a barrel. Duplicating that is bad enough on its own;
+	// across $add/$sub it also moves the barrel ahead of the carry chain, so the
+	// amount's cone gains the adder's whole depth instead of bypassing it. On an
+	// N-operand add tree the rewrite cascades, ending with N barrels in front of
+	// the tree rather than one behind it.
+	if (keep_arith && op_gate->type.in($add, $sub) && !shift_amt.is_fully_const())
+		reject;
+endcode
 
 code op_a op_b op_y  shift_amt shift_y
 	// Unset all ports
