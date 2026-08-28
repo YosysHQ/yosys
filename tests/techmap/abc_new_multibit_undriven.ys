@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module top(input [3:0] a, output [3:0] y);
+	assign y = ~a;
+endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+logger -expect log "ABC: .*i/o = +4/ +4" 2
+logger -expect log "ABC: Warning: The network is combinational\." 1
+logger -expect log "ABC: Networks are equivalent\." 1
+logger -expect warning "Wire top\.\$lit[0-9]+ is used but has no driver" 4
+logger -expect error "Found 4 problems in 'check -assert'" 1
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+check -assert
