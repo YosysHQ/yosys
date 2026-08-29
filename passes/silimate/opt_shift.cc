@@ -969,6 +969,16 @@ struct OptShiftPass : public Pass {
     log("      (z >> s) narrower than z. This is the inverse of -expand on\n");
     log("      $add, so the two must not be requested together.\n");
     log("\n");
+    log("  -sink-widening\n");
+    log("      Also sink when s has no provable nonzero minimum, so the addend\n");
+    log("      does not narrow. The sink still pays on the adder itself, which\n");
+    log("      moves from the shifter output width to its input width, but only\n");
+    log("      where the shifter widens, so it costs a second barrel for z.\n");
+    log("\n");
+    log("  -sink-widening-gain <int>\n");
+    log("      bits the adder must lose before a widening sink fires (default:\n");
+    log("      4). At 0 it would fire on shifters that only cost the barrel.\n");
+    log("\n");
     log("  -fuse\n");
     log("      Fuse a modular gather with the variable left shift feeding it,\n");
     log("      which -combine cannot do because the gather rotates its table:\n");
@@ -1036,6 +1046,8 @@ struct OptShiftPass : public Pass {
     bool run_expand = false;
     bool expand_keep_arith = false;
     bool run_sink = false;
+    bool sink_widening = false;
+    int sink_widening_gain = 4;
     bool run_fuse = false;
     bool run_chain = false;
     bool chain_keep = false;
@@ -1063,6 +1075,16 @@ struct OptShiftPass : public Pass {
       }
       if (args[argidx] == "-sink") {
         run_sink = true;
+        continue;
+      }
+      if (args[argidx] == "-sink-widening" ||
+          args[argidx] == "-sink_widening") {
+        sink_widening = true;
+        continue;
+      }
+      if ((args[argidx] == "-sink-widening-gain" ||
+           args[argidx] == "-sink_widening_gain") && argidx + 1 < args.size()) {
+        sink_widening_gain = atoi(args[++argidx].c_str());
         continue;
       }
       if (args[argidx] == "-fuse") {
@@ -1136,6 +1158,9 @@ struct OptShiftPass : public Pass {
           sink_index_module(module);
           peepopt_sink_pm pm(module);
           pm.setup(module->selected_cells());
+          // setup() zeroes udata, so the flags have to be set after it
+          pm.ud_sink_shifts.sink_widening = sink_widening;
+          pm.ud_sink_shifts.sink_widening_gain = sink_widening_gain;
           pm.run_sink_shifts();
         }
         // Composes $shr chains too, which has_variable_shift does not see

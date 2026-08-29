@@ -13,9 +13,17 @@ pattern sink_shifts
 // than z, and when s is not constant, since a constant shift is free rewiring
 // and there is nothing to sink past.
 //
+// With sink_widening the addend need not narrow, because there is a second way
+// the sink pays: the adder leaves the shifter output and lands on its input, so
+// it runs at the input width instead of the result width. That only helps when
+// the shifter widens, so it is gated on how many bits the adder actually loses.
+//
 
 state <SigSpec> shift_a shift_b shift_y
 state <int> shift_min
+
+udata <bool> sink_widening
+udata <int> sink_widening_gain
 
 match shift
 	select shift->type.in($shl)
@@ -33,9 +41,10 @@ code shift_min
 	if (nusers(shift_y) != 2)
 		reject;
 
-	// Without a nonzero lower bound on s there is no narrowing to gain
+	// Without a nonzero lower bound on s the addend cannot narrow; only the
+	// widening rule below can still justify the sink
 	shift_min = min_shift_amount(shift_b);
-	if (shift_min < 1)
+	if (shift_min < 1 && !sink_widening)
 		reject;
 endcode
 
@@ -60,6 +69,16 @@ code
 	// Keep truncation identical to the original: same width in and out
 	if (GetSize(add_y) != GetSize(shift_y))
 		reject;
+
+	// The addend did not narrow (shift_min is 0 here, so z crosses whole), which
+	// leaves the adder as the only thing the sink can pay on: the new one is as
+	// wide as the widest operand reaching the shifter input, against the shifter
+	// output width the old one ran at
+	if (shift_min < 1) {
+		int sunk_width = max(GetSize(shift_a), GetSize(add_z));
+		if (GetSize(add_y) - sunk_width < sink_widening_gain)
+			reject;
+	}
 endcode
 
 code shift_a shift_b shift_y add_z add_y
