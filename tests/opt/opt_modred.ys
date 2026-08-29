@@ -9,6 +9,8 @@
 #   H: opaque residue leaves under -opaque-digits.
 #   F: rejection guards -- non-Mersenne modulus, plain adder, vacuous modulus,
 #      idempotence.
+#   G: the whole chain at once.
+#   H: -div-cells -- the bare `A % C` cell, which no cut can reach.
 #
 # Depth is the point of this pass, so the structural checks are `ltp -noff`
 # lengths rather than cell counts: a carry-save tree is usually smaller too, but
@@ -527,5 +529,130 @@ clean -purge
 logger -expect log "Rewrote 0 mod-\(2\^k-1\) reduction\(s\)" 1
 opt_modred
 logger -check-expected
+design -reset
+log -pop
+
+# ============================================================================
+# Group H: -div-cells, the bare `A % C` cell
+# ============================================================================
+
+# H1: nothing in a lone `$mod` cell for the exhaustive prover to cut -- its only
+# cut is the whole operand -- so the divisor is read algebraically instead: bit i
+# of A is worth 2^(i mod k). The divider must be gone afterwards, not merely
+# bypassed, since the tree only pays if it replaces the deeper cell.
+#
+# 16 bits deliberately: past the default 14-bit cut, so a sweep cannot reach this
+# and the match under test is the only thing that can rewrite it.
+log -header "H1: bare mod-7 cell is rewritten (equiv)"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] x, output wire [2:0] y);
+  assign y = x % 3'd7;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+equiv_opt -assert opt_modred -div-cells
+design -load postopt
+select -assert-min 1 c:*modred*
+select -assert-count 0 t:$mod
+design -reset
+log -pop
+
+# H2: k is not hard-coded here either, and the operand is far wider than any cut
+# the sweep would take -- which is the whole point of reading the divisor
+# algebraically. Structural only: a 64-bit divider is past what equiv_opt can
+# discharge in test time, and H1 already pins the semantics.
+log -header "H2: bare mod-31 cell over a 64-bit operand"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [63:0] x, output wire [4:0] y);
+  assign y = x % 5'd31;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred -div-cells
+select -assert-min 1 c:*modred*
+clean -purge
+select -assert-count 0 t:$mod
+design -reset
+log -pop
+
+# H3: off by default -- the flag exists because this rewrites a cell the rest of
+# the flow may still be counting on.
+log -header "H3: bare mod cell is left alone by default"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [2:0] y);
+  assign y = x % 3'd7;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred
+select -assert-count 0 c:*modred*
+select -assert-count 1 t:$mod
+design -reset
+log -pop
+
+# H4: a signed `%` truncates toward zero and can go negative, so it is not a
+# residue mod C however Mersenne the divisor looks.
+log -header "H4: signed mod cell is rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire signed [23:0] x, output wire signed [3:0] y);
+  assign y = x % 4'sd7;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred -div-cells
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# H5: the weight map is read off the divisor's bits, so a divisor that is not a
+# constant has none to read.
+log -header "H5: variable divisor is rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, input wire [2:0] d, output wire [2:0] y);
+  assign y = x % d;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred -div-cells
+select -assert-count 0 c:*modred*
+design -reset
+log -pop
+
+# H6: matching only the low k bits of a wider output is what lets the residue be
+# found at all, but it only pays when the bits above are dead -- otherwise the
+# divider stays and the tree is built beside it.
+log -header "H6: live high output bits are rejected"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [23:0] x, output wire [31:0] y);
+  assign y = (x % 32'd7) | {x[0], 31'b0};
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+opt_modred -div-cells
+select -assert-count 0 c:*modred*
 design -reset
 log -pop
