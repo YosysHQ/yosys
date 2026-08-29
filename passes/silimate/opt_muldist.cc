@@ -114,28 +114,51 @@ struct OptMulDistWorker {
 		return -1;
 	}
 
-	// An unsigned add that cannot truncate, since a + b never needs more than one
-	// bit past the wider operand. The leftover row is moved from the product up to
-	// the chain root, which is only exact if nothing between them drops a carry --
-	// the same width question arith_tree answers before flattening a link.
-	bool exact_link(Cell *cell)
+	// Bits an unsigned operand can actually set. Constant zeros above the value
+	// cannot carry, so a port wreduce has not narrowed is no less exact than one
+	// it has.
+	int value_width(const SigSpec &sig)
 	{
-		if (cell->type != ID($add))
-			return false;
-		if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
-			return false;
-		int wa = GetSize(cell->getPort(ID::A)), wb = GetSize(cell->getPort(ID::B));
-		return GetSize(cell->getPort(ID::Y)) >= (wb ? std::max(wa, wb) + 1 : wa);
+		SigSpec s = sigmap(sig);
+		int w = GetSize(s);
+		while (w > 0 && s[w - 1] == State::S0)
+			w--;
+		return w;
 	}
 
-	// The sole $add/$sub consumer of `bit`, or null
-	Cell *sole_add_consumer(SigBit bit)
+	// An add that cannot truncate, since a + b never needs more than one bit past
+	// the wider operand. The leftover row is moved from the product up to the chain
+	// root, which is only exact if nothing between them drops a carry -- the same
+	// width question arith_tree answers before flattening a link.
+	bool exact_link(Cell *cell)
 	{
-		auto it = consumers.find(bit);
+		int wa = value_width(cell->getPort(ID::A)), wb = value_width(cell->getPort(ID::B));
+		int need = (wa && wb) ? std::max(wa, wb) + 1 : std::max(wa, wb);
+		return GetSize(cell->getPort(ID::Y)) >= need;
+	}
+
+	// The sole consumer of `sig`, if the row can pass through it unchanged: an
+	// unsigned add taking all of `sig` zero-extended from bit 0. Anything above it
+	// in the port scales the product, and a subtraction taking it negates it, so
+	// either way the row moved up would no longer be the term that left.
+	Cell *link_above(const SigSpec &sig)
+	{
+		SigSpec s = sigmap(sig);
+		auto it = consumers.find(s[0]);
 		if (it == consumers.end() || GetSize(it->second) != 1)
 			return nullptr;
 		Cell *cell = *it->second.begin();
-		return cell->type.in(ID($add), ID($sub)) ? cell : nullptr;
+		if (cell->type != ID($add))
+			return nullptr;
+		if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+			return nullptr;
+
+		for (auto port : {ID::A, ID::B}) {
+			SigSpec p = sigmap(cell->getPort(port));
+			if (GetSize(p) >= GetSize(s) && p.extract(0, GetSize(s)) == s)
+				return cell;
+		}
+		return nullptr;
 	}
 
 	// Everything from the product up to the chain root sums to something different
@@ -156,7 +179,7 @@ struct OptMulDistWorker {
 				wires.push_back(chunk.wire);
 			}
 
-			cur = sole_add_consumer(sigmap(sig)[0]);
+			cur = link_above(sig);
 			if (!cur)
 				return false;
 			// The root keeps its output net, which still carries the whole sum, but
@@ -168,20 +191,19 @@ struct OptMulDistWorker {
 		}
 	}
 
-	// Root of the add chain fed by `bit`, if the row can be moved there and
+	// Root of the add chain fed by `prod`, if the row can be moved there and
 	// arith_tree will rebuild the chain once it arrives. One more row is only a
 	// compressor level if the chain clears the thresholds arith_tree is run with.
-	Cell *feeds_tree(SigBit bit)
+	Cell *feeds_tree(const SigSpec &prod)
 	{
-		Cell *root = sole_add_consumer(bit);
+		Cell *root = link_above(prod);
 		if (!root)
 			return nullptr;
 
-		// Every add the row passes on its way up has to be exact
-		while (true) {
-			Cell *next = sole_add_consumer(sigmap(root->getPort(ID::Y))[0]);
-			if (!next)
-				break;
+		// Every add the row passes on its way up has to be exact. The root itself
+		// may truncate: the row lands directly on its output, so both designs
+		// reduce modulo the same width there.
+		while (Cell *next = link_above(root->getPort(ID::Y))) {
 			if (!exact_link(root))
 				return nullptr;
 			root = next;
@@ -308,7 +330,7 @@ struct OptMulDistWorker {
 			if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
 				continue;
 
-			Cell *root = feeds_tree(sigmap(cell->getPort(ID::Y))[0]);
+			Cell *root = feeds_tree(cell->getPort(ID::Y));
 			if (!root)
 				continue;
 
@@ -367,7 +389,7 @@ struct OptMulDistWorker {
 		for (auto cell : module->cells()) {
 			if (cell->type != ID($mul) || cell == t.mul)
 				continue;
-			if (feeds_tree(sigmap(cell->getPort(ID::Y))[0]) != t.root)
+			if (feeds_tree(cell->getPort(ID::Y)) != t.root)
 				continue;
 
 			bool behind_increment = false;

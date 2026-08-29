@@ -98,6 +98,96 @@ design -load gold
 equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
 design -reset
 
+# The same chain with a link wreduce has not narrowed: the product enters the
+# first add zero-padded to the full sum width, which makes the link look like it
+# needs a bit it does not have. Constant zeros cannot carry, so the row still
+# moves through it.
+read_rtlil <<EOT
+module \test
+  wire width 8 input 1 \x
+  wire width 3 input 2 \z
+  wire width 12 input 3 \u
+  wire width 12 input 4 \v
+  wire width 13 output 5 \y
+  wire width 8 \xp
+  wire width 13 \prod
+  wire width 13 \part
+  cell $add \inc
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 8
+    connect \A \x
+    connect \B 1'1
+    connect \Y \xp
+  end
+  cell $mul \mul
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 3
+    parameter \B_WIDTH 6
+    parameter \Y_WIDTH 9
+    connect \A \z
+    connect \B \xp [7:2]
+    connect \Y \prod [8:0]
+  end
+  cell $add \link
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 13
+    parameter \B_WIDTH 12
+    parameter \Y_WIDTH 13
+    connect \A { 4'0000 \prod [8:0] }
+    connect \B \u
+    connect \Y \part
+  end
+  cell $add \root
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 13
+    parameter \B_WIDTH 12
+    parameter \Y_WIDTH 13
+    connect \A \part
+    connect \B \v
+    connect \Y \y
+  end
+  connect \prod [12:9] 4'0000
+end
+EOT
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# A subtraction taking the product negates the row, so moving it up as an added
+# term is not the same value at all
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = u + v - z * xp[7:2];
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-none a:opt_muldist
+design -reset
+
+# A product entering the chain above bit 0 is scaled, and the row moved up
+# unscaled would not match it
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [13:0] u, v, output [14:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = {z * xp[7:2], 2'b00} + u + v;
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-none a:opt_muldist
+design -reset
+
 # Nothing carry-saves the row when the product feeds a two-addend chain, so it
 # would become another adder in series behind the multiply
 read_verilog -sv <<EOT
