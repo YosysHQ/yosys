@@ -1,10 +1,10 @@
-# Arrival scheduling: an operand enters the compressor tree at the level its own
-# logic arrives, so a late one is held back and crosses one compressor instead of
-# all of them. The forward cone of the late operand counts the compressors it
-# actually passes through, which is the property the schedule exists to shrink.
+# Arrival scheduling (-schedule, off by default): an operand enters the compressor
+# tree at the level its own logic arrives, so a late one is held back and crosses
+# one compressor instead of all of them. The forward cone of the late operand
+# counts the compressors it passes through, the property the schedule shrinks.
 
 # Four early operands and one arriving well after them. Scheduled, the late
-# operand joins only the last compressor; unscheduled it enters at level 0 and
+# operand joins only the last compressor; by default it enters at level 0 and
 # crosses two of the three.
 read_verilog <<EOT
 module late_operand(
@@ -19,13 +19,13 @@ hierarchy -auto-top
 proc
 design -save gold
 
-equiv_opt -assert arith_tree -strategy fa -final ripple
+equiv_opt -assert arith_tree -strategy fa -final ripple -schedule
 design -load postopt
 select -assert-count 3 t:$fa
 select -assert-count 1 t:$mul %co* t:$fa %i
 
 design -load gold
-equiv_opt -assert arith_tree -strategy fa -final ripple -no-schedule
+equiv_opt -assert arith_tree -strategy fa -final ripple
 design -load postopt
 select -assert-count 3 t:$fa
 select -assert-count 2 t:$mul %co* t:$fa %i
@@ -49,12 +49,12 @@ proc
 design -save gold
 
 logger -expect log "final depth 3" 1
-arith_tree -strategy fa -final ripple
+arith_tree -strategy fa -final ripple -schedule
 logger -check-expected
 
 design -load gold
 logger -expect log "final depth 3" 1
-arith_tree -strategy fa -final ripple -no-schedule
+arith_tree -strategy fa -final ripple
 logger -check-expected
 design -reset
 
@@ -72,7 +72,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-equiv_opt -assert arith_tree -strategy 42 -final ripple
+equiv_opt -assert arith_tree -strategy 42 -final ripple -schedule
 design -load postopt
 select -assert-count 1 t:$fa
 design -reset
@@ -91,7 +91,7 @@ endmodule
 EOT
 hierarchy -auto-top
 proc
-equiv_opt -assert arith_tree -strategy fa -final ripple
+equiv_opt -assert arith_tree -strategy fa -final ripple -schedule
 design -load postopt
 # a, b, late, the inverted c and its +1 row: five operands, so three compressors.
 select -assert-count 3 t:$fa

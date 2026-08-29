@@ -26,7 +26,7 @@ struct ArithTreeOptions {
 	// compression only pays when it removes a wide carry-propagate adder.
 	int min_width = 0;
 	// Hold late operands out of the tree until the level they arrive at
-	bool schedule_arrival = true;
+	bool schedule_arrival = false;
 };
 
 struct ArithTreeWorker {
@@ -647,12 +647,13 @@ struct ArithTreePass : public Pass {
 		log("    -no-fma\n");
 		log("        Disable fused multiply-add expansion in $macc cells\n");
 		log("\n");
-		log("    -no-schedule\n");
-		log("        Feed every operand into the tree at level 0. By default each\n");
-		log("        one enters at the level its own logic arrives, estimated from\n");
-		log("        the depth of the network driving it, so a late operand is held\n");
-		log("        back and crosses one compressor level instead of all of them.\n");
-		log("        A product feeding a sum of products is the usual case.\n");
+		log("    -schedule\n");
+		log("        Enter each operand at the level its own logic arrives, estimated\n");
+		log("        from the depth of the network driving it, instead of feeding them\n");
+		log("        all in at level 0. A late operand is then held back and crosses\n");
+		log("        one compressor level instead of all of them; a product feeding a\n");
+		log("        sum of products is the usual case. Off by default because it\n");
+		log("        reorders operands on designs where the arrivals are already even.\n");
 		log("\n");
 		log("    -min-width <n>\n");
 		log("        Skip chains and $macc cells whose result is narrower than <n>\n");
@@ -697,8 +698,8 @@ struct ArithTreePass : public Pass {
 				opt.fma_fusion = false;
 				continue;
 			}
-			if (arg == "-no-schedule") {
-				opt.schedule_arrival = false;
+			if (arg == "-schedule") {
+				opt.schedule_arrival = true;
 				continue;
 			}
 			if (arg == "-min-width" && argidx + 1 < args.size()) {
