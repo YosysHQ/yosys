@@ -72,10 +72,10 @@ code
 
 	// The addend did not narrow (shift_min is 0 here, so z crosses whole), which
 	// leaves the adder as the only thing the sink can pay on: the new one is as
-	// wide as the widest operand reaching the shifter input, against the shifter
-	// output width the old one ran at
+	// wide as the widest operand reaching the shifter input, plus the carry it
+	// keeps above them, against the shifter output width the old one ran at
 	if (shift_min < 1) {
-		int sunk_width = max(GetSize(shift_a), GetSize(add_z));
+		int sunk_width = max(GetSize(shift_a), GetSize(add_z)) + 1;
 		if (GetSize(add_y) - sunk_width < sink_widening_gain)
 			reject;
 	}
