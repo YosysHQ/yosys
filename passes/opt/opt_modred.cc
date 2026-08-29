@@ -97,6 +97,7 @@ struct OptModRedWorker : CutRegionWorker {
 	bool fit_fn = true;
 	bool push_shift_sub = false;
 	bool opaque_digits = false;
+	bool div_cells = false;
 
 	int k = 0;      // modulus width
 	int mod_c = 0;  // 2^k - 1
@@ -649,8 +650,137 @@ struct OptModRedWorker : CutRegionWorker {
 		return ok;
 	}
 
+	// The divisor's width when it is a constant 2^k-1, else 0. Read bitwise:
+	// as_int() would truncate a divisor wider than an int.
+	int mersenne_divisor_bits(Cell *cell)
+	{
+		if (!cell->type.in(ID($mod), ID($modfloor)) || !cell->hasPort(ID::Y))
+			return 0;
+		// Unsigned only: signed `%` truncates toward zero and can go negative,
+		// and $modfloor takes the divisor's sign, neither of which is a residue.
+		if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+			return 0;
+		SigSpec b = sigmap(cell->getPort(ID::B));
+		if (!b.is_fully_const())
+			return 0;
+		Const bc = b.as_const();
+		if (!bc.is_fully_def())
+			return 0;
+		int bits = 0;
+		while (bits < GetSize(bc) && bc[bits] == State::S1)
+			bits++;
+		for (int i = bits; i < GetSize(bc); i++)
+			if (bc[i] != State::S0)
+				return 0;
+		return bits;
+	}
+
+	// Roots the candidate walk cannot offer. A lone `$mod` is a single cell, so
+	// its residue is neither a named wire the walk seeds on nor part of a cone
+	// big enough to look interesting, and it is never even proposed. Offer the
+	// low k bits of the output, which is the whole residue: `A % C` < C < 2^k.
+	void collect_div_roots(vector<RootCand> &roots)
+	{
+		for (auto cell : module->cells()) {
+			int bits = mersenne_divisor_bits(cell);
+			if (bits < min_mod_bits || bits > max_mod_bits)
+				continue;
+			SigSpec y = sigmap(cell->getPort(ID::Y));
+			if (GetSize(y) < bits)
+				continue;
+			RootCand cand;
+			cand.sig = y.extract(0, bits);
+			cand.name = log_signal(cand.sig);
+			roots.push_back(cand);
+		}
+	}
+
+	// Bits read by any cell, port or connection in the module. Built once, and
+	// only when a divider match asks: nothing else here needs fanout.
+	pool<SigBit> read_bits;
+	bool read_bits_ready = false;
+	bool bit_is_read(const SigBit &bit)
+	{
+		if (!read_bits_ready) {
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections())
+					if (!cell->output(conn.first))
+						for (auto b : sigmap(conn.second))
+							read_bits.insert(b);
+			for (auto wire : module->wires())
+				if (wire->port_output || wire->get_bool_attribute(ID::keep))
+					for (auto b : sigmap(SigSpec(wire)))
+						read_bits.insert(b);
+			for (auto &conn : module->connections())
+				for (auto b : sigmap(conn.second))
+					read_bits.insert(b);
+			read_bits_ready = true;
+		}
+		return read_bits.count(sigmap(bit)) != 0;
+	}
+
+	// A `$mod` by a constant C = 2^k-1 is a reduction by construction: 2^k == 1
+	// (mod C), so bit i of A is worth 2^(i mod k) and the weight map is exact
+	// without evaluating anything. The exhaustive prover cannot reach this
+	// spelling at all -- its only cut is the whole operand, which is far past
+	// max_cut_bits -- yet it is the one that needs the rewrite most, since the
+	// divider it stands for is far deeper than the tree replacing it.
+	bool prove_div_cell(const SigSpec &root, Proof &out)
+	{
+		Cell *drv = nullptr;
+		for (auto bit : root) {
+			Cell *d = bit.wire ? bit_to_driver.at(bit, nullptr) : nullptr;
+			if (d == nullptr || (drv != nullptr && d != drv))
+				return false;
+			drv = d;
+		}
+		if (drv == nullptr || mersenne_divisor_bits(drv) != k)
+			return false;
+		// The residue is the low k bits of the output: `A % C` < C < 2^k leaves
+		// the bits above it constant zero, so the root need not span the port.
+		SigSpec y = sigmap(drv->getPort(ID::Y));
+		if (GetSize(y) < k)
+			return false;
+		for (int i = 0; i < k; i++)
+			if (y[i] != root[i])
+				return false;
+		// Those high zero bits still have to be dead, or the divider survives
+		// the rewrite and the tree is built beside it instead of replacing it.
+		for (int i = k; i < GetSize(y); i++)
+			if (y[i].wire && bit_is_read(y[i]))
+				return false;
+
+		SigSpec a = sigmap(drv->getPort(ID::A));
+		dict<SigBit, int> weights;
+		for (int i = 0; i < GetSize(a); i++) {
+			SigBit bit = a[i];
+			if (!bit.wire) {
+				// Zero padding drops out; a constant one is an offset the
+				// weight map has nowhere to put.
+				if (bit == State::S0)
+					continue;
+				return false;
+			}
+			// A repeated bit accumulates, as a rotated combine would.
+			weights[bit] = int((int64_t(weights.at(bit, 0)) + (int64_t(1) << (i % k))) %
+			                   mod_c);
+		}
+		for (auto it = weights.begin(); it != weights.end();)
+			it = (it->second == 0) ? weights.erase(it) : ++it;
+
+		out.weights = weights;
+		out.region = pool<Cell *>({drv});
+		out.maxval = mod_c - 1;  // `A % C` is already canonical
+		log_debug("    %s: $mod by %d proves as mod-%d over %d bit(s)\n", log_signal(root),
+		          mod_c, mod_c, GetSize(weights));
+		return true;
+	}
+
 	bool prove_uncached(const SigSpec &root, Proof &out, int depth)
 	{
+		if (div_cells && prove_div_cell(root, out))
+			return true;
+
 		pool<Cell *> cone;
 		pool<SigBit> leaves;
 		if (!sig_fully_driven(root) ||
@@ -1418,6 +1548,57 @@ struct OptModRedWorker : CutRegionWorker {
 		return lv;
 	}
 
+	// Logic depth one cell stands for. Everything counts as a single level
+	// except the divider class: `$div`/`$mod` become a shift-subtract chain with
+	// a stage per quotient bit, so one cell can hide more depth than the entire
+	// tree that would replace it, and counting it as 1 makes every rewrite of a
+	// bare `A % C` look like a loss. The operand width is a floor on that chain.
+	int cell_depth_cost(Cell *cell) const
+	{
+		if (!div_cells || cell == nullptr)
+			return 1;
+		if (!cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
+			return 1;
+		return std::max(1, cell->getParam(ID::A_WIDTH).as_int());
+	}
+
+	// Longest path through `region`, weighting each cell by the depth it stands
+	// for. Same recurrence as compute_cone_depths, run over the topological
+	// order that walk hands back; a cell in a cell-level loop is in neither, so
+	// `covered` reports how many the walk reached for callers that check.
+	int weighted_region_depth(const pool<Cell *> &region, int *covered = nullptr)
+	{
+		vector<Cell *> order;
+		auto unit = compute_cone_depths(region, &order);
+		if (covered != nullptr)
+			*covered = GetSize(unit);
+		if (!div_cells) {
+			int worst = 0;
+			for (auto &it : unit)
+				worst = std::max(worst, it.second);
+			return worst;
+		}
+		dict<Cell *, int> depth;
+		int worst = 0;
+		for (auto cell : order) {
+			int in = 0;
+			for (auto &conn : cell->connections()) {
+				if (!cell->input(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (!bit.wire)
+						continue;
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr && drv != cell && region.count(drv))
+						in = std::max(in, depth.at(drv, 0));
+				}
+			}
+			depth[cell] = in + cell_depth_cost(cell);
+			worst = std::max(worst, depth.at(cell));
+		}
+		return worst;
+	}
+
 	// Longest combinational level of a bit, counting from flops and inputs.
 	// Cone-local depth says how deep the matched logic is, not when its terms
 	// arrive: a tree over terms that are themselves late is a loss even when it
@@ -1458,11 +1639,12 @@ struct OptModRedWorker : CutRegionWorker {
 				continue;
 			}
 			int lv = 0;
+			int cost = cell_depth_cost(drv);
 			for (auto &conn : drv->connections())
 				if (drv->input(conn.first))
 					for (auto b : sigmap(conn.second))
 						if (b.wire)
-							lv = std::max(lv, level_memo.at(b, 0) + 1);
+							lv = std::max(lv, level_memo.at(b, 0) + cost);
 			level_memo[bit] = lv;
 			on_stack.erase(bit);
 			stack.pop_back();
@@ -1547,15 +1729,13 @@ struct OptModRedWorker : CutRegionWorker {
 		if (!weight_terms(pf.weights, terms) || GetSize(terms) > max_terms)
 			return false;
 
-		auto depths = compute_cone_depths(pf.region);
-		int region_depth = 0;
-		for (auto &it : depths)
-			region_depth = std::max(region_depth, it.second);
+		int walked = 0;
+		int region_depth = weighted_region_depth(pf.region, &walked);
 		// A const-table fold vectorizes into cells that each want a bit of
 		// another's output, and the topological walk above never brings those
 		// ready, so a cone hundreds of levels deep measures as two. The bit
 		// walk treats a back edge as level 0 and does see through it.
-		if (opaque_digits && GetSize(depths) < GetSize(pf.region))
+		if (opaque_digits && walked < GetSize(pf.region))
 			region_depth = std::max(region_depth, term_to_root_levels(root, terms));
 
 		// Profitability: the emitted tree is one FA level per Wallace stage plus
@@ -2115,10 +2295,7 @@ struct OptModRedWorker : CutRegionWorker {
 		for (auto &r : m.group)
 			for (auto c : proofs.at(r).region)
 				region.insert(c);
-		auto depths = compute_cone_depths(region);
-		int region_depth = 0;
-		for (auto &it : depths)
-			region_depth = std::max(region_depth, it.second);
+		int region_depth = weighted_region_depth(region);
 
 		vector<SigSpec> terms;
 		if (!weight_terms(weights, terms) || GetSize(terms) > max_terms)
@@ -2286,6 +2463,13 @@ struct OptModRedWorker : CutRegionWorker {
 		                 [](const RootCand &a, const RootCand &b) {
 			                 return a.whole_wire && !b.whole_wire;
 		                 });
+		// Ahead of all of them: a divider root costs no sweep to prove, so it
+		// should not be the candidate the walk budget ran out before reaching.
+		if (div_cells) {
+			vector<RootCand> div_roots;
+			collect_div_roots(div_roots);
+			roots.insert(roots.begin(), div_roots.begin(), div_roots.end());
+		}
 		log_debug("opt_modred: %d root candidate(s) in %s\n", GetSize(roots), log_id(module));
 		for (auto &r : roots)
 			log_debug("  root %s = %s\n", r.name.c_str(), log_signal(r.sig));
@@ -2393,7 +2577,7 @@ struct OptModRedPass : public Pass {
 		log("way -- and it has no reduction to take off the path.\n");
 		log("\n");
 		log("    -min-mod-bits N, -max-mod-bits N\n");
-		log("        modulus width k to consider (default 2 to 6).\n");
+		log("        modulus width k to consider, in 1..30 (default 2 to 6).\n");
 		log("\n");
 		log("    -max-cut-bits N\n");
 		log("        largest cut to verify exhaustively, in bits (default 14).\n");
@@ -2435,6 +2619,14 @@ struct OptModRedPass : public Pass {
 		log("        largest cone the -opaque-digits sweep will bound, in leaf bits\n");
 		log("        (default 12).\n");
 		log("\n");
+		log("    -div-cells\n");
+		log("        also match a bare `A %% C` cell, and count the divider class at\n");
+		log("        its true depth when weighing a rewrite. `$mod` by a constant\n");
+		log("        C = 2^k-1 needs no sweep -- bit i of A is worth 2^(i mod k) by\n");
+		log("        construction -- but the exhaustive prover never reaches it, since\n");
+		log("        its only cut is the whole operand. Off by default: it rewrites a\n");
+		log("        cell the rest of the flow may still be relying on.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -2444,18 +2636,29 @@ struct OptModRedPass : public Pass {
 		int min_mod_bits = 2, max_mod_bits = 6, max_cut_bits = 14;
 		int min_terms = 4, max_terms = 512, max_push_depth = 6, min_push_add_width = 8;
 		int max_bits_eval_cells = 256, max_bound_bits = 12;
-		bool push_shift_sub = false, opaque_digits = false;
+		bool push_shift_sub = false, opaque_digits = false, div_cells = false;
+
+		// 2^k-1 lives in an int all through the prover, and the residue table is
+		// 2^k entries long, so a wider modulus has neither a representable value
+		// to reduce against nor a table that fits in memory.
+		const int mod_bits_limit = 30;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if ((args[argidx] == "-min-mod-bits" || args[argidx] == "-min_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				min_mod_bits = std::stoi(args[++argidx]);
+				// A 0-bit modulus would be 2^0-1 == 0, and every weight is taken
+				// mod that.
+				if (min_mod_bits < 1 || min_mod_bits > mod_bits_limit)
+					log_cmd_error("-min-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-mod-bits" || args[argidx] == "-max_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				max_mod_bits = std::stoi(args[++argidx]);
+				if (max_mod_bits < 1 || max_mod_bits > mod_bits_limit)
+					log_cmd_error("-max-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-cut-bits" || args[argidx] == "-max_cut_bits") &&
@@ -2498,6 +2701,10 @@ struct OptModRedPass : public Pass {
 				push_shift_sub = true;
 				continue;
 			}
+			if (args[argidx] == "-div-cells" || args[argidx] == "-div_cells") {
+				div_cells = true;
+				continue;
+			}
 			if (args[argidx] == "-opaque-digits" || args[argidx] == "-opaque_digits") {
 				opaque_digits = true;
 				continue;
@@ -2535,6 +2742,7 @@ struct OptModRedPass : public Pass {
 				worker.max_bits_eval_cells = max_bits_eval_cells;
 				worker.max_bound_bits = max_bound_bits;
 				worker.opaque_digits = opaque_digits;
+				worker.div_cells = div_cells;
 				worker.run();
 				total_regions += worker.regions;
 				total_cells += worker.cells_added;
