@@ -2577,7 +2577,7 @@ struct OptModRedPass : public Pass {
 		log("way -- and it has no reduction to take off the path.\n");
 		log("\n");
 		log("    -min-mod-bits N, -max-mod-bits N\n");
-		log("        modulus width k to consider (default 2 to 6).\n");
+		log("        modulus width k to consider, in 1..30 (default 2 to 6).\n");
 		log("\n");
 		log("    -max-cut-bits N\n");
 		log("        largest cut to verify exhaustively, in bits (default 14).\n");
@@ -2638,16 +2638,27 @@ struct OptModRedPass : public Pass {
 		int max_bits_eval_cells = 256, max_bound_bits = 12;
 		bool push_shift_sub = false, opaque_digits = false, div_cells = false;
 
+		// 2^k-1 lives in an int all through the prover, and the residue table is
+		// 2^k entries long, so a wider modulus has neither a representable value
+		// to reduce against nor a table that fits in memory.
+		const int mod_bits_limit = 30;
+
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if ((args[argidx] == "-min-mod-bits" || args[argidx] == "-min_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				min_mod_bits = std::stoi(args[++argidx]);
+				// A 0-bit modulus would be 2^0-1 == 0, and every weight is taken
+				// mod that.
+				if (min_mod_bits < 1 || min_mod_bits > mod_bits_limit)
+					log_cmd_error("-min-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-mod-bits" || args[argidx] == "-max_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				max_mod_bits = std::stoi(args[++argidx]);
+				if (max_mod_bits < 1 || max_mod_bits > mod_bits_limit)
+					log_cmd_error("-max-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-cut-bits" || args[argidx] == "-max_cut_bits") &&
