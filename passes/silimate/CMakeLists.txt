@@ -71,6 +71,12 @@ yosys_pass(opt_compact_prefix
 yosys_pass(opt_carry_select
 	opt_carry_select.cc
 )
+yosys_pass(opt_concat_add
+	opt_concat_add.cc
+)
+yosys_pass(opt_muldist
+	opt_muldist.cc
+)
 yosys_pass(infer_icg
 	infer_icg.cc
 )

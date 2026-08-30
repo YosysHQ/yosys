@@ -9,6 +9,7 @@
 
 #include "kernel/compressor_tree.h"
 #include "kernel/macc.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
 
@@ -24,6 +25,8 @@ struct ArithTreeOptions {
 	// A compressor level costs roughly fixed depth at any width, so
 	// compression only pays when it removes a wide carry-propagate adder.
 	int min_width = 0;
+	// Hold late operands out of the tree until the level they arrive at
+	bool schedule_arrival = false;
 };
 
 struct ArithTreeWorker {
@@ -33,6 +36,9 @@ struct ArithTreeWorker {
 
 	dict<SigBit, pool<Cell *>> bit_consumers;
 	dict<SigBit, int> fanout;
+	dict<SigBit, Cell *> bit_driver;
+	dict<SigBit, int> arrival_cache;
+	pool<Cell *> arrival_visiting;
 
 	pool<Cell *> addsub;
 	pool<Cell *> alu;
@@ -59,6 +65,9 @@ struct ArithTreeWorker {
 						bit_consumers[bit].insert(cell);
 					}
 				}
+				if (cell->output(name))
+					for (auto bit : sigmap(sig))
+						bit_driver[bit] = cell;
 			}
 		}
 
@@ -79,6 +88,118 @@ struct ArithTreeWorker {
 			else if (is_macc(cell))
 				macc.insert(cell);
 		}
+	}
+
+	static int clog2(int n)
+	{
+		int r = 0;
+		while ((1 << r) < n)
+			r++;
+		return r;
+	}
+
+	// Compressor levels a row of `rows` operands takes to reach two
+	static int tree_levels(int rows)
+	{
+		int levels = 0;
+		for (double n = rows; n > 2; n = std::ceil(n * 2.0 / 3.0))
+			levels++;
+		return levels;
+	}
+
+	// Gate delays across a carry-propagate adder, taken as parallel-prefix since
+	// that is what a wide $add lowers to
+	static int adder_levels(int width) { return 2 * std::max(1, clog2(width)); }
+
+	// Partial-product rows a $macc reduces, i.e. its addends plus a row per
+	// multiplied bit
+	static int macc_rows(Cell *cell)
+	{
+		Macc macc;
+		macc.from_cell(cell);
+		int rows = 0;
+		for (auto &term : macc.terms)
+			rows += GetSize(term.in_b) ? std::min(GetSize(term.in_a), GetSize(term.in_b)) : 1;
+		return rows;
+	}
+
+	// Depth of a cell's own logic in gate delays. Word-level cells survive to the
+	// netlist as the network they stand for, so each is costed as that network: a
+	// prefix adder is logarithmic in its width, a multiplier is a compressor tree
+	// over its rows plus that adder, and a shifter is a mux level per amount bit.
+	int cell_levels(Cell *cell)
+	{
+		auto w = [&](IdString port) { return cell->hasPort(port) ? GetSize(cell->getPort(port)) : 1; };
+
+		if (cell->type.in(ID($add), ID($sub), ID($alu), ID($neg)))
+			return adder_levels(w(ID::Y));
+		if (cell->type == ID($mul))
+			return 2 * tree_levels(std::min(w(ID::A), w(ID::B))) + adder_levels(w(ID::Y));
+		if (cell->type.in(ID($macc), ID($macc_v2)))
+			return 2 * tree_levels(macc_rows(cell)) + adder_levels(w(ID::Y));
+		// Restoring division is a subtract and a select per result bit
+		if (cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
+			return w(ID::Y) * (adder_levels(w(ID::Y)) + 1);
+		if (cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
+			return std::max(1, w(ID::B));
+		if (cell->type.in(ID($lt), ID($le), ID($gt), ID($ge)))
+			return adder_levels(std::max(w(ID::A), w(ID::B)));
+		if (cell->type.in(ID($eq), ID($ne), ID($eqx), ID($nex)))
+			return 1 + clog2(std::max(w(ID::A), w(ID::B)));
+		if (cell->type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
+				  ID($logic_and), ID($logic_or), ID($logic_not)))
+			return 1 + clog2(w(ID::A));
+		if (cell->type == ID($pmux))
+			return 1 + clog2(w(ID::S));
+		if (cell->type == ID($fa))
+			return 2;
+		return 1; // bitwise logic, muxes, and anything unmodelled
+	}
+
+	// State elements end the walk: their outputs are there when the cycle starts
+	bool is_start(Cell *cell)
+	{
+		return StaticCellTypes::Compat::mem_ff(cell->type) || cell->type.in(ID($anyseq), ID($anyconst));
+	}
+
+	// Arrival of `bit` in gate delays, memoised across the whole module
+	int arrival(SigBit bit)
+	{
+		bit = sigmap(bit);
+		auto cached = arrival_cache.find(bit);
+		if (cached != arrival_cache.end())
+			return cached->second;
+
+		auto driven = bit_driver.find(bit);
+		if (!bit.is_wire() || driven == bit_driver.end() || is_start(driven->second))
+			return arrival_cache[bit] = 0;
+
+		// A bit already on the stack is part of a combinational loop, which has no
+		// arrival to speak of; treat it as a start point rather than recursing
+		Cell *cell = driven->second;
+		if (!arrival_visiting.insert(cell).second)
+			return 0;
+
+		int in = 0;
+		for (auto &[name, sig] : cell->connections())
+			if (cell->input(name))
+				in = std::max(in, arrival(sig));
+		arrival_visiting.erase(cell);
+
+		int out = in + cell_levels(cell);
+		for (auto &[name, sig] : cell->connections())
+			if (cell->output(name))
+				for (auto b : sigmap(sig))
+					arrival_cache[b] = out;
+		return out;
+	}
+
+	int arrival(const SigSpec &sig)
+	{
+		int a = 0;
+		for (auto bit : sigmap(sig))
+			a = std::max(a, arrival(bit));
+		return a;
 	}
 
 	bool is_addsub(Cell *cell) {
@@ -340,17 +461,21 @@ struct ArithTreeWorker {
 		for (auto &op : operands) {
 			if (GetSize(op.factor_b) == 0) {
 				// Additive operand
+				int depth = arrival(op.sig);
 				op.sig.extend_u0(width, op.is_signed);
-				if (op.negate)
+				if (op.negate) {
 					op.sig = module->Not(NEW_ID2_SUFFIX("not"), op.sig); // SILIMATE: Improve the naming
-				pool.push_back({op.sig, 0});
+					depth++;
+				}
+				pool.push_back({op.sig, depth});
 			} else {
-				// Multiplicative operand
+				// Multiplicative operand: every row is one AND past both factors
+				int depth = std::max(arrival(op.sig), arrival(op.factor_b)) + 1;
 				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width, cell->name); // SILIMATE: Improve the naming
 
 				if (!op.negate) {
 					for (auto &pp : pps)
-						pool.push_back(pp);
+						pool.push_back({pp.sig, depth});
 					continue;
 				}
 
@@ -359,7 +484,8 @@ struct ArithTreeWorker {
 				module->addAdd(NEW_ID2_SUFFIX("add"), pa, pb, p, false); // SILIMATE: Improve the naming
 				SigSpec np = module->addWire(NEW_ID2_SUFFIX("nprod"), width); // SILIMATE: Improve the naming
 				module->addNot(NEW_ID2_SUFFIX("not"), p, np); // SILIMATE: Improve the naming
-				pool.push_back({np, 0});
+				// Its own rows, the adder above, and the inverter
+				pool.push_back({np, depth + 2 * tree_levels(GetSize(pps)) + adder_levels(width) + 1});
 				neg_compensation++;
 			}
 		}
@@ -367,7 +493,43 @@ struct ArithTreeWorker {
 		if (neg_compensation > 0)
 			pool.push_back({SigSpec(neg_compensation, width), 0});
 
+		rebase_depths(pool);
 		return pool;
+	}
+
+	// Turn arrival estimates into levels the tree can act on. Both sides count gate
+	// delays, so the origin moves to the earliest operand, and operands within a
+	// compressor of each other share a level: the tree cannot separate them by less
+	// than that, and doing so only fragments its groupings for a difference the
+	// estimate cannot resolve anyway.
+	//
+	// Three operands reduce in one level whatever their arrivals, so scheduling
+	// them can only reorder one compressor's ports. Bit-level detail decides that
+	// -- an operand zero in a column degenerates the compressor there -- and a
+	// word-level arrival estimate does not see it, so leave those pools alone.
+	void rebase_depths(std::vector<CompressorTree::DepthSig> &pool)
+	{
+		if (!opt.schedule_arrival || GetSize(pool) <= 3) {
+			for (auto &e : pool)
+				e.depth = 0;
+			return;
+		}
+
+		std::vector<int> sorted;
+		for (auto &e : pool)
+			sorted.push_back(e.depth);
+		std::sort(sorted.begin(), sorted.end());
+
+		// Collapse each run of near-equal arrivals onto the earliest of that run
+		dict<int, int> level;
+		int start = sorted.front();
+		for (int d : sorted) {
+			if (d - start >= CompressorTree::FA_GATE_DEPTH)
+				start = d;
+			level[d] = start - sorted.front();
+		}
+		for (auto &e : pool)
+			e.depth = level.at(e.depth);
 	}
 
 	void emit_tree(Cell *cell, std::vector<Operand> &operands, SigSpec result_y, int neg_compensation)
@@ -485,6 +647,14 @@ struct ArithTreePass : public Pass {
 		log("    -no-fma\n");
 		log("        Disable fused multiply-add expansion in $macc cells\n");
 		log("\n");
+		log("    -schedule\n");
+		log("        Enter each operand at the level its own logic arrives, estimated\n");
+		log("        from the depth of the network driving it, instead of feeding them\n");
+		log("        all in at level 0. A late operand is then held back and crosses\n");
+		log("        one compressor level instead of all of them; a product feeding a\n");
+		log("        sum of products is the usual case. Off by default because it\n");
+		log("        reorders operands on designs where the arrivals are already even.\n");
+		log("\n");
 		log("    -min-width <n>\n");
 		log("        Skip chains and $macc cells whose result is narrower than <n>\n");
 		log("        bits (default 0, i.e. no limit). A compressor level costs about\n");
@@ -526,6 +696,10 @@ struct ArithTreePass : public Pass {
 			}
 			if (arg == "-no-fma") {
 				opt.fma_fusion = false;
+				continue;
+			}
+			if (arg == "-schedule") {
+				opt.schedule_arrival = true;
 				continue;
 			}
 			if (arg == "-min-width" && argidx + 1 < args.size()) {

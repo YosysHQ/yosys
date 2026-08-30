@@ -1,0 +1,331 @@
+# Cells the rewrite creates carry the opt_muldist attribute, so every case here
+# asserts on that rather than on cell counts, which prep is free to reshape.
+#
+# The formal cases keep the multiplier small, since proving distributivity over a
+# wide multiply is a SAT problem no solver finishes. The identity the rewrite
+# rests on is about the operand, not the product, so it is proven separately at
+# the widths the pass actually sees.
+
+# The operand identity at a realistic width, with no multiplier in the way:
+# (x + 1)[hi:lo] == (x[hi:lo] & ~w) + (&x[lo-1:0] & ~w), where w = &x[hi:0]
+read_verilog -sv <<EOT
+module check(input [15:0] x, output ok);
+  wire [15:0] xp = x + 16'd1;
+  wire        w  = &x[12:0];
+  wire        c  = &x[4:0];
+  wire [7:0]  ref  = xp[12:5];
+  wire [7:0]  dist = (x[12:5] & {8{~w}}) + {7'd0, (c & ~w)};
+  assign ok = (ref == dist);
+endmodule
+EOT
+prep -top check
+sat -verify -prove ok 1'b1
+design -reset
+
+# The same identity for a slice that keeps bit 0, where the carry is constant
+read_verilog -sv <<EOT
+module check(input [15:0] x, output ok);
+  wire [15:0] xp = x + 16'd1;
+  wire        w  = &x[9:0];
+  wire [9:0]  ref  = xp[9:0];
+  wire [9:0]  dist = (x[9:0] & {10{~w}}) + {9'd0, ~w};
+  assign ok = (ref == dist);
+endmodule
+EOT
+prep -top check
+sat -verify -prove ok 1'b1
+design -reset
+
+# The shape the pass exists for: an increment feeding only a high slice of a
+# multiplier operand, with a wide add chain behind the product to absorb the row
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = z * xp[7:2] + u + v;
+endmodule
+EOT
+prep
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# The slice on the multiplier's other operand is the same rewrite
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = xp[7:2] * z + u + v;
+endmodule
+EOT
+prep
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# A slice that keeps bit 0 has a constant carry, so only the wrap mask is left
+read_verilog -sv <<EOT
+module test(input [5:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [5:0] xp = x + 6'd1;
+  assign y = z * xp[5:0] + u + v;
+endmodule
+EOT
+prep
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# A slice that does not reach the increment's top bit still wraps at the top of
+# the window it does take
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = z * xp[5:2] + u + v;
+endmodule
+EOT
+prep
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# The same chain with a link wreduce has not narrowed: the product enters the
+# first add zero-padded to the full sum width, which makes the link look like it
+# needs a bit it does not have. Constant zeros cannot carry, so the row still
+# moves through it.
+read_rtlil <<EOT
+module \test
+  wire width 8 input 1 \x
+  wire width 3 input 2 \z
+  wire width 12 input 3 \u
+  wire width 12 input 4 \v
+  wire width 13 output 5 \y
+  wire width 8 \xp
+  wire width 13 \prod
+  wire width 13 \part
+  cell $add \inc
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 8
+    connect \A \x
+    connect \B 1'1
+    connect \Y \xp
+  end
+  cell $mul \mul
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 3
+    parameter \B_WIDTH 6
+    parameter \Y_WIDTH 9
+    connect \A \z
+    connect \B \xp [7:2]
+    connect \Y \prod [8:0]
+  end
+  cell $add \link
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 13
+    parameter \B_WIDTH 12
+    parameter \Y_WIDTH 13
+    connect \A { 4'0000 \prod [8:0] }
+    connect \B \u
+    connect \Y \part
+  end
+  cell $add \root
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 13
+    parameter \B_WIDTH 12
+    parameter \Y_WIDTH 13
+    connect \A \part
+    connect \B \v
+    connect \Y \y
+  end
+  connect \prod [12:9] 4'0000
+end
+EOT
+design -save gold
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-min 1 a:opt_muldist
+design -load gold
+equiv_opt -assert opt_muldist -max-reduce 8 -min-chain-width 12
+design -reset
+
+# A subtraction taking the product negates the row, so moving it up as an added
+# term is not the same value at all
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [11:0] u, v, output [12:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = u + v - z * xp[7:2];
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-none a:opt_muldist
+design -reset
+
+# A product entering the chain above bit 0 is scaled, and the row moved up
+# unscaled would not match it
+read_verilog -sv <<EOT
+module test(input [7:0] x, input [2:0] z, input [13:0] u, v, output [14:0] y);
+  wire [7:0] xp = x + 8'd1;
+  assign y = {z * xp[7:2], 2'b00} + u + v;
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 8 -min-chain-width 12
+select -assert-none a:opt_muldist
+design -reset
+
+# Nothing carry-saves the row when the product feeds a two-addend chain, so it
+# would become another adder in series behind the multiply
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [8:0] z, input [17:0] u, output [19:0] y);
+  wire [10:0] xp = x + 11'd1;
+  assign y = z * xp[10:2] + u;
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# Nor when the product feeds nothing at all
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [8:0] z, output [19:0] y);
+  wire [10:0] xp = x + 11'd1;
+  assign y = z * xp[10:2];
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# A chain narrower than arith_tree is run with will not be rebuilt into a tree
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [3:0] z, input [7:0] u, v, output [8:0] y);
+  wire [10:0] xp = x + 11'd1;
+  assign y = z * xp[7:4] + u + v;
+endmodule
+EOT
+prep
+opt_muldist -min-chain-width 16
+select -assert-none a:opt_muldist
+# Lowering the gate to what this chain offers takes it
+opt_muldist -min-chain-width 9
+select -assert-min 1 a:opt_muldist
+design -reset
+
+# Above -max-reduce the wrap reduction is deeper than the adder it replaces
+read_verilog -sv <<EOT
+module test(input [23:0] x, input [8:0] z, input [31:0] u, v, output [33:0] y);
+  wire [23:0] xp = x + 24'd1;
+  assign y = z * xp[23:15] + u + v;
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 16
+select -assert-none a:opt_muldist
+# The window fits once the gate allows its width
+opt_muldist -max-reduce 24
+select -assert-min 1 a:opt_muldist
+design -reset
+
+# A sibling multiply in the same chain, behind an increment too wide to
+# distribute, is left as deep as the one we would shorten. It then goes critical
+# and pays for the compressor level the row costs, so the trade is refused.
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [23:0] q, input [8:0] z, input [7:0] r,
+            input [27:0] u, output [29:0] y);
+  wire [10:0] xp = x + 11'd1;
+  wire [23:0] qp = q + 24'd1;
+  assign y = z * xp[10:2] + r * qp[23:16] + u;
+endmodule
+EOT
+prep
+opt_muldist -max-reduce 16
+select -assert-none a:opt_muldist
+# Once the wide window is reachable too, neither multiply is left stranded
+opt_muldist -max-reduce 24
+select -assert-min 1 a:opt_muldist
+design -reset
+
+# An increment something else also reads survives the rewrite, so the prefix
+# adder is still paid for and the distribution is pure cost
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [8:0] z, input [17:0] u, v,
+            output [19:0] y, output [10:0] shared);
+  wire [10:0] xp = x + 11'd1;
+  assign y = z * xp[10:2] + u + v;
+  assign shared = xp;
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# Adding a non-unit constant is not an increment: the wrap test would be a
+# comparison rather than an AND reduction
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [8:0] z, input [17:0] u, v, output [19:0] y);
+  wire [10:0] xp = x + 11'd3;
+  assign y = z * xp[10:2] + u + v;
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# A sum of two signals is not an increment either
+read_verilog -sv <<EOT
+module test(input [10:0] x, w, input [8:0] z, input [17:0] u, v, output [19:0] y);
+  wire [10:0] xp = x + w;
+  assign y = z * xp[10:2] + u + v;
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# Signed multiplies do not distribute the way the unsigned identity does
+read_verilog -sv <<EOT
+module test(input signed [10:0] x, input signed [8:0] z, input signed [17:0] u, v,
+            output signed [19:0] y);
+  wire signed [10:0] xp = x + 11'sd1;
+  assign y = z * $signed(xp[10:2]) + u + v;
+endmodule
+EOT
+prep
+opt_muldist
+select -assert-none a:opt_muldist
+design -reset
+
+# End to end: the incrementer leaves the operand path, and arith_tree folds the
+# row it left behind into the compressor tree rather than into another adder
+read_verilog -sv <<EOT
+module test(input [10:0] x, input [8:0] z, input [17:0] u, v, output [19:0] y);
+  wire [10:0] xp = x + 11'd1;
+  assign y = z * xp[10:2] + u + v;
+endmodule
+EOT
+prep
+opt_muldist
+arith_tree -strategy fa -final ripple -min-width 8
+techmap -map +/fa_wordlevel.v t:$fa
+# Only the tree's final adder is left: no incrementer, no separate row add
+select -assert-count 1 t:$add
