@@ -2035,6 +2035,33 @@ struct OptModRedWorker : CutRegionWorker {
 	// them. This is the whole of the sink's match that lives on the reduction's
 	// side of the shift, so the inliner can ask it of a submodule across a port
 	// before deciding to pull the module in.
+	// The sink masks the word where it stands, so the reduction has to be all that
+	// reads it -- anything else would see the masked value. `skip` is the shift
+	// itself; a child reached through a port has none, and asks with nullptr.
+	// Shared with port_group_width because that runs a module early, to decide
+	// whether inlining is worth a flatten that nothing undoes.
+	bool word_read_only_by_leaves(const dict<SigBit, int> &ypos, const pool<Cell *> &leaf_cells,
+	                              Cell *skip, const char *&why)
+	{
+		for (auto w : module->wires())
+			if (w->port_output || w->get_bool_attribute(ID::keep))
+				for (auto bit : sigmap(SigSpec(w)))
+					if (ypos.count(bit)) {
+						why = "shifted word is a port or kept";
+						return false;
+					}
+		for (auto c : module->cells())
+			if (c != skip && !leaf_cells.count(c))
+				for (auto &conn : c->connections())
+					if (!c->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							if (ypos.count(bit)) {
+								why = "shifted word has another reader";
+								return false;
+							}
+		return true;
+	}
+
 	bool digit_groups(const SigSpec &word, const vector<SigSpec> &digits, int g,
 	                  dict<SigBit, int> &ypos, vector<int> &group_of,
 	                  vector<pool<Cell *>> &cones, pool<Cell *> &leaf_cells,
@@ -2159,7 +2186,8 @@ struct OptModRedWorker : CutRegionWorker {
 			vector<pool<Cell *>> cones;
 			pool<Cell *> leaf_cells;
 			const char *why = nullptr;
-			if (digit_groups(word, digits, g, ypos, group_of, cones, leaf_cells, why))
+			if (digit_groups(word, digits, g, ypos, group_of, cones, leaf_cells, why) &&
+			    word_read_only_by_leaves(ypos, leaf_cells, nullptr, why))
 				return g;
 			log_debug("  port group %s under %s: %s\n", log_signal(word),
 			          log_signal(sig), why);
@@ -2205,20 +2233,8 @@ struct OptModRedWorker : CutRegionWorker {
 		if (!digit_groups(sy, digits, g, ypos, group_of, cones, leaf_cells, why))
 			return no(why);
 
-		// Rewriting the shift in place is only sound if the reduction is all that
-		// reads it: any other reader would see the masked word instead.
-		for (auto w : module->wires())
-			if (w->port_output || w->get_bool_attribute(ID::keep))
-				for (auto bit : sigmap(SigSpec(w)))
-					if (ypos.count(bit))
-						return no("shifted word is a port or kept");
-		for (auto c : module->cells())
-			if (c != sh && !leaf_cells.count(c))
-				for (auto &conn : c->connections())
-					if (!c->output(conn.first))
-						for (auto bit : sigmap(conn.second))
-							if (ypos.count(bit))
-								return no("shifted word has another reader");
+		if (!word_read_only_by_leaves(ypos, leaf_cells, sh, why))
+			return no(why);
 
 
 		// The tables hang off the amount alone, so the sink only pays when the
