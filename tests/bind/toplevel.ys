@@ -1,1 +1,0 @@
-read_verilog -sv toplevel.sv

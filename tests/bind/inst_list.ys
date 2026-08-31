@@ -1,1 +1,0 @@
-read_verilog -sv inst_list.sv

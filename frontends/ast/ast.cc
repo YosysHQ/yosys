@@ -179,7 +179,6 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_STRUCT)
 	X(AST_UNION)
 	X(AST_STRUCT_ITEM)
-	X(AST_BIND)
 #undef X
 	default:
 		log_abort();
@@ -1477,11 +1476,6 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			rename_in_package_stmts(child.get());
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
-		}
-		else if (child->type == AST_BIND) {
-			// top-level bind construct
-			for (RTLIL::Binding *binding : child->genBindings())
-				design->add(binding);
 		}
 		else {
 			// must be global definition
