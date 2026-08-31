@@ -37,7 +37,7 @@ void log_cmd_error(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_cmd_error(format, formatted);
+	logger().formatted_cmd_error(format, formatted);
 }
 
 void log_warning(const char *format, ...)
@@ -46,7 +46,7 @@ void log_warning(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_warning("Warning: ", format, formatted);
+	logger().formatted_warning("Warning: ", format, formatted);
 }
 
 void log_warning_noprefix(const char *format, ...)
@@ -55,7 +55,7 @@ void log_warning_noprefix(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_warning({}, format, formatted);
+	logger().formatted_warning({}, format, formatted);
 }
 
 void log_error(const char *format, ...)
@@ -64,7 +64,7 @@ void log_error(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_error(format, formatted);
+	logger().formatted_error(format, formatted);
 }
 
 void log(const char *format, ...)
@@ -73,7 +73,7 @@ void log(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_string(LogSeverity::Info, {}, format, formatted);
+	logger().formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 void log_compat(const char *format, ...)
@@ -82,7 +82,7 @@ void log_compat(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_string(LogSeverity::Info, {}, format, formatted);
+	logger().formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 YOSYS_NAMESPACE_END

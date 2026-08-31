@@ -1944,7 +1944,7 @@ void AstModule::loadconfig() const
 
 void AstNode::formatted_input_error(std::string_view format, std::string str) const
 {
-	logger().log_formatted_file_error(*location.begin.filename, location.begin.line, format, std::move(str));
+	logger().formatted_file_error(*location.begin.filename, location.begin.line, format, std::move(str));
 }
 
 YOSYS_NAMESPACE_END

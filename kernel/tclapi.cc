@@ -100,7 +100,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	yosys_get_design()->scratchpad_unset("result.string");
 
 	bool in_repl = yosys_tcl_repl_active;
-	auto guard = logger().scoped_cmd_error_throw();
+	auto guard = logger().error_throw_scope();
 	try {
 		if (args.size() == 1) {
 			Pass::call(yosys_get_design(), args[0]);

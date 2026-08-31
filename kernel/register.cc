@@ -806,7 +806,7 @@ struct HelpPass : public Pass {
 				// dump command help
 				std::ostringstream buf;
 				{
-					auto log_scope = logger().scoped();
+					auto log_scope = logger().sink_scope();
 					logger().add_sink<StreamLogSink>(buf);
 					pass->help();
 				}

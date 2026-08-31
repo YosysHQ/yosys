@@ -58,7 +58,7 @@ struct TeePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		auto log_scope = logger().scoped();
+		auto log_scope = logger().sink_scope();
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

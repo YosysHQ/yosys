@@ -205,44 +205,44 @@ public:
 	{
 		auto sink = std::make_unique<T>(std::forward<Args>(args)...);
 		T &ref = *sink;
-		log_sinks.push_back(std::move(sink));
+		sinks.push_back(std::move(sink));
 		return ref;
 	}
 
 	template<typename F>
 	void for_each_sink(F &&func)
 	{
-		for (auto &sink : log_sinks)
+		for (auto &sink : sinks)
 			func(*sink);
 	}
 
-	bool empty() { return log_sinks.empty(); }
-	void clear() { log_sinks.clear(); }
+	bool empty() { return sinks.empty(); }
+	void clear() { sinks.clear(); }
 	void clear_original()
 	{
-		std::erase_if(log_sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
+		std::erase_if(sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
 	}
-	void flush() { for (auto &sink : log_sinks) sink->flush(); }
+	void flush() { for (auto &sink : sinks) sink->flush(); }
 
 	class Scoped
 	{
 	public:
 		explicit Scoped(LogManager &manager) :
 			manager(manager),
-			backup_log_sinks(std::move(manager.log_sinks)),
-			backup_log_verbose_level(manager.log_verbose_level)
+			backup_sinks(std::move(manager.sinks)),
+			backup_verbose_level(manager.verbose_level)
 		{
-			manager.log_sinks.reserve(backup_log_sinks.size());
+			manager.sinks.reserve(backup_sinks.size());
 
-			for (const auto &sink : backup_log_sinks)
-				manager.log_sinks.push_back(std::make_unique<LogSinkRef>(sink.get()));
+			for (const auto &sink : backup_sinks)
+				manager.sinks.push_back(std::make_unique<LogSinkRef>(sink.get()));
 		}
 
 		~Scoped()
 		{
-			manager.log_sinks.clear();
-			manager.log_sinks = std::move(backup_log_sinks);
-			manager.log_verbose_level = backup_log_verbose_level;
+			manager.sinks.clear();
+			manager.sinks = std::move(backup_sinks);
+			manager.verbose_level = backup_verbose_level;
 		}
 
 		Scoped(const Scoped &) = delete;
@@ -250,11 +250,11 @@ public:
 
 	private:
 		LogManager &manager;
-		std::vector<std::unique_ptr<LogSink>> backup_log_sinks;
-		int backup_log_verbose_level;
+		std::vector<std::unique_ptr<LogSink>> backup_sinks;
+		int backup_verbose_level;
 	};
 
-	Scoped scoped()
+	Scoped sink_scope()
 	{
 		return Scoped(*this);
 	}
@@ -263,14 +263,14 @@ public:
 	{
 	public:
 		explicit ScopedCmdErrorThrow(LogManager &manager)
-			: manager(manager), previous(manager.log_cmd_error_throw)
+			: manager(manager), previous(manager.cmd_error_throw)
 		{
-			manager.log_cmd_error_throw = true;
+			manager.cmd_error_throw = true;
 		}
 
 		~ScopedCmdErrorThrow()
 		{
-			manager.log_cmd_error_throw = previous;
+			manager.cmd_error_throw = previous;
 		}
 
 	private:
@@ -278,7 +278,7 @@ public:
 		bool previous;
 	};
 
-	ScopedCmdErrorThrow scoped_cmd_error_throw()
+	ScopedCmdErrorThrow error_throw_scope()
 	{
 		return ScopedCmdErrorThrow(*this);
 	}
@@ -303,7 +303,7 @@ public:
 			if (status)
 				return;
 			status = true;
-			manager.log_make_debug++;
+			manager.make_debug++;
 		}
 
 		void off_silent()
@@ -311,7 +311,7 @@ public:
 			if (!status)
 				return;
 			status = false;
-			manager.log_make_debug--;
+			manager.make_debug--;
 		}
 
 		void off()
@@ -323,7 +323,7 @@ public:
 		bool status = false;
 	};
 
-	LogMakeDebugHdl make_debug(bool start_on = false)
+	LogMakeDebugHdl make_debug_scope(bool start_on = false)
 	{
 		return LogMakeDebugHdl(*this, start_on);
 	}
@@ -349,7 +349,7 @@ public:
 				return;
 
 			active = true;
-			manager.log_force_debug++;
+			manager.force_debug++;
 		}
 
 		void off()
@@ -358,68 +358,68 @@ public:
 				return;
 
 			active = false;
-			manager.log_force_debug--;
+			manager.force_debug--;
 		}
 	private:
 		LogManager &manager;
 		bool active = false;
 	};
 
-	ForceDebug force_debug(bool start_on = false)
+	ForceDebug force_debug_scope(bool start_on = false)
 	{
 		return ForceDebug(*this, start_on);
 	}
 
-	void force_debug_on() { log_force_debug++; }
-	void force_debug_off() { if (log_force_debug > 0) log_force_debug--; }
-	void set_force_debug(bool enabled) { log_force_debug = enabled ? 1 : 0;	}
+	void force_debug_on() { force_debug++; }
+	void force_debug_off() { if (force_debug > 0) force_debug--; }
+	void set_force_debug(bool enabled) { force_debug = enabled ? 1 : 0;	}
 
 	void report_unexpected_error();
 
 	void add_experimental_ignore(std::string name) { experimental_ignored.insert(name); }
-	void add_warn(std::string pattern) { log_warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
-	void add_nowarn(std::string pattern) { log_nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
-	void add_werror(std::string pattern) { log_werror_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+	void add_warn(std::string pattern) { warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+	void add_nowarn(std::string pattern) { nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+	void add_werror(std::string pattern) { werror_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
 	void add_expect(std::string type, std::string pattern, int count);
 
-	void set_verbose_level(int level) { log_verbose_level = level; }
-	void add_verbose_level(int level) { log_verbose_level += level; }
-	void set_expect_no_warnings(bool value) { log_expect_no_warnings = value; }
+	void set_verbose_level(int level) { verbose_level = level; }
+	void add_verbose_level(int level) { verbose_level += level; }
+	void set_expect_no_warnings(bool value) { expect_no_warnings = value; }
 	void set_log_time(bool value) { log_time = value; }
-	void set_cmd_error_throw(bool value) { log_cmd_error_throw = value; }
-	void set_hdump_all(bool value) { log_hdump_all = value; }
-	int get_verbose_level() const { return log_verbose_level; }
+	void set_cmd_error_throw(bool value) { cmd_error_throw = value; }
+	void set_hdump_all(bool value) { hdump_all = value; }
+	int get_verbose_level() const { return verbose_level; }
 	bool get_log_time() const { return log_time; }
-	int get_warnings_unique() const { return GetSize(log_warnings); }
-	int get_warnings_total() const { return log_warnings_count; }
-	int get_errors_total() const { return log_errors_count; }
+	int get_warnings_unique() const { return GetSize(warnings); }
+	int get_warnings_total() const { return warnings_count; }
+	int get_errors_total() const { return errors_count; }
 	const std::set<std::string> &get_experimental() const { return experimental; }
 	const std::set<std::string> &get_deprecated() const { return deprecated; }
 	std::chrono::steady_clock::time_point get_initial_time() const;
 
-	void add_hdump(std::string name, std::string value) { log_hdump[name].insert(value); }
+	void add_hdump(std::string name, std::string value) { hdump[name].insert(value); }
 
-	void log_formatted_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str);
-	void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
-	void log_formatted_warning(std::string_view prefix, std::string_view format, std::string message);
-	void log_formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str);
-	void log_formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str);
-	void log_suppressed();
-	[[noreturn]] void log_formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str);
-	void log_experimental(const std::string &str);
-	void log_deprecated(const std::string &str);
-	[[noreturn]] void log_formatted_error(std::string_view format, std::string str);
-	[[noreturn]] void log_formatted_cmd_error(std::string_view format, std::string message);
-	void log_spacer();
-	void log_push();
-	void log_pop();
+	void formatted_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str);
+	void formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
+	void formatted_warning(std::string_view prefix, std::string_view format, std::string message);
+	void formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str);
+	void formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str);
+	[[noreturn]] void formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str);
+	[[noreturn]] void formatted_error(std::string_view format, std::string str);
+	[[noreturn]] void formatted_cmd_error(std::string_view format, std::string message);
+	void suppressed();
+	void add_experimental(const std::string &str);
+	void add_deprecated(const std::string &str);
+	void spacer();
+	void push();
+	void pop();
 
-	void log_reset_stack();
+	void reset_stack();
 
 	void check_expected();
-	bool expects_error() { return (log_expect_error.size() + log_expect_prefix_error.size())>0; }
+	bool expects_error() { return (expect_error.size() + expect_prefix_error.size())>0; }
 #ifndef NDEBUG
-	bool is_debug(int n = 0) { if (log_force_debug) return true; log_debug_suppressed += n; return false; }
+	bool is_debug(int n = 0) { if (force_debug) return true; debug_suppressed += n; return false; }
 #else
 	bool is_debug(int = 0) { return false; }
 #endif
@@ -428,30 +428,30 @@ public:
 
 private:
 	void logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in);
-	[[noreturn]] void log_error_with_prefix(std::string_view prefix, std::string_view format, std::string message);
+	[[noreturn]] void error_with_prefix(std::string_view prefix, std::string_view format, std::string message);
 
-	std::vector<std::unique_ptr<LogSink>> log_sinks;
-	int log_verbose_level = 0;
-	int log_newline_count = 0;
+	std::vector<std::unique_ptr<LogSink>> sinks;
+	int verbose_level = 0;
+	int newline_count = 0;
 	vector<int> header_count;
-	int log_errors_count = 0;
-	int log_warnings_count = 0;
-	int log_warnings_count_noexpect = 0;
-	std::set<std::string> log_warnings, experimental, experimental_ignored, deprecated;
+	int errors_count = 0;
+	int warnings_count = 0;
+	int warnings_count_noexpect = 0;
+	std::set<std::string> warnings, experimental, experimental_ignored, deprecated;
 
-	std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-	dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
-	dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
-	bool log_expect_no_warnings = false;
+	std::vector<std::regex> warn_regexes, nowarn_regexes, werror_regexes;
+	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
+	dict<std::string, LogExpectedItem> expect_prefix_log, expect_prefix_warning, expect_prefix_error;
+	bool expect_no_warnings = false;
 	bool log_time = false;
-	bool log_cmd_error_throw = false;
-	std::map<std::string, std::set<std::string>> log_hdump;
-	bool log_hdump_all = false;
+	bool cmd_error_throw = false;
+	std::map<std::string, std::set<std::string>> hdump;
+	bool hdump_all = false;
 
-	int log_debug_suppressed = 0;
-	int log_make_debug = 0;
-	int log_force_debug = 0;
-	std::unique_ptr<SHA1> log_hasher;
+	int debug_suppressed = 0;
+	int make_debug = 0;
+	int force_debug = 0;
+	std::unique_ptr<SHA1> hasher;
 };
 
 LogManager &logger();
@@ -470,20 +470,20 @@ static inline bool ys_debug(int = 0) { return false; }
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string(LogSeverity::Info, {}, fmt.format_string(), fmt.format(args...));
+	logger().formatted_string(LogSeverity::Info, {}, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string(LogSeverity::Comment, {}, fmt.format_string(), fmt.format(args...));
+	logger().formatted_string(LogSeverity::Comment, {}, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_formatted_string(LogSeverity severity, std::string_view prefix,
 		FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string(severity, prefix, fmt.format_string(), fmt.format(args...));
+	logger().formatted_string(severity, prefix, fmt.format_string(), fmt.format(args...));
 }
 
 #define log_debug(...) do { if (ys_debug(1)) YOSYS_NAMESPACE_PREFIX log_formatted_string(YOSYS_NAMESPACE_PREFIX LogSeverity::Debug, {}, __VA_ARGS__); } while (0)
@@ -491,72 +491,72 @@ inline void log_formatted_string(LogSeverity severity, std::string_view prefix,
 template <typename... Args>
 inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_header(design, fmt.format_string(), fmt.format(args...));
+	logger().formatted_header(design, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_warning(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_warning("Warning: ", fmt.format_string(), fmt.format(args...));
+	logger().formatted_warning("Warning: ", fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_warning({}, fmt.format_string(), fmt.format(args...));
+	logger().formatted_warning({}, fmt.format_string(), fmt.format(args...));
 }
 
 inline void log_experimental(const std::string &str)
 {
-	logger().log_experimental(str);
+	logger().add_experimental(str);
 }
 
 inline void log_deprecated(const std::string &str)
 {
-	logger().log_deprecated(str);
+	logger().add_deprecated(str);
 }
 
 // Log with filename to report a problem in a source file.
 template <typename... Args>
 void log_file_warning(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_warning(filename, lineno, fmt.format_string(), fmt.format(args...));
+	logger().formatted_file_warning(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 void log_file_info(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_info(filename, lineno, fmt.format_string(), fmt.format(args...));
+	logger().formatted_file_info(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_error(fmt.format_string(), fmt.format(args...));
+	logger().formatted_error(fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_file_error(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_file_error(filename, lineno, fmt.format_string(), fmt.format(args...));
+	logger().formatted_file_error(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 [[noreturn]] void log_cmd_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_cmd_error(fmt.format_string(), fmt.format(args...));
+	logger().formatted_cmd_error(fmt.format_string(), fmt.format(args...));
 }
 
 inline void log_suppressed()
 {
-	logger().log_suppressed();
+	logger().suppressed();
 }
 
-inline void log_spacer() { logger().log_spacer(); }
-inline void log_push() { logger().log_push(); }
-inline void log_pop() { logger().log_pop(); }
+inline void log_spacer() { logger().spacer(); }
+inline void log_push() { logger().push(); }
+inline void log_pop() { logger().pop(); }
 
-inline void log_reset_stack() { logger().log_reset_stack(); }
+inline void log_reset_stack() { logger().reset_stack(); }
 inline void log_flush() { logger().flush(); }
 
 void log_backtrace(const char *prefix, int levels);

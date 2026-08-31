@@ -153,7 +153,7 @@ struct DebugPass : public Pass {
 			return;
 		}
 
-		auto force_debug = logger().force_debug(true);
+		auto force_debug = logger().force_debug_scope(true);
 
 		std::vector<std::string> new_args(args.begin() + argidx, args.end());
 		Pass::call(design, new_args);

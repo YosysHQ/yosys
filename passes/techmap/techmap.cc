@@ -419,7 +419,7 @@ struct TechmapWorker
 
 		bool log_continue = false;
 		bool did_something = false;
-		auto mkdebug = logger().make_debug();
+		auto mkdebug = logger().make_debug_scope();
 
 		SigMap sigmap(module);
 		FfInitVals initvals(&sigmap, module);

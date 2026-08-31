@@ -995,7 +995,7 @@ void shell(RTLIL::Design *design)
 	static int recursion_counter = 0;
 
 	recursion_counter++;
-	auto guard = logger().scoped_cmd_error_throw();
+	auto guard = logger().error_throw_scope();
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	rl_readline_name = (char*)"yosys";
