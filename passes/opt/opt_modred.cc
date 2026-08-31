@@ -667,11 +667,16 @@ struct OptModRedWorker : CutRegionWorker {
 		// the deepest frontier that fits instead.
 		pool<Cell *> best_cone;
 		pool<SigBit> best_cut;
-		while (GetSize(cone) <= max_bound_cells) {
+		while (true) {
 			if (GetSize(frontier) <= max_bits && GetSize(cone) > GetSize(best_cone)) {
 				best_cone = cone;
 				best_cut = frontier;
 			}
+			// Tested after the cone is weighed, not before growing it, so a cone of
+			// exactly the budget still gets its turn as the best while the budget
+			// stays the number of cells walked.
+			if (GetSize(cone) >= max_bound_cells)
+				break;
 			// Sorted so the cone a digit bounds against does not depend on set
 			// iteration order, and narrowest-first so the walk finishes the table
 			// it is inside before starting on whatever feeds it.
