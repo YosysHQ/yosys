@@ -2336,17 +2336,22 @@ struct OptModRedWorker : CutRegionWorker {
 		// on those asks it to prove away the very difference the rewrite exists
 		// to make -- which is how equiv_opt fails a sink that is correct. Take
 		// the names off and the proof lands on the outputs, where it belongs.
+		// One changed bit is enough to disqualify the whole wire as an anchor, even
+		// where the wire also carries root bits that did survive: the name pairs
+		// gold to gate bit for bit, so the changed bits come along and take the
+		// root's own bits down with them. Nothing is lost by dropping such a
+		// mixed name -- the root is still anchored wherever it is named alone, and
+		// at the outputs. No port can reach here to have its name taken: the check
+		// above refuses the sink outright if a port carries a changed bit.
 		vector<Wire *> unname;
 		for (auto w : module->wires()) {
 			if (!w->name.isPublic())
 				continue;
-			bool hit = false, root_too = false;
-			for (auto bit : sigmap(SigSpec(w))) {
-				hit |= changed.count(bit) > 0;
-				root_too |= rootbits.count(bit) > 0;
-			}
-			if (hit && !root_too)
-				unname.push_back(w);
+			for (auto bit : sigmap(SigSpec(w)))
+				if (changed.count(bit)) {
+					unname.push_back(w);
+					break;
+				}
 		}
 		for (auto w : unname)
 			module->rename(w, module->uniquify("$modsink$" + w->name.str().substr(1)));
