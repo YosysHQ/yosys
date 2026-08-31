@@ -77,6 +77,9 @@ struct OptModRedWorker : CutRegionWorker {
 	int max_cut_bits = 14;
 	int max_cut_retries = 3;
 	int max_prune_rounds = 64;
+	// Cells a digit's bound may pull in looking for a cut it can sweep. Sized for a
+	// digit's own table, not for the design behind it; see budget_cone.
+	int max_bound_cells = 256;
 	int max_region_cells = 4096;
 	int max_region_leaves = 1024;
 	int min_terms = 4;
@@ -559,21 +562,195 @@ struct OptModRedWorker : CutRegionWorker {
 	// spelled as a one-hot table decodes 0..C-1 and answers 0 for the 2^k-1 input
 	// its producer cannot emit, so over the full k-bit domain the table reads as
 	// non-linear and the whole tree above it is lost.
+	static int cell_out_bits(Cell *c)
+	{
+		int n = 0;
+		for (auto &conn : c->connections())
+			if (c->output(conn.first))
+				n += GetSize(conn.second);
+		return n;
+	}
+
+	// Cone of `sig` with a wide producer's output taken as a leaf instead of
+	// walked into. A digit that samples one narrow field of a barrel shifter is a
+	// function of that field, while its true cone is the whole shifter -- tens of
+	// bits, far past any sweep. Cutting at the producer leaves those bits free,
+	// which can only add reachable values, so the largest value over the cut is
+	// still an upper bound, and an upper bound is all the opaque-digit test asks.
+	bool sampled_cone(const SigSpec &sig, int max_bits, pool<Cell *> &cone, SigSpec &cut)
+	{
+		pool<SigBit> visited, leaves;
+		std::queue<SigBit> work;
+		for (auto bit : sigmap(sig))
+			if (bit.wire != nullptr && visited.insert(bit).second)
+				work.push(bit);
+
+		while (!work.empty()) {
+			SigBit bit = work.front();
+			work.pop();
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv) || cell_out_bits(drv) > max_bits) {
+				leaves.insert(bit);
+				if (GetSize(leaves) > max_bits)
+					return false;
+				continue;
+			}
+			if (!cone.insert(drv).second)
+				continue;
+			charge_walk(1);
+			if (GetSize(cone) > max_region_cells)
+				return false;
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second))
+						if (b.wire != nullptr && visited.insert(b).second)
+							work.push(b);
+		}
+		for (auto bit : leaves)
+			cut.append(bit);
+		return GetSize(cut) > 0;
+	}
+
+	// Cone of `sig` grown as deep as a `max_bits`-wide cut allows, with the bits it
+	// still reads as the cut. `get_cone` gives up when the true cone needs more free
+	// bits than the sweep can cover, and `sampled_cone` only stops at a producer wide
+	// enough to recognise from its output width, which a barrel shifter already
+	// lowered to a mesh of two-bit muxes is not -- so on a flattened design both run
+	// past the digit into every primary input behind it. What the sweep needs is not
+	// the narrowest cut but the deepest one that fits: the digit's own table then
+	// lands inside the cone and the narrow field it samples becomes the cut, which is
+	// the boundary a module port used to hand us for free. Growing the cone only
+	// removes reachable values, so the sweep's maximum stays an upper bound.
+	bool budget_cone(const SigSpec &sig, int max_bits, pool<Cell *> &cone, SigSpec &cut)
+	{
+		// Bits the cone reads but does not drive, i.e. the cut if we stop here.
+		pool<SigBit> frontier;
+		for (auto bit : sigmap(sig))
+			if (bit.wire != nullptr)
+				frontier.insert(bit);
+		if (frontier.empty() || GetSize(frontier) > max_bits)
+			return false;
+
+		// The frontier that pulling `bit`'s driver in would leave, or -1 if that
+		// driver cannot come in at all. Its outputs stop being cut points and its
+		// inputs become ones, except those the cone already drives -- which is also
+		// what keeps the cut clear of the whole-cell caching conflict ConstEval
+		// would otherwise hit.
+		auto weigh = [&](SigBit bit, pool<SigBit> *out) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv) || cone.count(drv))
+				return -1;
+			pool<SigBit> next = frontier;
+			for (auto &conn : drv->connections())
+				if (drv->output(conn.first))
+					for (auto b : sigmap(conn.second))
+						next.erase(b);
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second)) {
+						if (b.wire == nullptr)
+							continue;
+						Cell *up = bit_to_driver.at(b, nullptr);
+						if (up != nullptr && cone.count(up))
+							continue;
+						next.insert(b);
+					}
+			if (out != nullptr)
+				*out = next;
+			return GetSize(next);
+		};
+
+		// `max_bits` bounds the cut we keep, not the search: the way into a digit's
+		// table runs through a frontier wider than the field the table reads, so
+		// refusing to ever exceed the cap strands the walk partway inside the table
+		// with some of the clamping still outside the sweep. Grow past it and keep
+		// the deepest frontier that fits instead.
+		pool<Cell *> best_cone;
+		pool<SigBit> best_cut;
+		while (true) {
+			if (GetSize(frontier) <= max_bits && GetSize(cone) > GetSize(best_cone)) {
+				best_cone = cone;
+				best_cut = frontier;
+			}
+			// Tested after the cone is weighed, not before growing it, so a cone of
+			// exactly the budget still gets its turn as the best while the budget
+			// stays the number of cells walked.
+			if (GetSize(cone) >= max_bound_cells)
+				break;
+			// Sorted so the cone a digit bounds against does not depend on set
+			// iteration order, and narrowest-first so the walk finishes the table
+			// it is inside before starting on whatever feeds it.
+			vector<SigBit> cands(frontier.begin(), frontier.end());
+			std::sort(cands.begin(), cands.end());
+			SigBit pick;
+			pool<SigBit> picked;
+			int best = -1;
+			for (auto bit : cands) {
+				pool<SigBit> next;
+				int w = weigh(bit, &next);
+				if (w < 0)
+					continue;
+				if (best < 0 || w < best) {
+					best = w;
+					pick = bit;
+					picked.swap(next);
+				}
+			}
+			if (best < 0)
+				break;
+			cone.insert(bit_to_driver.at(pick, nullptr));
+			charge_walk(1);
+			frontier.swap(picked);
+		}
+
+		// An empty cone means nothing could be pulled in and the cut is the digit
+		// itself, which bounds it to its own width and tells us nothing.
+		if (best_cone.empty())
+			return false;
+		cone = best_cone;
+		for (auto bit : best_cut)
+			cut.append(bit);
+		return GetSize(cut) > 0;
+	}
+
 	int value_bound(const SigSpec &sig)
 	{
 		if (bound_memo.count(sig))
 			return bound_memo.at(sig);
 		bound_memo[sig] = -1;  // pessimistic unless the sweep below completes
 
-		pool<Cell *> cone;
-		pool<SigBit> leaves;
-		if (!sig_fully_driven(sig) ||
-		    !get_cone(sig, cone, leaves, max_region_cells, max_bound_bits))
+		if (!sig_fully_driven(sig))
 			return -1;
 
+		pool<Cell *> cone;
+		pool<SigBit> leaves;
 		SigSpec leafsig;
-		for (auto bit : leaves)
-			leafsig.append(bit);
+		// The true cone first, so a digit that already bounded keeps the bound it had
+		// and only a digit that could not bound at all pays for a cut.
+		int cap = std::min(max_bound_bits, max_cut_bits);
+		bool have = false;
+		if (get_cone(sig, cone, leaves, max_region_cells, max_bound_bits)) {
+			for (auto bit : leaves)
+				leafsig.append(bit);
+			have = GetSize(leafsig) <= max_cut_bits;
+		}
+		// budget_cone before sampled_cone: both cut short of the true cone, but the
+		// one that captures more of the logic bounds the digit more tightly, and a
+		// digit that bounds loosely is a digit the tree above it cannot use.
+		for (auto cut_at : {&OptModRedWorker::budget_cone, &OptModRedWorker::sampled_cone}) {
+			if (have)
+				break;
+			cone.clear();
+			leafsig = SigSpec();
+			have = (this->*cut_at)(sig, cap, cone, leafsig) &&
+			       GetSize(leafsig) <= max_cut_bits;
+		}
+		if (!have) {
+			log_debug("      bound %s: no cut (cap %d)\n", log_signal(sig), cap);
+			return -1;
+		}
+		log_debug("      bound %s: cut %d bit(s) over %d cell(s)\n", log_signal(sig),
+		          GetSize(leafsig), GetSize(cone));
 		// Compared before the shift, not after: max_bound_bits is a user option,
 		// and a cone that wide would shift past the width of the count itself.
 		if (GetSize(leafsig) > max_cut_bits)
@@ -2619,6 +2796,12 @@ struct OptModRedPass : public Pass {
 		log("        largest cone the -opaque-digits sweep will bound, in leaf bits\n");
 		log("        (default 12).\n");
 		log("\n");
+		log("    -max-bound-cells N\n");
+		log("        cells a digit's bound may pull in looking for a cut narrow enough\n");
+		log("        to sweep (default 256). A digit reading one field of a lowered\n");
+		log("        barrel has no cut until its own table is inside the cone, which is\n");
+		log("        deeper than the first cut that fits.\n");
+		log("\n");
 		log("    -div-cells\n");
 		log("        also match a bare `A %% C` cell, and count the divider class at\n");
 		log("        its true depth when weighing a rewrite. `$mod` by a constant\n");
@@ -2635,7 +2818,7 @@ struct OptModRedPass : public Pass {
 		                   "trees).\n");
 		int min_mod_bits = 2, max_mod_bits = 6, max_cut_bits = 14;
 		int min_terms = 4, max_terms = 512, max_push_depth = 6, min_push_add_width = 8;
-		int max_bits_eval_cells = 256, max_bound_bits = 12;
+		int max_bits_eval_cells = 256, max_bound_bits = 12, max_bound_cells = 256;
 		bool push_shift_sub = false, opaque_digits = false, div_cells = false;
 
 		// 2^k-1 lives in an int all through the prover, and the residue table is
@@ -2718,6 +2901,13 @@ struct OptModRedPass : public Pass {
 					log_cmd_error("-max-bound-bits must be in 0..62\n");
 				continue;
 			}
+			if ((args[argidx] == "-max-bound-cells" || args[argidx] == "-max_bound_cells") &&
+			    argidx + 1 < args.size()) {
+				max_bound_cells = std::stoi(args[++argidx]);
+				if (max_bound_cells < 0)
+					log_cmd_error("-max-bound-cells must not be negative\n");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2741,6 +2931,7 @@ struct OptModRedPass : public Pass {
 				worker.push_shift_sub = push_shift_sub;
 				worker.max_bits_eval_cells = max_bits_eval_cells;
 				worker.max_bound_bits = max_bound_bits;
+				worker.max_bound_cells = max_bound_cells;
 				worker.opaque_digits = opaque_digits;
 				worker.div_cells = div_cells;
 				worker.run();
