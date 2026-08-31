@@ -73,7 +73,7 @@ void log(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_string({}, format, formatted, LogSeverity::Info);
+	logger().log_formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 void log_compat(const char *format, ...)
@@ -82,7 +82,7 @@ void log_compat(const char *format, ...)
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-	logger().log_formatted_string({}, format, formatted, LogSeverity::Info);
+	logger().log_formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 YOSYS_NAMESPACE_END

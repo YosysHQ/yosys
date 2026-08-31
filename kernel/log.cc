@@ -164,10 +164,10 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
-void LogManager::logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity) {
+void LogManager::logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
-		logv_string(prefix, "\n", "\n", severity);
+		logv_string(severity, prefix, "\n", "\n");
 		format = format.substr(1);
 		++remove_leading;
 	}
@@ -230,13 +230,13 @@ void LogManager::logv_string(std::string_view prefix, std::string_view format, s
 	}
 }
 
-void LogManager::log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity)
+void LogManager::log_formatted_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str)
 {
 	log_assert(!Multithreading::active());
 
 	if (log_make_debug && !is_debug(1))
 		return;
-	logv_string(prefix, format, std::move(str), severity);
+	logv_string(severity, prefix, format, std::move(str));
 }
 
 void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
@@ -256,7 +256,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log_formatted_string(stringf("%s. ", header_id), format, std::move(str), LogSeverity::Header);
+	log_formatted_string(LogSeverity::Header, stringf("%s. ", header_id), format, std::move(str));
 	flush();
 
 	if (log_hdump_all)
@@ -312,12 +312,12 @@ void LogManager::log_formatted_warning(std::string_view prefix, std::string_view
 
 		if (log_warnings.count(message))
 		{
-			log_formatted_string(prefix, format, message, LogSeverity::Info);
+			log_formatted_string(LogSeverity::Info, prefix, format, message);
 			flush();
 		}
 		else
 		{
-			log_formatted_string(prefix, format, message, LogSeverity::Warning);
+			log_formatted_string(LogSeverity::Warning, prefix, format, message);
 			flush();
 			log_warnings.insert(message);
 		}
@@ -338,13 +338,13 @@ void LogManager::log_formatted_file_warning(std::string_view filename, int linen
 void LogManager::log_formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: Info: ", filename, lineno);
-	log_formatted_string(prefix, format, std::move(str), LogSeverity::Info);
+	log_formatted_string(LogSeverity::Info, prefix, format, std::move(str));
 }
 
 void LogManager::log_suppressed() {
 	if (log_debug_suppressed && !log_make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
-		logv_string({}, format, stringf(format, log_debug_suppressed),LogSeverity::Info);
+		logv_string(LogSeverity::Info, {}, format, stringf(format, log_debug_suppressed));
 		log_debug_suppressed = 0;
 	}
 }
@@ -356,7 +356,7 @@ void LogManager::log_error_with_prefix(std::string_view prefix, std::string_view
 	log_make_debug = 0;
 	log_suppressed();
 
-	log_formatted_string(prefix, format, message, LogSeverity::Error);
+	log_formatted_string(LogSeverity::Error, prefix, format, message);
 	flush();
 
 	log_make_debug = bak_log_make_debug;
@@ -433,7 +433,7 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 void LogManager::log_formatted_cmd_error(std::string_view format, std::string message)
 {
 	if (log_cmd_error_throw) {
-		log_formatted_string("ERROR: ", format, message, LogSeverity::Error);
+		log_formatted_string(LogSeverity::Error, "ERROR: ", format, message);
 		flush();
 
 		throw log_cmd_error_exception();

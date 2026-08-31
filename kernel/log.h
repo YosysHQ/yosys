@@ -401,7 +401,7 @@ public:
 
 	void add_hdump(std::string name, std::string value) { log_hdump[name].insert(value); }
 
-	void log_formatted_string(std::string_view prefix, std::string_view format, std::string str, LogSeverity severity);
+	void log_formatted_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str);
 	void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
 	void log_formatted_warning(std::string_view prefix, std::string_view format, std::string message);
 	void log_formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str);
@@ -429,7 +429,7 @@ public:
 	std::string finish_hasher();
 
 private:
-	void logv_string(std::string_view prefix, std::string_view format, std::string str_in, LogSeverity severity);
+	void logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in);
 	[[noreturn]] void log_error_with_prefix(std::string_view prefix, std::string_view format, std::string message);
 
 	std::vector<std::unique_ptr<LogSink>> log_sinks;
@@ -473,22 +473,23 @@ static inline bool ys_debug(int = 0) { return false; }
 template <typename... Args>
 inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Info);
+	logger().log_formatted_string(LogSeverity::Info, {}, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
 inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Comment);
+	logger().log_formatted_string(LogSeverity::Comment, {}, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
-inline void log_debug(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+inline void log_formatted_string(LogSeverity severity, std::string_view prefix,
+		FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	if (!ys_debug(1))
-		return;
-	logger().log_formatted_string({}, fmt.format_string(), fmt.format(args...), LogSeverity::Debug);
+	logger().log_formatted_string(severity, prefix, fmt.format_string(), fmt.format(args...));
 }
+
+#define log_debug(...) do { if (ys_debug(1)) YOSYS_NAMESPACE_PREFIX log_formatted_string(YOSYS_NAMESPACE_PREFIX LogSeverity::Debug, {}, __VA_ARGS__); } while (0)
 
 template <typename... Args>
 inline void log_header(RTLIL::Design *design, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
