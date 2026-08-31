@@ -656,3 +656,89 @@ opt_modred -div-cells
 select -assert-count 0 c:*modred*
 design -reset
 log -pop
+
+# J1: the digit bound stops walking once its cone needs more free bits than the
+# sweep can cover, and only recognises a producer to cut at from that producer's
+# output width. A barrel already lowered to narrow muxes offers neither, which is
+# what the same fold looks like once a design is flattened, so the bound has to
+# find the field the digit reads by growing the cone as deep as the cut allows.
+log -header "J1: fold over a lowered barrel still proves (equiv)"
+log -push
+design -reset
+read_verilog -sv <<VLOG
+module gold (input wire [11:0] a, input wire [3:0] s, output wire [1:0] y);
+  function automatic [1:0] c3 (input [3:0] v);
+    integer i, j;
+    reg [1:0] t;
+    begin
+      c3 = 2'd0;
+      for (i = 0; i < 3; i = i + 1)
+        for (j = 0; j < 3; j = j + 1) begin
+          t = (i + j) % 3;
+          c3 = c3 | ({2{v == {i[1:0], j[1:0]}}} & t);
+        end
+    end
+  endfunction
+  wire [11:0] z = a >> s;
+  wire [1:0] c0 = c3(z[3:0]);
+  wire [1:0] c1 = c3(z[7:4]);
+  wire [1:0] c2 = c3(z[11:8]);
+  assign y = c3({c3({c1, c0}), c2});
+endmodule
+VLOG
+proc
+opt_expr
+opt_clean
+check -assert
+copy gold gate
+techmap -map +/techmap.v gate/t:$shr
+opt_expr
+opt_clean
+select gate
+logger -expect log "Rewrote 1 mod-\(2\^k-1\) reduction\(s\)" 1
+opt_modred -opaque-digits
+logger -check-expected
+select -clear
+miter -equiv -flatten -make_outputs gold gate miter
+opt -fast miter
+sat -verify -prove trigger 0 -set-def-inputs miter
+design -reset
+log -pop
+
+# J2: growing the cone is budgeted, so a digit whose field sits behind more logic
+# than the budget allows declines rather than walking off into the whole design.
+log -header "J2: bound declines past the cone budget"
+log -push
+design -reset
+read_verilog -sv <<VLOG
+module top (input wire [11:0] a, input wire [3:0] s, output wire [1:0] y);
+  function automatic [1:0] c3 (input [3:0] v);
+    integer i, j;
+    reg [1:0] t;
+    begin
+      c3 = 2'd0;
+      for (i = 0; i < 3; i = i + 1)
+        for (j = 0; j < 3; j = j + 1) begin
+          t = (i + j) % 3;
+          c3 = c3 | ({2{v == {i[1:0], j[1:0]}}} & t);
+        end
+    end
+  endfunction
+  wire [11:0] z = a >> s;
+  wire [1:0] c0 = c3(z[3:0]);
+  wire [1:0] c1 = c3(z[7:4]);
+  wire [1:0] c2 = c3(z[11:8]);
+  assign y = c3({c3({c1, c0}), c2});
+endmodule
+VLOG
+proc
+opt_expr
+opt_clean
+techmap -map +/techmap.v t:$shr
+opt_expr
+opt_clean
+logger -expect log "Rewrote 0 mod-\(2\^k-1\) reduction\(s\)" 1
+opt_modred -opaque-digits -max-bound-cells 1
+logger -check-expected
+design -reset
+log -pop
