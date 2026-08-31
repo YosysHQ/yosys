@@ -14,9 +14,12 @@ pattern combine_shifts
 //   (a >> b) >>> c     ===>  a >> (b + c)
 //   (a >>> b) >> c     ===>  a >>> (b + c)
 //
-// Mixed direction:
-//   (a <</<< b) >>>/>> c  ===>  a <</<< (b - c)
-//   (a >>>/>> b) <</<< c  ===>  a >>>/>> (b - c)
+// Mixed direction is *not* b - c and is left alone. The inner shift drops bits
+// -- low ones going right, high ones off the truncated top going left -- and the
+// outer shift cannot put them back, so a lone shift by the difference reads bits
+// that the pair had already zeroed. (a >> 1) << 1 loses bit 0 where a >> 0 keeps
+// it. Folding one soundly costs a mask off the inner amount, which is a
+// different rewrite than combining, and -expand/-sink already price that shape.
 //
 
 state <SigSpec> inner_a inner_b inner_y outer_b outer_y
@@ -40,11 +43,12 @@ match outer_shift
 	set outer_y port(outer_shift, \Y)
 endmatch
 
-code inner_a inner_b inner_y outer_b outer_y
-	bool inner_is_left = inner_shift->type.in($shl, $sshl);
-	bool outer_is_left = outer_shift->type.in($shl, $sshl);
-	bool same_direction = (inner_is_left == outer_is_left);
+code
+	if (inner_shift->type.in($shl, $sshl) != outer_shift->type.in($shl, $sshl))
+		reject;
+endcode
 
+code inner_a inner_b inner_y outer_b outer_y
 	// Unset all ports
 	inner_shift->unsetPort(\A);
 	inner_shift->unsetPort(\B);
@@ -55,19 +59,11 @@ code inner_a inner_b inner_y outer_b outer_y
 
 	Cell *cell = outer_shift;
 
-	// Create combined shift amount
+	// Create combined shift amount: b + c
 	int combined_width = max(GetSize(inner_b), GetSize(outer_b)) + 1;
 	Wire *combined_amt = module->addWire(NEW_ID2, combined_width);
-
-	if (same_direction) {
-		// Same direction: b + c
-		module->addAdd(NEW_ID2, inner_b, outer_b, combined_amt,
-			false, cell->get_src_attribute());
-	} else {
-		// Mixed direction: b - c
-		module->addSub(NEW_ID2, inner_b, outer_b, combined_amt,
-			false, cell->get_src_attribute());
-	}
+	module->addAdd(NEW_ID2, inner_b, outer_b, combined_amt,
+		false, cell->get_src_attribute());
 
 	// Reuse outer shift with inner shift's type, original data, and combined amount
 	outer_shift->type = inner_shift->type;
