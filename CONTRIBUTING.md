@@ -7,6 +7,8 @@ https://opensource.guide/how-to-contribute/#orienting-yourself-to-a-new-project.
 
 Check out our [Contributing guidelines](https://yosys.readthedocs.io/en/latest/yosys_internals/extending_yosys/contributing.html) to learn the best ways to
 
+Please make sure to consult our [interim AI policy](https://blog.yosyshq.com/p/interim-yosyshq-llm-policy/) before submitting a PR.
+
 + get help
 + report bugs
 + contribute code
