@@ -3230,6 +3230,7 @@ struct OptModRedPass : public Pass {
 	                           std::function<void(OptModRedWorker &)> configure)
 	{
 		vector<std::pair<RTLIL::Module *, RTLIL::Cell *>> victims;
+		pool<RTLIL::Cell *> queued;
 		for (auto module : design->selected_modules()) {
 			if (module->has_processes_warn())
 				continue;
@@ -3333,6 +3334,13 @@ struct OptModRedPass : public Pass {
 				}
 				log_debug("  inline %s: group %d, depth %d -> %d\n", log_id(sink), g,
 				          before, after);
+				// The walk is per shift, but the flatten is per instance: one
+				// instance can be the sole reader of several qualifying shifts,
+				// and inlining it once reaches all of them. Queueing it twice
+				// would hand the second flatten a cell the first one deleted.
+				if (queued.count(sink))
+					continue;
+				queued.insert(sink);
 				victims.emplace_back(module, sink);
 			}
 		}
