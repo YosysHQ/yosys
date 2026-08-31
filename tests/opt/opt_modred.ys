@@ -565,10 +565,26 @@ log -pop
 
 # H2: k is not hard-coded here either, and the operand is far wider than any cut
 # the sweep would take -- which is the whole point of reading the divisor
-# algebraically. Structural only: a 64-bit divider is past what equiv_opt can
-# discharge in test time, and H1 already pins the semantics.
-log -header "H2: bare mod-31 cell over a 64-bit operand"
+# algebraically. H1 proves k=3; this proves k=5 at a width equiv_opt can still
+# discharge, then checks the 64-bit case structurally. Both widths leave a short
+# final group (16 = 3*5+1, 64 = 12*5+4), which is where the bit weighting has to
+# stop rather than run on to a whole digit.
+log -header "H2: bare mod-31 cell, k=5 (equiv) and over a 64-bit operand"
 log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire [15:0] x, output wire [4:0] y);
+  assign y = x % 5'd31;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+equiv_opt -assert opt_modred -div-cells
+design -load postopt
+select -assert-min 1 c:*modred*
+select -assert-count 0 t:$mod
+# Same rewrite at a width no SAT run in this suite would finish.
 design -reset
 read_verilog -sv <<EOF
 module top (input wire [63:0] x, output wire [4:0] y);
@@ -1035,12 +1051,24 @@ proc
 opt_expr
 opt_clean
 hierarchy -check -top top
+check -assert
+# gate keeps its own instance of fold, so the pass inlines there and top stays
+# whole to compare against. The miter flattens both, so the proof is over the
+# same two functions the hierarchy was hiding.
+copy top gate
+select gate
 logger -expect log "inlined 1 submodule\(s\) and sank 1 shift\(s\) under a reduction" 1
 opt_modred -opaque-digits -sink-shift
 logger -check-expected
+select -clear
 # The instance is gone into its parent and the sink fired there.
-select -assert-count 0 top/t:fold
-select -assert-min 1 top/c:*modsink*
+select -assert-count 0 gate/t:fold
+select -assert-min 1 gate/c:*modsink*
+# ...and top, which was not selected, kept its boundary.
+select -assert-count 1 top/t:fold
+miter -equiv -flatten -make_outputs top gate miter
+opt -fast miter
+sat -verify -prove trigger 0 -set-def-inputs miter
 design -reset
 log -pop
 
