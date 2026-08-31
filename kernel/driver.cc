@@ -112,6 +112,10 @@ namespace Yosys {
 };
 #endif
 
+namespace Yosys {
+	extern bool log_stderr_sink_forced;
+};
+
 #ifdef _WIN32
 int wmain(int argc, wchar_t **wargv)
 {
@@ -604,7 +608,7 @@ int main(int argc, char **argv)
 		yosys_xtrace = 0;
 		log_spacer();
 
-		logger().set_log_forced(mode_v && !mode_q);
+		log_stderr_sink_forced = mode_v && !mode_q;
 		if (logger().get_warnings_total())
 			log("Warnings: %d unique messages, %d total\n", logger().get_warnings_unique(), logger().get_warnings_total());
 

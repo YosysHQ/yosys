@@ -38,6 +38,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+bool log_stderr_sink_forced = false;
+
 LogManager &logger()
 {
 	static LogManager instance;
@@ -101,7 +103,7 @@ bool StderrLogSink::should_log(const LogMessage &msg) const
 {
 	return msg.severity == LogSeverity::Error ||
 			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
-			logger().get_log_forced();
+			log_stderr_sink_forced;
 }
 
 void StderrLogSink::log(const LogMessage &msg)
@@ -248,7 +250,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 		header_count.back()++;
 
 	if (int(header_count.size()) <= log_verbose_level) {
-		log_forced = true;
+		log_stderr_sink_forced = true;
 	}
 
 	std::string header_id;
@@ -271,7 +273,7 @@ void LogManager::log_formatted_header(RTLIL::Design *design, std::string_view fo
 			if (yosys_xtrace)
 				log("#X# -- end of dump --\n");
 		}
-	log_forced = false;
+	log_stderr_sink_forced = false;
 }
 
 void LogManager::log_formatted_warning(std::string_view prefix, std::string_view format, std::string message)

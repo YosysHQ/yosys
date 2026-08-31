@@ -388,10 +388,8 @@ public:
 	void set_log_time(bool value) { log_time = value; }
 	void set_cmd_error_throw(bool value) { log_cmd_error_throw = value; }
 	void set_hdump_all(bool value) { log_hdump_all = value; }
-	void set_log_forced(bool value) { log_forced = value; }
 	int get_verbose_level() const { return log_verbose_level; }
 	bool get_log_time() const { return log_time; }
-	bool get_log_forced() const { return log_forced; }
 	int get_warnings_unique() const { return GetSize(log_warnings); }
 	int get_warnings_total() const { return log_warnings_count; }
 	int get_errors_total() const { return log_errors_count; }
@@ -447,7 +445,6 @@ private:
 	bool log_expect_no_warnings = false;
 	bool log_time = false;
 	bool log_cmd_error_throw = false;
-	bool log_forced = false;
 	std::map<std::string, std::set<std::string>> log_hdump;
 	bool log_hdump_all = false;
 
