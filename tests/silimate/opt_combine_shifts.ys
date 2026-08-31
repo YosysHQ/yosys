@@ -135,6 +135,7 @@ endmodule
 EOF
 check -assert
 equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
 select -assert-count 1 t:$shr
 select -assert-count 0 t:$sub
@@ -160,6 +161,7 @@ endmodule
 EOF
 check -assert
 equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
 select -assert-count 1 t:$shr
 select -assert-count 0 t:$sub
@@ -290,6 +292,7 @@ end
 EOF
 check -assert
 equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
 select -assert-count 1 t:$sshr
 select -assert-count 0 t:$sub
@@ -333,6 +336,7 @@ end
 EOF
 check -assert
 equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
 select -assert-count 1 t:$sshr
 select -assert-count 0 t:$sub
