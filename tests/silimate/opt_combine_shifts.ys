@@ -116,7 +116,11 @@ log -pop
 
 
 
-log -header "Mixed direction: (a << b) >> c"
+# Mixed direction is left alone: the inner << drops the bits it pushed off the
+# truncated top, so a << (b - c) reads bits the pair had already lost. a=8'hff,
+# b=c=3 gives 8'h1f from the pair and 8'hff from the fold. equiv_opt is the point
+# of the test -- asserting only the shape is what let the unsound fold stand.
+log -header "Mixed direction: (a << b) >> c is not combined"
 log -push
 design -reset
 read_verilog <<EOF
@@ -130,16 +134,19 @@ module top (
 endmodule
 EOF
 check -assert
-opt_shift -combine
+equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
-select -assert-count 0 t:$shr
-select -assert-count 1 t:$sub
+select -assert-count 1 t:$shr
+select -assert-count 0 t:$sub
 design -reset
 log -pop
 
 
 
-log -header "Mixed direction: (a >> b) << c"
+# The other direction loses the low bits instead: (a >> 1) << 1 clears bit 0
+# where a >> 0 keeps it.
+log -header "Mixed direction: (a >> b) << c is not combined"
 log -push
 design -reset
 read_verilog <<EOF
@@ -153,10 +160,11 @@ module top (
 endmodule
 EOF
 check -assert
-opt_shift -combine
-select -assert-count 0 t:$shl
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
 select -assert-count 1 t:$shr
-select -assert-count 1 t:$sub
+select -assert-count 0 t:$sub
 design -reset
 log -pop
 
@@ -248,7 +256,8 @@ log -pop
 
 
 
-log -header "Cross-type mixed direction: $sshr then $shl"
+# Signedness does not make the mixed fold sound: $sshr still drops the low bits.
+log -header "Cross-type mixed direction: $sshr then $shl is not combined"
 log -push
 design -reset
 read_rtlil <<EOF
@@ -282,16 +291,17 @@ module \top
 end
 EOF
 check -assert
-opt_shift -combine
-select -assert-count 0 t:$shl
+equiv_opt -assert opt_shift -combine
+design -load postopt
+select -assert-count 1 t:$shl
 select -assert-count 1 t:$sshr
-select -assert-count 1 t:$sub
+select -assert-count 0 t:$sub
 design -reset
 log -pop
 
 
 
-log -header "Cross-type mixed direction: $shl then $sshr"
+log -header "Cross-type mixed direction: $shl then $sshr is not combined"
 log -push
 design -reset
 read_rtlil <<EOF
@@ -325,10 +335,11 @@ module \top
 end
 EOF
 check -assert
-opt_shift -combine
+equiv_opt -assert opt_shift -combine
+design -load postopt
 select -assert-count 1 t:$shl
-select -assert-count 0 t:$sshr
-select -assert-count 1 t:$sub
+select -assert-count 1 t:$sshr
+select -assert-count 0 t:$sub
 design -reset
 log -pop
 
