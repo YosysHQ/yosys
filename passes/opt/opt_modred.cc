@@ -2040,25 +2040,52 @@ struct OptModRedWorker : CutRegionWorker {
 	// itself; a child reached through a port has none, and asks with nullptr.
 	// Shared with port_group_width because that runs a module early, to decide
 	// whether inlining is worth a flatten that nothing undoes.
-	bool word_read_only_by_leaves(const dict<SigBit, int> &ypos, const pool<Cell *> &leaf_cells,
-	                              Cell *skip, const char *&why)
+	// Every bit the sink alters. Not just the word: each leaf comes to read a
+	// different group, so every digit and partial sum under the root moves with
+	// it, and only the root itself is left equal. The rename below wants the same
+	// set, for the same reason.
+	void sink_changed_bits(const SigSpec &word, const pool<Cell *> &leaf_cells,
+	                       const pool<Cell *> &region, const pool<SigBit> &rootbits,
+	                       pool<SigBit> &changed)
+	{
+		for (auto bit : sigmap(word))
+			if (bit.wire != nullptr)
+				changed.insert(bit);
+		for (auto cells : {&leaf_cells, &region})
+			for (auto c : *cells)
+				for (auto &conn : c->connections())
+					if (c->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							if (bit.wire != nullptr && !rootbits.count(bit))
+								changed.insert(bit);
+	}
+
+	// The sink rewrites in place, so anything outside the reduction that reads a
+	// bit it changes would silently read the new value. Only the root survives the
+	// rewrite equal, so the root is the only thing the outside may hold on to.
+	// Shared with port_group_width, which has to reach this verdict a module early
+	// to keep the inliner from flattening for a sink that then declines.
+	bool changed_bits_are_private(const pool<SigBit> &changed, const pool<Cell *> &leaf_cells,
+	                              const pool<Cell *> &region, Cell *skip, const char *&why)
 	{
 		for (auto w : module->wires())
 			if (w->port_output || w->get_bool_attribute(ID::keep))
 				for (auto bit : sigmap(SigSpec(w)))
-					if (ypos.count(bit)) {
-						why = "shifted word is a port or kept";
+					if (changed.count(bit)) {
+						why = "reduction's own signal is a port or kept";
 						return false;
 					}
-		for (auto c : module->cells())
-			if (c != skip && !leaf_cells.count(c))
-				for (auto &conn : c->connections())
-					if (!c->output(conn.first))
-						for (auto bit : sigmap(conn.second))
-							if (ypos.count(bit)) {
-								why = "shifted word has another reader";
-								return false;
-							}
+		for (auto c : module->cells()) {
+			if (c == skip || leaf_cells.count(c) || region.count(c))
+				continue;
+			for (auto &conn : c->connections())
+				if (!c->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						if (changed.count(bit)) {
+							why = "reduction's own signal has another reader";
+							return false;
+						}
+		}
 		return true;
 	}
 
@@ -2186,9 +2213,15 @@ struct OptModRedWorker : CutRegionWorker {
 			vector<pool<Cell *>> cones;
 			pool<Cell *> leaf_cells;
 			const char *why = nullptr;
-			if (digit_groups(word, digits, g, ypos, group_of, cones, leaf_cells, why) &&
-			    word_read_only_by_leaves(ypos, leaf_cells, nullptr, why))
-				return g;
+			if (digit_groups(word, digits, g, ypos, group_of, cones, leaf_cells, why)) {
+				// No shift to skip: in the child the word arrives on a port.
+				pool<SigBit> rootbits(sig.begin(), sig.end());
+				pool<SigBit> changed;
+				sink_changed_bits(word, leaf_cells, pf.region, rootbits, changed);
+				if (changed_bits_are_private(changed, leaf_cells, pf.region, nullptr,
+				                             why))
+					return g;
+			}
 			log_debug("  port group %s under %s: %s\n", log_signal(word),
 			          log_signal(sig), why);
 		}
@@ -2233,7 +2266,10 @@ struct OptModRedWorker : CutRegionWorker {
 		if (!digit_groups(sy, digits, g, ypos, group_of, cones, leaf_cells, why))
 			return no(why);
 
-		if (!word_read_only_by_leaves(ypos, leaf_cells, sh, why))
+		pool<SigBit> rootbits(root.begin(), root.end());
+		pool<SigBit> changed;
+		sink_changed_bits(sy, leaf_cells, pf.region, rootbits, changed);
+		if (!changed_bits_are_private(changed, leaf_cells, pf.region, sh, why))
 			return no(why);
 
 
@@ -2300,15 +2336,6 @@ struct OptModRedWorker : CutRegionWorker {
 		// on those asks it to prove away the very difference the rewrite exists
 		// to make -- which is how equiv_opt fails a sink that is correct. Take
 		// the names off and the proof lands on the outputs, where it belongs.
-		pool<SigBit> rootbits(root.begin(), root.end());
-		pool<SigBit> changed(sy.begin(), sy.end());
-		for (auto region : {&leaf_cells, &pf.region})
-			for (auto c : *region)
-				for (auto &conn : c->connections())
-					if (c->output(conn.first))
-						for (auto bit : sigmap(conn.second))
-							if (bit.wire != nullptr && !rootbits.count(bit))
-								changed.insert(bit);
 		vector<Wire *> unname;
 		for (auto w : module->wires()) {
 			if (!w->name.isPublic())

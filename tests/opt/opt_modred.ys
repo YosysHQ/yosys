@@ -1181,6 +1181,63 @@ select -assert-count 0 top/c:*modsink*
 design -reset
 log -pop
 
+# I10: the sink is the one rewrite here that does not preserve what it rewrites.
+# Each leaf comes to read a different group, so every digit and partial sum below
+# the root moves with it and only the root is left equal. So it is not enough for
+# the shifted word to have no other reader: nothing outside may hold any of those
+# signals either. Here a digit is also an output, and taking the sink would
+# silently change it -- with the check reading only the word, this design sank
+# and the miter below failed.
+log -header "I10: a digit read outside the reduction rejects the sink"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module gold (input wire [17:0] a, input wire [5:0] s, output wire [2:0] y,
+             output wire [2:0] d);
+  function automatic [2:0] c7 (input [5:0] v);
+    integer i, j;
+    reg [2:0] t;
+    begin
+      c7 = 3'd0;
+      for (i = 0; i < 7; i = i + 1)
+        for (j = 0; j < 7; j = j + 1) begin
+          t = (i + j) % 7;
+          c7 = c7 | ({3{v == {i[2:0], j[2:0]}}} & t);
+        end
+    end
+  endfunction
+  wire [17:0] a1 = a + 18'd7;
+  wire [17:0] a2 = a1 ^ {a1[8:0], a1[17:9]};
+  wire [17:0] a3 = a2 + {a2[3:0], a2[17:4]};
+  wire [17:0] ad = a3 ^ (a3 << 1);
+  wire [17:0] z = ad >> s;
+  wire [2:0] c0 = c7(z[5:0]);
+  wire [2:0] c1 = c7(z[11:6]);
+  wire [2:0] c2 = c7(z[17:12]);
+  assign y = c7({c7({c1, c0}), c2});
+  // The digit the sink would move, held where the outside can see it.
+  assign d = c1;
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+check -assert
+copy gold gate
+select gate
+# Everything else about this design is I6, which does sink.
+logger -expect log "sank 0 shift\(s\) under a reduction" 1
+opt_modred -opaque-digits -sink-shift
+logger -check-expected
+select -clear
+select -assert-count 0 gate/c:*modsink*
+# The reduction itself is still rewritten; it is only the sink that is refused.
+miter -equiv -flatten -make_outputs gold gate miter
+opt -fast miter
+sat -verify -prove trigger 0 -set-def-inputs miter
+design -reset
+log -pop
+
 # J1: the digit bound stops walking once its cone needs more free bits than the
 # sweep can cover, and only recognises a producer to cut at from that producer's
 # output width. A barrel already lowered to narrow muxes offers neither, which is
