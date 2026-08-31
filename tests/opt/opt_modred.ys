@@ -993,6 +993,112 @@ sat -verify -prove trigger 0 -set-def-inputs miter
 design -reset
 log -pop
 
+# I7: the fold sits behind a module port, so the shift and the reduction are never
+# in one module for the sink to match. The pass inlines that one instance to put
+# them together, rather than flattening the design and losing every other boundary.
+log -header "I7: the reduction is reached by inlining one instance"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module fold (input wire [15:0] A, output wire [1:0] Y);
+  function automatic [1:0] c3 (input [3:0] v);
+    integer i, j;
+    reg [1:0] t;
+    begin
+      c3 = 2'd0;
+      for (i = 0; i < 3; i = i + 1)
+        for (j = 0; j < 3; j = j + 1) begin
+          t = (i + j) % 3;
+          c3 = c3 | ({2{v == {i[1:0], j[1:0]}}} & t);
+        end
+    end
+  endfunction
+  wire [1:0] c0 = c3(A[3:0]);
+  wire [1:0] c1 = c3(A[7:4]);
+  wire [1:0] c2 = c3(A[11:8]);
+  wire [1:0] c3v = c3(A[15:12]);
+  wire [1:0] d0 = c3({c1, c0});
+  wire [1:0] d1 = c3({c3v, c2});
+  assign Y = c3({d1, d0});
+endmodule
+
+module top (input wire [15:0] a, input wire [4:0] s, output wire [1:0] y);
+  wire [15:0] a1 = a + 16'd7;
+  wire [15:0] a2 = a1 ^ {a1[7:0], a1[15:8]};
+  wire [15:0] a3 = a2 + {a2[3:0], a2[15:4]};
+  wire [15:0] ad = a3 ^ (a3 << 1);
+  wire [15:0] z = ad >> s;
+  fold u (.A(z), .Y(y));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+hierarchy -check -top top
+logger -expect log "inlined 1 submodule\(s\) and sank 1 shift\(s\) under a reduction" 1
+opt_modred -opaque-digits -sink-shift
+logger -check-expected
+# The instance is gone into its parent and the sink fired there.
+select -assert-count 0 top/t:fold
+select -assert-min 1 top/c:*modsink*
+design -reset
+log -pop
+
+# I8: I7 again with the amount made signed, which the sink rejects at the match.
+# The filter choosing what to inline has to reject it too: it flattens first and
+# asks second, and a flatten is not undone. A signed amount reaches a $shift as a
+# negative left shift, so this builds the cell rather than writing Verilog for it.
+log -header "I8: a signed amount is refused before anything is inlined"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module fold (input wire [15:0] A, output wire [1:0] Y);
+  function automatic [1:0] c3 (input [3:0] v);
+    integer i, j;
+    reg [1:0] t;
+    begin
+      c3 = 2'd0;
+      for (i = 0; i < 3; i = i + 1)
+        for (j = 0; j < 3; j = j + 1) begin
+          t = (i + j) % 3;
+          c3 = c3 | ({2{v == {i[1:0], j[1:0]}}} & t);
+        end
+    end
+  endfunction
+  wire [1:0] c0 = c3(A[3:0]);
+  wire [1:0] c1 = c3(A[7:4]);
+  wire [1:0] c2 = c3(A[11:8]);
+  wire [1:0] c3v = c3(A[15:12]);
+  wire [1:0] d0 = c3({c1, c0});
+  wire [1:0] d1 = c3({c3v, c2});
+  assign Y = c3({d1, d0});
+endmodule
+
+module top (input wire [15:0] a, input wire [4:0] s, output wire [1:0] y);
+  wire [15:0] a1 = a + 16'd7;
+  wire [15:0] a2 = a1 ^ {a1[7:0], a1[15:8]};
+  wire [15:0] a3 = a2 + {a2[3:0], a2[15:4]};
+  wire [15:0] ad = a3 ^ (a3 << 1);
+  wire [15:0] z = ad >> s;
+  fold u (.A(z), .Y(y));
+endmodule
+EOF
+proc
+opt_expr
+opt_clean
+hierarchy -check -top top
+# Everything I7 inlined for, with only the amount's signedness changed.
+chtype -set $shift top/t:$shr
+setparam -set B_SIGNED 1 top/t:$shift
+logger -expect log "inlined 0 submodule\(s\) and sank 0 shift\(s\) under a reduction" 1
+opt_modred -opaque-digits -sink-shift
+logger -check-expected
+# The boundary is still there: nothing was flattened on the way to declining.
+select -assert-count 1 top/t:fold
+select -assert-count 0 top/c:*modsink*
+design -reset
+log -pop
+
 # J1: the digit bound stops walking once its cone needs more free bits than the
 # sweep can cover, and only recognises a producer to cut at from that producer's
 # output width. A barrel already lowered to narrow muxes offers neither, which is

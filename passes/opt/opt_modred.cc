@@ -3185,19 +3185,20 @@ struct OptModRedPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			if (module->has_processes_warn())
 				continue;
-			SigMap sigmap(module);
+			// The parent's own worker, so the shifts admitted here are exactly the
+			// ones its sink will match -- a looser filter flattens for nothing, and
+			// the flatten is not undone. It also answers the level queries below.
+			OptModRedWorker parent(module);
+			configure(parent);
+			SigMap &sigmap = parent.sigmap;
 
 			// Bits each shift candidate drives, and every bit the module reads.
 			dict<SigBit, RTLIL::Cell *> shifted;
 			for (auto cell : module->cells()) {
-				if (!cell->type.in(ID($shr), ID($shift)) || !cell->hasPort(ID::Y))
-					continue;
-				if (cell->getParam(ID::A_SIGNED).as_bool())
+				if (!cell->hasPort(ID::Y) || !parent.is_sink_shift(cell))
 					continue;
 				SigSpec y = sigmap(cell->getPort(ID::Y));
 				if (GetSize(y) != GetSize(sigmap(cell->getPort(ID::A))))
-					continue;
-				if (sigmap(cell->getPort(ID::B)).is_fully_const())
 					continue;
 				for (auto bit : y)
 					if (bit.wire != nullptr)
@@ -3269,13 +3270,12 @@ struct OptModRedPass : public Pass {
 				// barrel's selb levels become a g-way shift plus a mask, but the
 				// amount now pays a 2^selb table, so the sink only pays when the
 				// data is the late input by more than that table costs.
-				OptModRedWorker levels(module);
 				int alevel = 0, blevel = 0, selb = GetSize(sigmap(it.first->getPort(ID::B)));
 				int wb = std::max(1, clog2_int(g));
 				for (auto bit : sigmap(it.first->getPort(ID::A)))
-					alevel = std::max(alevel, levels.bit_level(bit));
+					alevel = std::max(alevel, parent.bit_level(bit));
 				for (auto bit : sigmap(it.first->getPort(ID::B)))
-					blevel = std::max(blevel, levels.bit_level(bit));
+					blevel = std::max(blevel, parent.bit_level(bit));
 				int before = std::max(alevel, blevel) + selb;
 				int after = std::max(blevel + selb, alevel + wb) + 1;
 				if (selb - wb - 1 < min_sink_gain || before - after < min_sink_gain) {
