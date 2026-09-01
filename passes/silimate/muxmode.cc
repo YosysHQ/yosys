@@ -69,6 +69,11 @@ struct MuxmodePass : public Pass {
         pm.run_muxmode();
         pm.run_muxinvprop();
       }
+      // Still firing at the cap: the result is partially optimized, not a
+      // fixpoint, so say so rather than let it read as convergence.
+      if (did_something)
+        log_warning("MUXMODE reached max iterations (%d) in module %s without convergence.\n",
+            max_iters, log_id(module));
     }
   }
 } PeepoptPass;
