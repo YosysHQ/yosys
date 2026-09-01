@@ -552,6 +552,10 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 		attributes[ID::src] = format_src_location(obj);
 
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
+		if (!strcmp(attr->Key(), " interface_port")) {
+			attributes[ID(interface_port)] = RTLIL::Const(1);
+			continue;
+		}
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
 		attributes[RTLIL::escape_id(attr->Key())] = verific_const(nullptr, attr->Value(), obj);
