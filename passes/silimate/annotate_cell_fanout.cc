@@ -347,9 +347,9 @@ void fixfanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::
 			buffer->fixup_parameters();
 			if (sig2CellsInFanin.find(sigmap(chunk.wire)) != sig2CellsInFanin.end())
 				for (auto cell : sig2CellsInFanin[sigmap(chunk.wire)])
-					buffer->attributes = cell->attributes;
+					buffer->set_src_attribute(cell->get_src_attribute());
 			else
-				buffer->attributes = chunk.wire->attributes;
+				buffer->set_src_attribute(chunk.wire->get_src_attribute());
 			sig2CellsInFanin[sigmap(buffer_output)] = {buffer}; // needed for recursive calls
 			buffer_chunk_outputs.push_back(std::make_pair(buffer_output, buffer)); // Old - New
 			bufferIndexes[chunk] = 0;

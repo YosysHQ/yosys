@@ -508,6 +508,24 @@ void append_globbed(std::vector<std::string>& paths, std::string pattern);
 std::string name_from_file_path(std::string path);
 std::string parent_from_file_path(std::string path);
 
+// Exclusive inter-process file lock (flock/LockFileEx, no-op on WASI),
+// released on destruction. Never unlinks the lock file: that would reopen the race.
+struct ScopedFileLock {
+	ScopedFileLock(const std::string &path);
+	~ScopedFileLock();
+	ScopedFileLock(const ScopedFileLock &) = delete;
+	ScopedFileLock &operator=(const ScopedFileLock &) = delete;
+private:
+#if defined(_WIN32)
+	void *handle = nullptr;
+#elif !defined(__wasi__)
+	int fd = -1;
+#endif
+};
+
+// Current process id (0 on WASI).
+unsigned get_process_id();
+
 YOSYS_NAMESPACE_END
 
 #endif // YOSYS_IO_H

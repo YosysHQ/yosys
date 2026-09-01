@@ -96,6 +96,10 @@ yosys_pass(opt_decode_fuse
 	opt_decode_fuse.cc
 )
 
+yosys_pass(opt_addcmp
+	opt_addcmp.cc
+)
+
 yosys_pass(opt_maxcmp
 	opt_maxcmp.cc
 )
@@ -142,6 +146,10 @@ yosys_pass(opt_mux_odc
 
 yosys_pass(opt_disjoint_add
 	opt_disjoint_add.cc
+)
+
+yosys_pass(opt_accum_enable
+	opt_accum_enable.cc
 )
 
 pmgen_command(peepopt

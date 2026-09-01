@@ -255,6 +255,121 @@ log -pop
 
 
 
+log -header "-expand-keep-arith: variable amount stays on the ADD output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: variable amount stays on the SUB output"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a - b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: a constant amount is free, so it still expands"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire [7:0] x
+);
+  assign x = (a + b) << 3;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$add
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: bitwise ops are untouched by the guard"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a & b) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$and
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-expand-keep-arith: the add tree keeps one barrel, not one per operand"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [7:0] d,
+  input wire [7:0] e,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b + d + e) << c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 3 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
 log -header "Chained shifts: ((a + b) << c) << d"
 log -push
 design -reset
@@ -274,5 +389,197 @@ equiv_opt -assert opt_shift -expand
 design -load postopt
 select -assert-count 1 t:$add
 select -assert-count 4 t:$shl
+design -reset
+log -pop
+
+
+log -header "Negative: SHR across SUB loses the borrow out of the discarded window"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  wire [7:0] d = a - 8'd1;
+  assign x = d >> c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# (0 - 1) >> 2 is 8'h3f, while (0 >> 2) - (1 >> 2) is 0
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: SHR across ADD loses the carry out of the discarded window"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [2:0] c,
+  output wire [7:0] x
+);
+  assign x = (a + b) >> c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "Negative: a truncating ADD under a wider SHL"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [1:0] c,
+  output wire [15:0] x
+);
+  wire [7:0] s = a + b;
+  assign x = s << c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# the carry the add drops at bit 8 would come back inside the 16-bit result
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "SHL across a non-truncating ADD, observed wider than the add"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  input wire [1:0] c,
+  output wire [15:0] x
+);
+  wire [8:0] s = a + b;
+  assign x = s << c;
+endmodule
+EOT
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# 9 bits hold every sum, so there is nothing for the wider shift to expose
+select -assert-count 1 t:$add
+select -assert-count 2 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "Negative: a signed ADD whose operands need padding, under an unsigned SHL"
+log -push
+design -reset
+# Only RTLIL can hold this: Verilog widens the operands before the add, and
+# wreduce materializes the padding as explicit bit replication on the shift's A,
+# which no longer reads the add's Y whole.
+read_rtlil <<EOT
+module \top
+  wire signed width 4 input 1 \a
+  wire signed width 4 input 2 \b
+  wire width 2 input 3 \c
+  wire width 8 output 4 \y
+  wire width 8 \t
+  cell $add \op
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 1
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 8
+    connect \A \a
+    connect \B \b
+    connect \Y \t
+  end
+  cell $shl \sh
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 8
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 8
+    connect \A \t
+    connect \B \c
+    connect \Y \y
+  end
+end
+EOT
+hierarchy -top top
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# the add sign-extends a and b to 8 bits; an unsigned shift would zero-extend
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "Negative: SSHR across ADD, which floors the same way SHR does"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [7:0] a,
+  input wire signed [7:0] b,
+  input wire [2:0] c,
+  output wire signed [8:0] x
+);
+  assign x = (a + b) >>> c;
+endmodule
+EOF
+check -assert
+equiv_opt -assert opt_shift -expand
+design -load postopt
+# an arithmetic right shift discards the same low bits an unsigned one does
+select -assert-count 1 t:$add
+select -assert-count 1 t:$sshr
+design -reset
+log -pop
+
+
+
+log -header "Negative: SHR across ADD at a constant amount, which -expand-keep-arith allows"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [7:0] a,
+  input wire [7:0] b,
+  output wire [8:0] x
+);
+  assign x = (a + b) >> 2;
+endmodule
+EOF
+check -assert
+# -expand-keep-arith only refuses a variable amount, so this is the configuration
+# in which the direction guard is the only thing left to refuse the rewrite:
+# (3 + 1) >> 2 is 1, while (3 >> 2) + (1 >> 2) is 0
+equiv_opt -assert opt_shift -expand -expand-keep-arith
+design -load postopt
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
 design -reset
 log -pop

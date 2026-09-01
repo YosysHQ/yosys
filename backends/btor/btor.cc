@@ -1266,6 +1266,10 @@ struct BtorWorker
 
 		for (auto cell : module->cells())
 		{
+			if (cell->type == ID($check))
+				log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync` or `clk2fflogic` before `write_btor`.\n",
+						cell->type.unescape(), module, cell);
+
 			if (cell->type == ID($assume))
 			{
 				btorf_push(cell->name.unescape());

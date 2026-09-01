@@ -15,10 +15,10 @@ def get_wheel_version(repo_full_name, github_token):
 	"""
 	major_minor_ver = subprocess.check_output([
 		"cmake",
-		f"-DCMAKE_SOURCE_DIR={__yosys_root__}",
+		f"-DYOSYS_CMAKE_SOURCE_DIR={__yosys_root__}",
 		"-DYOSYS_VERSION_COMMIT=0",
 		"-P",
-		"cmake/GetPyosysVersion.cmake",
+		str(__yosys_root__ / "cmake/GetPyosysVersion.cmake"),
 	], encoding="utf8").strip()
 
 	gh = GitHub(github_token)

@@ -751,7 +751,6 @@ frontend_verilog_preproc(std::istream                 &f,
                          const define_map_t           &pre_defines,
                          define_map_t                 &global_defines_cache,
                          const std::list<std::string> &include_dirs,
-                         ParseState                   &parse_state,
                          ParseMode                    &parse_mode)
 {
 	define_map_t defines;
@@ -960,7 +959,9 @@ frontend_verilog_preproc(std::istream                 &f,
 		}
 
 		if (tok == "`resetall") {
-			parse_state.default_nettype_wire = true;
+			// `resetall is consumed here and never reaches the lexer, which owns
+			// `default_nettype during parsing.
+			output_code.push_back("\n`default_nettype wire\n");
 			continue;
 		}
 

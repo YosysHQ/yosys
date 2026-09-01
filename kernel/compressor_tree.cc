@@ -125,8 +125,24 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 	for (auto &op : operands)
 		op.sig.extend_u0(width);
 
+	// Earliest level with three operands ready, i.e. the third-shallowest of them.
+	// Depths are gate delays, so stepping a level at a time would spin over levels
+	// with nothing to compress.
+	auto third_shallowest = [](const std::vector<DepthSig> &ops) {
+		// Runs once more after the last round leaves two operands, which cannot be
+		// compressed and so have no next level
+		if (GetSize(ops) < 3)
+			return 0;
+		std::vector<int> d;
+		d.reserve(ops.size());
+		for (auto &op : ops)
+			d.push_back(op.depth);
+		std::nth_element(d.begin(), d.begin() + 2, d.end());
+		return d[2];
+	};
+
 	// Only compress operands ready at current level
-	for (int level = 0; operands.size() > 2; level++) {
+	for (int level = 0; operands.size() > 2; level = std::max(level + 1, third_shallowest(operands))) {
 		// Partition operands into ready and waiting
 		std::vector<DepthSig> ready;
 		std::vector<DepthSig> waiting;
@@ -139,9 +155,14 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 		}
 
 		if (ready.size() < 3) {
-			levels++;
 			continue;
 		}
+
+		// Compress the earliest operands first, so an operand that only just became
+		// ready is not buried under one that has been waiting, and so each group's
+		// latest lands on its shallowest input: C on a 3:2, and the second adder's
+		// B on a 4:2, whose other three slots sit behind both adders
+		std::stable_sort(ready.begin(), ready.end(), [](const DepthSig &a, const DepthSig &b) { return a.depth < b.depth; });
 
 		// Apply compressors to ready operands
 		std::vector<DepthSig> compressed;
@@ -163,10 +184,12 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 				DepthSig d = ready[i + 3];
 
 				auto [sum, carry] = emit_compressor_42(module, a.sig, b.sig, c.sig, d.sig, width, cell_name);
-				int dmax = std::max({a.depth, b.depth, c.depth, d.depth});
+				// Two chained full adders: the first's carry is the second's C
+				int inner = fa_out_depth(a.depth, b.depth, c.depth);
+				int out = fa_out_depth(inner, d.depth, inner);
 
-				compressed.push_back({sum, dmax + 2});
-				compressed.push_back({carry, dmax + 2});
+				compressed.push_back({sum, out});
+				compressed.push_back({carry, out});
 
 				fa_count += 2;
 				c42_count += 1;
@@ -177,10 +200,10 @@ std::pair<SigSpec, SigSpec> reduce_scheduled(Module *module, std::vector<DepthSi
 				DepthSig c = ready[i + 2];
 
 				auto [sum, carry] = emit_compressor_32(module, a.sig, b.sig, c.sig, width, cell_name);
-				int dmax = std::max({a.depth, b.depth, c.depth});
+				int out = fa_out_depth(a.depth, b.depth, c.depth);
 
-				compressed.push_back({sum, dmax + 1});
-				compressed.push_back({carry, dmax + 1});
+				compressed.push_back({sum, out});
+				compressed.push_back({carry, out});
 
 				fa_count += 1;
 				i += 3;

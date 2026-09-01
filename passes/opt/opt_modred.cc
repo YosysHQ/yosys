@@ -77,6 +77,9 @@ struct OptModRedWorker : CutRegionWorker {
 	int max_cut_bits = 14;
 	int max_cut_retries = 3;
 	int max_prune_rounds = 64;
+	// Cells a digit's bound may pull in looking for a cut it can sweep. Sized for a
+	// digit's own table, not for the design behind it; see budget_cone.
+	int max_bound_cells = 256;
 	int max_region_cells = 4096;
 	int max_region_leaves = 1024;
 	int min_terms = 4;
@@ -86,12 +89,27 @@ struct OptModRedWorker : CutRegionWorker {
 	int min_push_add_width = 8;
 	int max_shift_sel_bits = 6;
 	int max_fn_slots = 4;
+	// Widest leaf group -sink-shift will take, in bits. The leaf-identity check
+	// sweeps 2^g vectors per leaf, and a leaf of a fold reads one narrow field.
+	int max_sink_group_bits = 10;
+	int max_sink_sel_bits = 8;
+	// Levels the sink has to buy to be worth it: it trades a barrel over the
+	// whole amount for a g-way shift and a mask, and breaking even is a loss
+	// because the mask is a fixed cell the Boolean optimizer cannot fold away.
+	int min_sink_gain = 2;
 	// Largest cone the bit-level evaluator will walk. A whole fold level is a
 	// few hundred cells once the frontend has vectorized it, and the walk is
 	// the only way to see through the cell-level loops it leaves behind.
 	int max_bits_eval_cells = 256;
+	// Largest cone the value-range prover will sweep, in leaf bits. A leaf digit
+	// of a fold reads one narrow field, so a handful of bits covers the shape
+	// this is for while keeping the sweep to a few thousand evaluations.
+	int max_bound_bits = 12;
 	bool fit_fn = true;
 	bool push_shift_sub = false;
+	bool opaque_digits = false;
+	bool div_cells = false;
+	bool sink_shift_en = false;
 
 	int k = 0;      // modulus width
 	int mod_c = 0;  // 2^k - 1
@@ -105,6 +123,7 @@ struct OptModRedWorker : CutRegionWorker {
 	int pushed_shifts = 0;
 	int pushed_norms = 0;
 	int pushed_concats = 0;
+	int sunk_shifts = 0;
 	bool dirty = false;
 
 	OptModRedWorker(Module *module) : CutRegionWorker(module) {}
@@ -120,6 +139,13 @@ struct OptModRedWorker : CutRegionWorker {
 		// Largest value seen over the whole (exhaustive) proof, so a node above
 		// this one knows the range its input can actually take.
 		int maxval = 0;
+		// Largest weighted sum the terms can actually reach, or -1 to price it
+		// from `weights` alone. Only an opaque digit needs the distinction: its
+		// k bits carry weights summing to coeff*(2^k-1), but its proven bound
+		// caps the value it can really take. Set once anything below rests on
+		// such a bound, and propagated upward so a parent prices its slots by
+		// range too rather than re-inflating them. See cannot_wrap().
+		int reach = -1;
 	};
 
 	dict<SigSpec, int> prove_memo_ok;
@@ -128,6 +154,7 @@ struct OptModRedWorker : CutRegionWorker {
 	int64_t reentries = 0;
 	dict<SigSpec, dict<SigBit, int>> prove_memo;
 	dict<SigSpec, int> prove_memo_max;
+	dict<SigSpec, int> prove_memo_reach;
 	dict<SigSpec, pool<Cell *>> prove_memo_region;
 
 	// Candidate places to cut a reduction cone, in two flavours.
@@ -533,6 +560,246 @@ struct OptModRedWorker : CutRegionWorker {
 		return true;
 	}
 
+	// Largest value `sig` can take, or -1 when that cannot be shown cheaply.
+	// Keyed on the signal alone and independent of k, since it only asks what the
+	// producer can emit.
+	dict<SigSpec, int> bound_memo;
+
+	// Sweep `sig`'s own cone exhaustively for its largest reachable value.
+	//
+	// A k-bit signal that never reaches 2^k-1 only ever carries a canonical
+	// residue, and that is exactly what makes the level above it linear: a fold
+	// spelled as a one-hot table decodes 0..C-1 and answers 0 for the 2^k-1 input
+	// its producer cannot emit, so over the full k-bit domain the table reads as
+	// non-linear and the whole tree above it is lost.
+	static int cell_out_bits(Cell *c)
+	{
+		int n = 0;
+		for (auto &conn : c->connections())
+			if (c->output(conn.first))
+				n += GetSize(conn.second);
+		return n;
+	}
+
+	// Cone of `sig` with a wide producer's output taken as a leaf instead of
+	// walked into. A digit that samples one narrow field of a barrel shifter is a
+	// function of that field, while its true cone is the whole shifter -- tens of
+	// bits, far past any sweep. Cutting at the producer leaves those bits free,
+	// which can only add reachable values, so the largest value over the cut is
+	// still an upper bound, and an upper bound is all the opaque-digit test asks.
+	bool sampled_cone(const SigSpec &sig, int max_bits, pool<Cell *> &cone, SigSpec &cut)
+	{
+		pool<SigBit> visited, leaves;
+		std::queue<SigBit> work;
+		for (auto bit : sigmap(sig))
+			if (bit.wire != nullptr && visited.insert(bit).second)
+				work.push(bit);
+
+		while (!work.empty()) {
+			SigBit bit = work.front();
+			work.pop();
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv) || cell_out_bits(drv) > max_bits) {
+				leaves.insert(bit);
+				if (GetSize(leaves) > max_bits)
+					return false;
+				continue;
+			}
+			if (!cone.insert(drv).second)
+				continue;
+			charge_walk(1);
+			if (GetSize(cone) > max_region_cells)
+				return false;
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second))
+						if (b.wire != nullptr && visited.insert(b).second)
+							work.push(b);
+		}
+		for (auto bit : leaves)
+			cut.append(bit);
+		return GetSize(cut) > 0;
+	}
+
+	// Cone of `sig` grown as deep as a `max_bits`-wide cut allows, with the bits it
+	// still reads as the cut. `get_cone` gives up when the true cone needs more free
+	// bits than the sweep can cover, and `sampled_cone` only stops at a producer wide
+	// enough to recognise from its output width, which a barrel shifter already
+	// lowered to a mesh of two-bit muxes is not -- so on a flattened design both run
+	// past the digit into every primary input behind it. What the sweep needs is not
+	// the narrowest cut but the deepest one that fits: the digit's own table then
+	// lands inside the cone and the narrow field it samples becomes the cut, which is
+	// the boundary a module port used to hand us for free. Growing the cone only
+	// removes reachable values, so the sweep's maximum stays an upper bound.
+	bool budget_cone(const SigSpec &sig, int max_bits, pool<Cell *> &cone, SigSpec &cut)
+	{
+		// Bits the cone reads but does not drive, i.e. the cut if we stop here.
+		pool<SigBit> frontier;
+		for (auto bit : sigmap(sig))
+			if (bit.wire != nullptr)
+				frontier.insert(bit);
+		if (frontier.empty() || GetSize(frontier) > max_bits)
+			return false;
+
+		// The frontier that pulling `bit`'s driver in would leave, or -1 if that
+		// driver cannot come in at all. Its outputs stop being cut points and its
+		// inputs become ones, except those the cone already drives -- which is also
+		// what keeps the cut clear of the whole-cell caching conflict ConstEval
+		// would otherwise hit.
+		auto weigh = [&](SigBit bit, pool<SigBit> *out) {
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv) || cone.count(drv))
+				return -1;
+			pool<SigBit> next = frontier;
+			for (auto &conn : drv->connections())
+				if (drv->output(conn.first))
+					for (auto b : sigmap(conn.second))
+						next.erase(b);
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second)) {
+						if (b.wire == nullptr)
+							continue;
+						Cell *up = bit_to_driver.at(b, nullptr);
+						if (up != nullptr && cone.count(up))
+							continue;
+						next.insert(b);
+					}
+			if (out != nullptr)
+				*out = next;
+			return GetSize(next);
+		};
+
+		// `max_bits` bounds the cut we keep, not the search: the way into a digit's
+		// table runs through a frontier wider than the field the table reads, so
+		// refusing to ever exceed the cap strands the walk partway inside the table
+		// with some of the clamping still outside the sweep. Grow past it and keep
+		// the deepest frontier that fits instead.
+		pool<Cell *> best_cone;
+		pool<SigBit> best_cut;
+		while (true) {
+			if (GetSize(frontier) <= max_bits && GetSize(cone) > GetSize(best_cone)) {
+				best_cone = cone;
+				best_cut = frontier;
+			}
+			// Tested after the cone is weighed, not before growing it, so a cone of
+			// exactly the budget still gets its turn as the best while the budget
+			// stays the number of cells walked.
+			if (GetSize(cone) >= max_bound_cells)
+				break;
+			// Sorted so the cone a digit bounds against does not depend on set
+			// iteration order, and narrowest-first so the walk finishes the table
+			// it is inside before starting on whatever feeds it.
+			vector<SigBit> cands(frontier.begin(), frontier.end());
+			std::sort(cands.begin(), cands.end());
+			SigBit pick;
+			pool<SigBit> picked;
+			int best = -1;
+			for (auto bit : cands) {
+				pool<SigBit> next;
+				int w = weigh(bit, &next);
+				if (w < 0)
+					continue;
+				if (best < 0 || w < best) {
+					best = w;
+					pick = bit;
+					picked.swap(next);
+				}
+			}
+			if (best < 0)
+				break;
+			cone.insert(bit_to_driver.at(pick, nullptr));
+			charge_walk(1);
+			frontier.swap(picked);
+		}
+
+		// An empty cone means nothing could be pulled in and the cut is the digit
+		// itself, which bounds it to its own width and tells us nothing.
+		if (best_cone.empty())
+			return false;
+		cone = best_cone;
+		for (auto bit : best_cut)
+			cut.append(bit);
+		return GetSize(cut) > 0;
+	}
+
+	int value_bound(const SigSpec &sig)
+	{
+		if (bound_memo.count(sig))
+			return bound_memo.at(sig);
+		bound_memo[sig] = -1;  // pessimistic unless the sweep below completes
+
+		if (!sig_fully_driven(sig))
+			return -1;
+
+		pool<Cell *> cone;
+		pool<SigBit> leaves;
+		SigSpec leafsig;
+		// The true cone first, so a digit that already bounded keeps the bound it had
+		// and only a digit that could not bound at all pays for a cut.
+		int cap = std::min(max_bound_bits, max_cut_bits);
+		bool have = false;
+		if (get_cone(sig, cone, leaves, max_region_cells, max_bound_bits)) {
+			for (auto bit : leaves)
+				leafsig.append(bit);
+			have = GetSize(leafsig) <= max_cut_bits;
+		}
+		// budget_cone before sampled_cone: both cut short of the true cone, but the
+		// one that captures more of the logic bounds the digit more tightly, and a
+		// digit that bounds loosely is a digit the tree above it cannot use.
+		for (auto cut_at : {&OptModRedWorker::budget_cone, &OptModRedWorker::sampled_cone}) {
+			if (have)
+				break;
+			cone.clear();
+			leafsig = SigSpec();
+			have = (this->*cut_at)(sig, cap, cone, leafsig) &&
+			       GetSize(leafsig) <= max_cut_bits;
+		}
+		if (!have) {
+			log_debug("      bound %s: no cut (cap %d)\n", log_signal(sig), cap);
+			return -1;
+		}
+		log_debug("      bound %s: cut %d bit(s) over %d cell(s)\n", log_signal(sig),
+		          GetSize(leafsig), GetSize(cone));
+		// Compared before the shift, not after: max_bound_bits is a user option,
+		// and a cone that wide would shift past the width of the count itself.
+		if (GetSize(leafsig) > max_cut_bits)
+			return -1;
+		int64_t combos = int64_t(1) << GetSize(leafsig);
+
+		ConstEval &ce = shared_ce();
+		vector<Cell *> order;
+		compute_cone_depths(cone, &order);
+		vector<std::pair<SigSpec, Const>> sets{{leafsig, Const(State::S0, GetSize(leafsig))}};
+		int cells = GetSize(cone);
+		// Same one-way switch as check_linear: a vectorized fold leaves cells
+		// that each need a bit of another's output, which ConstEval cannot
+		// resolve whole even though the cone is acyclic bit by bit.
+		bool allow_bits = cells <= max_bits_eval_cells && cone_has_cell_loop(cone);
+		bool bits_mode = false;
+		int bound = 0;
+		for (int64_t v = 0; v < combos; v++) {
+			set_const_u64(sets[0].second, uint64_t(v));
+			uint64_t out = 0;
+			if (eval_exhausted())
+				return -1;
+			if (!bits_mode) {
+				if (eval_with(ce, sets, sig, out, cells, &order)) {
+					bound = std::max(bound, int(out));
+					continue;
+				}
+				if (!allow_bits)
+					return -1;
+				bits_mode = true;
+			}
+			if (!eval_with_bits(sets, sig, out, cells))
+				return -1;
+			bound = std::max(bound, int(out));
+		}
+		bound_memo[sig] = bound;
+		return bound;
+	}
+
 	// Prove that `root` is a mod-C reduction, returning the weight of every raw
 	// bit that feeds it. Cuts are pushed outward on failure: a normalizer sitting
 	// between two tree levels makes the inner cut unprovable (7 maps to 0 there,
@@ -551,6 +818,7 @@ struct OptModRedWorker : CutRegionWorker {
 				return false;
 			out.weights = prove_memo.at(root);
 			out.maxval = prove_memo_max.at(root);
+			out.reach = prove_memo_reach.at(root, -1);
 			out.region = prove_memo_region.at(root);
 			return true;
 		}
@@ -569,8 +837,137 @@ struct OptModRedWorker : CutRegionWorker {
 		return ok;
 	}
 
+	// The divisor's width when it is a constant 2^k-1, else 0. Read bitwise:
+	// as_int() would truncate a divisor wider than an int.
+	int mersenne_divisor_bits(Cell *cell)
+	{
+		if (!cell->type.in(ID($mod), ID($modfloor)) || !cell->hasPort(ID::Y))
+			return 0;
+		// Unsigned only: signed `%` truncates toward zero and can go negative,
+		// and $modfloor takes the divisor's sign, neither of which is a residue.
+		if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+			return 0;
+		SigSpec b = sigmap(cell->getPort(ID::B));
+		if (!b.is_fully_const())
+			return 0;
+		Const bc = b.as_const();
+		if (!bc.is_fully_def())
+			return 0;
+		int bits = 0;
+		while (bits < GetSize(bc) && bc[bits] == State::S1)
+			bits++;
+		for (int i = bits; i < GetSize(bc); i++)
+			if (bc[i] != State::S0)
+				return 0;
+		return bits;
+	}
+
+	// Roots the candidate walk cannot offer. A lone `$mod` is a single cell, so
+	// its residue is neither a named wire the walk seeds on nor part of a cone
+	// big enough to look interesting, and it is never even proposed. Offer the
+	// low k bits of the output, which is the whole residue: `A % C` < C < 2^k.
+	void collect_div_roots(vector<RootCand> &roots)
+	{
+		for (auto cell : module->cells()) {
+			int bits = mersenne_divisor_bits(cell);
+			if (bits < min_mod_bits || bits > max_mod_bits)
+				continue;
+			SigSpec y = sigmap(cell->getPort(ID::Y));
+			if (GetSize(y) < bits)
+				continue;
+			RootCand cand;
+			cand.sig = y.extract(0, bits);
+			cand.name = log_signal(cand.sig);
+			roots.push_back(cand);
+		}
+	}
+
+	// Bits read by any cell, port or connection in the module. Built once, and
+	// only when a divider match asks: nothing else here needs fanout.
+	pool<SigBit> read_bits;
+	bool read_bits_ready = false;
+	bool bit_is_read(const SigBit &bit)
+	{
+		if (!read_bits_ready) {
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections())
+					if (!cell->output(conn.first))
+						for (auto b : sigmap(conn.second))
+							read_bits.insert(b);
+			for (auto wire : module->wires())
+				if (wire->port_output || wire->get_bool_attribute(ID::keep))
+					for (auto b : sigmap(SigSpec(wire)))
+						read_bits.insert(b);
+			for (auto &conn : module->connections())
+				for (auto b : sigmap(conn.second))
+					read_bits.insert(b);
+			read_bits_ready = true;
+		}
+		return read_bits.count(sigmap(bit)) != 0;
+	}
+
+	// A `$mod` by a constant C = 2^k-1 is a reduction by construction: 2^k == 1
+	// (mod C), so bit i of A is worth 2^(i mod k) and the weight map is exact
+	// without evaluating anything. The exhaustive prover cannot reach this
+	// spelling at all -- its only cut is the whole operand, which is far past
+	// max_cut_bits -- yet it is the one that needs the rewrite most, since the
+	// divider it stands for is far deeper than the tree replacing it.
+	bool prove_div_cell(const SigSpec &root, Proof &out)
+	{
+		Cell *drv = nullptr;
+		for (auto bit : root) {
+			Cell *d = bit.wire ? bit_to_driver.at(bit, nullptr) : nullptr;
+			if (d == nullptr || (drv != nullptr && d != drv))
+				return false;
+			drv = d;
+		}
+		if (drv == nullptr || mersenne_divisor_bits(drv) != k)
+			return false;
+		// The residue is the low k bits of the output: `A % C` < C < 2^k leaves
+		// the bits above it constant zero, so the root need not span the port.
+		SigSpec y = sigmap(drv->getPort(ID::Y));
+		if (GetSize(y) < k)
+			return false;
+		for (int i = 0; i < k; i++)
+			if (y[i] != root[i])
+				return false;
+		// Those high zero bits still have to be dead, or the divider survives
+		// the rewrite and the tree is built beside it instead of replacing it.
+		for (int i = k; i < GetSize(y); i++)
+			if (y[i].wire && bit_is_read(y[i]))
+				return false;
+
+		SigSpec a = sigmap(drv->getPort(ID::A));
+		dict<SigBit, int> weights;
+		for (int i = 0; i < GetSize(a); i++) {
+			SigBit bit = a[i];
+			if (!bit.wire) {
+				// Zero padding drops out; a constant one is an offset the
+				// weight map has nowhere to put.
+				if (bit == State::S0)
+					continue;
+				return false;
+			}
+			// A repeated bit accumulates, as a rotated combine would.
+			weights[bit] = int((int64_t(weights.at(bit, 0)) + (int64_t(1) << (i % k))) %
+			                   mod_c);
+		}
+		for (auto it = weights.begin(); it != weights.end();)
+			it = (it->second == 0) ? weights.erase(it) : ++it;
+
+		out.weights = weights;
+		out.region = pool<Cell *>({drv});
+		out.maxval = mod_c - 1;  // `A % C` is already canonical
+		log_debug("    %s: $mod by %d proves as mod-%d over %d bit(s)\n", log_signal(root),
+		          mod_c, mod_c, GetSize(weights));
+		return true;
+	}
+
 	bool prove_uncached(const SigSpec &root, Proof &out, int depth)
 	{
+		if (div_cells && prove_div_cell(root, out))
+			return true;
+
 		pool<Cell *> cone;
 		pool<SigBit> leaves;
 		if (!sig_fully_driven(root) ||
@@ -697,11 +1094,20 @@ struct OptModRedWorker : CutRegionWorker {
 			vector<int> slot_max(GetSize(slots), 1);
 			vector<Proof> sub(GetSize(slots));
 			vector<bool> sub_ok(GetSize(slots), false);
+			// Unproven slots that still only ever carry a canonical residue, so
+			// they can ride in as opaque digits (see the lin branch below).
+			vector<bool> opaque(GetSize(slots), false);
 			for (int i = 0; i < GetSize(slots); i++) {
 				if (bus_slot[i] < 0)
 					continue;
 				sub_ok[i] = prove(slots[i], sub[i], depth + 1);
-				slot_max[i] = sub_ok[i] ? sub[i].maxval : (1 << k) - 1;
+				if (sub_ok[i]) {
+					slot_max[i] = sub[i].maxval;
+					continue;
+				}
+				int bound = opaque_digits ? value_bound(slots[i]) : -1;
+				opaque[i] = bound >= 0 && bound < mod_c;
+				slot_max[i] = opaque[i] ? bound : (1 << k) - 1;
 			}
 
 			vector<int> coeffs;
@@ -717,40 +1123,80 @@ struct OptModRedWorker : CutRegionWorker {
 			          lin ? "linear" : "not linear");
 			if (ys_debug() && GetSize(slots) <= 16)
 				for (int i = 0; i < GetSize(slots); i++)
-					log_debug("%*s  slot %s max %d coeff %d\n", 2 * depth + 4, "",
+					log_debug("%*s  slot %s max %d coeff %d%s\n", 2 * depth + 4, "",
 					          log_signal(slots[i]), slot_max[i],
-					          i < GetSize(coeffs) ? coeffs[i] : -1);
+					          i < GetSize(coeffs) ? coeffs[i] : -1,
+					          opaque[i] ? " (opaque digit)" : "");
 			if (lin) {
 				bool ok = true;
+				bool any_opaque = false;
 				dict<SigBit, int> weights;
+				// Every slot priced by the range it can actually take, which
+				// for a proven slot is its own maxval and for an opaque digit
+				// is its bound. Only used once something below is opaque.
+				int64_t reach = 0;
+				// Cells the rewrite would replace: everything between the root
+				// and the cut, plus whatever each proven slot covers.
+				pool<Cell *> claimed = cut_cells;
 				for (int i = 0; ok && i < GetSize(slots); i++) {
 					if (coeffs[i] == 0)
 						continue;
+					reach += int64_t(coeffs[i]) * slot_max[i];
 					if (bus_slot[i] < 0) {
 						SigBit bit = slots[i][0];
 						weights[bit] = (weights.at(bit, 0) + coeffs[i]) % mod_c;
 						continue;
 					}
 					if (!sub_ok[i]) {
-						ok = false;
-						break;
+						if (!opaque[i]) {
+							ok = false;
+							break;
+						}
+						// slot == sum of 2^j * bit_j holds for any bus, so an
+						// opaque digit needs no proof of its own -- only the
+						// bound above, which is what the linearity check just
+						// covered. The tree then reads the digit where it is
+						// instead of pushing past it.
+						for (int j = 0; j < k; j++)
+							weights[slots[i][j]] =
+							    int((int64_t(weights.at(slots[i][j], 0)) +
+							         int64_t(coeffs[i]) * (1 << j)) % mod_c);
+						any_opaque = true;
+						continue;
 					}
+					// A slot whose own proof rests on a bound taints this one:
+					// its inflated bit weights would otherwise reappear here as
+					// reach the design cannot actually produce.
+					if (sub[i].reach >= 0)
+						any_opaque = true;
 					for (auto &it : sub[i].weights)
 						weights[it.first] =
 						    int((int64_t(weights.at(it.first, 0)) +
 						         int64_t(coeffs[i]) * it.second) % mod_c);
 					for (auto c : sub[i].region)
 						out.region.insert(c);
+					for (auto c : sub[i].region)
+						claimed.insert(c);
 				}
+				// The cone behind an opaque digit survives the rewrite, so it
+				// must not count toward the depth the tree claims to save.
+				if (ok && any_opaque)
+					out.region = claimed;
 				if (ok) {
 					for (auto it = weights.begin(); it != weights.end();)
 						it = (it->second == 0) ? weights.erase(it) : ++it;
+					// Only opaque digits make the weight sum an overestimate,
+					// so leave `reach` unset otherwise and keep the plain
+					// pricing (and its results) exactly as they were.
+					int r = any_opaque ? int(std::min<int64_t>(reach, mod_c)) : -1;
 					prove_memo_ok[root] = 1;
 					prove_memo[root] = weights;
 					prove_memo_max[root] = maxval;
+					prove_memo_reach[root] = r;
 					prove_memo_region[root] = out.region;
 					out.weights = weights;
 					out.maxval = maxval;
+					out.reach = r;
 					return true;
 				}
 			}
@@ -1289,6 +1735,57 @@ struct OptModRedWorker : CutRegionWorker {
 		return lv;
 	}
 
+	// Logic depth one cell stands for. Everything counts as a single level
+	// except the divider class: `$div`/`$mod` become a shift-subtract chain with
+	// a stage per quotient bit, so one cell can hide more depth than the entire
+	// tree that would replace it, and counting it as 1 makes every rewrite of a
+	// bare `A % C` look like a loss. The operand width is a floor on that chain.
+	int cell_depth_cost(Cell *cell) const
+	{
+		if (!div_cells || cell == nullptr)
+			return 1;
+		if (!cell->type.in(ID($div), ID($mod), ID($divfloor), ID($modfloor)))
+			return 1;
+		return std::max(1, cell->getParam(ID::A_WIDTH).as_int());
+	}
+
+	// Longest path through `region`, weighting each cell by the depth it stands
+	// for. Same recurrence as compute_cone_depths, run over the topological
+	// order that walk hands back; a cell in a cell-level loop is in neither, so
+	// `covered` reports how many the walk reached for callers that check.
+	int weighted_region_depth(const pool<Cell *> &region, int *covered = nullptr)
+	{
+		vector<Cell *> order;
+		auto unit = compute_cone_depths(region, &order);
+		if (covered != nullptr)
+			*covered = GetSize(unit);
+		if (!div_cells) {
+			int worst = 0;
+			for (auto &it : unit)
+				worst = std::max(worst, it.second);
+			return worst;
+		}
+		dict<Cell *, int> depth;
+		int worst = 0;
+		for (auto cell : order) {
+			int in = 0;
+			for (auto &conn : cell->connections()) {
+				if (!cell->input(conn.first))
+					continue;
+				for (auto bit : sigmap(conn.second)) {
+					if (!bit.wire)
+						continue;
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr && drv != cell && region.count(drv))
+						in = std::max(in, depth.at(drv, 0));
+				}
+			}
+			depth[cell] = in + cell_depth_cost(cell);
+			worst = std::max(worst, depth.at(cell));
+		}
+		return worst;
+	}
+
 	// Longest combinational level of a bit, counting from flops and inputs.
 	// Cone-local depth says how deep the matched logic is, not when its terms
 	// arrive: a tree over terms that are themselves late is a loss even when it
@@ -1329,11 +1826,12 @@ struct OptModRedWorker : CutRegionWorker {
 				continue;
 			}
 			int lv = 0;
+			int cost = cell_depth_cost(drv);
 			for (auto &conn : drv->connections())
 				if (drv->input(conn.first))
 					for (auto b : sigmap(conn.second))
 						if (b.wire)
-							lv = std::max(lv, level_memo.at(b, 0) + 1);
+							lv = std::max(lv, level_memo.at(b, 0) + cost);
 			level_memo[bit] = lv;
 			on_stack.erase(bit);
 			stack.pop_back();
@@ -1352,12 +1850,19 @@ struct OptModRedWorker : CutRegionWorker {
 	// would explode already contributes a full C here, as its digits are the
 	// powers of two. A reach of exactly C does wrap, at the one point where
 	// every term is set, and is left to the profitability guards below.
-	bool cannot_wrap(const dict<SigBit, int> &weights) const
+	//
+	// `reach` overrides the weight sum for a proof carrying opaque digits, whose
+	// bit weights add up to a full C no matter how narrow the digit's proven
+	// range is -- which would otherwise retire this guard for every such proof.
+	bool cannot_wrap(const dict<SigBit, int> &weights, int reach = -1) const
 	{
-		int64_t reach = 0;
-		for (auto &it : weights)
-			reach += it.second;  // each weighted bit is worth at most its weight
-		return reach < mod_c;
+		int64_t total = reach;
+		if (reach < 0) {
+			total = 0;
+			for (auto &it : weights)
+				total += it.second;  // each weighted bit is worth at most its weight
+		}
+		return total < mod_c;
 	}
 
 	// True when a tree over `terms` would not land enough earlier than `root`
@@ -1367,6 +1872,17 @@ struct OptModRedWorker : CutRegionWorker {
 	static constexpr int min_arrival_gain = 2;
 	bool arrival_no_better(const SigSpec &root, const vector<SigSpec> &terms, int slack)
 	{
+		int tree = tree_levels(GetSize(terms)) + slack;
+		int span = term_to_root_levels(root, terms);
+		log_debug("    arrival: tree %d + gain %d vs %d level(s) of matched logic\n", tree,
+		          min_arrival_gain, span);
+		return tree + min_arrival_gain > span;
+	}
+
+	// Levels of logic the rewrite would actually replace: how much later the
+	// root lands than the terms it is a function of.
+	int term_to_root_levels(const SigSpec &root, const vector<SigSpec> &terms)
+	{
 		int term_level = 0;
 		for (auto &t : terms)
 			for (auto bit : t)
@@ -1374,17 +1890,482 @@ struct OptModRedWorker : CutRegionWorker {
 		int root_level = 0;
 		for (auto bit : root)
 			root_level = std::max(root_level, bit_level(bit));
-		int tree = tree_levels(GetSize(terms)) + slack;
-		log_debug("    arrival: terms at %d + tree %d vs root at %d\n", term_level, tree,
-		          root_level);
-		return term_level + tree + min_arrival_gain > root_level;
+		return root_level - term_level;
+	}
+
+	// ----------------------------------------------------------- shift sink
+
+	// A variable right shift the sink can move: unsigned, as wide out as in,
+	// and zero-filling. $shiftx fills with x, which a mask cannot reproduce.
+	bool is_sink_shift(Cell *cell)
+	{
+		if (cell->type != ID($shr) && cell->type != ID($shift))
+			return false;
+		if (cell->getParam(ID::A_SIGNED).as_bool() || cell->getParam(ID::B_SIGNED).as_bool())
+			return false;
+		SigSpec b = sigmap(cell->getPort(ID::B));
+		if (b.is_fully_const())
+			return false;
+		return GetSize(b) >= 1 && GetSize(b) <= max_sink_sel_bits;
+	}
+
+	// Recover the reduction's digits from a proof: k consecutive bits of one wire
+	// carrying weights coeff*2^j. One coeff shared by every digit is what makes
+	// them interchangeable, which is the property the sink rests on.
+	bool proof_digits(const Proof &pf, vector<SigSpec> &digits, int &coeff)
+	{
+		dict<Wire *, dict<int, int>> by_wire;
+		for (auto &it : pf.weights) {
+			if (it.first.wire == nullptr)
+				return false;
+			by_wire[it.first.wire][it.first.offset] = it.second;
+		}
+
+		coeff = -1;
+		for (auto &w : by_wire) {
+			vector<int> offs;
+			for (auto &it : w.second)
+				offs.push_back(it.first);
+			std::sort(offs.begin(), offs.end());
+			for (int at = 0; at < GetSize(offs); at += k) {
+				// The digit's low bit fixes coeff; the rest must follow 2^j off it.
+				int base = offs[at];
+				int c = w.second.at(base);
+				if (c == 0)
+					return false;
+				for (int j = 0; j < k; j++) {
+					if (at + j >= GetSize(offs) || offs[at + j] != base + j)
+						return false;
+					if (w.second.at(base + j) != int((int64_t(c) << j) % mod_c))
+						return false;
+				}
+				if (coeff < 0)
+					coeff = c;
+				else if (coeff != c)
+					return false;
+				digits.push_back(SigSpec(w.first, base, k));
+			}
+		}
+		return coeff > 0 && GetSize(digits) >= 2;
+	}
+
+	// Walk back from `sig` and record which bits of `stop` it reads. Fails as
+	// soon as the walk escapes `stop`, which is what pins each leaf to one group
+	// of the shifted word rather than to the word plus something else.
+	bool reads_through(const SigSpec &sig, const pool<SigBit> &stop, pool<SigBit> &reached,
+	                   pool<Cell *> &cells, int max_cells)
+	{
+		pool<SigBit> visited;
+		std::queue<SigBit> work;
+		for (auto bit : sigmap(sig))
+			if (bit.wire != nullptr && visited.insert(bit).second)
+				work.push(bit);
+
+		while (!work.empty()) {
+			SigBit bit = work.front();
+			work.pop();
+			if (stop.count(bit)) {
+				reached.insert(bit);
+				continue;
+			}
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv))
+				return false;
+			if (!cells.insert(drv).second)
+				continue;
+			charge_walk(1);
+			if (GetSize(cells) > max_cells)
+				return false;
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second))
+						if (b.wire != nullptr && visited.insert(b).second)
+							work.push(b);
+		}
+		return true;
+	}
+
+	// Nearest variable shift behind `from`: BFS order, so the one the leaves
+	// read rather than one further back behind the amount's own decode.
+	Cell *nearest_sink_shift(const SigSpec &from)
+	{
+		pool<SigBit> seen;
+		std::queue<SigBit> work;
+		for (auto bit : sigmap(from))
+			if (bit.wire != nullptr && seen.insert(bit).second)
+				work.push(bit);
+		int steps = 0;
+		while (!work.empty() && steps++ <= max_region_cells) {
+			SigBit bit = work.front();
+			work.pop();
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			if (drv == nullptr || is_sequential(drv))
+				continue;
+			if (is_sink_shift(drv))
+				return drv;
+			charge_walk(1);
+			for (auto &conn : drv->connections())
+				if (drv->input(conn.first))
+					for (auto b : sigmap(conn.second))
+						if (b.wire != nullptr && seen.insert(b).second)
+							work.push(b);
+		}
+		return nullptr;
+	}
+
+	// Sink a variable right shift out of a reduction whose leaves read fixed,
+	// equal-width groups of the shifted word.
+	//
+	// A shift by g*u moves whole groups, and a reduction that weights every leaf
+	// residue alike is invariant under permuting them, so
+	//
+	//   F(X >> (g*u + w))  ===  F((X >> w) & keep_u)
+	//
+	// with keep_u clearing the u low groups: both spellings hand F the same
+	// multiset of groups, one padded with L(0) where the other dropped what the
+	// shift discarded. Only the g-way shift and the mask stay on the data path,
+	// and both tables read the amount alone -- so an amount that arrives before
+	// the data takes the whole barrel off the path.
+	//
+	// Unlike emit_shifted this needs no canonical residue at the shift, which is
+	// what lets it reach a barrel sitting *below* opaque leaves.
+	// Does each digit read exactly one aligned g-bit group of `word`, each group
+	// once, with every leaf computing the same function? That last part is what
+	// makes the groups interchangeable, and so what lets the sink permute and drop
+	// them. This is the whole of the sink's match that lives on the reduction's
+	// side of the shift, so the inliner can ask it of a submodule across a port
+	// before deciding to pull the module in.
+	// The sink masks the word where it stands, so the reduction has to be all that
+	// reads it -- anything else would see the masked value. `skip` is the shift
+	// itself; a child reached through a port has none, and asks with nullptr.
+	// Shared with port_group_width because that runs a module early, to decide
+	// whether inlining is worth a flatten that nothing undoes.
+	// Every bit the sink alters. Not just the word: each leaf comes to read a
+	// different group, so every digit and partial sum under the root moves with
+	// it, and only the root itself is left equal. The rename below wants the same
+	// set, for the same reason.
+	void sink_changed_bits(const SigSpec &word, const pool<Cell *> &leaf_cells,
+	                       const pool<Cell *> &region, const pool<SigBit> &rootbits,
+	                       pool<SigBit> &changed)
+	{
+		for (auto bit : sigmap(word))
+			if (bit.wire != nullptr)
+				changed.insert(bit);
+		for (auto cells : {&leaf_cells, &region})
+			for (auto c : *cells)
+				for (auto &conn : c->connections())
+					if (c->output(conn.first))
+						for (auto bit : sigmap(conn.second))
+							if (bit.wire != nullptr && !rootbits.count(bit))
+								changed.insert(bit);
+	}
+
+	// The sink rewrites in place, so anything outside the reduction that reads a
+	// bit it changes would silently read the new value. Only the root survives the
+	// rewrite equal, so the root is the only thing the outside may hold on to.
+	// Shared with port_group_width, which has to reach this verdict a module early
+	// to keep the inliner from flattening for a sink that then declines.
+	bool changed_bits_are_private(const pool<SigBit> &changed, const pool<Cell *> &leaf_cells,
+	                              const pool<Cell *> &region, Cell *skip, const char *&why)
+	{
+		for (auto w : module->wires())
+			if (w->port_output || w->get_bool_attribute(ID::keep))
+				for (auto bit : sigmap(SigSpec(w)))
+					if (changed.count(bit)) {
+						why = "reduction's own signal is a port or kept";
+						return false;
+					}
+		for (auto c : module->cells()) {
+			if (c == skip || leaf_cells.count(c) || region.count(c))
+				continue;
+			for (auto &conn : c->connections())
+				if (!c->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						if (changed.count(bit)) {
+							why = "reduction's own signal has another reader";
+							return false;
+						}
+		}
+		return true;
+	}
+
+	bool digit_groups(const SigSpec &word, const vector<SigSpec> &digits, int g,
+	                  dict<SigBit, int> &ypos, vector<int> &group_of,
+	                  vector<pool<Cell *>> &cones, pool<Cell *> &leaf_cells,
+	                  const char *&why)
+	{
+		int m = GetSize(digits), n = GetSize(word);
+		auto no = [&](const char *reason) {
+			why = reason;
+			return false;
+		};
+
+		// Positions of the word, so a leaf's reads can be tested for being one
+		// aligned group. A repeated or constant bit has no position.
+		pool<SigBit> ybits;
+		for (int i = 0; i < n; i++) {
+			if (word[i].wire == nullptr || !ypos.emplace(word[i], i).second)
+				return no("shifted word has a constant or repeated bit");
+			ybits.insert(word[i]);
+		}
+
+		group_of.assign(m, -1);
+		cones.assign(m, pool<Cell *>());
+		pool<int> used;
+		for (int i = 0; i < m; i++) {
+			pool<SigBit> reached;
+			if (!reads_through(digits[i], ybits, reached, cones[i], max_region_cells))
+				return no("digit cone does not reach the shifted word");
+			if (GetSize(reached) != g)
+				return no("digit does not read a whole group");
+			int lo = n;
+			for (auto bit : reached)
+				lo = std::min(lo, ypos.at(bit));
+			if (lo % g != 0)
+				return no("digit's group is not aligned");
+			for (auto bit : reached)
+				if (ypos.at(bit) < lo || ypos.at(bit) >= lo + g)
+					return no("digit straddles two groups");
+			if (!used.insert(lo / g).second)
+				return no("two digits read the same group");
+			group_of[i] = lo / g;
+			for (auto c : cones[i])
+				leaf_cells.insert(c);
+		}
+
+		// One shared leaf function, settled over all 2^g vectors of a group.
+		if (g > max_sink_group_bits || eval_exhausted())
+			return no("out of eval budget");
+		ConstEval &ce = shared_ce();
+		vector<uint64_t> ref(size_t(1) << g, 0);
+		for (int i = 0; i < m; i++) {
+			SigSpec grp = word.extract(g * group_of[i], g);
+			int cells = GetSize(cones[i]);
+			// Same one-way switch as value_bound and check_linear: a vectorized
+			// leaf leaves cells that each need a bit of another's output, which
+			// ConstEval cannot resolve whole even though the cone is acyclic bit
+			// by bit. A flattened design reaches the sink in exactly that shape.
+			bool allow_bits = cells <= max_bits_eval_cells && cone_has_cell_loop(cones[i]);
+			bool bits_mode = false;
+			for (int v = 0; v < (1 << g); v++) {
+				uint64_t out = 0;
+				vector<std::pair<SigSpec, Const>> sets{{grp, Const(v, g)}};
+				if (!bits_mode) {
+					if (eval_with(ce, sets, digits[i], out, cells)) {
+						if (i == 0)
+							ref[v] = out;
+						else if (ref[v] != out)
+							return no("leaves compute different functions");
+						continue;
+					}
+					if (!allow_bits)
+						return no("leaf would not evaluate");
+					bits_mode = true;
+				}
+				if (!eval_with_bits(sets, digits[i], out, cells))
+					return no("leaf would not evaluate bitwise");
+				if (i == 0)
+					ref[v] = out;
+				else if (ref[v] != out)
+					return no("leaves compute different functions");
+			}
+			if (eval_exhausted())
+				return no("out of eval budget");
+		}
+		return true;
+	}
+
+	// Group width at which some reduction here reads `word` as interchangeable
+	// aligned groups, or 0 if none does. Lets the inliner price a submodule's
+	// reduction from the parent, where the shift is, without inlining it first.
+	int port_group_width(const SigSpec &word)
+	{
+		auto width_ok = [&](int w) { return w >= min_mod_bits && w <= max_mod_bits; };
+		auto interesting = [&](const pool<Cell *> &cells) { return GetSize(cells) >= 4; };
+		auto any_width = [&](int) { return true; };
+		auto roots = collect_root_candidates(width_ok, interesting, true, max_region_cells,
+		                                     max_region_leaves, max_internal_roots, any_width);
+		int n = GetSize(word);
+		for (auto &root : roots) {
+			if (walk_exhausted() || eval_exhausted())
+				break;
+			SigSpec sig = sigmap(root.sig);
+			pool<SigBit> uniq;
+			if (!sig_fully_driven(sig) || !sig_bits_unique(sig, uniq))
+				continue;
+			k = GetSize(sig);
+			mod_c = (1 << k) - 1;
+			Proof pf;
+			if (!prove(sig, pf, 0))
+				continue;
+			vector<SigSpec> digits;
+			int coeff = 0;
+			if (!proof_digits(pf, digits, coeff))
+				continue;
+			int m = GetSize(digits);
+			if (m < 2 || n % m != 0)
+				continue;
+			int g = n / m;
+			if (g < 1 || g > max_sink_group_bits)
+				continue;
+			dict<SigBit, int> ypos;
+			vector<int> group_of;
+			vector<pool<Cell *>> cones;
+			pool<Cell *> leaf_cells;
+			const char *why = nullptr;
+			if (digit_groups(word, digits, g, ypos, group_of, cones, leaf_cells, why)) {
+				// No shift to skip: in the child the word arrives on a port.
+				pool<SigBit> rootbits(sig.begin(), sig.end());
+				pool<SigBit> changed;
+				sink_changed_bits(word, leaf_cells, pf.region, rootbits, changed);
+				if (changed_bits_are_private(changed, leaf_cells, pf.region, nullptr,
+				                             why))
+					return g;
+			}
+			log_debug("  port group %s under %s: %s\n", log_signal(word),
+			          log_signal(sig), why);
+		}
+		return 0;
+	}
+
+	bool sink_shift(const SigSpec &root, Proof &pf)
+	{
+		auto no = [&](const char *why) {
+			log_debug("  sink %s: %s\n", log_signal(root), why);
+			return false;
+		};
+		vector<SigSpec> digits;
+		int coeff = 0;
+		if (!proof_digits(pf, digits, coeff))
+			return no("no digits");
+		int m = GetSize(digits);
+
+		Cell *sh = nearest_sink_shift(digits[0]);
+		if (sh == nullptr)
+			return no("no shift behind the digits");
+
+		SigSpec sy = sigmap(sh->getPort(ID::Y));
+		SigSpec sa = sigmap(sh->getPort(ID::A));
+		SigSpec sb = sigmap(sh->getPort(ID::B));
+		int n = GetSize(sy), selb = GetSize(sb);
+		if (GetSize(sa) != n || n == 0 || n % m != 0)
+			return no("width not a whole number of digits");
+		int g = n / m;
+		if (g < 1 || g > max_sink_group_bits)
+			return no("group width out of range");
+		int wb = std::max(1, clog2_int(g));
+		// A barrel over selb bits for a g-way shift plus one mask level.
+		if (selb - wb - 1 < min_sink_gain)
+			return no("gain below -min-sink-gain");
+
+		dict<SigBit, int> ypos;
+		vector<int> group_of;
+		vector<pool<Cell *>> cones;
+		pool<Cell *> leaf_cells;
+		const char *why = nullptr;
+		if (!digit_groups(sy, digits, g, ypos, group_of, cones, leaf_cells, why))
+			return no(why);
+
+		pool<SigBit> rootbits(root.begin(), root.end());
+		pool<SigBit> changed;
+		sink_changed_bits(sy, leaf_cells, pf.region, rootbits, changed);
+		if (!changed_bits_are_private(changed, leaf_cells, pf.region, sh, why))
+			return no(why);
+
+
+		// The tables hang off the amount alone, so the sink only pays when the
+		// amount is not itself the late input: otherwise the barrel comes off the
+		// data path and reappears on the amount's.
+		int alevel = 0, blevel = 0;
+		for (auto bit : sa)
+			alevel = std::max(alevel, bit_level(bit));
+		for (auto bit : sb)
+			blevel = std::max(blevel, bit_level(bit));
+		// Both sides meet again at the mask, so what the sink is worth is the depth
+		// to that point, not the amount's arrival on its own. The barrel costs a
+		// level per amount bit whichever input is late; afterwards the data only
+		// pays the g-way shift, but the amount pays a 2^selb-entry table, which is
+		// just as deep as the barrel was. So the sink pays exactly when the data is
+		// the late input by more than the table costs -- with both arriving
+		// together it lands the old barrel's depth back on the amount and adds the
+		// mask on top, which is how it reads as a win locally and loses on the path.
+		int before = std::max(alevel, blevel) + selb;
+		int after = std::max(blevel + selb, alevel + wb) + 1;
+		if (before - after < min_sink_gain) {
+			log_debug("  sink %s: depth %d -> %d, data at %d, amount at %d\n",
+			          log_signal(sy), before, after, alevel, blevel);
+			return false;
+		}
+
+		log_debug("  sink %s under %s: %d leaf group(s) of %d bit(s), amount %d bits\n",
+		          log_signal(sy), log_signal(root), m, g, selb);
+
+		src = cell_src(sh);
+		cell_name = sh->name;
+
+		// w = amount mod g and the group-keep mask, both as one constant table
+		// read: a divider and per-group comparators would cost more and buy
+		// nothing, since the amount is only selb bits wide. The mask stays its own
+		// level: folding it into a per-group select costs the barrel's sharing
+		// across bits, which is worth more than the level it saves.
+		Const wtab, ktab;
+		for (int v = 0; v < (1 << selb); v++) {
+			int u = v / g, w = v % g;
+			for (int i = 0; i < wb; i++)
+				wtab.bits().push_back((w >> i) & 1 ? State::S1 : State::S0);
+			for (int i = 0; i < n; i++)
+				ktab.bits().push_back(i / g >= u ? State::S1 : State::S0);
+		}
+		SigSpec amt = module->Bmux(NEW_ID3_SUFFIX("modsink_amt"), wtab, sb, src);
+		SigSpec keep = module->Bmux(NEW_ID3_SUFFIX("modsink_keep"), ktab, sb, src);
+		SigSpec small = module->Shr(NEW_ID3_SUFFIX("modsink_shr"), sa, amt, false, src);
+		SigSpec masked = module->And(NEW_ID3_SUFFIX("modsink_masked"), small, keep, false, src);
+		cells_added += 4;
+
+		disconnect_root(sy, sh, "modsink_old");
+		module->connect(sy, masked);
+		pool<Cell *> dead;
+		dead.insert(sh);
+		sweep_dead(dead);
+
+		// The sink is the one rewrite here that does not preserve what it
+		// rewrites. The word is meant to differ, and so is every digit and
+		// partial sum below the root, since each leaf now reads a different
+		// group; only the root comes out the same. A public name is what an
+		// equivalence checker pairs gold to gate by, so leaving the RTL's names
+		// on those asks it to prove away the very difference the rewrite exists
+		// to make -- which is how equiv_opt fails a sink that is correct. Take
+		// the names off and the proof lands on the outputs, where it belongs.
+		// One changed bit is enough to disqualify the whole wire as an anchor, even
+		// where the wire also carries root bits that did survive: the name pairs
+		// gold to gate bit for bit, so the changed bits come along and take the
+		// root's own bits down with them. Nothing is lost by dropping such a
+		// mixed name -- the root is still anchored wherever it is named alone, and
+		// at the outputs. No port can reach here to have its name taken: the check
+		// above refuses the sink outright if a port carries a changed bit.
+		vector<Wire *> unname;
+		for (auto w : module->wires()) {
+			if (!w->name.isPublic())
+				continue;
+			for (auto bit : sigmap(SigSpec(w)))
+				if (changed.count(bit)) {
+					unname.push_back(w);
+					break;
+				}
+		}
+		for (auto w : unname)
+			module->rename(w, module->uniquify("$modsink$" + w->name.str().substr(1)));
+
+		sunk_shifts++;
+		dirty = true;
+		return true;
 	}
 
 	bool rewrite(const SigSpec &root, Proof &pf)
 	{
 		if (GetSize(pf.weights) < min_terms || GetSize(pf.weights) > max_terms)
 			return false;
-		if (cannot_wrap(pf.weights)) {
+		if (cannot_wrap(pf.weights, pf.reach)) {
 			log_debug("  %s: terms cannot reach the modulus\n", log_signal(root));
 			return false;
 		}
@@ -1396,15 +2377,21 @@ struct OptModRedWorker : CutRegionWorker {
 		// signal alone, so it cannot outlive the k it was filled for.
 		prove_memo_ok.clear();
 		prove_memo.clear();
-
-		auto depths = compute_cone_depths(pf.region);
-		int region_depth = 0;
-		for (auto &it : depths)
-			region_depth = std::max(region_depth, it.second);
+		prove_memo_reach.clear();
+		bound_memo.clear();
 
 		vector<SigSpec> terms;
 		if (!weight_terms(pf.weights, terms) || GetSize(terms) > max_terms)
 			return false;
+
+		int walked = 0;
+		int region_depth = weighted_region_depth(pf.region, &walked);
+		// A const-table fold vectorizes into cells that each want a bit of
+		// another's output, and the topological walk above never brings those
+		// ready, so a cone hundreds of levels deep measures as two. The bit
+		// walk treats a back edge as level 0 and does see through it.
+		if (opaque_digits && walked < GetSize(pf.region))
+			region_depth = std::max(region_depth, term_to_root_levels(root, terms));
 
 		// Profitability: the emitted tree is one FA level per Wallace stage plus
 		// the final fold, against the matched region's own depth. Measured after
@@ -1914,26 +2901,39 @@ struct OptModRedWorker : CutRegionWorker {
 	}
 
 	// Combined weights of the group under the fitted coefficients: the residue
-	// the table is going to read.
+	// the table is going to read. `reach` follows the same combination, and
+	// stays -1 unless some member priced an opaque digit below its bit weights.
 	void fn_weights(const FnMatch &m, const dict<SigSpec, Proof> &proofs,
-	                dict<SigBit, int> &weights)
+	                dict<SigBit, int> &weights, int *reach = nullptr)
 	{
-		for (int i = 0; i < GetSize(m.group); i++)
-			for (auto &it : proofs.at(m.group[i]).weights)
+		int64_t total = 0;
+		bool any_reach = false;
+		for (int i = 0; i < GetSize(m.group); i++) {
+			const Proof &p = proofs.at(m.group[i]);
+			for (auto &it : p.weights)
 				weights[it.first] = int((int64_t(weights.at(it.first, 0)) +
 				                         int64_t(m.coeff[i]) * it.second) %
 				                        mod_c);
+			// Each group member reads as a residue, so its range is what it
+			// contributes -- but only price it that way once some member rests
+			// on a bound, to leave the plain path's pricing untouched.
+			total += int64_t(m.coeff[i]) * p.maxval;
+			any_reach |= p.reach >= 0;
+		}
 		for (auto it = weights.begin(); it != weights.end();)
 			it = (it->second == 0) ? weights.erase(it) : ++it;
+		if (reach)
+			*reach = any_reach ? int(std::min<int64_t>(total, mod_c)) : -1;
 	}
 
 	bool rewrite_fn(FnMatch &m, const dict<SigSpec, Proof> &proofs)
 	{
 		dict<SigBit, int> weights;
-		fn_weights(m, proofs, weights);
+		int reach = -1;
+		fn_weights(m, proofs, weights, &reach);
 		if (GetSize(weights) < min_terms || GetSize(weights) > max_terms)
 			return false;
-		if (cannot_wrap(weights)) {
+		if (cannot_wrap(weights, reach)) {
 			log_debug("  fn %s: terms cannot reach the modulus\n", log_signal(m.outs));
 			return false;
 		}
@@ -1943,15 +2943,14 @@ struct OptModRedWorker : CutRegionWorker {
 		cell_name = anchor->name;
 		prove_memo_ok.clear();
 		prove_memo.clear();
+		prove_memo_reach.clear();
+		bound_memo.clear();
 
 		pool<Cell *> region = m.cone;
 		for (auto &r : m.group)
 			for (auto c : proofs.at(r).region)
 				region.insert(c);
-		auto depths = compute_cone_depths(region);
-		int region_depth = 0;
-		for (auto &it : depths)
-			region_depth = std::max(region_depth, it.second);
+		int region_depth = weighted_region_depth(region);
 
 		vector<SigSpec> terms;
 		if (!weight_terms(weights, terms) || GetSize(terms) > max_terms)
@@ -2119,6 +3118,13 @@ struct OptModRedWorker : CutRegionWorker {
 		                 [](const RootCand &a, const RootCand &b) {
 			                 return a.whole_wire && !b.whole_wire;
 		                 });
+		// Ahead of all of them: a divider root costs no sweep to prove, so it
+		// should not be the candidate the walk budget ran out before reaching.
+		if (div_cells) {
+			vector<RootCand> div_roots;
+			collect_div_roots(div_roots);
+			roots.insert(roots.begin(), div_roots.begin(), div_roots.end());
+		}
 		log_debug("opt_modred: %d root candidate(s) in %s\n", GetSize(roots), log_id(module));
 		for (auto &r : roots)
 			log_debug("  root %s = %s\n", r.name.c_str(), log_signal(r.sig));
@@ -2181,6 +3187,19 @@ struct OptModRedWorker : CutRegionWorker {
 		                 [](const std::pair<int, SigSpec> &a,
 		                    const std::pair<int, SigSpec> &b) { return a.first > b.first; });
 
+		// Sinking a shift out from under the leaves first: it leaves the reduction
+		// itself alone, so whatever the other rewrites would have done to it they
+		// can still do on the next round, now over a shallower producer.
+		if (sink_shift_en)
+			for (auto &c : cands) {
+				if (root_claimed(c.second))
+					continue;
+				k = GetSize(c.second);
+				mod_c = (1 << k) - 1;
+				if (sink_shift(c.second, proofs.at(c.second)))
+					return;  // the rewrite moved a producer, so re-index
+			}
+
 		// The logic above a reduction tree first: its terms reach the furthest
 		// back, and it subsumes every residue underneath it.
 		if (fit_fn && rewrite_widest_fn(cands, proofs, done))
@@ -2200,6 +3219,144 @@ struct OptModRedWorker : CutRegionWorker {
 
 struct OptModRedPass : public Pass {
 	OptModRedPass() : Pass("opt_modred", "mod-(2^k-1) reductions to carry-save trees") {}
+
+	// A submodule that compresses one wide combinational port down to a few bits,
+	// fed by a variable shift the parent owns, is a reduction whose shift the sink
+	// could move -- except the two sit on opposite sides of a port, and the pass
+	// works a module at a time. Inline just those instances. Flattening the design
+	// instead would reach the same reductions, but at the cost of every other
+	// hierarchy the rest of the flow still wants.
+	int inline_sink_submodules(RTLIL::Design *design, int min_sink_gain,
+	                           std::function<void(OptModRedWorker &)> configure)
+	{
+		vector<std::pair<RTLIL::Module *, RTLIL::Cell *>> victims;
+		pool<RTLIL::Cell *> queued;
+		for (auto module : design->selected_modules()) {
+			if (module->has_processes_warn())
+				continue;
+			// The parent's own worker, so the shifts admitted here are exactly the
+			// ones its sink will match -- a looser filter flattens for nothing, and
+			// the flatten is not undone. It also answers the level queries below.
+			OptModRedWorker parent(module);
+			configure(parent);
+			SigMap &sigmap = parent.sigmap;
+
+			// Bits each shift candidate drives, and every bit the module reads.
+			dict<SigBit, RTLIL::Cell *> shifted;
+			for (auto cell : module->cells()) {
+				if (!cell->hasPort(ID::Y) || !parent.is_sink_shift(cell))
+					continue;
+				SigSpec y = sigmap(cell->getPort(ID::Y));
+				if (GetSize(y) != GetSize(sigmap(cell->getPort(ID::A))))
+					continue;
+				for (auto bit : y)
+					if (bit.wire != nullptr)
+						shifted[bit] = cell;
+			}
+			if (shifted.empty())
+				continue;
+
+			// A shift qualifies only if one submodule port reads all of it and
+			// nothing else does, so inlining is what puts the two in one module.
+			dict<RTLIL::Cell *, pool<RTLIL::Cell *>> readers;
+			pool<RTLIL::Cell *> shared;
+			for (auto cell : module->cells())
+				for (auto &conn : cell->connections()) {
+					if (cell->output(conn.first))
+						continue;
+					for (auto bit : sigmap(conn.second)) {
+						auto it = shifted.find(bit);
+						if (it == shifted.end())
+							continue;
+						readers[it->second].insert(cell);
+					}
+				}
+			for (auto w : module->wires())
+				if (w->port_output || w->get_bool_attribute(ID::keep))
+					for (auto bit : sigmap(SigSpec(w)))
+						if (shifted.count(bit))
+							shared.insert(shifted.at(bit));
+
+			for (auto &it : readers) {
+				if (shared.count(it.first) || GetSize(it.second) != 1)
+					continue;
+				RTLIL::Cell *sink = *it.second.begin();
+				RTLIL::Module *sub = design->module(sink->type);
+				if (sub == nullptr || sub->get_blackbox_attribute() ||
+				    sub->has_processes_warn())
+					continue;
+				// Combinational, and narrow out of a wide port that divides
+				// evenly into digits: what a group reduction looks like from
+				// outside. Anything else is not worth flattening for.
+				bool seq = false;
+				for (auto c : sub->cells())
+					if (StaticCellTypes::categories.is_ff(c->type) ||
+					    c->type.in(ID($mem), ID($mem_v2), ID($memrd), ID($memwr)))
+						seq = true;
+				if (seq)
+					continue;
+				// Which port takes the shift whole, in order: only then does
+				// bit i inside the child mean bit i of the shifted word.
+				SigSpec y = sigmap(it.first->getPort(ID::Y));
+				RTLIL::Wire *port = nullptr;
+				for (auto &conn : sink->connections())
+					if (!sink->output(conn.first) && sigmap(conn.second) == y)
+						port = sub->wire(conn.first);
+				if (port == nullptr || GetSize(port) != GetSize(y))
+					continue;
+
+				// Ask the child at what group width its reduction reads that
+				// port. This is the sink's own match run across the port, so a
+				// module answering 0 is one the sink would decline anyway --
+				// which is the whole reason not to inline it.
+				OptModRedWorker child(sub);
+				configure(child);
+				int g = child.port_group_width(SigSpec(port));
+				if (g == 0)
+					continue;
+
+				// With g known the gain model of sink_shift applies exactly: the
+				// barrel's selb levels become a g-way shift plus a mask, but the
+				// amount now pays a 2^selb table, so the sink only pays when the
+				// data is the late input by more than that table costs.
+				int alevel = 0, blevel = 0, selb = GetSize(sigmap(it.first->getPort(ID::B)));
+				int wb = std::max(1, clog2_int(g));
+				for (auto bit : sigmap(it.first->getPort(ID::A)))
+					alevel = std::max(alevel, parent.bit_level(bit));
+				for (auto bit : sigmap(it.first->getPort(ID::B)))
+					blevel = std::max(blevel, parent.bit_level(bit));
+				int before = std::max(alevel, blevel) + selb;
+				int after = std::max(blevel + selb, alevel + wb) + 1;
+				if (selb - wb - 1 < min_sink_gain || before - after < min_sink_gain) {
+					log_debug("  inline %s: group %d, depth %d -> %d, declined\n",
+					          log_id(sink), g, before, after);
+					continue;
+				}
+				log_debug("  inline %s: group %d, depth %d -> %d\n", log_id(sink), g,
+				          before, after);
+				// The walk is per shift, but the flatten is per instance: one
+				// instance can be the sole reader of several qualifying shifts,
+				// and inlining it once reaches all of them. Queueing it twice
+				// would hand the second flatten a cell the first one deleted.
+				if (queued.count(sink))
+					continue;
+				queued.insert(sink);
+				victims.emplace_back(module, sink);
+			}
+		}
+
+		for (auto &v : victims) {
+			log_debug("opt_modred: inlining %s in %s to reach the shift feeding it\n",
+			          log_id(v.second->name), log_id(v.first->name));
+			RTLIL::Selection sel(false);
+			sel.select(v.first, v.second);
+			design->push_selection(sel);
+			Pass::call(design, "flatten -noscopeinfo");
+			design->pop_selection();
+		}
+		return GetSize(victims);
+	}
+
 	void help() override
 	{
 		log("\n");
@@ -2226,7 +3383,7 @@ struct OptModRedPass : public Pass {
 		log("way -- and it has no reduction to take off the path.\n");
 		log("\n");
 		log("    -min-mod-bits N, -max-mod-bits N\n");
-		log("        modulus width k to consider (default 2 to 6).\n");
+		log("        modulus width k to consider, in 1..30 (default 2 to 6).\n");
 		log("\n");
 		log("    -max-cut-bits N\n");
 		log("        largest cut to verify exhaustively, in bits (default 14).\n");
@@ -2255,6 +3412,57 @@ struct OptModRedPass : public Pass {
 		log("        a push into x's producer, which only pays when that producer's\n");
 		log("        operands are shallower than the producer itself.\n");
 		log("\n");
+		log("    -opaque-digits\n");
+		log("        let a cut slot that is not itself a provable reduction still ride\n");
+		log("        into the tree as one digit, when its own cone is swept and shown\n");
+		log("        never to reach 2^k-1. That is what a leaf of a const-table fold is:\n");
+		log("        a field map answering 0..C-1 only, so the mod-C adds stacked above\n");
+		log("        it are a real reduction even though the leaf is not. Without this\n");
+		log("        the leaf's full k-bit domain includes the 2^k-1 the table sends to\n");
+		log("        zero, every level reads as non-linear, and the tree is not matched.\n");
+		log("\n");
+		log("    -max-bound-bits N\n");
+		log("        largest cone the -opaque-digits sweep will bound, in leaf bits\n");
+		log("        (default 12).\n");
+		log("\n");
+		log("    -max-bound-cells N\n");
+		log("        cells a digit's bound may pull in looking for a cut narrow enough\n");
+		log("        to sweep (default 256). A digit reading one field of a lowered\n");
+		log("        barrel has no cut until its own table is inside the cone, which is\n");
+		log("        deeper than the first cut that fits.\n");
+		log("\n");
+		log("    -sink-shift\n");
+		log("        move a variable right shift out from under a matched reduction\n");
+		log("        whose leaves read fixed, equal-width groups of the shifted word:\n");
+		log("          F(x >> (g*u + w))  ===>  F((x >> w) & keep_u)\n");
+		log("        where g is the leaf group width and keep_u clears the u low\n");
+		log("        groups. A shift by g*u moves whole groups, and a reduction that\n");
+		log("        weights every leaf alike does not care which leaf sees which\n");
+		log("        group, so both spellings hand F the same multiset of groups. Only\n");
+		log("        the g-way shift and the mask are left on the data path; the two\n");
+		log("        tables read the amount alone, so an amount arriving before the\n");
+		log("        data takes the whole barrel off the path. Unlike the -push rules\n");
+		log("        this needs no canonical residue at the shift, which is what lets\n");
+		log("        it reach a barrel below -opaque-digits leaves. Requires every\n");
+		log("        leaf to compute one function (checked over all 2^g inputs) and\n");
+		log("        the reduction to be the only reader of the shift.\n");
+		log("\n");
+		log("    -max-sink-group-bits N\n");
+		log("        widest leaf group -sink-shift will take (default 10). The leaf\n");
+		log("        identity check sweeps 2^N vectors per leaf.\n");
+		log("\n");
+		log("    -min-sink-gain N\n");
+		log("        levels -sink-shift has to save to fire (default 2), counted as\n");
+		log("        the amount's width less the g-way shift's and the mask's.\n");
+		log("\n");
+		log("    -div-cells\n");
+		log("        also match a bare `A %% C` cell, and count the divider class at\n");
+		log("        its true depth when weighing a rewrite. `$mod` by a constant\n");
+		log("        C = 2^k-1 needs no sweep -- bit i of A is worth 2^(i mod k) by\n");
+		log("        construction -- but the exhaustive prover never reaches it, since\n");
+		log("        its only cut is the whole operand. Off by default: it rewrites a\n");
+		log("        cell the rest of the flow may still be relying on.\n");
+		log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -2263,19 +3471,32 @@ struct OptModRedPass : public Pass {
 		                   "trees).\n");
 		int min_mod_bits = 2, max_mod_bits = 6, max_cut_bits = 14;
 		int min_terms = 4, max_terms = 512, max_push_depth = 6, min_push_add_width = 8;
-		int max_bits_eval_cells = 256;
-		bool push_shift_sub = false;
+		int max_bits_eval_cells = 256, max_bound_bits = 12, max_bound_cells = 256;
+		int max_sink_group_bits = 10, min_sink_gain = 2;
+		bool push_shift_sub = false, opaque_digits = false, div_cells = false;
+		bool sink_shift_en = false;
+
+		// 2^k-1 lives in an int all through the prover, and the residue table is
+		// 2^k entries long, so a wider modulus has neither a representable value
+		// to reduce against nor a table that fits in memory.
+		const int mod_bits_limit = 30;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if ((args[argidx] == "-min-mod-bits" || args[argidx] == "-min_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				min_mod_bits = std::stoi(args[++argidx]);
+				// A 0-bit modulus would be 2^0-1 == 0, and every weight is taken
+				// mod that.
+				if (min_mod_bits < 1 || min_mod_bits > mod_bits_limit)
+					log_cmd_error("-min-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-mod-bits" || args[argidx] == "-max_mod_bits") &&
 			    argidx + 1 < args.size()) {
 				max_mod_bits = std::stoi(args[++argidx]);
+				if (max_mod_bits < 1 || max_mod_bits > mod_bits_limit)
+					log_cmd_error("-max-mod-bits must be in 1..%d\n", mod_bits_limit);
 				continue;
 			}
 			if ((args[argidx] == "-max-cut-bits" || args[argidx] == "-max_cut_bits") &&
@@ -2318,12 +3539,69 @@ struct OptModRedPass : public Pass {
 				push_shift_sub = true;
 				continue;
 			}
+			if (args[argidx] == "-div-cells" || args[argidx] == "-div_cells") {
+				div_cells = true;
+				continue;
+			}
+			if (args[argidx] == "-sink-shift" || args[argidx] == "-sink_shift") {
+				sink_shift_en = true;
+				continue;
+			}
+			if ((args[argidx] == "-max-sink-group-bits" ||
+			     args[argidx] == "-max_sink_group_bits") &&
+			    argidx + 1 < args.size()) {
+				max_sink_group_bits = std::stoi(args[++argidx]);
+				// The leaf-identity sweep indexes a 2^N table with an int.
+				if (max_sink_group_bits < 1 || max_sink_group_bits > 20)
+					log_cmd_error("-max-sink-group-bits must be in 1..20\n");
+				continue;
+			}
+			if ((args[argidx] == "-min-sink-gain" || args[argidx] == "-min_sink_gain") &&
+			    argidx + 1 < args.size()) {
+				min_sink_gain = std::stoi(args[++argidx]);
+				continue;
+			}
+			if (args[argidx] == "-opaque-digits" || args[argidx] == "-opaque_digits") {
+				opaque_digits = true;
+				continue;
+			}
+			if ((args[argidx] == "-max-bound-bits" || args[argidx] == "-max_bound_bits") &&
+			    argidx + 1 < args.size()) {
+				max_bound_bits = std::stoi(args[++argidx]);
+				// The sweep counts combinations in an int64_t, so a wider cone
+				// than that has no representable iteration count.
+				if (max_bound_bits < 0 || max_bound_bits > 62)
+					log_cmd_error("-max-bound-bits must be in 0..62\n");
+				continue;
+			}
+			if ((args[argidx] == "-max-bound-cells" || args[argidx] == "-max_bound_cells") &&
+			    argidx + 1 < args.size()) {
+				max_bound_cells = std::stoi(args[++argidx]);
+				if (max_bound_cells < 0)
+					log_cmd_error("-max-bound-cells must not be negative\n");
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
 		int total_regions = 0, total_cells = 0, total_adds = 0, total_muxes = 0, total_shifts = 0;
-		int total_norms = 0, total_concats = 0;
+		int total_norms = 0, total_concats = 0, total_sunk = 0, total_inlined = 0;
+		if (sink_shift_en)
+			total_inlined = inline_sink_submodules(
+			    design, min_sink_gain,
+			    [&](OptModRedWorker &w) {
+				    w.min_mod_bits = min_mod_bits;
+				    w.max_mod_bits = max_mod_bits;
+				    w.max_cut_bits = max_cut_bits;
+				    w.min_terms = min_terms;
+				    w.max_terms = max_terms;
+				    w.max_bits_eval_cells = max_bits_eval_cells;
+				    w.max_bound_bits = max_bound_bits;
+				    w.max_bound_cells = max_bound_cells;
+				    w.opaque_digits = opaque_digits;
+				    w.max_sink_group_bits = max_sink_group_bits;
+			    });
 		for (auto module : design->selected_modules()) {
 			if (module->has_processes_warn())
 				continue;
@@ -2340,25 +3618,33 @@ struct OptModRedPass : public Pass {
 				worker.min_push_add_width = min_push_add_width;
 				worker.push_shift_sub = push_shift_sub;
 				worker.max_bits_eval_cells = max_bits_eval_cells;
+				worker.max_bound_bits = max_bound_bits;
+				worker.max_bound_cells = max_bound_cells;
+				worker.opaque_digits = opaque_digits;
+				worker.div_cells = div_cells;
+				worker.sink_shift_en = sink_shift_en;
+				worker.max_sink_group_bits = max_sink_group_bits;
+				worker.min_sink_gain = min_sink_gain;
 				worker.run();
 				total_regions += worker.regions;
+				total_sunk += worker.sunk_shifts;
 				total_cells += worker.cells_added;
 				total_adds += worker.pushed_adds;
 				total_muxes += worker.pushed_muxes;
 				total_shifts += worker.pushed_shifts;
 				total_norms += worker.pushed_norms;
 				total_concats += worker.pushed_concats;
-				if (worker.regions == 0)
+				if (worker.regions == 0 && worker.sunk_shifts == 0)
 					break;
 			}
 		}
 
 		log("Rewrote %d mod-(2^k-1) reduction(s) as carry-save tree(s); pushed through %d "
-		    "add(s), %d mux(es), %d shift(s), %d normalizer(s), %d concat(s); emitted %d new "
-		    "cell(s).\n",
+		    "add(s), %d mux(es), %d shift(s), %d normalizer(s), %d concat(s); inlined %d "
+		    "submodule(s) and sank %d shift(s) under a reduction; emitted %d new cell(s).\n",
 		    total_regions, total_adds, total_muxes, total_shifts, total_norms, total_concats,
-		    total_cells);
-		if (total_regions > 0)
+		    total_inlined, total_sunk, total_cells);
+		if (total_regions > 0 || total_sunk > 0)
 			Yosys::run_pass("clean -purge");
 	}
 } OptModRedPass;

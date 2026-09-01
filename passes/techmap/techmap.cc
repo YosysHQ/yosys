@@ -164,11 +164,6 @@ struct TechmapWorker
 				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
 				break;
 			}
-		// SILIMATE: Improve the naming
-		for (auto tpl_cell : tpl->cells())
-			for (auto attr : cell->attributes) {
-				tpl_cell->attributes[attr.first] = attr.second;
-			}
 
 		dict<IdString, IdString> memory_renames;
 
@@ -176,8 +171,8 @@ struct TechmapWorker
 			IdString m_name = it.first;
 			apply_prefix(cell->name, m_name);
 			RTLIL::Memory *m = module->addMemory(m_name, it.second);
-			if (m->attributes.count(ID::src))
-				m->add_strpool_attribute(ID::src, extra_src_attrs);
+			// Always keep the mapped cell's src, even if the template had none.
+			m->add_strpool_attribute(ID::src, extra_src_attrs);
 			memory_renames[it.first] = m->name;
 			design->select(module, m);
 		}
@@ -221,8 +216,8 @@ struct TechmapWorker
 				w->attributes.erase(ID::techmap_autopurge);
 				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
 					w->attributes.clear();
-				if (w->attributes.count(ID::src))
-					w->add_strpool_attribute(ID::src, extra_src_attrs);
+				// Always keep the mapped cell's src, even if the template had none.
+				w->add_strpool_attribute(ID::src, extra_src_attrs);
 			}
 			design->select(module, w);
 
@@ -381,18 +376,14 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			if (c->attributes.count(ID::src))
-				c->add_strpool_attribute(ID::src, extra_src_attrs);
+			// Always keep the mapped cell's src, even if the template had none.
+			c->add_strpool_attribute(ID::src, extra_src_attrs);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
 					if (!c->attributes.count(attr.first))
 						c->attributes[attr.first] = attr.second;
 				c->attributes.erase(ID::reprocess_after);
-			}
-			// SILIMATE: Improve the naming
-			for (auto attr : tpl_cell->attributes) {
-				c->attributes[attr.first] = attr.second;
 			}
 		}
 
@@ -522,10 +513,7 @@ struct TechmapWorker
 						{
 							extmapper_module = extmapper_design->addModule(m_name);
 							RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
-							// SILIMATE: Improve the naming
-							for (auto attr : cell->attributes) {
-								extmapper_cell->attributes[attr.first] = attr.second;
-							}
+							extmapper_cell->set_src_attribute(cell->get_src_attribute());
 							int port_counter = 1;
 							for (auto &c : extmapper_cell->connections_) {
 								RTLIL::Wire *w = extmapper_module->addWire(c.first, GetSize(c.second));

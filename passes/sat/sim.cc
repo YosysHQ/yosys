@@ -129,7 +129,9 @@ struct SimShared
 	SimulationMode sim_mode = SimulationMode::sim;
 	bool cycles_set = false;
 	std::vector<std::unique_ptr<OutputWriter>> outputfiles;
-	std::vector<std::pair<int,std::map<int,Const>>> output_data;
+	// Timestamps are FST ticks and routinely exceed 2^31 (e.g. a 5.5us window at
+	// 1fs resolution), so they must be kept 64-bit wide.
+	std::vector<std::pair<uint64_t,std::map<int,Const>>> output_data;
 	bool ignore_x = false;
 	bool norm_xz = false;
 	bool date = false;
@@ -644,6 +646,25 @@ struct SimInstance
 			Const en_or_se = const_or(en, se, false, false, 1);
 			Const gclk = const_and(clk, en_or_se, false, false, 1);
 			set_state(cell->getPort(ID::GCLK), gclk);
+			return;
+		}
+
+		if (cell->type == ID($fa))
+		{
+			// Full adder: Y = A ^ B ^ C, X = (A & B) | (A & C) | (B & C)
+			Const a = get_state(cell->getPort(ID::A));
+			Const b = get_state(cell->getPort(ID::B));
+			Const c = get_state(cell->getPort(ID::C));
+			int width = GetSize(a);
+			Const ab = const_and(a, b, false, false, width);
+			Const ac = const_and(a, c, false, false, width);
+			Const bc = const_and(b, c, false, false, width);
+			set_state(cell->getPort(ID::X),
+					const_or(const_or(ab, ac, false, false, width),
+							bc, false, false, width));
+			set_state(cell->getPort(ID::Y),
+					const_xor(const_xor(a, b, false, false, width),
+							c, false, false, width));
 			return;
 		}
 
@@ -1581,7 +1602,7 @@ struct SimWorker : SimShared
 		}
 	}
 
-	void register_output_step(int time)
+	void register_output_step(uint64_t time)
 	{
 		std::map<int,Const> data;
 		for (auto t : tops)
@@ -2811,7 +2832,7 @@ struct VCDWriter : public OutputWriter
 
 		for(auto& d : worker->output_data)
 		{
-			vcdfile << stringf("#%d\n", d.first);
+			vcdfile << stringf("#%llu\n", (unsigned long long)d.first);
 			for (auto &data : d.second)
 			{
 				if (!use_signal.at(data.first)) continue;
@@ -2877,13 +2898,17 @@ struct AnnotateActivity : public OutputWriter {
 		}
 		log("Computing signal activity for %ld signals (%d bits)\n", use_signal.size(), nbTotalBits);
 		log_flush();
-		// Max simulation time
-		int max_time = 0;
-		// Inititalization of totalEventCounts and max_time
+		// Bounds of the sampled window. Activity and duty are relative to this
+		// window, which does not necessarily start at time 0 (-start/-stop).
+		uint64_t min_time = UINT64_MAX;
+		uint64_t max_time = 0;
+		// Inititalization of totalEventCounts and window bounds
 		for (auto &d : worker->output_data) {
-			int time = d.first;
+			uint64_t time = d.first;
 			if (time > max_time)
 				max_time = time;
+			if (time < min_time)
+				min_time = time;
 			// For each signal/values in that time slice
 			for (auto &data : d.second) {
 				int sig = data.first;
@@ -2898,8 +2923,22 @@ struct AnnotateActivity : public OutputWriter {
 			}
 		}
 
-		// clock pin id (highest toggling signal)
+		if (min_time == UINT64_MAX)
+			min_time = 0;
+		uint64_t duration = max_time - min_time;
+		if (duration == 0) {
+			log_warning("Simulation window has zero duration, skipping activity annotation.\n");
+			return;
+		}
+
+		// Signals that are already high when the window opens must not be
+		// credited for the time before min_time.
+		for (auto &entry : dataMap)
+			std::fill(entry.second.prevTimes.begin(), entry.second.prevTimes.end(), min_time);
+
+		// clock pin id and bit (highest toggling bit)
 		int clk = 0;
+		int clk_bit = 0;
 		double_t highest_toggle = 0;
 		// For each event (new time when a value changed)
 		for (auto &d : worker->output_data) {
@@ -2958,6 +2997,7 @@ struct AnnotateActivity : public OutputWriter {
 						if (toggleCounts[i] > highest_toggle) {
 							highest_toggle = toggleCounts[i];
 							clk = sig;
+							clk_bit = i;
 						}
 						lastVals[i] = val;
 					}
@@ -2984,8 +3024,13 @@ struct AnnotateActivity : public OutputWriter {
 				log_warning("Clock signal not found, setting frequency to 1GHz...\n");
 				clk_period = 1.0 / 1.0e9;
 			} else {
-				std::vector<double_t> &clktoggleCounts = itr->second.toggleCounts;
-				clk_period = real_timescale * (double)max_time / (clktoggleCounts[0] / 2.0);
+				double_t clk_toggles = itr->second.toggleCounts[clk_bit];
+				if (clk_toggles < 2.0) {
+					log_warning("No toggling clock found in the sampled window, setting frequency to 1GHz...\n");
+					clk_period = 1.0 / 1.0e9;
+				} else {
+					clk_period = real_timescale * (double)duration / (clk_toggles / 2.0);
+				}
 			}
 		}
 		log_flush();
@@ -2995,14 +3040,15 @@ struct AnnotateActivity : public OutputWriter {
 		ss << std::setprecision(4) << real_timescale;
 		for (auto t : worker->tops) {
 			t->module->set_string_attribute("$FREQUENCY", std::to_string(frequency));
-			t->module->set_string_attribute("$DURATION", std::to_string(max_time));
+			t->module->set_string_attribute("$DURATION", std::to_string(duration));
 			t->module->set_string_attribute("$TIMESCALE", ss.str());
 		}
-		if (worker->debug) {
-			log_debug("Max time: %d", max_time);
-			log_debug("Clock period: %f", clk_period);
-			log_debug("Frequency: %f", frequency);
-		}
+		log("Sampled window: %llu to %llu (%llu ticks, %e s)\n", (unsigned long long)min_time,
+		    (unsigned long long)max_time, (unsigned long long)duration, (double)duration * real_timescale);
+		log("Clock period: %e s (frequency %e Hz, %s)\n", clk_period, frequency,
+		    worker->clk_period_override > 0 ? "user-specified" : "auto-detected");
+		// Number of clock cycles spanned by the sampled window
+		double cycles = (double)duration * real_timescale / clk_period;
 		double totalActivity = 0.0f;
 		double totalDuty = 0.0f;
 
@@ -3044,7 +3090,7 @@ struct AnnotateActivity : public OutputWriter {
 			  }
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
 				  // Compute Activity
-				  double activity = toggleCounts[i] / (((double)max_time * real_timescale / clk_period) * 2.0);
+				  double activity = toggleCounts[i] / (cycles * 2.0);
 				  totalActivity += activity;
 				  activity_str += std::to_string(activity) + " ";
 			  }
@@ -3054,7 +3100,7 @@ struct AnnotateActivity : public OutputWriter {
 			  std::string duty_str;
 			  for (uint32_t i = 0; i < (uint32_t)size; i++) {
 				  // Compute Duty cycle
-				  double duty = (double)highTimes[i] / (double)max_time;
+				  double duty = (double)highTimes[i] / (double)duration;
 					totalDuty += duty;
 				  duty_str += std::to_string(duty) + " ";
 			  }

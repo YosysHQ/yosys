@@ -49,6 +49,8 @@ struct OptVpsWorker
 	int vps_reads_replaced = 0;
 	int gathers_folded = 0;
 	int min_stride;
+	bool msb_inv_sext;
+	bool dead_mod;
 	pool<Cell *> vps_shr_cells;
 
 	// Decoder $shl output bit -> (decoder, one-hot position).  Lets the
@@ -65,8 +67,10 @@ struct OptVpsWorker
 	dict<SigSpec, Cell *> reduce_or_map;
 	bool reduce_or_map_valid = false;
 
-	OptVpsWorker(Module *module, int min_stride)
-		: module(module), sigmap(module), min_stride(min_stride)
+	OptVpsWorker(Module *module, int min_stride, bool msb_inv_sext = false,
+		     bool dead_mod = false)
+		: module(module), sigmap(module), min_stride(min_stride),
+		  msb_inv_sext(msb_inv_sext), dead_mod(dead_mod)
 	{
 		rebuild_maps();
 	}
@@ -379,9 +383,10 @@ struct OptVpsWorker
 	}
 
 	// Uniform bit-gather -> shared barrel shift.  With an arithmetic index
-	// expression Verific lowers `for (i...) y[i] = t[i - k]` per output bit
-	// (1-bit $bmux, or $shr with one used Y bit), never emitting the
-	// decoder + sliding-window $pmux the phases above match on.
+	// expression Verific lowers `for (i...) y[i] = t[i - k]` per output element
+	// ($bmux, or $shr with one used Y bit), never emitting the decoder +
+	// sliding-window $pmux the phases above match on.  Elements wider than a
+	// bit are split into one gather per element bit over a strided table slice.
 
 	typedef std::pair<SigSpec, bool> AffineAtom; // (signal, read as signed)
 	typedef std::map<AffineAtom, int64_t> CoeffMap;
@@ -582,7 +587,67 @@ struct OptVpsWorker
 			return r;
 		}
 
+		if (!dead_mod_operand(cell, depth).empty()) {
+			r = affine_of(cell->getPort(ID::A), depth + 1);
+			r.exact_bits = AFFINE_EXACT;
+			return r;
+		}
+
 		return r;
+	}
+
+	// `x % const` is the identity when the operand provably never reaches the
+	// divisor. RTL guards a circular index that way even where the wrap is
+	// unreachable, and the modulo alone stops the gather group it indexes from
+	// being affine. Returns the operand it passes through, else an empty spec.
+	SigSpec dead_mod_operand(Cell *cell, int depth)
+	{
+		if (!dead_mod || !cell->type.in(ID($mod), ID($modfloor)) ||
+		    !cell->getPort(ID::B).is_fully_const() ||
+		    cell->getParam(ID::A_SIGNED).as_bool() ||
+		    cell->getParam(ID::B_SIGNED).as_bool())
+			return SigSpec();
+		int64_t n;
+		if (!const_to_i64(cell->getPort(ID::B), n) || n < 1)
+			return SigSpec();
+		Affine a = affine_of(cell->getPort(ID::A), depth + 1);
+		int64_t lo, hi;
+		if (!a.ok || !coeff_range(a.coeffs, lo, hi))
+			return SigSpec();
+		lo += a.konst;
+		hi += a.konst;
+		// The interval bounds the operand only while the form stays inside its
+		// own exactness; past that the form is a residue, not a value. Clamp
+		// before shifting: a wide $shl can carry exact_bits past 63, where the
+		// shift would be UB. Anything that exact already covers hi, which
+		// coeff_range caps well below 2^62, so the clamp changes no decision.
+		int64_t exact_bits = std::min<int64_t>(a.exact_bits, AFFINE_EXACT);
+		if (lo < 0 || hi >= n || exact_bits < 1 ||
+		    hi >= (int64_t(1) << exact_bits))
+			return SigSpec();
+		return cell->getPort(ID::A);
+	}
+
+	// The emitted barrel takes its amount from the index signal itself, so a
+	// modulo the affine reading looked through has to be bypassed here too or
+	// the gather trades a mux network for a divider on its amount path.
+	// Bounded because a combinational loop would otherwise not terminate.
+	static const int MAX_DEAD_MOD_DEPTH = 8;
+	SigSpec strip_dead_mod(SigSpec index)
+	{
+		for (int guard = 0; guard < MAX_DEAD_MOD_DEPTH; guard++) {
+			SigSpec s = sigmap(index);
+			if (s.empty())
+				break;
+			Cell *drv = bit_drivers.at(s[0], nullptr);
+			if (!drv || !drv->hasPort(ID::Y) || sigmap(drv->getPort(ID::Y)) != s)
+				break;
+			SigSpec a = dead_mod_operand(drv, 0);
+			if (a.empty())
+				break;
+			index = a;
+		}
+		return index;
 	}
 
 	// Length of the maximal prefix of `sig` that is one coherent value: either
@@ -606,6 +671,38 @@ struct OptVpsWorker
 		       sig[k].offset == sig[0].offset + k)
 			k++;
 		return k;
+	}
+
+	// Undo the MSB inversion described at the call site: if `core` is {~b, low}
+	// and {b, low} is one driver's result, the signed value of `core` is that
+	// result less 2^(c-1). Only accepted when the rebuilt value provably fits
+	// signed-`c`, which is the same contract the generic path has to meet.
+	bool recover_msb_inv(const SigSpec &core, int c, int depth, Affine &out)
+	{
+		if (c < 2)
+			return false;
+		Cell *inv = bit_drivers.at(core[c - 1], nullptr);
+		if (!inv || inv->type != ID($not) ||
+		    inv->getParam(ID::A_WIDTH).as_int() != 1 ||
+		    inv->getParam(ID::Y_WIDTH).as_int() != 1)
+			return false;
+
+		SigSpec base = core.extract(0, c - 1);
+		base.append(sigmap(inv->getPort(ID::A))[0]);
+		Affine a = affine_of(base, depth + 1);
+		if (!a.ok || a.exact_bits < c)
+			return false;
+
+		a.konst -= int64_t(1) << (c - 1);
+		int64_t lo, hi;
+		if (!coeff_range(a.coeffs, lo, hi) ||
+		    lo + a.konst < -(int64_t(1) << (c - 1)) ||
+		    hi + a.konst >= (int64_t(1) << (c - 1)))
+			return false;
+
+		a.exact_bits = AFFINE_EXACT;
+		out = a;
+		return true;
 	}
 
 	// Tighten exactness: an affine form that provably stays inside [0, 2^w) is
@@ -691,6 +788,20 @@ struct OptVpsWorker
 				affine_cache[sig] = a;
 				return a;
 			}
+			// Verific spells a possibly-negative narrow result by inverting the
+			// MSB of an unsigned sum, since as a signed value
+			//   {~b, low} == {b, low} - 2^(c-1)
+			// The bound above cannot see that: b is the sum's own carry, so it
+			// is correlated with low, and interval arithmetic on the two as
+			// independent atoms is far too wide. Rebuilding the value from the
+			// uninverted sum keeps it exact, which matters because the wide and
+			// narrow spellings of one index expression have to reduce to the
+			// same atoms to land in the same gather group.
+			Affine b;
+			if (msb_inv_sext && recover_msb_inv(core, c, depth, b)) {
+				affine_cache[sig] = b;
+				return b;
+			}
 			r.ok = true;
 			r.exact_bits = AFFINE_EXACT;
 			r.coeffs[AffineAtom(core, true)] = 1;
@@ -754,7 +865,7 @@ struct OptVpsWorker
 
 	struct GatherCand {
 		Cell *cell;
-		SigBit ybit;
+		SigSpec ysig; // this cell's gathered element: 1 bit for $shr, WIDTH for $bmux
 		SigSpec index;
 		int width; // meaningful index bits for this cell
 		int64_t konst;
@@ -763,6 +874,10 @@ struct OptVpsWorker
 	struct GatherKey {
 		int kind;  // 0 = modular ($bmux), 1 = zero-fill ($shr)
 		int width; // S_WIDTH for $bmux; 0 for $shr (folded per candidate)
+		// Whole table, so every element bit of a cell shares one group and
+		// folds as a unit. Keying on per-bit slices instead would let one bit
+		// of a $bmux fold while another stayed below min_gather, and retiring
+		// the cell would then leave that live bit undriven.
 		SigSpec table;
 		CoeffMap coeffs;
 		bool operator<(const GatherKey &o) const
@@ -776,6 +891,11 @@ struct OptVpsWorker
 
 	// Bits read by any cell input, module connection or output port.
 	pool<SigBit> read_bits;
+
+	// Folded gather cells, retired only after every group has been emitted: the
+	// emitters read each cell for its index and src attribute, so removing one
+	// mid-loop would dangle for the groups still to come.
+	pool<Cell *> gather_dead;
 
 	void collect_read_bits()
 	{
@@ -802,22 +922,34 @@ struct OptVpsWorker
 		for (auto cell : module->selected_cells()) {
 			GatherKey key;
 			Affine idx;
-			SigBit ybit;
+			SigSpec ysig;
 			SigSpec index;
 			int cand_width = 0;
 			int64_t bitpos = 0;
 
-			if (cell->type == ID($bmux) && cell->getParam(ID::WIDTH).as_int() == 1) {
+			if (cell->type == ID($bmux)) {
 				int sw = cell->getParam(ID::S_WIDTH).as_int();
+				int w = cell->getParam(ID::WIDTH).as_int();
 				if (sw < 2 || (1 << sw) > max_table)
 					continue;
 				key.kind = 0;
 				key.width = sw;
-				index = cell->getPort(ID::S);
+				index = strip_dead_mod(cell->getPort(ID::S));
 				idx = affine_of(index, 0);
 				if (!idx.ok || idx.exact_bits < sw)
 					continue;
-				ybit = sigmap(cell->getPort(ID::Y)[0]);
+				SigSpec y = sigmap(cell->getPort(ID::Y));
+				int64_t m = int64_t(1) << sw;
+				if (w < 1 || GetSize(cell->getPort(ID::A)) != w * m ||
+				    GetSize(y) != w)
+					continue;
+				// Nothing downstream: opt_clean's job, not ours.
+				bool any_read = false;
+				for (int b = 0; b < w && !any_read; b++)
+					any_read = read_bits.count(y[b]);
+				if (!any_read)
+					continue;
+				ysig = y;
 			} else if (cell->type == ID($shr) &&
 			           !cell->getParam(ID::A_SIGNED).as_bool() &&
 			           !cell->getParam(ID::B_SIGNED).as_bool()) {
@@ -834,7 +966,7 @@ struct OptVpsWorker
 					continue;
 				key.kind = 1;
 				key.width = 0;
-				index = cell->getPort(ID::B);
+				index = strip_dead_mod(cell->getPort(ID::B));
 				SigSpec bsig = sigmap(index);
 				cand_width = GetSize(bsig);
 				while (cand_width > 1 && bsig[cand_width - 1] == State::S0)
@@ -843,7 +975,7 @@ struct OptVpsWorker
 				if (!idx.ok || idx.exact_bits < cand_width ||
 				    cand_width > AFFINE_MAX_ATOM_BITS)
 					continue;
-				ybit = y[used];
+				ysig = y[used];
 				bitpos = used;
 			} else {
 				continue;
@@ -852,7 +984,9 @@ struct OptVpsWorker
 			if (idx.coeffs.empty())
 				continue; // constant index: plain const-folding territory
 			key.table = sigmap(cell->getPort(ID::A));
-			if (GetSize(key.table) > 2 * max_table)
+			// $bmux tables are bounded by max_table in entries above; this cap
+			// is for $shr, whose table is the raw A port.
+			if (key.kind == 1 && GetSize(key.table) > 2 * max_table)
 				continue;
 
 			if (key.kind == 1) {
@@ -869,7 +1003,7 @@ struct OptVpsWorker
 			}
 
 			key.coeffs = idx.coeffs;
-			groups[key].push_back({cell, ybit, index, cand_width,
+			groups[key].push_back({cell, ysig, index, cand_width,
 					       idx.konst + bitpos});
 		}
 
@@ -899,7 +1033,8 @@ struct OptVpsWorker
 
 			if (key.kind == 0) {
 				int64_t M = int64_t(1) << key.width;
-				if (GetSize(key.table) != M)
+				// Table is M entries of the cells' element width.
+				if (GetSize(key.table) % M != 0)
 					continue;
 				if (span >= M) {
 					// No narrowing possible: the raw index is the amount.
@@ -916,6 +1051,10 @@ struct OptVpsWorker
 				emit_zerofill_gather(key, cands, dmin, emax, lo, span, amt_bits);
 			}
 		}
+
+		for (auto cell : gather_dead)
+			remove_cell(cell);
+		gather_dead.clear();
 	}
 
 	// y_c = T[(v + lo + e_c) mod M], emitted as one $shr over T rotated by
@@ -933,11 +1072,9 @@ struct OptVpsWorker
 
 		int64_t out_w = std::min(emax, M - 1) + 1;
 		int64_t src_w = std::min<int64_t>(2 * M, out_w + span);
+		int elem_w = GetSize(key.table) / M; // element width of this group
 
-		SigSpec source;
-		for (int64_t j = 0; j < src_w; j++)
-			source.append(key.table[(j + lomod) % M]);
-
+		// One amount, shared by every element bit's barrel.
 		SigSpec amount = ref_index;
 		if (lomod != 0) {
 			Wire *sub_w = module->addWire(NEW_ID_SUFFIX("vps_gather_amt"), key.width);
@@ -947,19 +1084,41 @@ struct OptVpsWorker
 		}
 		amount = amount.extract(0, amt_bits);
 
-		Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
-		module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
-			       SigSpec(shifted), false, cell_src(ref));
+		// $bmux is entry-major (Y = A[S*WIDTH +: WIDTH]), so element bit b gathers
+		// over the stride-elem_w slice A[b], A[elem_w+b], ... Each bit gets its own
+		// barrel; the elem_w of them together cost what one elem_w*M-bit barrel
+		// would. Bits no candidate reads are skipped, and since the whole group is
+		// emitted here every cell in it ends up fully driven.
+		int barrels = 0;
+		for (int b = 0; b < elem_w; b++) {
+			bool any_read = false;
+			for (auto &c : cands)
+				if (read_bits.count(c.ysig[b])) { any_read = true; break; }
+			if (!any_read)
+				continue;
 
-		for (auto &c : cands) {
-			module->connect(c.ybit, SigBit(shifted, (c.konst - dmin) % M));
-			remove_cell(c.cell);
-			pmux_replaced++;
+			SigSpec source;
+			for (int64_t j = 0; j < src_w; j++)
+				source.append(key.table[((j + lomod) % M) * elem_w + b]);
+
+			Wire *shifted = module->addWire(NEW_ID_SUFFIX("vps_gather_y"), out_w);
+			module->addShr(NEW_ID_SUFFIX("vps_gather_shr"), source, amount,
+				       SigSpec(shifted), false, cell_src(ref));
+			barrels++;
+
+			for (auto &c : cands)
+				if (read_bits.count(c.ysig[b]))
+					module->connect(c.ysig[b],
+							SigBit(shifted, (c.konst - dmin) % M));
 		}
 
-		log("  VPS gather: %d modular bit-select(s) (M=%d) -> $shr src=%d, "
+		for (auto &c : cands)
+			if (gather_dead.insert(c.cell).second)
+				pmux_replaced++;
+
+		log("  VPS gather: %d modular select(s) (M=%d, elem=%d) -> %d $shr src=%d, "
 		    "out=%d, amt=%d bit(s)\n",
-		    GetSize(cands), (int)M, (int)src_w, (int)out_w, amt_bits);
+		    GetSize(cands), (int)M, elem_w, barrels, (int)src_w, (int)out_w, amt_bits);
 		gathers_folded++;
 		groups_optimized++;
 	}
@@ -998,9 +1157,9 @@ struct OptVpsWorker
 			       SigSpec(shifted), false, cell_src(ref));
 
 		for (auto &c : cands) {
-			module->connect(c.ybit, SigBit(shifted, c.konst - dmin));
-			remove_cell(c.cell);
-			pmux_replaced++;
+			module->connect(c.ysig[0], SigBit(shifted, c.konst - dmin));
+			if (gather_dead.insert(c.cell).second)
+				pmux_replaced++;
 		}
 
 		log("  VPS gather: %d zero-fill bit-select(s) -> $shr src=%d, "
@@ -2439,13 +2598,14 @@ struct OptVpsPass : public Pass {
 		log("from O(N*W) to O(log(N)*W).\n");
 		log("\n");
 		log("UNIFORM GATHERS: with an arithmetic index expression Verific keeps\n");
-		log("the select per output bit (a 1-bit $bmux, or a $shr with a single\n");
-		log("used Y bit) instead of the decoder + $pmux form above. When a group\n");
-		log("of those shares one table and their indices are the same dynamic\n");
-		log("expression plus a per-bit constant, the group is one barrel shift:\n");
-		log("this pass proves the affine relation, then replaces the group with a\n");
-		log("single $shr whose shift amount is narrowed to the provable range of\n");
-		log("that expression.\n");
+		log("the select per output element (a $bmux, or a $shr with a single used\n");
+		log("Y bit) instead of the decoder + $pmux form above. When a group of\n");
+		log("those shares one table and their indices are the same dynamic\n");
+		log("expression plus a per-element constant, the group is one barrel\n");
+		log("shift: this pass proves the affine relation, then replaces the group\n");
+		log("with a single $shr whose shift amount is narrowed to the provable\n");
+		log("range of that expression. Elements wider than one bit fold into one\n");
+		log("$shr per element bit, over a strided slice of the table.\n");
 		log("\n");
 		log("    -min_stride <n>\n");
 		log("        Minimum stride (S_WIDTH of the VPS write $pmux cells) to\n");
@@ -2458,12 +2618,36 @@ struct OptVpsPass : public Pass {
 		log("    -max_gather_table <n>\n");
 		log("        Maximum gather table entries to consider. Default: 4096.\n");
 		log("\n");
+		log("    -msb-inv-sext\n");
+		log("        Read a sign extension whose core has an inverted MSB,\n");
+		log("        {~b, low}, as the uninverted sum {b, low} less 2^(c-1).\n");
+		log("        Verific emits that for a narrow result that may go\n");
+		log("        negative, such as the `i - 1` in a bit-sliced field\n");
+		log("        select. Without it the carry bit b and the sum low are\n");
+		log("        treated as independent atoms, whose interval bound is far\n");
+		log("        wider than the real range, so the value is not provably\n");
+		log("        exact and the index collapses to an opaque atom. That\n");
+		log("        splits one entry out of its gather group, costing a whole\n");
+		log("        extra barrel and leaving the group misaligned with the\n");
+		log("        select farm reading it.\n");
+		log("\n");
+		log("    -dead-mod\n");
+		log("        Read `x %% const` as x where the operand provably never\n");
+		log("        reaches the divisor. RTL guards a circular index that way\n");
+		log("        even where the wrap is unreachable, and the modulo alone\n");
+		log("        stops the gather group it indexes from being affine, so\n");
+		log("        the whole group stays one mux network per output bit. A\n");
+		log("        divisor the index can really reach is a rotate, not a\n");
+		log("        window read, and is left alone.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		int min_stride = 4;
 		int min_gather = 4;
 		int max_gather_table = 4096;
+		bool msb_inv_sext = false;
+		bool dead_mod = false;
 
 		log_header(design, "Executing OPT_VPS pass (optimize Verific VPS patterns).\n");
 
@@ -2481,6 +2665,14 @@ struct OptVpsPass : public Pass {
 				max_gather_table = std::stoi(args[++argidx]);
 				continue;
 			}
+			if (args[argidx] == "-msb-inv-sext" || args[argidx] == "-msb_inv_sext") {
+				msb_inv_sext = true;
+				continue;
+			}
+			if (args[argidx] == "-dead-mod" || args[argidx] == "-dead_mod") {
+				dead_mod = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2492,7 +2684,7 @@ struct OptVpsPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			OptVpsWorker worker(module, min_stride);
+			OptVpsWorker worker(module, min_stride, msb_inv_sext, dead_mod);
 			worker.run(min_gather, max_gather_table);
 
 			if (worker.groups_optimized > 0)

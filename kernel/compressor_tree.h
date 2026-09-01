@@ -4,7 +4,9 @@
  * Terminology:
  * - compressor: $fa viewed as reducing N inputs to M outputs (sum + shifted carry) (N:M compressor)
  * - level:      A stage of parallel compression operations
- * - depth:      Maximum number of N:M compressor levels from any input to a signal
+ * - depth:      Gate delays from any input to a signal. A compressor is not a fixed
+ *               depth from each of its inputs (see fa_out_depth), so scheduling
+ *               counts gates rather than levels.
  *
  * Supported compressors:
  * - 3:2 compressor
@@ -32,7 +34,10 @@ namespace CompressorTree
 // NOTE: Based on "Binary Adder Architectures for Cell-Based VLSI and their Synthesis" (Tables 4.7, 4.9) - the threshold
 //       should be the point where Kogge-Stone isn't strictly less efficient than RCA
 constexpr int RIPPLE_PREFIX_WIDTH_THRESHOLD = 16;
-constexpr int RIPPLE_PREFIX_DEPTH_THRESHOLD = 5;
+// In gate delays, so about five compressor levels
+constexpr int RIPPLE_PREFIX_DEPTH_THRESHOLD = 15;
+// Gate delays a compressor level costs, i.e. the resolution a schedule can act on
+constexpr int FA_GATE_DEPTH = 3;
 
 enum class Strategy {
 	FA_ONLY,   // 3:2 compressors
@@ -42,8 +47,25 @@ enum class Strategy {
 
 struct DepthSig {
 	SigSpec sig;
-	int depth;
+	int depth; // gate delays
 };
+
+/**
+ * fa_out_depth() - Gate delays to an $fa's outputs from its input depths
+ *
+ * fa_wordlevel lowers a full adder to t1 = A ^ B, sum = t1 ^ C and
+ * carry = (A & B) | (C & t1), which is not symmetric in its inputs: C is two gates
+ * from the carry and one from the sum, where A and B are three and two. Schedule a
+ * group by putting its latest operand on C.
+ *
+ * Sum and carry are both charged the carry's depth. They enter the next level as a
+ * pair, and letting the sum go a gate earlier only splits them across levels,
+ * which costs more groupings than the gate is worth.
+ */
+inline int fa_out_depth(int da, int db, int dc)
+{
+	return std::max(std::max(da, db) + 3, dc + 2);
+}
 
 enum class FinalAdder {
 	DEFAULT,         // emit $add and let downstream techmap pick

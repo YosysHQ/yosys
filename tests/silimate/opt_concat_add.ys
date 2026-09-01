@@ -1,0 +1,244 @@
+# Cells the split creates carry the opt_concat_add attribute, so every case here
+# asserts on that rather than on adder counts, which prep is free to reshape.
+
+# The shape the pass exists for: a mux stranded between two adders by a
+# concatenation, which denies it the whole port that pushing needs
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+design -save gold
+opt_concat_add
+select -assert-min 1 a:opt_concat_add
+design -load gold
+equiv_opt -assert opt_concat_add
+design -reset
+
+# Same, with the concatenation on the adder's other operand
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = b + {s, tail};
+endmodule
+EOT
+prep
+design -save gold
+opt_concat_add
+select -assert-min 1 a:opt_concat_add
+design -load gold
+equiv_opt -assert opt_concat_add
+design -reset
+
+# A one-bit tail, and a $pmux instead of a $mux
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input [1:0] sel, input tail,
+            input [23:0] b, output [25:0] y);
+  reg [23:0] s;
+  always @* case (sel)
+    2'b00: s = p + q;
+    2'b01: s = q + r;
+    2'b10: s = r + p;
+    default: s = p + r;
+  endcase
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+design -save gold
+opt_concat_add
+select -assert-min 1 a:opt_concat_add
+design -load gold
+equiv_opt -assert opt_concat_add
+design -reset
+
+# A mux over multipliers is the same barrier
+read_verilog -sv <<EOT
+module test(input [11:0] p, q, r, input sel, input [1:0] tail,
+            input [23:0] b, output [25:0] y);
+  wire [23:0] s = sel ? (p * q) : (q * r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+design -save gold
+opt_concat_add
+select -assert-min 1 a:opt_concat_add
+design -load gold
+equiv_opt -assert opt_concat_add
+design -reset
+
+# Arithmetic driving the wide half directly is already in the adder's own chain,
+# which a tree pass reaches without help; splitting only breaks that chain
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, input [1:0] tail, input [21:0] b, output [23:0] y);
+  wire [21:0] s = p + q;
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# A constant tail is bit alignment, which a tree pass already reads as weights
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [24:0] b, output [24:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, 3'b000} + b;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# A narrow addend makes for a cheap adder, which does not pay for the compressor
+# level needed to fold it into the tree
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [4:0] b, output [23:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add -min-addend 8
+select -assert-none a:opt_concat_add
+# Lowering the floor below what this addend offers takes it
+opt_concat_add -min-addend 3
+select -assert-min 1 a:opt_concat_add
+design -reset
+
+# The tail adder's carry is in series with the wide half, so a wide tail is not
+# worth the split
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [11:0] tail,
+            input [31:0] b, output [33:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add -max-tail 8
+select -assert-none a:opt_concat_add
+design -reset
+
+# Below -min-width the carry chain removed does not pay for the one added
+read_verilog -sv <<EOT
+module test(input [7:0] p, q, r, input sel, input [1:0] tail,
+            input [9:0] b, output [11:0] y);
+  wire [9:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add -min-width 16
+select -assert-none a:opt_concat_add
+design -reset
+
+# A mux over plain logic has no tree behind it to push into
+read_verilog -sv <<EOT
+module test(input [21:0] p, q, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  wire [21:0] s = sel ? (p & q) : (p | q);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# Deeper than -max-mux-depth: stop looking rather than split on a guess
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input [1:0] sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  wire [21:0] s0 = sel[0] ? (p + q) : (q + r);
+  wire [21:0] s1 = sel[0] ? (q + r) : (p + q);
+  wire [21:0] s  = sel[1] ? s0 : s1;
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add -max-mux-depth 1
+select -assert-none a:opt_concat_add
+# The default reaches the arithmetic two muxes down
+opt_concat_add
+select -assert-min 1 a:opt_concat_add
+design -reset
+
+# Signed operands: the sign bit sits above the split, so the halves do not
+# reassociate the way the unsigned identity does
+read_verilog -sv <<EOT
+module test(input signed [19:0] p, q, r, input sel, input [1:0] tail,
+            input signed [21:0] b, output signed [23:0] y);
+  wire signed [21:0] s = sel ? (p + q) : (q + r);
+  assign y = $signed({s, tail}) + b;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# A tail wide enough to swallow the whole result leaves no wide half to hand over
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [7:0] tail, output [7:0] y);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + 30'd7;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# A mux something else also reads would have to be kept alongside the one over
+# the pushed sums, so the push is not free
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y, output [21:0] shared);
+  wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+  assign shared = s;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# A kept wire has to stay driven, so the mux behind it cannot be replaced even
+# though the adder is its only reader
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  (* keep *) wire [21:0] s = sel ? (p + q) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add
+select -assert-none a:opt_concat_add
+design -reset
+
+# End to end: each arm's copy of the wide half lands on that arm's arithmetic,
+# where the tree pass folds both carry-propagate adders into one
+read_verilog -sv <<EOT
+module test(input [19:0] p, q, r, input sel, input [1:0] tail,
+            input [21:0] b, output [23:0] y);
+  wire [21:0] s = sel ? (p + q + r) : (q + r);
+  assign y = {s, tail} + b;
+endmodule
+EOT
+prep
+opt_concat_add
+arith_tree -strategy fa -final ripple -min-width 8
+techmap -map +/fa_wordlevel.v t:$fa
+# One final adder per arm, plus the tail add
+select -assert-count 3 t:$add

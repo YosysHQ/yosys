@@ -30,55 +30,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Unit-level delay heuristic, same shape as opt_timing_balance's: carry-chain
-// operators cost their log-depth, bitwise operators and muxes one level.
-static int log2p1_int(int w)
-{
-  int n = 0;
-  while (w > 0) { w >>= 1; n++; }
-  return n < 1 ? 1 : n;
-}
+#include "passes/silimate/unit_delay.h"
 
-static int estimate_cell_delay(RTLIL::Cell *cell)
-{
-  IdString t = cell->type;
-  if (t.in(ID($not), ID($pos), ID($_NOT_), ID($_BUF_)))
-    return 0;
-  int width = 1;
-  if (cell->hasParam(ID::Y_WIDTH))
-    width = cell->getParam(ID::Y_WIDTH).as_int();
-  else if (cell->hasParam(ID::WIDTH))
-    width = cell->getParam(ID::WIDTH).as_int();
-  if (t.in(ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor)))
-    return width < 1 ? 1 : width;
-  if (t.in(ID($add), ID($sub), ID($neg), ID($alu),
-           ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx)))
-    return log2p1_int(width);
-  // Comparators and reductions collapse their operand width to one bit.
-  if (t.in(ID($lt), ID($le), ID($gt), ID($ge), ID($eq), ID($ne), ID($eqx), ID($nex),
-           ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor),
-           ID($reduce_bool), ID($logic_not), ID($logic_and), ID($logic_or)))
-    return log2p1_int(cell->hasParam(ID::A_WIDTH) ? cell->getParam(ID::A_WIDTH).as_int() : width);
-  if (t == ID($pmux))
-    return log2p1_int(cell->hasParam(ID::S_WIDTH) ? cell->getParam(ID::S_WIDTH).as_int() : 1);
-  return 1;
-}
-
-struct OptMuxPushWorker
+struct OptMuxPushWorker : UnitDelayTiming
 {
   RTLIL::Design *design;
-  RTLIL::Module *module;
-  SigMap sigmap;
 
-  dict<SigBit, RTLIL::Cell*> driver_map;
   dict<SigBit, int> fanout_map;
-  dict<SigBit, std::vector<RTLIL::Cell*>> consumer_map;
   pool<SigBit> keep_bits;
-  dict<SigBit, int> arrival_cache;
-  pool<SigBit> arrival_active;
-  dict<SigBit, int> depart_cache;
-  pool<SigBit> depart_active;
-  int module_depth;
+  pool<SigBit> port_out_bits;
 
   pool<IdString> target_types;
   int fanout_limit;
@@ -86,176 +46,28 @@ struct OptMuxPushWorker
   int slack_margin;
   bool recover_folded;
   int hoist_gain;
+  int farm_gain;
+  int reindex_gain;
+  int reindex_max_bits;
   int total_count;
   int hoist_count;
+  int farm_count;
+  int reindex_count;
   int chains_seen = 0, chains_cheap = 0, chains_slack = 0;
+  int farms_seen = 0, farms_cheap = 0, farms_slack = 0;
+  int nests_seen = 0, nests_cheap = 0, nests_slack = 0, nests_big = 0;
 
   OptMuxPushWorker(RTLIL::Design *design, RTLIL::Module *module,
       const pool<IdString> &target_types, int fanout_limit, bool timing_guard,
-      int slack_margin, bool recover_folded, int hoist_gain) :
-      design(design), module(module), sigmap(module), module_depth(0),
+      int slack_margin, bool recover_folded, int hoist_gain, int farm_gain,
+      int reindex_gain, int reindex_max_bits) :
+      UnitDelayTiming(module), design(design),
       target_types(target_types), fanout_limit(fanout_limit),
       timing_guard(timing_guard), slack_margin(slack_margin),
-      recover_folded(recover_folded), hoist_gain(hoist_gain), total_count(0), hoist_count(0)
+      recover_folded(recover_folded), hoist_gain(hoist_gain), farm_gain(farm_gain),
+      reindex_gain(reindex_gain), reindex_max_bits(reindex_max_bits),
+      total_count(0), hoist_count(0), farm_count(0), reindex_count(0)
   {
-  }
-
-  // Cached level, or 0 when absent (start point, constant, or broken loop edge).
-  static int level_of(const dict<SigBit, int> &cache, RTLIL::SigBit bit)
-  {
-    auto it = cache.find(bit);
-    return it == cache.end() ? 0 : it->second;
-  }
-
-  // Combinational driver of `bit`, and the bits feeding it. Null at a start
-  // point (constant, undriven / multi-driven, or register output).
-  RTLIL::Cell *driver_inputs(RTLIL::SigBit bit, std::vector<RTLIL::SigBit> &ins)
-  {
-    ins.clear();
-    auto it = driver_map.find(bit);
-    RTLIL::Cell *drv = it == driver_map.end() ? nullptr : it->second;
-    if (drv == nullptr || drv->is_builtin_ff())
-      return nullptr;
-    for (auto &conn : drv->connections())
-      if (drv->input(conn.first))
-        for (auto &in_bit : sigmap(conn.second))
-          ins.push_back(in_bit);
-    return drv;
-  }
-
-  // Output bits of a cell, flattened across its output ports.
-  void cell_outputs(RTLIL::Cell *cell, std::vector<RTLIL::SigBit> &outs)
-  {
-    outs.clear();
-    for (auto &conn : cell->connections())
-      if (cell->output(conn.first))
-        for (auto &out_bit : sigmap(conn.second))
-          outs.push_back(out_bit);
-  }
-
-  // Levels from a start point up to this bit.
-  int arrival_bit(RTLIL::SigBit bit)
-  {
-    if (bit.wire == nullptr)
-      return 0;
-    if (arrival_cache.count(bit))
-      return arrival_cache.at(bit);
-
-    std::vector<RTLIL::SigBit> stack{bit}, ins;
-    while (!stack.empty()) {
-      RTLIL::SigBit b = stack.back();
-      if (b.wire == nullptr || arrival_cache.count(b)) {
-        stack.pop_back();
-        continue;
-      }
-
-      // Push unresolved inputs; skip actives (loop) and constants (never cached).
-      RTLIL::Cell *drv = driver_inputs(b, ins);
-      bool ready = true;
-      for (auto &in_bit : ins)
-        if (in_bit.wire != nullptr && !arrival_cache.count(in_bit) &&
-            !arrival_active.count(in_bit)) {
-          stack.push_back(in_bit);
-          ready = false;
-        }
-      if (!ready) {
-        arrival_active.insert(b);
-        continue; // leave b on the stack; neighbours are above it now
-      }
-
-      int latest = 0;
-      for (auto &in_bit : ins)
-        latest = std::max(latest, level_of(arrival_cache, in_bit));
-      arrival_cache[b] = drv == nullptr ? 0 : latest + estimate_cell_delay(drv);
-      arrival_active.erase(b);
-      stack.pop_back();
-    }
-    return arrival_cache.at(bit);
-  }
-
-  int arrival(const RTLIL::SigSpec &sig)
-  {
-    int t = 0;
-    for (auto &bit : sigmap(sig))
-      t = std::max(t, arrival_bit(bit));
-    return t;
-  }
-
-  // Levels from this bit down to the latest endpoint that reads it.
-  int depart_bit(RTLIL::SigBit bit)
-  {
-    if (bit.wire == nullptr)
-      return 0;
-    if (depart_cache.count(bit))
-      return depart_cache.at(bit);
-
-    std::vector<RTLIL::SigBit> stack{bit}, outs;
-    while (!stack.empty()) {
-      RTLIL::SigBit b = stack.back();
-      if (b.wire == nullptr || depart_cache.count(b)) {
-        stack.pop_back();
-        continue;
-      }
-
-      // Push unresolved fanout bits; registers end a path (no neighbours).
-      bool ready = true;
-      auto it_cons = consumer_map.find(b);
-      if (it_cons != consumer_map.end())
-        for (auto cons : it_cons->second) {
-          if (cons->is_builtin_ff())
-            continue;
-          cell_outputs(cons, outs);
-          for (auto &out_bit : outs)
-            if (out_bit.wire != nullptr && !depart_cache.count(out_bit) &&
-                !depart_active.count(out_bit)) {
-              stack.push_back(out_bit);
-              ready = false;
-            }
-        }
-      if (!ready) {
-        depart_active.insert(b);
-        continue;
-      }
-
-      int worst = 0;
-      if (it_cons != consumer_map.end())
-        for (auto cons : it_cons->second) {
-          if (cons->is_builtin_ff())
-            continue;
-          int latest = 0;
-          cell_outputs(cons, outs);
-          for (auto &out_bit : outs)
-            latest = std::max(latest, level_of(depart_cache, out_bit));
-          worst = std::max(worst, estimate_cell_delay(cons) + latest);
-        }
-      depart_cache[b] = worst;
-      depart_active.erase(b);
-      stack.pop_back();
-    }
-    return depart_cache.at(bit);
-  }
-
-  // Longest path through this signal, in the same unit-delay currency as the
-  // module's own depth.
-  int path_depth(const RTLIL::SigSpec &sig)
-  {
-    int t = 0;
-    for (auto &bit : sigmap(sig))
-      t = std::max(t, arrival_bit(bit) + depart_bit(bit));
-    return t;
-  }
-
-  void compute_module_depth()
-  {
-    module_depth = 0;
-    for (auto cell : module->cells()) {
-      for (auto &conn : cell->connections()) {
-        if (!cell->output(conn.first))
-          continue;
-        for (auto &bit : sigmap(conn.second))
-          module_depth = std::max(module_depth, arrival_bit(bit) + depart_bit(bit));
-      }
-    }
   }
 
   // A mux between two associable operators blocks the arithmetic tree
@@ -370,7 +182,7 @@ struct OptMuxPushWorker
     // Whatever depth the push buys locally, it can only shorten the module's
     // longest path if this operator sits on one. Anywhere else it duplicates
     // the operator for a win no endpoint ever sees.
-    int slack = module_depth - path_depth(cell->getPort(ID::Y));
+    int slack = longest_path() - path_depth(cell->getPort(ID::Y));
     if (slack > slack_margin)
       return false;
 
@@ -410,6 +222,7 @@ struct OptMuxPushWorker
     fanout_map.clear();
     consumer_map.clear();
     keep_bits.clear();
+    port_out_bits.clear();
 
     // Collect `keep` across every alias, not just the wire sigmap elected: the
     // attribute may sit on any wire of a `connect` group, and testing it on the
@@ -458,6 +271,7 @@ struct OptMuxPushWorker
         if (bit.wire == nullptr)
           continue;
         fanout_map[bit]++;
+        port_out_bits.insert(bit);
       }
     }
   }
@@ -721,12 +535,7 @@ struct OptMuxPushWorker
   void run_hoist()
   {
     build_connectivity();
-    arrival_cache.clear();
-    arrival_active.clear();
-    depart_cache.clear();
-    depart_active.clear();
-    if (timing_guard)
-      compute_module_depth();
+    reset_timing();
 
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
@@ -759,7 +568,7 @@ struct OptMuxPushWorker
         chains_cheap++;
         continue;
       }
-      if (timing_guard && path_depth(out) < module_depth - slack_margin) {
+      if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
         chains_slack++;
         continue;
       }
@@ -774,17 +583,607 @@ struct OptMuxPushWorker
       module->remove(cell);
   }
 
+  // Shifts map each output bit to one input bit or to a fill value, and that is
+  // what makes the farm push below exact: for any such f and a bitwise select,
+  //   f(sel ? b : a) == f(sel) ? f(b) : f(a)
+  // provided all three clones carry identical parameters, so the index map and
+  // the fill agree. $shift/$shiftx are left out: their x fill does not survive
+  // being re-selected bit by bit.
+  static bool is_farm_shift(RTLIL::Cell *cell)
+  {
+    return cell->type.in(ID($shl), ID($shr), ID($sshl), ID($sshr));
+  }
+
+  // A per-bit select farm: every bit of `sig` carries its own $mux, so the
+  // operand is mux_j(sel[j], a[j], b[j]) and there is no bus-wide select for
+  // mux_drives_sig to find. Bits that are not a private mux ride into both arms
+  // unchanged under a constant select, exactly as slice_arms passes padding.
+  // Returns how many muxes the push would actually dissolve.
+  int farm_drives_sig(const RTLIL::SigSpec &sig, RTLIL::SigSpec &arm_a,
+      RTLIL::SigSpec &arm_b, RTLIL::SigSpec &sel, pool<RTLIL::Cell*> &farm)
+  {
+    arm_a = RTLIL::SigSpec();
+    arm_b = RTLIL::SigSpec();
+    sel = RTLIL::SigSpec();
+    farm.clear();
+    int muxes = 0;
+
+    for (auto &bit : sig) {
+      RTLIL::Cell *m = nullptr;
+      if (bit.wire != nullptr) {
+        auto it = driver_map.find(bit);
+        if (it != driver_map.end())
+          m = it->second;
+      }
+      // Only a mux this rewrite may dissolve is worth splitting on; anything
+      // else stays whole and the two arms agree on it.
+      if (m == nullptr || m->type != ID($mux) || !design->selected(module, m) ||
+          m->get_bool_attribute(ID::keep) || sig_has_keep(m->getPort(ID::Y)) ||
+          !fanout_within_limit(sigmap(m->getPort(ID::Y)))) {
+        arm_a.append(bit);
+        arm_b.append(bit);
+        sel.append(State::S0);
+        continue;
+      }
+      RTLIL::SigSpec y = sigmap(m->getPort(ID::Y));
+      RTLIL::SigSpec ma = sigmap(m->getPort(ID::A));
+      RTLIL::SigSpec mb = sigmap(m->getPort(ID::B));
+      int pos = -1;
+      for (int i = 0; i < GetSize(y); i++)
+        if (y[i] == bit)
+          pos = i;
+      if (pos < 0 || GetSize(ma) != GetSize(y) || GetSize(mb) != GetSize(y)) {
+        arm_a.append(bit);
+        arm_b.append(bit);
+        sel.append(State::S0);
+        continue;
+      }
+      arm_a.append(ma[pos]);
+      arm_b.append(mb[pos]);
+      sel.append(sigmap(m->getPort(ID::S)));
+      farm.insert(m);
+      muxes++;
+    }
+    return muxes;
+  }
+
+  // Will -combine absorb `arm >> s` into the shift already driving `arm`? That
+  // fold is the whole payoff: without it the push only relocates barrels, and
+  // adds one for the select. peepopt_combine_shifts requires nusers == 2 on the
+  // inner output, so this arm's clone has to end up its only reader.
+  RTLIL::Cell *farm_arm_folds(RTLIL::Cell *cell, const RTLIL::SigSpec &arm,
+      const pool<RTLIL::Cell*> &farm, std::initializer_list<const RTLIL::SigSpec *> rivals,
+      const char **why = nullptr)
+  {
+    auto no = [&](const char *reason) -> RTLIL::Cell * {
+      if (why != nullptr)
+        *why = reason;
+      return nullptr;
+    };
+
+    RTLIL::Cell *inner = nullptr;
+    for (auto &bit : arm) {
+      if (bit.wire == nullptr)
+        return no("constant bit in arm");
+      auto it = driver_map.find(bit);
+      if (it == driver_map.end() || it->second == nullptr)
+        return no("arm bit has no single driver");
+      if (inner == nullptr)
+        inner = it->second;
+      else if (inner != it->second)
+        return no("arm spans several drivers");
+    }
+    if (inner == nullptr || !is_farm_shift(inner) || !design->selected(module, inner))
+      return no("arm is not driven by a shift");
+    // A constant-amount inner shift is wiring, not a barrel, so folding it saves
+    // nothing and the arm should be charged as it stands.
+    if (sigmap(inner->getPort(ID::B)).is_fully_const())
+      return no("inner shift amount is constant");
+    // The fold rewrites the inner shift in place, so it must cover the arm whole
+    // and in order, not just drive its bits.
+    RTLIL::SigSpec y = sigmap(inner->getPort(ID::Y));
+    if (y != sigmap(arm))
+      return no("arm is not the inner output bit for bit");
+    // Every reader must vanish here: the farm muxes are deleted, and the shift
+    // itself is replaced by the clones. A reader outside both survives and keeps
+    // the user count above what -combine accepts.
+    for (auto &bit : y) {
+      // A module output reads the signal without being a cell, so consumer_map
+      // never lists it. Missing it prices a fold that -combine then declines,
+      // leaving the clones as pure area.
+      if (port_out_bits.count(bit))
+        return no("inner output escapes through a module port");
+      auto it = consumer_map.find(bit);
+      if (it == consumer_map.end())
+        continue;
+      for (auto cons : it->second)
+        if (cons != cell && !farm.count(cons))
+          return no("inner output has a reader outside the farm");
+    }
+    // The other clones outlive the rewrite, so one of them reading this same
+    // signal would leave the inner shift with two readers again.
+    pool<RTLIL::SigBit> y_bits(y.begin(), y.end());
+    for (auto rival : rivals)
+      for (auto &bit : *rival)
+        if (y_bits.count(bit))
+          return no("another clone reads the same inner output");
+    return inner;
+  }
+
+  // Arrival of one pushed clone. A folded arm keeps a single barrel where there
+  // were two, so it is charged from the inner shift's own operand; the combined
+  // amount picks up the adder -combine emits for it.
+  int farm_clone_arrival(const RTLIL::SigSpec &arm, RTLIL::Cell *inner, int amt,
+      int amt_add, int d_op)
+  {
+    if (inner == nullptr)
+      return std::max(arrival(arm), amt) + d_op;
+    return std::max(arrival(inner->getPort(ID::A)),
+                    std::max(amt, arrival(inner->getPort(ID::B))) + amt_add) + d_op;
+  }
+
+  // Pushing a shift through a farm is depth-neutral on its own: three clones run
+  // in parallel where one ran alone, so every arm just trades the mux level for
+  // the shift level. It only pays when an arm folds into the shift above it.
+  bool farm_push_pays(RTLIL::Cell *cell, const RTLIL::SigSpec &arm_a,
+      const RTLIL::SigSpec &arm_b, const RTLIL::SigSpec &sel,
+      const pool<RTLIL::Cell*> &farm)
+  {
+    int d_op = estimate_cell_delay(cell);
+    int amt = arrival(cell->getPort(ID::B));
+    int amt_add = log2p1_int(GetSize(cell->getPort(ID::B)) + 1);
+    int sel_arr = arrival(sel);
+
+    const char *why_a = "folds", *why_b = "folds";
+    RTLIL::Cell *fold_a = farm_arm_folds(cell, arm_a, farm, {&arm_b, &sel}, &why_a);
+    RTLIL::Cell *fold_b = farm_arm_folds(cell, arm_b, farm, {&arm_a, &sel}, &why_b);
+
+    int before = std::max(
+        std::max({arrival(arm_a), arrival(arm_b), sel_arr}) + mux_delay, amt) + d_op;
+    int after = std::max({std::max(sel_arr, amt) + d_op,
+        farm_clone_arrival(arm_a, fold_a, amt, amt_add, d_op),
+        farm_clone_arrival(arm_b, fold_b, amt, amt_add, d_op)}) + mux_delay;
+
+    log_debug("    %s %s: farm of %d mux(es), before=%d after=%d, A: %s, B: %s\n",
+        log_id(cell->type), log_id(cell->name), GetSize(farm), before, after, why_a, why_b);
+    return after + farm_gain <= before;
+  }
+
+  // Replace `shift(farm)` with `farm(shift, shift, shift)`, shifting the select
+  // vector alongside the arms so each output bit still picks the arm its own
+  // mux picked.
+  void farm_push(RTLIL::Cell *cell, const RTLIL::SigSpec &arm_a, const RTLIL::SigSpec &arm_b,
+      const RTLIL::SigSpec &sel, const pool<RTLIL::Cell*> &farm,
+      pool<RTLIL::Cell*> &cells_to_remove)
+  {
+    const std::string src = cell->get_src_attribute();
+    RTLIL::SigSpec out = sigmap(cell->getPort(ID::Y));
+    int width = GetSize(out);
+
+    // Identical parameters on all three clones is what keeps the rewrite exact,
+    // so copy them wholesale rather than rebuilding them per clone.
+    auto clone = [&](const RTLIL::SigSpec &operand, const char *tag) {
+      RTLIL::Wire *y = module->addWire(NEW_ID2_SUFFIX(tag), width);
+      RTLIL::Cell *c = module->addCell(NEW_ID2, cell->type);
+      c->parameters = cell->parameters;
+      c->set_src_attribute(src);
+      c->setPort(ID::A, operand);
+      c->setPort(ID::B, cell->getPort(ID::B));
+      c->setPort(ID::Y, y);
+      c->fixup_parameters();
+      return RTLIL::SigSpec(y);
+    };
+
+    RTLIL::SigSpec ya = clone(arm_a, "farmpush_a");
+    RTLIL::SigSpec yb = clone(arm_b, "farmpush_b");
+    RTLIL::SigSpec ys = clone(sel, "farmpush_s");
+
+    RTLIL::Wire *rewritten = module->addWire(NEW_ID2_SUFFIX("farmpush_y"), width);
+    for (int j = 0; j < width; j++)
+      module->addMux(NEW_ID2_SUFFIX("farmpush_mux"), ya[j], yb[j], ys[j],
+          RTLIL::SigSpec(rewritten, j), src);
+
+    cells_to_remove.insert(cell);
+    // A farm mux dies only if this shift read all of it; a bit left out still
+    // has a consumer of its own and dropping the mux would leave it undriven.
+    RTLIL::SigSpec operand = sigmap(cell->getPort(ID::A));
+    pool<RTLIL::SigBit> read_bits(operand.begin(), operand.end());
+    for (auto m : farm) {
+      RTLIL::SigSpec my = sigmap(m->getPort(ID::Y));
+      bool covered = true;
+      for (auto &bit : my)
+        if (!read_bits.count(bit))
+          covered = false;
+      if (covered && fanout_is_one(my))
+        cells_to_remove.insert(m);
+    }
+    module->connect(out, rewritten);
+  }
+
+  // Bound the walk: each push moves a shift strictly closer to the leaves, so a
+  // nested farm converges, but a cap keeps a pathological design from spinning.
+  static const int max_farm_iters = 10;
+
+  void run_farm()
+  {
+    for (int iter = 0; iter < max_farm_iters; iter++) {
+      build_connectivity();
+      reset_timing();
+
+      pool<RTLIL::Cell*> cells_to_remove;
+      pool<RTLIL::SigBit> touched_bits;
+
+      for (auto cell : module->selected_cells()) {
+        if (!is_farm_shift(cell) || !target_types.count(cell->type))
+          continue;
+        if (cell->get_bool_attribute(ID::keep) || cells_to_remove.count(cell))
+          continue;
+        RTLIL::SigSpec out = sigmap(cell->getPort(ID::Y));
+        RTLIL::SigSpec operand = sigmap(cell->getPort(ID::A));
+        if (GetSize(out) == 0 || sig_has_keep(out) || sig_has_keep(operand))
+          continue;
+
+        RTLIL::SigSpec arm_a, arm_b, sel;
+        pool<RTLIL::Cell*> farm;
+        if (farm_drives_sig(operand, arm_a, arm_b, sel, farm) == 0)
+          continue;
+        farms_seen++;
+        bool overlaps = cells_to_remove.count(cell) > 0;
+        for (auto m : farm)
+          overlaps |= cells_to_remove.count(m) > 0;
+        for (auto &bit : operand)
+          overlaps |= touched_bits.count(bit) > 0;
+        if (overlaps)
+          continue;
+        if (!farm_push_pays(cell, arm_a, arm_b, sel, farm)) {
+          farms_cheap++;
+          continue;
+        }
+        if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
+          farms_slack++;
+          continue;
+        }
+
+        for (auto &bit : operand)
+          touched_bits.insert(bit);
+        farm_push(cell, arm_a, arm_b, sel, farm, cells_to_remove);
+        farm_count++;
+      }
+
+      for (auto cell : cells_to_remove)
+        module->remove(cell);
+      if (cells_to_remove.empty())
+        break;
+    }
+
+    log_debug("  farm: %d shift(s) over a farm, %d unprofitable, %d off-critical.\n",
+        farms_seen, farms_cheap, farms_slack);
+  }
+
+  // A two-level variable read `V[i][j]` elaborates as a gather nest: one inner
+  // lane select per column, all sharing the row select I, under a root select
+  // that picks a column with the index J. Both selects sit on the late path, so the
+  // read costs |I| + |J| mux levels even though only one index is ever the
+  // reason the read is late.
+  //
+  // When the two indices are offsets of a single computed base -- I = KA ^ L and
+  // J = KB ^ L[0 +: |J|], which is how RTL spells a set/way pair derived from
+  // one index -- the column index is an early function of the row index:
+  //
+  //   J = KB ^ (KA ^ I)[0 +: |J|] = (KB ^ KA[0 +: |J|]) ^ I[0 +: |J|] = E ^ I_low
+  //
+  // Within row i the column index is therefore E with the constant i_low xored
+  // in, which is E reading a fixed permutation of that row. Swapping the nesting
+  // moves the entire inner stage off the late path:
+  //
+  //   bmux(J, [bmux(I, col_p)])  ->  bmux(I, [bmux(E, perm_i(row_i))])
+  //
+  // Xor is its own inverse, so the identity is exact bit for bit and no
+  // don't-care is involved; the guards below are only about profit and size.
+
+  // A lane gather, however it is spelled. Verific emits $bmux for a variable
+  // index; Yosys's own front end emits $shiftx, which is the same lookup when
+  // the shift lands on lane boundaries -- as opt_argmax already treats them.
+  // For $shiftx that means single-bit lanes: at wider lanes the index is
+  // scaled by the lane width before the shift, so B is not the lane number.
+  struct Gather {
+    RTLIL::SigSpec sel;    // lane index
+    RTLIL::SigSpec table;  // lanes, LSB first
+    int lane_width = 0;
+  };
+
+  // The match walks every lane and the emit rebuilds every entry, so refuse a
+  // select so wide that 1 << its width is not a sane table size to begin with.
+  static const int max_sel_bits = 20;
+
+  // Select bits a gather is indexed by, and so the mux levels it costs.
+  static int gather_sel_bits(RTLIL::Cell *cell)
+  {
+    return GetSize(cell->getPort(cell->type == ID($bmux) ? ID::S : ID::B));
+  }
+
+  bool gather_geometry(RTLIL::Cell *cell, Gather &g)
+  {
+    if (cell->type == ID($bmux)) {
+      int sel_bits = GetSize(cell->getPort(ID::S));
+      g.lane_width = cell->getParam(ID::WIDTH).as_int();
+      if (g.lane_width < 1 || sel_bits < 1 || sel_bits > max_sel_bits)
+        return false;
+      g.sel = sigmap(cell->getPort(ID::S));
+      g.table = sigmap(cell->getPort(ID::A));
+      // The emit masks the column index with cols - 1, so the table has to be
+      // exactly the power of two the select reaches. RTLIL requires that of
+      // $bmux, but only check() enforces it, so do not trust it blindly.
+      return (long long)g.lane_width << sel_bits == (long long)GetSize(g.table);
+    }
+    if (cell->type != ID($shiftx))
+      return false;
+    int sel_bits = cell->getParam(ID::B_WIDTH).as_int();
+    // 1 << sel_bits below, and the emit walks every lane, so bound the width.
+    if (cell->getParam(ID::Y_WIDTH).as_int() != 1 || sel_bits < 1 || sel_bits > max_sel_bits)
+      return false;
+    // A signed index reaches negative lanes, where $shiftx returns x rather
+    // than a lane, so the permutation below would not be an identity.
+    if (cell->getParam(ID::B_SIGNED).as_bool())
+      return false;
+    // Only a table that exactly covers the index range is a plain select: a
+    // short one returns x past its end, a long one is a scaled index.
+    if (cell->getParam(ID::A_WIDTH).as_int() != (1 << sel_bits))
+      return false;
+    g.lane_width = 1;
+    g.sel = sigmap(cell->getPort(ID::B));
+    g.table = sigmap(cell->getPort(ID::A));
+    return true;
+  }
+
+  // The two operands of an $xor that drives exactly `sig`. Extension or a
+  // partial read would break the bitwise inverse the reindex relies on, so
+  // require the whole Y port at the same width as both operands.
+  bool xor_operands(const RTLIL::SigSpec &sig, RTLIL::SigSpec &a, RTLIL::SigSpec &b)
+  {
+    int width = GetSize(sig);
+    if (width == 0)
+      return false;
+    RTLIL::Cell *drv = nullptr;
+    for (auto &bit : sig) {
+      auto it = driver_map.find(bit);
+      if (it == driver_map.end())
+        return false;
+      if (drv == nullptr)
+        drv = it->second;
+      else if (drv != it->second)
+        return false;
+    }
+    if (drv == nullptr || drv->type != ID($xor) || sigmap(drv->getPort(ID::Y)) != sig)
+      return false;
+    a = sigmap(drv->getPort(ID::A));
+    b = sigmap(drv->getPort(ID::B));
+    return GetSize(a) == width && GetSize(b) == width;
+  }
+
+  // Collect the inner gathers under a root: every root lane must be the whole
+  // output of its own gather, and all of them must share one row select.
+  bool nest_inner_cells(RTLIL::Cell *cell, const Gather &root,
+      std::vector<RTLIL::Cell*> &inner, std::vector<Gather> &inner_geo,
+      const char **why)
+  {
+    auto no = [&](const char *reason) {
+      if (why != nullptr)
+        *why = reason;
+      return false;
+    };
+    inner.clear();
+    inner_geo.clear();
+    int cols = GetSize(root.table) / root.lane_width;
+    if (cols < 2)
+      return no("root has fewer than two lanes");
+    for (int p = 0; p < cols; p++) {
+      RTLIL::SigSpec lane = root.table.extract(p * root.lane_width, root.lane_width);
+      RTLIL::Cell *drv = nullptr;
+      for (auto &bit : lane) {
+        auto it = driver_map.find(bit);
+        if (it == driver_map.end())
+          return no("root lane is not cell driven");
+        if (drv == nullptr)
+          drv = it->second;
+        else if (drv != it->second)
+          return no("root lane spans two drivers");
+      }
+      // Mixing the two spellings would make the emit pick one arbitrarily, so
+      // hold the whole nest to the root's.
+      if (drv == nullptr || drv->type != cell->type)
+        return no("root lane is not a gather of the root's own type");
+      if (!design->selected(module, drv) || drv->get_bool_attribute(ID::keep))
+        return no("inner gather is out of scope");
+      if (sigmap(drv->getPort(ID::Y)) != lane)
+        return no("root reads only part of an inner gather");
+      Gather g;
+      if (!gather_geometry(drv, g))
+        return no("inner gather is not a plain lane select");
+      // The inner stage is deleted wholesale, so nothing outside may read it.
+      for (auto &bit : lane) {
+        if (port_out_bits.count(bit) || keep_bits.count(bit))
+          return no("inner gather output is observable");
+        auto it = consumer_map.find(bit);
+        if (it != consumer_map.end())
+          for (auto cons : it->second)
+            if (cons != cell)
+              return no("inner gather has a reader outside the nest");
+      }
+      if (p > 0 && inner_geo[0].sel != g.sel)
+        return no("inner gathers do not share a select");
+      inner.push_back(drv);
+      inner_geo.push_back(g);
+    }
+    return !inner_geo[0].sel.empty();
+  }
+
+  // Solve J = E ^ I[0 +: |J|] by finding the base the two selects share. Returns
+  // the two halves of E, which the emit xors together.
+  bool nest_early_offset(const RTLIL::SigSpec &col_sel, const RTLIL::SigSpec &row_sel,
+      RTLIL::SigSpec &ka_lo, RTLIL::SigSpec &kb, const char **why)
+  {
+    auto no = [&](const char *reason) {
+      if (why != nullptr)
+        *why = reason;
+      return false;
+    };
+    int cols_bits = GetSize(col_sel);
+    if (cols_bits > GetSize(row_sel))
+      return no("column select is wider than the row select");
+    RTLIL::SigSpec row_a, row_b, col_a, col_b;
+    if (!xor_operands(row_sel, row_a, row_b))
+      return no("row select is not an $xor");
+    if (!xor_operands(col_sel, col_a, col_b))
+      return no("column select is not an $xor");
+    // Either operand of either xor can be the shared base; the other is the
+    // per-index offset.
+    for (int r = 0; r < 2; r++)
+      for (int c = 0; c < 2; c++) {
+        const RTLIL::SigSpec &base = r ? row_b : row_a;
+        const RTLIL::SigSpec &offset = r ? row_a : row_b;
+        if ((c ? col_b : col_a) != base.extract(0, cols_bits))
+          continue;
+        ka_lo = offset.extract(0, cols_bits);
+        kb = c ? col_a : col_b;
+        return true;
+      }
+    return no("selects do not share a base");
+  }
+
+  // The reindex trades the inner stage's place on the late path for the early
+  // offset's cone plus that same stage ahead of the root gather. The test is
+  // anti-symmetric by construction: run on its own output the roles of the two
+  // selects swap, the early side becomes the late one, and it refuses -- so the
+  // rewrite cannot rotate back and forth across invocations.
+  bool nest_pays(RTLIL::Cell *cell, const RTLIL::SigSpec &row_sel,
+      const RTLIL::SigSpec &ka_lo, const RTLIL::SigSpec &kb)
+  {
+    int col_levels = gather_sel_bits(cell);
+    int row_levels = GetSize(row_sel);
+    int late = arrival(row_sel);
+    int early = std::max(arrival(ka_lo), arrival(kb)) + mux_delay;
+    int before = late + row_levels + col_levels;
+    int after = std::max(late, early + col_levels) + row_levels;
+    log_debug("    %s %s: nest of %d column(s) over %d row(s), before=%d after=%d "
+        "(row select at %d, early offset at %d)\n", log_id(cell->type),
+        log_id(cell->name), 1 << col_levels, 1 << row_levels, before, after, late, early);
+    return after + reindex_gain <= before;
+  }
+
+  // Emit a gather in the same spelling as the nest that is being replaced, so a
+  // flow that has already lowered one of the two forms does not get it back.
+  void add_gather(IdString type, const RTLIL::SigSpec &table, const RTLIL::SigSpec &sel,
+      const RTLIL::SigSpec &y, const std::string &src, RTLIL::IdString name)
+  {
+    if (type == ID($bmux))
+      module->addBmux(name, table, sel, y, src);
+    else
+      module->addShiftx(name, table, sel, y, false, src);
+  }
+
+  // bmux(J, [bmux(I, col_p)]) -> bmux(I, [bmux(E, perm_i(row_i))])
+  void nest_reindex(RTLIL::Cell *cell, const Gather &root,
+      const std::vector<RTLIL::Cell*> &inner, const std::vector<Gather> &inner_geo,
+      const RTLIL::SigSpec &ka_lo, const RTLIL::SigSpec &kb,
+      pool<RTLIL::Cell*> &cells_to_remove)
+  {
+    int lane_width = root.lane_width;
+    int cols = GetSize(inner);
+    int rows = GetSize(inner_geo[0].table) / lane_width;
+    std::string src = cell->get_src_attribute();
+
+    // E = KB ^ KA[0 +: |J|]: the column index measured from the row index.
+    RTLIL::SigSpec early = module->Xor(NEW_ID2_SUFFIX("reindex_off"), kb, ka_lo, false, src);
+
+    RTLIL::SigSpec rows_out;
+    for (int i = 0; i < rows; i++) {
+      // Row i holds one entry per column, and xoring the constant i_low into
+      // the column index is just a fixed permutation of those entries.
+      RTLIL::SigSpec permuted;
+      for (int q = 0; q < cols; q++)
+        permuted.append(inner_geo[q ^ (i & (cols - 1))].table
+            .extract(i * lane_width, lane_width));
+      RTLIL::SigSpec row_y = module->addWire(NEW_ID2_SUFFIX("reindex_col"), lane_width);
+      add_gather(cell->type, permuted, early, row_y, src,
+          NEW_ID2_SUFFIX("reindex_colmux"));
+      rows_out.append(row_y);
+    }
+    add_gather(cell->type, rows_out, inner_geo[0].sel, cell->getPort(ID::Y), src,
+        NEW_ID2_SUFFIX("reindex_rowmux"));
+
+    cells_to_remove.insert(cell);
+    for (auto col : inner)
+      cells_to_remove.insert(col);
+  }
+
+  void run_reindex()
+  {
+    build_connectivity();
+    reset_timing();
+
+    pool<RTLIL::Cell*> cells_to_remove;
+    for (auto cell : module->selected_cells()) {
+      if (!cell->type.in(ID($bmux), ID($shiftx)) || cell->get_bool_attribute(ID::keep))
+        continue;
+      if (cells_to_remove.count(cell))
+        continue;
+      RTLIL::SigSpec out = sigmap(cell->getPort(ID::Y));
+      if (GetSize(out) == 0 || sig_has_keep(out))
+        continue;
+
+      const char *why = "not a gather nest";
+      Gather root;
+      std::vector<RTLIL::Cell*> inner;
+      std::vector<Gather> inner_geo;
+      RTLIL::SigSpec ka_lo, kb;
+      if (!gather_geometry(cell, root) ||
+          !nest_inner_cells(cell, root, inner, inner_geo, &why) ||
+          !nest_early_offset(root.sel, inner_geo[0].sel, ka_lo, kb, &why)) {
+        log_debug("    %s %s: %s.\n", log_id(cell->type), log_id(cell->name), why);
+        continue;
+      }
+      bool overlaps = false;
+      for (auto col : inner)
+        overlaps |= cells_to_remove.count(col) > 0;
+      if (overlaps)
+        continue;
+      nests_seen++;
+
+      // The emit lays down one inner gather per row, so the table it writes is
+      // rows * cols entries however the nest was spelled.
+      int table_bits = GetSize(inner_geo[0].table) * GetSize(inner);
+      if (table_bits > reindex_max_bits) {
+        log_debug("    %s %s: nest table of %d bit(s) over the cap.\n",
+            log_id(cell->type), log_id(cell->name), table_bits);
+        nests_big++;
+        continue;
+      }
+      if (!nest_pays(cell, inner_geo[0].sel, ka_lo, kb)) {
+        nests_cheap++;
+        continue;
+      }
+      if (timing_guard && path_depth(out) < longest_path() - slack_margin) {
+        nests_slack++;
+        continue;
+      }
+      nest_reindex(cell, root, inner, inner_geo, ka_lo, kb, cells_to_remove);
+      reindex_count++;
+    }
+
+    for (auto cell : cells_to_remove)
+      module->remove(cell);
+
+    log_debug("  reindex: %d nested gather(s), %d unprofitable, %d oversized, "
+        "%d off-critical.\n", nests_seen, nests_cheap, nests_big, nests_slack);
+  }
+
   void run()
   {
     while (true)
     {
       build_connectivity();
-      arrival_cache.clear();
-      arrival_active.clear();
-      depart_cache.clear();
-      depart_active.clear();
-      if (timing_guard)
-        compute_module_depth();
+      reset_timing();
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
@@ -888,7 +1287,6 @@ struct OptMuxPushWorker
         RTLIL::IdString branch_b_name = NEW_ID2;
         RTLIL::Cell *branch_b = module->addCell(branch_b_name, cell->type);
         branch_b->parameters = cell->parameters;
-        branch_b->attributes = cell->attributes;
         branch_b->set_src_attribute(cell->get_src_attribute());
 
         RTLIL::SigSpec orig_y = cell->getPort(ID::Y);
@@ -1003,6 +1401,39 @@ struct OptMuxPushPass : public Pass {
     log("        levels the hoist must buy before it fires (default: 2). Shallow\n");
     log("        wins do not survive downstream remapping\n");
     log("\n");
+    log("    -farm-select\n");
+    log("        also push a shift through a per-bit select farm, where every\n");
+    log("        output bit has its own $mux and there is no bus-wide select to\n");
+    log("        match on (RTL like `for (i...) p[i] = i < n ? a[i] : b[i];`\n");
+    log("        feeding `p >> s`). Shifting such an operand has to shift the\n");
+    log("        select vector too, which is why the ordinary push cannot express\n");
+    log("        it. Only applies to $shl/$shr/$sshl/$sshr in -types\n");
+    log("\n");
+    log("    -farm-gain <int>\n");
+    log("        levels a farm push must buy before it fires (default: 1). The\n");
+    log("        push is depth-neutral by itself -- the clones just trade the mux\n");
+    log("        level for the shift level -- so the gain comes entirely from an\n");
+    log("        arm that opt_shift -combine can then fold into the shift above\n");
+    log("        it. At 0 it would fire on farms that only cost area\n");
+    log("\n");
+    log("    -gather-reindex\n");
+    log("        swap the nesting of a two-level gather (`V[i][j]`, an inner\n");
+    log("        lane select per column under a root one -- $bmux either way, or\n");
+    log("        single-bit $shiftx) when the two indices are\n");
+    log("        xor offsets of one computed base, as a set/way pair derived from\n");
+    log("        a single index is. The column index is then an early function of\n");
+    log("        the row index, so driving the inner stage with it takes that\n");
+    log("        stage off the late path and the read costs only the row select's\n");
+    log("        levels. The rewrite is an exact xor identity, not a don't-care\n");
+    log("\n");
+    log("    -reindex-gain <int>\n");
+    log("        levels a reindex must buy before it fires (default: 1)\n");
+    log("\n");
+    log("    -reindex-max-bits <int>\n");
+    log("        cap on the rows * columns * lane-width table the reindex emits\n");
+    log("        (default: 4096). The swap is area-neutral in principle, but a\n");
+    log("        wide nest still rebuilds every entry\n");
+    log("\n");
   }
 
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -1013,6 +1444,11 @@ struct OptMuxPushPass : public Pass {
     bool recover_folded = false;
     bool hoist_late = false;
     int hoist_gain = 2;
+    bool farm_select = false;
+    int farm_gain = 1;
+    bool gather_reindex = false;
+    int reindex_gain = 1;
+    int reindex_max_bits = 4096;
     std::string types = "$add,$sub,$xor";
 
     log_header(design, "Executing MUXPUSH pass (push muxes through light ops).\n");
@@ -1045,6 +1481,37 @@ struct OptMuxPushPass : public Pass {
           log_cmd_error("muxpush: -hoist-gain must be at least 1.\n");
         continue;
       }
+      if (args[argidx] == "-farm-select" || args[argidx] == "-farm_select") {
+        farm_select = true;
+        continue;
+      }
+      if ((args[argidx] == "-farm-gain" || args[argidx] == "-farm_gain")
+          && argidx+1 < args.size()) {
+        farm_gain = atoi(args[++argidx].c_str());
+        // At 0 the push fires on farms where no arm folds, which is pure area.
+        if (farm_gain < 1)
+          log_cmd_error("muxpush: -farm-gain must be at least 1.\n");
+        continue;
+      }
+      if (args[argidx] == "-gather-reindex" || args[argidx] == "-gather_reindex") {
+        gather_reindex = true;
+        continue;
+      }
+      if ((args[argidx] == "-reindex-gain" || args[argidx] == "-reindex_gain")
+          && argidx+1 < args.size()) {
+        reindex_gain = atoi(args[++argidx].c_str());
+        // At 0 the reindex fires on nests it buys nothing on, which is pure area.
+        if (reindex_gain < 1)
+          log_cmd_error("muxpush: -reindex-gain must be at least 1.\n");
+        continue;
+      }
+      if ((args[argidx] == "-reindex-max-bits" || args[argidx] == "-reindex_max_bits")
+          && argidx+1 < args.size()) {
+        reindex_max_bits = atoi(args[++argidx].c_str());
+        if (reindex_max_bits < 1)
+          log_cmd_error("muxpush: -reindex-max-bits must be at least 1.\n");
+        continue;
+      }
       if ((args[argidx] == "-slack-margin" || args[argidx] == "-slack_margin")
           && argidx+1 < args.size()) {
         slack_margin = atoi(args[++argidx].c_str());
@@ -1073,22 +1540,58 @@ struct OptMuxPushPass : public Pass {
       target_types.insert(type);
     }
 
-    int total_count = 0, hoist_count = 0;
+    // run() and the farm sweep start from a cell of a target type, -hoist-late
+    // also from a bare mux chain, and -gather-reindex from a gather nest. A
+    // module holding none of those can produce no candidate, so skip it before
+    // the worker builds a sigmap and a connectivity map over it. On a design of
+    // many small modules that bookkeeping, not the matching, is what the pass
+    // spends its time on. Anything added here that sweeps from a new root type
+    // has to be admitted below, or its candidates go unseen.
+    auto module_has_work = [&](RTLIL::Module *mod) {
+      for (auto cell : mod->cells()) {
+        if (target_types.count(cell->type))
+          return true;
+        if (hoist_late && cell->type.in(ID($mux), ID($pmux)))
+          return true;
+        if (gather_reindex && cell->type.in(ID($bmux), ID($shiftx)))
+          return true;
+      }
+      return false;
+    };
+
+    int total_count = 0, hoist_count = 0, farm_count = 0, reindex_count = 0;
     for (auto module : design->selected_modules()) {
       if (module->get_bool_attribute(ID::blackbox))
         continue;
+      if (!module_has_work(module))
+        continue;
       OptMuxPushWorker worker(design, module, target_types, fanout_limit, timing_guard,
-          slack_margin, recover_folded, hoist_gain);
+          slack_margin, recover_folded, hoist_gain, farm_gain, reindex_gain,
+          reindex_max_bits);
       if (hoist_late)
         worker.run_hoist();
+      // Before run(): a farm push leaves the arms readable as ordinary operands,
+      // which is the shape the bus-wide push matches on.
+      if (farm_select)
+        worker.run_farm();
+      // Before run() as well: run() can rewrite the offset xor that the nest's
+      // index relation is matched on, which would hide the relation.
+      if (gather_reindex)
+        worker.run_reindex();
       worker.run();
       total_count += worker.total_count;
       hoist_count += worker.hoist_count;
+      farm_count += worker.farm_count;
+      reindex_count += worker.reindex_count;
     }
 
     log("  Pushed muxes through %d operator inputs.\n", total_count);
     if (hoist_late)
       log("  Hoisted the late arm out of %d mux priority chain(s).\n", hoist_count);
+    if (farm_select)
+      log("  Pushed %d shift(s) through a per-bit select farm.\n", farm_count);
+    if (gather_reindex)
+      log("  Reindexed %d nested gather(s) onto the early column index.\n", reindex_count);
   }
 } OptMuxPushPass;
 

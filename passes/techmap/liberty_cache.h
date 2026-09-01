@@ -3,6 +3,9 @@
 
 #include "kernel/yosys.h"
 
+#include <filesystem>
+#include <system_error>
+
 #ifdef YOSYS_LINK_ABC
 namespace abc {
 	int Abc_RealMain(int argc, char *argv[]);
@@ -81,11 +84,18 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	}
 
 	if (need_convert) {
+		ScopedFileLock scl_lock(merged_scl + ".lock");
+		// Recheck under the lock: another process may have built the cache while we waited.
+		if (stat(merged_scl.c_str(), &scl_stat) == 0 && scl_stat.st_mtime >= newest_mtime) {
+			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			return merged_scl;
+		}
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
-		std::string temp_scl = merged_scl + ".tmp";
+		// Concurrent writers cannot corrupt each other even when running without the lock.
+		std::string temp_scl = stringf("%s.%u.tmp", merged_scl.c_str(), get_process_id());
 
 #ifdef YOSYS_LINK_ABC
-		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x.script", cache_dir.c_str(), hash);
+		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x_%u.script", cache_dir.c_str(), hash, get_process_id());
 		FILE *f = fopen(script_path.c_str(), "w");
 
 		if (f == NULL) {
@@ -144,7 +154,9 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 			return "";
 		}
 #endif
-		if (rename(temp_scl.c_str(), merged_scl.c_str()) != 0) {
+		std::error_code rename_ec;
+		std::filesystem::rename(temp_scl, merged_scl, rename_ec);
+		if (rename_ec) {
 			log_warning("ABC: failed to rename %s to %s, falling back to liberty format\n", temp_scl.c_str(), merged_scl.c_str());
 			remove(temp_scl.c_str());
 			return "";

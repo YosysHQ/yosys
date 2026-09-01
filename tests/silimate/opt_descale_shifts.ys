@@ -109,6 +109,73 @@ log -pop
 
 
 
+log -header "Shifter reads the sum zero-extended: hard zeros above it shift to zero"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [13:0]  w,
+  input wire [4:0]   s,
+  output wire [15:0] y
+);
+  wire [16:0] a = {3'd0, w} + 17'd1;
+  wire [16:0] t = a >> s;
+  assign y = (t == 17'd0) ? 16'd0 : t[15:0] - 16'd1;
+endmodule
+EOF
+hierarchy -check -top top
+proc
+opt_clean
+# Narrow only the increment, to the 14-in/15-out a frontend emits for `w + 1`.
+# A full wreduce would also strip the padding off the shifter and hide the shape,
+# but nothing widens the sum back, so RTL that declares the shifted word wider
+# than the increment needs reaches this pass reading the sum zero-extended.
+wreduce t:$add
+select -clear
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the two zeros above the sum shift to zeros, so the rescale still holds
+select -assert-count 0 t:$add
+select -assert-count 1 t:$sub
+select -assert-count 2 t:$shr
+select -assert-count 2 t:$mux
+design -reset
+log -pop
+
+
+
+log -header "Negative: a live value above the sum is not a zero the shifter can drop"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [13:0]  w,
+  input wire [4:0]   s,
+  input wire         hi,
+  output wire [15:0] y
+);
+  wire [14:0] sum = {1'd0, w} + 15'd1;
+  wire [16:0] t   = {1'b0, hi, sum} >> s;
+  assign y = (t == 17'd0) ? 16'd0 : t[15:0] - 16'd1;
+endmodule
+EOF
+hierarchy -check -top top
+proc
+opt_clean
+wreduce t:$add
+select -clear
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# rescaling the shifter onto w alone would drop hi, so the round trip stays
+select -assert-count 1 t:$add
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
 log -header "Negative: truncating increment wraps instead of carrying"
 log -push
 design -reset
@@ -395,6 +462,59 @@ opt_shift -descale
 # no anchor, so nothing folds and the shifter keeps its name and connections
 select -assert-count 1 t:$add
 select -assert-count 1 t:$shr
+select -assert-count 0 c:*_descale
+design -reset
+log -pop
+
+
+log -header "Padded sum: the shifter reads the increment zero-extended"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [13:0] x,
+  input wire [4:0]  s,
+  output wire [15:0] y
+);
+  wire [14:0] xp1 = x + 1'b1;
+  wire [16:0] a   = {2'b00, xp1} >> s;
+  assign y = (a == 0) ? 16'd0 : a[15:0] - 16'd1;
+endmodule
+EOT
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# high zero padding does not change the value, so the round trip still collapses
+select -assert-count 0 t:$add
+# the shifter, the decrement and the zero test all get renamed for formal
+select -assert-count 3 c:*_descale
+design -reset
+log -pop
+
+
+
+log -header "Negative: padding that is not a constant zero"
+log -push
+design -reset
+read_verilog <<EOT
+module top (
+  input wire [13:0] x,
+  input wire [4:0]  s,
+  input wire        p,
+  output wire [15:0] y
+);
+  wire [14:0] xp1 = x + 1'b1;
+  wire [16:0] a   = {p, 1'b0, xp1} >> s;
+  assign y = (a == 0) ? 16'd0 : a[15:0] - 16'd1;
+endmodule
+EOT
+prep -top top
+check -assert
+equiv_opt -assert opt_shift -descale
+design -load postopt
+# the pad carries a value of its own, so dropping it would change the shift
+select -assert-count 1 t:$add
 select -assert-count 0 c:*_descale
 design -reset
 log -pop

@@ -31,6 +31,11 @@ log -pop
 # =============================================================================
 # Test 2: SAT self-equivalence — byte-write before vs after opt_vps
 # Proves opt_vps does not change the functional behavior.
+#
+# The pass is scoped to `gate` here and in every other self-equivalence test
+# below. `gold` already exists by this point, and with no selection argument
+# opt_vps runs on every module in the design, so a bare `opt_vps` optimizes
+# `gold` too and the miter compares optimized against optimized.
 # =============================================================================
 log -header "SAT self-equivalence: byte-write before vs after opt_vps"
 log -push
@@ -46,8 +51,8 @@ rename opt_vps_byte_write gold
 read -sv opt_vps_byte_write.sv
 verific -import opt_vps_byte_write
 proc; opt_clean
-opt_vps; opt_clean
 rename opt_vps_byte_write gate
+opt_vps gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -75,8 +80,8 @@ rename opt_vps_wide gold
 read -sv opt_vps_wide.sv
 verific -import opt_vps_wide
 proc; opt_clean
-opt_vps; opt_clean
 rename opt_vps_wide gate
+opt_vps gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -208,8 +213,8 @@ rename opt_vps_read gold
 read -sv opt_vps_read.sv
 verific -import opt_vps_read
 proc; opt_clean
-opt_vps; opt_clean
 rename opt_vps_read gate
+opt_vps gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -262,8 +267,8 @@ rename opt_vps_gather gold
 read -sv opt_vps_gather.sv
 verific -import opt_vps_gather
 proc; opt_clean
-opt_vps; opt_clean
 rename opt_vps_gather gate
+opt_vps gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -366,5 +371,303 @@ proc; opt_expr; wreduce; opt_clean
 select -assert-count 32 t:$shr
 opt_vps; opt_clean
 select -assert-count 32 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 13: SAT self-equivalence — negative-capable gather index
+# -msb-inv-sext rebuilds a value from an uninverted sum, so prove the assembled
+# word is unchanged before pinning the structure below.
+# =============================================================================
+log -header "SAT self-equivalence: negative gather index before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_negidx.sv
+verific -import opt_vps_gather_negidx
+proc; opt_clean
+rename opt_vps_gather_negidx gold
+
+read -sv opt_vps_gather_negidx.sv
+verific -import opt_vps_gather_negidx
+proc; opt_clean
+rename opt_vps_gather_negidx gate
+opt_vps -msb-inv-sext gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 14: Cell counts — the bottom lane only joins the group with the flag
+# The lane whose index can go negative is spelled with an inverted MSB. Reading
+# that as an unknown sign leaves it in a group of its own, so it survives as a
+# second barrel next to the folded one. The default is asserted too, so this
+# pins the flag's effect rather than just its result.
+# =============================================================================
+log -header "Cell counts: negative gather index, with and without -msb-inv-sext"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_negidx.sv
+verific -import opt_vps_gather_negidx
+proc; opt_clean
+
+select -assert-count 54 t:$shr
+design -save pregather_negidx
+
+# Default: 53 of 54 lanes group, and the bottom one is left as its own barrel.
+opt_vps; opt_clean
+select -assert-count 2 t:$shr
+
+# With the flag all 54 lanes land in one group, so a single barrel remains.
+design -load pregather_negidx
+opt_vps -msb-inv-sext; opt_clean
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 15: SAT self-equivalence — gather over multi-bit elements
+# A WIDTH=W $bmux is W gathers over stride-W slices of the table, but grouping is
+# keyed on the whole table, so a cell lands in exactly one group and the emitter
+# loops over element bits internally. Prove the assembled words are unchanged
+# before pinning the structure below.
+#
+# The pass is scoped to `gate`, here and in test 17. `gold` already exists by
+# this point, and with no selection argument opt_vps runs on every module in the
+# design, so a bare `opt_vps` optimizes `gold` too and the miter compares
+# optimized against optimized -- which is no proof of this fold at all.
+# =============================================================================
+log -header "SAT self-equivalence: multi-bit gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+rename opt_vps_gather_wide gold
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+rename opt_vps_gather_wide gate
+opt_vps gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 16: Cell counts — multi-bit gather folds to one barrel per element bit
+# Two banks of 8 lanes read a 16-entry table of 4-bit elements, giving 16 WIDTH=4
+# $bmux. Folding is per element bit, so the result is 4 barrels per bank and no
+# $bmux left. Before the width generalization every one of these was skipped.
+# =============================================================================
+log -header "Cell counts: multi-bit gather post-opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wide.sv
+verific -import opt_vps_gather_wide
+proc; opt_clean
+
+select -assert-count 16 t:$bmux
+design -save pregather_wide
+
+opt_vps; opt_clean
+select -assert-count 0 t:$bmux
+select -assert-count 8 t:$shr
+
+# -min_gather 0 disables the fold, so every $bmux survives. This keeps the
+# assertions above from passing on a netlist that had nothing foldable.
+design -load pregather_wide
+opt_vps -min_gather 0; opt_clean
+select -assert-count 16 t:$bmux
+select -assert-count 0 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 17: mixed foldability — unfoldable multi-bit gathers must survive whole
+# Two banks read at the same affine index but from different tables: 8 lanes
+# clears min_gather, 2 lanes does not. The foldable bank collapses to one barrel
+# per element bit; the other bank's $bmux must be left standing and still driving.
+#
+# This pins why grouping is keyed on the whole table rather than a strided slice
+# of it. Per-slice keying lets one element bit of a cell clear min_gather while
+# another does not, and retiring the cell after folding the first bit leaves the
+# second's output undriven -- a silent functional change. SAT covers that: an
+# undriven y_b would not match the reference.
+# =============================================================================
+log -header "Mixed foldability: unfoldable gathers survive intact"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+rename opt_vps_gather_mixed gold
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+rename opt_vps_gather_mixed gate
+opt_vps gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+
+read -sv opt_vps_gather_mixed.sv
+verific -import opt_vps_gather_mixed
+proc; opt_clean
+select -assert-count 10 t:$bmux
+
+opt_vps; opt_clean
+# 8-lane bank -> 4 barrels (one per element bit); 2-lane bank untouched.
+select -assert-count 4 t:$shr
+select -assert-count 2 t:$bmux
+design -reset
+log -pop
+
+# =============================================================================
+# Test 18: grouping key — overlapping tables must never fold a cell in half
+# Test 17's two banks read wholly disjoint tables, so no strided slice of one
+# bank's table can ever equal a slice of the other's and a cell folds
+# all-or-nothing whichever way grouping is keyed. Overlapping-but-not-identical
+# tables are the only shape that tells the two keys apart, which is why the
+# fixture is built that way: four lanes whose tables agree on element bit 0 and
+# differ on element bit 1.
+#
+# Keyed on the whole A port those are four distinct tables, hence four groups of
+# one, and none of them folds. Keyed on a stride-WIDTH slice of A the four bit-0
+# slices are one identical SigSpec that clears min_gather while each bit-1 slice
+# is a group of one that does not, so folding bit 0 retires all four cells and
+# leaves y_ovl[l][1] with no driver -- a silently broken netlist. `check -assert`
+# is the direct signal for that; the counts pin the structure behind it.
+#
+# The second bank reads a wholly shared table and must still fold, so the
+# overlap bank's survival cannot be explained by the fold never firing at all.
+# =============================================================================
+log -header "Grouping key: overlapping gather tables never fold in half"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+rename opt_vps_gather_overlap gold
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+rename opt_vps_gather_overlap gate
+
+# Scoped to `gate`, so `gold` really is the unoptimized reference.
+opt_vps gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+
+read -sv opt_vps_gather_overlap.sv
+verific -import opt_vps_gather_overlap
+proc; opt_clean
+select -assert-count 8 t:$bmux
+
+opt_vps; opt_clean
+# Half-folded cells lose the driver for their unfolded element bits.
+check -assert
+# Overlap bank: four distinct tables, four groups of one, nothing folds.
+select -assert-count 4 t:$bmux
+# Shared-table bank still folds, to one barrel per element bit.
+select -assert-count 2 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 19: SAT self-equivalence — dead-modulo gather before vs after opt_vps
+# =============================================================================
+log -header "SAT self-equivalence: dead-modulo gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+rename opt_vps_gather_deadmod gold
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+rename opt_vps_gather_deadmod gate
+# Scoped to gate: a bare opt_vps folds gold too and the miter proves nothing.
+opt_vps -dead-mod gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+sat -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 20: Cell counts — only the unreachable modulo may fold
+# The `% 54` guard cannot fire, so that loop is a window read and collapses to
+# one barrel beside the `>> sh` feeding it. The `% 22` guard really does wrap,
+# so its loop is a rotate and has to stay the per-bit selects Verific emitted.
+# =============================================================================
+log -header "Cell counts: dead modulo folds, live modulo does not"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_deadmod.sv
+verific -import opt_vps_gather_deadmod
+proc; opt_clean
+
+# Both loops start out as one $bmux per output bit over a padded table.
+select -assert-count 44 t:$bmux
+select -assert-count 1 t:$shr
+design -save predeadmod
+
+# Without the flag the modulo is opaque and neither loop is affine.
+opt_vps; opt_clean
+select -assert-count 44 t:$bmux
+select -assert-count 1 t:$shr
+
+# With it the 22 dead-modulo lanes become one barrel beside the `>> sh` feeding
+# them, and the 22 rotate lanes are still untouched.
+design -load predeadmod
+opt_vps -dead-mod; opt_clean
+select -assert-count 22 t:$bmux
+select -assert-count 2 t:$shr
 design -reset
 log -pop

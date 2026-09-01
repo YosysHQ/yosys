@@ -10,7 +10,7 @@ function(use_homebrew)
 	if (NOT arg_ROOT)
 		execute_process(
 			COMMAND brew --prefix
-			WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+			WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}
 			RESULT_VARIABLE brew_prefix_result
 			OUTPUT_VARIABLE brew_prefix_out
 			OUTPUT_STRIP_TRAILING_WHITESPACE

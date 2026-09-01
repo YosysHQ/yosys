@@ -6,9 +6,9 @@
 #
 function(yosys_config_script scope)
 	if (scope STREQUAL BUILD)
-		set(BINDIR ${CMAKE_BINARY_DIR})
-		set(LIBDIR ${CMAKE_BINARY_DIR})
-		set(DATDIR ${CMAKE_BINARY_DIR}/share)
+		set(BINDIR ${YOSYS_CMAKE_BINARY_DIR})
+		set(LIBDIR ${YOSYS_CMAKE_BINARY_DIR})
+		set(DATDIR ${YOSYS_CMAKE_BINARY_DIR}/share)
 		set(suffix "")
 	elseif (scope STREQUAL INSTALL)
 		set(BINDIR ${YOSYS_INSTALL_FULL_BINDIR})
@@ -56,13 +56,13 @@ function(yosys_config_script scope)
 	string(JOIN " " LIBS
 		${platform_libs}
 	)
-	configure_file(${CMAKE_SOURCE_DIR}/misc/yosys-config.in
+	configure_file(${YOSYS_CMAKE_SOURCE_DIR}/misc/yosys-config.in
 		${YOSYS_PROGRAM_PREFIX}yosys-config${suffix}
 		USE_SOURCE_PERMISSIONS
 		@ONLY
 	)
 	if (scope STREQUAL INSTALL)
-		install(PROGRAMS ${CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}yosys-config.install
+		install(PROGRAMS ${YOSYS_CMAKE_BINARY_DIR}/${YOSYS_PROGRAM_PREFIX}yosys-config.install
 			RENAME yosys-config
 			DESTINATION ${YOSYS_INSTALL_BINDIR}
 		)

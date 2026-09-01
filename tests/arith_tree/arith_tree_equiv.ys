@@ -163,7 +163,7 @@ design -reset
 read_verilog <<EOT
 module equiv_double_neg(
 	input [3:0] a, b, c,
-	output [3:0] y
+	output [4:0] y
 );
 	wire [3:0] ab = a - b;
 	assign y = c - ab;
@@ -172,7 +172,65 @@ EOT
 hierarchy -auto-top
 proc
 equiv_opt -assert arith_tree
+design -reset
+
+# A chain link that is narrower than the cell consuming it truncates its own
+# result, and that truncation is observable in the wider consumer. Flattening
+# the chain must not recover the carry the narrower link discarded.
+read_verilog <<EOT
+module equiv_narrow_intermediate(
+	input [7:0] a, b, c,
+	output [8:0] y
+);
+	wire [7:0] t = a + b;
+	assign y = t + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+# t is 8 bits wide and a + b needs 9, so the truncation is observable to the
+# 9-bit consumer and the chain must stay unflattened.
 design -load postopt
-select -assert-count 2 t:$fa
+select -assert-count 0 t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+read_verilog <<EOT
+module equiv_narrow_intermediate_no_overflow(
+	input [7:0] a, b,
+	input [8:0] c,
+	output [9:0] y
+);
+	wire [8:0] t = a + b;
+	assign y = t + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+# Same shape, but t is wide enough to hold any 8-bit sum, so it never truncates
+# and the narrower link is still free to flatten into the wider consumer.
+design -load postopt
+select -assert-count 1 t:$fa
 select -assert-count 1 t:$add
+design -reset
+
+# Only the truncating link must be excluded: with a truncated t entering the
+# wider (t+c+d) chain as a leaf, the wide part still folds into a tree and the
+# whole result stays equivalent.
+read_verilog <<EOT
+module equiv_trunc_mixed(
+	input [7:0] a, b, c, d,
+	output [9:0] y
+);
+	wire [7:0] t = a + b;
+	assign y = t + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-min 1 t:$fa
 design -reset

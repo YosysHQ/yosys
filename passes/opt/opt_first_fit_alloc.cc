@@ -64,10 +64,50 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// the product would explode compile/techmap cost.
 	int64_t max_xbar_emit_bits = 1 << 18; // 256K bit-cases (~N=64, nb=32, slot_w=128)
 
+	// Accept dsel roots whose unread lanes were dead-code eliminated (see
+	// collect_split_roots). Off by default: it widens the candidate sweep, so
+	// it costs search budget on every module that has split buses.
+	bool partial_root = false;
+	int max_partial_roots = 3; // full-width guesses offered per partial bus
+	bool partial_n_done = false;
+	vector<int> partial_n_cache;
+
 	int regions_rewritten = 0;
 	int cells_added = 0;
 
 	OptFirstFitAllocWorker(Module *module) : CutRegionWorker(module) {}
+
+	// A partial root marks its unread lanes Sx; such a lane is not observable
+	// anywhere in the netlist, so it must not constrain the fingerprint (and
+	// connect_driven never re-drives it, since it has no wire).
+	static bool lane_observed(const SigSpec &root, int lane, int elem_w)
+	{
+		for (int b = 0; b < elem_w; b++) {
+			int p = lane * elem_w + b;
+			if (p < GetSize(root) && root[p] != State::Sx)
+				return true;
+		}
+		return false;
+	}
+
+	int observed_lanes(const SigSpec &root, int n, int elem_w) const
+	{
+		int cnt = 0;
+		for (int k = 0; k < n; k++)
+			if (lane_observed(root, k, elem_w))
+				cnt++;
+		return cnt;
+	}
+
+	// Handed to the matchers in place of a live ConstEval so that threading it
+	// down the call chain does not itself force one to be built. Most root
+	// candidates are rejected structurally, without ever evaluating anything,
+	// and this pass rewrites between matches, so shared_ce() rebuilds when
+	// the emitted cells make the previous index stale.
+	struct LazyEval {
+		OptFirstFitAllocWorker &worker;
+		ConstEval &get() { return worker.shared_ce(); }
+	};
 
 	// ----------------------------------------------------------------
 	// Reference closed-form semantics of the greedy first-fit allocator.
@@ -422,21 +462,22 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// ----------------------------------------------------------------
 	// Evaluate `out_sig` under input assignments, returning the full Const.
 	// ----------------------------------------------------------------
-	bool eval_root(ConstEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
+	bool eval_root(LazyEval &ce, const vector<std::pair<SigSpec, Const>> &sets,
 	               const SigSpec &out_sig, Const &result, int64_t cone_est)
 	{
 		charge_eval(cone_est);
-		ce.push();
+		ConstEval &ev = ce.get();
+		ev.push();
 		for (auto &s : sets)
-			ce.set(s.first, s.second);
+			ev.set(s.first, s.second);
 		SigSpec out = out_sig;
 		SigSpec undef;
-		bool ok = ce.eval(out, undef);
+		bool ok = ev.eval(out, undef);
 		if (ok && out.is_fully_const())
 			result = out.as_const();
 		else
 			ok = false;
-		ce.pop();
+		ev.pop();
 		return ok;
 	}
 
@@ -1330,47 +1371,67 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 					return false;
 			return true;
 		};
-		auto add = [&](const SigSpec &sig, const std::string &nm) {
+		// The name is only wanted for a candidate that survives, and most
+		// width-n wires in a module are not one, so build it on acceptance
+		// rather than on offer.
+		auto add = [&](const SigSpec &sig, auto &&name_of) {
 			SigSpec s = sigmap(sig);
 			if (GetSize(s) != n || !sig_bus_ok(s) || !all_internal_or_input(s))
 				return;
 			if (!seen.insert(s).second)
 				return;
-			width_n_buses.push_back({s, nm, 0, 0});
+			width_n_buses.push_back({s, name_of(), 0, 0});
 		};
 
-		for (auto w : module->wires())
-			if (GetSize(w) == n)
-				add(SigSpec(w), w->name.str());
+		for (auto w : wires_of_width(n))
+			add(SigSpec(w), [&] { return w->name.str(); });
 		for (auto &bus : collect_cone_split_buses(internal_bits))
 			if (bus.elem_width == 1 && bus.entries == n)
-				add(bus.sig, bus.name);
+				add(bus.sig, [&] { return bus.name; });
 
 		// Region inputs (enable/broadcast) sit just above the leaves; order
 		// candidates shallowest-first so the deep intermediate nets of the
-		// allocation network are only reached if the budget allows.
-		dict<Cell *, int> depth = compute_cone_depths(cone_cells);
-		auto bus_depth = [&](const SigSpec &s) {
-			int d = 0;
-			for (auto bit : s) {
-				Cell *drv = bit_to_driver.at(bit, nullptr);
-				if (drv != nullptr)
-					d = std::max(d, depth.at(drv, 1 << 30));
+		// allocation network are only reached if the budget allows. Ranking
+		// them costs a topological pass over the whole cone, so skip it when
+		// there is no order to decide.
+		vector<int> bus_depths;
+		if (GetSize(width_n_buses) > 1) {
+			dict<Cell *, int> depth = compute_cone_depths(cone_cells);
+			for (auto &b : width_n_buses) {
+				int d = 0;
+				for (auto bit : b.sig) {
+					Cell *drv = bit_to_driver.at(bit, nullptr);
+					if (drv != nullptr)
+						d = std::max(d, depth.at(drv, 1 << 30));
+				}
+				bus_depths.push_back(d);
 			}
-			return d;
-		};
-		std::stable_sort(width_n_buses.begin(), width_n_buses.end(),
-		                 [&](const BusCand &a, const BusCand &b) {
-		                     return bus_depth(a.sig) < bus_depth(b.sig);
-		                 });
+			vector<int> order(GetSize(width_n_buses));
+			for (int i = 0; i < GetSize(order); i++)
+				order[i] = i;
+			std::stable_sort(order.begin(), order.end(),
+			                 [&](int a, int b) { return bus_depths[a] < bus_depths[b]; });
+			vector<BusCand> sorted;
+			vector<int> sorted_depths;
+			sorted.reserve(GetSize(order));
+			for (int i : order) {
+				sorted.push_back(width_n_buses[i]);
+				sorted_depths.push_back(bus_depths[i]);
+			}
+			width_n_buses.swap(sorted);
+			bus_depths.swap(sorted_depths);
+		} else {
+			bus_depths.assign(GetSize(width_n_buses), 0);
+		}
 		const int max_en_bc = 24;
 		if (GetSize(width_n_buses) > max_en_bc)
 			width_n_buses.resize(max_en_bc);
 
 		log_debug("    collect_lane_buses: %d width-%d internal bus(es) (capped)\n",
 		          GetSize(width_n_buses), n);
-		for (auto &b : width_n_buses)
-			log_debug("      en/bc cand %s (depth %d)\n", b.name.c_str(), bus_depth(b.sig));
+		for (int i = 0; i < GetSize(width_n_buses); i++)
+			log_debug("      en/bc cand %s (depth %d)\n", width_n_buses[i].name.c_str(),
+			          bus_depths[i]);
 	}
 
 	// ----------------------------------------------------------------
@@ -1391,12 +1452,21 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		log_debug("ffa: match_dsel root %s (n=%d, w=%d): cone %d cells, %d leaves\n",
 		          root_name.c_str(), n, field_w, GetSize(cone_cells), GetSize(leaf_bits));
 
+		// A partial root only constrains its observed lanes. The exclusive
+		// variants learn the slot budget nb by reading lanes in priority order
+		// and stopping at the first non-consecutive rank, which a hole in the
+		// bus silently corrupts, so partial roots stay on the category models.
+		int observed = observed_lanes(root_sig, n, field_w);
+		bool partial = observed < n;
+		if (partial)
+			log_debug("  partial root: %d of %d lane(s) observed\n", observed, n);
+
 		vector<BusCand> lane_buses;
 		collect_lane_buses(cone_cells, n, lane_buses);
 		log_debug("  %d width-%d lane bus candidate(s)\n", GetSize(lane_buses), n);
 		for (auto &b : lane_buses)
 			log_debug("    lane bus %s\n", b.name.c_str());
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		int64_t cone_est = GetSize(cone_cells) + 16;
 		const int max_fp = 48;
 		int fp = 0;
@@ -1406,7 +1476,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		// closes with no extra leaves, so the prefix-count leaves stay off the
 		// launch-flop data words the identity gather reads.
 		for (auto &en_bus : lane_buses) {
-			if (fp >= max_fp || walk_exhausted() || eval_exhausted())
+			if (partial || fp >= max_fp || walk_exhausted() || eval_exhausted())
 				break;
 			pool<SigBit> en_bits = sig_bit_pool(en_bus.sig);
 			pool<SigBit> extra_ex;
@@ -1468,7 +1538,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		{
 			auto pairs = pair_and2_leaf_runs(leaf_bits, n);
 			for (auto &pr : pairs) {
-				if (fp >= max_fp || walk_exhausted() || eval_exhausted())
+				if (partial || fp >= max_fp || walk_exhausted() || eval_exhausted())
 					break;
 				SigSpec en2;
 				en2.append(pr.first);
@@ -1648,7 +1718,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// (compute_alloc_dir). Returns true iff all lanes match on every vector,
 	// i.e. the region implements the first-fit dsel for the given direction.
 	// Any eval failure or single mismatch rejects the candidate.
-	bool fingerprint_dsel(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                      const SigSpec &en_sig, const SigSpec &bc_sig, bool has_bc,
 	                      const SigSpec &cat_sig, int c, bool msb_first, int64_t cone_est,
 	                      bool coalesce = false)
@@ -1658,6 +1728,15 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		SigSpec en_s = sigmap(en_sig);
 		SigSpec bc_s = has_bc ? sigmap(bc_sig) : SigSpec();
 		SigSpec cat_s = sigmap(cat_sig);
+
+		// Unread lanes of a partial root carry no evidence, so a root whose
+		// observed lanes are constant under the reference would "match" any
+		// region driving that constant. Require the surviving lanes to actually
+		// exercise the allocation before believing them. Full roots keep the
+		// unconditional verdict so the default path is unchanged.
+		bool partial = observed_lanes(root, n, field_w) < n;
+		int seen_val = -1;
+		bool varies = false;
 
 		for (auto &tv : vs) {
 			vector<std::pair<SigSpec, Const>> sets;
@@ -1674,13 +1753,19 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			                     ? compute_alloc_coalesce_dir(tv.en, tv.label, n, msb_first)
 			                     : compute_alloc_dir(tv.en, tv.bc, tv.label, n, msb_first);
 			for (int k = 0; k < n; k++) {
+				if (!lane_observed(root, k, field_w))
+					continue;
 				int got = lane_val(res, k, field_w);
 				int exp = ar.dsel[k] & ((1 << field_w) - 1);
 				if (got != exp)
 					return false;
+				if (seen_val < 0)
+					seen_val = exp;
+				else if (exp != seen_val)
+					varies = true;
 			}
 		}
-		return true;
+		return partial ? varies : true;
 	}
 
 	// ----------------------------------------------------------------
@@ -1690,7 +1775,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// root. In priority order the granted lanes take ranks 0,1,2,...,nb-1 and
 	// later lanes saturate to 0, so nb is the length of the leading 0,1,2,...
 	// run. Returns false if the very first lane is nonzero (not exclusive).
-	bool learn_exclusive_nb(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool learn_exclusive_nb(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                        const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
 	{
 		vector<int> en(n, 1);
@@ -1713,7 +1798,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 
 	// Same, for the and2 enable (drive both run halves so every lane's AND
 	// enable is asserted).
-	bool learn_exclusive_nb_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool learn_exclusive_nb_and2(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                             const SigSpec &en_sig, bool msb_first, int64_t cone_est, int &nb)
 	{
 		vector<int> en(n, 1);
@@ -1736,7 +1821,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 
 	// Fingerprint a candidate dsel region against the exclusive saturating
 	// closed form for the given direction and learned nb.
-	bool fingerprint_dsel_exclusive(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel_exclusive(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                                const SigSpec &en_sig, bool msb_first, int nb,
 	                                int64_t cone_est)
 	{
@@ -1759,7 +1844,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		return true;
 	}
 
-	bool fingerprint_dsel_exclusive_and2(ConstEval &ce, const SigSpec &root, int n, int field_w,
+	bool fingerprint_dsel_exclusive_and2(LazyEval &ce, const SigSpec &root, int n, int field_w,
 	                                     const SigSpec &en_sig, bool msb_first, int nb,
 	                                     int64_t cone_est)
 	{
@@ -1783,7 +1868,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	}
 
 	// Fingerprint a candidate done bus == grant[] for the exclusive region.
-	bool fingerprint_done_exclusive(ConstEval &ce, const SigSpec &done_root, const Region &rg,
+	bool fingerprint_done_exclusive(LazyEval &ce, const SigSpec &done_root, const Region &rg,
 	                                int64_t cone_est)
 	{
 		int n = rg.n, nb = rg.nb;
@@ -1826,7 +1911,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	// the gather is a pure function of (dsel,done,data), and for the and2
 	// enable the en leaves overlap the low data words -- forcing en here would
 	// double-assign those bits, so we drive only (dsel,done,data).
-	bool fingerprint_gather_exclusive(ConstEval &ce, const SigSpec &root, const Region &rg,
+	bool fingerprint_gather_exclusive(LazyEval &ce, const SigSpec &root, const Region &rg,
 	                                  const SigSpec &dsel_sig, const SigSpec &done_sig,
 	                                  bool has_done, const SigSpec &attr_sig, int a,
 	                                  int slots, int slot_w, int64_t cone_est,
@@ -1991,7 +2076,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		// We do not strictly require this for correctness (the fingerprint
 		// is authoritative), but it weeds out unrelated buses cheaply.
 
-		ConstEval ce(module);
+		LazyEval ce{*this};
 
 		// Learn f(v): force lane 0 (priority E0) the sole leader with attr=v.
 		int e0_lane = rg.msb_first ? (rg.n - 1) : 0;
@@ -2186,7 +2271,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 	bool match_exclusive_done(const Region &rg, SigSpec &done_sig)
 	{
 		int n = rg.n;
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		vector<SigSpec> cands;
 		pool<SigSpec> seen;
 		SigSpec en_map = sigmap(rg.en_sig);
@@ -2461,7 +2546,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			}
 		}
 
-		ConstEval ce(module);
+		LazyEval ce{*this};
 		int64_t cone_est = GetSize(cone_cells) + 16;
 		// Hold-Q leaves must be forced for ConstEval; value is don't-care when
 		// the update mux selects the new payload (identity / fingerprint cases).
@@ -2557,7 +2642,54 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		SigSpec sig;
 		std::string name;
 		int n, elem;
+		bool partial = false; // full-width guess over a partially read bus
+		int order = 0;        // preference rank among a bus's guesses
 	};
+
+	// Do two roots share a real (wire) bit? Distinct full-width guesses over
+	// the same partially read bus do, so they must never be paired as a
+	// dsel root and its xbar sibling: both would re-drive the same bits.
+	bool roots_overlap(const SigSpec &a, const SigSpec &b)
+	{
+		pool<SigBit> bits;
+		for (auto bit : sigmap(a))
+			if (bit.wire)
+				bits.insert(bit);
+		for (auto bit : sigmap(b))
+			if (bit.wire && bits.count(bit))
+				return true;
+		return false;
+	}
+
+	// Plausible full lane counts for a partial root: the widths of module wires
+	// that could carry the per-lane enable. The allocator's enable bus survives
+	// even when most dsel lanes are dead, so its width is the lane count.
+	// Powers of two come first (lane counts nearly always are one), then the
+	// rest ascending; match_dsel re-validates each guess by requiring a real
+	// width-n lane bus in the cone, so a wrong guess costs one cone walk.
+	const vector<int> &partial_lane_counts()
+	{
+		if (!partial_n_done) {
+			partial_n_done = true;
+			pool<int> widths;
+			for (auto w : module->wires()) {
+				int width = GetSize(w);
+				if (width >= min_n && width <= max_n)
+					widths.insert(width);
+			}
+			for (auto width : widths)
+				partial_n_cache.push_back(width);
+			std::sort(partial_n_cache.begin(), partial_n_cache.end(),
+			          [](int a, int b) {
+			              bool pa = (a & (a - 1)) == 0, pb = (b & (b - 1)) == 0;
+			              if (pa != pb)
+			                  return pa;
+			              return a < b;
+			          });
+		}
+		return partial_n_cache;
+	}
+
 	vector<RootSplit> collect_split_roots()
 	{
 		vector<RootSplit> roots;
@@ -2565,7 +2697,13 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 		for (auto w : module->wires())
 			all.push_back(w);
 		for (auto &bus : collect_split_buses(all)) {
-			if (bus.entries < min_n || bus.entries > max_n)
+			bool exact_ok = bus.entries >= min_n && bus.entries <= max_n;
+			// A partially consumed dsel bus falls below min_n but still anchors
+			// a full-width region; see the partial-root block below. Scoped to
+			// buses that are otherwise dropped outright, so a bus wide enough to
+			// be a root on its own never spends budget on full-width guesses.
+			bool partial_ok = partial_root && bus.entries >= 1 && bus.entries < min_n;
+			if (!exact_ok && !partial_ok)
 				continue;
 			if (bus.elem_width < 1 || bus.elem_width > max_field_w)
 				continue;
@@ -2592,14 +2730,15 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 				}
 			if (!any_driven)
 				continue;
-			roots.push_back({bus.sig, bus.name, bus.entries, bus.elem_width});
+			if (exact_ok)
+				roots.push_back({bus.sig, bus.name, bus.entries, bus.elem_width});
 
 			// Root padding: Verific drops always-zero low lanes (e.g.
 			// lane_sel[0], which is rank 0 == 0), leaving a split bus that
 			// starts at a nonzero base index. Offer a full n-lane root with the
 			// missing low lanes padded to constant 0 (the exclusive closed form
 			// assigns rank 0 -> 0 there, so the padded lanes fingerprint clean).
-			if (bus.sig[0].wire) {
+			if (exact_ok && bus.sig[0].wire) {
 				std::string base;
 				int base_index = -1;
 				if (parse_indexed_port_name(bus.sig[0].wire, base, base_index) &&
@@ -2612,10 +2751,52 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 					}
 				}
 			}
+
+			// Partial dsel root: when downstream reads only some of the
+			// allocator's lanes, opt_clean deletes the rest and leaves a split
+			// bus with fewer entries than the region has lanes. The survivors
+			// keep their indexed names, so the run's base index tells us where
+			// they sit; offer full-width roots with the unread lanes marked Sx.
+			// Unlike the zero-padding above those lanes are not checked at all,
+			// because a lane no cell reads cannot be observed.
+			if (partial_ok && bus.sig[0].wire) {
+				std::string base;
+				int base_index = -1;
+				if (parse_indexed_port_name(bus.sig[0].wire, base, base_index) &&
+				    base_index >= 0) {
+					int hi = base_index + bus.entries; // observed lanes [base_index, hi)
+					int added = 0;
+					for (int n_full : partial_lane_counts()) {
+						if (added >= max_partial_roots)
+							break;
+						if (n_full <= bus.entries || n_full < hi)
+							continue;
+						SigSpec sparse;
+						if (base_index > 0)
+							sparse.append(SigSpec(State::Sx,
+							                      base_index * bus.elem_width));
+						sparse.append(bus.sig);
+						if (n_full > hi)
+							sparse.append(SigSpec(State::Sx,
+							                      (n_full - hi) * bus.elem_width));
+						roots.push_back({sparse, bus.name, n_full,
+						                 bus.elem_width, true, added});
+						added++;
+					}
+				}
+			}
 		}
-		// widest fields first (real index buses are the deep ones)
+		// Widest fields first (real index buses are the deep ones). Guessed
+		// full-width roots come last, in their own preference order, so a real
+		// bus is always tried before a reconstruction of a partial one.
 		std::stable_sort(roots.begin(), roots.end(),
-		                 [](const RootSplit &a, const RootSplit &b) { return a.n > b.n; });
+		                 [](const RootSplit &a, const RootSplit &b) {
+		                     if (a.partial != b.partial)
+		                         return !a.partial;
+		                     if (a.partial)
+		                         return a.order < b.order;
+		                     return a.n > b.n;
+		                 });
 		return roots;
 	}
 
@@ -2707,7 +2888,7 @@ struct OptFirstFitAllocWorker : CutRegionWorker {
 			XbarCand xb;
 			bool have_xbar = false;
 			for (auto &cand : roots) {
-				if (cand.sig == rg.dsel_sig)
+				if (roots_overlap(cand.sig, rg.dsel_sig))
 					continue;
 				if (root_claimed(cand.sig))
 					continue;
@@ -2796,6 +2977,14 @@ struct OptFirstFitAllocPass : public Pass {
 		log("    -min-width N, -max-width N\n");
 		log("        lane-count range to consider (default 4..64).\n");
 		log("\n");
+		log("    -partial-root\n");
+		log("        also anchor on a dsel bus whose unread lanes were dead-code\n");
+		log("        eliminated, guessing the full lane count from the module's\n");
+		log("        wire widths. The unread lanes are not fingerprinted (nothing\n");
+		log("        observes them) and are not re-driven. Only buses too narrow\n");
+		log("        to be a root on their own (fewer than -min-width entries) are\n");
+		log("        rescued, so the extra sweep stays bounded. Off by default.\n");
+		log("\n");
 		log("    -walk-budget N, -eval-budget N, -attempt-budget N\n");
 		log("        per-module work limits for the candidate search.\n");
 		log("\n");
@@ -2806,9 +2995,14 @@ struct OptFirstFitAllocPass : public Pass {
 		log_header(design, "Executing OPT_FIRST_FIT_ALLOC pass (greedy first-fit allocator rewrite).\n");
 
 		int min_n = 4, max_n = 64;
+		bool partial_root = false;
 		int64_t walk_budget = -1, eval_budget = -1, attempt_budget = -1;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
+			if (args[argidx] == "-partial-root" || args[argidx] == "-partial_root") {
+				partial_root = true;
+				continue;
+			}
 			if ((args[argidx] == "-min-width" || args[argidx] == "-min_width") && argidx + 1 < args.size()) {
 				min_n = std::stoi(args[++argidx]);
 				continue;
@@ -2839,6 +3033,7 @@ struct OptFirstFitAllocPass : public Pass {
 			OptFirstFitAllocWorker worker(module);
 			worker.min_n = min_n;
 			worker.max_n = max_n;
+			worker.partial_root = partial_root;
 			if (walk_budget > 0)
 				worker.walk_budget = walk_budget;
 			if (eval_budget > 0)

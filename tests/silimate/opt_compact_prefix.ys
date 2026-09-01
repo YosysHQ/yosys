@@ -1,4 +1,9 @@
 # Tests for opt_compact_prefix.
+#
+# The pass is scoped to `gate` in every self-equivalence test below. `gold` already
+# exists by that point, and with no selection argument opt_compact_prefix runs on every
+# module in the design, so a bare `opt_compact_prefix` optimizes `gold` too and the miter
+# compares optimized against optimized.
 
 log -header "Forward dense pack self-equivalence"
 log -push
@@ -13,9 +18,8 @@ rename opt_compact_prefix_pack gold
 read -sv opt_compact_prefix_pack.sv
 verific -import opt_compact_prefix_pack
 proc; opt_clean
-opt_compact_prefix
-opt_clean
 rename opt_compact_prefix_pack gate
+opt_compact_prefix gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -54,9 +58,8 @@ rename opt_compact_prefix_sub gold
 read -sv opt_compact_prefix_sub.sv
 verific -import opt_compact_prefix_sub
 proc; opt_clean
-opt_compact_prefix
-opt_clean
 rename opt_compact_prefix_sub gate
+opt_compact_prefix gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -208,9 +211,8 @@ rename opt_compact_prefix_addneg gold
 read -sv opt_compact_prefix_addneg.sv
 verific -import opt_compact_prefix_addneg
 proc; opt_clean
-opt_compact_prefix
-opt_clean
 rename opt_compact_prefix_addneg gate
+opt_compact_prefix gate; select -clear; opt_clean
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -364,10 +366,9 @@ rename opt_compact_prefix_mod8 gold
 read -sv opt_compact_prefix_mod.sv
 verific -import opt_compact_prefix_mod8
 proc; opt_clean
-opt_compact_prefix
-opt_clean
-bmuxmap
 rename opt_compact_prefix_mod8 gate
+opt_compact_prefix gate; select -clear; opt_clean
+bmuxmap  # symmetric lowering: sat needs $bmux mapped away on both arms
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
@@ -389,10 +390,9 @@ rename opt_compact_prefix_mod_lsb8 gold
 read -sv opt_compact_prefix_mod.sv
 verific -import opt_compact_prefix_mod_lsb8
 proc; opt_clean
-opt_compact_prefix
-opt_clean
-bmuxmap
 rename opt_compact_prefix_mod_lsb8 gate
+opt_compact_prefix gate; select -clear; opt_clean
+bmuxmap  # symmetric lowering: sat needs $bmux mapped away on both arms
 
 miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter

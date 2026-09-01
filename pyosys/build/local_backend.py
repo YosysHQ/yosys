@@ -22,7 +22,7 @@ if version_override := os.getenv("PYOSYS_VERSION_OVERRIDE"):
 else:
 	PROJECT_VERSION = subprocess.check_output([
 		"cmake",
-		f"-DCMAKE_SOURCE_DIR={os.getcwd()}",
+		f"-DYOSYS_CMAKE_SOURCE_DIR={os.getcwd()}",
 		"-P", "cmake/GetPyosysVersion.cmake"
 	], encoding="ascii").strip()
 DIST_NAME = f"{PROJECT_NAME}-{PROJECT_VERSION}"

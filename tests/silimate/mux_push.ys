@@ -808,6 +808,205 @@ design -reset
 log -pop
 
 
+log -header "-farm-select: a shift distributes over a per-bit select farm"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+           input [53:0] sel, output [53:0] y);
+  wire [53:0] g = d >> amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >> s;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+check -assert
+select -assert-count 54 t:$mux
+select -assert-count 2 t:$shr
+
+# Every bit of the operand carries its own mux, so there is no bus-wide select
+# for the ordinary push to find and the shift stays queued behind the farm. A
+# shift maps each output bit to one input bit or to the fill, so it distributes:
+# f(sel ? b : a) == f(sel) ? f(b) : f(a). Three clones then run in parallel where
+# one shift ran after the muxes, and the g arm's clone lands on top of the shift
+# already driving it -- 13 levels before, 10 after.
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -set shr_fanin t:$shr %ci*
+select -set mux_cells t:$mux
+select -assert-count 0 @shr_fanin @mux_cells %i
+# One clone per arm plus one for the select vector, over the inner shift.
+select -assert-count 4 t:$shr
+# The fold is the payoff, and -combine is what collects it.
+opt_shift -combine; opt_clean
+select -assert-count 3 t:$shr
+
+design -reset
+log -pop
+
+
+log -header "-farm-select: mixed directions, truncation, and sign fill"
+log -push
+design -reset
+read_verilog <<EOF
+module m_mixed(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+               input [53:0] sel, output [53:0] y);
+  wire [53:0] g = d << amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >> s;
+endmodule
+module m_narrow(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+                input [53:0] sel, output [19:0] y);
+  wire [53:0] g = d >> amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >> s;
+endmodule
+module m_sshr(input signed [31:0] d, input signed [31:0] b, input [4:0] amt,
+              input [4:0] s, input [31:0] sel, output signed [31:0] y);
+  wire signed [31:0] g = d >>> amt;
+  reg  signed [31:0] p;
+  integer i;
+  always @* for (i = 0; i < 32; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >>> s;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+check -assert
+
+# The three ways the clones can disagree with the original if the parameters are
+# not copied verbatim. m_mixed folds to amt - s, so the combined amount goes
+# negative and the fill flips sides. m_narrow truncates, so every clone has to
+# cut at the same place. m_sshr fills with the sign bit rather than zero, so the
+# select clone has to sign-fill identically or the top bits pick the wrong arm --
+# a zero-filled select vector reads "arm A" there and silently drops the fill.
+equiv_opt -assert -multiclock muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -set sh_fanin t:$shr t:$shl t:$sshr %% %ci*
+select -set mux_cells t:$mux
+select -assert-count 0 @sh_fanin @mux_cells %i
+
+design -reset
+log -pop
+
+
+log -header "-farm-select: negative cases where no arm folds"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input [53:0] a, input [53:0] b, input [4:0] s,
+           input [53:0] sel, output [53:0] y);
+  reg [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? a[i] : b[i];
+  assign y = p >> s;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+check -assert
+
+# Both arms are ports, so there is no inner barrel to fold into. The push would
+# trade one shift for three and buy nothing: the arms and the select all arrive
+# together either way. Firing on farm shape alone would take this one.
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -assert-count 1 t:$shr
+design -reset
+
+# Same fold as the first group, but the select is a comparator that arrives as
+# late as the arm it would ride behind, so the select's own clone costs back the
+# level the fold saves.
+read_verilog <<EOF
+module top(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+           input [5:0] thr, output [53:0] y);
+  wire [53:0] g = d >> amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = (i < thr) ? b[i] : g[i];
+  assign y = p >> s;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -assert-count 2 t:$shr
+
+design -reset
+log -pop
+
+
+log -header "-farm-select: a module port reading the inner shift blocks the fold"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+           input [53:0] sel, output [53:0] y, output [53:0] g_o);
+  wire [53:0] g = d >> amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >> s;
+  assign g_o = g;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+check -assert
+design -save escaping_inner
+
+# The first group's netlist with the inner shift also brought out as a port.
+# -combine only folds when the clone is the inner shift's sole reader, and the
+# port keeps it above that. The port is not a cell, so it is absent from the
+# consumer map the fold check walks: counting cells alone reads this as foldable,
+# prices a saving -combine then declines, and leaves two extra barrels for
+# nothing. Pushes here are pure area, so the guard must decline.
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -assert-count 2 t:$shr
+design -reset
+
+# The same netlist without the escaping port does push, so the group above is the
+# guard declining a real candidate rather than a shape the pass never matched.
+design -load escaping_inner
+delete top/g_o
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select
+design -load postopt
+select -assert-count 4 t:$shr
+
+design -reset
+log -pop
+
+
+log -header "-farm-gain: a higher bar declines a farm the default takes"
+log -push
+design -reset
+read_verilog <<EOF
+module top(input [53:0] d, input [53:0] b, input [4:0] amt, input [4:0] s,
+           input [53:0] sel, output [53:0] y);
+  wire [53:0] g = d >> amt;
+  reg  [53:0] p;
+  integer i;
+  always @* for (i = 0; i < 54; i = i + 1) p[i] = sel[i] ? b[i] : g[i];
+  assign y = p >> s;
+endmodule
+EOF
+proc; opt_expr; opt_clean
+check -assert
+
+# The first group's netlist, which buys exactly three levels. Asking for four
+# declines it, so the threshold is what gates the rewrite rather than the match.
+equiv_opt -assert muxpush -limit 4 -types $shl,$shr,$sshl,$sshr -farm-select -farm-gain 4
+design -load postopt
+select -assert-count 2 t:$shr
+
+design -reset
+log -pop
+
+
 log -header "-slack-margin rejects a negative allowance (ends the script, keep last)"
 log -push
 design -reset

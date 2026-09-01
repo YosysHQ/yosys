@@ -1,0 +1,99 @@
+# Arrival scheduling (-schedule, off by default): an operand enters the compressor
+# tree at the level its own logic arrives, so a late one is held back and crosses
+# one compressor instead of all of them. The forward cone of the late operand
+# counts the compressors it passes through, the property the schedule shrinks.
+
+# Four early operands and one arriving well after them. Scheduled, the late
+# operand joins only the last compressor; by default it enters at level 0 and
+# crosses two of the three.
+read_verilog <<EOT
+module late_operand(
+	input [15:0] a, b, c, d, u, v,
+	output [17:0] y
+);
+	wire [15:0] late = ((u + v) * 3) + (u ^ v);
+	assign y = a + b + c + d + late;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+design -save gold
+
+equiv_opt -assert arith_tree -strategy fa -final ripple -schedule
+design -load postopt
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$mul %co* t:$fa %i
+
+design -load gold
+equiv_opt -assert arith_tree -strategy fa -final ripple
+design -load postopt
+select -assert-count 3 t:$fa
+select -assert-count 2 t:$mul %co* t:$fa %i
+design -reset
+
+# Three operands cannot benefit: one compressor takes all of them, so there is no
+# level for a late operand to skip and reordering only risks landing a fast signal
+# on the adder's slow port. Scheduling is therefore skipped, and the tree reports
+# the same relative depth it would without it.
+read_verilog <<EOT
+module three_operand_gate(
+	input [15:0] a, b, u, v,
+	output [17:0] y
+);
+	wire [15:0] late = ((u + v) * 3) + (u ^ v);
+	assign y = a + b + late;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+design -save gold
+
+logger -expect log "final depth 3" 1
+arith_tree -strategy fa -final ripple -schedule
+logger -check-expected
+
+design -load gold
+logger -expect log "final depth 3" 1
+arith_tree -strategy fa -final ripple
+logger -check-expected
+design -reset
+
+# Operands that arrive together must not be split apart by near-equal depth
+# estimates: the products below differ only in their operand widths, so their
+# arrivals cluster and the tree keeps the regular grouping it would pick anyway.
+read_verilog <<EOT
+module equal_arrivals(
+	input [7:0] a, b, c, d,
+	input [6:0] e, f,
+	output [17:0] y
+);
+	assign y = a * b + c * d + e * f;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -strategy 42 -final ripple -schedule
+design -load postopt
+select -assert-count 1 t:$fa
+design -reset
+
+# Signed operands reach the tree through sign extension and a negated row, both
+# of which the arrival estimate has to account for.
+read_verilog <<EOT
+module signed_late(
+	input signed [15:0] a, b, c,
+	input signed [15:0] u, v,
+	output signed [17:0] y
+);
+	wire signed [15:0] late = ((u + v) * 3) + (u ^ v);
+	assign y = a + b - c + late;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -strategy fa -final ripple -schedule
+design -load postopt
+# a, b, late, the inverted c and its +1 row: five operands, so three compressors.
+select -assert-count 3 t:$fa
+select -assert-count 1 t:$mul %co* t:$fa %i
+design -reset

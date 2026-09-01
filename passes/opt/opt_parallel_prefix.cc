@@ -89,7 +89,8 @@ struct PrefixNet {
 		Cell* cell = ref_cell;
 		Wire* y = m->addWire(NEW_ID2_SUFFIX("pp_y"), out_width);
 		Cell* c = m->addCell(NEW_ID2_SUFFIX("pp"), op);
-		c->attributes = *ref_attributes;
+		if (ref_attributes->count(ID::src))
+			c->attributes[ID::src] = ref_attributes->at(ID::src);
 		c->setPort(ID::A, a);
 		c->setPort(ID::B, b);
 		c->setPort(ID::Y, y);

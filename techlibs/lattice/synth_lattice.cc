@@ -104,10 +104,7 @@ struct SynthLatticePass : public ScriptPass
 		log("        do not flatten design before synthesis\n");
 		log("\n");
 		log("    -dff\n");
-		log("        run 'abc'/'abc9' with -dff option\n");
-		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
+		log("        run 'abc9' with -dff option\n");
 		log("\n");
 		log("    -noccu2\n");
 		log("        do not use CCU2 cells in output netlist\n");
@@ -130,12 +127,6 @@ struct SynthLatticePass : public ScriptPass
 		log("\n");
 		log("    -asyncprld\n");
 		log("        use async PRLD mode to implement ALDFF (EXPERIMENTAL)\n");
-		log("\n");
-		log("    -abc2\n");
-		log("        run two passes of 'abc' for slightly improved logic density\n");
-		log("\n");
-		log("    -noabc9\n");
-		log("        disable use of new ABC9 flow\n");
 		log("\n");
 		log("    -iopad\n");
 		log("        insert IO buffers\n");
@@ -170,9 +161,9 @@ struct SynthLatticePass : public ScriptPass
 	}
 
 	string top_opt, edif_file, json_file, family, latches;
-	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, retime, abc2, abc9, iopad, nodsp, no_rw_check, have_dsp;
+	bool noccu2, nodffe, nobram, nolutram, nowidelut, asyncprld, flatten, dff, iopad, nodsp, no_rw_check, have_dsp;
 	bool cmp2softlogic;
-	string postfix, arith_map, brams_map, dsp_map, cells_map, map_ram_default, widelut_abc;
+	string postfix, arith_map, brams_map, dsp_map, cells_map, map_ram_default;
 	bool is_nexus;
 	std::vector<DSPRule> dsp_rules;
 
@@ -190,9 +181,6 @@ struct SynthLatticePass : public ScriptPass
 		asyncprld = false;
 		flatten = true;
 		dff = false;
-		retime = false;
-		abc2 = false;
-		abc9 = true;
 		iopad = false;
 		nodsp = false;
 		no_rw_check = false;
@@ -206,13 +194,11 @@ struct SynthLatticePass : public ScriptPass
 		is_nexus = false;
 		map_ram_default = "";
 		cells_map = "";
-		widelut_abc = "4:7";
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		string run_from, run_to;
-		bool force_abc9 = false;
 		bool force_widelut = false;
 		bool force_iopad = false;
 		clear_flags();
@@ -257,7 +243,7 @@ struct SynthLatticePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
-				retime = true;
+				// Removed: ABC9 does not support retiming.
 				continue;
 			}
 			if (args[argidx] == "-noccu2") {
@@ -291,17 +277,15 @@ struct SynthLatticePass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-abc2") {
-				abc2 = true;
+				// Removed
 				continue;
 			}
 			if (args[argidx] == "-abc9") {
-				// removed, ABC9 is on by default.
-				force_abc9 = true;
+				// Removed: ABC9 is on by default.
 				continue;
 			}
 			if (args[argidx] == "-noabc9") {
-				force_abc9 = true;
-				abc9 = false;
+				// Removed: ABC9 is on by default.
 				continue;
 			}
 			if (args[argidx] == "-iopad") {
@@ -358,7 +342,6 @@ struct SynthLatticePass : public ScriptPass
 			cells_map = "_trellis";
 			have_dsp = false;
 			if (!force_widelut) nowidelut = true;
-			if (!force_abc9) abc9 = false;
 		} else if (family == "lifcl" ||
 			family == "lfd2nx") {
 			is_nexus = true;
@@ -370,9 +353,7 @@ struct SynthLatticePass : public ScriptPass
 			have_dsp = true;
 			map_ram_default = " -no-auto-huge";
 			cells_map = "_nexus";
-			widelut_abc = "4:5";
 			if (!force_iopad) iopad = true;
-			if (!force_abc9) abc9 = false;
 /*		} else if (family == "xo" ||
 				family == "pm") {
 		} else if (family == "xp" ||
@@ -388,9 +369,6 @@ struct SynthLatticePass : public ScriptPass
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
-
-		if (abc9 && retime)
-				log_cmd_error("-retime option not currently compatible with -abc9!\n");
 
 		log_header(design, "Executing SYNTH_LATTICE pass.\n");
 		log_push();
@@ -500,8 +478,6 @@ struct SynthLatticePass : public ScriptPass
 				run("attrmvcp -attr src -attr LOC -driven t:IB %x:+[I]");
 			}
 			run("opt -fast");
-			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -532,8 +508,8 @@ struct SynthLatticePass : public ScriptPass
 				run("dfflegalize" + dfflegalize_args, "($_*DFFE_* only if not -nodffe)");
 			}
 			run("opt_merge");
-			if ((abc9 && dff) || help_mode)
-				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -abc9 and -dff)");
+			if (dff || help_mode)
+				run("zinit -all w:* t:$_DFF_?_ t:$_DFFE_??_ t:$_SDFF*", "(only if -dff)");
 			run("techmap -D NO_LUT -map +/lattice/cells_map" + cells_map + ".v");
 			run("opt_expr -undriven -mux_undef");
 			run("simplemap");
@@ -544,38 +520,23 @@ struct SynthLatticePass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (abc2 || help_mode)
-				run("abc", "      (only if -abc2)");
 			if (!asyncprld || help_mode) {
 				if (latches == "error" || help_mode)
 					run("check -latchonly -assert", "(skip if -asyncprld; only if -latches error, the default)");
 				run("techmap -map +/lattice/latches_map.v", "(skip if -asyncprld)");
 			}
 
-			if (abc9) {
-				std::string abc9_opts;
-				if (nowidelut)
-					abc9_opts += " -maxlut 4";
-				std::string k = "synth_lattice.abc9.W";
-				if (active_design && active_design->scratchpad.count(k))
-					abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
-				else
-					abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
-				if (nowidelut)
-					abc9_opts += " -maxlut 4";
-				if (dff)
-					abc9_opts += " -dff";
-				run("abc9" + abc9_opts);
-			} else {
-				std::string abc_args = " -dress";
-				if (nowidelut)
-					abc_args += " -lut 4";
-				else
-					abc_args += " -lut " + widelut_abc;
-				if (dff)
-					abc_args += " -dff";
-				run("abc" + abc_args);
-			}
+			std::string abc9_opts;
+			std::string k = "synth_lattice.abc9.W";
+			if (active_design && active_design->scratchpad.count(k))
+				abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
+			else
+				abc9_opts += stringf(" -W %s", RTLIL::constpad.at(k));
+			if (nowidelut)
+				abc9_opts += " -maxlut 4";
+			if (dff)
+				abc9_opts += " -dff";
+			run("abc9" + abc9_opts);
 			run("clean");
 		}
 

@@ -1,0 +1,382 @@
+# Tests for opt_accum_enable
+#
+# Each group exercises a specific facet:
+#   A: the rewrite itself -- the gate next to the adder, the gate behind a
+#      zero-preserving network, an $and mask instead of a mux, and the other
+#      identity updates ($sub/$or/$xor).
+#   B: the soundness guards -- a gated value read somewhere else, an "off" arm
+#      that is not zero, an update that is not `q OP z`, a sum observed
+#      combinationally, and a mask that clears bits a bypass would not.
+#   C: the register shapes -- an enable already present, a sync reset, and an
+#      inverted gate arm.
+#
+# The update the gate used to zero becomes an observability don't-care once the
+# register holds, so gold and gate deliberately differ on internal nodes and
+# only the module outputs agree. Positive groups therefore prove equivalence
+# with a sequential miter rather than equiv_opt.
+
+# ============================================================================
+# Group A: fold the condition that zeroes the increment onto the enable
+# ============================================================================
+
+# A1: the plain shape. `hit` gates the increment, so the register holds while
+# it is low and the compare belongs on the enable, not in front of the adder.
+log -header "A1: gated increment next to the adder"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  always @(posedge clk) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+design -save gold
+select -assert-count 0 t:$dffe
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$dffe
+log -pop
+
+# A2: the same fold has to keep the outputs, even though `inc` and the adder
+# result both change while `hit` is low.
+log -header "A2: output equivalence of the A1 fold"
+log -push
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# A3: the gate sits behind a network of zero-preserving ops (one-hot spray,
+# or, xor, select, shift). Zero in still means zero out, so the hold proof has
+# to walk all of it, not just the cell feeding the adder.
+log -header "A3: gate behind a zero-preserving network"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            input wire [1:0] sel, input wire sh, output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  wire [7:0] c0 = (sel == 2'd0) ? inc : 8'd0;
+  wire [7:0] c1 = (sel == 2'd1) ? inc : 8'd0;
+  wire [7:0] c2 = (sel == 2'd2) ? inc : 8'd0;
+  wire [7:0] c3 = (sel == 2'd3) ? inc : 8'd0;
+  wire [7:0] lo = c0 | c1;
+  wire [7:0] hi = c2 ^ c3;
+  wire [7:0] fin = sh ? {lo[6:0], 1'b0} : (lo | hi);
+  always @(posedge clk) acc <= acc + {8'd0, fin};
+endmodule
+EOF
+prep -top top
+design -save gold
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$dffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# A4: a full-width replicated $and is the same gate spelled without a mux.
+log -header "A4: replicated and-mask as the gate"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = d & {8{hit}};
+  always @(posedge clk) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+design -save gold
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$dffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# A5: subtract, or and xor hold on zero just like add does. Each gets its own
+# gate, since one gate feeding several updates is out of scope (see B6).
+log -header "A5: the other identity updates"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] sub_acc, output reg [7:0] or_acc,
+            output reg [7:0] xor_acc);
+  wire hit = d >= lim;
+  wire [7:0] sub_inc = hit ? d : 8'd0;
+  wire [7:0] or_inc  = hit ? (d ^ 8'h5a) : 8'd0;
+  wire [7:0] xor_inc = hit ? (d + 8'd1) : 8'd0;
+  always @(posedge clk) begin
+    sub_acc <= sub_acc - {8'd0, sub_inc};
+    or_acc  <= or_acc | or_inc;
+    xor_acc <= xor_acc ^ xor_inc;
+  end
+endmodule
+EOF
+prep -top top
+design -save gold
+opt_accum_enable
+opt_clean
+select -assert-count 3 t:$dffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# ============================================================================
+# Group B: refuse folds whose justification does not hold
+# ============================================================================
+
+# B1: the gated value leaves the module, so dropping the gate is observable
+# somewhere the new enable does not cover.
+log -header "B1: gated value read outside the accumulate"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output wire [7:0] gated, output reg [15:0] acc);
+  wire hit = d >= lim;
+  assign gated = hit ? d : 8'd0;
+  always @(posedge clk) acc <= acc + {8'd0, gated};
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# B2: the "off" arm is 1, not 0, so the register does not hold and the
+# condition is not an enable.
+log -header "B2: non-zero off arm"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd1;
+  always @(posedge clk) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# B3: the register is not an operand of the update, so a zero increment says
+# nothing about whether it holds.
+log -header "B3: update is not q OP z"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            input wire [15:0] base, output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  always @(posedge clk) acc <= base + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# B4: the sum itself is read combinationally, so it may not become a
+# don't-care while the register holds.
+log -header "B4: sum observed outside the register"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output wire [15:0] nxt_o, output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  wire [15:0] nxt = acc + {8'd0, inc};
+  assign nxt_o = nxt;
+  always @(posedge clk) acc <= nxt;
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# B5: the mask also clears the high half, which the bypassed value would not
+# reproduce, so this $and is not a gate the pass may drop.
+log -header "B5: mask that is not a full-width replication"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = d & {4'b0, {4{hit}}};
+  always @(posedge clk) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# B6: one gate feeding two accumulators would need both registers to take the
+# enable together. The pass folds onto a single register, so it declines.
+log -header "B6: gate shared by two accumulators"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc, output reg [15:0] acc2);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  always @(posedge clk) begin
+    acc  <= acc + {8'd0, inc};
+    acc2 <= acc2 - {8'd0, inc};
+  end
+endmodule
+EOF
+prep -top top
+opt_accum_enable
+select -assert-count 0 t:$dffe
+log -pop
+
+# ============================================================================
+# Group C: register shapes around the fold
+# ============================================================================
+
+# C1: an enable is already there, so the condition has to be ANDed onto it
+# rather than replace it. opt_dff turns the enable into a real CE pin first;
+# without it prep leaves the enable as a mux on D, which the pass peels instead.
+log -header "C1: existing enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire en, input wire [7:0] d,
+            input wire [7:0] lim, output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  always @(posedge clk) if (en) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+opt_dff
+opt_clean
+design -save gold
+select -assert-count 1 t:$dffe
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$dffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# C2: a sync reset still has to win over the new enable term. opt_dff turns the
+# reset mux into an SRST pin; left as a mux on D it is not a hold and the pass
+# refuses to peel it.
+log -header "C2: sync reset ahead of the folded enable"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire rst, input wire [7:0] d,
+            input wire [7:0] lim, output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? d : 8'd0;
+  always @(posedge clk)
+    if (rst) acc <= 16'd0;
+    else acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+opt_dff
+opt_clean
+design -save gold
+select -assert-count 1 t:$sdff
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$sdffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop
+
+# C3: the zero is on the other arm, so the register holds while the select is
+# high and the enable takes the inverted condition.
+log -header "C3: zero on the true arm"
+log -push
+design -reset
+read_verilog -sv <<EOF
+module top (input wire clk, input wire [7:0] d, input wire [7:0] lim,
+            output reg [15:0] acc);
+  wire hit = d >= lim;
+  wire [7:0] inc = hit ? 8'd0 : d;
+  always @(posedge clk) acc <= acc + {8'd0, inc};
+endmodule
+EOF
+prep -top top
+design -save gold
+opt_accum_enable
+opt_clean
+select -assert-count 1 t:$dffe
+design -load gold
+rename top gate
+opt_accum_enable
+opt_clean
+design -save gate
+design -load gold
+design -copy-from gate -as gate gate
+miter -equiv -flatten -make_assert top gate miter
+hierarchy -top miter
+sat -tempinduct -prove-asserts -set-init-zero
+log -pop

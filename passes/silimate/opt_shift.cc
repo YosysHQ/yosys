@@ -295,6 +295,287 @@ struct GatherFuser
   }
 };
 
+// Compose two back-to-back barrels that -combine cannot see, because the outer
+// one reads its operand as a constant-padded slice rather than as the inner Y
+// whole. That spelling is what a part-select or an opt_vps gather table leaves
+// behind, and it is the usual reason a datapath of cascaded variable shifts
+// keeps every one of its barrels.
+//
+//   out[j] = pad(in_y)[j + so*c],  pad(in_y)[k] = in_y[k + off],
+//   in_y[m] = in_a[m + si*b]
+//     ===>  out[j] = in_a[j + so*c + si*b + off]
+//
+// Unlike -fuse this stays a plain shift: the amount is the signed sum of the two
+// rather than a residue, so it needs clog2 of their sum rather than of the
+// modulus, and the barrel it leaves is narrower than the pair it replaces. The
+// sum can go negative where the two shifts oppose, so the A port is pre-padded
+// by that much and the padding absorbs it, keeping one unsigned $shr.
+struct ChainCombiner
+{
+  Module *module;
+  SigMap sigmap;
+  dict<SigBit, Cell *> drivers;
+  dict<SigBit, int> readers;
+  int max_pad_bits;
+  bool keep_live_inner;
+  int combined = 0;
+
+  ChainCombiner(Module *module, int max_pad_bits, bool keep_live_inner)
+    : module(module), sigmap(module), max_pad_bits(max_pad_bits),
+      keep_live_inner(keep_live_inner)
+  {
+    for (auto cell : module->cells())
+      for (auto &conn : cell->connections()) {
+        for (auto bit : sigmap(conn.second))
+          if (cell->output(conn.first))
+            drivers[bit] = cell;
+          else
+            readers[bit]++;
+      }
+    // A module port reads without being a cell, so count it as a reader or the
+    // inner shift looks dead and its output gets rewritten out from under it.
+    for (auto wire : module->wires())
+      if (wire->port_output)
+        for (auto bit : sigmap(wire))
+          readers[bit]++;
+  }
+
+  static bool is_plain_shift(Cell *cell)
+  {
+    return cell != nullptr && cell->type.in(ID($shl), ID($shr)) &&
+           !cell->getPort(ID::B).is_fully_const() &&
+           !cell->getParam(ID::A_SIGNED).as_bool() &&
+           !cell->getParam(ID::B_SIGNED).as_bool();
+  }
+
+  // +1 for a right shift, -1 for a left one, so both read Y[j] = A[j + sgn*amt]
+  static int direction(Cell *cell) { return cell->type == ID($shr) ? 1 : -1; }
+
+  // Read `outer`'s A port as one shift's Y at a constant offset: every wire bit
+  // at position k must be inner_y[k + off] for a single off. Constant lanes are
+  // padding and are checked against the composed index separately.
+  Cell *match_padded_source(Cell *outer, int &off, const char **why)
+  {
+    auto no = [&](const char *reason) -> Cell * { *why = reason; return nullptr; };
+    SigSpec s = sigmap(outer->getPort(ID::A));
+
+    Cell *inner = nullptr;
+    for (auto bit : s) {
+      if (!bit.is_wire())
+        continue;
+      auto it = drivers.find(bit);
+      if (it == drivers.end())
+        return no("operand bit has no driver");
+      if (inner && it->second != inner)
+        return no("operand spans several drivers");
+      inner = it->second;
+    }
+    if (!is_plain_shift(inner))
+      return no("operand is not driven by a variable shift");
+
+    SigSpec iy = sigmap(inner->getPort(ID::Y));
+    dict<SigBit, int> index;
+    for (int i = 0; i < GetSize(iy); i++)
+      index.emplace(iy[i], i);
+
+    // The inner barrel normally has to die here, or the rewrite adds one
+    // instead of moving it. Under -chain-keep it may survive for its other
+    // readers, trading that barrel's area for the depth this path saves.
+    if (!keep_live_inner)
+      for (int i = 0; i < GetSize(iy); i++)
+        if (readers.count(iy[i]) && readers.at(iy[i]) > 1)
+          return no("inner output has a reader that outlives the rewrite");
+
+    bool have_off = false;
+    for (int j = 0; j < GetSize(s); j++) {
+      if (!s[j].is_wire())
+        continue;
+      auto it = index.find(s[j]);
+      if (it == index.end()) // a wire bit from anywhere but inner_y
+        return no("operand mixes inner output with other logic");
+      int o = it->second - j;
+      if (!have_off)
+        off = o, have_off = true;
+      else if (off != o) // a permutation, not a slice: that is -fuse's shape
+        return no("operand permutes the inner output rather than slicing it");
+    }
+    return have_off ? inner : no("operand is all constant");
+  }
+
+  // Range of an amount, read off its own bits: a lane that is not a constant 0
+  // can be set, and only a constant 1 must be. Local and sound, where
+  // min_shift_amount would need the -sink index this pass has not built.
+  bool amount_range(Cell *cell, int &lo, int &hi, int &bits)
+  {
+    SigSpec amt = sigmap(cell->getPort(ID::B));
+    bits = GetSize(amt);
+    while (bits > 0 && amt[bits - 1] == State::S0)
+      bits--;
+    if (bits > 20) // keep 1 << bits and the sums below inside int range
+      return false;
+    lo = 0, hi = 0;
+    for (int i = 0; i < bits; i++) {
+      if (amt[i] != State::S0)
+        hi += 1 << i;
+      if (amt[i] == State::S1)
+        lo += 1 << i;
+    }
+    return true;
+  }
+
+  // Bounds on sgn*amt, so both directions read out[j] = in[j + sgn*amt]
+  bool signed_amount_range(Cell *cell, int sgn, int &lo, int &hi, int &bits)
+  {
+    int amin, amax;
+    if (!amount_range(cell, amin, amax, bits))
+      return false;
+    if (sgn > 0)
+      lo = amin, hi = amax;
+    else
+      lo = -amax, hi = -amin;
+    return true;
+  }
+
+  bool run_cell(Cell *outer)
+  {
+    auto no = [&](const char *why) {
+      log_debug("    chain %s: %s\n", log_id(outer->name), why);
+      return false;
+    };
+    if (!is_plain_shift(outer))
+      return false;
+
+    int off = 0;
+    const char *why = "";
+    Cell *inner = match_padded_source(outer, off, &why);
+    if (inner == nullptr)
+      return no(why);
+
+    int so = direction(outer), si = direction(inner);
+    // Only gather leftover `(x << b) >> c`. Inverse align `(x >> b) << c`
+    // composed 15 times on qor_fold_tree_2 and cost 4 LoL.
+    if (so <= 0 || si >= 0)
+      return no("not a right-shift of a leftover left-shift");
+    int olo, ohi, ilo, ihi, obits, ibits;
+    if (!signed_amount_range(outer, so, olo, ohi, obits) ||
+        !signed_amount_range(inner, si, ilo, ihi, ibits))
+      return no("amount too wide to bound");
+
+    // out[j] = in_a[j + n] over n in [nlo, nhi]; pad the operand by -nlo so the
+    // amount the new barrel takes is unsigned.
+    int nlo = olo + ilo + off, nhi = ohi + ihi + off;
+    int pad = nlo < 0 ? -nlo : 0;
+    if (nhi + pad < 0)
+      return no("composed amount range is empty");
+
+    SigSpec in_a = sigmap(inner->getPort(ID::A));
+    int wo = outer->getParam(ID::Y_WIDTH).as_int();
+    if (pad > max_pad_bits || GetSize(in_a) + pad > max_pad_bits)
+      return no("padded operand over -max_chain_pad");
+
+    // The new barrel is one level per amount bit, so it only pays when the one
+    // amount is narrower than the two it replaces; equal width would just
+    // relocate a barrel and grow the operand.
+    int new_bits = clog2_int(nhi + pad + 1);
+    if (new_bits < 1 || new_bits >= obits + ibits)
+      return no(stringf("no narrower: %d bits vs %d + %d", new_bits, obits,
+                        ibits).c_str());
+
+    if (!fill_agrees(outer, off, si, ilo, ihi, GetSize(in_a)))
+      return no("a constant lane or a truncated read has no matching fill");
+
+    rewrite(outer, inner, off, so, si, pad, new_bits, in_a, wo);
+    return true;
+  }
+
+  // Where the outer barrel reads a constant lane or reads past its own operand
+  // it produces the shift's own fill, which the composed index has to reproduce
+  // by landing outside the inner operand. An x lane is free: refining a don't
+  // care is always allowed.
+  bool fill_agrees(Cell *outer, int off, int si, int ilo, int ihi, int w_in_a)
+  {
+    SigSpec s = sigmap(outer->getPort(ID::A));
+    int wo = outer->getParam(ID::Y_WIDTH).as_int();
+    int olo, ohi, obits;
+    if (!signed_amount_range(outer, direction(outer), olo, ohi, obits))
+      return false;
+    (void)si;
+
+    // Reading past the top of the operand zero-fills, and the composed form has
+    // no such edge, so require that the outer barrel cannot reach there.
+    if (wo - 1 + ohi >= GetSize(s))
+      return false;
+
+    for (int k = 0; k < GetSize(s); k++) {
+      if (s[k].is_wire() || s[k] == State::Sx)
+        continue;
+      if (s[k] != State::S0) // a defined 1 is not a fill any shift produces
+        return false;
+      // Reachable at all? k = j + so*c for some output lane and amount.
+      if (k < olo || k > wo - 1 + ohi)
+        continue;
+      // in_a index is k + off + si*b; both ends must miss the operand.
+      int lo = k + off + ilo, hi = k + off + ihi;
+      if (!(hi < 0 || lo >= w_in_a))
+        return false;
+    }
+    return true;
+  }
+
+  void rewrite(Cell *outer, Cell *inner, int off, int so, int si, int pad,
+               int new_bits, const SigSpec &in_a, int wo)
+  {
+    std::string src = cell_src(outer);
+    SigSpec b = sigmap(inner->getPort(ID::B));
+    SigSpec c = sigmap(outer->getPort(ID::B));
+
+    // amt = so*c + si*b + (pad + off). Every term is reduced mod 2^w, and the
+    // value it lands on is in range by construction, so a bias that is itself
+    // negative is just its two's complement. The two amounts come off
+    // configuration, so this arithmetic sits beside the barrel, not on the path
+    // through it.
+    int w = new_bits;
+    int bias = ((pad + off) % (1 << w) + (1 << w)) % (1 << w);
+    SigSpec acc = SigSpec(module->addWire(NEW_ID_SUFFIX("shift_chain_acc"), w));
+    SigSpec amt = SigSpec(module->addWire(NEW_ID_SUFFIX("shift_chain_amt"), w));
+
+    auto accumulate = [&](const SigSpec &lhs, const SigSpec &rhs, int sgn,
+                          const SigSpec &out) {
+      if (sgn > 0)
+        module->addAdd(NEW_ID_SUFFIX("shift_chain_add"), lhs, rhs, out, false, src);
+      else
+        module->addSub(NEW_ID_SUFFIX("shift_chain_sub"), lhs, rhs, out, false, src);
+    };
+    accumulate(const_u64(bias, w), c, so, acc);
+    accumulate(acc, b, si, amt);
+
+    // Pre-padding the operand is what lets the amount stay unsigned; the lanes
+    // it adds are only ever read where the original produced its zero fill.
+    SigSpec source = SigSpec(State::S0, pad);
+    source.append(in_a);
+
+    log("  shift chain: %s absorbs %s (off=%d, pad=%d, %d -> %d amt bits)\n",
+        log_id(outer->name), log_id(inner->name), off, pad,
+        GetSize(b) + GetSize(c), w);
+
+    outer->type = ID($shr);
+    outer->setPort(ID::A, source);
+    outer->setPort(ID::B, amt);
+    outer->setParam(ID::Y_WIDTH, wo);
+    outer->fixup_parameters();
+    combined++;
+  }
+
+  // Compose at most one pair, so the caller reindexes before looking for more
+  bool run()
+  {
+    for (auto cell : module->selected_cells())
+      if (run_cell(cell))
+        return true;
+    return false;
+  }
+};
+
 // ---------------------------------------------------------------------------
 // -descale: collapse a scale-down round trip around a variable right shift
 //
@@ -453,7 +734,16 @@ void descale_find_candidates(Module *module, SigMap &sigmap, const dict<SigBit, 
       }
       shr = it->second;
     }
-    if (!whole || sigmap(shr->getPort(ID::A)) != sum)
+    if (!whole)
+      continue;
+
+    // The shifter may read the sum zero-extended: RTL that declares the scaled
+    // word wider than the increment needs leaves hard zeros above the sum, and
+    // shifting a zero right is still a zero. Anything else up there is a value
+    // the rescaled shifter, which reads x rather than the sum, cannot reproduce.
+    SigSpec shifted = sigmap(shr->getPort(ID::A));
+    if (GetSize(shifted) < GetSize(sum) || shifted.extract(0, GetSize(sum)) != sum ||
+        !shifted.extract_end(GetSize(sum)).is_fully_zero())
       continue;
 
     SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
@@ -654,6 +944,22 @@ struct OptShiftPass : public Pass {
     log("        (a OP b) << c    ===>  (a << c) OP (b << c)\n");
     log("        (a OP b) >> c    ===>  (a >> c) OP (b >> c)\n");
     log("        where OP in {$and, $or, $xor, $add, $sub}\n");
+    log("      A right shift discards the low bits, so it only commutes with an\n");
+    log("      OP that reads each result bit from the same operand position:\n");
+    log("      $add/$sub carry across positions and are restricted to $shl and\n");
+    log("      $sshl. The rewrite is also refused where the OP's own width would\n");
+    log("      drop a bit the wider shifted result brings back, or where the OP\n");
+    log("      and the shift disagree on the signedness a narrow operand is\n");
+    log("      padded with.\n");
+    log("\n");
+    log("  -expand-keep-arith\n");
+    log("      Restrict -expand so a variable shift amount is not expanded\n");
+    log("      across $add/$sub, only a constant one. A constant amount is\n");
+    log("      free rewiring, but a variable amount is a barrel: expanding it\n");
+    log("      duplicates the barrel and moves it ahead of the carry chain, so\n");
+    log("      the amount's own cone gains the adder's whole depth instead of\n");
+    log("      bypassing it. On an N-operand add tree the rewrite cascades, so\n");
+    log("      one barrel behind the tree becomes N barrels in front of it.\n");
     log("\n");
     log("  -sink\n");
     log("      Sink an add through a left shift, so the adder leaves the\n");
@@ -662,6 +968,16 @@ struct OptShiftPass : public Pass {
     log("      Requires a provable nonzero minimum for s, which is what makes\n");
     log("      (z >> s) narrower than z. This is the inverse of -expand on\n");
     log("      $add, so the two must not be requested together.\n");
+    log("\n");
+    log("  -sink-widening\n");
+    log("      Also sink when s has no provable nonzero minimum, so the addend\n");
+    log("      does not narrow. The sink still pays on the adder itself, which\n");
+    log("      moves from the shifter output width to its input width, but only\n");
+    log("      where the shifter widens, so it costs a second barrel for z.\n");
+    log("\n");
+    log("  -sink-widening-gain <int>\n");
+    log("      bits the adder must lose before a widening sink fires (default:\n");
+    log("      4). At 0 it would fire on shifters that only cost the barrel.\n");
     log("\n");
     log("  -fuse\n");
     log("      Fuse a modular gather with the variable left shift feeding it,\n");
@@ -672,6 +988,30 @@ struct OptShiftPass : public Pass {
     log("      so two barrels on the data path become one plus a mask that\n");
     log("      depends only on b. Only fires when the gather cannot shift past\n");
     log("      its own source, where it zero-fills but a rotate would wrap.\n");
+    log("\n");
+    log("  -chain\n");
+    log("      Compose two back-to-back barrels that -combine cannot see because\n");
+    log("      the outer one reads its operand as a constant-padded slice rather\n");
+    log("      than as the inner output whole, which is what a part-select or an\n");
+    log("      opt_vps gather table leaves behind:\n");
+    log("        pad(x << b) >> c  ===>  pad'(x) >> (c - b + k)\n");
+    log("      Only a right-shift of a leftover left-shift: that is the opt_vps\n");
+    log("      gather reading `(x >> 1) << s`. The inverse align pair\n");
+    log("      `(x >> b) << c` is left alone. Unlike -fuse the result stays a\n");
+    log("      plain shift, so the amount needs clog2 of the sum rather than of\n");
+    log("      the modulus. The sum can go negative, so the operand is\n");
+    log("      pre-padded and one unsigned $shr is left. Only fires when the\n");
+    log("      inner barrel dies with it and the composed amount is narrower.\n");
+    log("\n");
+    log("  -chain-keep\n");
+    log("      Like -chain, but keep the inner barrel when another reader still\n");
+    log("      needs it. The compose still rewrites the outer, so a leftover\n");
+    log("      `(x >> 1) << s` can fold into a later gather while the inner\n");
+    log("      shift stays for the unshifted field.\n");
+    log("\n");
+    log("  -max_chain_pad n\n");
+    log("      refuse a -chain rewrite whose padded operand would exceed n bits\n");
+    log("      (default 4096).\n");
     log("\n");
     log("  -max_fuse_bits n\n");
     log("      refuse a -fuse rewrite whose repeated source would exceed n\n");
@@ -694,7 +1034,7 @@ struct OptShiftPass : public Pass {
     log("  -max_iters n\n");
     log("      max number of pass iterations to run.\n");
     log("\n");
-    log("If none of -combine, -expand, -sink, -fuse or -descale is given,\n");
+    log("If none of -combine, -expand, -sink, -fuse, -chain or -descale is given,\n");
     log("combine and expand are run.\n");
     log("\n");
   }
@@ -704,10 +1044,17 @@ struct OptShiftPass : public Pass {
 
     bool run_combine = false;
     bool run_expand = false;
+    bool expand_keep_arith = false;
     bool run_sink = false;
+    bool sink_widening = false;
+    int sink_widening_gain = 4;
     bool run_fuse = false;
+    bool run_chain = false;
+    bool chain_keep = false;
     bool run_descale = false;
     int max_fuse_bits = 4096;
+    int max_chain_pad = 4096;
+    int total_chained = 0;
     int max_iters = 10000;
     int descale_count = 0;
 
@@ -721,12 +1068,36 @@ struct OptShiftPass : public Pass {
         run_expand = true;
         continue;
       }
+      if (args[argidx] == "-expand-keep-arith" ||
+          args[argidx] == "-expand_keep_arith") {
+        expand_keep_arith = true;
+        continue;
+      }
       if (args[argidx] == "-sink") {
         run_sink = true;
         continue;
       }
+      if (args[argidx] == "-sink-widening" ||
+          args[argidx] == "-sink_widening") {
+        sink_widening = true;
+        continue;
+      }
+      if ((args[argidx] == "-sink-widening-gain" ||
+           args[argidx] == "-sink_widening_gain") && argidx + 1 < args.size()) {
+        sink_widening_gain = atoi(args[++argidx].c_str());
+        continue;
+      }
       if (args[argidx] == "-fuse") {
         run_fuse = true;
+        continue;
+      }
+      if (args[argidx] == "-chain") {
+        run_chain = true;
+        continue;
+      }
+      if (args[argidx] == "-chain-keep" || args[argidx] == "-chain_keep") {
+        run_chain = true;
+        chain_keep = true;
         continue;
       }
       if (args[argidx] == "-descale") {
@@ -737,6 +1108,10 @@ struct OptShiftPass : public Pass {
         max_fuse_bits = std::stoi(args[++argidx]);
         continue;
       }
+      if (args[argidx] == "-max_chain_pad" && argidx + 1 < args.size()) {
+        max_chain_pad = std::stoi(args[++argidx]);
+        continue;
+      }
       if (args[argidx] == "-max_iters" && argidx + 1 < args.size()) {
         max_iters = std::stoi(args[++argidx]);
         continue;
@@ -745,7 +1120,8 @@ struct OptShiftPass : public Pass {
     }
     extra_args(args, argidx, design);
 
-    if (!run_combine && !run_expand && !run_sink && !run_fuse && !run_descale) {
+    if (!run_combine && !run_expand && !run_sink && !run_fuse && !run_chain &&
+        !run_descale) {
       run_combine = true;
       run_expand = true;
     }
@@ -770,8 +1146,11 @@ struct OptShiftPass : public Pass {
           pm.setup(module->selected_cells());
           if (run_combine)
             pm.run_combine_shifts();
-          if (run_expand)
+          if (run_expand) {
+            // setup() zeroes udata, so the flag has to be set after it
+            pm.ud_expand_shifts.keep_arith = expand_keep_arith;
             pm.run_expand_shifts();
+          }
         }
         // Indexing the drivers and every $add is only worth it once we know a
         // variable-amount shifter exists; most modules have none and skip it
@@ -779,7 +1158,16 @@ struct OptShiftPass : public Pass {
           sink_index_module(module);
           peepopt_sink_pm pm(module);
           pm.setup(module->selected_cells());
+          // setup() zeroes udata, so the flags have to be set after it
+          pm.ud_sink_shifts.sink_widening = sink_widening;
+          pm.ud_sink_shifts.sink_widening_gain = sink_widening_gain;
           pm.run_sink_shifts();
+        }
+        // Composes $shr chains too, which has_variable_shift does not see
+        if (run_chain) {
+          ChainCombiner chainer(module, max_chain_pad, chain_keep);
+          did_something |= chainer.run();
+          total_chained += chainer.combined;
         }
         // Same pre-filter: a gather only fuses with a variable-amount shifter
         if (run_fuse && has_variable_shift(module)) {
@@ -794,6 +1182,8 @@ struct OptShiftPass : public Pass {
 
     if (run_fuse)
       log("Fused %d gather(s) with the shift feeding them.\n", total_fused);
+    if (run_chain)
+      log("Composed %d barrel pair(s) across constant padding.\n", total_chained);
     if (run_descale)
       log("Collapsed %d scale-down round trip(s) into window-carry logic.\n", descale_count);
   }

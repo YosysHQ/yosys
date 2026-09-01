@@ -57,9 +57,6 @@ struct SynthAnlogicPass : public ScriptPass
 		log("    -noflatten\n");
 		log("        do not flatten design before synthesis\n");
 		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
-		log("\n");
 		log("    -nolutram\n");
 		log("        do not use EG_LOGIC_DRAM16X4 cells in output netlist\n");
 		log("\n");
@@ -81,7 +78,6 @@ struct SynthAnlogicPass : public ScriptPass
 		edif_file = "";
 		json_file = "";
 		flatten = true;
-		retime = false;
 		nolutram = false;
 		nobram = false;
 	}
@@ -124,10 +120,6 @@ struct SynthAnlogicPass : public ScriptPass
 			}
 			if (args[argidx] == "-nobram") {
 				nobram = true;
-				continue;
-			}
-			if (args[argidx] == "-retime") {
-				retime = true;
 				continue;
 			}
 			break;
@@ -193,8 +185,6 @@ struct SynthAnlogicPass : public ScriptPass
 		{
 			run("techmap -map +/techmap.v -map +/anlogic/arith_map.v");
 			run("opt -fast");
-			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -207,7 +197,7 @@ struct SynthAnlogicPass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4:6");
+			run("abc9 -lut 4:6");
 			run("clean");
 		}
 
