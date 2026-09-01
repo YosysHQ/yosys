@@ -1150,8 +1150,10 @@ struct OptShiftPass : public Pass {
         }
         // Indexing the drivers and every $add is only worth it once we know a
         // variable-amount shifter exists; most modules have none and skip it.
-        // Scanned once per iteration: -sink and -chain both need a variable
-        // $shl to fire, so neither can turn a "no" into a "yes" underneath us.
+        // Scanned once per iteration rather than once per sub-pass: a false
+        // reading means -sink and -chain never ran, so nothing could have
+        // introduced a shifter, and a stale true only costs -fuse a scan that
+        // matches nothing. Both are pre-filters, never correctness guards.
         bool variable_shift = (run_sink || run_fuse) && has_variable_shift(module);
         if (run_sink && variable_shift) {
           sink_index_module(module);

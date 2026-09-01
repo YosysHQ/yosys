@@ -169,6 +169,9 @@ struct CutRegionWorker
 			if (step == CONE_BOUNDARY)
 				continue;
 
+			// A bit with no driver has nothing to expand through, so every
+			// callback has to stop there rather than ask to continue.
+			log_assert(drv != nullptr);
 			if (!cells_seen.insert(drv).second)
 				continue;
 			charge_walk(1);

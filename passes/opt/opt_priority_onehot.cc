@@ -29,17 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Pack a per-lane integer vector into a Const with elem_w bits per lane.
-static Const pack_lanes(const vector<int> &vals, int elem_w)
-{
-	vector<State> bits(vals.size() * elem_w, State::S0);
-	for (int k = 0; k < GetSize(vals); k++)
-		for (int b = 0; b < elem_w && b < 31; b++)
-			if ((vals[k] >> b) & 1)
-				bits[k * elem_w + b] = State::S1;
-	return Const(bits);
-}
-
 #include "passes/opt/cut_region.h"
 
 struct OptPriorityOnehotWorker : CutRegionWorker {

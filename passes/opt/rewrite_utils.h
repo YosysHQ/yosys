@@ -116,18 +116,22 @@ static inline Const const_u64(uint64_t value, int width)
 	return c;
 }
 
-// Pack `lanes` into one Const of `count * elem_width` bits, lane k occupying
+// Pack `lanes` into one Const of `size * elem_width` bits, lane k occupying
 // bits [k*elem_width +: elem_width]. The lane layout every fingerprint in
-// these passes drives its candidate buses with.
-static inline Const pack_lanes(const vector<uint64_t> &lanes, int elem_width)
+// these passes drives its candidate buses with. Bits above what T can hold are
+// left at 0 rather than shifting T by >= its width, which is undefined; callers
+// size elem_width to their field, so this only guards the pathological case.
+template <typename T>
+static inline Const pack_lanes(const vector<T> &lanes, int elem_width)
 {
-	Const c(State::S0, GetSize(lanes) * elem_width);
-	auto &bits = c.bits();
+	// 31 for int, 64 for uint64_t: the sign bit is not a value bit.
+	const int value_bits = int(sizeof(T) * 8) - (T(-1) < T(0) ? 1 : 0);
+	vector<State> bits(size_t(GetSize(lanes)) * elem_width, State::S0);
 	for (int k = 0; k < GetSize(lanes); k++)
-		for (int b = 0; b < elem_width; b++)
-			if (b < 64 && ((lanes[k] >> b) & 1ULL))
+		for (int b = 0; b < elem_width && b < value_bits; b++)
+			if ((lanes[k] >> b) & 1)
 				bits[k * elem_width + b] = State::S1;
-	return c;
+	return Const(bits);
 }
 
 // Reduce `leaves[begin:end]` with `combine` over a balanced binary tree, so the
