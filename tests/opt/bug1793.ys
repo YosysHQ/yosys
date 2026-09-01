@@ -1,27 +1,131 @@
 # rmports: remove output ports which are driven internally but unused by all instances
+# https://github.com/YosysHQ/yosys/issues/1793
 
 read_verilog <<EOT
-module sub(input a, output x, output y);
-assign x = a;
-assign y = ~a;
+module sub(input a, input z, output x, output y);
+  assign x = a;
+  assign y = ~a;
 endmodule
+
 module top(input a, output o);
-sub s(.a(a), .x(o), .y());
+  sub s(.a(a), .z(), .x(o), .y());
 endmodule
 EOT
 hierarchy -top top
-proc
+design -save simple
 
 select -assert-count 2 sub/o:*
+select -assert-count 2 sub/i:*
 rmports
-select -assert-count 1 sub/o:x
+hierarchy -check
+select -assert-count 0 sub/o:y
+select -assert-count 1 sub/w:y
 select -assert-count 1 sub/o:*
+select -assert-count 1 sub/i:a
 select -assert-count 1 sub/i:*
-# ports of the top module are kept
 select -assert-count 1 top/o:*
 select -assert-count 1 top/i:*
 
-# repro #1793
+# a parent outside the selection is cleaned up as well
+design -load simple
+rmports sub
+select -assert-count 1 sub/o:*
+hierarchy -check
+
+# an output is kept when any instance uses it
+design -reset
+read_verilog <<EOT
+module sub(input a, output x, output y);
+  assign x = a;
+  assign y = ~a;
+endmodule
+
+module top(input a, output o, output p);
+  sub s1(.a(a), .x(o), .y());
+  sub s2(.a(a), .x(), .y(p));
+endmodule
+EOT
+hierarchy -top top
+rmports
+hierarchy -check
+select -assert-count 2 sub/o:*
+
+# a cell which is not derived yet names its ports $1, $2, etc
+design -reset
+read_verilog <<EOT
+module sub(input as, output xs, input bs, output ys, input cs);
+  assign xs = as & bs;
+  assign ys = as ^ cs;
+endmodule
+
+(* top *)
+module top(input a, input b, output o);
+  wire t;
+  sub s(a, t, b);
+  assign o = t ^ a;
+endmodule
+EOT
+rmports
+hierarchy -check -top top
+select -assert-count 2 sub/o:*
+
+# a box parent is never selected, but should also be cleaned up
+design -reset
+read_verilog <<EOT
+module sub(input a, output x, output y);
+  assign x = a;
+  assign y = ~a;
+endmodule
+
+module mid(input a, output x);
+  wire dead;
+  sub s(.a(a), .x(x), .y(dead));
+endmodule
+
+module top(input a, output o);
+  mid m(.a(a), .x(o));
+endmodule
+EOT
+hierarchy -top top
+# a public wire counts as a use
+rename -hide mid/w:dead
+setattr -mod -set whitebox 1 mid
+select -clear
+rmports
+select -assert-count 1 sub/o:*
+hierarchy -check
+
+# two modules are a root here, so there is no clear top
+design -reset
+read_verilog <<EOT
+module sub(input a, output x, output y);
+  assign x = a;
+  assign y = ~a;
+endmodule
+
+module use1(input a, output o);
+  sub s(.a(a), .x(o), .y());
+endmodule
+
+module use2(input a, output o);
+  sub s(.a(a), .x(o), .y());
+endmodule
+EOT
+design -save roots
+
+rmports
+select -assert-count 2 sub/o:*
+rmports -purge
+hierarchy -check
+select -assert-count 1 sub/o:x
+
+design -load roots
+delete use2
+rmports
+hierarchy -check
+select -assert-count 1 sub/o:x
+
+# repro
 design -reset
 read_verilog <<EOT
 module TOP(a, b, y);
@@ -39,16 +143,12 @@ module sub(as, bs, ys);
   assign ys = as & bs;
 endmodule
 EOT
-prep
-splitnets
-rmports
+hierarchy
 delete w:NC
-clean -purge
-rmports
 splitnets -ports
 rmports
+hierarchy -check
 clean -purge
-opt_clean -purge
 
 select -assert-count 3 sub/o:*
 select -assert-count 8 sub/i:*
