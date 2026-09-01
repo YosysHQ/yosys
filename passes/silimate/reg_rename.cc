@@ -517,7 +517,7 @@ struct RegRenamePass : public Pass {
 				log("Building hierarchy from scope: %s\n", scope.c_str());
 				RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
 				root->bind_interface_ports(fst);
-				root->process_all(vcd_reg_widths);
+				root->process_all(reg_layouts);
 				delete root;
 			} catch (const std::exception &e) {
 				log_error("Failed to read waveform file '%s': %s\n", 
@@ -526,14 +526,6 @@ struct RegRenamePass : public Pass {
 		} else {
 			log_error("No waveform file provided. Use -waveform option.\n");
 		}
-
-		// STEP 2: Build hierarchy and process
-		log("Building hierarchy from scope: %s\n", scope.c_str());
-
-		// Build hierarchy and process register renamings
-		RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
-		root->process_all(reg_layouts);
-		delete root;
 
 		log_flush();
 	}
