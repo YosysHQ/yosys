@@ -491,18 +491,6 @@ struct OptArgmaxWorker : CutRegionWorker
 		return out;
 	}
 
-	Record emit_tree_rec(Cell *anchor, const vector<Record> &leaves, int begin, int end)
-	{
-		log_assert(begin < end);
-		if (begin + 1 == end)
-			return leaves[begin];
-
-		int mid = begin + (end - begin) / 2;
-		Record lhs = emit_tree_rec(anchor, leaves, begin, mid);
-		Record rhs = emit_tree_rec(anchor, leaves, mid, end);
-		return combine(anchor, lhs, rhs);
-	}
-
 	SigSpec emit_argmax(const Candidate &cand)
 	{
 		vector<Record> leaves;
@@ -521,7 +509,9 @@ struct OptArgmaxWorker : CutRegionWorker
 			leaves.push_back({valid[k], value, SigSpec(Const(k, cand.index_width))});
 		}
 
-		Record root = emit_tree_rec(cand.anchor, leaves, 0, GetSize(leaves));
+		Record root = reduce_balanced(leaves, [&](const Record &lhs, const Record &rhs) {
+			return combine(cand.anchor, lhs, rhs);
+		});
 		return zext(root.index, cand.index_width);
 	}
 

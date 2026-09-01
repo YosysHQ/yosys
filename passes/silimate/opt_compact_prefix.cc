@@ -286,27 +286,21 @@ struct OptCompactPrefixWorker : CutRegionWorker
 		return zext_sig(sig, width);
 	}
 
-	SigSpec balanced_sum_rec(const vector<SigSpec> &terms, int begin, int end, int width)
-	{
-		if (begin >= end)
-			return SigSpec(State::S0, width);
-		if (begin + 1 == end)
-			return zext(terms[begin], width);
-
-		int mid = begin + (end - begin) / 2;
-		SigSpec lhs = balanced_sum_rec(terms, begin, mid, width);
-		SigSpec rhs = balanced_sum_rec(terms, mid, end, width);
-		Cell *cell = ref_cell;
-		log_assert(cell != nullptr);
-		Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_sum"), width);
-		module->addAdd(NEW_ID2_SUFFIX("compact_add"), lhs, rhs, sum, false, cell_src(ref_cell));
-		new_cells_emitted++;
-		return SigSpec(sum);
-	}
-
 	SigSpec balanced_sum(const vector<SigSpec> &terms, int width)
 	{
-		return balanced_sum_rec(terms, 0, GetSize(terms), width);
+		if (terms.empty())
+			return SigSpec(State::S0, width);
+		log_assert(ref_cell != nullptr);
+		vector<SigSpec> leaves;
+		for (auto &t : terms)
+			leaves.push_back(zext(t, width));
+		return reduce_balanced(leaves, [&](const SigSpec &lhs, const SigSpec &rhs) {
+			Cell *cell = ref_cell;
+			Wire *sum = module->addWire(NEW_ID2_SUFFIX("compact_sum"), width);
+			module->addAdd(NEW_ID2_SUFFIX("compact_add"), lhs, rhs, sum, false, cell_src(ref_cell));
+			new_cells_emitted++;
+			return SigSpec(sum);
+		});
 	}
 
 	SigBit emit_not(SigBit bit)

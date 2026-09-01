@@ -344,17 +344,6 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 		return out;
 	}
 
-	Record emit_tree_rec(Cell *anchor, const vector<Record> &leaves, int begin, int end)
-	{
-		log_assert(begin < end);
-		if (begin + 1 == end)
-			return leaves[begin];
-		int mid = begin + (end - begin) / 2;
-		Record lhs = emit_tree_rec(anchor, leaves, begin, mid);
-		Record rhs = emit_tree_rec(anchor, leaves, mid, end);
-		return combine(anchor, lhs, rhs);
-	}
-
 	// Log-depth binary decoder gated by `valid`: returns a w-bit one-hot where
 	// bit p is set iff valid && index == p.
 	SigSpec emit_decode(Cell *anchor, SigSpec index, SigBit valid, int w, int idx_w)
@@ -399,7 +388,9 @@ struct OptPriorityOnehotWorker : CutRegionWorker {
 			r.index = cand.field_sig.extract(lane * cand.idx_w, cand.idx_w);
 			leaves.push_back(r);
 		}
-		Record root = emit_tree_rec(cand.anchor, leaves, 0, GetSize(leaves));
+		Record root = reduce_balanced(leaves, [&](const Record &lhs, const Record &rhs) {
+			return combine(cand.anchor, lhs, rhs);
+		});
 		return emit_decode(cand.anchor, root.index, root.valid, cand.w, cand.idx_w);
 	}
 

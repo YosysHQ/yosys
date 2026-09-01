@@ -116,4 +116,41 @@ static inline Const const_u64(uint64_t value, int width)
 	return c;
 }
 
+// Pack `lanes` into one Const of `count * elem_width` bits, lane k occupying
+// bits [k*elem_width +: elem_width]. The lane layout every fingerprint in
+// these passes drives its candidate buses with.
+static inline Const pack_lanes(const vector<uint64_t> &lanes, int elem_width)
+{
+	Const c(State::S0, GetSize(lanes) * elem_width);
+	auto &bits = c.bits();
+	for (int k = 0; k < GetSize(lanes); k++)
+		for (int b = 0; b < elem_width; b++)
+			if (b < 64 && ((lanes[k] >> b) & 1ULL))
+				bits[k * elem_width + b] = State::S1;
+	return c;
+}
+
+// Reduce `leaves[begin:end]` with `combine` over a balanced binary tree, so the
+// result is log-depth rather than a linear chain. Leaf order is preserved, so
+// `combine` may be order-sensitive (a priority merge) as well as associative.
+// The two halves are built in named steps because `combine` emits cells and
+// argument evaluation order is unspecified, which would renumber them.
+template <typename T, typename FnCombine>
+T reduce_balanced(const vector<T> &leaves, int begin, int end, FnCombine combine)
+{
+	log_assert(begin < end);
+	if (begin + 1 == end)
+		return leaves[begin];
+	int mid = begin + (end - begin) / 2;
+	T lhs = reduce_balanced(leaves, begin, mid, combine);
+	T rhs = reduce_balanced(leaves, mid, end, combine);
+	return combine(lhs, rhs);
+}
+
+template <typename T, typename FnCombine>
+T reduce_balanced(const vector<T> &leaves, FnCombine combine)
+{
+	return reduce_balanced(leaves, 0, GetSize(leaves), combine);
+}
+
 #endif // SILIMATE_REWRITE_UTILS_H
