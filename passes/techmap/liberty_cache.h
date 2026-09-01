@@ -17,6 +17,9 @@ YOSYS_NAMESPACE_BEGIN
 // Controlled by the libcache pass (-scl option), enabled by default
 extern bool scl_cache_enabled;
 
+// Controlled by the libcache pass (-scl -dir option), user temp dir by default
+extern std::string scl_cache_dir;
+
 /*
  * convert_liberty_files_to_merged_scl() - Convert multiple Liberty files to a single merged SCL cache file.
  * @liberty_files: Vector of liberty file paths to merge
@@ -31,12 +34,15 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	if (liberty_files.empty() || !scl_cache_enabled)
 		return "";
 
-	std::string cache_dir = get_base_tmpdir() + "/yosys-liberty-scl-cache";
+	std::string cache_dir;
 
-	if (!create_directory(cache_dir)) {
-		log_warning("ABC: cannot create cache directory %s, falling back to liberty format\n", cache_dir.c_str());
+	if (scl_cache_dir.empty())
+		cache_dir = make_user_tmpdir("yosys-liberty-scl-cache");
+	else if (make_private_directory(scl_cache_dir))
+		cache_dir = scl_cache_dir;
+
+	if (cache_dir.empty())
 		return "";
-	}
 
 	// Sort to ensure consistent hash regardless of order
 	std::vector<std::string> sorted_files = liberty_files;
