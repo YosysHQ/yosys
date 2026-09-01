@@ -112,11 +112,13 @@ struct NegoptPass : public Pass {
 
 		constexpr int max_iterations = 100;
 
-		// Run one matcher over a fresh index, so the next one sees what it built.
-		auto run_rule = [](RTLIL::Module *module, Rule rule) {
+		// One index per group, since a rule can consume what the previous one in
+		// the same group just built; the fixpoint loop re-indexes each round.
+		auto run_group = [](RTLIL::Module *module, const std::vector<Rule> &rules) {
 			peepopt_negopt_pm pm(module);
 			pm.setup(module->selected_cells());
-			(pm.*rule)();
+			for (Rule rule : rules)
+				(pm.*rule)();
 		};
 
 		// Rules that reach a fixpoint together, iterated until nothing fires.
@@ -124,8 +126,7 @@ struct NegoptPass : public Pass {
 			did_something = true;
 			for (int iter = 0; iter < max_iterations && did_something; iter++) {
 				did_something = false;
-				for (Rule rule : rules)
-					run_rule(module, rule);
+				run_group(module, rules);
 			}
 			if (did_something)
 				log_warning("NEGOPT %s reached max iterations (%d) in module %s without convergence.\n",
@@ -135,9 +136,10 @@ struct NegoptPass : public Pass {
 		for (auto module : design->selected_modules()) {
 			if (run_pre) {
 				// manual2sub and sub2neg only need to run once: no downstream
-				// pre-subpass creates the patterns they match.
-				run_rule(module, &peepopt_negopt_pm::run_manual2sub);
-				run_rule(module, &peepopt_negopt_pm::run_sub2neg);
+				// pre-subpass creates the patterns they match. Separate indexes
+				// so sub2neg sees the $sub cells manual2sub creates.
+				run_group(module, {&peepopt_negopt_pm::run_manual2sub});
+				run_group(module, {&peepopt_negopt_pm::run_sub2neg});
 				// negexpand/negneg/negmux can feed each other.
 				run_to_fixpoint(module, {&peepopt_negopt_pm::run_negexpand,
 				                         &peepopt_negopt_pm::run_negneg,

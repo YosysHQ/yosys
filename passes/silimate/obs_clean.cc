@@ -32,35 +32,18 @@ void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, 
 	}
 }
 
-// Assign statements fanin, fanout, traces the lhs2rhs and rhs2lhs sigspecs and precompute maps
-void lhs2rhs_rhs2lhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> &rhsSig2LhsSig,
-		     dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2rhsSig)
+// Map each assign statement's lhs onto the rhs driving it, bit by bit when the
+// lhs is a concatenation.
+void lhs2rhs(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2rhsSig)
 {
-	for (auto it = module->connections().begin(); it != module->connections().end(); ++it) {
-		RTLIL::SigSpec lhs = it->first;
-		RTLIL::SigSpec rhs = it->second;
-		if (!lhs.is_chunk()) {
-			std::vector<SigSpec> lhsBits;
-			for (int i = 0; i < lhs.size(); i++) {
-				SigSpec bit_sig = lhs.extract(i, 1);
-				lhsBits.push_back(bit_sig);
-			}
-			std::vector<SigSpec> rhsBits;
-			for (int i = 0; i < rhs.size(); i++) {
-				SigSpec bit_sig = rhs.extract(i, 1);
-				rhsBits.push_back(bit_sig);
-			}
-
-			for (uint32_t i = 0; i < lhsBits.size(); i++) {
-				if (i < rhsBits.size()) {
-					rhsSig2LhsSig[sigmap(rhsBits[i])].insert(sigmap(lhsBits[i]));
-					lhsSig2rhsSig[lhsBits[i]] = sigmap(rhsBits[i]);
-				}
-			}
-		} else {
-			rhsSig2LhsSig[sigmap(rhs)].insert(sigmap(lhs));
+	for (auto &conn : module->connections()) {
+		RTLIL::SigSpec lhs = conn.first, rhs = conn.second;
+		if (lhs.is_chunk()) {
 			lhsSig2rhsSig[lhs] = sigmap(rhs);
+			continue;
 		}
+		for (int i = 0; i < lhs.size() && i < rhs.size(); i++)
+			lhsSig2rhsSig[lhs.extract(i, 1)] = sigmap(rhs.extract(i, 1));
 	}
 }
 
@@ -320,20 +303,19 @@ struct ObsClean : public ScriptPass {
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 			dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout;
 			sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
-			// Precompute lhs2rhs and rhs2lhs sigspec map
+			// Precompute the lhs2rhs sigspec map
 			if (debug) {
 				log("Collecting assign info\n");
 				log_flush();
 			}
 			dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
-			dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> rhsSig2LhsSig;
-			lhs2rhs_rhs2lhs(module, sigmap, rhsSig2LhsSig, lhsSig2RhsSig);
+			lhs2rhs(module, sigmap, lhsSig2RhsSig);
 			// Actual cleanup
 			observabilityClean(module, sigmap, sig2CellsInFanin, lhsSig2RhsSig, unused_wires, unused_assigns, debug);
 		}
 		log("End obs_clean pass\n");
 		log_flush();
 	}
-} SplitNetlist;
+} ObsClean;
 
 PRIVATE_NAMESPACE_END

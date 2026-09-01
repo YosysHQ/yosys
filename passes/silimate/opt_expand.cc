@@ -63,7 +63,6 @@ struct OptExpandPass : public Pass {
       did_something = true;
       for (int i = 0; did_something && i < max_iters; i++)
       {
-        log("ITERATION OF OPT_EXPAND\n");
         did_something = false;
         peepopt_expand_pm pm(module);
         pm.setup(module->selected_cells());

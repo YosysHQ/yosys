@@ -36,21 +36,33 @@ struct MuxmodePass : public Pass {
     log("    muxmode [selection]\n");
     log("\n");
     log("This pass makes muxes of 1-bit primitives having an input coming from a mux.\n");
-		log("\n");
+    log("\n");
+    log("    -max_iters <n>\n");
+    log("        cap on the rewrite fixpoint (default: 100)\n");
+    log("\n");
   }
   void execute(std::vector<std::string> args, RTLIL::Design *design) override
   {
     log_header(design, "Executing MUXMODE pass (make muxes from 1-bit primitives).\n");
 
-    size_t argidx = 1;
+    int max_iters = 100;
+    size_t argidx;
+    for (argidx = 1; argidx < args.size(); argidx++) {
+      if (args[argidx] == "-max_iters" && argidx + 1 < args.size()) {
+        max_iters = std::stoi(args[++argidx]);
+        continue;
+      }
+      break;
+    }
     extra_args(args, argidx, design);
 
     for (auto module : design->selected_modules())
     {
+      // muxmode and muxinvprop can feed each other, so cap the fixpoint the
+      // way the other peepopt drivers do rather than risk spinning.
       did_something = true;
-      for (int i = 0; did_something; i++)
+      for (int i = 0; did_something && i < max_iters; i++)
       {
-        log("ITERATION %d OF MUXMODE\n", i);
         did_something = false;
         peepopt_muxmode_pm pm(module);
         pm.setup(module->selected_cells());

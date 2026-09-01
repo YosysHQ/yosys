@@ -331,10 +331,7 @@ struct OptParallelPrefixWorker {
 		for (int i = 1; i < N; i += 2)
 			cur[i] = net.emit(cur[i - 1], cur[i]);
 		// Step 2: Kogge-Stone on odd indices (offset doubled in original space).
-		int num_odd = (N + 1) / 2 - (N % 2 == 0 ? 0 : 0);
-		// Simpler: count odd indices directly.
-		num_odd = 0;
-		for (int i = 1; i < N; i += 2) num_odd++;
+		int num_odd = N / 2;
 		for (int off_odd = 1; off_odd < num_odd; off_odd *= 2) {
 			int off = 2 * off_odd;
 			vector<SigSpec> nxt = cur;
