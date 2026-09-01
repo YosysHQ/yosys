@@ -16,12 +16,12 @@
  *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-// Delay models and the arrival/departure walk shared by the timing-guarded
-// rewrite passes, so that they agree on which arrivals dominate rather than
-// each drifting on its own copy. Include after PRIVATE_NAMESPACE_BEGIN and
-// derive the pass worker from UnitDelayTiming or FracDelayTiming; the worker
-// owns filling driver_map and consumer_map, since it usually builds other
-// connectivity in the same sweep.
+// Per-bit connectivity plus the delay models and arrival/departure walk shared
+// by the timing-guarded rewrite passes, so that they agree on which arrivals
+// dominate rather than each drifting on its own copy. Include after
+// PRIVATE_NAMESPACE_BEGIN and derive the pass worker from NetlistIndex (plain
+// connectivity) or from UnitDelayTiming / FracDelayTiming (connectivity plus a
+// timing walk).
 //
 // Two currencies share one walk. Integer levels charge a cell whole levels and
 // suit passes that compare a rewrite against a `+1`; fractional levels charge
@@ -104,17 +104,99 @@ inline double estimate_frac_cell_delay(const RTLIL::Cell *cell, int out_width)
 	return 1.0;
 }
 
-template <typename Delay>
-struct DelayTiming
+// Per-bit connectivity of one module: who drives a bit, who reads it, how many
+// loads it carries, and whether a rewrite is allowed to disturb it. Rebuild
+// with build_connectivity() after the netlist changes.
+struct NetlistIndex
 {
 	RTLIL::Module *module;
 	SigMap sigmap;
 
-	// Filled by the derived worker. A bit maps to nullptr when it is driven by
-	// more than one cell, which ends a path rather than picking a driver.
+	// A bit maps to nullptr when more than one cell drives it, which ends a
+	// path rather than picking a driver.
 	dict<RTLIL::SigBit, RTLIL::Cell *> driver_map;
 	dict<RTLIL::SigBit, std::vector<RTLIL::Cell *>> consumer_map;
+	// Loads per bit: reading cell pins plus module output ports.
+	dict<RTLIL::SigBit, int> fanout_map;
+	// Bits carrying `keep` on any alias, and bits read by a module output.
+	pool<RTLIL::SigBit> keep_bits, port_out_bits;
 
+	NetlistIndex(RTLIL::Module *module) : module(module), sigmap(module) { }
+	virtual ~NetlistIndex() { }
+
+	void build_connectivity()
+	{
+		driver_map.clear();
+		consumer_map.clear();
+		fanout_map.clear();
+		keep_bits.clear();
+		port_out_bits.clear();
+
+		// Collect `keep` across every alias, not just the wire sigmap elected:
+		// the attribute may sit on any wire of a `connect` group, and testing
+		// the representative alone silently drops what a kept probe reads.
+		for (auto wire : module->wires())
+			if (wire->get_bool_attribute(ID::keep))
+				for (auto &bit : sigmap(RTLIL::SigSpec(wire)))
+					keep_bits.insert(bit);
+
+		for (auto cell : module->cells())
+			for (auto &conn : cell->connections()) {
+				RTLIL::SigSpec sig = sigmap(conn.second);
+				if (cell->output(conn.first))
+					for (auto &bit : sig) {
+						if (bit.wire == nullptr)
+							continue;
+						auto it = driver_map.find(bit);
+						if (it == driver_map.end())
+							driver_map[bit] = cell;
+						else if (it->second != cell)
+							it->second = nullptr;
+					}
+				if (cell->input(conn.first))
+					for (auto &bit : sig) {
+						if (bit.wire == nullptr)
+							continue;
+						fanout_map[bit]++;
+						// A cell reading one bit on two pins is two loads but
+						// still a single consumer.
+						auto &cons = consumer_map[bit];
+						if (cons.empty() || cons.back() != cell)
+							cons.push_back(cell);
+					}
+			}
+
+		// A module output port loads its driver without being a cell
+		for (auto wire : module->wires()) {
+			if (!wire->port_output)
+				continue;
+			for (auto &bit : sigmap(RTLIL::SigSpec(wire))) {
+				if (bit.wire == nullptr)
+					continue;
+				fanout_map[bit]++;
+				port_out_bits.insert(bit);
+			}
+		}
+	}
+
+	int fanout_of(RTLIL::SigBit bit) const { return fanout_map.at(bit, 0); }
+
+	// True when a rewrite must leave this bit observable: a `keep` probe reads
+	// it, or it escapes through a module output.
+	bool bit_escapes(RTLIL::SigBit bit) const { return keep_bits.count(bit) || port_out_bits.count(bit); }
+
+	bool sig_escapes(const RTLIL::SigSpec &sig)
+	{
+		for (auto &bit : sigmap(sig))
+			if (bit_escapes(bit))
+				return true;
+		return false;
+	}
+};
+
+template <typename Delay>
+struct DelayTiming : NetlistIndex
+{
 	// Memoized per cell, not per bit: every output bit of a cell shares one
 	// arrival (the max over all its inputs) and every input bit shares one
 	// departure, so a per-bit cache recomputed the same number once per bit and
@@ -124,8 +206,7 @@ struct DelayTiming
 	Delay module_depth = 0;
 	bool module_depth_valid = false;
 
-	DelayTiming(RTLIL::Module *module) : module(module), sigmap(module) { }
-	virtual ~DelayTiming() { }
+	using NetlistIndex::NetlistIndex;
 
 	// Levels through one cell, in this walk's currency.
 	virtual Delay cell_delay(RTLIL::Cell *cell) = 0;
@@ -135,7 +216,7 @@ struct DelayTiming
 	virtual bool is_start_point(RTLIL::Cell *cell) { return cell->is_builtin_ff(); }
 
 	// Every rewrite invalidates the cached levels, so the next guard rebuilds.
-	// The connectivity maps the derived worker owns are its own to refresh.
+	// Connectivity is separate: call build_connectivity() alongside this.
 	void reset_timing()
 	{
 		cell_arrival.clear();
