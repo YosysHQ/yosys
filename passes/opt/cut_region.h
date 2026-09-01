@@ -139,6 +139,54 @@ struct CutRegionWorker
 		}
 	}
 
+	// What a cone walk does with a bit it reached.
+	enum ConeStep { CONE_EXPAND, CONE_BOUNDARY, CONE_ABORT };
+
+	// Backward BFS over combinational fan-in from `from`, the shared shape of
+	// every hashed cone walk below. `on_bit` sees each reached bit with its
+	// driver (null when it has none) and says whether to expand through that
+	// driver, stop there, or abandon the walk; `on_cell` sees each cell the
+	// first time it is entered, after the walk budget is charged, and can
+	// abandon it too. `cells_seen` collects the cells entered and doubles as
+	// the dedup set. Returns false iff a callback abandoned the walk.
+	template <typename FnBit, typename FnCell>
+	bool cone_bfs(const SigSpec &from, pool<Cell *> &cells_seen, FnBit on_bit, FnCell on_cell)
+	{
+		pool<SigBit> visited;
+		std::queue<SigBit> worklist;
+		for (auto bit : sigmap(from))
+			if (bit.wire && visited.insert(bit).second)
+				worklist.push(bit);
+
+		while (!worklist.empty()) {
+			SigBit bit = worklist.front();
+			worklist.pop();
+
+			Cell *drv = bit_to_driver.at(bit, nullptr);
+			ConeStep step = on_bit(bit, drv);
+			if (step == CONE_ABORT)
+				return false;
+			if (step == CONE_BOUNDARY)
+				continue;
+
+			if (!cells_seen.insert(drv).second)
+				continue;
+			charge_walk(1);
+			if (!on_cell(drv))
+				return false;
+
+			for (auto &conn : drv->connections()) {
+				if (!drv->input(conn.first))
+					continue;
+				for (auto in_bit : sigmap(conn.second))
+					if (in_bit.wire && visited.insert(in_bit).second)
+						worklist.push(in_bit);
+			}
+		}
+
+		return true;
+	}
+
 	// Combinational fanin cone of `from`. Leaves are port-input bits or bits
 	// driven by sequential cells / undriven. Returns false if size limits
 	// are exceeded. `cell_order` records the cells in BFS discovery order
@@ -146,55 +194,20 @@ struct CutRegionWorker
 	bool get_cone(SigSpec from, pool<Cell *> &cone_cells, pool<SigBit> &leaf_bits,
 	              int max_cone_cells, int max_leaf_bits, vector<Cell *> *cell_order = nullptr)
 	{
-		pool<SigBit> visited;
-		std::queue<SigBit> worklist;
-		for (auto bit : sigmap(from)) {
-			if (!bit.wire)
-				continue;
-			if (visited.insert(bit).second)
-				worklist.push(bit);
-		}
-
-		while (!worklist.empty()) {
-			SigBit bit = worklist.front();
-			worklist.pop();
-
-			if (input_port_bits.count(bit)) {
+		return cone_bfs(from, cone_cells,
+			[&](SigBit bit, Cell *drv) {
+				if (!input_port_bits.count(bit) && drv != nullptr)
+					return CONE_EXPAND;
 				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits)
+				return GetSize(leaf_bits) > max_leaf_bits ? CONE_ABORT : CONE_BOUNDARY;
+			},
+			[&](Cell *drv) {
+				if (GetSize(cone_cells) > max_cone_cells)
 					return false;
-				continue;
-			}
-
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr) {
-				leaf_bits.insert(bit);
-				if (GetSize(leaf_bits) > max_leaf_bits)
-					return false;
-				continue;
-			}
-
-			if (!cone_cells.insert(drv).second)
-				continue;
-			charge_walk(1);
-			if (GetSize(cone_cells) > max_cone_cells)
-				return false;
-			if (cell_order != nullptr)
-				cell_order->push_back(drv);
-
-			for (auto &conn : drv->connections()) {
-				if (!drv->input(conn.first))
-					continue;
-				for (auto in_bit : sigmap(conn.second)) {
-					if (!in_bit.wire)
-						continue;
-					if (visited.insert(in_bit).second)
-						worklist.push(in_bit);
-				}
-			}
-		}
-
-		return true;
+				if (cell_order != nullptr)
+					cell_order->push_back(drv);
+				return true;
+			});
 	}
 
 	// Dense fan-in graph of one root's cone, using the cut walk's own rule
@@ -493,51 +506,27 @@ struct CutRegionWorker
 			return cut_cone_walk_indexed(*g, allowed, max_cells, hit_bits, cells_out,
 			                             forced_bits, conflict_bits);
 
-		pool<SigBit> visited;
 		pool<Cell *> cells_seen;
-		std::queue<SigBit> worklist;
-		for (auto bit : sigmap(root)) {
-			if (!bit.wire)
-				continue;
-			if (visited.insert(bit).second)
-				worklist.push(bit);
-		}
-
-		while (!worklist.empty()) {
-			SigBit bit = worklist.front();
-			worklist.pop();
-
-			if (allowed.count(bit)) {
-				if (hit_bits != nullptr)
-					hit_bits->insert(bit);
-				continue;
-			}
-
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr) {
+		bool closed = cone_bfs(root, cells_seen,
+			[&](SigBit bit, Cell *drv) {
+				if (allowed.count(bit)) {
+					if (hit_bits != nullptr)
+						hit_bits->insert(bit);
+					return CONE_BOUNDARY;
+				}
+				if (drv != nullptr)
+					return CONE_EXPAND;
 				note_cut_fail("leaf ", bit);
-				return false;
-			}
-
-			if (!cells_seen.insert(drv).second)
-				continue;
-			charge_walk(1);
-			if (GetSize(cells_seen) > max_cells || walk_exhausted()) {
+				return CONE_ABORT;
+			},
+			[&](Cell *) {
+				if (GetSize(cells_seen) <= max_cells && !walk_exhausted())
+					return true;
 				last_cut_fail = "size limit";
 				return false;
-			}
-
-			for (auto &conn : drv->connections()) {
-				if (!drv->input(conn.first))
-					continue;
-				for (auto in_bit : sigmap(conn.second)) {
-					if (!in_bit.wire)
-						continue;
-					if (visited.insert(in_bit).second)
-						worklist.push(in_bit);
-				}
-			}
-		}
+			});
+		if (!closed)
+			return false;
 
 		const pool<SigBit> &check = (forced_bits != nullptr) ? *forced_bits :
 		                            (hit_bits != nullptr) ? *hit_bits : allowed;
@@ -568,50 +557,17 @@ struct CutRegionWorker
 	                           pool<SigBit> &extra_leaves, int max_extra)
 	{
 		attempt_budget--;
-		pool<SigBit> visited;
 		pool<Cell *> cells_seen;
-		std::queue<SigBit> worklist;
-		for (auto bit : sigmap(root)) {
-			if (!bit.wire)
-				continue;
-			if (visited.insert(bit).second)
-				worklist.push(bit);
-		}
-
-		while (!worklist.empty()) {
-			SigBit bit = worklist.front();
-			worklist.pop();
-
-			if (allowed.count(bit))
-				continue;
-
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr) {
+		return cone_bfs(root, cells_seen,
+			[&](SigBit bit, Cell *drv) {
+				if (allowed.count(bit))
+					return CONE_BOUNDARY;
+				if (drv != nullptr)
+					return CONE_EXPAND;
 				extra_leaves.insert(bit);
-				if (GetSize(extra_leaves) > max_extra)
-					return false;
-				continue;
-			}
-
-			if (!cells_seen.insert(drv).second)
-				continue;
-			charge_walk(1);
-			if (GetSize(cells_seen) > max_cells || walk_exhausted())
-				return false;
-
-			for (auto &conn : drv->connections()) {
-				if (!drv->input(conn.first))
-					continue;
-				for (auto in_bit : sigmap(conn.second)) {
-					if (!in_bit.wire)
-						continue;
-					if (visited.insert(in_bit).second)
-						worklist.push(in_bit);
-				}
-			}
-		}
-
-		return true;
+				return GetSize(extra_leaves) > max_extra ? CONE_ABORT : CONE_BOUNDARY;
+			},
+			[&](Cell *) { return GetSize(cells_seen) <= max_cells && !walk_exhausted(); });
 	}
 
 	bool sig_fully_driven(const SigSpec &sig)
