@@ -254,6 +254,33 @@ struct RegRenameInstance {
 		}
 	}
 
+	// SV interface ports are refs to parent storage (IEEE 1800 25.3). Stamp sim_src
+	// from the dump now; after a parallel-resim cut the parent connection is gone.
+	void bind_interface_ports(FstData &fst)
+	{
+		for (auto &it : children) {
+			Cell *cell = it.first;
+			RegRenameInstance *child = it.second;
+			for (auto wire : child->module->wires()) {
+				if (!wire->port_input || !wire->get_bool_attribute(ID(interface_port)))
+					continue;
+				if (!cell->hasPort(wire->name))
+					continue;
+				SigSpec sig = cell->getPort(wire->name);
+				if (!sig.is_wire())
+					continue; // slices/concats/constants have no single dumped signal
+				std::string src = vcd_scope + "." + RTLIL::unescape_id(sig.as_wire()->name);
+				if (!fst.getHandle(src))
+					continue;
+				wire->set_string_attribute(ID(sim_src), src);
+				if (debug)
+					log("Interface port %s.%s resolved to %s\n", child->vcd_scope.c_str(),
+							RTLIL::unescape_id(wire->name).c_str(), src.c_str());
+			}
+			child->bind_interface_ports(fst);
+		}
+	}
+
 	void process_all(dict<std::string, RegInfo> &vcd_reg_widths)
 	{
 		process_registers(vcd_reg_widths);
@@ -373,6 +400,12 @@ struct RegRenamePass : public Pass {
 							offset + width - 1, offset, width);
 				}
 				log("Extracted %d signal widths from waveform\n", GetSize(vcd_reg_widths));
+
+				log("Building hierarchy from scope: %s\n", scope.c_str());
+				RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
+				root->bind_interface_ports(fst);
+				root->process_all(vcd_reg_widths);
+				delete root;
 			} catch (const std::exception &e) {
 				log_error("Failed to read waveform file '%s': %s\n", 
 					waveform_filename.c_str(), e.what());
@@ -380,14 +413,6 @@ struct RegRenamePass : public Pass {
 		} else {
 			log_error("No waveform file provided. Use -waveform option.\n");
 		}
-
-		// STEP 2: Build hierarchy and process
-		log("Building hierarchy from scope: %s\n", scope.c_str());
-
-		// Build hierarchy and process register renamings
-		RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
-		root->process_all(vcd_reg_widths);
-		delete root;
 
 		log_flush();
 	}

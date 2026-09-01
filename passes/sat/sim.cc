@@ -1774,6 +1774,15 @@ struct SimWorker : SimShared
 			log_warning("Can't find port '%s' on module '%s' in FST, leaving it undriven.\n", path.c_str(), log_id(mod));
 	}
 
+	// An interface pin miss can be resolved by the sim_src attribute.
+	fstHandle handle_for_input(Wire *wire, const std::string &path)
+	{
+		fstHandle id = fst->getHandle(path);
+		if (id == 0 && wire->has_attribute(ID(sim_src)))
+			id = fst->getHandle(wire->get_string_attribute(ID(sim_src)));
+		return id;
+	}
+
 	// SILIMATE: bit-blasted dump is one FST var per HDL index, not one packed vector.
 	bool bind_fst_bits(SimInstance *t, Wire *wire, const std::string &path)
 	{
@@ -1815,7 +1824,7 @@ struct SimWorker : SimShared
 				// Drive every port_input from the FST
 				for (auto wire : m->wires()) {
 					if (!wire->port_input) continue;
-					fstHandle id = fst->getHandle(iscope + "." + wire->name.unescape());
+					fstHandle id = handle_for_input(wire, iscope + "." + wire->name.unescape());
 					if (id == 0) {
 						if (!bind_fst_bits(t, wire, iscope + "." + wire->name.unescape()))
 							report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
@@ -1868,7 +1877,7 @@ struct SimWorker : SimShared
 
 				// Populate fst_inputs for input ports
 				if (wire->port_input) {
-					fstHandle id = fst->getHandle(scope + "." + RTLIL::unescape_id(wire->name));
+					fstHandle id = handle_for_input(wire, scope + "." + RTLIL::unescape_id(wire->name));
 					if (id != 0)
 						top->fst_inputs[wire] = id;
 					else if (!bind_fst_bits(top, wire, scope + "." + RTLIL::unescape_id(wire->name)))
