@@ -19,6 +19,8 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include <vector>
+#include "kernel/celltypes.h"
+#include <cmath>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

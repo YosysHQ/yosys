@@ -22,44 +22,14 @@
 #include "kernel/ff.h"
 #include "kernel/ffinit.h"
 #include <cmath>
+#include <vector>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static inline double log2p1(int n) { return std::log2(double(std::max(1, n)) + 1.0); }
+#include "passes/silimate/unit_delay.h"
 
-// Heuristic, model-free per-cell delay, used only to rank candidate hold
-// conditions by how late they arrive. Mirrors opt_carry_select's estimator so
-// the two passes agree on which arrivals dominate.
-static double estimate_cell_delay(const Cell *cell, int out_width)
-{
-	if (cell == nullptr)
-		return 1.0;
-	IdString t = cell->type;
-	if (t.in(ID($add), ID($sub), ID($neg), ID($alu), ID($shl), ID($shr), ID($sshl), ID($sshr)))
-		return log2p1(out_width);
-	if (t.in(ID($mul), ID($div), ID($mod)))
-		return out_width;
-	if (t == ID($pmux)) {
-		int s_width = cell->hasParam(ID::S_WIDTH) ? cell->getParam(ID::S_WIDTH).as_int() : 1;
-		return log2p1(s_width);
-	}
-	// Compares and reductions collapse their operand to one bit through a tree,
-	// so they cost like the width, not like a gate. Ranking a hold condition
-	// behind a wide compare as a single level would hide the pass's best
-	// candidate behind the one-hot muxes sitting next to the adder.
-	if (t.in(ID($eq), ID($ne), ID($eqx), ID($nex), ID($lt), ID($le), ID($gt), ID($ge)))
-		return log2p1(std::max(cell->hasParam(ID::A_WIDTH) ? cell->getParam(ID::A_WIDTH).as_int() : 1,
-		                       cell->hasParam(ID::B_WIDTH) ? cell->getParam(ID::B_WIDTH).as_int() : 1));
-	if (t.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)))
-		return log2p1(cell->hasParam(ID::A_WIDTH) ? cell->getParam(ID::A_WIDTH).as_int() : 1);
-	if (t.in(ID($and), ID($or)))
-		return 0.5;
-	// $mux, $xor, $xnor, $not, gate-level $_*_ and everything else: one level.
-	return 1.0;
-}
-
-struct OptAccumEnableWorker
+struct OptAccumEnableWorker : FracDelayTiming
 {
 	// A cell whose output is held at zero by one control bit.
 	struct Gate {
@@ -76,17 +46,10 @@ struct OptAccumEnableWorker
 		Gate gate;
 	};
 
-	Module *module;
-	SigMap sigmap;
 	FfInitVals initvals;
-	CellTypes cell_types;
 
-	dict<SigBit, Cell *> bit_to_driver;
 	dict<SigBit, pool<Cell *>> bit_to_consumers;
 	pool<SigBit> escaping_bits;  // observed outside the module, or explicitly kept
-
-	dict<SigBit, double> arrival_cache;
-	pool<SigBit> arrival_stack;
 
 	pool<SigBit> known_zero;  // reset per candidate gate
 
@@ -97,16 +60,15 @@ struct OptAccumEnableWorker
 	vector<Plan> plans;
 
 	OptAccumEnableWorker(Module *module, int max_cone_cells, int max_gates, int max_peel)
-		: module(module), sigmap(module), initvals(&sigmap, module),
+		: FracDelayTiming(module), initvals(&sigmap, module),
 		  max_cone_cells(max_cone_cells), max_gates(max_gates), max_peel(max_peel)
 	{
-		cell_types.setup();
 		for (auto cell : module->cells())
 			for (auto &conn : cell->connections()) {
 				if (cell->output(conn.first))
 					for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							bit_to_driver[bit] = cell;
+							driver_map[bit] = cell;
 				if (cell->input(conn.first))
 					for (auto bit : sigmap(conn.second))
 						if (bit.wire)
@@ -121,78 +83,9 @@ struct OptAccumEnableWorker
 
 	// Cells that observe a value for anything other than the accumulate under
 	// test. Bypassing a gate changes every net in its cone, so reaching one of
-	// these means the change would be visible somewhere we cannot guard.
-	bool is_observer(Cell *c)
-	{
-		if (c->get_bool_attribute(ID::keep) || c->get_bool_attribute(ID::blackbox))
-			return true;
-		if (c->is_builtin_ff())
-			return true;
-		if (c->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr), ID($sr),
-		               ID($mem), ID($mem_v2), ID($memrd), ID($memrd_v2),
-		               ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2),
-		               ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
-			return true;
-		return !cell_types.cell_known(c->type);
-	}
-
-	// Explicit-stack post-order walk: cones here can be arbitrarily deep and a
-	// worker thread's stack is not.
-	double arrival_bit(SigBit start)
-	{
-		start = sigmap(start);
-		if (!start.wire)
-			return 0.0;
-		if (auto it = arrival_cache.find(start); it != arrival_cache.end())
-			return it->second;
-
-		struct Frame { SigBit bit; bool finalize; };
-		std::vector<Frame> stack;
-		stack.push_back({start, false});
-
-		while (!stack.empty()) {
-			Frame &top = stack.back();
-			SigBit bit = top.bit;
-			if (!bit.wire || arrival_cache.count(bit)) {
-				stack.pop_back();
-				continue;
-			}
-			Cell *drv = bit_to_driver.at(bit, nullptr);
-			if (drv == nullptr || is_observer(drv)) {
-				arrival_cache[bit] = 0.0;
-				stack.pop_back();
-				continue;
-			}
-			if (!top.finalize) {
-				top.finalize = true;
-				arrival_stack.insert(bit);
-				for (auto &conn : drv->connections())
-					if (drv->input(conn.first))
-						for (auto in_bit : sigmap(conn.second)) {
-							if (!in_bit.wire || arrival_cache.count(in_bit))
-								continue;
-							if (arrival_stack.count(in_bit))  // combinational loop
-								continue;
-							stack.push_back({in_bit, false});
-						}
-				continue;
-			}
-			double max_in = 0.0;
-			int out_width = 1;
-			for (auto &conn : drv->connections())
-				if (drv->output(conn.first))
-					out_width = std::max(out_width, GetSize(conn.second));
-			for (auto &conn : drv->connections())
-				if (drv->input(conn.first))
-					for (auto in_bit : sigmap(conn.second))
-						if (auto it = arrival_cache.find(in_bit); it != arrival_cache.end())
-							max_in = std::max(max_in, it->second);
-			arrival_cache[bit] = max_in + estimate_cell_delay(drv, out_width);
-			arrival_stack.erase(bit);
-			stack.pop_back();
-		}
-		return arrival_cache.at(start);
-	}
+	// these means the change would be visible somewhere we cannot guard. Same
+	// set the arrival walk stops at.
+	bool is_observer(Cell *c) { return is_start_point(c); }
 
 	// The one cell driving all of `sig`, where `sig` is exactly its Y port: a
 	// slice or a mix of drivers is not a value we can reason about as a whole.
@@ -204,7 +97,7 @@ struct OptAccumEnableWorker
 		for (auto bit : sigmap(sig)) {
 			if (!bit.wire)
 				return nullptr;
-			Cell *c = bit_to_driver.at(bit, nullptr);
+			Cell *c = driver_map.at(bit, nullptr);
 			if (c == nullptr || (drv != nullptr && c != drv))
 				return nullptr;
 			drv = c;
@@ -364,7 +257,7 @@ struct OptAccumEnableWorker
 			for (auto bit : sigmap(s)) {
 				if (!bit.wire)
 					continue;
-				Cell *c = bit_to_driver.at(bit, nullptr);
+				Cell *c = driver_map.at(bit, nullptr);
 				if (c == nullptr || seen.count(c) || is_observer(c))
 					continue;
 				seen.insert(c);

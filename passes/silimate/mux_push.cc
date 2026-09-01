@@ -22,6 +22,8 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/io.h"
+#include "kernel/celltypes.h"
+#include <cmath>
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
