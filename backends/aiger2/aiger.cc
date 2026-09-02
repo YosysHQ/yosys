@@ -1356,6 +1356,7 @@ struct XAigerWriter : AigerWriter {
 				}
 			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
+					// If the following log_errors fire, make sure your design/flow passes `check -assert` before `write_xaiger2`.
 					if (!bit.wire)
 						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, conn.first.unescape(), log_signal(conn.second));
 					if (bit.wire->port_input && !bit.wire->port_output)
