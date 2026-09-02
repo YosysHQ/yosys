@@ -27,6 +27,9 @@ struct ArithTreeOptions {
 	int min_width = 0;
 	// Hold late operands out of the tree until the level they arrive at
 	bool schedule_arrival = false;
+	// Place links and leaf operands at the column they enter the sum at, rather
+	// than requiring every one of them to start at the result's LSB
+	bool bit_offsets = false;
 };
 
 struct ArithTreeWorker {
@@ -53,6 +56,8 @@ struct ArithTreeWorker {
 		// applies to factor_a, and factor_b carries its own signedness
 		SigSpec factor_b; // empty for regular operands
 		bool factor_b_signed = false;
+		// Column the operand's LSB lands in, i.e. it contributes value << offset
+		int offset = 0;
 	};
 
 	ArithTreeWorker(const ArithTreeOptions &opt, Module *module) : opt(opt), module(module), sigmap(module)
@@ -261,6 +266,29 @@ struct ArithTreeWorker {
 		return GetSize(link->getPort(ID::Y)) < need;
 	}
 
+	// Bit position inside a `parent` port at which `child`'s whole Y appears, with
+	// `port` receiving that port's name. -1 when the Y is not exactly one ascending
+	// run in exactly one port, since then it has no single scale factor. The offset
+	// is what makes a partial link exact: the child's sum enters the parent scaled
+	// by 2**offset, so every operand of the child does too.
+	int link_offset(Cell *child, Cell *parent, IdString &port)
+	{
+		SigSpec y = sigmap(child->getPort(ID::Y));
+		int n = GetSize(y), offset = -1;
+		for (auto name : {ID::A, ID::B}) {
+			SigSpec p = sigmap(parent->getPort(name));
+			for (int i = 0; i + n <= GetSize(p); i++) {
+				if (p[i] != y[0] || p.extract(i, n) != y)
+					continue;
+				if (offset >= 0)
+					return -1;
+				offset = i;
+				port = name;
+			}
+		}
+		return offset;
+	}
+
 	// Whether `sig` is the low bits of one of `parent`'s operand ports with only
 	// constant zeros above it, which is the one partial coverage a reading based at
 	// the result LSB still gets right: those zeros contribute nothing, so the link
@@ -276,9 +304,10 @@ struct ArithTreeWorker {
 		return false;
 	}
 
-	Cell *sole_chainable_consumer(Cell *cell, const pool<Cell *> &candidates)
+	Cell *sole_chainable_consumer(Cell *cell, const pool<Cell *> &candidates, int &offset)
 	{
 		SigSpec sig = sigmap(cell->getPort(ID::Y));
+		offset = 0;
 		Cell *consumer = nullptr;
 		for (auto bit : sig) {
 			if (!fanout.count(bit) || fanout[bit] != 1)
@@ -298,19 +327,31 @@ struct ArithTreeWorker {
 		if (consumer == nullptr)
 			return nullptr;
 
-		// Operand extraction reads a port as one value based at the result LSB, so a
-		// link sitting above its port's LSB lands at the wrong weight, and any
-		// non-constant bits beside it in that port are operands of the sum that the
-		// same reading hides. Refuse those links rather than mistranslate them.
-		if (!covers_port_low(consumer, sig))
+		// Where the link lands in its consumer. A link sitting above its port's LSB is
+		// only representable once operands carry a column, so without -bit-offsets it
+		// is refused: reading such a port as a value based at the result LSB both
+		// misplaces the link's own operands and drops the bits beside it.
+		IdString port;
+		if (opt.bit_offsets) {
+			offset = link_offset(cell, consumer, port);
+			if (offset < 0)
+				return nullptr;
+			// A signed port extends from its own MSB, not from any run inside it, so
+			// only a link covering the whole port can be split off one.
+			IdString port_signed = (port == ID::A) ? ID::A_SIGNED : ID::B_SIGNED;
+			if (GetSize(sigmap(consumer->getPort(port))) != GetSize(sig) &&
+			    consumer->getParam(port_signed).as_bool())
+				return nullptr;
+		} else if (!covers_port_low(consumer, sig)) {
 			return nullptr;
+		}
 
-		// A link narrower than its consumer discards a carry the wider consumer would
-		// otherwise see, since (x % 2**link) % 2**parent == x % 2**parent only when
-		// parent <= link. Flatten it anyway when the link cannot reach that carry, but
-		// only if the consumer zero-extends it: a sign-extended narrow link means
-		// something different from the full-width sum that replaces it.
-		if (GetSize(sig) < GetSize(consumer->getPort(ID::Y))) {
+		// A link whose field stops below its consumer's MSB discards a carry the wider
+		// consumer would otherwise see, since (x % 2**link) % 2**parent == x % 2**parent
+		// only when parent <= offset + link. Flatten it anyway when the link cannot
+		// reach that carry, but only if the consumer zero-extends it: a sign-extended
+		// narrow link means something different from the full-width sum that replaces it.
+		if (offset + GetSize(sig) < GetSize(consumer->getPort(ID::Y))) {
 			bool consumer_extends_unsigned = !consumer->getParam(ID::A_SIGNED).as_bool() &&
 			                                 !consumer->getParam(ID::B_SIGNED).as_bool();
 			if (!consumer_extends_unsigned || link_may_overflow(cell))
@@ -319,13 +360,16 @@ struct ArithTreeWorker {
 		return consumer;
 	}
 
-	dict<Cell *, Cell *> find_parents(const pool<Cell *> &candidates)
+	dict<Cell *, Cell *> find_parents(const pool<Cell *> &candidates, dict<Cell *, int> &link_off)
 	{
 		dict<Cell *, Cell *> parent_of;
 		for (auto cell : candidates) {
-			Cell *consumer = sole_chainable_consumer(cell, candidates);
-			if (consumer && consumer != cell)
+			int offset = 0;
+			Cell *consumer = sole_chainable_consumer(cell, candidates, offset);
+			if (consumer && consumer != cell) {
 				parent_of[cell] = consumer;
+				link_off[cell] = offset;
+			}
 		}
 		return parent_of;
 	}
@@ -398,62 +442,98 @@ struct ArithTreeWorker {
 		return false;
 	}
 
-	std::vector<Operand> extract_chain_operands(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of, int &neg_compensation)
+	// Negation flag and column of every cell in `chain`, walked down from the root.
+	// Columns compose additively: a link at offset k inside a parent that itself sits
+	// at column j puts its own operands at j + k.
+	void propagate_chain_state(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of,
+				   const dict<Cell *, int> &link_off, dict<Cell *, bool> &negated,
+				   dict<Cell *, int> &offset_of)
 	{
-		pool<SigBit> chain_bits = internal_bits(chain);
-
-		// Propagate negation flags through chain
-		dict<Cell *, bool> negated;
 		negated[root] = false;
-		{
-			std::queue<Cell *> q;
-			q.push(root);
-			while (!q.empty()) {
-				Cell *cur = q.front();
-				q.pop();
-				for (auto cell : chain) {
-					if (!parent_of.count(cell) || parent_of.at(cell) != cur)
-						continue;
-					if (negated.count(cell))
-						continue;
-					negated[cell] = negated[cur] ^ feeds_subtracted_port(cell, cur);
-					q.push(cell);
-				}
+		offset_of[root] = 0;
+		std::queue<Cell *> q;
+		q.push(root);
+		while (!q.empty()) {
+			Cell *cur = q.front();
+			q.pop();
+			for (auto cell : chain) {
+				if (!parent_of.count(cell) || parent_of.at(cell) != cur)
+					continue;
+				if (negated.count(cell))
+					continue;
+				negated[cell] = negated[cur] ^ feeds_subtracted_port(cell, cur);
+				offset_of[cell] = offset_of[cur] + link_off.at(cell);
+				q.push(cell);
 			}
 		}
+	}
+
+	std::vector<Operand> extract_chain_operands(const pool<Cell *> &chain, Cell *root, const dict<Cell *, Cell *> &parent_of,
+						    const dict<Cell *, int> &link_off, std::vector<int> &neg_offsets)
+	{
+		pool<SigBit> chain_bits = internal_bits(chain);
+		dict<Cell *, bool> negated;
+		dict<Cell *, int> offset_of;
+		propagate_chain_state(chain, root, parent_of, link_off, negated, offset_of);
 
 		// Extract leaf operands
 		std::vector<Operand> operands;
-		neg_compensation = 0;
 
 		for (auto cell : chain) {
 			bool cell_neg = negated.count(cell) ? negated[cell] : false;
-
-			SigSpec a = sigmap(cell->getPort(ID::A));
-			SigSpec b = sigmap(cell->getPort(ID::B));
-			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
-			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+			int base = offset_of.count(cell) ? offset_of.at(cell) : 0;
 			bool b_sub = (cell->type == ID($sub)) || (is_alu(cell) && is_sub(cell));
 
-			if (!overlaps(a, chain_bits)) {
-				operands.push_back({a, a_signed, cell_neg, SigSpec(), false});
-				if (cell_neg)
-					neg_compensation++;
-			}
-			if (!overlaps(b, chain_bits)) {
-				bool neg = cell_neg ^ b_sub;
-				operands.push_back({b, b_signed, neg, SigSpec(), false});
-				if (neg)
-					neg_compensation++;
+			for (auto name : {ID::A, ID::B}) {
+				SigSpec port = sigmap(cell->getPort(name));
+				bool port_signed = cell->getParam(name == ID::A ? ID::A_SIGNED : ID::B_SIGNED).as_bool();
+				bool neg = cell_neg ^ (name == ID::B && b_sub);
+				auto take = [&](SigSpec sig, bool is_signed, int offset) {
+					// Constant-zero low bits only scale the operand, and
+					// -(v << k) == (-v) << k, so move them into the column
+					// either way. A product added at a bit offset reaches the
+					// sum in exactly that shape.
+					while (opt.bit_offsets && GetSize(sig) > 1 && sig[0] == State::S0) {
+						sig.remove(0, 1);
+						offset++;
+					}
+					operands.push_back({sig, is_signed, neg, SigSpec(), false, offset});
+					if (neg)
+						neg_offsets.push_back(offset);
+				};
+
+				// A signed port extends from its own MSB, so its runs are not
+				// independent columns; the link rules keep such a port either
+				// whole or entirely covered by one link.
+				if (port_signed || !opt.bit_offsets) {
+					if (!overlaps(port, chain_bits))
+						take(port, port_signed, base);
+					continue;
+				}
+
+				// Split the port into maximal runs of bits no chain cell drives.
+				// The runs a chain cell does drive are links, already accounted
+				// for by the cells they come from, so a port mixing a link with
+				// leaf bits contributes only the leaf runs beside it.
+				for (int i = 0; i < GetSize(port);) {
+					if (chain_bits.count(port[i])) {
+						i++;
+						continue;
+					}
+					int j = i + 1;
+					while (j < GetSize(port) && !chain_bits.count(port[j]))
+						j++;
+					take(port.extract(i, j - i), false, base + i);
+					i = j;
+				}
 			}
 		}
 		return operands;
 	}
 
-	bool extract_macc_operands(Cell *cell, std::vector<Operand> &operands, int &neg_compensation)
+	bool extract_macc_operands(Cell *cell, std::vector<Operand> &operands, std::vector<int> &neg_offsets)
 	{
 		Macc macc(cell);
-		neg_compensation = 0;
 
 		for (auto &term : macc.terms) {
 			if (GetSize(term.in_b) != 0) {
@@ -470,53 +550,84 @@ struct ArithTreeWorker {
 				operands.push_back(op);
 				continue;
 			}
-			operands.push_back({term.in_a, term.is_signed, term.do_subtract, SigSpec(), false});
+			operands.push_back({term.in_a, term.is_signed, term.do_subtract, SigSpec(), false, 0});
 			if (term.do_subtract)
-				neg_compensation++;
+				neg_offsets.push_back(0);
 		}
 		return true;
 	}
 
-	std::vector<CompressorTree::DepthSig> build_operand_pool(Cell *cell, std::vector<Operand> &operands, int width, int &neg_compensation)
+	// An operand at column k contributes value << k, i.e. its bits sit that far up
+	static SigSpec scale(const SigSpec &sig, int offset)
+	{
+		if (offset == 0)
+			return sig;
+		SigSpec scaled(State::S0, offset);
+		scaled.append(sig);
+		return scaled;
+	}
+
+	// Two's complement of an operand at column k is ~value plus 2**k, so the
+	// correction row is the sum of those bits rather than a count of negated operands
+	static SigSpec neg_correction(const std::vector<int> &offsets, int width)
+	{
+		std::vector<State> bits(width, State::S0);
+		for (int offset : offsets)
+			for (int i = offset; i < width; i++) {
+				bool carry = (bits[i] == State::S1);
+				bits[i] = carry ? State::S0 : State::S1;
+				if (!carry)
+					break;
+			}
+		return SigSpec(Const(bits));
+	}
+
+	std::vector<CompressorTree::DepthSig> build_operand_pool(Cell *cell, std::vector<Operand> &operands, int width, std::vector<int> &neg_offsets)
 	{
 		// Expand operands into a flat list of signals for reduction
 		std::vector<CompressorTree::DepthSig> pool;
 		pool.reserve(operands.size() * 2);
 
 		for (auto &op : operands) {
+			// Columns the operand can still reach; one based at or above the result
+			// MSB contributes nothing, and its negation correction cancels too
+			int body = width - op.offset;
+			if (body <= 0)
+				continue;
+
 			if (GetSize(op.factor_b) == 0) {
 				// Additive operand
 				int depth = arrival(op.sig);
-				op.sig.extend_u0(width, op.is_signed);
+				op.sig.extend_u0(body, op.is_signed);
 				if (op.negate) {
 					op.sig = module->Not(NEW_ID2_SUFFIX("not"), op.sig); // SILIMATE: Improve the naming
 					depth++;
 				}
-				pool.push_back({op.sig, depth});
+				pool.push_back({scale(op.sig, op.offset), depth});
 			} else {
 				// Multiplicative operand: every row is one AND past both factors
 				int depth = std::max(arrival(op.sig), arrival(op.factor_b)) + 1;
-				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, width, cell->name); // SILIMATE: Improve the naming
+				auto pps = CompressorTree::generate_partial_products(module, op.sig, op.factor_b, op.is_signed, op.factor_b_signed, body, cell->name); // SILIMATE: Improve the naming
 
 				if (!op.negate) {
 					for (auto &pp : pps)
-						pool.push_back({pp.sig, depth});
+						pool.push_back({scale(pp.sig, op.offset), depth});
 					continue;
 				}
 
-				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, width, opt.strategy, cell->name); // SILIMATE: Improve the naming
-				SigSpec p = module->addWire(NEW_ID2_SUFFIX("prod"), width); // SILIMATE: Improve the naming
+				auto [pa, pb] = CompressorTree::reduce_scheduled(module, pps, body, opt.strategy, cell->name); // SILIMATE: Improve the naming
+				SigSpec p = module->addWire(NEW_ID2_SUFFIX("prod"), body); // SILIMATE: Improve the naming
 				module->addAdd(NEW_ID2_SUFFIX("add"), pa, pb, p, false); // SILIMATE: Improve the naming
-				SigSpec np = module->addWire(NEW_ID2_SUFFIX("nprod"), width); // SILIMATE: Improve the naming
+				SigSpec np = module->addWire(NEW_ID2_SUFFIX("nprod"), body); // SILIMATE: Improve the naming
 				module->addNot(NEW_ID2_SUFFIX("not"), p, np); // SILIMATE: Improve the naming
 				// Its own rows, the adder above, and the inverter
-				pool.push_back({np, depth + 2 * tree_levels(GetSize(pps)) + adder_levels(width) + 1});
-				neg_compensation++;
+				pool.push_back({scale(np, op.offset), depth + 2 * tree_levels(GetSize(pps)) + adder_levels(body) + 1});
+				neg_offsets.push_back(op.offset);
 			}
 		}
 
-		if (neg_compensation > 0)
-			pool.push_back({SigSpec(neg_compensation, width), 0});
+		if (!neg_offsets.empty())
+			pool.push_back({neg_correction(neg_offsets, width), 0});
 
 		rebase_depths(pool);
 		return pool;
@@ -557,10 +668,10 @@ struct ArithTreeWorker {
 			e.depth = level.at(e.depth);
 	}
 
-	void emit_tree(Cell *cell, std::vector<Operand> &operands, SigSpec result_y, int neg_compensation)
+	void emit_tree(Cell *cell, std::vector<Operand> &operands, SigSpec result_y, std::vector<int> &neg_offsets)
 	{
 		int width = GetSize(result_y);
-		auto pool = build_operand_pool(cell, operands, width, neg_compensation);
+		auto pool = build_operand_pool(cell, operands, width, neg_offsets);
 		int final_depth = 0;
 		auto [a, b] = CompressorTree::reduce_scheduled(module, std::move(pool), width, opt.strategy, cell->name, nullptr, &final_depth); // SILIMATE: Improve the naming
 		auto final_choice = CompressorTree::pick_final_adder(width, final_depth, opt.final_mode);
@@ -579,7 +690,8 @@ struct ArithTreeWorker {
 		if (candidates.empty())
 			return;
 
-		auto parent_of = find_parents(candidates);
+		dict<Cell *, int> link_off;
+		auto parent_of = find_parents(candidates, link_off);
 		auto [children_of, has_parent] = invert_parent_map(parent_of);
 
 		pool<Cell *> to_remove;
@@ -594,15 +706,24 @@ struct ArithTreeWorker {
 			if (chain.size() < 2)
 				continue;
 
-			int neg_compensation;
-			auto operands = extract_chain_operands(chain, root, parent_of, neg_compensation);
+			std::vector<int> neg_offsets;
+			auto operands = extract_chain_operands(chain, root, parent_of, link_off, neg_offsets);
 			if (operands.size() < 3)
 				continue;
+
+			// Only -bit-offsets can put an operand above the result LSB, so this
+			// counts what the flag actually recovered on this chain
+			int weighted = 0;
+			for (auto &op : operands)
+				if (op.offset != 0)
+					weighted++;
+			if (weighted)
+				log("Reduced %d weighted operand(s) into the tree at %s.\n", weighted, log_id(root));
 
 			for (auto c : chain)
 				to_remove.insert(c);
 
-			emit_tree(root, operands, root->getPort(ID::Y), neg_compensation);
+			emit_tree(root, operands, root->getPort(ID::Y), neg_offsets);
 		}
 
 		for (auto cell : to_remove)
@@ -617,8 +738,8 @@ struct ArithTreeWorker {
 				continue;
 
 			std::vector<Operand> operands;
-			int neg_compensation;
-			if (!extract_macc_operands(cell, operands, neg_compensation))
+			std::vector<int> neg_offsets;
+			if (!extract_macc_operands(cell, operands, neg_offsets))
 				continue;
 			if (operands.size() < 1)
 				continue;
@@ -631,7 +752,7 @@ struct ArithTreeWorker {
 				continue;
 			if (!has_mul && operands.size() < 3)
 				continue;
-			emit_tree(cell, operands, cell->getPort(ID::Y), neg_compensation);
+			emit_tree(cell, operands, cell->getPort(ID::Y), neg_offsets);
 			to_remove.insert(cell);
 		}
 		for (auto cell : to_remove)
@@ -680,6 +801,16 @@ struct ArithTreePass : public Pass {
 		log("        sum of products is the usual case. Off by default because it\n");
 		log("        reorders operands on designs where the arrivals are already even.\n");
 		log("\n");
+		log("    -bit-offsets\n");
+		log("        Place each link and leaf operand at the column it enters the sum\n");
+		log("        at, instead of requiring all of them to start at the result LSB.\n");
+		log("        Sums of terms weighted by different powers of two -- hand-split\n");
+		log("        partial products, or any add tree a significant-width narrowing\n");
+		log("        has rewritten into windowed slices -- then reduce as one tree\n");
+		log("        with one final adder, where otherwise every weighted term ends\n");
+		log("        a chain and keeps its own carry-propagate adder. Off by default\n");
+		log("        because it admits chains across links the plain reading refuses.\n");
+		log("\n");
 		log("    -min-width <n>\n");
 		log("        Skip chains and $macc cells whose result is narrower than <n>\n");
 		log("        bits (default 0, i.e. no limit). A compressor level costs about\n");
@@ -725,6 +856,10 @@ struct ArithTreePass : public Pass {
 			}
 			if (arg == "-schedule") {
 				opt.schedule_arrival = true;
+				continue;
+			}
+			if (arg == "-bit-offsets") {
+				opt.bit_offsets = true;
 				continue;
 			}
 			if (arg == "-min-width" && argidx + 1 < args.size()) {
