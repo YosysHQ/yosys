@@ -60,7 +60,10 @@ static IdString make_id(Cell *anchor, const char *suffix)
 	return NEW_ID2_SUFFIX(suffix);
 }
 
-static inline double log2p1_int(int n) { return std::log2(static_cast<double>(n) + 1.0); }
+// Fractional log depth, so a chain one bit wider is not free. Deliberately not named
+// log2p1_int like unit_delay.h's helper, which returns the integer bit count instead
+// (4 rather than 3.17 for width 8) and would collide on any future shared include.
+static inline double frac_log_depth(int n) { return std::log2(static_cast<double>(n) + 1.0); }
 
 static int cell_y_width(const Cell *cell)
 {
@@ -254,7 +257,7 @@ static double estimate_cell_delay(const Cell *cell, int out_width)
 			case DelayHeuristicKind::Fixed:
 				return spec->fixed_delay;
 			case DelayHeuristicKind::AddLike:
-				return log2p1_int(width);
+				return frac_log_depth(width);
 		}
 	}
 
@@ -262,14 +265,14 @@ static double estimate_cell_delay(const Cell *cell, int out_width)
 		int s_width = 1;
 		if (cell->hasParam(ID::S_WIDTH))
 			s_width = cell->getParam(ID::S_WIDTH).as_int();
-		return log2p1_int(s_width);
+		return frac_log_depth(s_width);
 	}
 	if (type.in(ID($add), ID($sub), ID($neg), ID($alu)))
-		return log2p1_int(width);
+		return frac_log_depth(width);
 	if (type.in(ID($mul), ID($div), ID($mod)))
 		return width;
 	if (type.in(ID($shl), ID($shr), ID($sshl), ID($sshr)))
-		return log2p1_int(width);
+		return frac_log_depth(width);
 
 	const auto &fixed = fixed_delay_table();
 	auto it = fixed.find(type);
