@@ -332,7 +332,7 @@ directories:
    commands.
 
    Good starting points for reading example source code to learn how to write
-   passes are :file:`passes/opt/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
+   passes are :file:`passes/opt/dff/opt_dff.cc` and :file:`passes/opt/opt_merge.cc`.
 
    Users of the Qt Creator IDE can generate a QT Creator project file using make
    qtcreator. Users of the Eclipse IDE can use the "Makefile Project with Existing
