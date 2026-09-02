@@ -1356,8 +1356,10 @@ struct XAigerWriter : AigerWriter {
 				}
 			} else if (!is_input && !inputs) {
 				for (auto &bit : conn.second) {
-					if (!bit.wire || (bit.wire->port_input && !bit.wire->port_output))
-						log_error("Bad connection %s/%s ~ %s\n", box, conn.first.unescape(), log_signal(conn.second));
+					if (!bit.wire)
+						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, conn.first.unescape(), log_signal(conn.second));
+					if (bit.wire->port_input && !bit.wire->port_output)
+						log_error("Bad connection: %s/%s connected to wire %s marked as port input but has non-input port direction\n", box, conn.first.unescape(), log_signal(conn.second));
 
 
 					ensure_pi(bit, cursor);
