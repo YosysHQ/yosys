@@ -2582,25 +2582,28 @@ struct AbcPass : public Pass {
 						work_finished_queue.push_back(std::move(*work));
 					}
 				});
-			int state_index = 0;
-			int next_state_index_to_process = 0;
 			std::vector<std::unique_ptr<AbcModuleState>> work_finished_by_index;
 			work_finished_by_index.resize(assigned_cells.size());
-			int work_finished_count = 0;
-			for (auto &it : assigned_cells) {
-				// Make sure we process the results in the order we expect. When we can
-				// process results before the next ABC run, do so, to keep memory usage low(er).
-				while (std::optional<std::unique_ptr<AbcModuleState>> work =
-						work_finished_queue.try_pop_front()) {
-					work_finished_by_index[(*work)->state_index] = std::move(*work);
-					++work_finished_count;
+			// Make sure we process the results in the order we expect. Process each result
+			// a fixed number of ABC runs after it was prepared, to keep memory usage low(er)
+			// without letting the order the runs finish in affect the result.
+			const int extract_lookahead = 256;
+			auto next_to_prepare = assigned_cells.begin();
+			for (int i = 0; i < GetSize(assigned_cells) + extract_lookahead; i++) {
+				if (i >= extract_lookahead) {
+					int extract_index = i - extract_lookahead;
+					while (work_finished_by_index[extract_index] == nullptr) {
+						std::unique_ptr<AbcModuleState> work = *work_finished_queue.pop_front();
+						work_finished_by_index[work->state_index] = std::move(work);
+					}
+					work_finished_by_index[extract_index]->extract(assign_map, design, mod);
+					work_finished_by_index[extract_index] = nullptr;
 				}
-				while (work_finished_by_index[next_state_index_to_process] != nullptr) {
-					work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
-					work_finished_by_index[next_state_index_to_process] = nullptr;
-					++next_state_index_to_process;
-				}
-				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals, state_index++);
+				if (i >= GetSize(assigned_cells))
+					continue;
+				auto &it = *next_to_prepare;
+				++next_to_prepare;
+				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals, i);
 				state->clk_polarity = std::get<0>(it.first);
 				state->clk_sig = assign_map(std::get<1>(it.first));
 				state->en_polarity = std::get<2>(it.first);
@@ -2617,18 +2620,8 @@ struct AbcPass : public Pass {
 					state->run_abc.run(process_pool);
 					work_finished_queue.push_back(std::move(state));
 				}
-			}
-			work_queue.close();
-			while (work_finished_count < GetSize(assigned_cells)) {
-				std::optional<std::unique_ptr<AbcModuleState>> work =
-					work_finished_queue.pop_front();
-				work_finished_by_index[(*work)->state_index] = std::move(*work);
-				++work_finished_count;
-			}
-			while (next_state_index_to_process < GetSize(work_finished_by_index)) {
-				work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
-				work_finished_by_index[next_state_index_to_process] = nullptr;
-				++next_state_index_to_process;
+				if (i + 1 == GetSize(assigned_cells))
+					work_queue.close();
 			}
 		}
 
