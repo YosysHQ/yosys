@@ -1107,15 +1107,33 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 	}
 };
 
+bool opaque_box_input(RTLIL::PortDir dir)
+{
+	return dir != RTLIL::PD_OUTPUT;
+}
+
+bool opaque_box_output(RTLIL::PortDir dir)
+{
+	return dir != RTLIL::PD_INPUT;
+}
+
+bool ambiguous_dir(RTLIL::PortDir dir)
+{
+	return opaque_box_input(dir) && opaque_box_output(dir);
+}
+
+bool box_drives(Cell *box, Wire *wire)
+{
+	return wire && wire->known_driver() && wire->driverCell() == box;
+}
+
 struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 	const static constexpr int EMPTY_LIT = -1;
 
 	XAigerAnalysis()
 	{
 		allow_blackboxes = true;
-
-		// Disable const folding and strashing as literal values are not unique
-		const_folding = false;
+		const_folding = false; // non unique
 		strashing = false;
 	}
 
@@ -1177,10 +1195,19 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		for (auto box : top_minfo->found_blackboxes) {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
-				for (auto &conn : box->connections_)
-					if (box->port_dir(conn.first) != RTLIL::PD_INPUT)
-						for (auto bit : conn.second)
-							pi_literal(bit, &cursor) = 0;
+				for (auto &conn : box->connections_) {
+					RTLIL::PortDir dir = box->port_dir(conn.first);
+					if (!opaque_box_output(dir))
+						continue;
+
+					for (auto bit : conn.second) {
+						// A constant carries no CI
+						if (!bit.wire || (ambiguous_dir(dir) && !box_drives(box, bit.wire)))
+							continue;
+
+						pi_literal(bit, &cursor) = 0;
+					}
+				}
 		}
 
 		for (auto w : top->wires()) {
@@ -1194,14 +1221,13 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 			Module *def = design->module(box->type);
 			if (!(def && def->has_attribute(ID::abc9_box_id)))
 				for (auto &conn : box->connections_)
-					if (box->port_dir(conn.first) == RTLIL::PD_INPUT)
+					if (opaque_box_input(box->port_dir(conn.first)))
 						for (auto bit : conn.second)
 							(void) eval_po(bit);
 		}
 	}
 };
 
-// ABC requires cin to be the last box input and cout the last box output
 std::vector<IdString> box_ports(Module *def)
 {
 	std::vector<IdString> ports;
@@ -1281,16 +1307,6 @@ struct XAigerWriter : AigerWriter {
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
 	std::vector<HierBit> pis;
-
-	// * The aiger output port sequence is COs (inputs to modeled boxes),
-	//   inputs to opaque boxes, then module outputs. COs going first is
-	//   required by abc.
-	// * proper_pos_counter counts ports which follow after COs
-	// * The mapping file `pseudopo` and `po` statements use indexing relative
-	//   to the first port following COs.
-	// * If a module output is directly driven by an opaque box, the emission
-	//   of the po statement in the mapping file is skipped. This is done to
-	//   aid re-integration of the mapped result.
 	int proper_pos_counter = 0;
 
 	pool<SigBit> driven_by_opaque_box;
@@ -1329,12 +1345,13 @@ struct XAigerWriter : AigerWriter {
 	void append_opaque_box_ports(Cell *box, HierCursor &cursor, bool inputs)
 	{
 		for (auto &conn : box->connections_) {
-			bool is_input = box->port_dir(conn.first) == RTLIL::PD_INPUT;
+			RTLIL::PortDir dir = box->port_dir(conn.first);
 
-			if (is_input && inputs) {
+			if (opaque_box_input(dir) && inputs) {
 				int bitp = 0;
 				for (auto bit : conn.second) {
-					if (!bit.wire) {
+					// On an ambiguous port, a bit with a CI needs no CO
+					if (!bit.wire || (ambiguous_dir(dir) && is_pi(bit, cursor))) {
 						bitp++;
 						continue;
 					}
@@ -1354,13 +1371,16 @@ struct XAigerWriter : AigerWriter {
 
 					bitp++;
 				}
-			} else if (!is_input && !inputs) {
+			} else if (opaque_box_output(dir) && !inputs) {
 				for (auto &bit : conn.second) {
+					if (ambiguous_dir(dir) && !box_drives(box, bit.wire))
+						continue;
+
 					// If the following log_errors fire, make sure your design/flow passes `check -assert` before `write_xaiger2`.
 					if (!bit.wire)
-						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, conn.first.unescape(), log_signal(conn.second));
+						log_error("Bad connection: %s/%s connected to non-wire %s\n", box, conn.first.unescape(), log_signal(bit));
 					if (bit.wire->port_input && !bit.wire->port_output)
-						log_error("Bad connection: %s/%s with non-input port direction connected to wire %s marked as port input\n", box, conn.first.unescape(), log_signal(conn.second));
+						log_error("Bad connection: %s/%s with non-input port direction connected to wire %s marked as port input\n", box, conn.first.unescape(), log_signal(bit));
 
 
 					ensure_pi(bit, cursor);
