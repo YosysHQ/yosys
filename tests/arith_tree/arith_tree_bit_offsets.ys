@@ -1,0 +1,209 @@
+# A chain link occupying only part of its consumer's port enters the sum scaled by
+# 2**offset, and the bits beside it are operands of their own. Reading the port as
+# a value based at the result LSB gets both wrong, so without -bit-offsets such a
+# link is refused outright and the chain stays as it was.
+read_verilog <<EOT
+module partial_port_refused(
+	input [7:0] a, b,
+	input [4:0] lo,
+	input [19:0] c,
+	output [19:0] y
+);
+	wire [8:0] t = a + b;
+	assign y = {t, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 0 t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+# Same shape with the columns tracked: one tree, one final adder.
+read_verilog <<EOT
+module partial_port_folded(
+	input [7:0] a, b,
+	input [4:0] lo,
+	input [19:0] c,
+	output [19:0] y
+);
+	wire [8:0] t = a + b;
+	assign y = {t, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+# A link that reaches its consumer's MSB discards only carries the consumer
+# discards too, so no overflow argument is needed to flatten it. Without offsets
+# the widths alone say the link is narrow and the chain does not fold.
+read_verilog <<EOT
+module link_reaches_msb(
+	input [7:0] a, b, c,
+	input [3:0] lo,
+	output [12:0] y
+);
+	wire [8:0] t = a + b;
+	assign y = {t, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+# Terms weighted by different powers of two, which is what a hand-split multiply's
+# partial-product sum looks like once the constant shifts are folded.
+read_verilog <<EOT
+module weighted_terms(
+	input [7:0] a, b, c,
+	input [19:0] d,
+	output [19:0] y
+);
+	assign y = {a, 8'd0} + {b, 4'd0} + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+# Negation composes with a column: -(v << k) == (-v) << k, so a weighted operand
+# can still be subtracted and the correction lands at 2**k rather than at 1.
+read_verilog <<EOT
+module weighted_sub(
+	input [7:0] a, b, c,
+	input [19:0] d,
+	output [19:0] y
+);
+	wire [15:0] t = {a, 4'd0} - b;
+	assign y = {t, 3'd0} + c - d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -reset
+
+# A signed port extends from the port's own MSB, so a run inside it is not a column
+# of its own and the link cannot be split off. Near-miss for the widened match: the
+# same shape as partial_port_folded, refused even with the flag on.
+read_verilog <<EOT
+module signed_partial_refused(
+	input signed [7:0] a, b,
+	input signed [3:0] lo,
+	input signed [19:0] c,
+	output signed [19:0] y
+);
+	wire signed [8:0] t = a + b;
+	assign y = $signed({t, lo}) + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-count 0 t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+# A signed operand at a column sign-extends from its own MSB over the columns
+# above it, not from the result LSB.
+read_verilog <<EOT
+module signed_weighted(
+	input signed [7:0] a, b,
+	input signed [3:0] s,
+	input signed [19:0] c,
+	output signed [19:0] y
+);
+	wire signed [8:0] t = a + b;
+	assign y = (t <<< 6) + s + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+opt_expr -full
+opt_clean
+equiv_opt -assert arith_tree -bit-offsets
+design -reset
+
+# A truncating link that reaches its consumer's MSB skips the overflow argument,
+# and that has to stay sound when the consumer is itself folded into a wider root.
+# It does: a link reaching its consumer's MSB makes that consumer's own widest
+# port at least as wide as its result, so the consumer always reads as possibly
+# overflowing, and its link is in turn only taken if it too reaches its consumer's
+# MSB. The carry t discards therefore lands at or above the root's MSB whatever
+# the nesting. Here u stops one short of the root, so u's link is refused.
+read_verilog <<EOT
+module nested_trunc_refused(
+	input [8:0] a, b, e,
+	input [3:0] lo,
+	input [19:0] c,
+	output [19:0] y
+);
+	wire [8:0] t = a + b;
+	wire [8:0] u = t + e;
+	assign y = {u, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+# t folds into u's own tree, where the truncation is the same; the root keeps its
+# adder because u's link is the one refused
+select -assert-count 2 t:$add
+design -reset
+
+# Same nesting with u reaching the root's MSB, so both links are taken and the
+# whole thing folds. t's discarded carry belongs to column 13, which the 13-bit
+# result does not have.
+read_verilog <<EOT
+module nested_trunc_folded(
+	input [8:0] a, b, e,
+	input [3:0] lo,
+	input [12:0] c,
+	output [12:0] y
+);
+	wire [8:0] t = a + b;
+	wire [8:0] u = t + e;
+	assign y = {u, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-min 1 t:$fa
+select -assert-count 1 t:$add
+design -reset
+
+# Offsets must not disturb a plain flat chain: same tree, same single adder.
+read_verilog <<EOT
+module flat_chain_unchanged(
+	input [7:0] a, b, c, d,
+	output [7:0] y
+);
+	assign y = a + b + c + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree -bit-offsets
+design -load postopt
+select -assert-count 2 t:$fa
+select -assert-count 1 t:$add
+design -reset
