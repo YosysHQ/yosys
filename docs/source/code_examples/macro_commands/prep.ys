@@ -5,11 +5,12 @@ begin:
 
 coarse:
     proc [-ifx]
+    check
     flatten    (if -flatten)
     future
     opt_expr -keepdc
-    opt_clean
     check
+    opt_clean
     opt -noff -keepdc
     wreduce -keepdc [-memx]
     memory_dff    (if -rdff)
