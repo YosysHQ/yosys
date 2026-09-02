@@ -7,7 +7,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 // Recursively traverses backward from a sig, record if a cell was traversed, and push onto the cell's inputs.
 // Similarly with assign statements traverses lhs -> rhs
-void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *> *> &sig2CellsInFanin,
+void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin,
 		      dict<RTLIL::SigSpec, RTLIL::SigSpec> &lhsSig2RhsSig, std::set<Cell *> &visitedCells, std::set<RTLIL::SigSpec> &visitedSigSpec)
 {
 	if (sig.is_fully_const()) {
@@ -17,10 +17,9 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 		return;
 	}
 	visitedSigSpec.insert(sig);
-	if (sig2CellsInFanin.count(sig)) {
-		std::set<Cell *> *sigFanin = sig2CellsInFanin[sig];
-		for (std::set<Cell *>::iterator it = sigFanin->begin(); it != sigFanin->end(); it++) {
-			Cell *cell = *it;
+	auto fanin_it = sig2CellsInFanin.find(sig);
+	if (fanin_it != sig2CellsInFanin.end()) {
+		for (Cell *cell : fanin_it->second) {
 			if (visitedCells.count(cell)) {
 				continue;
 			}
@@ -50,50 +49,26 @@ void recordTransFanin(RTLIL::SigSpec &sig, dict<RTLIL::SigSpec, std::set<Cell *>
 }
 
 // Signal cell driver(s), precompute a cell output signal to a cell map
-void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *> *> &sig2CellsInFanin)
+void sigCellDrivers(RTLIL::Design *design, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
 {
 	if (!design->top_module())
 		return;
-	if (design->top_module()->cells().size() == 0)
-		return;
 	for (auto cell : design->top_module()->cells()) {
 		for (auto &conn : cell->connections()) {
-			IdString portName = conn.first;
+			if (!cell->output(conn.first))
+				continue;
 			RTLIL::SigSpec actual = conn.second;
-			std::set<Cell *> *newSet;
-			if (cell->output(portName)) {
-				if (!actual.is_chunk()) {
-					auto chunks = actual.chunks();
-					for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
-						RTLIL::SigSpec sub_actual = *it;
-						if (sig2CellsInFanin.count(sub_actual)) {
-							newSet = sig2CellsInFanin[sub_actual];
-						} else {
-							newSet = new std::set<Cell *>;
-							sig2CellsInFanin[sub_actual] = newSet;
-						}
-						newSet->insert(cell);
-					}
-				} else {
-					if (sig2CellsInFanin.count(actual)) {
-						newSet = sig2CellsInFanin[actual];
-					} else {
-						newSet = new std::set<Cell *>;
-						sig2CellsInFanin[actual] = newSet;
-					}
-					newSet->insert(cell);
-					for (int i = 0; i < actual.size(); i++) {
-						SigSpec bit_sig = actual.extract(i, 1);
-						if (sig2CellsInFanin.count(bit_sig)) {
-							newSet = sig2CellsInFanin[bit_sig];
-						} else {
-							newSet = new std::set<Cell *>;
-							sig2CellsInFanin[bit_sig] = newSet;
-						}
-						newSet->insert(cell);
-					}
-				}
+			// A concatenation is keyed by each chunk; a plain chunk is keyed both
+			// whole and per bit, because recordTransFanin looks the output up
+			// either way depending on how its caller sliced it.
+			if (!actual.is_chunk()) {
+				for (auto &chunk : actual.chunks())
+					sig2CellsInFanin[RTLIL::SigSpec(chunk)].insert(cell);
+				continue;
 			}
+			sig2CellsInFanin[actual].insert(cell);
+			for (int i = 0; i < actual.size(); i++)
+				sig2CellsInFanin[actual.extract(i, 1)].insert(cell);
 		}
 	}
 }
@@ -182,21 +157,17 @@ struct SplitNetlist : public ScriptPass {
 		log("Mapping signals to cells\n");
 		log_flush();
 		// Precompute cell output sigspec to cell map
-		dict<RTLIL::SigSpec, std::set<Cell *> *> sig2CellsInFanin;
+		dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
 		sigCellDrivers(design, sig2CellsInFanin);
 		log("Mapping assignments\n");
 		log_flush();
 		// Precompute lhs to rhs sigspec map
 		dict<RTLIL::SigSpec, RTLIL::SigSpec> lhsSig2RhsSig;
 		lhs2rhs(design, lhsSig2RhsSig);
-		// Struct representing a cluster
-		typedef struct CellsAndSigs {
-			std::set<Cell *> visitedCells;
-			std::set<RTLIL::SigSpec> visitedSigSpec;
-		} CellsAndSigs;
-		// Cluster mapped by prefix
-		typedef std::map<std::string, CellsAndSigs> CellName_ObjectMap;
-		CellName_ObjectMap cellName_ObjectMap;
+		// Cells of each cluster, mapped by output-port prefix. Only the cells are
+		// kept: the signals of a cone are reachable from them, and nothing below
+		// reads them.
+		std::map<std::string, std::set<Cell *>> cellName_ObjectMap;
 		// Record logic cone by output sharing the same prefix
 		if (!design->top_module())
 			return;
@@ -241,36 +212,17 @@ struct SplitNetlist : public ScriptPass {
 				SigSpec bit_sig = actual.extract(i, 1);
 				recordTransFanin(bit_sig, sig2CellsInFanin, lhsSig2RhsSig, visitedCells, visitedSigSpec);
 			}
-			// Record the visited objects in the corresponding cluster
-			CellName_ObjectMap::iterator itr = cellName_ObjectMap.find(std::string(po_prefix));
-			if (itr == cellName_ObjectMap.end()) {
-				CellsAndSigs components;
-				for (auto cell : visitedCells) {
-					components.visitedCells.insert(cell);
-				}
-				for (auto sig : visitedSigSpec) {
-					components.visitedSigSpec.insert(sig);
-				}
-				cellName_ObjectMap.emplace(std::string(po_prefix), components);
-			} else {
-				CellsAndSigs &components = itr->second;
-				for (auto cell : visitedCells) {
-					components.visitedCells.insert(cell);
-				}
-				for (auto sig : visitedSigSpec) {
-					components.visitedSigSpec.insert(sig);
-				}
-			}
+			// Record the visited cells in the corresponding cluster
+			cellName_ObjectMap[std::string(po_prefix)].insert(visitedCells.begin(), visitedCells.end());
 		}
 		// Create submod attributes for the submod command
 		log("Creating submods\n");
 		log_flush();
-		for (CellName_ObjectMap::iterator itr = cellName_ObjectMap.begin(); itr != cellName_ObjectMap.end(); itr++) {
+		for (auto &cluster : cellName_ObjectMap) {
 			if (debug)
-				std::cout << "Cluster name: " << itr->first << std::endl;
-			CellsAndSigs &components = itr->second;
-			for (auto cell : components.visitedCells) {
-				cell->set_string_attribute(RTLIL::escape_id("submod"), itr->first);
+				std::cout << "Cluster name: " << cluster.first << std::endl;
+			for (auto cell : cluster.second) {
+				cell->set_string_attribute(RTLIL::escape_id("submod"), cluster.first);
 				if (debug)
 					std::cout << "  CELL: " << cell->name.c_str() << std::endl;
 			}
