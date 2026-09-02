@@ -43,7 +43,6 @@ struct OptMulDistWorker {
 	int max_reduce;
 	int min_chain;
 	int min_chain_width;
-	bool did_something = false;
 	// Several multiplies commonly read the same slice of the same increment, and
 	// the wrap test and its gated carry depend only on that slice
 	dict<std::string, std::pair<SigBit, SigBit>> shared;
@@ -297,7 +296,6 @@ struct OptMulDistWorker {
 		row_add->set_bool_attribute(ID(opt_muldist));
 
 		module->remove(cell);
-		did_something = true;
 	}
 
 	// Every reader of the increment has to be a slice we are rewriting, or it

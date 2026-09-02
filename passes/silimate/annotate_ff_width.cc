@@ -48,10 +48,7 @@ struct AnnotateFfWidthPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ANNOTATE_FF_WIDTH pass.\n");
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-			break;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		// Loop through all flip-flops in a module and annotate with their width
 		int annotated = 0;

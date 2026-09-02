@@ -63,8 +63,8 @@ struct SplitfanoutWorker
 					bit_users_db[bit].insert(tuple<IdString,IdString,int>(cell->name,
 							conn.first, i-std::get<2>(bit_drivers_db[bit])));
 					IdString driver_cell = std::get<0>(bit_drivers_db[bit]);
+					// Reversed edge: splitting must visit users before drivers.
 					if (toposort.has_node(driver_cell) && toposort.has_node(cell->name))
-						// toposort.edge(driver_cell, cell->name);
 						toposort.edge(cell->name, driver_cell);
 				}
 			}
@@ -214,7 +214,6 @@ struct SplitfanoutPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			// No options currently. When adding in the future make sure to update docstring with [options]
 			if (args[argidx] == "-limit" && argidx+1 < args.size()) {
 				limit = std::stoi(args[++argidx]);
 				continue;

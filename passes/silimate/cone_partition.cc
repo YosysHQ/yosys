@@ -373,7 +373,6 @@ struct ConePartitionWorker {
 				"(gold=%d, gate=%d). One module has multiple clock domains "
 				"while the other does not.\n",
 				(int)gold_domains.size(), (int)gate_domains.size());
-			return;
 		}
 
 		bool multi_clock = gold_multi && gate_multi;
@@ -423,8 +422,7 @@ struct ConePartitionWorker {
 
 		int cone_idx = 0;
 		for (auto &group : groups) {
-			expose_matched_ff_group(group.gold_cells, group.gate_cells,
-						cone_idx, gold_sigmap, gate_sigmap);
+			expose_matched_ff_group(group.gold_cells, group.gate_cells, cone_idx);
 			cone_idx++;
 		}
 
@@ -481,9 +479,7 @@ private:
 	void expose_matched_ff_group(
 		const std::vector<Cell*> &gold_cells,
 		const std::vector<Cell*> &gate_cells,
-		int cone_idx,
-		SigMap &/*gold_sigmap*/,
-		SigMap &/*gate_sigmap*/)
+		int cone_idx)
 	{
 		if (gold_cells.empty() || gate_cells.empty())
 			return;

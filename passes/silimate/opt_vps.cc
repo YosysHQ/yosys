@@ -168,19 +168,13 @@ struct OptVpsWorker
 
 	// Trace an S-port bit back through an optional AND gate to find
 	// which decoder output position it comes from.  Returns -1 on failure.
-	// If overflow_cond is non-null, stores the non-decoder input of the
-	// AND gate (the overflow mask bit), or State::S1 if direct.
-	int trace_to_decoder_pos(SigBit bit, Cell *decoder,
-				 SigBit *overflow_cond = nullptr)
+	int trace_to_decoder_pos(SigBit bit, Cell *decoder)
 	{
 		SigBit mapped = sigmap(bit);
 
 		int pos = decoder_pos_of(mapped, decoder);
-		if (pos >= 0) {
-			if (overflow_cond)
-				*overflow_cond = State::S1;
+		if (pos >= 0)
 			return pos;
-		}
 
 		Cell *driver = bit_drivers.at(mapped, nullptr);
 		SigBit a, b;
@@ -190,15 +184,9 @@ struct OptVpsWorker
 		// Both AND inputs can be decoder bits; the old linear scan over Y
 		// returned the lower position, so keep that tie-break.
 		int pa = decoder_pos_of(a, decoder), pb = decoder_pos_of(b, decoder);
-		if (pa >= 0 && (pb < 0 || pa <= pb)) {
-			if (overflow_cond) *overflow_cond = b;
+		if (pa >= 0 && (pb < 0 || pa <= pb))
 			return pa;
-		}
-		if (pb >= 0) {
-			if (overflow_cond) *overflow_cond = a;
-			return pb;
-		}
-		return -1;
+		return pb;
 	}
 
 	// Bucket every $pmux under the decoder(s) its select bits can come
@@ -272,10 +260,6 @@ struct OptVpsWorker
 		module->remove(cell);
 	}
 
-	// Extract the constant addend from a binary_index signal.
-	// If binary_index = $add(dynamic, C) or $add(C, dynamic),
-	// return C.  Otherwise return 0.  Handles chains of
-	// $add/$sub up to 8 levels deep.
 	// Evaluate a signal assuming all primary inputs are 0.
 	// Uses recursive constant propagation through the driver
 	// graph.  Handles $add, $sub, $not, $and, $or, $xor, $shl,
@@ -1739,7 +1723,6 @@ struct OptVpsWorker
 			int reg_offset;       // bit offset of read within register
 			int output_width;
 			SigSpec shift_variable; // the variable (non-constant) upper shift bits
-			int const_shift_lower; // constant value of lower shift bits
 			int shift_align;       // number of constant lower shift bits
 		};
 
@@ -1781,13 +1764,10 @@ struct OptVpsWorker
 
 			// Count constant lower shift bits
 			int shift_align = 0;
-			int const_lower = 0;
 			for (int i = 0; i < GetSize(shift); i++) {
 				SigBit b = sigmap(shift[i]);
-				if (b == State::S0)
+				if (b == State::S0 || b == State::S1)
 					shift_align++;
-				else if (b == State::S1)
-					{ const_lower |= (1 << i); shift_align++; }
 				else
 					break;
 			}
@@ -1802,7 +1782,7 @@ struct OptVpsWorker
 			int reg_offset = src_base + shift_at_zero;
 
 			shr_infos.push_back({shr, reg_wire, reg_offset,
-				out_w, shift_var, const_lower, shift_align});
+				out_w, shift_var, shift_align});
 		}
 
 		if (shr_infos.empty())
@@ -2320,9 +2300,8 @@ struct OptVpsWorker
 		log("  VPS group: decoder %s, base=%d, %d bits, stride=%d, %d lanes\n",
 		    log_id(decoder->name), base, N, W, lane_count);
 
-		// Collect gated decoder bits and overflow conditions
+		// Collect gated decoder bits
 		dict<int, SigBit> gated_bits;
-		dict<int, SigBit> overflow_bits;
 
 		for (int i = 0; i < N; i++) {
 			Cell *pmux_cell = candidates[group_start + i].cell;
@@ -2338,9 +2317,6 @@ struct OptVpsWorker
 					}
 				} else {
 					gated_bits[pos] = sb;
-					SigBit ov_cond;
-					trace_to_decoder_pos(sb, decoder, &ov_cond);
-					overflow_bits[pos] = ov_cond;
 				}
 			}
 		}

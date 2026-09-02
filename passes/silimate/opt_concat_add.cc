@@ -48,7 +48,6 @@ struct OptConcatAddWorker {
 	int min_addend;
 	int max_arms;
 	int max_mux_depth;
-	bool did_something = false;
 
 	struct Target {
 		Cell *add;
@@ -218,7 +217,6 @@ struct OptConcatAddWorker {
 		module->remove(cell);
 		module->remove(t.mux);
 		module->connect(y, {SigSpec(State::S0, wy - k - w_hi), hi, lo.extract(0, k)});
-		did_something = true;
 	}
 
 	// The mux is replaced by one over the pushed sums, so anything else reading
