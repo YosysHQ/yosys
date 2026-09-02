@@ -160,13 +160,17 @@ struct CheckPass : public Pass {
 			TopoSort<std::pair<RTLIL::IdString, int>> topo;
 			for (auto &proc_it : module->processes)
 			{
+				pool<SigBit> proc_driven_bits;
 				std::vector<RTLIL::CaseRule*> all_cases = {&proc_it.second->root_case};
 				for (size_t i = 0; i < all_cases.size(); i++) {
 					for (auto action : all_cases[i]->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : sigmap(action.first)) {
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
 										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+							if (bit.wire)
+								proc_driven_bits.insert(bit);
+						}
 
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
@@ -184,10 +188,13 @@ struct CheckPass : public Pass {
 					for (auto bit : sigmap(sync->signal))
 						if (bit.wire) used_wires.insert(bit);
 					for (auto action : sync->actions) {
-						for (auto bit : sigmap(action.first))
+						for (auto bit : sigmap(action.first)) {
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
 										log_signal(action.first), log_signal(action.second), proc_it.first.unescape()));
+							if (bit.wire && sync->type != RTLIL::SyncType::STi)
+								proc_driven_bits.insert(bit);
+						}
 						for (auto bit : sigmap(action.second))
 							if (bit.wire) used_wires.insert(bit);
 					}
@@ -200,6 +207,8 @@ struct CheckPass : public Pass {
 							if (bit.wire) used_wires.insert(bit);
 					}
 				}
+				for (auto bit : proc_driven_bits)
+					wire_drivers_count[bit]++;
 			}
 
 			struct CircuitEdgesDatabase : AbstractCellEdgesDatabase {
