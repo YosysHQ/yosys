@@ -5,49 +5,46 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Signal cell driver(s), precompute a cell output signal to a cell map
-void sigCellDrivers(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanout,
-		    dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
+// Count the loads on every net and bit, and record which cell drives each. Both whole buses and
+// their individual bits are keyed so a driver can be scored on whichever of the two is worse.
+// Internal wire-to-wire aliases are not loads, matching how fanoutbuf and report_fanout count.
+void countLoads(RTLIL::Module *module, SigMap &sigmap, dict<SigSpec, int> &sigFanout,
+		dict<RTLIL::SigSpec, std::set<Cell *>> &sig2CellsInFanin)
 {
 	for (auto cell : module->selected_cells()) {
 		for (auto &conn : cell->connections()) {
-			IdString portName = conn.first;
 			RTLIL::SigSpec actual = conn.second;
-			if (cell->output(portName)) {
+			if (cell->output(conn.first)) {
+				// Drivers are recorded, not counted: they are what fanout gets scored onto
 				sig2CellsInFanin[sigmap(actual)].insert(cell);
-				for (int i = 0; i < actual.size(); i++) {
-					SigSpec bit_sig = actual.extract(i, 1);
-					sig2CellsInFanin[sigmap(bit_sig)].insert(cell);
-				}
+				for (int i = 0; i < actual.size(); i++)
+					sig2CellsInFanin[sigmap(actual.extract(i, 1))].insert(cell);
 			} else {
-				sig2CellsInFanout[sigmap(actual)].insert(cell);
+				// One load per pin, not per cell: a cell reading one net on two pins is two
+				// loads. A 1-bit pin's bus and bit key are identical, so let the bit loop
+				// below count it and do not add it twice here.
+				if (actual.size() != 1)
+					sigFanout[sigmap(actual)]++;
 				for (int i = 0; i < actual.size(); i++) {
 					SigSpec bit_sig = actual.extract(i, 1);
-					if (!bit_sig.is_fully_const()) {
-						sig2CellsInFanout[sigmap(bit_sig)].insert(cell);
-					}
+					if (!bit_sig.is_fully_const())
+						sigFanout[sigmap(bit_sig)]++;
 				}
 			}
 		}
 	}
-}
 
-// Record one load per module output port bit, keyed by the sigmapped bit driving it. Port bits
-// are stored un-sigmapped: SigMap folds every `connect` alias onto one canonical bit, so a set
-// of sigmapped bits collapses N output ports on a net into one entry (this is what made a
-// feedthrough net, whose whole fanout is output ports, come out as fanout 1). Internal
-// wire-to-wire aliases are not loads, matching how fanoutbuf and report_fanout count.
-void outputPortFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec, std::set<RTLIL::SigSpec>> &sig2SigsInFanout)
-{
+	// Each module output port bit is one further load on whatever drives it. Counting per port
+	// bit rather than per canonical net keeps N ports on one net at N, so a feedthrough net
+	// (whose entire fanout is output ports) does not collapse to 1.
 	for (Wire *wire : module->wires()) {
 		if (!wire->port_output)
 			continue;
 		for (int i = 0; i < wire->width; i++) {
-			SigSpec bit_sig(wire, i);
+			SigSpec bit_sig = sigmap(SigSpec(wire, i));
 			// A constant-driven output port loads no driver
-			if (sigmap(bit_sig).is_fully_const())
-				continue;
-			sig2SigsInFanout[sigmap(bit_sig)].insert(bit_sig);
+			if (!bit_sig.is_fully_const())
+				sigFanout[bit_sig]++;
 		}
 	}
 }
@@ -55,18 +52,8 @@ void outputPortFanout(RTLIL::Module *module, SigMap &sigmap, dict<RTLIL::SigSpec
 // Calculate cells and nets fanout
 void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<Cell *, int> &cellFanout, dict<SigSpec, int> &sigFanout)
 {
-	dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanout, sig2CellsInFanin;
-	dict<RTLIL::SigSpec, std::set<SigSpec>> sig2SigsInFanout;
-	// Precompute cell output sigspec to cell map
-	sigCellDrivers(module, sigmap, sig2CellsInFanout, sig2CellsInFanin);
-	// Precompute the output port bits loading each net
-	outputPortFanout(module, sigmap, sig2SigsInFanout);
-
-	// Accumulate fanout from cell connections, then from output port loads
-	for (auto &itrSig : sig2CellsInFanout)
-		sigFanout[itrSig.first] = itrSig.second.size();
-	for (auto &itrSig : sig2SigsInFanout)
-		sigFanout[itrSig.first] += itrSig.second.size();
+	dict<RTLIL::SigSpec, std::set<Cell *>> sig2CellsInFanin;
+	countLoads(module, sigmap, sigFanout, sig2CellsInFanin);
 
 	// A cell's fanout is that of its most loaded output net or bit
 	for (auto &itrSig : sigFanout)
@@ -93,9 +80,8 @@ void calculateFanout(RTLIL::Module *module, SigMap &sigmap, dict<Cell *, int> &c
 }
 
 // Annotate cell and input port fanout as a $FANOUT attribute
-struct AnnotateCellFanout : public ScriptPass {
-	AnnotateCellFanout() : ScriptPass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
-	void script() override {}
+struct AnnotateCellFanout : public Pass {
+	AnnotateCellFanout() : Pass("annotate_cell_fanout", "Annotate the cell fanout on the cell") {}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
