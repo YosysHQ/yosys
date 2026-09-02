@@ -51,6 +51,7 @@ struct OptVpsWorker
 	int min_stride;
 	bool msb_inv_sext;
 	bool dead_mod;
+	bool wrap_atom;
 	pool<Cell *> vps_shr_cells;
 
 	// Decoder $shl output bit -> (decoder, one-hot position).  Lets the
@@ -68,9 +69,9 @@ struct OptVpsWorker
 	bool reduce_or_map_valid = false;
 
 	OptVpsWorker(Module *module, int min_stride, bool msb_inv_sext = false,
-		     bool dead_mod = false)
+		     bool dead_mod = false, bool wrap_atom = false)
 		: module(module), sigmap(module), min_stride(min_stride),
-		  msb_inv_sext(msb_inv_sext), dead_mod(dead_mod)
+		  msb_inv_sext(msb_inv_sext), dead_mod(dead_mod), wrap_atom(wrap_atom)
 	{
 		rebuild_maps();
 	}
@@ -815,6 +816,27 @@ struct OptVpsWorker
 			r.exact_bits = AFFINE_EXACT;
 	}
 
+	// True when `a` describes a driver's whole w-bit output only modulo 2^w and
+	// spans at least the whole modulus, so the truncation really happens and no
+	// offset can undo it: `base = x + y` declared at the width of x and y is the
+	// usual source. Such an interval bounds the sum, not the output, so
+	// reasoning with it both loses exactness and doubles the apparent range --
+	// which is what makes sibling lanes of one gather resolve to different
+	// opaque atoms. The output is exactly its own wire and is bounded by its own
+	// width, so under -wrap-atom that reading replaces the wrapping sum.
+	//
+	// Only for a whole output: on a low slice, congruence modulo the slice width
+	// is the natural reading rather than a lost bound, and it is what lets lanes
+	// spelled at different widths share one group.
+	bool wrapping_form(const Affine &a, int w, bool whole)
+	{
+		int64_t lo, hi;
+		if (!wrap_atom || !whole || w > AFFINE_MAX_ATOM_BITS ||
+		    a.exact_bits >= AFFINE_EXACT)
+			return false;
+		return !coeff_range(a.coeffs, lo, hi) || hi - lo >= (int64_t(1) << w);
+	}
+
 	Affine affine_of(SigSpec sig, int depth)
 	{
 		Affine r;
@@ -858,8 +880,12 @@ struct OptVpsWorker
 					a.exact_bits = std::min(a.exact_bits, w);
 					normalize_coeffs(a.coeffs);
 					tighten_exact(a, w);
-					affine_cache[sig] = a;
-					return a;
+					if (!wrapping_form(a, w, w == GetSize(dy))) {
+						affine_cache[sig] = a;
+						return a;
+					}
+					// Fall through to the atom below, which is this
+					// output itself: exact, and bounded by its own width.
 				}
 			}
 		}
@@ -2486,6 +2512,22 @@ struct OptVpsPass : public Pass {
 		log("        extra barrel and leaving the group misaligned with the\n");
 		log("        select farm reading it.\n");
 		log("\n");
+		log("    -wrap-atom\n");
+		log("        Read an index through a cell whose arithmetic wraps at its\n");
+		log("        own output width as that output's own atom, rather than as\n");
+		log("        the wrapping sum. `base = x + y` declared at the width of\n");
+		log("        x and y is the usual source: the sum's interval is twice\n");
+		log("        the modulus, so it bounds the sum rather than base, and\n");
+		log("        every `base + k` lane built on it loses exactness and\n");
+		log("        collapses to a different opaque atom. The lanes then land\n");
+		log("        in one gather group per lane and a farm of per-lane\n");
+		log("        barrels survives instead of the single shared one.\n");
+		log("        Only for a whole cell output, and only where the interval\n");
+		log("        spans the whole modulus: on a low slice congruence is the\n");
+		log("        natural reading, and a form that merely sits below zero\n");
+		log("        (`base - 1`) is exact once extended, so both are left\n");
+		log("        alone.\n");
+		log("\n");
 		log("    -dead-mod\n");
 		log("        Read `x %% const` as x where the operand provably never\n");
 		log("        reaches the divisor. RTL guards a circular index that way\n");
@@ -2503,6 +2545,7 @@ struct OptVpsPass : public Pass {
 		int max_gather_table = 4096;
 		bool msb_inv_sext = false;
 		bool dead_mod = false;
+		bool wrap_atom = false;
 
 		log_header(design, "Executing OPT_VPS pass (optimize Verific VPS patterns).\n");
 
@@ -2528,6 +2571,10 @@ struct OptVpsPass : public Pass {
 				dead_mod = true;
 				continue;
 			}
+			if (args[argidx] == "-wrap-atom" || args[argidx] == "-wrap_atom") {
+				wrap_atom = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -2539,7 +2586,7 @@ struct OptVpsPass : public Pass {
 			if (module->has_processes_warn())
 				continue;
 
-			OptVpsWorker worker(module, min_stride, msb_inv_sext, dead_mod);
+			OptVpsWorker worker(module, min_stride, msb_inv_sext, dead_mod, wrap_atom);
 			worker.run(min_gather, max_gather_table);
 
 			if (worker.groups_optimized > 0)
