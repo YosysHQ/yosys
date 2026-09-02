@@ -884,8 +884,8 @@ struct OptVpsWorker
 						affine_cache[sig] = a;
 						return a;
 					}
-					// Fall through to the atom below, which is this slice
-					// itself: exact, and bounded by its own width.
+					// Fall through to the atom below, which is this
+					// output itself: exact, and bounded by its own width.
 				}
 			}
 		}
