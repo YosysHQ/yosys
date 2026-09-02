@@ -261,6 +261,21 @@ struct ArithTreeWorker {
 		return GetSize(link->getPort(ID::Y)) < need;
 	}
 
+	// Whether `sig` is the low bits of one of `parent`'s operand ports with only
+	// constant zeros above it, which is the one partial coverage a reading based at
+	// the result LSB still gets right: those zeros contribute nothing, so the link
+	// keeps weight 1 and hides no operand.
+	bool covers_port_low(Cell *parent, const SigSpec &sig)
+	{
+		for (auto name : {ID::A, ID::B}) {
+			SigSpec p = sigmap(parent->getPort(name));
+			if (GetSize(p) >= GetSize(sig) && p.extract(0, GetSize(sig)) == sig &&
+			    p.extract_end(GetSize(sig)).is_fully_zero())
+				return true;
+		}
+		return false;
+	}
+
 	Cell *sole_chainable_consumer(Cell *cell, const pool<Cell *> &candidates)
 	{
 		SigSpec sig = sigmap(cell->getPort(ID::Y));
@@ -280,12 +295,22 @@ struct ArithTreeWorker {
 			else if (consumer != c)
 				return nullptr;
 		}
+		if (consumer == nullptr)
+			return nullptr;
+
+		// Operand extraction reads a port as one value based at the result LSB, so a
+		// link sitting above its port's LSB lands at the wrong weight, and any
+		// non-constant bits beside it in that port are operands of the sum that the
+		// same reading hides. Refuse those links rather than mistranslate them.
+		if (!covers_port_low(consumer, sig))
+			return nullptr;
+
 		// A link narrower than its consumer discards a carry the wider consumer would
 		// otherwise see, since (x % 2**link) % 2**parent == x % 2**parent only when
 		// parent <= link. Flatten it anyway when the link cannot reach that carry, but
 		// only if the consumer zero-extends it: a sign-extended narrow link means
 		// something different from the full-width sum that replaces it.
-		if (consumer != nullptr && GetSize(sig) < GetSize(consumer->getPort(ID::Y))) {
+		if (GetSize(sig) < GetSize(consumer->getPort(ID::Y))) {
 			bool consumer_extends_unsigned = !consumer->getParam(ID::A_SIGNED).as_bool() &&
 			                                 !consumer->getParam(ID::B_SIGNED).as_bool();
 			if (!consumer_extends_unsigned || link_may_overflow(cell))

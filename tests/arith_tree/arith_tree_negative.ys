@@ -75,3 +75,25 @@ arith_tree
 select -assert-count 2 t:$fa
 select -assert-count 2 t:$add
 design -reset
+
+# A link covering only part of its consumer's port cannot be read as a value based
+# at the result LSB: t belongs 5 columns up, and lo is an operand of the sum that
+# such a reading hides entirely. Flattening this chain miscompiled the design.
+read_verilog <<EOT
+module add_partial_port(
+	input [7:0] a, b,
+	input [4:0] lo,
+	input [19:0] c,
+	output [19:0] y
+);
+	wire [8:0] t = a + b;
+	assign y = {t, lo} + c;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 2 t:$add
+design -reset
