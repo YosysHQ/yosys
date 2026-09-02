@@ -275,8 +275,8 @@ struct SynthPass : public ScriptPass {
 				run("flatten", "  (if -flatten)");
 			}
 			run("opt_expr");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run("opt -nodffe -nosdff");
 			if (!nofsm || help_mode)
 				run("fsm" + fsm_opts, "      (unless -nofsm)");
