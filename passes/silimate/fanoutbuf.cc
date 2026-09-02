@@ -58,24 +58,21 @@ struct FanoutbufPass : public Pass {
 
 		for (auto module : design->selected_modules())
 		{
-			// Add $pos cells on input ports and output ports
-			vector<Wire *> ports;
-			vector<Cell *> iobufs;
+			// Add $pos cells on input ports and output ports, so that port
+			// loads are counted like any other cell input below.
 			for (auto port : module->ports) {
 				auto wire = module->wire(port);
 				if (wire->port_input) {
 					auto new_in_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
 					auto new_in = module->addWire(new_in_name, wire);
-					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_in"), new_in, wire, false, wire->get_src_attribute());
-					iobufs.push_back(iobuf);
+					module->addPos(module->uniquify(wire->name.str() + "_in"), new_in, wire, false, wire->get_src_attribute());
 					module->swap_names(wire, new_in);
 					wire->port_input = false;
 				}
 				if (wire->port_output) {
 					auto new_out_name = module->uniquify(wire->name.str().replace(0, 1, "$") + "_new");
 					auto new_out = module->addWire(new_out_name, wire);
-					auto iobuf = module->addPos(module->uniquify(wire->name.str() + "_out"), wire, new_out, false, wire->get_src_attribute());
-					iobufs.push_back(iobuf);
+					module->addPos(module->uniquify(wire->name.str() + "_out"), wire, new_out, false, wire->get_src_attribute());
 					module->swap_names(wire, new_out);
 					wire->port_output = false;
 				}

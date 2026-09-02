@@ -238,6 +238,9 @@ RTLIL::Wire *add_port(RTLIL::Module *module_, std::string_view pin_name, int wid
 	if (!port->port_input && !port->port_output) {
 		log_error("Pin %s/%s has an unknown direction.\n", module_->name.c_str(), pin_name);
 	}
+	// Per-port, not hoisted: fixup_ports() orders port_id==0 wires alphabetically, so calling it
+	// once at the end would replace liberty pin order with alphabetical and break positional
+	// instantiation. Calling it here assigns each new port the next id, preserving declaration order.
 	module_->fixup_ports();
 	return port;
 }
@@ -356,7 +359,6 @@ struct L2JFrontend : public Frontend {
 					} else if (local_type_widths.count(bus_type)) {
 						bus_type_width = &local_type_widths[bus_type];
 					} else {
-						// bus_type_width = &default_type_width; // <-- possible alternate route
 						log_warning("No type '%s' found for bus - skipping\n", bus_type);
 						return;
 					}

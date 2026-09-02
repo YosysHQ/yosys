@@ -141,10 +141,7 @@ struct InferIcgPass : public Pass {
 	{
 		log_header(design, "Executing INFER_ICG pass (infer $icg cells from latch-based clock gates).\n");
 
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-			break;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		int total_count = 0;
 
@@ -230,6 +227,8 @@ struct InferIcgPass : public Pass {
 
 					if (get_driver(drivers, multi_driver_bits, sigmap, latch_d, enable_or_cell) &&
 					    selected_cells.count(enable_or_cell) && is_or(enable_or_cell)) {
+						// A->EN, B->SE is arbitrary: the $or is commutative and nothing structural
+						// tells the two apart, so only EN|SE is meaningful, not which leg is which.
 						en = sigmap(enable_or_cell->getPort(ID::A));
 						se = sigmap(enable_or_cell->getPort(ID::B));
 					} else {

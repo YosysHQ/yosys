@@ -115,10 +115,7 @@ struct FfNormPolPass : public Pass {
 	{
 		log_header(design, "Executing FFNORMPOL pass (normalize FF/latch control polarities).\n");
 
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++)
-			break;
-		extra_args(args, argidx, design);
+		extra_args(args, 1, design);
 
 		int total_cells = 0;
 		int total_controls = 0;

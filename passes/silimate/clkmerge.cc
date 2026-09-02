@@ -145,24 +145,29 @@ struct ClkMergePass : public Pass {
 						cell->setParam(ID::CLK_POLARITY, target_pol ? State::S1 : State::S0);
 						pol_rewritten++;
 					}
-					// Fine-grain FFs encode polarity in the type name, so
-					// we need to swap the cell type (e.g. $_DFF_N_ <-> $_DFF_P_)
+					// Fine-grain FFs encode polarity in the type name, so the swap is a
+					// cell retype (e.g. $_DFF_N_ -> $_DFF_P_). Every such type is
+					// $_<family>_<polarities>_ with the clock polarity leading the
+					// polarity group, so it is the character after the second
+					// underscore: $_DFF_[P]_, $_DFFE_[P]P_, $_SDFFCE_[N]P0P_. Keying off
+					// "_DFF_" instead would miss every family but $_DFF_ itself, and
+					// silently leave the flop on the wrong edge.
 					else {
 						std::string type = cell->type.str();
-						// Fine-grain FF types have P/N at position 6 for the clock polarity:
-						// $_DFF_P_, $_DFF_N_, $_DFFE_PP_, $_DFFE_NP_, etc.
-						// The clock polarity is always the first letter after "$_DFF_" or "$_DFFE_"
-						size_t pos = type.find("_DFF_");
-						if (pos != std::string::npos) {
-							pos += 5; // skip "_DFF_"
-							if (pos < type.size()) {
-								if (type[pos] == 'P' && !target_pol)
-									type[pos] = 'N';
-								else if (type[pos] == 'N' && target_pol)
-									type[pos] = 'P';
-								cell->type = RTLIL::IdString(type);
-								pol_rewritten++;
-							}
+						size_t pos = type.find('_', type.find('_') + 1);
+						if (pos != std::string::npos)
+							pos++;
+						if (pos != std::string::npos && pos < type.size() &&
+						    (type[pos] == 'P' || type[pos] == 'N')) {
+							type[pos] = target_pol ? 'P' : 'N';
+							cell->type = RTLIL::IdString(type);
+							pol_rewritten++;
+						} else {
+							// Never silently merge a clock while leaving the edge alone
+							log_warning("Cannot retype %s (%s) to %s edge; it stays on "
+								    "the opposite edge of the merged clock.\n",
+								    log_id(cell->name), log_id(cell->type),
+								    target_pol ? "positive" : "negative");
 						}
 					}
 				}

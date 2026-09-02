@@ -8,9 +8,6 @@ yosys_pass(annotate_cell_fanout
 yosys_pass(annotate_ff_width
 	annotate_ff_width.cc
 )
-yosys_pass(breakreduce
-	breakreduce.cc
-)
 yosys_pass(bus_rebuild
 	bus_rebuild.cc
 )
@@ -22,9 +19,6 @@ yosys_pass(l2j_frontend
 )
 yosys_pass(mux_push
 	mux_push.cc
-)
-yosys_pass(obs_clean
-	obs_clean.cc
 )
 yosys_pass(segv
 	segv.cc
@@ -82,16 +76,6 @@ yosys_pass(infer_icg
 )
 
 
-pmgen_command(peepopt_expand
-	peepopt_expand.pmg
-	PREFIX
-		peepopt_expand
-)
-yosys_pass(peepopt_expand
-	opt_expand.cc
-	${PMGEN_peepopt_expand_OUTPUT}
-)
-
 pmgen_command(peepopt_shift
 	peepopt_combine_shifts.pmg
 	peepopt_expand_shifts.pmg
@@ -110,17 +94,6 @@ yosys_pass(peepopt_shift
 	opt_shift.cc
 	${PMGEN_peepopt_shift_OUTPUT}
 	${PMGEN_peepopt_sink_OUTPUT}
-)
-
-pmgen_command(peepopt_muxmode
-	peepopt_muxmode.pmg
-	peepopt_muxinvprop.pmg
-	PREFIX
-		peepopt_muxmode
-)
-yosys_pass(peepopt_muxmode
-	muxmode.cc
-	${PMGEN_peepopt_muxmode_OUTPUT}
 )
 
 pmgen_command(peepopt_negopt

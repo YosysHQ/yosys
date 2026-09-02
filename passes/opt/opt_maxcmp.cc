@@ -153,16 +153,6 @@ struct OptMaxCmpWorker : CutRegionWorker
 		}
 	}
 
-	static Const pack_lanes(const vector<uint64_t> &vals, int vw)
-	{
-		vector<State> bits(GetSize(vals) * vw, State::S0);
-		for (int i = 0; i < GetSize(vals); i++)
-			for (int b = 0; b < vw && b < 64; b++)
-				if ((vals[i] >> b) & 1ULL)
-					bits[i * vw + b] = State::S1;
-		return Const(bits);
-	}
-
 	static Const pack_bits(uint64_t mask, int m)
 	{
 		vector<State> bits(m, State::S0);

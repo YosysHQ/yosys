@@ -314,3 +314,39 @@ select -assert-count 16 t:$_DFF_P_
 select -assert-count 0 t:$_DFF_N_
 design -reset
 log -pop
+
+# =============================================================================
+# Test 16: fine-grain FF families - polarity lives in the type name
+# =============================================================================
+# Every test above hands clkmerge coarse-grain $dff cells, whose polarity is a
+# parameter, and only simplemaps afterwards. That left the type-name retype path
+# covered for $_DFF_ alone: keying it off "_DFF_" cannot match $_DFFE_, $_SDFF_,
+# $_DFFSR_ or $_ALDFF_, so those silently kept the opposite edge of the clock
+# they had just been merged onto.
+log -header "Fine-grain FF families retype to the target edge"
+log -push
+design -reset
+read_verilog -icells <<EOF
+module top(input clk1, clk2, input e, d, r, s, output q1, q2, q3, q4, q5, q6);
+  \$_DFF_P_      f1(.C(clk1), .D(d), .Q(q1));
+  \$_DFF_N_      f2(.C(clk2), .D(d), .Q(q2));
+  \$_DFFE_NP_    f3(.C(clk2), .E(e), .D(d), .Q(q3));
+  \$_SDFF_NP0_   f4(.C(clk2), .R(r), .D(d), .Q(q4));
+  \$_DFFSR_NPP_  f5(.C(clk2), .S(s), .R(r), .D(d), .Q(q5));
+  \$_ALDFF_NP_   f6(.C(clk2), .L(e), .AD(d), .D(d), .Q(q6));
+endmodule
+EOF
+clkmerge -target clk1
+select -assert-count 2 t:$_DFF_P_
+select -assert-count 1 t:$_DFFE_PP_
+select -assert-count 1 t:$_SDFF_PP0_
+select -assert-count 1 t:$_DFFSR_PPP_
+select -assert-count 1 t:$_ALDFF_PP_
+# No negative-edge variant survives the merge
+select -assert-count 0 t:$_DFF_N_
+select -assert-count 0 t:$_DFFE_NP_
+select -assert-count 0 t:$_SDFF_NP0_
+select -assert-count 0 t:$_DFFSR_NPP_
+select -assert-count 0 t:$_ALDFF_NP_
+design -reset
+log -pop

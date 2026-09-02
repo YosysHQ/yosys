@@ -22,6 +22,8 @@
 #include "kernel/sigtools.h"
 #include "kernel/log.h"
 #include "kernel/io.h"
+#include "kernel/celltypes.h"
+#include <cmath>
 #include <stdlib.h>
 #include <stdio.h>
 #include <set>
@@ -35,10 +37,6 @@ PRIVATE_NAMESPACE_BEGIN
 struct OptMuxPushWorker : UnitDelayTiming
 {
   RTLIL::Design *design;
-
-  dict<SigBit, int> fanout_map;
-  pool<SigBit> keep_bits;
-  pool<SigBit> port_out_bits;
 
   pool<IdString> target_types;
   int fanout_limit;
@@ -216,64 +214,17 @@ struct OptMuxPushWorker : UnitDelayTiming
     return after < before;
   }
 
-  void build_connectivity()
+  // Connectivity and cached levels only go stale when a phase rewrites the
+  // netlist, so consecutive phases that find nothing share one index.
+  bool index_valid = false;
+
+  void ensure_index()
   {
-    driver_map.clear();
-    fanout_map.clear();
-    consumer_map.clear();
-    keep_bits.clear();
-    port_out_bits.clear();
-
-    // Collect `keep` across every alias, not just the wire sigmap elected: the
-    // attribute may sit on any wire of a `connect` group, and testing it on the
-    // representative alone silently drops the mux a kept probe was reading.
-    for (auto wire : module->wires())
-      if (wire->get_bool_attribute(ID::keep))
-        for (auto &bit : sigmap(RTLIL::SigSpec(wire)))
-          keep_bits.insert(bit);
-
-    // Build per-bit driver and fanout maps for the current module
-    for (auto cell : module->cells())
-    {
-      for (auto &it : cell->connections()) {
-        RTLIL::SigSpec sig = sigmap(it.second);
-        if (cell->output(it.first)) {
-          for (auto &bit : sig) {
-            if (bit.wire == nullptr)
-              continue;
-            auto it_drv = driver_map.find(bit);
-            if (it_drv == driver_map.end()) {
-              driver_map[bit] = cell;
-            } else if (it_drv->second != cell) {
-              driver_map[bit] = nullptr;
-            }
-          }
-        }
-        if (cell->input(it.first)) {
-          for (auto &bit : sig) {
-            if (bit.wire == nullptr)
-              continue;
-            fanout_map[bit]++;
-            auto &cons = consumer_map[bit];
-            if (cons.empty() || cons.back() != cell)
-              cons.push_back(cell);
-          }
-        }
-      }
-    }
-
-    // Treat module output ports as consumers
-    for (auto wire : module->wires()) {
-      if (!wire->port_output)
-        continue;
-      RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
-      for (auto &bit : sig) {
-        if (bit.wire == nullptr)
-          continue;
-        fanout_map[bit]++;
-        port_out_bits.insert(bit);
-      }
-    }
+    if (index_valid)
+      return;
+    build_connectivity();
+    reset_timing();
+    index_valid = true;
   }
 
   // Sigmaps each bit so callers may pass raw or mapped signals interchangeably.
@@ -357,7 +308,7 @@ struct OptMuxPushWorker : UnitDelayTiming
     for (auto &bit : sig) {
       if (bit.wire == nullptr)
         return false;
-      if (fanout_map[bit] != 1)
+      if (fanout_of(bit) != 1)
         return false;
     }
     return true;
@@ -534,8 +485,8 @@ struct OptMuxPushWorker : UnitDelayTiming
 
   void run_hoist()
   {
-    build_connectivity();
-    reset_timing();
+    ensure_index();
+    int hoisted_before = hoist_count;
 
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
@@ -581,6 +532,7 @@ struct OptMuxPushWorker : UnitDelayTiming
         chains_seen, chains_cheap, chains_slack);
     for (auto cell : cells_to_remove)
       module->remove(cell);
+    index_valid &= hoist_count == hoisted_before;
   }
 
   // Shifts map each output bit to one input bit or to a fill value, and that is
@@ -807,8 +759,7 @@ struct OptMuxPushWorker : UnitDelayTiming
   void run_farm()
   {
     for (int iter = 0; iter < max_farm_iters; iter++) {
-      build_connectivity();
-      reset_timing();
+      ensure_index();
 
       pool<RTLIL::Cell*> cells_to_remove;
       pool<RTLIL::SigBit> touched_bits;
@@ -854,6 +805,7 @@ struct OptMuxPushWorker : UnitDelayTiming
         module->remove(cell);
       if (cells_to_remove.empty())
         break;
+      index_valid = false; // the next iteration re-indexes what this one rewrote
     }
 
     log_debug("  farm: %d shift(s) over a farm, %d unprofitable, %d off-critical.\n",
@@ -1119,8 +1071,8 @@ struct OptMuxPushWorker : UnitDelayTiming
 
   void run_reindex()
   {
-    build_connectivity();
-    reset_timing();
+    ensure_index();
+    int reindexed_before = reindex_count;
 
     pool<RTLIL::Cell*> cells_to_remove;
     for (auto cell : module->selected_cells()) {
@@ -1173,6 +1125,7 @@ struct OptMuxPushWorker : UnitDelayTiming
 
     for (auto cell : cells_to_remove)
       module->remove(cell);
+    index_valid &= reindex_count == reindexed_before;
 
     log_debug("  reindex: %d nested gather(s), %d unprofitable, %d oversized, "
         "%d off-critical.\n", nests_seen, nests_cheap, nests_big, nests_slack);
@@ -1182,8 +1135,7 @@ struct OptMuxPushWorker : UnitDelayTiming
   {
     while (true)
     {
-      build_connectivity();
-      reset_timing();
+      ensure_index();
 
       struct candidate_t {
         RTLIL::Cell *cell = nullptr;
@@ -1345,6 +1297,9 @@ struct OptMuxPushWorker : UnitDelayTiming
 
       for (auto cell : cells_to_remove)
         module->remove(cell);
+      // The first candidate can never overlap, so an iteration that gets here
+      // always rewrote something and the next one has to re-index.
+      index_valid = false;
     }
   }
 };

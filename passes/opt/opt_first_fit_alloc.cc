@@ -29,22 +29,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// Pack a per-lane integer vector into a Const with elem_w bits per lane,
-// lane-major (lane k occupies bits [k*elem_w +: elem_w]).
-static Const pack_lanes(const vector<int> &vals, int elem_w)
-{
-	// Lane values come from the small field widths above (<= max_attr_w), so a
-	// 32-bit int always holds them. Assert rather than silently truncating, and
-	// keep b < 32 so we never shift an int by >= its width (undefined behaviour).
-	log_assert(elem_w < 32);
-	vector<State> bits(vals.size() * elem_w, State::S0);
-	for (int k = 0; k < GetSize(vals); k++)
-		for (int b = 0; b < elem_w; b++)
-			if ((vals[k] >> b) & 1)
-				bits[k * elem_w + b] = State::S1;
-	return Const(bits);
-}
-
 #include "passes/opt/cut_region.h"
 
 struct OptFirstFitAllocWorker : CutRegionWorker {

@@ -37,6 +37,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#include "passes/opt/rewrite_utils.h"
+
 struct OptConcatAddWorker {
 	Module *module;
 	SigMap sigmap;
@@ -48,7 +50,6 @@ struct OptConcatAddWorker {
 	int min_addend;
 	int max_arms;
 	int max_mux_depth;
-	bool did_something = false;
 
 	struct Target {
 		Cell *add;
@@ -61,21 +62,7 @@ struct OptConcatAddWorker {
 	    : module(module), sigmap(module), max_tail(max_tail), min_width(min_width), min_addend(min_addend),
 	      max_arms(max_arms), max_mux_depth(max_mux_depth)
 	{
-		for (auto cell : module->cells())
-			for (auto &[name, sig] : cell->connections())
-				for (auto bit : sigmap(sig)) {
-					if (cell->output(name))
-						driver[bit] = cell;
-					if (cell->input(name))
-						consumers[bit].insert(cell);
-				}
-
-		// A kept wire has to stay driven, so treat it like a port output rather
-		// than letting the mux that drives it be removed
-		for (auto wire : module->wires())
-			if (wire->port_output || wire->get_bool_attribute(ID::keep))
-				for (auto bit : sigmap(SigSpec(wire)))
-					escapes.insert(bit);
+		index_module_bits(module, sigmap, driver, consumers, escapes);
 	}
 
 	bool is_arith(Cell *cell)
@@ -218,7 +205,6 @@ struct OptConcatAddWorker {
 		module->remove(cell);
 		module->remove(t.mux);
 		module->connect(y, {SigSpec(State::S0, wy - k - w_hi), hi, lo.extract(0, k)});
-		did_something = true;
 	}
 
 	// The mux is replaced by one over the pushed sums, so anything else reading

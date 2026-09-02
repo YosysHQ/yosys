@@ -18,9 +18,9 @@
 
 // Small shared helpers for Silimate functional-rewrite passes. Include inside
 // each pass's PRIVATE_NAMESPACE_BEGIN (same pattern as cut_region.h). Keep
-// cone/cut infrastructure in cut_region.h; put only type lists and tiny
-// numeric/Const helpers here so passes that do not use CutRegionWorker
-// (e.g. opt_prienc) can share them without pulling that machinery in.
+// cone/cut infrastructure in cut_region.h; put only type lists, tiny
+// numeric/Const helpers and plain bit indexing here so passes that do not use
+// CutRegionWorker (e.g. opt_prienc) can share them without pulling it in.
 //
 // Guarded so a pass may include this directly and also via cut_region.h.
 
@@ -100,20 +100,86 @@ static inline uint64_t lowmask_u64(int w)
 	return (1ULL << w) - 1;
 }
 
-// Pack the low bits of `value` into an existing Const, keeping its width.
-static inline void set_const_u64(Const &out, uint64_t value)
-{
-	auto &bits = out.bits();
-	for (int i = 0; i < GetSize(bits); i++)
-		bits[i] = i < 64 && ((value >> i) & 1ULL) ? State::S1 : State::S0;
-}
-
 // Pack the low `width` bits of `value` into a Const (bit i <- value bit i).
 static inline Const const_u64(uint64_t value, int width)
 {
-	Const c(State::S0, width);
-	set_const_u64(c, value);
-	return c;
+	std::vector<State> bits(std::max(width, 0));
+	for (int i = 0; i < GetSize(bits); i++)
+		bits[i] = i < 64 && ((value >> i) & 1ULL) ? State::S1 : State::S0;
+	return Const(bits);
+}
+
+// Pack the low bits of `value` into an existing Const, keeping its width.
+static inline void set_const_u64(Const &out, uint64_t value)
+{
+	out = const_u64(value, GetSize(out));
+}
+
+// Pack `lanes` into one Const of `size * elem_width` bits, lane k occupying
+// bits [k*elem_width +: elem_width]. The lane layout every fingerprint in
+// these passes drives its candidate buses with. Bits above what T can hold are
+// left at 0 rather than shifting T by >= its width, which is undefined; callers
+// size elem_width to their field, so this only guards the pathological case.
+template <typename T>
+static inline Const pack_lanes(const vector<T> &lanes, int elem_width)
+{
+	// 31 for int, 64 for uint64_t: the sign bit is not a value bit.
+	const int value_bits = int(sizeof(T) * 8) - (T(-1) < T(0) ? 1 : 0);
+	vector<State> bits(size_t(GetSize(lanes)) * elem_width, State::S0);
+	for (int k = 0; k < GetSize(lanes); k++)
+		for (int b = 0; b < elem_width && b < value_bits; b++)
+			if ((lanes[k] >> b) & 1)
+				bits[k * elem_width + b] = State::S1;
+	return Const(bits);
+}
+
+// Reduce `leaves[begin:end]` with `combine` over a balanced binary tree, so the
+// result is log-depth rather than a linear chain. Leaf order is preserved, so
+// `combine` may be order-sensitive (a priority merge) as well as associative.
+// The two halves are built in named steps because `combine` emits cells and
+// argument evaluation order is unspecified, which would renumber them.
+template <typename T, typename FnCombine>
+T reduce_balanced(const vector<T> &leaves, int begin, int end, FnCombine combine)
+{
+	log_assert(begin < end);
+	if (begin + 1 == end)
+		return leaves[begin];
+	int mid = begin + (end - begin) / 2;
+	T lhs = reduce_balanced(leaves, begin, mid, combine);
+	T rhs = reduce_balanced(leaves, mid, end, combine);
+	return combine(lhs, rhs);
+}
+
+template <typename T, typename FnCombine>
+T reduce_balanced(const vector<T> &leaves, FnCombine combine)
+{
+	return reduce_balanced(leaves, 0, GetSize(leaves), combine);
+}
+
+// Index every bit of a module by its driving cell and its reading cells, and collect the bits
+// that escape: those leaving through an output port, plus those on a `keep` wire, which has to
+// stay driven and so must not let whatever drives it be rewritten away. This is the minimum a
+// local rewrite needs in order to tell a private net it may reshape from an observable one.
+static inline void index_module_bits(Module *module, SigMap &sigmap, dict<SigBit, Cell *> &driver,
+				     dict<SigBit, pool<Cell *>> &consumers, pool<SigBit> &escapes)
+{
+	driver.clear();
+	consumers.clear();
+	escapes.clear();
+
+	for (auto cell : module->cells())
+		for (auto &[name, sig] : cell->connections())
+			for (auto bit : sigmap(sig)) {
+				if (cell->output(name))
+					driver[bit] = cell;
+				if (cell->input(name))
+					consumers[bit].insert(cell);
+			}
+
+	for (auto wire : module->wires())
+		if (wire->port_output || wire->get_bool_attribute(ID::keep))
+			for (auto bit : sigmap(SigSpec(wire)))
+				escapes.insert(bit);
 }
 
 #endif // SILIMATE_REWRITE_UTILS_H

@@ -481,7 +481,7 @@ struct ChainCombiner
       return no(stringf("no narrower: %d bits vs %d + %d", new_bits, obits,
                         ibits).c_str());
 
-    if (!fill_agrees(outer, off, si, ilo, ihi, GetSize(in_a)))
+    if (!fill_agrees(outer, off, olo, ohi, ilo, ihi, wo, GetSize(in_a)))
       return no("a constant lane or a truncated read has no matching fill");
 
     rewrite(outer, inner, off, so, si, pad, new_bits, in_a, wo);
@@ -492,14 +492,9 @@ struct ChainCombiner
   // it produces the shift's own fill, which the composed index has to reproduce
   // by landing outside the inner operand. An x lane is free: refining a don't
   // care is always allowed.
-  bool fill_agrees(Cell *outer, int off, int si, int ilo, int ihi, int w_in_a)
+  bool fill_agrees(Cell *outer, int off, int olo, int ohi, int ilo, int ihi, int wo, int w_in_a)
   {
     SigSpec s = sigmap(outer->getPort(ID::A));
-    int wo = outer->getParam(ID::Y_WIDTH).as_int();
-    int olo, ohi, obits;
-    if (!signed_amount_range(outer, direction(outer), olo, ohi, obits))
-      return false;
-    (void)si;
 
     // Reading past the top of the operand zero-fills, and the composed form has
     // no such edge, so require that the outer barrel cannot reach there.
@@ -558,7 +553,8 @@ struct ChainCombiner
         log_id(outer->name), log_id(inner->name), off, pad,
         GetSize(b) + GetSize(c), w);
 
-    outer->type = ID($shr);
+    // run_cell already rejected any outer that is not a $shr, so only the ports
+    // and the widened amount change here.
     outer->setPort(ID::A, source);
     outer->setPort(ID::B, amt);
     outer->setParam(ID::Y_WIDTH, wo);
@@ -1153,8 +1149,13 @@ struct OptShiftPass : public Pass {
           }
         }
         // Indexing the drivers and every $add is only worth it once we know a
-        // variable-amount shifter exists; most modules have none and skip it
-        if (run_sink && has_variable_shift(module)) {
+        // variable-amount shifter exists; most modules have none and skip it.
+        // Scanned once per iteration rather than once per sub-pass: a false
+        // reading means -sink and -chain never ran, so nothing could have
+        // introduced a shifter, and a stale true only costs -fuse a scan that
+        // matches nothing. Both are pre-filters, never correctness guards.
+        bool variable_shift = (run_sink || run_fuse) && has_variable_shift(module);
+        if (run_sink && variable_shift) {
           sink_index_module(module);
           peepopt_sink_pm pm(module);
           pm.setup(module->selected_cells());
@@ -1170,7 +1171,7 @@ struct OptShiftPass : public Pass {
           total_chained += chainer.combined;
         }
         // Same pre-filter: a gather only fuses with a variable-amount shifter
-        if (run_fuse && has_variable_shift(module)) {
+        if (run_fuse && variable_shift) {
           GatherFuser fuser(module, max_fuse_bits);
           did_something |= fuser.run();
           total_fused += fuser.fused;

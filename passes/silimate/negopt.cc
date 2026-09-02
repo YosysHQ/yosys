@@ -53,6 +53,9 @@ static SigSpec strip_ext_for_match(SigSpec sig)
 
 #include "passes/silimate/peepopt_negopt_pm.h"
 
+// One pmgen-generated matcher entry point (`run_<rule>`).
+using Rule = int (peepopt_negopt_pm::*)();
+
 struct NegoptPass : public Pass {
 	NegoptPass() : Pass("negopt", "optimize negation patterns in arithmetic") { }
 
@@ -109,95 +112,42 @@ struct NegoptPass : public Pass {
 
 		constexpr int max_iterations = 100;
 
-		for (auto module : design->selected_modules()) {
-			auto log_module_event = [&](const char *event) {
-				log("%s %s\n", event, log_id(module));
-				log_flush();
-			};
+		// One index per group, since a rule can consume what the previous one in
+		// the same group just built; the fixpoint loop re-indexes each round.
+		auto run_group = [](RTLIL::Module *module, const std::vector<Rule> &rules) {
+			peepopt_negopt_pm pm(module);
+			pm.setup(module->selected_cells());
+			for (Rule rule : rules)
+				(pm.*rule)();
+		};
 
-			auto log_pass_event = [&](const char *event, const char *pass_name, int iter = -1) {
-				if (iter >= 0)
-					log("      %s %s pass (iter=%d)\n", event, pass_name, iter + 1);
-				else
-					log("      %s %s pass\n", event, pass_name);
-				log_flush();
-			};
-
-			if (run_pre) {
-				log_module_event("Processing Module:");
-
-				// manual2sub and sub2neg only need to run once: no downstream
-				// pre-subpass creates the patterns they match
-				// separate pm instances so sub2neg sees the $sub cells manual2sub creates.
-				{
-					peepopt_negopt_pm pm(module);
-					pm.setup(module->selected_cells());
-					log_pass_event("Starting", "manual2sub");
-					pm.run_manual2sub();
-					log_pass_event("Ending", "manual2sub");
-					log_flush();
-				}
-				{
-					peepopt_negopt_pm pm(module);
-					pm.setup(module->selected_cells());
-					log_pass_event("Starting", "sub2neg");
-					pm.run_sub2neg();
-					log_pass_event("Ending", "sub2neg");
-					log_flush();
-				}
-
-				// negexpand/negneg/negmux can feed each other.
-				did_something = true;
-				for (int iter = 0; iter < max_iterations && did_something; iter++) {
-					did_something = false;
-					peepopt_negopt_pm pm(module);
-					pm.setup(module->selected_cells());
-
-					log_pass_event("Starting", "negexpand", iter);
-					pm.run_negexpand();
-					log_pass_event("Ending", "negexpand", iter);
-					log_flush();
-					log_pass_event("Starting", "negneg", iter);
-					pm.run_negneg();
-					log_pass_event("Ending", "negneg", iter);
-					log_flush();
-					log_pass_event("Starting", "negmux", iter);
-					pm.run_negmux();
-					log_pass_event("Ending", "negmux", iter);
-					log_flush();
-				}
-				if (did_something)
-					log_warning("NEGOPT pre reached max iterations (%d) in module %s without convergence.\n", max_iterations, log_id(module));
-
-				log_module_event("Finished Module:");
+		// Rules that reach a fixpoint together, iterated until nothing fires.
+		auto run_to_fixpoint = [&](RTLIL::Module *module, const std::vector<Rule> &rules) {
+			did_something = true;
+			for (int iter = 0; iter < max_iterations && did_something; iter++) {
+				did_something = false;
+				run_group(module, rules);
 			}
+			if (did_something)
+				log_warning("NEGOPT %s reached max iterations (%d) in module %s without convergence.\n",
+					run_pre ? "pre" : "post", max_iterations, log_id(module));
+		};
 
-			if (run_post) {
-				log_module_event("Processing Module:");
-
-				did_something = true;
-				for (int iter = 0; iter < max_iterations && did_something; iter++) {
-					did_something = false;
-					peepopt_negopt_pm pm(module);
-					pm.setup(module->selected_cells());
-
-					log_pass_event("Starting", "negrebuild", iter);
-					pm.run_negrebuild();
-					log_pass_event("Ending", "negrebuild", iter);
-					log_flush();
-					log_pass_event("Starting", "muxneg", iter);
-					pm.run_muxneg();
-					log_pass_event("Ending", "muxneg", iter);
-					log_flush();
-					log_pass_event("Starting", "neg2sub", iter);
-					pm.run_neg2sub();
-					log_pass_event("Ending", "neg2sub", iter);
-					log_flush();
-				}
-				if (did_something)
-					log_warning("NEGOPT post reached max iterations (%d) in module %s without convergence.\n", max_iterations, log_id(module));
-
-				log_module_event("Finished Module:");
+		for (auto module : design->selected_modules()) {
+			if (run_pre) {
+				// manual2sub and sub2neg only need to run once: no downstream
+				// pre-subpass creates the patterns they match. Separate indexes
+				// so sub2neg sees the $sub cells manual2sub creates.
+				run_group(module, {&peepopt_negopt_pm::run_manual2sub});
+				run_group(module, {&peepopt_negopt_pm::run_sub2neg});
+				// negexpand/negneg/negmux can feed each other.
+				run_to_fixpoint(module, {&peepopt_negopt_pm::run_negexpand,
+				                         &peepopt_negopt_pm::run_negneg,
+				                         &peepopt_negopt_pm::run_negmux});
+			} else {
+				run_to_fixpoint(module, {&peepopt_negopt_pm::run_negrebuild,
+				                         &peepopt_negopt_pm::run_muxneg,
+				                         &peepopt_negopt_pm::run_neg2sub});
 			}
 		}
 	}

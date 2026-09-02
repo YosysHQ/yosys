@@ -25,44 +25,14 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#include "passes/silimate/unit_delay.h"
+
 // Marks the incrementer/mux a carry-select rewrite emits so peepopt -muxorder
 // (which would otherwise fold `s ? (a+1) : a` back into `a + s`, putting the
 // late select on a wide ripple carry) leaves them alone.
 static const IdString kAttrCarrySelect = ID(carry_select);
 
-static inline double log2p1(int n) { return std::log2(double(std::max(1, n)) + 1.0); }
-
-// Heuristic, model-free per-cell delay used only to rank "early" vs "late"
-// operands. Mirrors opt_timing_balance's heuristic so the two passes agree on
-// which arrivals dominate.
-static double estimate_cell_delay(const Cell *cell, int out_width)
-{
-	if (cell == nullptr)
-		return 1.0;
-	IdString t = cell->type;
-	if (t.in(ID($add), ID($sub), ID($neg), ID($alu), ID($shl), ID($shr), ID($sshl), ID($sshr)))
-		return log2p1(out_width);
-	if (t.in(ID($mul), ID($div), ID($mod)))
-		return out_width;
-	if (t == ID($pmux)) {
-		int s_width = cell->hasParam(ID::S_WIDTH) ? cell->getParam(ID::S_WIDTH).as_int() : 1;
-		return log2p1(s_width);
-	}
-	if (t.in(ID($and), ID($or)))
-		return 0.5;
-	// $mux, $xor, $xnor, $not, gate-level $_*_ and everything else: one level.
-	return 1.0;
-}
-
-struct OptCarrySelectWorker {
-	Module *module;
-	SigMap sigmap;
-	CellTypes cell_types;
-
-	dict<SigBit, Cell*> driver;          // sigmap'd output bit -> driving cell
-	dict<SigBit, double> arrival_cache;  // memoized arrival per bit
-	pool<SigBit> on_stack;               // combinational-loop guard
-
+struct OptCarrySelectWorker : FracDelayTiming {
 	int max_narrow;
 	int min_wide;
 	double margin;
@@ -70,104 +40,14 @@ struct OptCarrySelectWorker {
 	int converted = 0;
 
 	OptCarrySelectWorker(Module *m, int max_narrow, int min_wide, double margin)
-		: module(m), sigmap(m), max_narrow(max_narrow), min_wide(min_wide), margin(margin)
+		: FracDelayTiming(m), max_narrow(max_narrow), min_wide(min_wide), margin(margin)
 	{
-		cell_types.setup();
 		for (auto cell : module->cells())
 			for (auto &conn : cell->connections())
 				if (cell->output(conn.first))
 					for (auto bit : sigmap(conn.second))
 						if (bit.wire)
-							driver[bit] = cell;
-	}
-
-	bool is_boundary(Cell *cell) {
-		if (cell == nullptr)
-			return true;
-		if (cell->get_bool_attribute(ID::keep) || cell->get_bool_attribute(ID::blackbox))
-			return true;
-		if (cell->is_builtin_ff())
-			return true;
-		if (cell->type.in(ID($dlatch), ID($adlatch), ID($dlatchsr),
-				ID($mem), ID($mem_v2), ID($memrd), ID($memrd_v2),
-				ID($memwr), ID($memwr_v2), ID($meminit), ID($meminit_v2)))
-			return true;
-		return !cell_types.cell_known(cell->type);
-	}
-
-	Cell *driver_of(SigBit bit) {
-		auto it = driver.find(bit);
-		return (it == driver.end()) ? nullptr : it->second;
-	}
-
-	// Explicit-stack post-order traversal so arbitrarily deep combinational cones
-	// cannot overflow the C++ stack (worker threads can have small stacks).
-	double arrival_bit(SigBit start) {
-		start = sigmap(start);
-		if (!start.wire)
-			return 0.0;
-		if (auto it = arrival_cache.find(start); it != arrival_cache.end())
-			return it->second;
-
-		struct Frame { SigBit bit; bool finalize; };
-		std::vector<Frame> stack;
-		stack.push_back({start, false});
-
-		while (!stack.empty()) {
-			Frame &top = stack.back();
-			SigBit bit = top.bit;
-			if (!bit.wire || arrival_cache.count(bit)) {
-				stack.pop_back();
-				continue;
-			}
-			Cell *drv = driver_of(bit);
-			if (drv == nullptr || is_boundary(drv)) {
-				arrival_cache[bit] = 0.0;
-				stack.pop_back();
-				continue;
-			}
-
-			if (!top.finalize) {
-				// Expand: schedule finalize, then push not-yet-resolved inputs.
-				top.finalize = true;
-				on_stack.insert(bit);
-				for (auto &conn : drv->connections())
-					if (drv->input(conn.first))
-						for (auto in_bit : sigmap(conn.second)) {
-							if (!in_bit.wire || arrival_cache.count(in_bit))
-								continue;
-							if (on_stack.count(in_bit)) // combinational loop: break it
-								continue;
-							stack.push_back({in_bit, false});
-						}
-				continue;
-			}
-
-			// Finalize: all resolvable inputs are now cached.
-			double max_in = 0.0;
-			int out_width = 1;
-			for (auto &conn : drv->connections())
-				if (drv->output(conn.first))
-					out_width = std::max(out_width, GetSize(conn.second));
-			for (auto &conn : drv->connections())
-				if (drv->input(conn.first))
-					for (auto in_bit : sigmap(conn.second)) {
-						auto it = arrival_cache.find(in_bit);
-						if (it != arrival_cache.end())
-							max_in = std::max(max_in, it->second);
-					}
-			arrival_cache[bit] = max_in + estimate_cell_delay(drv, out_width);
-			on_stack.erase(bit);
-			stack.pop_back();
-		}
-		return arrival_cache.at(start);
-	}
-
-	double arrival(const SigSpec &sig) {
-		double t = 0.0;
-		for (auto bit : sigmap(sig))
-			t = std::max(t, arrival_bit(bit));
-		return t;
+							driver_map[bit] = cell;
 	}
 
 	// Decision record so we never iterate over a mutating cell list.

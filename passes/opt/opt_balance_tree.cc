@@ -143,77 +143,49 @@ struct OptBalanceTreeWorker {
 	}
 
 	// Create a balanced binary tree from a vector of source signals
-	SigSpec create_balanced_tree(vector<SigSpec> &sources, IdString cell_type, Cell* cell) {
-		// Base case: if we have no sources, return an empty signal
-		if (sources.size() == 0)
-			return SigSpec();
-
-		// Base case: if we have only one source, return it
-		if (sources.size() == 1)
-			return sources[0];
-
-		// Base case: if we have two sources, create a single cell
-		if (sources.size() == 2) {
-			// Create a new cell of the same type
-			Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
-
-			// Copy attributes from reference cell
-			new_cell->attributes = cell->attributes;
-
-			// Create output wire
-			int out_width = cell->getParam(ID::Y_WIDTH).as_int();
-			if (cell_type == ID($add))
-				out_width = max(sources[0].size(), sources[1].size()) + 1;
-			else if (cell_type == ID($mul))
-				out_width = sources[0].size() + sources[1].size();
-			Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
-
-			// Connect ports and fix up parameters
-			new_cell->setPort(ID::A, sources[0]);
-			new_cell->setPort(ID::B, sources[1]);
-			new_cell->setPort(ID::Y, out_wire);
-			new_cell->fixup_parameters();
-			new_cell->setParam(ID::A_SIGNED, cell->getParam(ID::A_SIGNED));
-			new_cell->setParam(ID::B_SIGNED, cell->getParam(ID::B_SIGNED));
-
-			// Update count and return output wire
-			cell_count[cell_type]++;
-			return out_wire;
-		}
-
-		// Recursive case: split sources into two groups and create subtrees
-		int mid = (sources.size() + 1) / 2;
-		vector<SigSpec> left_sources(sources.begin(), sources.begin() + mid);
-		vector<SigSpec> right_sources(sources.begin() + mid, sources.end());
-
-		SigSpec left_tree = create_balanced_tree(left_sources, cell_type, cell);
-		SigSpec right_tree = create_balanced_tree(right_sources, cell_type, cell);
-
-		// Create a cell to combine the two subtrees
+	// One tree node combining two subtrees, modelled on `cell`. $add gains a
+	// carry bit and $mul the sum of its operand widths; anything else keeps the
+	// reference cell's output width.
+	SigSpec emit_tree_node(SigSpec lhs, SigSpec rhs, IdString cell_type, Cell *cell)
+	{
 		Cell* new_cell = module->addCell(NEW_ID2_SUFFIX("tree"), cell_type);
-
-		// Copy attributes from reference cell
 		new_cell->attributes = cell->attributes;
 
-		// Create output wire
 		int out_width = cell->getParam(ID::Y_WIDTH).as_int();
 		if (cell_type == ID($add))
-			out_width = max(left_tree.size(), right_tree.size()) + 1;
+			out_width = max(lhs.size(), rhs.size()) + 1;
 		else if (cell_type == ID($mul))
-			out_width = left_tree.size() + right_tree.size();
+			out_width = lhs.size() + rhs.size();
 		Wire* out_wire = module->addWire(NEW_ID2_SUFFIX("tree_out"), out_width);
 
-		// Connect ports and fix up parameters
-		new_cell->setPort(ID::A, left_tree);
-		new_cell->setPort(ID::B, right_tree);
+		new_cell->setPort(ID::A, lhs);
+		new_cell->setPort(ID::B, rhs);
 		new_cell->setPort(ID::Y, out_wire);
 		new_cell->fixup_parameters();
 		new_cell->setParam(ID::A_SIGNED, cell->getParam(ID::A_SIGNED));
 		new_cell->setParam(ID::B_SIGNED, cell->getParam(ID::B_SIGNED));
 
-		// Update count and return output wire
 		cell_count[cell_type]++;
 		return out_wire;
+	}
+
+	// Splits at ceil(n/2) rather than floor, so the deeper half sits on the
+	// left; the emitted netlist shape is pinned by the tests.
+	SigSpec create_balanced_tree(vector<SigSpec> &sources, IdString cell_type, Cell* cell) {
+		if (sources.size() == 0)
+			return SigSpec();
+		if (sources.size() == 1)
+			return sources[0];
+
+		int mid = (sources.size() + 1) / 2;
+		vector<SigSpec> left_sources(sources.begin(), sources.begin() + mid);
+		vector<SigSpec> right_sources(sources.begin() + mid, sources.end());
+
+		// Named steps: emit_tree_node adds cells and argument evaluation order
+		// is unspecified, which would renumber them.
+		SigSpec left_tree = create_balanced_tree(left_sources, cell_type, cell);
+		SigSpec right_tree = create_balanced_tree(right_sources, cell_type, cell);
+		return emit_tree_node(left_tree, right_tree, cell_type, cell);
 	}
 
 	bool full_child_output_at(const SigSpec &sig, int pos, Cell *&child, int &child_width,

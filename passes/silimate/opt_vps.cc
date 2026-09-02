@@ -168,19 +168,13 @@ struct OptVpsWorker
 
 	// Trace an S-port bit back through an optional AND gate to find
 	// which decoder output position it comes from.  Returns -1 on failure.
-	// If overflow_cond is non-null, stores the non-decoder input of the
-	// AND gate (the overflow mask bit), or State::S1 if direct.
-	int trace_to_decoder_pos(SigBit bit, Cell *decoder,
-				 SigBit *overflow_cond = nullptr)
+	int trace_to_decoder_pos(SigBit bit, Cell *decoder)
 	{
 		SigBit mapped = sigmap(bit);
 
 		int pos = decoder_pos_of(mapped, decoder);
-		if (pos >= 0) {
-			if (overflow_cond)
-				*overflow_cond = State::S1;
+		if (pos >= 0)
 			return pos;
-		}
 
 		Cell *driver = bit_drivers.at(mapped, nullptr);
 		SigBit a, b;
@@ -190,15 +184,125 @@ struct OptVpsWorker
 		// Both AND inputs can be decoder bits; the old linear scan over Y
 		// returned the lower position, so keep that tie-break.
 		int pa = decoder_pos_of(a, decoder), pb = decoder_pos_of(b, decoder);
-		if (pa >= 0 && (pb < 0 || pa <= pb)) {
-			if (overflow_cond) *overflow_cond = b;
+		if (pa >= 0 && (pb < 0 || pa <= pb))
 			return pa;
+		return pb;
+	}
+
+	// How many low bits of a signal are constant, and what they spell out.
+	std::pair<int, int> count_const_lower(SigSpec sig)
+	{
+		int count = 0, value = 0;
+		for (int i = 0; i < GetSize(sig); i++) {
+			SigBit b = sigmap(sig[i]);
+			if (b == State::S0)
+				count++;
+			else if (b == State::S1) {
+				value |= (1 << i);
+				count++;
+			} else
+				break;
 		}
-		if (pb >= 0) {
-			if (overflow_cond) *overflow_cond = a;
-			return pb;
+		return {count, value};
+	}
+
+	// The single cell driving every bit of a signal, or null if the bits disagree.
+	Cell *find_sole_driver(SigSpec sig)
+	{
+		Cell *drv = nullptr;
+		for (int i = 0; i < GetSize(sig); i++) {
+			Cell *d = bit_drivers.at(sigmap(sig[i]), nullptr);
+			if (!d)
+				return nullptr;
+			if (!drv)
+				drv = d;
+			else if (drv != d)
+				return nullptr;
 		}
-		return -1;
+		return drv;
+	}
+
+	// Constant low bits of a shift index and their value, seeing through one $add/$sub
+	// against a constant.  Emitting those bits as structural constants lets techmap's
+	// constmap drop the matching barrel-shifter stages.
+	std::pair<int, int> shift_alignment(SigSpec binary_index)
+	{
+		auto [n0, v0] = count_const_lower(binary_index);
+		if (n0 > 0)
+			return {n0, v0};
+
+		Cell *drv = find_sole_driver(binary_index);
+		if (!drv || !drv->type.in(ID($add), ID($sub)))
+			return {0, 0};
+
+		// Peel the constant operand off, keeping the variable side.
+		SigSpec aa = drv->getPort(ID::A), ab = drv->getPort(ID::B), non_const;
+		int offset = 0;
+		if (aa.is_fully_const()) {
+			offset = aa.as_int();
+			non_const = ab;
+		} else if (ab.is_fully_const()) {
+			offset = ab.as_int();
+			non_const = aa;
+		}
+		if (GetSize(non_const) == 0)
+			return {0, 0};
+
+		auto [nc, nv] = count_const_lower(non_const);
+		if (nc == 0)
+			return {0, 0};
+
+		// Fold the offset's low bits into the variable side's, wrapping within the
+		// aligned range.  A subtraction negates whichever operand the variable is.
+		int mask = (1 << nc) - 1;
+		if (drv->type == ID($sub))
+			return {nc, (non_const == ab ? (offset & mask) - nv
+						     : nv - (offset & mask)) & mask};
+		return {nc, (nv + (offset & mask)) & mask};
+	}
+
+	// Resolve a $pmux's one-hot S port to the decoder positions it selects, and measure how
+	// many of its W-bit B windows slide by exactly one bit.  Fails unless at least two S bits
+	// land on contiguous decoder positions, which every read rewrite below requires.
+	bool scan_read_windows(Cell *cell, Cell *decoder, int W, std::vector<int> &dec_positions,
+			       std::vector<int> &s_indices, int &sliding_n)
+	{
+		SigSpec sig_s = cell->getPort(ID::S), sig_b = cell->getPort(ID::B);
+
+		// Skip constant-zero padding: Verific may insert zeros between the one-hot bits
+		// and append overflow bits at the MSB.
+		dec_positions.clear();
+		s_indices.clear();
+		for (int i = 0; i < GetSize(sig_s); i++) {
+			if (sigmap(sig_s[i]) == State::S0)
+				continue;
+			int pos = trace_to_decoder_pos(sig_s[i], decoder);
+			if (pos < 0)
+				break;
+			dec_positions.push_back(pos);
+			s_indices.push_back(i);
+		}
+		if (GetSize(dec_positions) < 2)
+			return false;
+
+		for (int i = 1; i < GetSize(dec_positions); i++)
+			if (dec_positions[i] != dec_positions[0] + i)
+				return false;
+
+		// Sliding window holds as long as window k+1's B bits are window k's shifted down
+		// by one, so the two overlap in all but one bit.
+		sliding_n = 1;
+		for (int k = 0; k < GetSize(s_indices) - 1; k++) {
+			int si_cur = s_indices[k], si_nxt = s_indices[k + 1];
+			bool ok = true;
+			for (int j = 1; j < W && ok; j++)
+				if (sigmap(sig_b[si_cur * W + j]) != sigmap(sig_b[si_nxt * W + (j - 1)]))
+					ok = false;
+			if (!ok)
+				break;
+			sliding_n = k + 2;
+		}
+		return true;
 	}
 
 	// Bucket every $pmux under the decoder(s) its select bits can come
@@ -272,10 +376,6 @@ struct OptVpsWorker
 		module->remove(cell);
 	}
 
-	// Extract the constant addend from a binary_index signal.
-	// If binary_index = $add(dynamic, C) or $add(C, dynamic),
-	// return C.  Otherwise return 0.  Handles chains of
-	// $add/$sub up to 8 levels deep.
 	// Evaluate a signal assuming all primary inputs are 0.
 	// Uses recursive constant propagation through the driver
 	// graph.  Handles $add, $sub, $not, $and, $or, $xor, $shl,
@@ -1228,38 +1328,12 @@ struct OptVpsWorker
 				SigSpec sig_a = cell->getPort(ID::A);
 				if (!sig_a.is_fully_zero()) continue;
 
-				SigSpec sig_s = cell->getPort(ID::S);
 				SigSpec sig_b = cell->getPort(ID::B);
-				int N = GetSize(sig_s);
 
 				std::vector<int> dec_positions, s_indices;
-				for (int i = 0; i < N; i++) {
-					SigBit sb = sigmap(sig_s[i]);
-					if (sb == State::S0) continue;
-					int pos = trace_to_decoder_pos(sig_s[i], decoder);
-					if (pos < 0) break;
-					dec_positions.push_back(pos);
-					s_indices.push_back(i);
-				}
-				if (GetSize(dec_positions) < 2) continue;
-
-				bool contiguous = true;
-				for (int i = 1; i < GetSize(dec_positions); i++)
-					if (dec_positions[i] != dec_positions[0] + i)
-						{ contiguous = false; break; }
-				if (!contiguous) continue;
-
-				int sliding_n = 1;
-				for (int k = 0; k < GetSize(s_indices) - 1; k++) {
-					int si_cur = s_indices[k], si_nxt = s_indices[k + 1];
-					bool ok = true;
-					for (int j = 1; j < W && ok; j++)
-						if (sigmap(sig_b[si_cur * W + j]) !=
-						    sigmap(sig_b[si_nxt * W + (j - 1)]))
-							ok = false;
-					if (!ok) break;
-					sliding_n = k + 2;
-				}
+				int sliding_n;
+				if (!scan_read_windows(cell, decoder, W, dec_positions, s_indices, sliding_n))
+					continue;
 				if (sliding_n < 2) continue;
 
 				int base = dec_positions[0];
@@ -1409,60 +1483,7 @@ struct OptVpsWorker
 						raw_idx = binary_index;
 					}
 
-					// Detect alignment: look for constant
-					// lower bits in the shift expression,
-					// tracing through $add/$sub if needed
-					// (mirrors process_vps_reads).
-					auto count_const_lower = [&](SigSpec sig) -> std::pair<int, int> {
-						int count = 0, value = 0;
-						for (int i = 0; i < GetSize(sig); i++) {
-							SigBit b = sigmap(sig[i]);
-							if (b == State::S0) count++;
-							else if (b == State::S1) { value |= (1 << i); count++; }
-							else break;
-						}
-						return {count, value};
-					};
-
-					int log2_align = 0;
-					int fixed_lower = 0;
-					{
-						auto [n0, v0] = count_const_lower(binary_index);
-						if (n0 > 0) { log2_align = n0; fixed_lower = v0; }
-						if (log2_align == 0) {
-							Cell *drv = nullptr;
-							for (int i = 0; i < GetSize(binary_index); i++) {
-								Cell *d = bit_drivers.at(sigmap(binary_index[i]), nullptr);
-								if (!d) { drv = nullptr; break; }
-								if (!drv) drv = d;
-								else if (drv != d) { drv = nullptr; break; }
-							}
-							if (drv && (drv->type == ID($add) || drv->type == ID($sub))) {
-								SigSpec aa = drv->getPort(ID::A);
-								SigSpec ab = drv->getPort(ID::B);
-								SigSpec non_const;
-								int offset = 0;
-								bool is_sub = (drv->type == ID($sub));
-								if (aa.is_fully_const()) { offset = aa.as_int(); non_const = ab; }
-								else if (ab.is_fully_const()) { offset = ab.as_int(); non_const = aa; }
-								if (GetSize(non_const) > 0) {
-									auto [nc, nv] = count_const_lower(non_const);
-									if (nc > 0) {
-										log2_align = nc;
-										int mask = (1 << nc) - 1;
-										if (is_sub) {
-											if (non_const == ab)
-												fixed_lower = ((offset & mask) - nv) & mask;
-											else
-												fixed_lower = (nv - (offset & mask)) & mask;
-										} else {
-											fixed_lower = (nv + (offset & mask)) & mask;
-										}
-									}
-								}
-							}
-						}
-					}
+					auto [log2_align, fixed_lower] = shift_alignment(binary_index);
 
 					SigSpec shift_amount;
 					if (log2_align > 0) {
@@ -1605,56 +1626,7 @@ struct OptVpsWorker
 					raw_idx = SigSpec(sub_w);
 				}
 
-				auto count_const_lower = [&](SigSpec sig) -> std::pair<int, int> {
-					int count = 0, value = 0;
-					for (int i = 0; i < GetSize(sig); i++) {
-						SigBit b = sigmap(sig[i]);
-						if (b == State::S0) count++;
-						else if (b == State::S1) { value |= (1 << i); count++; }
-						else break;
-					}
-					return {count, value};
-				};
-
-				int log2_align = 0;
-				int fixed_lower = 0;
-				{
-					auto [n0, v0] = count_const_lower(binary_index);
-					if (n0 > 0) { log2_align = n0; fixed_lower = v0; }
-					if (log2_align == 0) {
-						Cell *drv = nullptr;
-						for (int i = 0; i < GetSize(binary_index); i++) {
-							Cell *d = bit_drivers.at(sigmap(binary_index[i]), nullptr);
-							if (!d) { drv = nullptr; break; }
-							if (!drv) drv = d;
-							else if (drv != d) { drv = nullptr; break; }
-						}
-						if (drv && (drv->type == ID($add) || drv->type == ID($sub))) {
-							SigSpec aa = drv->getPort(ID::A);
-							SigSpec ab = drv->getPort(ID::B);
-							SigSpec non_const;
-							int offset = 0;
-							bool is_sub = (drv->type == ID($sub));
-							if (aa.is_fully_const()) { offset = aa.as_int(); non_const = ab; }
-							else if (ab.is_fully_const()) { offset = ab.as_int(); non_const = aa; }
-							if (GetSize(non_const) > 0) {
-								auto [nc, nv] = count_const_lower(non_const);
-								if (nc > 0) {
-									log2_align = nc;
-									int mask = (1 << nc) - 1;
-									if (is_sub) {
-										if (non_const == ab)
-											fixed_lower = ((offset & mask) - nv) & mask;
-										else
-											fixed_lower = (nv - (offset & mask)) & mask;
-									} else {
-										fixed_lower = (nv + (offset & mask)) & mask;
-									}
-								}
-							}
-						}
-					}
-				}
+				auto [log2_align, fixed_lower] = shift_alignment(binary_index);
 
 				if (log2_align > 0) {
 					int adj_lower = (fixed_lower - (lowest_base & ((1 << log2_align) - 1)))
@@ -1739,7 +1711,6 @@ struct OptVpsWorker
 			int reg_offset;       // bit offset of read within register
 			int output_width;
 			SigSpec shift_variable; // the variable (non-constant) upper shift bits
-			int const_shift_lower; // constant value of lower shift bits
 			int shift_align;       // number of constant lower shift bits
 		};
 
@@ -1781,13 +1752,10 @@ struct OptVpsWorker
 
 			// Count constant lower shift bits
 			int shift_align = 0;
-			int const_lower = 0;
 			for (int i = 0; i < GetSize(shift); i++) {
 				SigBit b = sigmap(shift[i]);
-				if (b == State::S0)
+				if (b == State::S0 || b == State::S1)
 					shift_align++;
-				else if (b == State::S1)
-					{ const_lower |= (1 << i); shift_align++; }
 				else
 					break;
 			}
@@ -1802,7 +1770,7 @@ struct OptVpsWorker
 			int reg_offset = src_base + shift_at_zero;
 
 			shr_infos.push_back({shr, reg_wire, reg_offset,
-				out_w, shift_var, const_lower, shift_align});
+				out_w, shift_var, shift_align});
 		}
 
 		if (shr_infos.empty())
@@ -1915,52 +1883,10 @@ struct OptVpsWorker
 			if (!sig_a.is_fully_zero())
 				continue;
 
-			SigSpec sig_s = cell->getPort(ID::S);
-			SigSpec sig_b = cell->getPort(ID::B);
-			int N = GetSize(sig_s);
-
-			// Trace S bits to decoder positions, skipping constant-zero
-			// padding bits (Verific may insert zeros between one-hot bits
-			// and append overflow bits at the MSB).
-			std::vector<int> dec_positions;
-			std::vector<int> s_indices;
-			for (int i = 0; i < N; i++) {
-				SigBit sb = sigmap(sig_s[i]);
-				if (sb == State::S0)
-					continue;
-				int pos = trace_to_decoder_pos(sig_s[i], decoder);
-				if (pos < 0)
-					break;
-				dec_positions.push_back(pos);
-				s_indices.push_back(i);
-			}
-			if (GetSize(dec_positions) < 2)
+			std::vector<int> dec_positions, s_indices;
+			int sliding_n;
+			if (!scan_read_windows(cell, decoder, W, dec_positions, s_indices, sliding_n))
 				continue;
-
-			// Check that decoder positions are contiguous
-			bool contiguous = true;
-			for (int i = 1; i < GetSize(dec_positions); i++) {
-				if (dec_positions[i] != dec_positions[0] + i) {
-					contiguous = false;
-					break;
-				}
-			}
-			if (!contiguous)
-				continue;
-
-			// Check for sliding window (stride-1) pattern in B
-			int sliding_n = 1;
-			for (int k = 0; k < GetSize(s_indices) - 1; k++) {
-				int si_cur = s_indices[k];
-				int si_nxt = s_indices[k + 1];
-				bool ok = true;
-				for (int j = 1; j < W && ok; j++)
-					if (sigmap(sig_b[si_cur * W + j]) != sigmap(sig_b[si_nxt * W + (j - 1)]))
-						ok = false;
-				if (!ok)
-					break;
-				sliding_n = k + 2;
-			}
 
 			if (sliding_n >= 2) {
 				read_candidates.push_back({cell, dec_positions, s_indices, sliding_n, false});
@@ -1996,74 +1922,7 @@ struct OptVpsWorker
 		// (offset & (stride-1)).  Making those bits structural
 		// constants lets techmap's constmap skip the
 		// corresponding barrel-shifter stages.
-		int log2_align = 0;
-		int fixed_lower = 0;
-		{
-			auto count_const_lower_bits = [&](SigSpec sig) -> std::pair<int, int> {
-				int count = 0, value = 0;
-				for (int i = 0; i < GetSize(sig); i++) {
-					SigBit b = sigmap(sig[i]);
-					if (b == State::S0)
-						count++;
-					else if (b == State::S1) {
-						value |= (1 << i);
-						count++;
-					} else
-						break;
-				}
-				return {count, value};
-			};
-
-			auto find_sole_driver = [&](SigSpec sig) -> Cell * {
-				Cell *drv = nullptr;
-				for (int i = 0; i < GetSize(sig); i++) {
-					Cell *d = bit_drivers.at(sigmap(sig[i]), nullptr);
-					if (!d) return nullptr;
-					if (!drv) drv = d;
-					else if (drv != d) return nullptr;
-				}
-				return drv;
-			};
-
-			auto [n0, v0] = count_const_lower_bits(binary_index);
-			if (n0 > 0) {
-				log2_align = n0;
-				fixed_lower = v0;
-			}
-
-			if (log2_align == 0) {
-				Cell *drv = find_sole_driver(binary_index);
-				if (drv && (drv->type == ID($add) || drv->type == ID($sub))) {
-					SigSpec aa = drv->getPort(ID::A);
-					SigSpec ab = drv->getPort(ID::B);
-					SigSpec non_const;
-					int offset = 0;
-					bool is_sub = (drv->type == ID($sub));
-					if (aa.is_fully_const()) {
-						offset = aa.as_int();
-						non_const = ab;
-					} else if (ab.is_fully_const()) {
-						offset = ab.as_int();
-						non_const = aa;
-					}
-					if (GetSize(non_const) > 0) {
-						auto [nc, nv] = count_const_lower_bits(non_const);
-						if (nc > 0) {
-							log2_align = nc;
-							int mask = (1 << nc) - 1;
-							if (is_sub) {
-								if (non_const == ab)
-									fixed_lower = ((offset & mask) - nv) & mask;
-								else
-									fixed_lower = (nv - (offset & mask)) & mask;
-							} else {
-								fixed_lower = (nv + (offset & mask)) & mask;
-							}
-						}
-					}
-				}
-			}
-		}
+		auto [log2_align, fixed_lower] = shift_alignment(binary_index);
 
 		int src_bits = 0;
 		if (!rc.strided) {
@@ -2320,9 +2179,8 @@ struct OptVpsWorker
 		log("  VPS group: decoder %s, base=%d, %d bits, stride=%d, %d lanes\n",
 		    log_id(decoder->name), base, N, W, lane_count);
 
-		// Collect gated decoder bits and overflow conditions
+		// Collect gated decoder bits
 		dict<int, SigBit> gated_bits;
-		dict<int, SigBit> overflow_bits;
 
 		for (int i = 0; i < N; i++) {
 			Cell *pmux_cell = candidates[group_start + i].cell;
@@ -2338,9 +2196,6 @@ struct OptVpsWorker
 					}
 				} else {
 					gated_bits[pos] = sb;
-					SigBit ov_cond;
-					trace_to_decoder_pos(sb, decoder, &ov_cond);
-					overflow_bits[pos] = ov_cond;
 				}
 			}
 		}

@@ -34,6 +34,8 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+#include "passes/opt/rewrite_utils.h"
+
 struct OptMulDistWorker {
 	Module *module;
 	SigMap sigmap;
@@ -43,7 +45,6 @@ struct OptMulDistWorker {
 	int max_reduce;
 	int min_chain;
 	int min_chain_width;
-	bool did_something = false;
 	// Several multiplies commonly read the same slice of the same increment, and
 	// the wrap test and its gated carry depend only on that slice
 	dict<std::string, std::pair<SigBit, SigBit>> shared;
@@ -68,23 +69,7 @@ struct OptMulDistWorker {
 	{
 		sigmap.clear();
 		sigmap.set(module);
-		driver.clear();
-		consumers.clear();
-		escapes.clear();
-
-		for (auto cell : module->cells())
-			for (auto &[name, sig] : cell->connections())
-				for (auto bit : sigmap(sig)) {
-					if (cell->output(name))
-						driver[bit] = cell;
-					if (cell->input(name))
-						consumers[bit].insert(cell);
-				}
-
-		for (auto wire : module->wires())
-			if (wire->port_output || wire->get_bool_attribute(ID::keep))
-				for (auto bit : sigmap(SigSpec(wire)))
-					escapes.insert(bit);
+		index_module_bits(module, sigmap, driver, consumers, escapes);
 	}
 
 	// The incremented operand of an unsigned `x + 1`, or an empty SigSpec
@@ -297,7 +282,6 @@ struct OptMulDistWorker {
 		row_add->set_bool_attribute(ID(opt_muldist));
 
 		module->remove(cell);
-		did_something = true;
 	}
 
 	// Every reader of the increment has to be a slice we are rewriting, or it
