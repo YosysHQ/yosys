@@ -23,9 +23,6 @@ yosys_pass(l2j_frontend
 yosys_pass(mux_push
 	mux_push.cc
 )
-yosys_pass(obs_clean
-	obs_clean.cc
-)
 yosys_pass(segv
 	segv.cc
 )

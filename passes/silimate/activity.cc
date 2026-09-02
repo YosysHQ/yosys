@@ -153,22 +153,6 @@ struct ActivityProp {
 	uint32_t getWireCount() { return wireCount; }
 };
 
-struct ActivityClear {
-	Module *module;
-
-	ActivityClear(Module *module) : module(module)
-	{
-		for (Wire *wire : module->wires()) {
-			wire->set_string_attribute("$ACKT", "");
-			wire->set_string_attribute("$DUTY", "");
-		}
-		for (auto cell : module->cells()) {
-			cell->set_string_attribute("$ACKT:", "");
-			cell->set_string_attribute("$DUTY:", "");
-		}
-	}
-};
-
 struct ActivityPropPass : public Pass {
 	ActivityPropPass() : Pass("activity_prop", "Attaches wire activity to cell ports") {}
 	void help() override
@@ -199,32 +183,5 @@ struct ActivityPropPass : public Pass {
 		log_flush();
 	}
 } ActivityPropPass;
-
-struct ActivityClearPass : public Pass {
-	ActivityClearPass() : Pass("activity_clear", "Clears activity attached to cells and wires") {}
-	void help() override
-	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
-		log("\n");
-		log("    activity_clear\n");
-		log("\n");
-	}
-	void execute(std::vector<std::string> args, RTLIL::Design *design) override
-	{
-		log_header(design, "Executing Activity clearing pass\n");
-
-		size_t argidx;
-		for (argidx = 1; argidx < args.size(); argidx++) {
-			// No options currently. When adding in the future make sure to update docstring with [options]
-			break;
-		}
-		extra_args(args, argidx, design);
-
-		for (auto module : design->selected_modules()) {
-			ActivityClear worker(module);
-		}
-	}
-} ActivityClearPass;
-
 
 PRIVATE_NAMESPACE_END
