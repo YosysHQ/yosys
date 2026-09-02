@@ -1239,7 +1239,44 @@ struct XAigerWriter : AigerWriter {
 
 	bool mapping_prep = false;
 	pool<Wire *> keep_wires;
+	pool<Cell *> keep_cells;
 	std::ofstream map_file;
+	dict<SigBit, SigBit> named_alias; // map from anonymous wire to named wire
+
+	void index_named_aliases()
+	{
+		for (auto cell : top->cells()) {
+			if (cell->type != ID($buf))
+				continue;
+
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_y = cell->getPort(ID::Y);
+
+			if (!sig_y.is_wire())
+				continue;
+
+			// A port names itself in the mapping file
+			Wire *named = sig_y.as_wire();
+			if (!named->name.isPublic() || named->port_input || named->port_output)
+				continue;
+
+			for (int i = 0; i < GetSize(sig_a); i++)
+				if (sig_a[i].wire)
+					named_alias.emplace(sig_a[i], sig_y[i]);
+		}
+	}
+
+	SigBit mapped_name(SigBit bit)
+	{
+		auto found = named_alias.find(bit);
+		if (found == named_alias.end())
+			return bit;
+
+		Wire *named = found->second.wire;
+		keep_wires.insert(named);
+		keep_cells.insert(named->driverCell());
+		return found->second;
+	}
 
 	typedef std::pair<SigBit, HierCursor> HierBit;
 	std::vector<HierBit> pos;
@@ -1269,8 +1306,9 @@ struct XAigerWriter : AigerWriter {
 			if (map_file.is_open() && !box_port) {
 				log_assert(cursor.is_top()); // TODO
 				driven_by_opaque_box.insert(bit);
-				map_file << "input " << pis.size() - 1 << " " << bit.wire->start_offset + bit.offset
-						<< " " << bit.wire->name.c_str() << "\n";
+				SigBit named = mapped_name(bit);
+				map_file << "input " << pis.size() - 1 << " " << named.wire->start_offset + named.offset
+						<< " " << named.wire->name.c_str() << "\n";
 			}
 		} else {
 			log_assert(!box_port);
@@ -1533,8 +1571,24 @@ struct XAigerWriter : AigerWriter {
 		design->remove(holes_module);
 	}
 
+	// a kept $buf only means anything on its CI bits, so the mapping replaces
+	// whatever drove the rest
+	void prune_kept_cells(const pool<Wire *> &to_remove)
+	{
+		for (auto cell : keep_cells) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			for (auto &bit : sig_a)
+				if (bit.wire && to_remove.count(bit.wire))
+					bit = State::Sx;
+			cell->setPort(ID::A, sig_a);
+		}
+	}
+
 	void write(std::ostream *f) {
 		reset_counters();
+
+		if (map_file.is_open())
+			index_named_aliases();
 
 		for (auto w : top->wires())
 			if (w->port_input && !w->port_output)
@@ -1631,7 +1685,7 @@ struct XAigerWriter : AigerWriter {
 		if (mapping_prep) {
 			std::vector<Cell *> to_remove_cells;
 			for (auto cell : top->cells())
-				if (!top_minfo->found_blackboxes.count(cell))
+				if (!top_minfo->found_blackboxes.count(cell) && !keep_cells.count(cell))
 					to_remove_cells.push_back(cell);
 			for (auto cell : to_remove_cells)
 				top->remove(cell);
@@ -1639,6 +1693,7 @@ struct XAigerWriter : AigerWriter {
 			for (auto wire : top->wires())
 				if (!wire->port_input && !wire->port_output && !keep_wires.count(wire))
 					to_remove.insert(wire);
+			prune_kept_cells(to_remove);
 			top->remove(to_remove);
 		}
 
