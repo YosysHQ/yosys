@@ -671,3 +671,72 @@ select -assert-count 22 t:$bmux
 select -assert-count 2 t:$shr
 design -reset
 log -pop
+
+# =============================================================================
+# Test 21: SAT self-equivalence — gather over a wrapping base before vs after
+# The index is `base + lane` where base is declared at the width of its own
+# operands, so reading base as its own atom rather than as that truncating sum
+# has to leave the gathered word unchanged. Proven before pinning the structure
+# below.
+#
+# The pass is scoped to `gate`: `gold` already exists here, and a bare opt_vps
+# folds it too, which would compare optimized against optimized.
+# =============================================================================
+log -header "SAT self-equivalence: wrapping-base gather before vs after opt_vps"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wrapbase.sv
+verific -import opt_vps_gather_wrapbase
+proc; opt_clean
+rename opt_vps_gather_wrapbase gold
+
+read -sv opt_vps_gather_wrapbase.sv
+verific -import opt_vps_gather_wrapbase
+proc; opt_clean
+rename opt_vps_gather_wrapbase gate
+opt_vps -wrap-atom gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt; memory; opt
+clk2fflogic
+sat -set-init-zero -tempinduct -prove-asserts -verify
+design -reset
+log -pop
+
+# =============================================================================
+# Test 22: Cell counts — only a base that really wraps takes the new reading
+# The `wrap` bank's base is a 6-bit sum of two 6-bit operands, so its interval
+# is twice the modulus and every lane collapses to its own opaque atom: one
+# group per lane, and all 54 barrels survive. The `fit` bank is the near-miss --
+# same spelling, but 3-bit operands cannot carry out, so the sum form is already
+# exact and that bank folds either way, to the same barrel. Asserting both modes
+# pins the flag's effect rather than just its result.
+# =============================================================================
+log -header "Cell counts: wrapping base folds, non-wrapping base unaffected"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_vps_gather_wrapbase.sv
+verific -import opt_vps_gather_wrapbase
+proc; opt_clean
+
+# One shift per lane, in each of the two banks.
+select -assert-count 108 t:$shr
+design -save pregather_wrapbase
+
+# Default: the fit bank folds to one barrel, the wrap bank keeps all 54.
+opt_vps; opt_clean
+select -assert-count 55 t:$shr
+
+# With the flag the wrap bank folds too, and the fit bank is untouched.
+design -load pregather_wrapbase
+opt_vps -wrap-atom; opt_clean
+select -assert-count 2 t:$shr
+design -reset
+log -pop
