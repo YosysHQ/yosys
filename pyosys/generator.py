@@ -119,14 +119,8 @@ global_denylist = frozenset(
     {
         # deprecated
         "builtin_ff_cell_types",
-        "logv_file_error",
         # no implementation
         "set_verific_logging",
-        # can't bridge to python cleanly
-        ## std::regex
-        "log_warn_regexes",
-        "log_nowarn_regexes",
-        "log_werror_regexes",
         ## function pointers
         "log_error_atexit",
         "log_verific_callback",

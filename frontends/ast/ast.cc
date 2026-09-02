@@ -321,8 +321,11 @@ AstNode::~AstNode()
 void AstNode::dumpAst(FILE *f, std::string indent) const
 {
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpAst(f, indent);
+		logger().for_each_sink([&](LogSink &sink) {
+			FILE *f = sink.file_handle();
+			if (f)
+				dumpAst(f, indent);
+		});
 		return;
 	}
 
@@ -425,8 +428,11 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	std::vector<AstNode*> rem_children1, rem_children2;
 
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpVlog(f, indent);
+		logger().for_each_sink([&](LogSink &sink) {
+			FILE *f = sink.file_handle();
+			if (f)
+				dumpVlog(f, indent);
+		});
 		return;
 	}
 
@@ -1936,9 +1942,9 @@ void AstModule::loadconfig() const
 	flag_autowire = autowire;
 }
 
-void AstNode::formatted_input_error(std::string str) const
+void AstNode::formatted_input_error(std::string_view format, std::string str) const
 {
-	log_formatted_file_error(*location.begin.filename, location.begin.line, std::move(str));
+	logger().formatted_file_error(*location.begin.filename, location.begin.line, format, std::move(str));
 }
 
 YOSYS_NAMESPACE_END

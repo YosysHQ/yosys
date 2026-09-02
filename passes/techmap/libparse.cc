@@ -39,7 +39,7 @@ void warn(std::string str) {
 #else
 #include "kernel/log.h"
 void warn(std::string str) {
-	Yosys::log_formatted_warning("", str);
+	Yosys::log_warning_noprefix("%s", str);
 }
 #endif
 

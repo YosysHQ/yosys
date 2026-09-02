@@ -8,7 +8,7 @@ namespace RTLIL {
 	class TechmapLibparseTest : public testing::Test {
 	protected:
 		TechmapLibparseTest() {
-			if (log_files.empty()) log_files.emplace_back(stdout);
+			if (logger().empty()) logger().add_sink<ConsoleLogSink>();
 		}
 		void checkAll(std::initializer_list<std::string> expressions, std::string expected) {
 			for (const auto& e : expressions) {

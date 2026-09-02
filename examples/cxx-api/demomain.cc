@@ -5,8 +5,7 @@
 
 int main()
 {
-	Yosys::log_streams.push_back(&std::cout);
-	Yosys::log_error_stderr = true;
+	Yosys::logger().add_sink<Yosys::ConsoleLogSink>();
 
 	Yosys::yosys_setup();
 	Yosys::yosys_banner();
