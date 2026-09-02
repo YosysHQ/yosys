@@ -1508,8 +1508,7 @@ void emit_global_input_files(const AbcConfig &config)
 
 void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
 {
-	log_push();
-	log_header(design, "Executed ABC.\n");
+	log_header(design, "Executed ABC on module %s.\n", module->name.c_str());
 	run_abc.logs.flush();
 	if (!run_abc.did_run) {
 		finish();
@@ -1528,7 +1527,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 
 	ifs.close();
 
-	log_header(design, "Re-integrating ABC results.\n");
+	log_header(design, "Re-integrating ABC results of module %s.\n", module->name.c_str());
 	RTLIL::Module *mapped_mod = mapped_design->module(ID(netlist));
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
@@ -1805,7 +1804,6 @@ void AbcModuleState::finish()
 		log("Removing temp directory.\n");
 		remove_directory(run_abc.per_run_tempdir_name);
 	}
-	log_pop();
 }
 
 // For every signal that connects cells from different sets, or a cell in a set to a cell not in any set,
@@ -2374,34 +2372,130 @@ struct AbcPass : public Pass {
 
 		emit_global_input_files(config);
 
-		for (auto mod : design->selected_modules())
-		{
-			if (mod->processes.size() > 0) {
+		// Process modules from the largest to the smallest. This improves
+		// the runtime when module sizes are varied, by avoiding the case
+		// where some large module is picked last
+		std::vector<Yosys::RTLIL::Module *> sorted_modules;
+		for (auto mod : design->selected_modules()) {
+			if (mod->processes.empty()) {
+				sorted_modules.push_back(mod);
+			} else {
 				log("Skipping module %s as it contains processes.\n", mod);
-				continue;
 			}
+		}
+		std::sort(sorted_modules.begin(), sorted_modules.end(),
+			  [](const auto &a, const auto &b) { return a->cells_.size() > b->cells_.size(); });
 
-			AbcSigMap assign_map;
-			assign_map.set(mod);
-			// Create an FfInitVals and use it for all ABC runs. FfInitVals only cares about
-			// wires with the ID::init attribute and we don't add or remove any such wires
-			// in this pass.
-			FfInitVals initvals;
-			initvals.set(&assign_map, mod);
+		struct AbcRunState {
+			Yosys::RTLIL::Module *mod;
+			AbcModuleState module_state;
+			std::shared_ptr<AbcSigMap> assign_map;
+			std::shared_ptr<FfInitVals> initvals;
+			AbcRunState(const AbcConfig &config, Yosys::RTLIL::Module *mod, std::shared_ptr<AbcSigMap> assign_map,
+					std::shared_ptr<FfInitVals> initvals, int state_index)
+					: mod(mod), module_state(config, *initvals, state_index),
+					  assign_map(std::move(assign_map)), initvals(std::move(initvals)) {}
+		};
+
+		int max_threads = 0;
+		// In case of non-dff mode the number of ABC jobs is easily determined
+		// ahead of time, while in dff mode the number of ABC jobs is determined
+		// at later stage (during clock domain splitting). Create the pool with
+		// core_count threads when dff mode is used
+		if (!dff_mode || !clk_str.empty()) {
+			max_threads = GetSize(sorted_modules);
+		} else {
+			max_threads = std::thread::hardware_concurrency();
+		}
+		if (max_threads <= 1) {
+			// Just do everything on the main thread.
+			max_threads = 0;
+		}
+#ifdef YOSYS_LINK_ABC
+		// ABC does't support multithreaded calls so don't call it off the main thread.
+		max_threads = 0;
+#endif
+		int num_worker_threads = ThreadPool::pool_size(1, max_threads);
+		ConcurrentQueue<std::unique_ptr<AbcRunState>> work_queue(num_worker_threads);
+		ConcurrentQueue<std::unique_ptr<AbcRunState>> work_finished_queue;
+		std::vector<std::unique_ptr<AbcRunState>> work_finished_by_index;
+		int state_index = 0;
+		int next_state_index_to_process = 0;
+		int remaining_work_count = 0;
+
+		ConcurrentStack<AbcProcess> process_pool;
+		ThreadPool worker_threads(num_worker_threads, [&](int) {
+			while (std::optional<std::unique_ptr<AbcRunState>> work = work_queue.pop_front()) {
+				(*work)->module_state.run_abc.run(process_pool);
+				work_finished_queue.push_back(std::move(*work));
+			}
+		});
+
+		auto extract_runs = [&] {
+			// extract runs in the order of their creation
+			while (next_state_index_to_process < GetSize(work_finished_by_index) &&
+			       work_finished_by_index[next_state_index_to_process] != nullptr) {
+				std::unique_ptr<AbcRunState> work = std::move(work_finished_by_index[next_state_index_to_process]);
+				work->module_state.extract(*work->assign_map, design, work->mod);
+				++next_state_index_to_process;
+			}
+		};
+		auto try_process_runs = [&] {
+			while (std::optional<std::unique_ptr<AbcRunState>> work = work_finished_queue.try_pop_front()) {
+				int state_index = (*work)->module_state.state_index;
+				if (state_index >= GetSize(work_finished_by_index)) {
+					work_finished_by_index.resize(state_index + 1);
+				}
+				work_finished_by_index[state_index] = std::move(*work);
+				--remaining_work_count;
+				extract_runs();
+			}
+		};
+		auto process_runs = [&] {
+			while (remaining_work_count > 0) {
+				std::optional<std::unique_ptr<AbcRunState>> work = work_finished_queue.pop_front();
+				int state_index = (*work)->module_state.state_index;
+				if (state_index >= GetSize(work_finished_by_index)) {
+					work_finished_by_index.resize(state_index + 1);
+				}
+				work_finished_by_index[state_index] = std::move(*work);
+				--remaining_work_count;
+				extract_runs();
+			}
+		};
+
+		for (auto mod : sorted_modules)
+		{
+			std::shared_ptr<AbcSigMap> assign_map = std::make_shared<AbcSigMap>();
+			assign_map->set(mod);
+			// Create an FfInitVals and use it for all ABC runs in this module. FfInitVals
+			// only cares about wires with the ID::init attribute and we don't add or
+			// remove any such wires in this pass.
+			std::shared_ptr<FfInitVals> initvals = std::make_shared<FfInitVals>();
+			initvals->set(assign_map.get(), mod);
 
 			for (auto wire : mod->wires())
 				if (wire->port_id > 0 || wire->get_bool_attribute(ID::keep))
-					assign_map.addVal(SigSpec(wire), AbcSigVal(true));
+					assign_map->addVal(SigSpec(wire), AbcSigVal(true));
 
 			if (!dff_mode || !clk_str.empty()) {
-				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
-				assign_cell_connection_ports(mod, {&cells}, assign_map);
+				std::unique_ptr<AbcRunState> run_state = std::make_unique<AbcRunState>(
+						config, mod, std::move(assign_map), std::move(initvals), state_index++);
 
-				AbcModuleState state(config, initvals, 0);
-				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
-				ConcurrentStack<AbcProcess> process_pool;
-				state.run_abc.run(process_pool);
-				state.extract(assign_map, design, mod);
+				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
+				assign_cell_connection_ports(mod, {&cells}, *run_state->assign_map);
+
+				run_state->module_state.prepare_module(design, mod, *run_state->assign_map, cells, dff_mode, clk_str);
+				if (num_worker_threads > 0) {
+					work_queue.push_back(std::move(run_state));
+					remaining_work_count++;
+				} else {
+					run_state->module_state.run_abc.run(process_pool);
+					work_finished_queue.push_back(std::move(run_state));
+					remaining_work_count++;
+				}
+				// If some ABC runs are already done, process them now and deallocate AbcRunState early
+				try_process_runs();
 				continue;
 			}
 
@@ -2427,7 +2521,7 @@ struct AbcPass : public Pass {
 
 				for (auto &conn : cell->connections())
 				for (auto bit : conn.second) {
-					bit = assign_map(bit);
+					bit = (*assign_map)(bit);
 					if (bit.wire != nullptr) {
 						cell_to_bit[cell].insert(bit);
 						bit_to_cell[bit].insert(cell);
@@ -2445,7 +2539,7 @@ struct AbcPass : public Pass {
 				if (!cell->is_builtin_ff())
 					continue;
 
-				FfData ff(&initvals, cell);
+				FfData ff(initvals.get(), cell);
 				if (!ff.has_clk)
 					continue;
 				if (ff.has_gclk)
@@ -2460,11 +2554,11 @@ struct AbcPass : public Pass {
 					ff.pol_clk,
 					ff.sig_clk,
 					ff.has_ce ? ff.pol_ce : true,
-					ff.has_ce ? assign_map(ff.sig_ce) : RTLIL::SigSpec(),
+					ff.has_ce ? (*assign_map)(ff.sig_ce) : RTLIL::SigSpec(),
 					ff.has_arst ? ff.pol_arst : true,
-					ff.has_arst ? assign_map(ff.sig_arst) : RTLIL::SigSpec(),
+					ff.has_arst ? (*assign_map)(ff.sig_arst) : RTLIL::SigSpec(),
 					ff.has_srst ? ff.pol_srst : true,
-					ff.has_srst ? assign_map(ff.sig_srst) : RTLIL::SigSpec()
+					ff.has_srst ? (*assign_map)(ff.sig_srst) : RTLIL::SigSpec()
 				);
 
 				unassigned_cells.erase(cell);
@@ -2556,82 +2650,37 @@ struct AbcPass : public Pass {
 							std::get<6>(it.first) ? "" : "!", log_signal(std::get<7>(it.first)));
 					cell_sets.push_back(&it.second);
 				}
-				assign_cell_connection_ports(mod, cell_sets, assign_map);
+				assign_cell_connection_ports(mod, cell_sets, *assign_map);
 			}
-
-			// Reserve one core for our main thread, and don't create more worker threads
-			// than ABC runs.
-			int max_threads = assigned_cells.size();
-			if (max_threads <= 1) {
-				// Just do everything on the main thread.
-				max_threads = 0;
-			}
-#ifdef YOSYS_LINK_ABC
-			// ABC does't support multithreaded calls so don't call it off the main thread.
-			max_threads = 0;
-#endif
-			int num_worker_threads = ThreadPool::pool_size(1, max_threads);
-			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
-			ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
-			ConcurrentStack<AbcProcess> process_pool;
-			ThreadPool worker_threads(num_worker_threads, [&](int){
-					while (std::optional<std::unique_ptr<AbcModuleState>> work =
-							work_queue.pop_front()) {
-						// Only the `run_abc` component is safe to touch here!
-						(*work)->run_abc.run(process_pool);
-						work_finished_queue.push_back(std::move(*work));
-					}
-				});
-			int state_index = 0;
-			int next_state_index_to_process = 0;
-			std::vector<std::unique_ptr<AbcModuleState>> work_finished_by_index;
-			work_finished_by_index.resize(assigned_cells.size());
-			int work_finished_count = 0;
 			for (auto &it : assigned_cells) {
-				// Make sure we process the results in the order we expect. When we can
-				// process results before the next ABC run, do so, to keep memory usage low(er).
-				while (std::optional<std::unique_ptr<AbcModuleState>> work =
-						work_finished_queue.try_pop_front()) {
-					work_finished_by_index[(*work)->state_index] = std::move(*work);
-					++work_finished_count;
-				}
-				while (work_finished_by_index[next_state_index_to_process] != nullptr) {
-					work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
-					work_finished_by_index[next_state_index_to_process] = nullptr;
-					++next_state_index_to_process;
-				}
-				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals, state_index++);
-				state->clk_polarity = std::get<0>(it.first);
-				state->clk_sig = assign_map(std::get<1>(it.first));
-				state->en_polarity = std::get<2>(it.first);
-				state->en_sig = assign_map(std::get<3>(it.first));
-				state->arst_polarity = std::get<4>(it.first);
-				state->arst_sig = assign_map(std::get<5>(it.first));
-				state->srst_polarity = std::get<6>(it.first);
-				state->srst_sig = assign_map(std::get<7>(it.first));
-				state->prepare_module(design, mod, assign_map, it.second, !state->clk_sig.empty(), "$");
+				// If some ABC runs are already done, process them now and deallocate AbcRunState early
+				try_process_runs();
+
+				std::unique_ptr<AbcRunState> run_state = std::make_unique<AbcRunState>(
+						config, mod, assign_map, initvals, state_index++);
+				run_state->module_state.clk_polarity = std::get<0>(it.first);
+				run_state->module_state.clk_sig = (*assign_map)(std::get<1>(it.first));
+				run_state->module_state.en_polarity = std::get<2>(it.first);
+				run_state->module_state.en_sig = (*assign_map)(std::get<3>(it.first));
+				run_state->module_state.arst_polarity = std::get<4>(it.first);
+				run_state->module_state.arst_sig = (*assign_map)(std::get<5>(it.first));
+				run_state->module_state.srst_polarity = std::get<6>(it.first);
+				run_state->module_state.srst_sig = (*assign_map)(std::get<7>(it.first));
+				run_state->module_state.prepare_module(design, mod, (*assign_map), it.second, !run_state->module_state.clk_sig.empty(), "$");
+
 				if (num_worker_threads > 0) {
-					work_queue.push_back(std::move(state));
+					work_queue.push_back(std::move(run_state));
+					remaining_work_count++;
 				} else {
 					// Just run everything on the main thread.
-					state->run_abc.run(process_pool);
-					work_finished_queue.push_back(std::move(state));
+					run_state->module_state.run_abc.run(process_pool);
+					work_finished_queue.push_back(std::move(run_state));
+					remaining_work_count++;
 				}
 			}
-			work_queue.close();
-			while (work_finished_count < GetSize(assigned_cells)) {
-				std::optional<std::unique_ptr<AbcModuleState>> work =
-					work_finished_queue.pop_front();
-				work_finished_by_index[(*work)->state_index] = std::move(*work);
-				++work_finished_count;
-			}
-			while (next_state_index_to_process < GetSize(work_finished_by_index)) {
-				work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
-				work_finished_by_index[next_state_index_to_process] = nullptr;
-				++next_state_index_to_process;
-			}
 		}
-
+		process_runs();
+		work_queue.close();
 		if (config.cleanup) {
 			log("Removing global temp directory.\n");
 			remove_directory(config.global_tempdir_name);
