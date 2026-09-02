@@ -1,0 +1,11 @@
+read_verilog -formal <<EOT
+module top (input clk, input req, output reg ack);
+    always @(posedge clk) ack <= req;
+    always @(posedge clk) assume property (s_eventually ack);
+endmodule
+EOT
+prep -top top
+async2sync
+dffunmap
+logger -expect error "Unsupported cell type .fair..*" 1
+write_btor /dev/null
