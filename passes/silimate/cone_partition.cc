@@ -17,9 +17,10 @@
  *         and exposed as a new output port (PO).
  *       - A new input port (PI) is created to replace the FF's Q output
  *         for any downstream logic that was consuming it.
- *       - The cone's transitive fanin is traced backwards, stopping at
- *         existing module PIs or at other matched FFs (whose PIs are
- *         reused). Any other leaf signals become new PIs.
+ *       - Cone boundaries fall out of that rewiring rather than being
+ *         walked: the combinational logic is left untouched, and because
+ *         every matched FF's Q has become a PI, any backward path through
+ *         it now terminates at a module PI or at another cone's PI.
  *
  *    4. Multi-clock-domain handling:
  *       - If both gold and gate have multiple clock domains, unmatched
@@ -668,10 +669,9 @@ struct ConePartitionPass : public Pass {
 		log("    exposed as a new output port (PO).\n");
 		log("  - A new input port (PI) replaces the FF's Q output for any downstream\n");
 		log("    consumers.\n");
-		log("  - The cone's transitive fanin (back through combinational logic) is\n");
-		log("    traced until it reaches a module PI, an unmatched FF boundary, or\n");
-		log("    another matched FF (whose replacement PI is reused). Leaf signals\n");
-		log("    at the cone boundary become new input ports.\n");
+		log("  - Combinational logic is left as it is. Since every matched FF's Q is\n");
+		log("    now a PI, each cone's fanin already terminates at a module PI or at\n");
+		log("    another cone's PI, so no boundary tracing is needed.\n");
 		log("\n");
 		log("Multi-clock-domain handling:\n");
 		log("\n");
