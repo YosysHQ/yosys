@@ -317,6 +317,9 @@ struct SimInstance
 				// Interface pins dump under the actual, not the flattened formal name
 				if (id == 0 && wire->has_attribute(ID(sim_src)))
 					id = shared->fst->getHandle(wire->get_string_attribute(ID(sim_src)));
+				// Mismatch a flattened bit-select from a wider word
+				if (id != 0 && shared->fst->getWidth(id) != GetSize(wire))
+					id = 0;
 
 				if (id != 0) {
 					// Case of a regular wire/reg
@@ -1794,8 +1797,7 @@ struct SimWorker : SimShared
 		write_output_files();
 	}
 
-	// SILIMATE: an input port with no matching FST signal is fatal by default (its value would be
-	// unknown for the whole replay); -missing-input-warn leaves it undriven and keeps going.
+	// SILIMATE: an input port with no matching FST signal is fatal by default
 	void report_missing_fst_input(const std::string &path, Module *mod)
 	{
 		if (!missing_input_warning)
@@ -1805,36 +1807,35 @@ struct SimWorker : SimShared
 			log_warning("Can't find port '%s' on module '%s' in FST, leaving it undriven.\n", path.c_str(), log_id(mod));
 	}
 
-	// An interface pin miss can be resolved by the sim_src attribute.
-	fstHandle handle_for_input(Wire *wire, const std::string &path)
+	// Bind one port_input from the waveform. First success wins:
+	//   drive_vector          — same name and width (or sim_src slice)
+	//   drive_tied_off        — parent tied the pin to a constant
+	//   drive_bit_selects     — path[k] (packed d[0]/d[1], or din[1][k])
+	//   drive_flattened_word  — `\din[1]` from parent din[8]..din[15]
+	void bind_fst_input(SimInstance *t, Wire *wire, Module *mod)
+	{
+		std::string path = t->scope + "." + wire->name.unescape();
+		if (drive_vector(t, wire, path))
+			return;
+		if (drive_tied_off(t, wire))
+			return;
+		if (drive_bit_selects(t, wire, path))
+			return;
+		if (drive_flattened_word(t, wire, path))
+			return;
+		report_missing_fst_input(path, mod);
+	}
+
+	// Same dump name, usable width: either an exact vector or a sim_src_bit slice of a wider one.
+	bool drive_vector(SimInstance *t, Wire *wire, const std::string &path)
 	{
 		fstHandle id = fst->getHandle(path);
+		if (id != 0 && fst->getWidth(id) != GetSize(wire))
+			id = 0;  // 1-bit din[1] is a bit-select, not the 8-bit word
 		if (id == 0 && wire->has_attribute(ID(sim_src)))
 			id = fst->getHandle(wire->get_string_attribute(ID(sim_src)));
-		return id;
-	}
-
-	// SILIMATE: bit-blasted dump is one FST var per HDL index, not one packed vector.
-	bool bind_fst_bits(SimInstance *t, Wire *wire, const std::string &path)
-	{
-		// Remap HDL indices onto this wire so [3:2]/[0:1] land on the right Yosys bits.
-		dict<int, fstHandle> mapped;
-		for (auto &kv : fst->getMemoryHandles(path)) {
-			int index = wire->from_hdl_index(kv.first);
-			if (index != INT_MIN)
-				mapped[index] = kv.second;  // skip indices outside this wire
-		}
-		// Incomplete coverage would silently leave bits undriven.
-		if (GetSize(mapped) != GetSize(wire))
+		if (id == 0)
 			return false;
-		for (auto &kv : mapped)
-			t->fst_input_sigs.push_back({SigSpec(wire, kv.first, 1), kv.second, 0});
-		return true;
-	}
-
-	// Drive `wire` from handle `id`, slicing with sim_src_bit when the dump is wider
-	bool drive_from_handle(SimInstance *t, Wire *wire, fstHandle id)
-	{
 		if (fst->getWidth(id) == GetSize(wire)) {
 			t->fst_inputs[wire] = id;
 			return true;
@@ -1851,8 +1852,7 @@ struct SimWorker : SimShared
 		return true;
 	}
 
-	// The parent tied this pin off, so it has no dumped signal. Nothing drives an input port
-	// from inside, so setting it once here holds for the whole replay.
+	// Parent tied the pin off; the dump has no signal, so hold that constant for the replay.
 	bool drive_tied_off(SimInstance *t, Wire *wire)
 	{
 		if (!wire->has_attribute(ID(sim_const)))
@@ -1862,6 +1862,55 @@ struct SimWorker : SimShared
 			return false;
 		t->set_state(SigSpec(wire), value);
 		return true;
+	}
+
+	// Drive every Yosys bit from dump vars keyed by HDL index. All bits must be present.
+	bool commit_bit_handles(SimInstance *t, Wire *wire, const dict<int, fstHandle> &by_hdl)
+	{
+		dict<int, fstHandle> mapped;
+		for (auto &kv : by_hdl) {
+			int index = wire->from_hdl_index(kv.first);
+			if (index != INT_MIN)
+				mapped[index] = kv.second;  // skip indices outside this wire
+		}
+		if (GetSize(mapped) != GetSize(wire))
+			return false;
+		for (auto &kv : mapped)
+			t->fst_input_sigs.push_back({SigSpec(wire, kv.first, 1), kv.second, 0});
+		return true;
+	}
+
+	// Packed port dumped as path[k], e.g. d[0], d[1] or din[1][0]..din[1][7].
+	bool drive_bit_selects(SimInstance *t, Wire *wire, const std::string &path)
+	{
+		return commit_bit_handles(t, wire, fst->getMemoryHandles(path));
+	}
+
+	// Unpacked word `\din[1]` (W bits) dumped as 1-bit din[W]..din[2W) under parent `din`.
+	bool drive_flattened_word(SimInstance *t, Wire *wire, const std::string &path)
+	{
+		std::string name = wire->name.unescape();
+		if (name.empty() || name.back() != ']')
+			return false;
+		size_t open = name.rfind('[');
+		if (open == std::string::npos || open == 0)
+			return false;
+		std::string inner = name.substr(open + 1, name.size() - open - 2);
+		if (inner.empty() || inner.find_first_not_of("0123456789") != std::string::npos)
+			return false;
+		if (path.size() < name.size() || path.compare(path.size() - name.size(), name.size(), name) != 0)
+			return false;
+		int word = std::stoi(inner);
+		int width = GetSize(wire);
+		auto handles = fst->getMemoryHandles(path.substr(0, path.size() - name.size()) + name.substr(0, open));
+		dict<int, fstHandle> by_hdl;
+		for (int i = 0; i < width; i++) {
+			auto it = handles.find(word * width + i);
+			if (it == handles.end())
+				return false;
+			by_hdl[wire->start_offset + i] = it->second;
+		}
+		return commit_bit_handles(t, wire, by_hdl);
 	}
 
 	void run_cosim_fst(Module *topmod, int numcycles, int log_interval)
@@ -1874,7 +1923,7 @@ struct SimWorker : SimShared
 
 		// Multi-root mode: instance_modules was resolved in execute() alongside instance_specs
 		if (!instance_modules.empty()) {
-			// In multi-root mode, each instance has its own clock pin and we drive every port_input
+			// In multi-root mode, each instance has its own clock pin and we drive every port_input d
 			// from FST, so we can't honor user-supplied clock names here.
 			if (!clock.empty() || !clockn.empty())
 				log_warning("-clock/-clockn are ignored with -instance; clocks are driven directly from the FST sample stream.\n");
@@ -1887,13 +1936,7 @@ struct SimWorker : SimShared
 				// Drive every port_input from the FST
 				for (auto wire : m->wires()) {
 					if (!wire->port_input) continue;
-					fstHandle id = handle_for_input(wire, iscope + "." + wire->name.unescape());
-					if (id != 0 && drive_from_handle(t, wire, id))
-						continue;
-					if (drive_tied_off(t, wire))
-						continue;
-					if (!bind_fst_bits(t, wire, iscope + "." + wire->name.unescape()))
-						report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
+					bind_fst_input(t, wire, m);
 				}
 				t->addAdditionalInputs();
 			}
@@ -1937,18 +1980,8 @@ struct SimWorker : SimShared
 			}
 
 			for (auto wire : topmod->wires()) {
-
-				// Populate fst_inputs for input ports
-				if (wire->port_input) {
-					std::string path = scope + "." + RTLIL::unescape_id(wire->name);
-					fstHandle id = handle_for_input(wire, path);
-					if (id != 0 && drive_from_handle(top, wire, id))
-						continue;
-					if (drive_tied_off(top, wire))
-						continue;
-					if (!bind_fst_bits(top, wire, path))
-						report_missing_fst_input(path, topmod);
-				}
+				if (wire->port_input)
+					bind_fst_input(top, wire, topmod);
 			}
 
 			top->addAdditionalInputs();
