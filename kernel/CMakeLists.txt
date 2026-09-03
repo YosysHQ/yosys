@@ -189,4 +189,18 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 			essentials
 		BOOTSTRAP
 	)
+
+	yosys_core(yc
+		yc.cc
+		REQUIRES
+			essentials
+		LIBRARIES
+			fmt::fmt
+			slang::slang
+			$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
+			$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
+			$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
+			$<${YOSYS_ENABLE_PYTHON}:Python3::Python>
+		BOOTSTRAP
+	)
 endif()
