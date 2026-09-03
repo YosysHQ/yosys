@@ -1,0 +1,69 @@
+read_verilog -sv << EOT
+module stress(
+	input en0,
+	input en1,
+	input [1:0] sel,
+	input [7:0] a, b, c, d, e,
+	output reg [7:0] y,
+	output reg [7:0] z
+);
+	always @* begin
+		y = a;
+		z = b;
+
+		if (en0) begin
+			{y[7:4], z[3:0]} = {c[7:4], d[3:0]};
+			if (sel[0])
+				y[1:0] = e[1:0];
+		end else begin
+			z[7:4] = e[7:4];
+		end
+
+		case (sel)
+			2'b01: begin
+				y[5:2] = d[5:2];
+				if (en1)
+					z[6:5] = c[6:5];
+			end
+			2'b10, 2'b11: begin
+				{z[2], y[6]} = {a[2], b[6]};
+			end
+		endcase
+
+		y[3:0] = b[3:0];
+	end
+endmodule
+EOT
+
+design -save orig
+
+# Optimized path (wire prefilter enabled).
+design -load orig
+proc_clean
+proc_rmdead
+proc_prune
+proc_init
+proc_arst
+proc_rom
+proc_mux
+proc_clean
+opt_expr -keepdc
+design -stash opt
+
+# Reference path (wire prefilter disabled).
+design -load orig
+proc_clean
+proc_rmdead
+proc_prune
+proc_init
+proc_arst
+proc_rom
+proc_mux -no-wire-prefilter
+proc_clean
+opt_expr -keepdc
+design -stash ref
+
+design -copy-from ref -as gold stress
+design -copy-from opt -as gate stress
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -set-def-inputs -prove-asserts miter
