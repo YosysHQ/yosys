@@ -13,8 +13,8 @@ flatten:
 
 coarse:
     opt_expr
-    opt_clean
     check
+    opt_clean
     opt -nodffe -nosdff
     fsm
     opt
