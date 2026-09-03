@@ -62,6 +62,9 @@ yosys_pass(opt_vps
 yosys_pass(opt_compact_prefix
 	opt_compact_prefix.cc
 )
+yosys_pass(opt_bmux_nest
+	opt_bmux_nest.cc
+)
 yosys_pass(opt_carry_select
 	opt_carry_select.cc
 )
