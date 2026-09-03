@@ -180,7 +180,7 @@ struct DebugOnPass : public Pass {
 			break;
 		}
 
-		log_force_debug++;
+		logger().force_debug_on();
 	}
 } DebugOnPass;
 
