@@ -256,8 +256,9 @@ struct SimInstance
 	dict<std::pair<IdString, int>, Const> trace_mem_init_database;
 	dict<Wire*, fstHandle> fst_handles;
 	dict<Wire*, fstHandle> fst_inputs;
-	// Bit-accurate FST drives for -bb child outputs
-	std::vector<std::pair<SigSpec, fstHandle>> fst_input_sigs;
+	// FST drive of a SigSpec; `lsb` is the extract start when the handle is wider than the spec
+	struct FstInputSig { SigSpec sig; fstHandle handle; int lsb = 0; };
+	std::vector<FstInputSig> fst_input_sigs;
 	dict<IdString, dict<int,fstHandle>> fst_memories;
 
 	// Helper function to set wire state from array element handles
@@ -313,6 +314,9 @@ struct SimInstance
 			// Populate fst_handles for signal lookups
 			if ((shared->fst) && !(shared->hide_internal && wire->name[0] == '$')) {
 				fstHandle id = shared->fst->getHandle(scope + "." + wire->name.unescape());
+				// Interface pins dump under the actual, not the flattened formal name
+				if (id == 0 && wire->has_attribute(ID(sim_src)))
+					id = shared->fst->getHandle(wire->get_string_attribute(ID(sim_src)));
 
 				if (id != 0) {
 					// Case of a regular wire/reg
@@ -380,7 +384,7 @@ struct SimInstance
 					fstHandle child_id = shared->fst->getHandle(child_path);
 					if (child_id != 0) {
 						// Full SigSpec so bit-blasted ports get the right FST bit.
-						fst_input_sigs.emplace_back(dest, child_id);
+						fst_input_sigs.push_back({dest, child_id, 0});
 					} else {
 						// Fall back to parent wire name when inst.port is absent.
 						for (auto bit : dest) {
@@ -1454,7 +1458,12 @@ struct SimInstance
 				issue_count++;
 				any_undriven_found = true;
 				std::string wire_name = scope + "." + RTLIL::unescape_id(wire->name);
+				if (GetSize(undriven) == GetSize(wire))
 				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name.c_str(), log_signal(undriven));
+				else
+					log_warning("Input trace contains undriven signal `%s` (%s): %d of %d bit(s) have no "
+							"driver, likely due to a synthesis optimization.\n", wire_name.c_str(),
+							log_signal(undriven), GetSize(undriven), GetSize(wire));
 			}
 		}
 
@@ -1471,7 +1480,7 @@ struct SimInstance
 		for (auto &kv : fst_handles)
 			if (kv.second) out.push_back(kv.second);
 		for (auto &p : fst_input_sigs)
-			if (p.second) out.push_back(p.second);
+			if (p.handle) out.push_back(p.handle);
 		for (auto &mem : fst_memories)
 			for (auto &kv : mem.second)
 				if (kv.second) out.push_back(kv.second);
@@ -1483,12 +1492,13 @@ struct SimInstance
 	{
 		bool did_something = false;
 		for (auto &item : fst_input_sigs) {
-			Const value = fst_value(item.second);
-			if (GetSize(value) < GetSize(item.first))
+			Const value = fst_value(item.handle);
+			int need = GetSize(item.sig);
+			if (GetSize(value) < item.lsb + need)
 				continue;
-			if (GetSize(value) > GetSize(item.first))
-				value = value.extract(0, GetSize(item.first));
-			did_something |= set_state(item.first, value);
+			if (GetSize(value) > need || item.lsb)
+				value = value.extract(item.lsb, need);
+			did_something |= set_state(item.sig, value);
 		}
 		for(auto &item : fst_inputs) {
 			did_something |= set_state(item.first, fst_value(item.second));
@@ -1818,7 +1828,39 @@ struct SimWorker : SimShared
 		if (GetSize(mapped) != GetSize(wire))
 			return false;
 		for (auto &kv : mapped)
-			t->fst_input_sigs.emplace_back(SigSpec(wire, kv.first, 1), kv.second);
+			t->fst_input_sigs.push_back({SigSpec(wire, kv.first, 1), kv.second, 0});
+		return true;
+	}
+
+	// Drive `wire` from handle `id`, slicing with sim_src_bit when the dump is wider
+	bool drive_from_handle(SimInstance *t, Wire *wire, fstHandle id)
+	{
+		if (fst->getWidth(id) == GetSize(wire)) {
+			t->fst_inputs[wire] = id;
+			return true;
+		}
+		if (!wire->has_attribute(ID(sim_src_bit)))
+			return false;
+		std::string text = wire->get_string_attribute(ID(sim_src_bit));
+		if (text.empty() || text.find_first_not_of("0123456789") != std::string::npos)
+			return false;
+		int off = std::stoi(text);
+		if (off < 0 || off + GetSize(wire) > fst->getWidth(id))
+			return false;
+		t->fst_input_sigs.push_back({SigSpec(wire), id, off});
+		return true;
+	}
+
+	// The parent tied this pin off, so it has no dumped signal. Nothing drives an input port
+	// from inside, so setting it once here holds for the whole replay.
+	bool drive_tied_off(SimInstance *t, Wire *wire)
+	{
+		if (!wire->has_attribute(ID(sim_const)))
+			return false;
+		Const value = Const::from_string(wire->get_string_attribute(ID(sim_const)));
+		if (GetSize(value) != GetSize(wire))
+			return false;
+		t->set_state(SigSpec(wire), value);
 		return true;
 	}
 
@@ -1846,12 +1888,12 @@ struct SimWorker : SimShared
 				for (auto wire : m->wires()) {
 					if (!wire->port_input) continue;
 					fstHandle id = handle_for_input(wire, iscope + "." + wire->name.unescape());
-					if (id == 0) {
-						if (!bind_fst_bits(t, wire, iscope + "." + wire->name.unescape()))
-							report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
+					if (id != 0 && drive_from_handle(t, wire, id))
 						continue;
-					}
-					t->fst_inputs[wire] = id;
+					if (drive_tied_off(t, wire))
+						continue;
+					if (!bind_fst_bits(t, wire, iscope + "." + wire->name.unescape()))
+						report_missing_fst_input(iscope + "." + wire->name.unescape(), m);
 				}
 				t->addAdditionalInputs();
 			}
@@ -1898,11 +1940,14 @@ struct SimWorker : SimShared
 
 				// Populate fst_inputs for input ports
 				if (wire->port_input) {
-					fstHandle id = handle_for_input(wire, scope + "." + RTLIL::unescape_id(wire->name));
-					if (id != 0)
-						top->fst_inputs[wire] = id;
-					else if (!bind_fst_bits(top, wire, scope + "." + RTLIL::unescape_id(wire->name)))
-						report_missing_fst_input(scope + "." + RTLIL::unescape_id(wire->name), topmod);
+					std::string path = scope + "." + RTLIL::unescape_id(wire->name);
+					fstHandle id = handle_for_input(wire, path);
+					if (id != 0 && drive_from_handle(top, wire, id))
+						continue;
+					if (drive_tied_off(top, wire))
+						continue;
+					if (!bind_fst_bits(top, wire, path))
+						report_missing_fst_input(path, topmod);
 				}
 			}
 
