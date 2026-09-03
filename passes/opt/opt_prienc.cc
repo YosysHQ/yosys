@@ -2170,11 +2170,23 @@ struct OptPriEncWorker {
 		// leaves the chain alive feeding the others, so we rewrite each
 		// match independently and de-duplicate the emitted log-depth
 		// network through the per-input clz/ctz cache.
+		// Cone size alone is not a total order: a lowering routinely exposes
+		// several chain wires with byte-identical (cells, bits) counts. std::sort
+		// is not stable, so those ties resolve differently under libc++ and
+		// libstdc++, and since a candidate claims its output and driver
+		// exclusively, whichever of a tied pair runs first changes the netlist.
+		// Break the tie explicitly, as candidate discovery above already does.
+		// Public before private, so a tie between a port and the $0\... proc
+		// temporary feeding it still reports (and claims) the named wire.
 		std::sort(candidates.begin(), candidates.end(),
 		          [](const Candidate& a, const Candidate& b) {
 		              if (GetSize(a.cone_cells) != GetSize(b.cone_cells))
 		                  return GetSize(a.cone_cells) > GetSize(b.cone_cells);
-		              return GetSize(a.cone_bits) > GetSize(b.cone_bits);
+		              if (GetSize(a.cone_bits) != GetSize(b.cone_bits))
+		                  return GetSize(a.cone_bits) > GetSize(b.cone_bits);
+		              if (a.S_wire->name.isPublic() != b.S_wire->name.isPublic())
+		                  return a.S_wire->name.isPublic();
+		              return a.S_wire->name.str() < b.S_wire->name.str();
 		          });
 
 		vector<Rewrite> rewrites;
