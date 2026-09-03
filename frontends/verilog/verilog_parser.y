@@ -3590,7 +3590,16 @@ assignment_pattern_list:
 		$$ = std::make_unique<AstNode>(@$, AST_ASSIGN_PATTERN);
 		$$->children.push_back(std::move($1));
 	} |
+	TOK_DEFAULT TOK_COL expr {
+		// A default pattern is marked by a non-zero 'integer' field and carries
+		// the default value as its only child.
+		$$ = std::make_unique<AstNode>(@$, AST_ASSIGN_PATTERN);
+		$$->integer = 1;
+		$$->children.push_back(std::move($3));
+	} |
 	assignment_pattern_list TOK_COMMA expr {
+		if ($1->integer != 0)
+			err_at_loc(@3, "Assignment patterns with 'default:' cannot have further elements.");
 		$$ = std::move($1);
 		$$->children.push_back(std::move($3));
 	};

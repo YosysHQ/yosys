@@ -165,4 +165,93 @@ module top;
     always_comb begin
         assert(ap_nested_width_ctx[0][0] == 5'h10);
     end
+
+    // Test 17: Default assignment pattern on a whole unpacked array.
+    logic [7:0] ap_def [0:3];
+    assign ap_def = '{default: 8'h5a};
+    always_comb begin
+        assert(ap_def[0] == 8'h5a);
+        assert(ap_def[1] == 8'h5a);
+        assert(ap_def[2] == 8'h5a);
+        assert(ap_def[3] == 8'h5a);
+    end
+
+    // Test 18: Default assignment pattern with a runtime expression value.
+    wire [7:0] ap_def_in = 8'h3d;
+    logic [7:0] ap_def_rt [0:1];
+    assign ap_def_rt = '{default: ap_identity(ap_def_in[0]) ? ap_def_in ^ 8'hff : 8'h00};
+    always_comb begin
+        assert(ap_def_rt[0] == 8'hc2);
+        assert(ap_def_rt[1] == 8'hc2);
+    end
+
+    // Test 19: Non-aggregate default value applies recursively to all leaf elements.
+    logic [3:0] ap_def_2d [2][3];
+    assign ap_def_2d = '{default: 4'h7};
+    always_comb begin
+        assert(ap_def_2d[0][0] == 4'h7);
+        assert(ap_def_2d[0][2] == 4'h7);
+        assert(ap_def_2d[1][1] == 4'h7);
+        assert(ap_def_2d[1][2] == 4'h7);
+    end
+
+    // Test 20: Nested default assignment patterns map onto successive dimensions.
+    logic [3:0] ap_def_nested [2][2];
+    assign ap_def_nested = '{default: '{default: 4'h3}};
+    always_comb begin
+        assert(ap_def_nested[0][0] == 4'h3);
+        assert(ap_def_nested[0][1] == 4'h3);
+        assert(ap_def_nested[1][0] == 4'h3);
+        assert(ap_def_nested[1][1] == 4'h3);
+    end
+
+    // Test 21: Default value that is itself a positional pattern for the next dimension.
+    logic ap_def_pos [2][2];
+    assign ap_def_pos = '{default: '{1'b1, 1'b0}};
+    always_comb begin
+        assert(ap_def_pos[0][0] == 1'b1);
+        assert(ap_def_pos[0][1] == 1'b0);
+        assert(ap_def_pos[1][0] == 1'b1);
+        assert(ap_def_pos[1][1] == 1'b0);
+    end
+
+    // Test 22: Default pattern nested inside a positional pattern.
+    logic ap_pos_def [2][2];
+    assign ap_pos_def = '{'{1'b0, 1'b1}, '{default: 1'b1}};
+    always_comb begin
+        assert(ap_pos_def[0][0] == 1'b0);
+        assert(ap_pos_def[0][1] == 1'b1);
+        assert(ap_pos_def[1][0] == 1'b1);
+        assert(ap_pos_def[1][1] == 1'b1);
+    end
+
+    // Test 23: Procedural blocking assignment with a default pattern.
+    logic [1:0] ap_def_proc [0:2];
+    always_comb begin
+        ap_def_proc = '{default: 2'h2};
+
+        assert(ap_def_proc[0] == 2'h2);
+        assert(ap_def_proc[1] == 2'h2);
+        assert(ap_def_proc[2] == 2'h2);
+    end
+
+    // Test 24: Default pattern value uses the target element width context.
+    logic [4:0] ap_def_width_ctx [0:1];
+    assign ap_def_width_ctx = '{default: 4'hf + 4'h1};
+    always_comb begin
+        assert(ap_def_width_ctx[0] == 5'h10);
+        assert(ap_def_width_ctx[1] == 5'h10);
+    end
+
+    // Test 25: Default value that is a compatible unpacked array expression.
+    wire ap_def_row [2];
+    wire ap_def_rows [2][2];
+    assign ap_def_row = '{1'b1, 1'b0};
+    assign ap_def_rows = '{default: ap_def_row};
+    always_comb begin
+        assert(ap_def_rows[0][0] == 1'b1);
+        assert(ap_def_rows[0][1] == 1'b0);
+        assert(ap_def_rows[1][0] == 1'b1);
+        assert(ap_def_rows[1][1] == 1'b0);
+    end
 endmodule

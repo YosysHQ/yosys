@@ -708,6 +708,8 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 		for (int i = 0; i < GetSize(children); i++) {
 			if (i != 0)
 				fprintf(f, ", ");
+			if (integer != 0)
+				fprintf(f, "default: ");
 			children[i]->dumpVlog(f, "");
 		}
 		fprintf(f, "}");
