@@ -20,7 +20,6 @@
 #include "kernel/yosys.h"
 #include "kernel/macc.h"
 #include "kernel/newcelltypes.h"
-#include "kernel/binding.h"
 #include "kernel/sigtools.h"
 #include "kernel/threading.h"
 #include "frontends/verilog/verilog_frontend.h"
@@ -1185,8 +1184,6 @@ RTLIL::Design::~Design()
 {
 	for (auto &pr : modules_)
 		delete pr.second;
-	for (auto n : bindings_)
-		delete n;
 	RTLIL::Design::get_all_designs()->erase(hashidx_);
 }
 
@@ -1224,12 +1221,6 @@ RTLIL::Module *RTLIL::Design::top_module() const
 	}
 
 	return module_count == 1 ? module : nullptr;
-}
-
-void RTLIL::Design::add(RTLIL::Binding *binding)
-{
-	log_assert(binding != nullptr);
-	bindings_.push_back(binding);
 }
 
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
@@ -1531,8 +1522,6 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto &pr : processes)
 		delete pr.second;
-	for (auto binding : bindings_)
-		delete binding;
 #ifdef YOSYS_ENABLE_PYTHON
 	RTLIL::Module::get_all_modules()->erase(hashidx_);
 #endif
@@ -2890,12 +2879,6 @@ void RTLIL::Module::add(RTLIL::Process *process)
 	log_assert(count_id(process->name) == 0);
 	processes[process->name] = process;
 	process->module = this;
-}
-
-void RTLIL::Module::add(RTLIL::Binding *binding)
-{
-	log_assert(binding != nullptr);
-	bindings_.push_back(binding);
 }
 
 void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)

@@ -130,7 +130,6 @@ global_denylist = frozenset(
 )
 pyosys_headers = [
     # Headers for incomplete types
-    PyosysHeader("kernel/binding.h"),
     PyosysHeader("libs/sha1/sha1.h"),
     # Headers for globals
     PyosysHeader("kernel/log.h"),
