@@ -790,6 +790,72 @@ void descale_index_readers(Module *module, SigMap &sigmap, const vector<DescaleR
     }
 }
 
+// `(x >> s) << s` on one amount signal keeps exactly the bits at or above s, so
+// the pair is a mask on the inner shift's own operand: x & (~0 << s). Both
+// barrels leave the data path, where they were 2*clog2(w) mux levels.
+//
+// Distinct from -chain, which composes an align pair into a third barrel over
+// a subtracted amount and is refused for that reason. Here the amounts are the
+// same net, so the composed amount is zero and nothing is left to shift.
+int run_cancel_shifts(Module *module)
+{
+  SigMap sigmap(module);
+  dict<SigBit, Cell *> drivers;
+  for (auto cell : module->cells())
+    for (auto &conn : cell->connections())
+      if (cell->output(conn.first))
+        for (auto bit : sigmap(conn.second))
+          drivers[bit] = cell;
+
+  int cancelled = 0;
+  for (auto outer : vector<Cell *>(module->selected_cells())) {
+    auto no = [&](const char *why) {
+      log_debug("    cancel %s: %s\n", log_id(outer->name), why);
+      return false;
+    };
+    if (outer->type != ID($shl) || !ChainCombiner::is_plain_shift(outer))
+      continue;
+
+    // The outer must read one shift whole: a slice or a padded read changes
+    // which of x's bits land where, and the identity no longer holds.
+    SigSpec a = sigmap(outer->getPort(ID::A));
+    Cell *inner = a.empty() ? nullptr : drivers.count(a[0]) ? drivers.at(a[0]) : nullptr;
+    if (inner == nullptr || inner->type != ID($shr) ||
+        !ChainCombiner::is_plain_shift(inner))
+      continue;
+    if (sigmap(inner->getPort(ID::Y)) != a)
+      continue;
+    if (sigmap(outer->getPort(ID::B)) != sigmap(inner->getPort(ID::B)))
+      continue;
+
+    // Equal widths throughout: a narrowing read drops high bits the mask keeps,
+    // and a widening one reintroduces bits the shift pair had already zeroed.
+    int w = inner->getParam(ID::A_WIDTH).as_int();
+    if (inner->getParam(ID::Y_WIDTH).as_int() != w ||
+        outer->getParam(ID::A_WIDTH).as_int() != w ||
+        outer->getParam(ID::Y_WIDTH).as_int() != w) {
+      no("widths differ across the pair");
+      continue;
+    }
+
+    SigSpec x = sigmap(inner->getPort(ID::A));
+    SigSpec s = sigmap(inner->getPort(ID::B));
+    std::string src = cell_src(outer);
+    // Shifting a constant lowers to a decoder and reads only s, so the mask
+    // costs the data path one AND where the barrel cost clog2(w) mux levels.
+    Wire *keep = module->addWire(NEW_ID_SUFFIX("shift_cancel_keep"), w);
+    module->addShl(NEW_ID_SUFFIX("shift_cancel_keep_shl"), Const(State::S1, w), s,
+                   SigSpec(keep), false, src);
+    module->addAnd(NEW_ID_SUFFIX("shift_cancel_and"), x, SigSpec(keep),
+                   outer->getPort(ID::Y), false, src);
+    log_debug("    cancel %s over %s: %d-bit pair -> mask\n", log_id(outer->name),
+              log_id(inner->name), w);
+    module->remove(outer);
+    cancelled++;
+  }
+  return cancelled;
+}
+
 int run_descale_shifts(Module *module)
 {
   SigMap sigmap; // bound by descale_find_anchors, once it knows it is needed
@@ -985,6 +1051,17 @@ struct OptShiftPass : public Pass {
     log("      depends only on b. Only fires when the gather cannot shift past\n");
     log("      its own source, where it zero-fills but a rotate would wrap.\n");
     log("\n");
+    log("  -align-cancel\n");
+    log("      Cancel an align pair that shifts back by the amount it shifted\n");
+    log("      out, which leaves a mask on the inner shift's operand:\n");
+    log("        (x >> s) << s  ===>  x & (~0 << s)\n");
+    log("      Both barrels leave the data path; the mask reads s alone and\n");
+    log("      lowers to a decoder. Requires the two amounts to be the same\n");
+    log("      net and every width across the pair to agree, so the composed\n");
+    log("      amount is exactly zero. -chain refuses the same pair because it\n");
+    log("      composes into a third barrel over a subtracted amount; this\n");
+    log("      leaves no shift at all.\n");
+    log("\n");
     log("  -chain\n");
     log("      Compose two back-to-back barrels that -combine cannot see because\n");
     log("      the outer one reads its operand as a constant-padded slice rather\n");
@@ -1046,6 +1123,8 @@ struct OptShiftPass : public Pass {
     int sink_widening_gain = 4;
     bool run_fuse = false;
     bool run_chain = false;
+    bool run_cancel = false;
+    int cancel_count = 0;
     bool chain_keep = false;
     bool run_descale = false;
     int max_fuse_bits = 4096;
@@ -1087,6 +1166,10 @@ struct OptShiftPass : public Pass {
         run_fuse = true;
         continue;
       }
+      if (args[argidx] == "-align-cancel" || args[argidx] == "-align_cancel") {
+        run_cancel = true;
+        continue;
+      }
       if (args[argidx] == "-chain") {
         run_chain = true;
         continue;
@@ -1117,7 +1200,7 @@ struct OptShiftPass : public Pass {
     extra_args(args, argidx, design);
 
     if (!run_combine && !run_expand && !run_sink && !run_fuse && !run_chain &&
-        !run_descale) {
+        !run_descale && !run_cancel) {
       run_combine = true;
       run_expand = true;
     }
@@ -1164,6 +1247,13 @@ struct OptShiftPass : public Pass {
           pm.ud_sink_shifts.sink_widening_gain = sink_widening_gain;
           pm.run_sink_shifts();
         }
+        // Before -chain: an exact align pair has a cheaper answer than the
+        // composition, and -chain refuses it anyway.
+        if (run_cancel) {
+          int n = run_cancel_shifts(module);
+          did_something |= n > 0;
+          cancel_count += n;
+        }
         // Composes $shr chains too, which has_variable_shift does not see
         if (run_chain) {
           ChainCombiner chainer(module, max_chain_pad, chain_keep);
@@ -1183,6 +1273,8 @@ struct OptShiftPass : public Pass {
 
     if (run_fuse)
       log("Fused %d gather(s) with the shift feeding them.\n", total_fused);
+    if (run_cancel)
+      log("Cancelled %d align pair(s) into a mask.\n", cancel_count);
     if (run_chain)
       log("Composed %d barrel pair(s) across constant padding.\n", total_chained);
     if (run_descale)

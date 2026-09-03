@@ -1,0 +1,162 @@
+log -header "-align-cancel: shifting back by the same amount leaves a mask"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [17:0] x,
+  input wire [3:0]  s,
+  output wire [17:0] y
+);
+  wire [17:0] t = x >> s;
+  assign y = t << s;
+endmodule
+EOF
+prep -top top
+check -assert
+# -combine leaves the pair alone: the amounts are a net, not a constant
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+# Both barrels are gone. What is left is the mask, which shifts a constant and
+# reads s alone, so it is off the data path.
+select -assert-count 1 t:$and
+select -assert-count 0 t:$shr
+select -assert-count 1 t:$shl
+design -reset
+log -pop
+
+
+
+log -header "-align-cancel refuses two different amount nets"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [17:0] x,
+  input wire [3:0]  s,
+  input wire [3:0]  u,
+  output wire [17:0] y
+);
+  wire [17:0] t = x >> s;
+  assign y = t << u;
+endmodule
+EOF
+prep -top top
+check -assert
+# The identity needs the composed amount to be exactly zero; s - u is not.
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "-align-cancel refuses an arithmetic right shift"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire signed [17:0] x,
+  input wire [3:0]  s,
+  output wire [17:0] y
+);
+  wire signed [17:0] t = x >>> s;
+  assign y = t << s;
+endmodule
+EOF
+prep -top top
+check -assert
+# >>> replicates the sign bit into the window the mask would clear, so the pair
+# is not x & (~0 << s).
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+select -assert-count 1 t:$sshr
+design -reset
+log -pop
+
+
+
+log -header "-align-cancel refuses a narrowing read of the inner shift"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [17:0] x,
+  input wire [3:0]  s,
+  output wire [11:0] y
+);
+  wire [17:0] t = x >> s;
+  assign y = t[11:0] << s;
+endmodule
+EOF
+prep -top top
+check -assert
+# The slice drops bits the mask would keep, so the widths have to agree.
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "-align-cancel refuses the reverse order (x << s) >> s"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [17:0] x,
+  input wire [3:0]  s,
+  output wire [17:0] y
+);
+  wire [17:0] t = x << s;
+  assign y = t >> s;
+endmodule
+EOF
+prep -top top
+check -assert
+# That pair clears the high bits, not the low ones, so it is a different mask
+# and belongs to whoever owns it -- this mode must not claim it.
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+select -assert-count 1 t:$shl
+select -assert-count 1 t:$shr
+design -reset
+log -pop
+
+
+
+log -header "-align-cancel still fires when the inner shift keeps a reader"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [17:0] x,
+  input wire [3:0]  s,
+  output wire [17:0] y,
+  output wire [17:0] z
+);
+  wire [17:0] t = x >> s;
+  assign y = t << s;
+  assign z = t;
+endmodule
+EOF
+prep -top top
+check -assert
+# The rewrite only retargets y, so the other reader keeps the inner barrel and
+# the win is still one barrel off y's path.
+equiv_opt -assert opt_shift -align-cancel
+design -load postopt
+opt_clean
+select -assert-count 1 t:$and
+select -assert-count 1 t:$shr
+design -reset
+log -pop
