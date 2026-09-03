@@ -68,6 +68,9 @@ namespace py = pybind11;
 #  include <unistd.h>
 #endif
 
+#include <fmt/color.h>
+#include <fmt/format.h>
+
 USING_YOSYS_NAMESPACE
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
@@ -115,6 +118,88 @@ namespace Yosys {
 namespace Yosys {
 	extern bool log_stderr_sink_forced;
 };
+
+class ColorConsoleLogSink : public LogSink
+{
+public:
+	explicit ColorConsoleLogSink(bool err, bool quiet) : error_output(err), quiet_warnings(quiet) {}
+	void log(const LogMessage &msg) override;
+	bool should_log(const LogMessage &msg) const override;
+	void flush() override;
+	FILE *file_handle() override { return error_output ? nullptr : stdout; }
+private:
+	bool error_output;
+	bool quiet_warnings;
+};
+
+bool no_color = false;
+
+bool is_colored(FILE *file)
+{
+	if (no_color)
+		return false;
+
+#if defined(_WIN32)
+	HANDLE handle = reinterpret_cast<HANDLE>(_get_osfhandle(_fileno(file)));
+	DWORD mode;
+	return handle != INVALID_HANDLE_VALUE &&
+			GetConsoleMode(handle, &mode);
+#else
+	return isatty(fileno(file));
+#endif
+}
+
+void ColorConsoleLogSink::flush()
+{
+	fflush(stdout);
+	fflush(stderr);
+}
+
+void ColorConsoleLogSink::log(const LogMessage &msg)
+{
+	FILE *f = (error_output || msg.severity == LogSeverity::Error) ? stderr : stdout;
+
+	if (logger().get_log_time()) {
+		auto elapsed = msg.timestamp - logger().get_initial_time();
+		auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
+		std::string time_str = stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
+		fmt::print(f, fg(fmt::terminal_color::blue), "{}", time_str);
+	}
+
+	switch (msg.severity) {
+		case LogSeverity::Warning:
+			fmt::print(f, fg(fmt::terminal_color::bright_yellow), "{}", msg.prefix);
+			fmt::print(f, fg(fmt::terminal_color::blue) | fmt::emphasis::bold, "{}", msg.message);
+			break;
+
+		case LogSeverity::Error:
+			fmt::print(f, fg(fmt::terminal_color::bright_red), "{}", msg.prefix);
+			fmt::print(f, fg(fmt::terminal_color::blue) | fmt::emphasis::bold, "{}", msg.message);
+			break;
+
+		case LogSeverity::Header:
+			fmt::print(f, fg(fmt::terminal_color::cyan) | fmt::emphasis::bold, "{}", msg.prefix);
+			fmt::print(f, fg(fmt::terminal_color::white) | fmt::emphasis::bold, "{}", msg.message);
+			break;
+
+		case LogSeverity::Comment:
+		case LogSeverity::Debug:
+			fmt::print(f, fg(fmt::terminal_color::bright_black), "{}{}", msg.prefix, msg.message);
+			break;
+
+		case LogSeverity::Info:
+		default:
+			fmt::print(f, "{}{}", msg.prefix, msg.message);
+			break;
+	}
+}
+
+bool ColorConsoleLogSink::should_log(const LogMessage &msg) const
+{
+	return (!error_output) || (msg.severity == LogSeverity::Error ||
+			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
+			log_stderr_sink_forced);
+}
 
 #ifdef _WIN32
 int wmain(int argc, wchar_t **wargv)
@@ -166,6 +251,7 @@ int main(int argc, char **argv)
 	bool mode_q = false;
 	bool quiet_warnings = false;
 	bool log_stderr = false;
+	no_color = std::getenv("NO_COLOR") != nullptr;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
 	options.set_width(SIZE_MAX);
@@ -236,6 +322,7 @@ int main(int argc, char **argv)
 			cxxopts::value<std::vector<std::string>>(), "<regex>")
 		("E,deps-file", "write a Makefile dependencies file <depsfile> with input and output file names",
 			cxxopts::value<std::string>(), "<depsfile>")
+		("no-color", "disable colored output");
 	;
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
@@ -339,6 +426,7 @@ int main(int argc, char **argv)
 			logger().set_verbose_level(result["v"].as<int>());
 		}
 		if (result.count("t")) logger().set_log_time(true);
+		if (result.count("no-color")) no_color = true;
 		if (result.count("d")) timing_details = true;
 		for (const auto& key : {"s", "c"}) {
 			if (result.count(key)) {
@@ -408,11 +496,14 @@ int main(int argc, char **argv)
 			Hasher::set_fudge((Hasher::hash_t)seed);
 		}
 
-		if (!log_stderr) {
-			logger().add_sink<ConsoleLogSink>();
-		} else {
-			logger().add_sink<StderrLogSink>(quiet_warnings);
-		}
+		if (!is_colored(stdout) || !is_colored(stderr)) {
+			if (!log_stderr) {
+				logger().add_sink<ConsoleLogSink>();
+			} else {
+				logger().add_sink<StderrLogSink>(quiet_warnings);
+			}
+		} else
+			logger().add_sink<ColorConsoleLogSink>(log_stderr, quiet_warnings);
 
 		if (print_banner)
 			yosys_banner();

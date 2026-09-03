@@ -181,6 +181,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		INCLUDE_DIRS
 			${pybind11_INCLUDE_DIR}
 		LIBRARIES
+			fmt::fmt
 			$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
 			$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
 			$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>
