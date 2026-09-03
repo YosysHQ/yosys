@@ -1482,3 +1482,217 @@ equiv_opt -assert opt_prienc -smear
 logger -check-expected
 design -reset
 log -pop
+
+# ============================================================================
+# Group P: -partial-cone (candidate kept when the discovery walk is truncated)
+# ============================================================================
+
+# P1: a trailing-ones encoder whose input bus is a clamp select over five wide
+# operands. The bus itself is a clean 16-bit wire, but the cone behind it has
+# 82 leaf bits, so the discovery walk overruns its leaf budget (41 at
+# -max-width 16) and the candidate is dropped before it is fingerprinted.
+log -header "P1: encoder behind a wide select -> dropped without -partial-cone"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] a,
+  input wire [15:0] b,
+  input wire [15:0] c,
+  input wire [15:0] d,
+  input wire [15:0] lim,
+  input wire        s0,
+  input wire        s1,
+  output reg  [4:0] y
+);
+  wire [15:0] cl = s0 ? ((a > lim) ? a : lim)
+                      : (s1 ? b : ((c > d) ? c : d));
+  always @* begin
+    casez (cl)
+      16'b1111111111111111: y = 5'd16;
+      16'b0111111111111111: y = 5'd15;
+      16'b?011111111111111: y = 5'd14;
+      16'b??01111111111111: y = 5'd13;
+      16'b???0111111111111: y = 5'd12;
+      16'b????011111111111: y = 5'd11;
+      16'b?????01111111111: y = 5'd10;
+      16'b??????0111111111: y = 5'd9;
+      16'b???????011111111: y = 5'd8;
+      16'b????????01111111: y = 5'd7;
+      16'b?????????0111111: y = 5'd6;
+      16'b??????????011111: y = 5'd5;
+      16'b???????????01111: y = 5'd4;
+      16'b????????????0111: y = 5'd3;
+      16'b?????????????011: y = 5'd2;
+      16'b??????????????01: y = 5'd1;
+      16'b???????????????0: y = 5'd0;
+      default:              y = 5'd0;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "Rewrote 0 region" 1
+equiv_opt -assert opt_prienc -cto -max-width 16
+logger -check-expected
+design -reset
+log -pop
+
+# P2: same design with -partial-cone. The truncated walk still reaches `cl` on
+# the frontier nearest the output, and the bus is then proved on its own.
+# The emit is the plain log-depth network: 15 network muxes for N=16 (as in
+# B1) plus the 4 clamp muxes the encoder now reads through. Hoisting instead
+# would put one encoder in every arm, which is what the count pins down --
+# the arms behind the bus are exactly what the truncated walk failed to
+# measure, so a partial-cone match is never hoisted into them.
+log -header "P2: same design with -partial-cone -> cto_full match, no hoist"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] a,
+  input wire [15:0] b,
+  input wire [15:0] c,
+  input wire [15:0] d,
+  input wire [15:0] lim,
+  input wire        s0,
+  input wire        s1,
+  output reg  [4:0] y
+);
+  wire [15:0] cl = s0 ? ((a > lim) ? a : lim)
+                      : (s1 ? b : ((c > d) ? c : d));
+  always @* begin
+    casez (cl)
+      16'b1111111111111111: y = 5'd16;
+      16'b0111111111111111: y = 5'd15;
+      16'b?011111111111111: y = 5'd14;
+      16'b??01111111111111: y = 5'd13;
+      16'b???0111111111111: y = 5'd12;
+      16'b????011111111111: y = 5'd11;
+      16'b?????01111111111: y = 5'd10;
+      16'b??????0111111111: y = 5'd9;
+      16'b???????011111111: y = 5'd8;
+      16'b????????01111111: y = 5'd7;
+      16'b?????????0111111: y = 5'd6;
+      16'b??????????011111: y = 5'd5;
+      16'b???????????01111: y = 5'd4;
+      16'b????????????0111: y = 5'd3;
+      16'b?????????????011: y = 5'd2;
+      16'b??????????????01: y = 5'd1;
+      16'b???????????????0: y = 5'd0;
+      default:              y = 5'd0;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "<- cto_full" 1
+logger -expect log "Rewrote 1 region" 1
+equiv_opt -assert opt_prienc -cto -max-width 16 -partial-cone
+logger -check-expected
+design -load postopt
+clean -purge
+select -assert-count 19 t:$mux
+design -reset
+log -pop
+
+# P3: -partial-cone must not relax the fingerprint. Same wide select, but the
+# ladder saturates to 0 on all-ones instead of counting it, so no CTO variant
+# is equivalent and the candidate has to be rejected on its function.
+log -header "P3: -partial-cone on a saturating ladder -> still no rewrite"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] a,
+  input wire [15:0] b,
+  input wire [15:0] c,
+  input wire [15:0] d,
+  input wire [15:0] lim,
+  input wire        s0,
+  input wire        s1,
+  output reg  [4:0] y
+);
+  wire [15:0] cl = s0 ? ((a > lim) ? a : lim)
+                      : (s1 ? b : ((c > d) ? c : d));
+  always @* begin
+    casez (cl)
+      16'b1111111111111111: y = 5'd0;
+      16'b0111111111111111: y = 5'd15;
+      16'b?011111111111111: y = 5'd14;
+      16'b??01111111111111: y = 5'd13;
+      16'b???0111111111111: y = 5'd12;
+      16'b????011111111111: y = 5'd11;
+      16'b?????01111111111: y = 5'd10;
+      16'b??????0111111111: y = 5'd9;
+      16'b???????011111111: y = 5'd8;
+      16'b????????01111111: y = 5'd7;
+      16'b?????????0111111: y = 5'd6;
+      16'b??????????011111: y = 5'd5;
+      16'b???????????01111: y = 5'd4;
+      16'b????????????0111: y = 5'd3;
+      16'b?????????????011: y = 5'd2;
+      16'b??????????????01: y = 5'd1;
+      16'b???????????????0: y = 5'd0;
+      default:              y = 5'd0;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "Rewrote 0 region" 1
+equiv_opt -assert opt_prienc -cto -max-width 16 -partial-cone
+logger -check-expected
+design -reset
+log -pop
+
+# P4: the no-hoist rule in P2 is scoped to truncated walks only. Here a single
+# max select keeps the cone at 32 leaves, inside the same 41 budget, so the
+# walk completes and the encoder is still hoisted into both arms. Both halves
+# emit 125 cells, which is what makes -partial-cone safe to leave on: it can
+# only add matches, never take a hoist away from one that already worked.
+log -header "P4: -partial-cone leaves a complete-cone hoist untouched"
+log -push
+design -reset
+read_verilog <<EOF
+module top (
+  input wire [15:0] a,
+  input wire [15:0] b,
+  output reg  [4:0] y
+);
+  wire [15:0] cl = (a > b) ? a : b;
+  always @* begin
+    casez (cl)
+      16'b1111111111111111: y = 5'd16;
+      16'b0111111111111111: y = 5'd15;
+      16'b?011111111111111: y = 5'd14;
+      16'b??01111111111111: y = 5'd13;
+      16'b???0111111111111: y = 5'd12;
+      16'b????011111111111: y = 5'd11;
+      16'b?????01111111111: y = 5'd10;
+      16'b??????0111111111: y = 5'd9;
+      16'b???????011111111: y = 5'd8;
+      16'b????????01111111: y = 5'd7;
+      16'b?????????0111111: y = 5'd6;
+      16'b??????????011111: y = 5'd5;
+      16'b???????????01111: y = 5'd4;
+      16'b????????????0111: y = 5'd3;
+      16'b?????????????011: y = 5'd2;
+      16'b??????????????01: y = 5'd1;
+      16'b???????????????0: y = 5'd0;
+      default:              y = 5'd0;
+    endcase
+  end
+endmodule
+EOF
+proc
+check -assert
+logger -expect log "hoisted above 1 mux select" 1
+logger -expect log "Rewrote 1 region" 1
+equiv_opt -assert opt_prienc -cto -max-width 16 -partial-cone
+logger -check-expected
+design -reset
+log -pop

@@ -201,6 +201,7 @@ struct OptPriEncWorker {
 	bool detect_cto = true;
 	bool detect_rr = true;
 	bool enable_smear = false;
+	bool allow_partial_cone = false;
 	int max_input_width = 256;
 	int min_input_width = 4;
 	// 2^8 evals, paid only by a pinned bus that already survived the deck.
@@ -232,6 +233,7 @@ struct OptPriEncWorker {
 		IdString out_port;
 		SigSpec driven;        // the bits of S the driver actually produces
 		vector<int> driven_pos; // their positions within S
+		bool cone_partial;     // discovery walk was truncated (see -partial-cone)
 	};
 
 	// Networks already emitted per (input bus, variant_net_key) pair, so matched
@@ -1724,6 +1726,11 @@ struct OptPriEncWorker {
 
 	// Returns the pushed encoder, or an empty SigSpec when the push does not apply.
 	SigSpec try_push_encoder(const Rewrite& r) {
+		// The arm cap below is the only guard on the duplication, and the cone
+		// walk is how the arms behind the bus get measured at all. A truncated
+		// walk overran on exactly that logic, so there is nothing to weigh the
+		// copies against: hoist only above a select tree walked in full.
+		if (r.cone_partial) return SigSpec();
 		// Every arm gets its own encoder, so bound the duplicated bit count too.
 		int arm_cap = std::min(max_push_arms, std::max(2, 512 / std::max(r.N, 1)));
 		if (arm_cap < 2) return SigSpec();
@@ -1948,6 +1955,7 @@ struct OptPriEncWorker {
 		IdString out_port;
 		SigSpec driven;
 		vector<int> driven_pos;
+		bool cone_partial;
 	};
 
 	// Positions of S that constrain the count: driven bits and hard 0/1 ties.
@@ -2106,6 +2114,7 @@ struct OptPriEncWorker {
 
 			pool<Cell*> cone_cells;
 			pool<SigBit> leaf_bits;
+			bool cone_partial = false;
 			int st = get_cone(SigSpec(S_wire), cone_cells, leaf_bits,
 			                  probe_cone_cells, max_leaf_bits);
 			if (st < 0) {
@@ -2117,6 +2126,17 @@ struct OptPriEncWorker {
 				}
 				st = get_cone(SigSpec(S_wire), cone_cells, leaf_bits,
 				              max_cone_cells, max_leaf_bits);
+				// Overrunning even the full budget leaves a breadth-first prefix
+				// of the cone, which is all discovery needs: candidate T wires
+				// come from the frontier nearest S, and each one is re-proved
+				// against S by cone_depends_only_on_T plus the fingerprint. An
+				// encoder reading a mux tree has leaves tracking arms x arm
+				// width rather than bus width, so dropping the whole candidate
+				// here loses the match on a bus that is itself perfectly clean.
+				if (st < 0 && allow_partial_cone && !cone_cells.empty()) {
+					st = 1;
+					cone_partial = true;
+				}
 			}
 			if (st <= 0) continue;
 			if (!cone_looks_like_pe(cone_cells)) continue;
@@ -2138,7 +2158,8 @@ struct OptPriEncWorker {
 			if (control_bits.empty()) continue;
 			candidates.push_back({S_wire, std::move(cone_cells), std::move(leaf_bits),
 			                      std::move(cone_bits), std::move(control_bits),
-			                      sole_driver, out_port, sc.driven, sc.driven_pos});
+			                      sole_driver, out_port, sc.driven, sc.driven_pos,
+			                      cone_partial});
 		}
 
 		// Stage 2: process candidates in order of cone size (LARGEST first).
@@ -2197,7 +2218,8 @@ struct OptPriEncWorker {
 
 				rewrites.push_back({cand.S_wire, T_wire, N, Wbits, variant,
 				                    cand.sole_driver, cand.out_port,
-				                    cand.driven, cand.driven_pos});
+				                    cand.driven, cand.driven_pos,
+				                    cand.cone_partial});
 				claimed_outputs.insert(cand.S_wire);
 				claimed_drivers.insert(cand.sole_driver);
 				break;
@@ -2417,6 +2439,19 @@ struct OptPriEncPass : public Pass {
 		log("        mux select is computed from the mux data (default 24, further\n");
 		log("        limited so arms*input_width stays bounded; 0/1 disables it).\n");
 		log("\n");
+		log("    -partial-cone\n");
+		log("        keep a candidate whose cone walk runs out of budget, using\n");
+		log("        the breadth-first prefix reached so far. Off by default.\n");
+		log("        The walk only proposes candidate input buses; each one is\n");
+		log("        then proved against the output on its own, so a truncated\n");
+		log("        cone costs recall, not soundness. It matters when the\n");
+		log("        encoder input is itself a wide select: the leaf count then\n");
+		log("        tracks arms x arm width instead of bus width, and a clean\n");
+		log("        narrow bus is rejected for the size of the logic behind it.\n");
+		log("        Such a match emits the plain log-depth network and is never\n");
+		log("        hoisted into the mux arms, since the truncated walk is\n");
+		log("        exactly the evidence that those arms were not measured.\n");
+		log("\n");
 		log("    -no-rr\n");
 		log("        disable round-robin / rotated-priority detection.\n");
 		log("\n");
@@ -2440,6 +2475,7 @@ struct OptPriEncPass : public Pass {
 		bool no_ones = false;
 		bool no_rr = false;
 		bool enable_smear = false;
+		bool partial_cone = false;
 		int max_width = 64;
 		int min_width = 4;
 		int max_push_arms = 24;
@@ -2453,6 +2489,7 @@ struct OptPriEncPass : public Pass {
 			if (args[argidx] == "-no-ones") { no_ones = true; continue; }
 			if (args[argidx] == "-no-rr") { no_rr = true; continue; }
 			if (args[argidx] == "-smear") { enable_smear = true; continue; }
+			if (args[argidx] == "-partial-cone") { partial_cone = true; continue; }
 			if (args[argidx] == "-max-push-arms" && argidx + 1 < args.size()) {
 				max_push_arms = std::stoi(args[++argidx]); continue;
 			}
@@ -2483,6 +2520,7 @@ struct OptPriEncPass : public Pass {
 			worker.detect_cto = (any_sel ? sel_cto : true) && !no_ones;
 			worker.detect_rr = !no_rr;
 			worker.enable_smear = enable_smear;
+			worker.allow_partial_cone = partial_cone;
 			worker.max_input_width = max_width;
 			worker.min_input_width = min_width;
 			worker.max_push_arms = max_push_arms;
