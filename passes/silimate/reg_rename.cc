@@ -71,19 +71,19 @@ static std::string first_component(const std::string &rel)
 // Group leaves by their next path component, preserving declaration order.
 static std::vector<std::vector<DumpLeaf>> group_children(const std::vector<DumpLeaf> &leaves)
 {
-	std::vector<std::string> order;
+	// Key lookups to avoid quadratic runtime
+	dict<std::string, int> order;
 	std::vector<std::vector<DumpLeaf>> groups;
 	for (auto &leaf : leaves) {
 		std::string head = first_component(leaf.rel);
-		auto it = std::find(order.begin(), order.end(), head);
+		auto it = order.find(head);
 		if (it == order.end()) {
-			order.push_back(head);
+			it = order.insert(std::make_pair(head, GetSize(groups))).first;
 			groups.push_back({});
-			it = order.end() - 1;
 		}
 		DumpLeaf child = leaf;
 		child.rel = leaf.rel.substr(head.size()); // descend one level
-		groups[it - order.begin()].push_back(child);
+		groups[it->second].push_back(child);
 	}
 	return groups;
 }
