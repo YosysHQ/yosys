@@ -282,7 +282,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		}
 	}
 
-	std::vector<Cell*> boxes;
+	pool<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->has_keep_attr())
 			continue;
@@ -302,7 +302,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
 		else if (cell->attributes.erase(ID::abc9_box_seq))
-			boxes.emplace_back(cell);
+			boxes.insert(cell);
 	}
 
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
@@ -429,6 +429,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			cell->parameters = existing_cell->parameters;
 			cell->attributes = existing_cell->attributes;
 			module->swap_names(cell, existing_cell);
+			boxes.insert(existing_cell);
 
 			auto jt = mapped_cell->connections_.find(ID(i));
 			log_assert(jt != mapped_cell->connections_.end());
