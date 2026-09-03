@@ -81,6 +81,9 @@ struct OptBmuxNestWorker {
 	// as rows-of-words and splitting a flat pointer into row and column fields.
 	bool match(Cell *outer, Nest &n)
 	{
+		// The rewrite retires the outer, so a kept outer is off limits.
+		if (outer->get_bool_attribute(ID::keep))
+			return false;
 		int w = outer->getParam(ID::WIDTH).as_int();
 		int lo = outer->getParam(ID::S_WIDTH).as_int();
 		if (w < 1 || lo < 1 || lo > MAX_SEL_BITS)
@@ -121,7 +124,10 @@ struct OptBmuxNestWorker {
 				return false;
 			// Only fold when this outer is the inner's sole consumer. Otherwise
 			// the inner survives and we pay its mux tree plus the wider flat one,
-			// which is strictly worse than the nest we started from.
+			// which is strictly worse than the nest we started from. A kept inner
+			// survives opt_clean for the same reason, so it counts as a consumer.
+			if (in->get_bool_attribute(ID::keep))
+				return false;
 			for (auto bit : chunk)
 				if (escaped.count(bit) || !readers.count(bit) ||
 				    readers.at(bit).size() != 1)

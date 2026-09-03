@@ -2,7 +2,7 @@
 # Test 1: SAT self-equivalence — split index before vs after opt_bmux_nest
 # Proves flattening the row/column nest does not change the function.
 #
-# The pass is scoped to `gate` here and in test 4. `gold` already exists by
+# The pass is scoped to `gate` here and in test 5. `gold` already exists by
 # this point, and with no selection argument opt_bmux_nest runs on every module
 # in the design, so a bare invocation would optimize `gold` too and the miter
 # would compare optimized against optimized.
@@ -63,7 +63,8 @@ log -pop
 # Both column selects read one shared set of row selects, so flattening either
 # would leave those row selects alive for the other: the design would pay their
 # mux trees plus a wider flat select, which is worse than the nest. The pass
-# must decline and leave all ten cells in place.
+# must decline and leave all ten cells in place. Test 4 covers the kept-inner
+# case, which is the same hazard reached a different way.
 # =============================================================================
 log -header "shared row select is not flattened"
 log -push
@@ -76,13 +77,61 @@ verific -import opt_bmux_nest_shared
 proc; opt_clean
 select -assert-count 10 t:$bmux
 
-opt_bmux_nest; opt_clean
+opt_bmux_nest
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i  # no lane was flattened
+opt_clean
 select -assert-count 10 t:$bmux
 design -reset
 log -pop
 
 # =============================================================================
-# Test 4: three-level split converges, and stays equivalent
+# Test 4: kept cells are left alone
+# The two halves fail differently. A kept outer would be retired by the rewrite
+# outright; a kept inner instead survives opt_clean, so the design would pay its
+# mux tree plus the wider flat one. Both must decline. The nest's outer is the
+# COLS=8 select and its inners are the ROWS=4 ones, so S_WIDTH tells them apart.
+# =============================================================================
+log -header "kept outer is not flattened"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+select -assert-count 6 t:$bmux r:S_WIDTH=3 %i  # 6 lanes, one column select each
+setattr -set keep 1 t:$bmux r:S_WIDTH=3 %i
+select -clear
+opt_bmux_nest
+# A flattened lane is a select of 3+2 bits, and nothing else in this design has
+# one. Counting all $bmux instead would not detect the rewrite: it retires 6 and
+# emits 6, leaving the inners behind as dead cells until opt_clean runs.
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i
+select -assert-count 54 t:$bmux
+design -reset
+log -pop
+
+log -header "kept inner is not flattened"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+select -assert-count 48 t:$bmux r:S_WIDTH=2 %i  # 6 lanes x 8 columns of row select
+setattr -set keep 1 t:$bmux r:S_WIDTH=2 %i
+select -clear
+opt_bmux_nest
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i
+select -assert-count 54 t:$bmux
+design -reset
+log -pop
+
+# =============================================================================
+# Test 5: three-level split converges, and stays equivalent
 # The middle selects are themselves outer cells, so the outermost one cannot
 # fold in the same round as they do and has to wait for the round after. All
 # 16 + 4 + 1 cells must end up as one.
