@@ -1,0 +1,163 @@
+# =============================================================================
+# Test 1: SAT self-equivalence — split index before vs after opt_bmux_nest
+# Proves flattening the row/column nest does not change the function.
+#
+# The pass is scoped to `gate` here and in test 5. `gold` already exists by
+# this point, and with no selection argument opt_bmux_nest runs on every module
+# in the design, so a bare invocation would optimize `gold` too and the miter
+# would compare optimized against optimized.
+# =============================================================================
+log -header "SAT self-equivalence: split index before vs after opt_bmux_nest"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+rename opt_bmux_nest_split gold
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+rename opt_bmux_nest_split gate
+opt_bmux_nest gate; select -clear; opt_clean
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt -fast
+sat -verify -prove-asserts
+design -reset
+log -pop
+
+# =============================================================================
+# Test 2: cell counts — the nest collapses, and opt_vps can then fold it
+# Six lanes of mem[p[hi]][p[lo]] over 4 rows of 8 columns come in as 6*(8+1)
+# cells. Flattening leaves one select per lane, all reading the same table, at
+# which point opt_vps' uniform-gather folding sees a single group and emits one
+# barrel per element bit (EW=4) instead of nothing at all.
+# =============================================================================
+log -header "cell counts: split index nest collapses and then folds"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+select -assert-count 54 t:$bmux
+
+opt_bmux_nest; opt_clean
+select -assert-count 6 t:$bmux
+
+opt_vps; opt_clean
+select -assert-count 0 t:$bmux
+select -assert-count 4 t:$shr
+design -reset
+log -pop
+
+# =============================================================================
+# Test 3: a shared inner is left alone
+# Both column selects read one shared set of row selects, so flattening either
+# would leave those row selects alive for the other: the design would pay their
+# mux trees plus a wider flat select, which is worse than the nest. The pass
+# must decline and leave all ten cells in place. Test 4 covers the kept-inner
+# case, which is the same hazard reached a different way.
+# =============================================================================
+log -header "shared row select is not flattened"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_shared.sv
+verific -import opt_bmux_nest_shared
+proc; opt_clean
+select -assert-count 10 t:$bmux
+
+opt_bmux_nest
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i  # no lane was flattened
+opt_clean
+select -assert-count 10 t:$bmux
+design -reset
+log -pop
+
+# =============================================================================
+# Test 4: kept cells are left alone
+# The two halves fail differently. A kept outer would be retired by the rewrite
+# outright; a kept inner instead survives opt_clean, so the design would pay its
+# mux tree plus the wider flat one. Both must decline. The nest's outer is the
+# COLS=8 select and its inners are the ROWS=4 ones, so S_WIDTH tells them apart.
+# =============================================================================
+log -header "kept outer is not flattened"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+select -assert-count 6 t:$bmux r:S_WIDTH=3 %i  # 6 lanes, one column select each
+setattr -set keep 1 t:$bmux r:S_WIDTH=3 %i
+select -clear
+opt_bmux_nest
+# A flattened lane is a select of 3+2 bits, and nothing else in this design has
+# one. Counting all $bmux instead would not detect the rewrite: it retires 6 and
+# emits 6, leaving the inners behind as dead cells until opt_clean runs.
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i
+select -assert-count 54 t:$bmux
+design -reset
+log -pop
+
+log -header "kept inner is not flattened"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_split.sv
+verific -import opt_bmux_nest_split
+proc; opt_clean
+select -assert-count 48 t:$bmux r:S_WIDTH=2 %i  # 6 lanes x 8 columns of row select
+setattr -set keep 1 t:$bmux r:S_WIDTH=2 %i
+select -clear
+opt_bmux_nest
+select -assert-count 0 t:$bmux r:S_WIDTH=5 %i
+select -assert-count 54 t:$bmux
+design -reset
+log -pop
+
+# =============================================================================
+# Test 5: three-level split converges, and stays equivalent
+# The middle selects are themselves outer cells, so the outermost one cannot
+# fold in the same round as they do and has to wait for the round after. All
+# 16 + 4 + 1 cells must end up as one.
+# =============================================================================
+log -header "three-level split converges to a single select"
+log -push
+design -reset
+verific -cfg veri_optimize_wide_selector 1
+verific -cfg db_infer_wide_muxes_post_elaboration 0
+
+read -sv opt_bmux_nest_deep.sv
+verific -import opt_bmux_nest_deep
+proc; opt_clean
+rename opt_bmux_nest_deep gold
+
+read -sv opt_bmux_nest_deep.sv
+verific -import opt_bmux_nest_deep
+proc; opt_clean
+rename opt_bmux_nest_deep gate
+select -assert-count 21 t:$bmux gate %i
+opt_bmux_nest gate; select -clear; opt_clean
+select -assert-count 1 t:$bmux gate %i
+
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+proc; opt -fast
+sat -verify -prove-asserts
+design -reset
+log -pop
