@@ -188,7 +188,7 @@ public:
 	VerilogStandard verilog_standard = VerilogStandard::Latest;
 	SystemVerilogStandard system_verilog_standard = SystemVerilogStandard::Latest;
 	VhdlStandard vhdl_standard = VhdlStandard::Latest;
-	SystemVerilogFrontend system_verilog_frontend;
+	SystemVerilogFrontend system_verilog_frontend = SystemVerilogFrontend::Slang;
 	VhdlFrontend vhdl_frontend;
 
 	void addStandardArgs();
@@ -247,6 +247,10 @@ static Language languageFromExtension(std::string_view filename)
 int YosysDriver::run(int argc, char **argv) {
 	log_error_atexit = &yc_error_atexit;
 	logger().add_sink<ColorLogSink>();
+
+	registerTarget("ice40", "Lattice iCE 40", {"synth_ice40"});
+	registerTarget("ecp5", "Lattice ECP5", {"synth_ecp5"});
+	registerTarget("gatemate", "GateMate A1", {"synth_gatemate"});
 
 	cmdLine.add("-h,--help", options.showHelp, "Display available options");
 	cmdLine.add("--version", options.showVersion, "Display version information and exit");
@@ -338,7 +342,7 @@ int YosysDriver::run(int argc, char **argv) {
 		"Language standard to compile for",
 		"<value>");
 
-	cmdLine.add("-svf,--system-verilog-frontend",
+	cmdLine.add("--front,--system-verilog-frontend",
 		[this](std::string_view value) {
 			if (value == "legacy")
 				system_verilog_frontend = SystemVerilogFrontend::Legacy;
@@ -354,7 +358,7 @@ int YosysDriver::run(int argc, char **argv) {
 		},
 		"SystemVerilog frontend to use (legacy, slang or verific)", "<frontend>");
 
-	cmdLine.add("-vhf,--vhdl-frontend",
+	cmdLine.add("--vhdl-frontend",
 		[this](std::string_view value) {
 			if (value == "ghdl")
 				vhdl_frontend = VhdlFrontend::GHDL;
@@ -432,6 +436,11 @@ int YosysDriver::run(int argc, char **argv) {
 				// Handled above.
 				return std::string{};
 			}
+			sourceFiles.push_back({
+				std::string(value),
+				fileLanguage,
+				fileStandard
+			});
 			return std::string{};
 		},
 		"files");
@@ -535,8 +544,23 @@ int YosysDriver::run(int argc, char **argv) {
 
 	passes.push_back("read -noverific");
 	if (!options.defines.empty()) {
-		for (auto vdef : options.defines)
-			passes.push_back("read -define " + vdef);
+		for (auto vdef : options.defines) {
+			switch (system_verilog_frontend)
+			{
+			case SystemVerilogFrontend::Legacy:
+				passes.push_back(stringf("verilog_defines -D %s", vdef));
+				break;
+
+			case SystemVerilogFrontend::Slang:
+				//
+				break;
+
+			case SystemVerilogFrontend::Verific:
+				passes.push_back(stringf("verific -vlog-define %s", vdef));
+				break;
+			}
+			break;
+		}
 	}
 	if (!options.undefines.empty()) {
 		for (auto vdef : options.undefines)
@@ -553,7 +577,20 @@ int YosysDriver::run(int argc, char **argv) {
 		switch (file.language)
 		{
 		case Language::Verilog:
-			passes.push_back(stringf("read_verilog %s", file.filename));
+			switch (system_verilog_frontend)
+			{
+			case SystemVerilogFrontend::Legacy:
+				passes.push_back(stringf("read_verilog %s", file.filename));
+				break;
+
+			case SystemVerilogFrontend::Slang:
+				passes.push_back(stringf("read_slang --allow-use-before-declare %s", file.filename));
+				break;
+
+			case SystemVerilogFrontend::Verific:
+				passes.push_back(stringf("verific -vlog95 %s", file.filename));
+				break;
+			}
 			break;
 
 		case Language::SystemVerilog:
@@ -564,11 +601,11 @@ int YosysDriver::run(int argc, char **argv) {
 				break;
 
 			case SystemVerilogFrontend::Slang:
-				passes.push_back(stringf("read_slang %s", file.filename));
+				passes.push_back(stringf("read_slang --allow-use-before-declare %s", file.filename));
 				break;
 
 			case SystemVerilogFrontend::Verific:
-				passes.push_back(stringf("read_verific -sv %s", file.filename));
+				passes.push_back(stringf("verific -sv %s", file.filename));
 				break;
 			}
 			break;
@@ -581,7 +618,7 @@ int YosysDriver::run(int argc, char **argv) {
 				break;
 
 			case VhdlFrontend::Verific:
-				passes.push_back(stringf("read_verific -vhdl %s", file.filename));
+				passes.push_back(stringf("verific -vhdl %s", file.filename));
 				break;
 			}
 			break;
@@ -608,6 +645,7 @@ int YosysDriver::run(int argc, char **argv) {
 	passes.push_back(stringf("write_verilog %s", options.outputFile.value()));
 
 	for(auto &p : passes) {
+		printf("%s\n",p.c_str());
 		run_pass(p);
 	}
 	yosys_design->check();

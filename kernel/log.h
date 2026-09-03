@@ -405,7 +405,9 @@ public:
 	void formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str);
 	void formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str);
 	[[noreturn]] void formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str);
+	void formatted_file_error_nonfatal(std::string_view filename, int lineno, std::string_view format, std::string str);
 	[[noreturn]] void formatted_error(std::string_view format, std::string str);
+	void formatted_error_nonfatal(std::string_view format, std::string str);
 	[[noreturn]] void formatted_cmd_error(std::string_view format, std::string message);
 	void suppressed();
 	void add_experimental(const std::string &str);
@@ -428,7 +430,7 @@ public:
 
 private:
 	void logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in);
-	[[noreturn]] void error_with_prefix(std::string_view prefix, std::string_view format, std::string message);
+	void error_with_prefix(std::string_view prefix, std::string_view format, std::string message, bool fatal);
 
 	std::vector<std::unique_ptr<LogSink>> sinks;
 	int verbose_level = 0;
@@ -536,9 +538,21 @@ template <typename... Args>
 }
 
 template <typename... Args>
+void log_error_nonfatal(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	logger().formatted_error_nonfatal(fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
 [[noreturn]] void log_file_error(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	logger().formatted_file_error(filename, lineno, fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
+void log_file_error_nonfatal(std::string_view filename, int lineno, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	logger().formatted_file_error_nonfatal(filename, lineno, fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>

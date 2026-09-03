@@ -351,8 +351,7 @@ void LogManager::suppressed() {
 	}
 }
 
-[[noreturn]]
-void LogManager::error_with_prefix(std::string_view prefix, std::string_view format, std::string message)
+void LogManager::error_with_prefix(std::string_view prefix, std::string_view format, std::string message, bool fatal)
 {
 	int bak_make_debug = make_debug;
 	make_debug = 0;
@@ -375,6 +374,9 @@ void LogManager::error_with_prefix(std::string_view prefix, std::string_view for
 
 	check_expected();
 
+	if (!fatal)
+		return;
+
 	if (log_error_atexit)
 		log_error_atexit();
 
@@ -393,7 +395,13 @@ void LogManager::error_with_prefix(std::string_view prefix, std::string_view for
 void LogManager::formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
-	error_with_prefix(prefix, format, str);
+	error_with_prefix(prefix, format, str, true);
+}
+
+void LogManager::formatted_file_error_nonfatal(std::string_view filename, int lineno, std::string_view format, std::string str)
+{
+	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
+	error_with_prefix(prefix, format, str, false);
 }
 
 void LogManager::add_experimental(const std::string &str)
@@ -414,7 +422,12 @@ void LogManager::add_deprecated(const std::string &str)
 
 void LogManager::formatted_error(std::string_view format, std::string str)
 {
-	error_with_prefix("ERROR: ", format, std::move(str));
+	error_with_prefix("ERROR: ", format, std::move(str), true);
+}
+
+void LogManager::formatted_error_nonfatal(std::string_view format, std::string str)
+{
+	error_with_prefix("ERROR: ", format, std::move(str), false);
 }
 
 void log_assert_failure(const char *expr, const char *file, int line)
