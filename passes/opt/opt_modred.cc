@@ -70,6 +70,23 @@ PRIVATE_NAMESPACE_BEGIN
 // covers every value the cut can carry, including the 2^k-1 encoding of zero
 // that a normalizer in the source RTL would otherwise leave as a don't-care.
 
+// Depth of a -sink-shift candidate before and after the rewrite, shared by the
+// sink itself and by the inline walk that flattens a submodule to reach one, so
+// the two cannot drift apart.
+//
+// Before, one barrel over the whole amount costs selb levels on top of whichever
+// input is late. After, the amount reads a 2^selb-entry table and the data reads
+// a g-way shift plus the keep mask -- but that table drives the small shifter's
+// own select, so the amount pays the g-way shift too. Modelling it as a bypass
+// let the sink fire on a design where the barrel just moved to the amount cone.
+struct SinkDepth { int before, after; };
+
+SinkDepth sink_depth(int alevel, int blevel, int selb, int wb)
+{
+	return {std::max(alevel, blevel) + selb,
+	        std::max(alevel, blevel + selb) + wb + 1};
+}
+
 struct OptModRedWorker : CutRegionWorker {
 	// Tunables (see Pass::execute).
 	int min_mod_bits = 2;
@@ -2282,18 +2299,12 @@ struct OptModRedWorker : CutRegionWorker {
 		for (auto bit : sb)
 			blevel = std::max(blevel, bit_level(bit));
 		// Both sides meet again at the mask, so what the sink is worth is the depth
-		// to that point, not the amount's arrival on its own. The barrel costs a
-		// level per amount bit whichever input is late; afterwards the data only
-		// pays the g-way shift, but the amount pays a 2^selb-entry table, which is
-		// just as deep as the barrel was. So the sink pays exactly when the data is
-		// the late input by more than the table costs -- with both arriving
-		// together it lands the old barrel's depth back on the amount and adds the
-		// mask on top, which is how it reads as a win locally and loses on the path.
-		int before = std::max(alevel, blevel) + selb;
-		int after = std::max(blevel + selb, alevel + wb) + 1;
-		if (before - after < min_sink_gain) {
-			log_debug("  sink %s: depth %d -> %d, data at %d, amount at %d\n",
-			          log_signal(sy), before, after, alevel, blevel);
+		// to that point, not the amount's arrival on its own.
+		SinkDepth d = sink_depth(alevel, blevel, selb, wb);
+		if (d.before - d.after < min_sink_gain) {
+			log_debug("  sink %s: depth %d -> %d, data at %d, amount at %d, "
+			          "%d amount bit(s), group shift %d\n",
+			          log_signal(sy), d.before, d.after, alevel, blevel, selb, wb);
 			return false;
 		}
 
@@ -3315,25 +3326,24 @@ struct OptModRedPass : public Pass {
 				if (g == 0)
 					continue;
 
-				// With g known the gain model of sink_shift applies exactly: the
-				// barrel's selb levels become a g-way shift plus a mask, but the
-				// amount now pays a 2^selb table, so the sink only pays when the
-				// data is the late input by more than that table costs.
+				// With g known the gain model of sink_shift applies exactly, so ask
+				// it here rather than flattening for a sink that would decline.
 				int alevel = 0, blevel = 0, selb = GetSize(sigmap(it.first->getPort(ID::B)));
 				int wb = std::max(1, clog2_int(g));
 				for (auto bit : sigmap(it.first->getPort(ID::A)))
 					alevel = std::max(alevel, parent.bit_level(bit));
 				for (auto bit : sigmap(it.first->getPort(ID::B)))
 					blevel = std::max(blevel, parent.bit_level(bit));
-				int before = std::max(alevel, blevel) + selb;
-				int after = std::max(blevel + selb, alevel + wb) + 1;
-				if (selb - wb - 1 < min_sink_gain || before - after < min_sink_gain) {
-					log_debug("  inline %s: group %d, depth %d -> %d, declined\n",
-					          log_id(sink), g, before, after);
+				SinkDepth d = sink_depth(alevel, blevel, selb, wb);
+				if (selb - wb - 1 < min_sink_gain || d.before - d.after < min_sink_gain) {
+					log_debug("  inline %s: group %d, depth %d -> %d, data at %d, "
+					          "amount at %d, declined\n",
+					          log_id(sink), g, d.before, d.after, alevel, blevel);
 					continue;
 				}
-				log_debug("  inline %s: group %d, depth %d -> %d\n", log_id(sink), g,
-				          before, after);
+				log_debug("  inline %s: group %d, depth %d -> %d, data at %d, "
+				          "amount at %d\n",
+				          log_id(sink), g, d.before, d.after, alevel, blevel);
 				// The walk is per shift, but the flatten is per instance: one
 				// instance can be the sole reader of several qualifying shifts,
 				// and inlining it once reaches all of them. Queueing it twice
