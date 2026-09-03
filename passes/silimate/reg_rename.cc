@@ -423,6 +423,14 @@ struct RegRenameInstance {
 				if (!sig.is_wire())
 					continue; // slices/concats span more than one dumped signal
 				Wire *actual = sig.as_wire();
+
+				// A passthrough pin's parent may itself be tied off, which only the level
+				// above could see, so carry that value one more hop.
+				if (actual->has_attribute(ID(sim_const))) {
+					wire->set_string_attribute(ID(sim_const),
+							actual->get_string_attribute(ID(sim_const)));
+					continue;
+				}
 				std::string src = actual->has_attribute(ID(sim_src))
 					? actual->get_string_attribute(ID(sim_src))
 					: vcd_scope + "." + RTLIL::unescape_id(actual->name);
@@ -477,11 +485,10 @@ struct RegRenameInstance {
 					continue;
 				wire->set_string_attribute(ID(sim_src), dump_path);
 				if (leaf.width != GetSize(wire))
-					wire->set_string_attribute(ID(sim_src_bit),
-							std::to_string(leaf.offset + leaf_bit));
+					wire->set_string_attribute(ID(sim_src_bit), std::to_string(leaf_bit));
 				if (debug)
 					log("Packed input %s.%s resolved to %s[%d]\n", vcd_scope.c_str(),
-							log_id(wire), dump_path.c_str(), leaf.offset + leaf_bit);
+							log_id(wire), dump_path.c_str(), leaf_bit);
 			}
 		}
 	}
