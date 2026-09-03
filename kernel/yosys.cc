@@ -296,11 +296,7 @@ void yosys_shutdown()
 	yosys_design = NULL;
 	RTLIL::OwningIdString::collect_garbage();
 
-	for (auto f : log_files)
-		if (f != stderr)
-			fclose(f);
-	log_errfile = NULL;
-	log_files.clear();
+	logger().clear();
 
 #ifdef YOSYS_ENABLE_TCL
 	if (yosys_tcl_interp != NULL) {
@@ -787,7 +783,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			from_to_active = run_from.empty();
 		}
 
-		log("\n-- Executing script file `%s' --\n", filename);
+		log_comment("\n-- Executing script file `%s' --\n", filename);
 
 		FILE *f = stdin;
 
@@ -849,9 +845,9 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	}
 
 	if (filename == "-") {
-		log("\n-- Parsing stdin using frontend `%s' --\n", command);
+		log_comment("\n-- Parsing stdin using frontend `%s' --\n", command);
 	} else {
-		log("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
+		log_comment("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
 	}
 
 	if (command[0] == ' ') {
@@ -870,7 +866,7 @@ void run_pass(std::string command, RTLIL::Design *design)
 	if (design == nullptr)
 		design = yosys_design;
 
-	log("\n-- Running command `%s' --\n", command);
+	log_comment("\n-- Running command `%s' --\n", command);
 
 	Pass::call(design, command);
 	log_flush();
@@ -910,9 +906,9 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 		filename = "-";
 
 	if (filename == "-") {
-		log("\n-- Writing to stdout using backend `%s' --\n", command);
+		log_comment("\n-- Writing to stdout using backend `%s' --\n", command);
 	} else {
-		log("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
+		log_comment("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
 	}
 
 	Backend::backend_call(design, NULL, filename, command);
@@ -1002,7 +998,7 @@ void shell(RTLIL::Design *design)
 	static int recursion_counter = 0;
 
 	recursion_counter++;
-	log_cmd_error_throw = true;
+	auto guard = logger().error_throw_scope();
 
 #if defined(YOSYS_ENABLE_READLINE) || defined(YOSYS_ENABLE_EDITLINE)
 	rl_readline_name = (char*)"yosys";
@@ -1062,7 +1058,6 @@ void shell(RTLIL::Design *design)
 		free(command);
 #endif
 	recursion_counter--;
-	log_cmd_error_throw = false;
 }
 
 struct ShellPass : public Pass {

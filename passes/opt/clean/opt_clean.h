@@ -19,7 +19,7 @@
 
 #include "kernel/rtlil.h"
 #include "kernel/threading.h"
-#include "passes/opt/opt_clean/keep_cache.h"
+#include "passes/opt/clean/keep_cache.h"
 
 #ifndef OPT_CLEAN_SHARED_H
 #define OPT_CLEAN_SHARED_H

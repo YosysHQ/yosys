@@ -1,0 +1,26 @@
+read_verilog -formal <<EOT
+module gold (input clk, input req, output reg ack);
+    always @(posedge clk) ack <= req;
+endmodule
+EOT
+prep -top gold
+async2sync
+dffunmap
+design -save gold
+
+read_verilog -formal <<EOT
+module gate (input clk, input req, output reg ack);
+    always @(posedge clk) ack <= req;
+endmodule
+EOT
+prep -top gate
+async2sync
+dffunmap
+design -save gate
+
+design -copy-from gold -as gold gold
+design -copy-from gate -as gate gate
+
+equiv_make gold gate equiv
+logger -expect error "Unsupported cell type .equiv..*" 1
+write_smt2 /dev/null

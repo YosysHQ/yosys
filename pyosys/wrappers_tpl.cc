@@ -177,8 +177,7 @@ namespace pyosys {
 		m.doc() = "python access to libyosys";
 
 		if (!yosys_already_setup()) {
-			log_streams.push_back(&std::cout);
-			log_error_stderr = true;
+			logger().add_sink<ConsoleLogSink>();
 			yosys_setup();
 
 			// Cleanup
@@ -188,14 +187,14 @@ namespace pyosys {
 		}
 
 		// Logging Methods
-		m.def("log_header", [](Design *d, std::string s) { log_formatted_header(d, "%s", s); });
-		m.def("log", [](std::string s) { log_formatted_string("%s", s); });
-		m.def("log_file_info", [](std::string_view file, int line, std::string s) { log_formatted_file_info(file, line, s); });
-		m.def("log_warning", [](std::string s) { log_formatted_warning("Warning: ", s); });
-		m.def("log_warning_noprefix", [](std::string s) { log_formatted_warning("", s); });
-		m.def("log_file_warning", [](std::string_view file, int line, std::string s) { log_formatted_file_warning(file, line, s); });
-		m.def("log_error", [](std::string s) { log_formatted_error(s); });
-		m.def("log_file_error", [](std::string_view file, int line, std::string s) { log_formatted_file_error(file, line, s); });
+		m.def("log_header", [](Design *d, std::string s) { logger().formatted_header(d, "%s", s); });
+		m.def("log", [](std::string s) { logger().formatted_string(LogSeverity::Info, {}, "%s", s); });
+		m.def("log_file_info", [](std::string_view file, int line, std::string s) { logger().formatted_file_info(file, line, "%s", s); });
+		m.def("log_warning", [](std::string s) { logger().formatted_warning("Warning: ", "%s", s); });
+		m.def("log_warning_noprefix", [](std::string s) { logger().formatted_warning("", "%s", s); });
+		m.def("log_file_warning", [](std::string_view file, int line, std::string s) { logger().formatted_file_warning(file, line, "%s", s); });
+		m.def("log_error", [](std::string s) { logger().formatted_error("%s", s); });
+		m.def("log_file_error", [](std::string_view file, int line, std::string s) { logger().formatted_file_error(file, line, "%s", s); });
 		m.def("log_to_stream", &log_to_stream);
 
 		// Namespace to host global objects

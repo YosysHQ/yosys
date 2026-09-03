@@ -1,4 +1,5 @@
-add_subdirectory(opt_clean)
+add_subdirectory(clean)
+add_subdirectory(dff)
 
 yosys_pass(opt_merge
 	opt_merge.cc
@@ -11,11 +12,6 @@ yosys_pass(opt_muxtree
 )
 yosys_pass(opt_reduce
 	opt_reduce.cc
-)
-yosys_pass(opt_dff
-	opt_dff.cc
-	REQUIRES
-		simplemap
 )
 yosys_pass(opt_share
 	opt_share.cc

@@ -38,40 +38,126 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::vector<FILE*> log_files;
-std::vector<std::ostream*> log_streams;
-std::vector<std::string> log_scratchpads;
-std::map<std::string, std::set<std::string>> log_hdump;
-std::vector<std::regex> log_warn_regexes, log_nowarn_regexes, log_werror_regexes;
-dict<std::string, LogExpectedItem> log_expect_log, log_expect_warning, log_expect_error;
-dict<std::string, LogExpectedItem> log_expect_prefix_log, log_expect_prefix_warning, log_expect_prefix_error;
-std::set<std::string> log_warnings, log_experimentals, log_experimentals_ignored;
-int log_warnings_count = 0;
-int log_warnings_count_noexpect = 0;
-bool log_expect_no_warnings = false;
-bool log_hdump_all = false;
-FILE *log_errfile = NULL;
-SHA1 *log_hasher = NULL;
+bool log_stderr_sink_forced = false;
 
-bool log_time = false;
-bool log_error_stderr = false;
-bool log_cmd_error_throw = false;
-bool log_quiet_warnings = false;
-int log_verbose_level;
-string log_last_error;
+LogManager &logger()
+{
+	static LogManager instance;
+	return instance;
+}
+
+std::chrono::steady_clock::time_point LogManager::get_initial_time() const
+{
+	static const auto initial_time = std::chrono::steady_clock::now();
+	return initial_time;
+}
+
 void (*log_error_atexit)() = NULL;
 void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
 
-int log_make_debug = 0;
-int log_force_debug = 0;
-int log_debug_suppressed = 0;
-
-vector<int> header_count;
+// TODO: remove when log_id is removed
 vector<char*> log_id_cache;
 
-static struct timeval initial_tv = { 0, 0 };
-static bool next_print_log = false;
-static int log_newline_count = 0;
+static bool next_print_log = true;
+
+FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
+	: file(fopen(filename.c_str(), append ? "at" : "wt"))
+{
+	if (!file)
+		throw std::runtime_error("Can't open log file `" + filename + "' for writing!\n");
+
+	if (line_buffered)
+		setvbuf(file, nullptr, _IOLBF, 0);
+}
+
+FileLogSink::~FileLogSink()
+{
+	flush();
+	if (file)
+		fclose(file);
+}
+
+void FileLogSink::log(const LogMessage &msg)
+{
+	fputs(msg.cached_msg.c_str(), file);
+}
+
+void FileLogSink::flush()
+{
+	fflush(file);
+}
+
+void ConsoleLogSink::log(const LogMessage &msg)
+{
+	FILE *file = (msg.severity == LogSeverity::Error) ? stderr : stdout;
+	fputs(msg.cached_msg.c_str(), file);
+}
+
+void ConsoleLogSink::flush()
+{
+	fflush(stdout);
+	fflush(stderr);
+}
+
+bool StderrLogSink::should_log(const LogMessage &msg) const
+{
+	return msg.severity == LogSeverity::Error ||
+			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
+			log_stderr_sink_forced;
+}
+
+void StderrLogSink::log(const LogMessage &msg)
+{
+	fputs(msg.cached_msg.c_str(), stderr);
+}
+
+void StderrLogSink::flush()
+{
+	fflush(stderr);
+}
+
+ScratchPadLogSink::ScratchPadLogSink(std::string scratchpad)
+	: scratchpad(std::move(scratchpad))
+{
+}
+
+void ScratchPadLogSink::log(const LogMessage &msg)
+{
+	RTLIL::Design *design = yosys_get_design();
+	if (!design)
+		return;
+
+	design->scratchpad[scratchpad].append(msg.cached_msg);
+}
+
+LogMessage::LogMessage(LogSeverity severity, std::string_view prefix, std::string_view format, std::string_view message) :
+	severity(severity),
+	prefix(prefix),
+	format(format),
+	message(message),
+	timestamp(std::chrono::steady_clock::now())
+{
+	std::string time_str;
+	if (logger().get_log_time())
+	{
+		if (next_print_log) {
+			next_print_log = false;
+			auto elapsed = std::chrono::steady_clock::now() - logger().get_initial_time();
+			auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
+			time_str += stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
+		}
+
+		if (!format.empty() && format.back() == '\n')
+			next_print_log = true;
+
+		// Special case to detect newlines in Python log output, since
+		// the binding always calls `log("%s", payload)` and the newline
+		// is then in the first formatted argument
+		if (format == "%s" && !message.empty() && message.back() == '\n')
+			next_print_log = true;
+	}
+	cached_msg = stringf("%s%s%s", time_str, prefix, message);
+}
 
 static void log_id_cache_clear()
 {
@@ -80,103 +166,48 @@ static void log_id_cache_clear()
 	log_id_cache.clear();
 }
 
-#if defined(_WIN32) && !defined(__MINGW32__)
-// this will get time information and return it in timeval, simulating gettimeofday()
-int gettimeofday(struct timeval *tv, struct timezone *tz)
-{
-	LARGE_INTEGER counter;
-	LARGE_INTEGER freq;
-
-	QueryPerformanceFrequency(&freq);
-	QueryPerformanceCounter(&counter);
-
-	counter.QuadPart *= 1'000'000;
-	counter.QuadPart /= freq.QuadPart;
-
-	tv->tv_sec = long(counter.QuadPart / 1000000);
-	tv->tv_usec = counter.QuadPart % 1'000'000;
-
-	return 0;
-}
-#endif
-
-static void logv_string(std::string_view format, std::string str) {
+void LogManager::logv_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str_in) {
 	size_t remove_leading = 0;
 	while (format.size() > 1 && format[0] == '\n') {
-		logv_string("\n", "\n");
+		logv_string(severity, prefix, "\n", "\n");
 		format = format.substr(1);
 		++remove_leading;
 	}
 	if (remove_leading > 0) {
-		str = str.substr(remove_leading);
+		str_in = str_in.substr(remove_leading);
 	}
+
+	std::string str = stringf("%s%s",prefix,str_in);
 
 	if (str.empty())
 		return;
 
 	size_t nnl_pos = str.find_last_not_of('\n');
 	if (nnl_pos == std::string::npos)
-		log_newline_count += GetSize(str);
+		newline_count += GetSize(str);
 	else
-		log_newline_count = GetSize(str) - nnl_pos - 1;
+		newline_count = GetSize(str) - nnl_pos - 1;
 
-	if (log_hasher)
-		log_hasher->update(str);
+	if (hasher)
+		hasher->update(str);
 
-	if (log_time)
-	{
-		std::string time_str;
-
-		if (next_print_log || initial_tv.tv_sec == 0) {
-			next_print_log = false;
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			if (initial_tv.tv_sec == 0)
-				initial_tv = tv;
-			if (tv.tv_usec < initial_tv.tv_usec) {
-				tv.tv_sec--;
-				tv.tv_usec += 1'000'000;
-			}
-			tv.tv_sec -= initial_tv.tv_sec;
-			tv.tv_usec -= initial_tv.tv_usec;
-			time_str += stringf("[%05d.%06d] ", int(tv.tv_sec), int(tv.tv_usec));
-		}
-
-		if (!format.empty() && format[format.size() - 1] == '\n')
-			next_print_log = true;
-
-		// Special case to detect newlines in Python log output, since
-		// the binding always calls `log("%s", payload)` and the newline
-		// is then in the first formatted argument
-		if (format == "%s" && str.back() == '\n')
-			next_print_log = true;
-
-		for (auto f : log_files)
-			fputs(time_str.c_str(), f);
-
-		for (auto f : log_streams)
-			*f << time_str;
+	auto msg = LogMessage(severity, prefix, format, str_in);
+	for (auto &sink : sinks) {
+		if (sink->should_log(msg))
+			sink->log(msg);
 	}
 
-	for (auto f : log_files)
-		fputs(str.c_str(), f);
-
-	for (auto f : log_streams)
-		*f << str;
-
-	RTLIL::Design *design = yosys_get_design();
-	if (design != nullptr)
-		for (auto &scratchpad : log_scratchpads)
-			design->scratchpad[scratchpad].append(str);
+	if (severity == LogSeverity::Header)
+		str = str_in;
 
 	static std::string linebuffer;
-	static bool log_warn_regex_recusion_guard = false;
+	static bool warn_regex_recusion_guard = false;
 
-	if (!log_warn_regex_recusion_guard)
+	if (!warn_regex_recusion_guard)
 	{
-		log_warn_regex_recusion_guard = true;
+		warn_regex_recusion_guard = true;
 
-		if (log_warn_regexes.empty() && log_expect_log.empty() && log_expect_prefix_log.empty())
+		if (warn_regexes.empty() && expect_log.empty() && expect_prefix_log.empty())
 		{
 			linebuffer.clear();
 		}
@@ -185,11 +216,11 @@ static void logv_string(std::string_view format, std::string str) {
 			linebuffer += str;
 
 			if (!linebuffer.empty() && linebuffer.back() == '\n') {
-				for (auto &re : log_warn_regexes)
+				for (auto &re : warn_regexes)
 					if (std::regex_search(linebuffer, re))
 						log_warning("Found log message matching -W regex:\n%s", str);
 
-				for (auto &[_, item] : log_expect_log)
+				for (auto &[_, item] : expect_log)
 					if (std::regex_search(linebuffer, item.pattern))
 						item.current_count++;
 
@@ -197,32 +228,29 @@ static void logv_string(std::string_view format, std::string str) {
 			}
 		}
 
-		log_warn_regex_recusion_guard = false;
+		warn_regex_recusion_guard = false;
 	}
 }
 
-void log_formatted_string(std::string_view format, std::string str)
+void LogManager::formatted_string(LogSeverity severity, std::string_view prefix, std::string_view format, std::string str)
 {
 	log_assert(!Multithreading::active());
 
-	if (log_make_debug && !ys_debug(1))
+	if (make_debug && !is_debug(1))
 		return;
-	logv_string(format, std::move(str));
+	logv_string(severity, prefix, format, std::move(str));
 }
 
-void log_formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
+void LogManager::formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
 	log_assert(!Multithreading::active());
 
-	bool pop_errfile = false;
-
-	log_spacer();
+	spacer();
 	if (header_count.size() > 0)
 		header_count.back()++;
 
-	if (int(header_count.size()) <= log_verbose_level && log_errfile != NULL) {
-		log_files.push_back(log_errfile);
-		pop_errfile = true;
+	if (int(header_count.size()) <= verbose_level) {
+		log_stderr_sink_forced = true;
 	}
 
 	std::string header_id;
@@ -230,15 +258,14 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 	for (int c : header_count)
 		header_id += stringf("%s%d", header_id.empty() ? "" : ".", c);
 
-	log("%s. ", header_id);
-	log_formatted_string(format, std::move(str));
-	log_flush();
+	formatted_string(LogSeverity::Header, stringf("%s. ", header_id), format, std::move(str));
+	flush();
 
-	if (log_hdump_all)
-		log_hdump[header_id].insert("yosys_dump_" + header_id + ".il");
+	if (hdump_all)
+		hdump[header_id].insert("yosys_dump_" + header_id + ".il");
 
-	if (log_hdump.count(header_id) && design != nullptr)
-		for (auto &filename : log_hdump.at(header_id)) {
+	if (hdump.count(header_id) && design != nullptr)
+		for (auto &filename : hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename);
 			if (yosys_xtrace)
 				IdString::xtrace_db_dump();
@@ -246,18 +273,16 @@ void log_formatted_header(RTLIL::Design *design, std::string_view format, std::s
 			if (yosys_xtrace)
 				log("#X# -- end of dump --\n");
 		}
-
-	if (pop_errfile)
-		log_files.pop_back();
+	log_stderr_sink_forced = false;
 }
 
-void log_formatted_warning(std::string_view prefix, std::string message)
+void LogManager::formatted_warning(std::string_view prefix, std::string_view format, std::string message)
 {
 	log_assert(!Multithreading::active());
 
 	bool suppressed = false;
 
-	for (auto &re : log_nowarn_regexes)
+	for (auto &re : nowarn_regexes)
 		if (std::regex_search(message, re))
 			suppressed = true;
 
@@ -267,105 +292,88 @@ void log_formatted_warning(std::string_view prefix, std::string message)
 	}
 	else
 	{
-		int bak_log_make_debug = log_make_debug;
-		log_make_debug = 0;
+		int bak_make_debug = make_debug;
+		make_debug = 0;
 
-		for (auto &re : log_werror_regexes)
+		for (auto &re : werror_regexes)
 			if (std::regex_search(message, re))
-				log_error("%s", message);
+				formatted_error(format, message);
 
 		bool warning_match = false;
-		for (auto &[_, item] : log_expect_warning)
+		for (auto &[_, item] : expect_warning)
 			if (std::regex_search(message, item.pattern)) {
 				item.current_count++;
 				warning_match = true;
 			}
 
-		for (auto &[_, item] : log_expect_prefix_warning)
+		for (auto &[_, item] : expect_prefix_warning)
 			if (std::regex_search(string(prefix) + message, item.pattern)) {
 				item.current_count++;
 				warning_match = true;
 			}
 
-		if (log_warnings.count(message))
+		if (warnings.count(message))
 		{
-			log("%s%s", prefix, message);
-			log_flush();
+			formatted_string(LogSeverity::Info, prefix, format, message);
+			flush();
 		}
 		else
 		{
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.push_back(log_errfile);
-
-			log("%s%s", prefix, message);
-			log_flush();
-
-			if (log_errfile != NULL && !log_quiet_warnings)
-				log_files.pop_back();
-
-			log_warnings.insert(message);
+			formatted_string(LogSeverity::Warning, prefix, format, message);
+			flush();
+			warnings.insert(message);
 		}
 
 		if (!warning_match)
-			log_warnings_count_noexpect++;
-		log_warnings_count++;
-		log_make_debug = bak_log_make_debug;
+			warnings_count_noexpect++;
+		warnings_count++;
+		make_debug = bak_make_debug;
 	}
 }
 
-void log_formatted_file_warning(std::string_view filename, int lineno, std::string str)
+void LogManager::formatted_file_warning(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: Warning: ", filename, lineno);
-	log_formatted_warning(prefix, std::move(str));
+	formatted_warning(prefix, format, std::move(str));
 }
 
-void log_formatted_file_info(std::string_view filename, int lineno, std::string str)
+void LogManager::formatted_file_info(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
-	log("%s:%d: Info: %s", filename, lineno, str);
+	std::string prefix = stringf("%s:%d: Info: ", filename, lineno);
+	formatted_string(LogSeverity::Info, prefix, format, std::move(str));
 }
 
-void log_suppressed() {
-	if (log_debug_suppressed && !log_make_debug) {
+void LogManager::suppressed() {
+	if (debug_suppressed && !make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
-		logv_string(format, stringf(format, log_debug_suppressed));
-		log_debug_suppressed = 0;
+		logv_string(LogSeverity::Info, {}, format, stringf(format, debug_suppressed));
+		debug_suppressed = 0;
 	}
 }
 
 [[noreturn]]
-static void log_error_with_prefix(std::string_view prefix, std::string str)
+void LogManager::error_with_prefix(std::string_view prefix, std::string_view format, std::string message)
 {
-	int bak_log_make_debug = log_make_debug;
-	log_make_debug = 0;
-	log_suppressed();
+	int bak_make_debug = make_debug;
+	make_debug = 0;
+	suppressed();
 
-	if (log_errfile != NULL)
-		log_files.push_back(log_errfile);
+	formatted_string(LogSeverity::Error, prefix, format, message);
+	flush();
 
-	if (log_error_stderr) {
-		log_flush(); // Make sure we flush stdout before replacing it with stderr
-		for (auto &f : log_files)
-			if (f == stdout)
-				f = stderr;
-	}
+	make_debug = bak_make_debug;
 
-	log_last_error = std::move(str);
-	std::string message(prefix);
-	message += log_last_error;
-	logv_string("%s%s", message);
-	log_flush();
-
-	log_make_debug = bak_log_make_debug;
-
-	for (auto &[_, item] : log_expect_error)
-		if (std::regex_search(log_last_error, item.pattern))
-			item.current_count++;
-
-	for (auto &[_, item] : log_expect_prefix_error)
+	for (auto &[_, item] : expect_error)
 		if (std::regex_search(message, item.pattern))
 			item.current_count++;
 
-	log_check_expected();
+	for (auto &[_, item] : expect_prefix_error)
+		if (std::regex_search(string(prefix) + message, item.pattern))
+			item.current_count++;
+
+	errors_count++;
+
+	check_expected();
 
 	if (log_error_atexit)
 		log_error_atexit();
@@ -382,23 +390,31 @@ static void log_error_with_prefix(std::string_view prefix, std::string str)
 #endif
 }
 
-void log_formatted_file_error(std::string_view filename, int lineno, std::string str)
+void LogManager::formatted_file_error(std::string_view filename, int lineno, std::string_view format, std::string str)
 {
 	std::string prefix = stringf("%s:%d: ERROR: ", filename, lineno);
-	log_error_with_prefix(prefix, str);
+	error_with_prefix(prefix, format, str);
 }
 
-void log_experimental(const std::string &str)
+void LogManager::add_experimental(const std::string &str)
 {
-	if (log_experimentals_ignored.count(str) == 0 && log_experimentals.count(str) == 0) {
+	if (experimental_ignored.count(str) == 0 && experimental.count(str) == 0) {
 		log_warning("Feature '%s' is experimental.\n", str);
-		log_experimentals.insert(str);
+		experimental.insert(str);
 	}
 }
 
-void log_formatted_error(std::string str)
+void LogManager::add_deprecated(const std::string &str)
 {
-	log_error_with_prefix("ERROR: ", std::move(str));
+	if (deprecated.count(str) == 0) {
+		log_warning("Feature '%s' is deprecated.\n", str);
+		deprecated.insert(str);
+	}
+}
+
+void LogManager::formatted_error(std::string_view format, std::string str)
+{
+	error_with_prefix("ERROR: ", format, std::move(str));
 }
 
 void log_assert_failure(const char *expr, const char *file, int line)
@@ -416,47 +432,34 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 	log_error("Abort in %s:%d (%s): %s\n", file, line, func, message);
 }
 
-void log_formatted_cmd_error(std::string str)
+void LogManager::formatted_cmd_error(std::string_view format, std::string message)
 {
-	if (log_cmd_error_throw) {
-		log_last_error = str;
-
-		// Make sure the error message gets through any selective silencing
-		// of log output
-		bool pop_errfile = false;
-		if (log_errfile != NULL) {
-			log_files.push_back(log_errfile);
-			pop_errfile = true;
-		}
-
-		log("ERROR: %s", log_last_error);
-		log_flush();
-
-		if (pop_errfile)
-			log_files.pop_back();
+	if (cmd_error_throw) {
+		formatted_string(LogSeverity::Error, "ERROR: ", format, message);
+		flush();
 
 		throw log_cmd_error_exception();
 	}
 
-	log_formatted_error(str);
+	formatted_error(format, message);
 }
 
-void log_spacer()
+void LogManager::spacer()
 {
-	if (log_newline_count < 2) log("\n");
-	if (log_newline_count < 2) log("\n");
+	if (newline_count < 2) log("\n");
+	if (newline_count < 2) log("\n");
 }
 
-void log_push()
+void LogManager::push()
 {
 	header_count.push_back(0);
 }
 
-void log_pop()
+void LogManager::pop()
 {
 	header_count.pop_back();
 	log_id_cache_clear();
-	log_flush();
+	flush();
 }
 
 #if defined(YOSYS_ENABLE_DLOPEN)
@@ -556,21 +559,12 @@ void log_backtrace(const char *prefix, int levels)
 void log_backtrace(const char*, int) { }
 #endif
 
-void log_reset_stack()
+void LogManager::reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
 	log_id_cache_clear();
-	log_flush();
-}
-
-void log_flush()
-{
-	for (auto f : log_files)
-		fflush(f);
-
-	for (auto f : log_streams)
-		f->flush();
+	flush();
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
@@ -628,43 +622,43 @@ void log_wire(RTLIL::Wire *wire, std::string indent)
 	log("%s", buf.str());
 }
 
-void log_check_expected()
+void LogManager::check_expected()
 {
 	// copy out all of the expected logs so that they cannot be re-checked
 	// or match against themselves
-	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
-	dict<std::string, LogExpectedItem> expect_prefix_log, expect_prefix_warning, expect_prefix_error;
-	std::swap(expect_warning, log_expect_warning);
-	std::swap(expect_log, log_expect_log);
-	std::swap(expect_error, log_expect_error);
-	std::swap(expect_prefix_warning, log_expect_prefix_warning);
-	std::swap(expect_prefix_log, log_expect_prefix_log);
-	std::swap(expect_prefix_error, log_expect_prefix_error);
+	dict<std::string, LogExpectedItem> expect_log_copy, expect_warning_copy, expect_error_copy;
+	dict<std::string, LogExpectedItem> expect_prefix_log_copy, expect_prefix_warning_copy, expect_prefix_error_copy;
+	std::swap(expect_warning_copy, expect_warning);
+	std::swap(expect_log_copy, expect_log);
+	std::swap(expect_error_copy, expect_error);
+	std::swap(expect_prefix_warning_copy, expect_prefix_warning);
+	std::swap(expect_prefix_log_copy, expect_prefix_log);
+	std::swap(expect_prefix_error_copy, expect_prefix_error);
 
 	auto check = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == 0) {
-			log_warn_regexes.clear();
+			warn_regexes.clear();
 			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 		if (item.current_count != item.expected_count) {
-			log_warn_regexes.clear();
+			warn_regexes.clear();
 			log_error("Expected %s pattern '%s' found %d time(s), instead of %d time(s) !\n",
 				kind.c_str(), pattern.c_str(), item.current_count, item.expected_count);
 		}
 	};
 
-	for (auto &[pattern, item] : expect_warning)
+	for (auto &[pattern, item] : expect_warning_copy)
 		check("warning", pattern, item);
-	for (auto &[pattern, item] : expect_prefix_warning)
+	for (auto &[pattern, item] : expect_prefix_warning_copy)
 		check("prefixed warning", pattern, item);
-	for (auto &[pattern, item] : expect_log)
+	for (auto &[pattern, item] : expect_log_copy)
 		check("log", pattern, item);
-	for (auto &[pattern, item] : expect_prefix_log)
+	for (auto &[pattern, item] : expect_prefix_log_copy)
 		check("prefixed log", pattern, item);
 
 	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
 		if (item.current_count == item.expected_count) {
-			log_warn_regexes.clear();
+			warn_regexes.clear();
 			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
 			#if defined(_MSC_VER)
@@ -673,14 +667,53 @@ void log_check_expected()
 				_Exit(0);
 			#endif
 		} else {
-			log_warn_regexes.clear();
+			warn_regexes.clear();
 			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 	};
-	for (auto &[pattern, item] : expect_error)
+	for (auto &[pattern, item] : expect_error_copy)
 		check_err("error", pattern, item);
-	for (auto &[pattern, item] : expect_prefix_error)
+	for (auto &[pattern, item] : expect_prefix_error_copy)
 		check_err("prefixed error", pattern, item);
+}
+
+void LogManager::report_unexpected_error()
+{
+	if (expect_no_warnings && warnings_count_noexpect)
+		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(warnings),
+					warnings_count, warnings_count - warnings_count_noexpect);
+}
+
+void LogManager::add_expect(std::string type, std::string pattern, int count)
+{
+	if (type == "error")
+		expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-error")
+		expect_prefix_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "warning")
+		expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-warning")
+		expect_prefix_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "log")
+		expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else if (type == "prefix-log")
+		expect_prefix_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+	else log_abort();
+}
+
+void LogManager::start_hasher()
+{
+	hasher = std::make_unique<SHA1>();
+}
+
+std::string LogManager::finish_hasher()
+{
+	if (!hasher)
+		return {};
+
+	std::string hash = hasher->final().substr(0, 10);
+	hasher.reset();
+	return hash;
 }
 
 YOSYS_NAMESPACE_END
