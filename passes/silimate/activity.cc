@@ -27,8 +27,11 @@ PRIVATE_NAMESPACE_BEGIN
 struct ActivityProp {
 	Module *module;
 	SigMap sigmap;
+	bool debug;
 	uint32_t nbBitsWithActivity = 0;
 	uint32_t wireCount = 0;
+	uint32_t missingActivity = 0;
+	uint32_t missingDuty = 0;
 
 	// Split a string based on separator, returns a vector of tokens as reference argument
 	// If skipEmpty is true, return "" for string "    ", when separator is " "
@@ -62,16 +65,11 @@ struct ActivityProp {
 		return result;
 	}
 
-	ActivityProp(Module *module) : module(module), sigmap(module)
+	ActivityProp(Module *module, bool debug) : module(module), sigmap(module), debug(debug)
 	{
 		std::map<SigBit, std::string> ActivityMap;
 		std::map<SigBit, std::string> DutyMap;
 		// Build {signal bit - activity} map from the wire activities calculated in the sim pass
-
-		bool debug = false;
-		if (std::getenv("DEBUG_ACTIVITY_PROP")) {
-			debug = true;
-		}
 		int localActivity = 0;
 		for (Wire *wire : module->wires()) {
 			wireCount++;
@@ -103,7 +101,7 @@ struct ActivityProp {
 				}
 			}
 		}
-		if (localActivity)
+		if (debug && localActivity)
 			log("Collected %d bits with activity in module %s out of %d wires\n", localActivity, module->name.c_str(), wireCount);
 		// Attach port activity to cell using sigmap
 		for (auto cell : module->cells()) {
@@ -121,7 +119,9 @@ struct ActivityProp {
 						} else {
 							RTLIL::SigSpec sigspec(bit);
 							if (!sigspec.is_fully_const()) {
-							  log_warning("No activity found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
+								missingActivity++;
+								if (debug)
+									log_warning("No activity found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
 							}
 							// constants have no activity
 							cell_ports_activity += port_name + "=" + "0.0 ";
@@ -134,7 +134,9 @@ struct ActivityProp {
 						} else {
 							RTLIL::SigSpec sigspec(bit);
 							if (!sigspec.is_fully_const()) {
-							  log_warning("No dutycycle found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
+								missingDuty++;
+								if (debug)
+									log_warning("No dutycycle found for : %s/%s/%s\n", module->name.c_str(), cell->name.c_str(), port_name.c_str());
 							}
 							// constant 1 has duty cycle 1, constant 0 has duty cycle 0
 							cell_ports_duty += port_name + "=" + (sigspec.as_bool() ? "1.0" : "0.0") + " ";
@@ -151,6 +153,8 @@ struct ActivityProp {
 
 	uint32_t getNbBitsWithActivity() { return nbBitsWithActivity; }
 	uint32_t getWireCount() { return wireCount; }
+	uint32_t getMissingActivity() { return missingActivity; }
+	uint32_t getMissingDuty() { return missingDuty; }
 };
 
 struct ActivityPropPass : public Pass {
@@ -159,27 +163,45 @@ struct ActivityPropPass : public Pass {
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
-		log("    activity_prop\n");
+		log("    activity_prop [options]\n");
+		log("\n");
+		log("Attach per-wire activity/duty from sim -activity onto cell ports.\n");
+		log("\n");
+		log("    -d\n");
+		log("        per-module and per-port debug output\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing Activity propagation pass\n");
 
+		bool debug = false;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
-			// No options currently. When adding in the future make sure to update docstring with [options]
+			if (args[argidx] == "-d") {
+				debug = true;
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
 		uint32_t totalNbBitsWithActivity = 0;
 		uint32_t wireCount = 0;
+		uint32_t missingActivity = 0;
+		uint32_t missingDuty = 0;
+		uint32_t moduleCount = 0;
 		for (auto module : design->selected_modules()) {
-			ActivityProp worker(module);
+			ActivityProp worker(module, debug);
 			totalNbBitsWithActivity += worker.getNbBitsWithActivity();
 			wireCount += worker.getWireCount();
+			missingActivity += worker.getMissingActivity();
+			missingDuty += worker.getMissingDuty();
+			moduleCount++;
 		}
-		log("Collected %d bits in total with activity out of %d wires\n", totalNbBitsWithActivity, wireCount);
+		log("Activity annotation: %u bit(s) across %u wire(s) in %u module(s)\n",
+			totalNbBitsWithActivity, wireCount, moduleCount);
+		if (missingActivity || missingDuty)
+			log("  %u port(s) missing activity, %u missing duty\n", missingActivity, missingDuty);
 		log_flush();
 	}
 } ActivityPropPass;
