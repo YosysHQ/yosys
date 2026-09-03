@@ -20,95 +20,163 @@
 #include <algorithm>
 
 #include "kernel/fstdata.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/yosys.h"
 #include "passes/silimate/reg_rename.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-// One dumped element of a register: the waveform name minus its bit range, the word indices
-// parsed out of that name, its RTL bit range, and where its lsb sits in the register's flat
-// bit vector.
-struct RegElem {
+// Attributes used for register renaming, should be stamped beforehand based on elaborator convention.
+#define RTL_OBJ_ATTR ID(rtl_obj)
+#define RTL_OBJ_BIT_ATTR ID(rtl_obj_bit)
+#define RTL_OBJ_WIDTH_ATTR ID(rtl_obj_width)
+
+// One dumped signal belonging to an RTL object.
+struct DumpLeaf {
 	std::string name;
-	std::vector<int> idx;
+	std::string rel;
 	int width = 0;
 	int offset = 0;
-	int flat = 0;
 };
 
-// Every dumped element of one register, ordered least-significant first.
-struct RegLayout {
-	int total_width = 0;
-	std::vector<RegElem> elems;
-
-	// How many index groups the waveform spells each element with
-	int rank() const { return elems.empty() ? 0 : GetSize(elems[0].idx); }
-
-	// Element the waveform spells with exactly these word indices.
-	const RegElem *at_idx(const std::vector<int> &idx) const
-	{
-		for (auto &e : elems)
-			if (e.idx == idx)
-				return &e;
-		return nullptr;
-	}
-
-	// Element covering a flat bit position, or nullptr when out of range.
-	const RegElem *at_flat(int bit) const
-	{
-		size_t lo = 0, hi = elems.size(); // elems is sorted by flat
-		while (lo < hi) {
-			size_t mid = (lo + hi) / 2;
-			if (bit < elems[mid].flat)
-				hi = mid;
-			else if (bit >= elems[mid].flat + elems[mid].width)
-				lo = mid + 1;
-			else
-				return &elems[mid];
-		}
-		return nullptr;
-	}
+// End-of-pass tally, so a partial binding is reported rather than passed off as complete
+struct BindStats {
+	int bound = 0;
+	int no_stamp = 0;
+	int no_object = 0;
+	int no_bit = 0;
 };
 
-// Peel trailing "[digits]" groups from a signal name and populate idx vector
-static std::string split_word_indices(const std::string &name, std::vector<int> &idx)
+// Read one of the stamped integer fields.
+static bool stamped_int(Cell *cell, IdString attr, int &out)
 {
-	size_t end = name.size();
-	std::vector<int> rev;
-	while (end && name[end - 1] == ']') {
-		size_t open = name.rfind('[', end - 1);
-		if (open == std::string::npos)
-			break;
-		std::string inner = name.substr(open + 1, end - open - 2);
-		if (inner.empty() || inner.find_first_not_of("0123456789") != std::string::npos)
-			break;
-		rev.push_back(std::stoi(inner));
-		end = open;
-	}
-	idx.assign(rev.rbegin(), rev.rend());
-	return name.substr(0, end);
+	if (!cell->has_attribute(attr))
+		return false;
+	const std::string text = cell->get_string_attribute(attr);
+	if (text.empty() || text.find_first_not_of("0123456789") != std::string::npos)
+		return false;
+	out = std::stoi(text);
+	return true;
 }
 
-// Split a register cell name, spelled \name[word]_reg[bit] or \name_reg[word][bit], into the
-// register, the word indices selecting a dumped element, and the bit inside it. False when the
-// cell is not a named register.
-static bool split_reg_cell(IdString cell_name, std::string &reg, std::vector<int> &word, int &bit)
+static std::string first_component(const std::string &rel)
 {
-	std::vector<int> post, pre;
-	std::string stem = split_word_indices(cell_name.str(), post);
-	if (GetSize(stem) < 4 || stem.compare(GetSize(stem) - 4, 4, "_reg") != 0)
-		return false;
-	reg = RTLIL::unescape_id(split_word_indices(stem.substr(0, GetSize(stem) - 4), pre));
+	if (rel.empty())
+		return rel;
+	size_t end = rel.find_first_of(".[", 1);
+	return end == std::string::npos ? rel : rel.substr(0, end);
+}
 
-	// Trailing groups are the bit index preceded by more word indices
-	word = pre;
-	bit = 0;
-	if (!post.empty()) {
-		word.insert(word.end(), post.begin(), post.end() - 1);
-		bit = post.back();
+// Group leaves by their next path component, preserving declaration order.
+static std::vector<std::vector<DumpLeaf>> group_children(const std::vector<DumpLeaf> &leaves)
+{
+	std::vector<std::string> order;
+	std::vector<std::vector<DumpLeaf>> groups;
+	for (auto &leaf : leaves) {
+		std::string head = first_component(leaf.rel);
+		auto it = std::find(order.begin(), order.end(), head);
+		if (it == order.end()) {
+			order.push_back(head);
+			groups.push_back({});
+			it = order.end() - 1;
+		}
+		DumpLeaf child = leaf;
+		child.rel = leaf.rel.substr(head.size()); // descend one level
+		groups[it - order.begin()].push_back(child);
 	}
-	return true;
+	return groups;
+}
+
+// Total width of a subtree, i.e. what it spans if its members partition the parent
+static int span(const std::vector<DumpLeaf> &leaves)
+{
+	int total = 0;
+	for (auto &leaf : leaves)
+		total += leaf.width;
+	return total;
+}
+
+// Locate `bit` of an object that the waveform dumped as `leaves`, given the width the
+// netlist says the object has.
+static bool resolve(const std::vector<DumpLeaf> &leaves, int width, int bit, DumpLeaf &out,
+		    int &leaf_bit)
+{
+	if (leaves.empty() || bit < 0 || bit >= width)
+		return false;
+
+	// A single leaf covering the whole object: the bit indexes straight into it
+	if (leaves.size() == 1 && leaves[0].rel.empty()) {
+		if (leaves[0].width != width)
+			return false;
+		out = leaves[0];
+		leaf_bit = bit;
+		return true;
+	}
+
+	// Several signals all named for the object itself is an ambiguous dump rather than a
+	// member list, and would leave the recursion below with nothing to descend into.
+	bool flat = true;
+	for (auto &leaf : leaves)
+		flat = flat && leaf.rel.empty();
+	if (flat)
+		return false;
+
+	auto groups = group_children(leaves);
+	int total = 0;
+	for (auto &group : groups)
+		total += span(group);
+
+	// Struct or array: members partition the object, first declared taking the top bits
+	if (total == width) {
+		int high = width;
+		for (auto &group : groups) {
+			high -= span(group);
+			if (bit >= high)
+				return resolve(group, span(group), bit - high, out, leaf_bit);
+		}
+		return false;
+	}
+
+	// Union: every member spans the whole object, so read whichever is a plain signal
+	bool overlay = !groups.empty();
+	for (auto &group : groups)
+		overlay = overlay && span(group) == width;
+	if (overlay) {
+		for (auto &group : groups)
+			if (group.size() == 1 && group[0].rel.empty())
+				return resolve(group, width, bit, out, leaf_bit);
+		return resolve(groups.front(), width, bit, out, leaf_bit);
+	}
+
+	return false;
+}
+
+// First component of a netlist name, i.e. the RTL object before `.` or `[`
+static std::string object_root(const std::string &name)
+{
+	size_t cut = name.find_first_of(".[");
+	return cut == std::string::npos ? name : name.substr(0, cut);
+}
+
+// Strip a trailing bit range and report the declared lsb. A range written with no space
+// before it is a packed dimension (SHM's "deep_out[1:0]"), not a bit range, but either way
+// the dumped width is authoritative and the name without it is the signal.
+static std::string split_bit_range(const std::string &name, int &offset)
+{
+	offset = 0;
+	if (name.empty() || name.back() != ']')
+		return name;
+	size_t open = name.rfind('[');
+	if (open == std::string::npos)
+		return name;
+	std::string inner = name.substr(open + 1, name.size() - open - 2);
+	if (inner.empty() || inner.find(':') == std::string::npos ||
+			inner.find_first_not_of("0123456789:") != std::string::npos)
+		return name;
+	size_t colon = inner.find(':');
+	offset = std::min(std::stoi(inner.substr(0, colon)), std::stoi(inner.substr(colon + 1)));
+	return name.substr(0, open);
 }
 
 struct RegRenameInstance {
@@ -120,7 +188,8 @@ struct RegRenameInstance {
 	// Constructor
 	// When constructing, it will recursively build the
 	// module hierarchy with correct VCD scope mapping
-	RegRenameInstance(std::string scope, Module *mod, bool dbg = false) : vcd_scope(scope), module(mod), debug(dbg)
+	RegRenameInstance(std::string scope, Module *mod, bool dbg = false)
+		: vcd_scope(scope), module(mod), debug(dbg)
 	{
 		// Loop through all cells in the module
 		for (auto cell : module->cells()) {
@@ -142,228 +211,231 @@ struct RegRenameInstance {
 			delete it.second;
 	}
 
-	// Processes registers in a given module hierarchy
-	// and renames to allow for correct register annotation
-	void process_registers(dict<std::string, RegLayout> &reg_layouts)
+	// Every module scope in the hierarchy, used to tell instance path from object path
+	void collect_scopes(pool<std::string> &scopes)
 	{
-		if (debug)
-			log("Processing registers in scope: %s (module: %s)\n", 
-					vcd_scope.c_str(), log_id(module->name));
-		else
-			log("Processing registers in %s\n", 
-					log_id(module->name));
-		
-		// Map of old bits to new bits of a renamed reg wire
-		dict<SigBit, SigBit> bit_map;
-		pool<SigBit> claimed_bits;
+		scopes.insert(vcd_scope);
+		for (auto &it : children)
+			it.second->collect_scopes(scopes);
+	}
 
-		// Caches of target wires and wires to remove
-		dict<IdString, Wire*> targetWireCache;
-		pool<Wire *> wireRemoveCache;
-
-		// Word grid of every register as the netlist spells it: one past the largest index at
-		// each position. A reshaping alias makes this differ from the dumped shape.
-		dict<std::string, std::vector<int>> word_grids;
-		for (auto cell : module->cells()) {
-			std::string reg;
-			std::vector<int> word;
-			int bit = 0;
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type) ||
-					!split_reg_cell(cell->name, reg, word, bit))
-				continue;
-			auto &grid = word_grids[reg];
-			grid.resize(std::max(GetSize(grid), GetSize(word)), 0);
-			for (int i = 0; i < GetSize(word); i++)
-				grid[i] = std::max(grid[i], word[i] + 1);
-		}
-
-		// Loop through all cells in the module
-		for (auto cell : module->cells()) {
-
-			// Skip non-register cells
-			if (!RTLIL::builtin_ff_cell_types().count(cell->type)) {
-				continue;
-			}
-
-			// Which register this cell belongs to, and which bit of it it holds
-			std::string reg;
-			std::vector<int> word;
-			int bit = 0;
-			if (!split_reg_cell(cell->name, reg, word, bit))
-				continue;
-
-			// Process Q output connection for the cell
-			for (auto &conn : cell->connections()) {
-				if (conn.first != ID::Q || !conn.second.is_wire()) continue;
-
-				Wire *oldWire = conn.second.as_wire();
-				if (oldWire->port_input || oldWire->port_output) continue;
-
-				auto layout_it = reg_layouts.find(vcd_scope + "." + reg);
-				if (layout_it == reg_layouts.end()) {
-					log_warning("Unable to find matching register %s in VCD for cell %s in scope %s\n",
-						reg.c_str(), log_id(cell->name), vcd_scope.c_str());
-					continue;
-				}
-				const RegLayout &layout = layout_it->second;
-				const std::vector<int> &grid = word_grids.at(reg);
-
-				const RegElem *elem = nullptr;
-				int bitIndex = bit;
-				if (GetSize(word) == layout.rank()) {
-					// Netlist and waveform spell the register the same way
-					elem = layout.at_idx(word);
-				} else {
-					// The netlist reaches the register through an alias of a different rank,
-					// so place the word by its row-major position instead of by name.
-					int slots = 1, slot = 0;
-					for (int i = 0; i < GetSize(word); i++) {
-						slot = slot * grid[i] + word[i];
-						slots *= grid[i];
-					}
-					if (layout.total_width % slots == 0) {
-						int flat = slot * (layout.total_width / slots) + bit;
-						elem = layout.at_flat(flat);
-						if (elem)
-							bitIndex = elem->offset + (flat - elem->flat);
-					}
-				}
-				if (elem == nullptr) {
-					log_warning("Cannot place cell %s in register %s, dumped as %d bits in %d "
-						"elements, in scope %s\n", log_id(cell->name), reg.c_str(),
-						layout.total_width, GetSize(layout.elems), vcd_scope.c_str());
-					continue;
-				}
-
-				std::string wireName = elem->name;
-				int wireWidth = elem->width;
-				int wireOffset = elem->offset;
-				int maxIndex = wireOffset + wireWidth - 1;
-				int minIndex = wireOffset;
-
-				// Validate bit index, and that an unsplit cell fits in one dumped element
-				if (bitIndex < minIndex || bitIndex + GetSize(oldWire) - 1 > maxIndex) {
-					log_warning("Bit index %d is invalid for wire indices [%d:%d] for '%s'\n",
-											bitIndex, maxIndex, minIndex, wireName.c_str());
-					continue;
-				}
-
-				IdString wireId = RTLIL::escape_id(wireName);
-
-				// Find or create the target wire of the correct VCD-derived width
-				Wire *targetWire = nullptr;
-
-				// Check if the target wire was already created
-				auto cache_it = targetWireCache.find(wireId);
-				if (cache_it != targetWireCache.end()) {
-					targetWire = cache_it->second;
-				} else {
-
-					// If the cache misses, create the target wire
-					targetWire = module->wire(wireId);
-					if (!targetWire) {
-						if (debug)
-							log("Creating wire %s[%d:%d] in scope %s\n", 
-									wireName.c_str(), maxIndex, minIndex, vcd_scope.c_str());
-						targetWire = module->addWire(wireId, wireWidth);
-						targetWire->start_offset = wireOffset;
-					}
-					targetWireCache[wireId] = targetWire;
-				}
-
-				// Skip self-mapping (e.g. oldWire is already the target wire)
-				if (targetWire == oldWire)
-					continue;
-
-				int normalizedIndex = bitIndex - wireOffset;
-
-				// Check for conflicts with other cells (multiple drivers guard)
-				bool conflict = false;
-				for (int i = 0; i < GetSize(oldWire); i++) {
-					if (claimed_bits.count(SigBit(targetWire, normalizedIndex + i))) {
-						conflict = true;
-						break;
-					}
-				}
-				if (conflict) {
-					log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
-						log_id(cell->name), wireName.c_str(), bitIndex);
-					continue;
-				}
-
-				// Create the new connection.
+	// The wire the dump expects, created at the dumped width when synthesis split the object.
+	Wire *dump_wire(dict<IdString, Wire *> &cache, const DumpLeaf &leaf, const std::string &dump_path)
+	{
+		IdString id = RTLIL::escape_id(leaf.name);
+		Wire *&wire = cache[id];
+		if (!wire) {
+			wire = module->wire(id);
+			if (!wire) {
 				if (debug)
-					log("Connecting %s to %s[%d]\n", 
-							log_id(oldWire), wireName.c_str(), bitIndex);
-
-				// Record the mapping for each bit of the old wire to the target wire.
-				for (int i = 0; i < GetSize(oldWire); i++) {
-					SigBit target(targetWire, normalizedIndex + i);
-					bit_map[SigBit(oldWire, i)] = target;
-					claimed_bits.insert(target);
-				}
-				wireRemoveCache.insert(oldWire);
+					log("Creating wire %s[%d:%d] in scope %s\n", leaf.name.c_str(),
+							leaf.offset + leaf.width - 1, leaf.offset, vcd_scope.c_str());
+				wire = module->addWire(id, leaf.width);
+				wire->start_offset = leaf.offset;
 			}
 		}
+		// Dump lives in another scope, which sim will resolve through sim_src attribute
+		if (!dump_path.empty())
+			wire->set_string_attribute(ID(sim_src), dump_path);
+		return wire;
+	}
 
-		// Apply all bit-level rewrites in a single pass over the module.
-		if (!bit_map.empty()) {
-			auto rewriter = [&](SigSpec &sig) {
-				for (int i = 0; i < GetSize(sig); i++) {
-					auto it = bit_map.find(sig[i]);
-					if (it != bit_map.end())
-						sig.replace(i, SigSpec(it->second));
-				}
-			};
+	// Move every flop collected above onto its renamed wire in one pass over the module
+	void commit(const dict<SigBit, SigBit> &bit_map, const pool<SigBit> &claimed,
+		    const std::vector<std::pair<SigBit, SigBit>> &aliases, const pool<Wire *> &drop)
+	{
+		auto rewriter = [&](SigSpec &sig) {
+			for (int i = 0; i < GetSize(sig); i++) {
+				auto it = bit_map.find(sig[i]);
+				if (it != bit_map.end())
+					sig.replace(i, SigSpec(it->second));
+			}
+		};
+		if (!bit_map.empty())
 			module->rewrite_sigspecs(rewriter);
-		}
+		module->remove(drop);
 
-		// Delete the old unused wires
-		module->remove(wireRemoveCache);
-
-		// Drop leftover alias/X assigns onto claimed bits.
-		if (!claimed_bits.empty()) {
+		// Alias/opt left assigns (often to X) on bits the flops now own; rebuild the
+		// connection list without them, keeping any unclaimed slice of each assign.
+		if (!claimed.empty()) {
 			std::vector<RTLIL::SigSig> kept;
 			bool changed = false;
-			// Rebuild connection list, omitting bits that flops now own.
 			for (auto &conn : module->connections()) {
 				RTLIL::SigSpec lhs, rhs; // lhs = driven, rhs = driver
 				for (int i = 0; i < GetSize(conn.first); i++) {
-					// Alias/opt left an assign (often to X) on the restored Q bit.
-					if (claimed_bits.count(conn.first[i])) {
+					if (claimed.count(conn.first[i])) {
 						changed = true;
 						continue;
 					}
 					lhs.append(conn.first[i]);
 					rhs.append(conn.second[i]);
 				}
-				// Keep any remaining (non-claimed) slice of this assign.
 				if (GetSize(lhs))
 					kept.emplace_back(lhs, rhs);
 			}
-			// Only rewrite the module if we actually removed something.
 			if (changed)
 				module->new_connections(kept);
 		}
+
+		// Added last: the rewrite above would otherwise turn these into self-assigns.
+		for (auto &alias : aliases)
+			module->connect(alias.first, alias.second);
 	}
 
-	// SV interface ports are refs to parent storage (IEEE 1800 25.3). Stamp sim_src
-	// from the dump now; after a parallel-resim cut the parent connection is gone.
+	// Rename each flop's Q wire to the signal the waveform dumped it under.
+	void process_registers(const dict<std::string, std::vector<DumpLeaf>> &objects,
+			       BindStats &stats)
+	{
+		if (debug)
+			log("Processing registers in scope: %s (module: %s)\n", vcd_scope.c_str(),
+					log_id(module->name));
+		else
+			log("Processing registers in %s\n", log_id(module->name));
+
+		dict<SigBit, SigBit> bit_map; // old flop bit -> bit of the renamed wire
+		pool<SigBit> claimed_bits;
+		std::vector<std::pair<SigBit, SigBit>> port_aliases; // output bits to re-drive
+		dict<IdString, Wire *> target_wires;
+		pool<Wire *> drop_wires;
+
+		for (auto cell : module->cells()) {
+			if (!StaticCellTypes::categories.is_ff(cell->type))
+				continue;
+
+			// Which RTL object bit this flop holds, stamped before optimization
+			int obj_bit = 0, obj_width = 0;
+			if (!cell->has_attribute(RTL_OBJ_ATTR) || !stamped_int(cell, RTL_OBJ_BIT_ATTR, obj_bit) ||
+					!stamped_int(cell, RTL_OBJ_WIDTH_ATTR, obj_width)) {
+				log_warning("Cell %s in scope %s has no usable RTL bind stamp\n",
+						log_id(cell->name), vcd_scope.c_str());
+				stats.no_stamp++;
+				continue;
+			}
+			std::string obj = cell->get_string_attribute(RTL_OBJ_ATTR);
+
+			for (auto &conn : cell->connections()) {
+				if (conn.first != ID::Q || !conn.second.is_chunk())
+					continue;
+
+				// A field of a split struct port drives a slice of a wider wire, so take the
+				// flop's own bits rather than assuming it owns all of old_wire.
+				SigChunk qbits = conn.second.as_chunk();
+				Wire *old_wire = qbits.wire;
+				if (!old_wire || old_wire->port_input)
+					continue;
+
+				// Locate obj[obj_bit] among the signals the waveform dumped for it
+				auto obj_it = objects.find(vcd_scope + "." + obj);
+				DumpLeaf leaf;
+				int leaf_bit = 0;
+				std::string dump_path;
+				bool placed = obj_it != objects.end() &&
+						resolve(obj_it->second, obj_width, obj_bit, leaf, leaf_bit);
+
+				// A flattened interface pin is dumped under the parent's actual, so it is not
+				// in this scope's object map. bind_interface_ports already put that path on the
+				// pin, so rename onto the pin itself and let sim_src do the lookup.
+				Wire *pin = placed ? nullptr : module->wire(RTLIL::escape_id(obj));
+				if (pin && pin->has_attribute(ID(sim_src)) && GetSize(pin) == obj_width &&
+						obj_bit >= 0 && obj_bit < obj_width) {
+					dump_path = pin->get_string_attribute(ID(sim_src));
+					leaf = {obj, "", GetSize(pin), pin->start_offset};
+					leaf_bit = obj_bit;
+					placed = true;
+				}
+
+				if (!placed) {
+					if (obj_it == objects.end()) {
+						log_warning("Object %s of cell %s is not in the waveform, scope %s\n",
+								obj.c_str(), log_id(cell->name), vcd_scope.c_str());
+						stats.no_object++;
+					} else {
+						log_warning("Cannot place bit %d of %d-bit object %s, dumped as %d "
+								"signal(s), for cell %s in scope %s\n", obj_bit, obj_width,
+								obj.c_str(), GetSize(obj_it->second), log_id(cell->name),
+								vcd_scope.c_str());
+						stats.no_bit++;
+					}
+					continue;
+				}
+
+				// The flop must fit inside the single dumped element it landed in
+				if (leaf_bit < 0 || leaf_bit + qbits.width > leaf.width) {
+					log_warning("Bit index %d is invalid for wire indices [%d:%d] for '%s'\n",
+							leaf.offset + leaf_bit, leaf.offset + leaf.width - 1, leaf.offset,
+							leaf.name.c_str());
+					stats.no_bit++;
+					continue;
+				}
+
+				Wire *target = dump_wire(target_wires, leaf, dump_path);
+				if (target == old_wire)
+					continue; // already the wire the dump expects
+
+				// Multiple-driver guard: another flop may have claimed these bits
+				bool taken = false;
+				for (int i = 0; i < qbits.width && !taken; i++)
+					taken = claimed_bits.count(SigBit(target, leaf_bit + i));
+				if (taken) {
+					log_warning("Skipping cell %s: target %s[%d] already driven by another cell\n",
+							log_id(cell->name), leaf.name.c_str(), leaf.offset + leaf_bit);
+					continue;
+				}
+
+				if (debug)
+					log("Connecting %s (%s[%d]) to %s[%d]\n", log_id(old_wire), obj.c_str(),
+							obj_bit, leaf.name.c_str(), leaf.offset + leaf_bit);
+
+				for (int i = 0; i < qbits.width; i++) {
+					SigBit old(old_wire, qbits.offset + i);
+					SigBit renamed(target, leaf_bit + i);
+					bit_map[old] = renamed;
+					claimed_bits.insert(renamed);
+					// Moving the flop off an output port leaves it undriven; alias it back.
+					if (old_wire->port_output)
+						port_aliases.emplace_back(old, renamed);
+				}
+				// Drop the old wire only when the flop drove all of it and nothing else can.
+				if (qbits.width == GetSize(old_wire) && !old_wire->port_id)
+					drop_wires.insert(old_wire);
+				stats.bound++;
+			}
+		}
+
+		commit(bit_map, claimed_bits, port_aliases, drop_wires);
+	}
+
+	// Handle SV interface ports.
 	void bind_interface_ports(FstData &fst)
 	{
 		for (auto &it : children) {
 			Cell *cell = it.first;
 			RegRenameInstance *child = it.second;
 			for (auto wire : child->module->wires()) {
-				if (!wire->port_input || !wire->get_bool_attribute(ID(interface_port)))
-					continue;
-				if (!cell->hasPort(wire->name))
+				if (!wire->get_bool_attribute(ID(interface_port)) || !cell->hasPort(wire->name))
 					continue;
 				SigSpec sig = cell->getPort(wire->name);
+				// Parent ties the pin off; the cut removes that driver, so carry the value.
+				if (sig.is_fully_const()) {
+					wire->set_string_attribute(ID(sim_const), sig.as_const().as_string());
+					continue;
+				}
 				if (!sig.is_wire())
-					continue; // slices/concats/constants have no single dumped signal
-				std::string src = vcd_scope + "." + RTLIL::unescape_id(sig.as_wire()->name);
-				if (!fst.getHandle(src))
+					continue; // slices/concats span more than one dumped signal
+				Wire *actual = sig.as_wire();
+
+				// A passthrough pin's parent may itself be tied off, which only the level
+				// above could see, so carry that value one more hop.
+				if (actual->has_attribute(ID(sim_const))) {
+					wire->set_string_attribute(ID(sim_const),
+							actual->get_string_attribute(ID(sim_const)));
+					continue;
+				}
+				std::string src = actual->has_attribute(ID(sim_src))
+					? actual->get_string_attribute(ID(sim_src))
+					: vcd_scope + "." + RTLIL::unescape_id(actual->name);
+				fstHandle id = fst.getHandle(src);
+				if (!id || fst.getWidth(id) != GetSize(wire))
 					continue;
 				wire->set_string_attribute(ID(sim_src), src);
 				if (debug)
@@ -374,13 +446,104 @@ struct RegRenameInstance {
 		}
 	}
 
-	void process_all(dict<std::string, RegLayout> &reg_layouts)
+	// Handle packed inputs.
+	void bind_packed_inputs(const dict<std::string, std::vector<DumpLeaf>> &objects, FstData &fst)
 	{
-		process_registers(reg_layouts);
+		// Split input ports whose dump is one packed vector
+		dict<std::string, std::vector<std::tuple<int, int, Wire*>>> groups;
+		int order = 0;
+		for (auto wire : module->wires()) {
+			if (!wire->port_input || wire->get_bool_attribute(ID(interface_port)))
+				continue;
+			std::string name = RTLIL::unescape_id(wire->name);
+			std::string root = object_root(name);
+			if (root == name)
+				continue; // dumped under the same name as the port
+			groups[root].emplace_back(wire->port_id ? wire->port_id : (1 << 30), order++, wire);
+		}
+		for (auto &kv : groups) {
+			auto members = kv.second;
+			std::sort(members.begin(), members.end());
+			int total = 0;
+			for (auto &m : members)
+				total += GetSize(std::get<2>(m));
+			auto obj_it = objects.find(vcd_scope + "." + kv.first);
+			if (obj_it == objects.end())
+				continue;
+			int high = total;
+			for (auto &m : members) {
+				Wire *wire = std::get<2>(m);
+				high -= GetSize(wire);
+				DumpLeaf leaf;
+				int leaf_bit = 0;
+				if (!resolve(obj_it->second, total, high, leaf, leaf_bit))
+					continue;
+				std::string dump_path = leaf.name;
+				if (dump_path.compare(0, vcd_scope.size(), vcd_scope) != 0)
+					dump_path = vcd_scope + "." + dump_path;
+				if (!fst.getHandle(dump_path))
+					continue;
+				wire->set_string_attribute(ID(sim_src), dump_path);
+				if (leaf.width != GetSize(wire))
+					wire->set_string_attribute(ID(sim_src_bit), std::to_string(leaf_bit));
+				if (debug)
+					log("Packed input %s.%s resolved to %s[%d]\n", vcd_scope.c_str(),
+							log_id(wire), dump_path.c_str(), leaf_bit);
+			}
+		}
+	}
+
+	void process_all(const dict<std::string, std::vector<DumpLeaf>> &objects,
+			 BindStats &stats, FstData &fst)
+	{
+		bind_packed_inputs(objects, fst);
+		process_registers(objects, stats);
 		for (auto &it : children)
-			it.second->process_all(reg_layouts);
+			it.second->process_all(objects, stats, fst);
 	}
 };
+
+// Group every dumped signal under the RTL object it belongs to.
+static dict<std::string, std::vector<DumpLeaf>> collect_objects(FstData &fst,
+								const pool<std::string> &scopes,
+								bool debug)
+{
+	dict<std::string, std::vector<DumpLeaf>> objects;
+	pool<std::string> seen; // dumpers may open the same scope twice and repeat declarations
+	for (auto &var : fst.getVars()) {
+		int offset = 0;
+		std::string name = split_bit_range(RTLIL::unescape_id(var.name), offset);
+		std::string full = var.scope.empty() ? name : var.scope + "." + name;
+
+		// Longest enclosing module scope: the rest is the object and its member path
+		std::string scope = var.scope;
+		while (!scope.empty() && !scopes.count(scope)) {
+			size_t dot = scope.find_last_of('.');
+			scope = dot == std::string::npos ? "" : scope.substr(0, dot);
+		}
+		if (scope.empty() && !scopes.count(scope))
+			continue; // outside the hierarchy being processed
+
+		std::string rel = full.substr(scope.empty() ? 0 : scope.size() + 1);
+		size_t split = rel.find_first_of(".[");
+		std::string root = split == std::string::npos ? rel : rel.substr(0, split);
+
+		// A repeat of a name already seen is the same signal again, not another member
+		if (!seen.insert(full).second)
+			continue;
+
+		DumpLeaf leaf;
+		leaf.name = rel;
+		leaf.rel = split == std::string::npos ? "" : rel.substr(split);
+		leaf.width = var.width;
+		leaf.offset = offset;
+		objects[scope + "." + root].push_back(leaf);
+		if (debug)
+			log("Dumped %s.%s as %s (width %d, lsb %d)\n", scope.c_str(), root.c_str(),
+				leaf.rel.empty() ? "one flat signal" : leaf.rel.c_str(), leaf.width, offset);
+	}
+	return objects;
+}
 
 struct RegRenamePass : public Pass {
 	RegRenamePass()
@@ -436,95 +599,37 @@ struct RegRenamePass : public Pass {
 		if (!topmod)
 			log_error("No top module found!\n");
 
-		// Extract pre-optimization signal widths from waveform file
-		dict<std::string, RegLayout> reg_layouts;
-		if (!waveform_filename.empty()) {
-			log("Reading waveform file: %s\n", waveform_filename.c_str());
-			try {
-				FstData fst(waveform_filename);
-				if (scope.empty()) {
-					scope = fst.autoScope(topmod);
-					if (scope.empty()) {
-						log_error("No scope found for module '%s'. Please specify -scope explicitly.\n", 
-							RTLIL::unescape_id(topmod->name).c_str());
-					}
-				}
-				log("Using scope: \"%s\"\n", scope.c_str());
-
-				// Extract all signals from the waveform (registers can be 'reg' or 'wire' in VCDs)
-				for (auto &var : fst.getVars()) {
-					std::string vcd_scope = var.scope;
-					std::string signal_name = var.name;
-					std::string signal_bits = "";
-
-					// Use the bracket notation to extract the bit range and construct true reg name.
-					if (!signal_name.empty() && signal_name.back() == ']') {
-						size_t open = signal_name.rfind('[');
-						if (open != std::string::npos) {
-							std::string inner = signal_name.substr(open + 1, signal_name.size() - open - 2);
-							// Ensure that signal_bits is not populated with non-indexed characters.
-							if (!inner.empty() && inner.find_first_not_of("0123456789:") == std::string::npos) {
-								signal_bits = signal_name.substr(open);
-								signal_name.erase(open);
-							}
-						}
-					}
-
-					// Extract the LSB and MSB indices if present.
-					int msb = 0;
-					int lsb = 0;
-					size_t colon_pos = signal_bits.find(':');
-					if (colon_pos != std::string::npos) { // range case
-							msb = std::stoi(signal_bits.substr(1, colon_pos - 1));
-							lsb = std::stoi(signal_bits.substr(colon_pos + 1));
-					} else if (!signal_bits.empty()) { // single index case
-						msb = lsb = std::stoi(signal_bits.substr(1));
-					}
-					int width  = var.width;
-					int offset = std::min(msb, lsb);
-
-					// Group each element under its register, so a register dumped word by
-					// word is one layout rather than several unrelated signals.
-					signal_name = RTLIL::unescape_id(signal_name);
-					RegElem elem;
-					elem.name = signal_name;
-					elem.width = width;
-					elem.offset = offset;
-					std::string base = split_word_indices(signal_name, elem.idx);
-					reg_layouts[vcd_scope + "." + base].elems.push_back(elem);
-					if (debug)
-						log("Found signal '%s' in scope '%s' with range [%d:%d] (width %d)\n",
-							signal_name.c_str(), vcd_scope.c_str(),
-							offset + width - 1, offset, width);
-				}
-
-				// Order each register least-significant element first and assign flat bit
-				// positions. Word index 0 is the lsb, matching [N-1:0] declarations.
-				for (auto &it : reg_layouts) {
-					auto &elems = it.second.elems;
-					std::sort(elems.begin(), elems.end(), [](const RegElem &a, const RegElem &b) {
-						return a.idx != b.idx ? a.idx < b.idx : a.offset < b.offset;
-					});
-					int flat = 0;
-					for (auto &e : elems) {
-						e.flat = flat;
-						flat += e.width;
-					}
-					it.second.total_width = flat;
-				}
-				log("Extracted %d registers from waveform\n", GetSize(reg_layouts));
-
-				log("Building hierarchy from scope: %s\n", scope.c_str());
-				RegRenameInstance *root = new RegRenameInstance(scope, topmod, debug);
-				root->bind_interface_ports(fst);
-				root->process_all(reg_layouts);
-				delete root;
-			} catch (const std::exception &e) {
-				log_error("Failed to read waveform file '%s': %s\n", 
-					waveform_filename.c_str(), e.what());
-			}
-		} else {
+		if (waveform_filename.empty())
 			log_error("No waveform file provided. Use -waveform option.\n");
+
+		log("Reading waveform file: %s\n", waveform_filename.c_str());
+		try {
+			FstData fst(waveform_filename);
+			if (scope.empty()) {
+				scope = fst.autoScope(topmod);
+				if (scope.empty())
+					log_error("No scope found for module '%s'. Please specify -scope explicitly.\n",
+						RTLIL::unescape_id(topmod->name).c_str());
+			}
+			log("Using scope: \"%s\"\n", scope.c_str());
+
+			log("Building hierarchy from scope: %s\n", scope.c_str());
+			RegRenameInstance root(scope, topmod, debug);
+
+			// Module scopes first, so a dumped name can be split into instance path and object
+			pool<std::string> scopes;
+			root.collect_scopes(scopes);
+			auto objects = collect_objects(fst, scopes, debug);
+			log("Extracted %d RTL object(s) from waveform\n", GetSize(objects));
+
+			root.bind_interface_ports(fst);
+			BindStats stats;
+			root.process_all(objects, stats, fst);
+			log("Bound %d flop(s); unstamped %d, object absent %d, bit unplaced %d\n",
+				stats.bound, stats.no_stamp, stats.no_object, stats.no_bit);
+		} catch (const std::exception &e) {
+			log_error("Failed to read waveform file '%s': %s\n", 
+				waveform_filename.c_str(), e.what());
 		}
 
 		log_flush();
