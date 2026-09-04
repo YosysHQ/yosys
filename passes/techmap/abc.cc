@@ -660,12 +660,6 @@ void AbcModuleState::dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edg
 	fprintf(f, "}\n");
 }
 
-void connect(AbcSigMap &assign_map, RTLIL::Module *module, const RTLIL::SigSig &conn)
-{
-	module->connect(conn);
-	assign_map.add(conn.first, conn.second);
-}
-
 void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 {
 	// http://en.wikipedia.org/wiki/Topological_sorting
@@ -790,8 +784,9 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			}
 			edges[id1].swap(edges[id3]);
 
-			// TODO
-			connect(assign_map, module, RTLIL::SigSig(signal_bits[id3], signal_bits[id1]));
+			auto conn = SigSig(signal_bits[id3], signal_bits[id1]);
+			module->connect(conn);
+			assign_map.add(conn.first, conn.second);
 			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 		}
 	}
