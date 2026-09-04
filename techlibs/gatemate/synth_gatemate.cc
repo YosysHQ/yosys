@@ -326,7 +326,6 @@ struct SynthGateMatePass : public ScriptPass
 				}
 				if (abc_new) {
 					run("abc_new " + abc_args, "(with -luttree and -abc_new)");
-					run("scratchpad -unset abc9.script");
 				} else {
 					run("abc " + abc_args, "(with -luttree, without -abc_new)");
 				}
