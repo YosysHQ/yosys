@@ -29,6 +29,80 @@ bool did_something;
 // scratchpad configurations for pmgen
 int shiftadd_max_ratio;
 
+pool<SigBit> muladd_keep_bits, muladd_mul_bits;
+int muladd_min_product_width;
+int muladd_max_chain_depth;
+
+struct MuladdLevel {
+	Cell *adder;
+	IdString port;
+	SigSpec product;
+};
+
+IdString muladd_other_port(IdString name)
+{
+	return name == ID::A ? ID::B : ID::A;
+}
+
+IdString muladd_width_param(IdString name)
+{
+	return name == ID::A ? ID::A_WIDTH : ID::B_WIDTH;
+}
+
+bool muladd_is_product(Cell *cell)
+{
+	if (cell == nullptr || cell->type != ID($mul))
+		return false;
+	int operand_width = GetSize(cell->getPort(ID::A)) + GetSize(cell->getPort(ID::B));
+	return operand_width >= muladd_min_product_width;
+}
+
+bool muladd_holds_product(const SigSpec &sig)
+{
+	for (auto bit : sig)
+		if (muladd_mul_bits.count(bit))
+			return true;
+	return false;
+}
+
+bool muladd_signal_kept(const SigSpec &sig)
+{
+	for (auto bit : sig)
+		if (muladd_keep_bits.count(bit))
+			return true;
+	return false;
+}
+
+bool muladd_signals_overlap(const SigSpec &lhs, const SigSpec &rhs)
+{
+	pool<SigBit> lhs_bits(lhs.begin(), lhs.end());
+	for (auto bit : rhs)
+		if (lhs_bits.count(bit))
+			return true;
+	return false;
+}
+
+// reassociating is only exact when both hold
+bool muladd_levels_compatible(Cell *upper, Cell *lower)
+{
+	if (upper->getParam(ID::Y_WIDTH).as_int() > lower->getParam(ID::Y_WIDTH).as_int())
+		return false;
+	// the parameter is a bool of any width
+	return lower->getParam(ID::A_SIGNED).as_bool() == upper->getParam(ID::A_SIGNED).as_bool();
+}
+
+void muladd_rotate(Cell *outer, IdString outer_port, const vector<MuladdLevel> &levels, const SigSpec &addend)
+{
+	outer->setPort(outer_port, levels.front().product);
+	outer->setParam(muladd_width_param(outer_port), GetSize(levels.front().product));
+
+	for (int i = 0; i < GetSize(levels); i++) {
+		SigSpec moved = i + 1 < GetSize(levels) ? levels[i + 1].product : addend;
+		levels[i].adder->setPort(levels[i].port, moved);
+		levels[i].adder->setParam(muladd_width_param(levels[i].port), GetSize(moved));
+	}
+}
+
 // Helper function, removes LSB 0s
 SigSpec remove_bottom_padding(SigSpec sig)
 {
@@ -38,6 +112,20 @@ SigSpec remove_bottom_padding(SigSpec sig)
 }
 
 #include "passes/opt/peepopt_pm.h"
+
+void collect_muladd_bits(peepopt_pm &pm)
+{
+	muladd_keep_bits.clear();
+	muladd_mul_bits.clear();
+	for (auto wire : pm.module->wires())
+		if (wire->get_bool_attribute(ID::keep))
+			for (auto bit : pm.sigmap(wire))
+				muladd_keep_bits.insert(bit);
+	for (auto cell : pm.module->cells())
+		if (cell->type == ID($mul))
+			for (auto bit : pm.sigmap(cell->getPort(ID::Y)))
+				muladd_mul_bits.insert(bit);
+}
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
@@ -74,6 +162,13 @@ struct PeepoptPass : public Pass {
 		log("                Scratchpad: 'peepopt.shiftpow2.max_data_multiple' (default: 2)\n");
 		log("                limits padding for out-of-range select values.\n");
 		log("\n");
+		log("   * muladd - Replace ((P+A*B)+C*D)+E with ((P+E)+A*B)+C*D, so that DSP\n");
+		log("                inference can give both multipliers a post-adder.\n");
+		log("                Scratchpad: 'peepopt.muladd.min_product_width' (default: 11)\n");
+		log("                is the smallest A_WIDTH+B_WIDTH that counts as a product.\n");
+		log("                Scratchpad: 'peepopt.muladd.max_chain_depth' (default: 64,\n");
+		log("                max 256) limits how far the operand is sunk.\n");
+		log("\n");
 		log("If -formalclk is specified it instead employs the following rules:\n");
 		log("\n");
 		log("   * clockgateff - Replace latch based clock gating patterns with a flip-flop\n");
@@ -103,6 +198,12 @@ struct PeepoptPass : public Pass {
 		// 2x implies there is a constant shift larger than the input-data which should be extremely rare
 		shiftadd_max_ratio = design->scratchpad_get_int("peepopt.shiftadd.max_data_multiple", 2);
 
+		// 11 is the A_WIDTH+B_WIDTH ice40_dsp asks for
+		muladd_min_product_width = design->scratchpad_get_int("peepopt.muladd.min_product_width", 11);
+		muladd_max_chain_depth = design->scratchpad_get_int("peepopt.muladd.max_chain_depth", 64);
+		// the walk recurses per level, so an unbounded setting overflows the stack
+		muladd_max_chain_depth = std::min(muladd_max_chain_depth, 256);
+
 		for (auto module : design->selected_modules())
 		{
 			did_something = true;
@@ -124,6 +225,10 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftpow2();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
+					if (!did_something) {
+						collect_muladd_bits(pm);
+						pm.run_muladd();
+					}
 				}
 			}
 		}

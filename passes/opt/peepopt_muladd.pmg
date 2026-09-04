@@ -1,0 +1,132 @@
+// Sink a non-product operand to the bottom of an $add chain, lifting every
+// product one adder up: ((P + M1) + M2) + C  ->  ((P + C) + M1) + M2
+
+pattern muladd
+udata <vector<MuladdLevel>> chain
+state <IdString> innerAB outerAB walkPort nextPort
+state <SigSpec> sigC
+state <Cell*> walkAdder
+
+match mul
+	select mul->type == $mul
+	// the product must feed the adder and nothing else
+	select nusers(port(mul, \Y)) == 2
+	select muladd_is_product(mul)
+endmatch
+
+match inner
+	select inner->type == $add
+	select nusers(port(inner, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(inner, AB) === port(mul, \Y)
+	set innerAB AB
+endmatch
+
+match outer
+	select outer->type == $add
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(outer, AB) === port(inner, \Y)
+	filter outer != inner
+	filter muladd_levels_compatible(outer, inner)
+	set outerAB AB
+	set sigC port(outer, AB == \A ? \B : \A)
+endmatch
+
+code walkAdder walkPort
+{
+	if (muladd_holds_product(sigC))
+		reject;
+
+	if (!module->processes.empty())
+		reject;
+
+	chain.clear();
+	walkAdder = inner;
+	walkPort = innerAB;
+	subpattern(walk);
+	reject;
+}
+endcode
+
+subpattern walk
+arg walkAdder walkPort outer outerAB sigC
+
+code
+{
+	if (muladd_signal_kept(port(walkAdder, \Y)))
+		reject;
+
+	if (muladd_signals_overlap(sigC, port(walkAdder, \Y)))
+		reject;
+
+	for (auto &level : chain)
+		if (level.adder == walkAdder)
+			reject;
+
+	if (GetSize(chain) >= muladd_max_chain_depth)
+		reject;
+}
+endcode
+
+code
+{
+	chain.push_back({walkAdder, walkPort, port(walkAdder, walkPort)});
+}
+finally
+	chain.pop_back();
+endcode
+
+// the product that ends the chain
+match bottom
+	select bottom->type == $mul
+	select muladd_is_product(bottom)
+	index <SigSpec> port(bottom, \Y) === port(walkAdder, muladd_other_port(walkPort))
+	semioptional
+endmatch
+
+code
+{
+	if (bottom) {
+		did_something = true;
+		log("muladd pattern in %s: %s sinks past %d adder(s)\n", module, log_signal(sigC), GetSize(chain));
+
+		muladd_rotate(outer, muladd_other_port(outerAB), chain, sigC);
+
+		blacklist(outer);
+		for (auto &level : chain)
+			blacklist(level.adder);
+		accept;
+	}
+}
+endcode
+
+// else the next adder down
+match below
+	if !bottom
+	select below->type == $add
+	select nusers(port(below, \Y)) == 2
+	choice <IdString> AB {\A, \B}
+	index <SigSpec> port(below, \Y) === port(walkAdder, muladd_other_port(walkPort))
+	filter muladd_levels_compatible(walkAdder, below)
+	set nextPort AB
+endmatch
+
+match belowmul
+	if below
+	select belowmul->type == $mul
+	select nusers(port(belowmul, \Y)) == 2
+	select muladd_is_product(belowmul)
+	index <SigSpec> port(belowmul, \Y) === port(below, nextPort)
+endmatch
+
+code walkAdder walkPort
+{
+	if (below == nullptr)
+		reject;
+
+	walkAdder = below;
+	walkPort = nextPort;
+	subpattern(walk);
+	reject;
+}
+endcode
