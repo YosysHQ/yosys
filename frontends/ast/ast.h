@@ -379,11 +379,11 @@ namespace AST
 		AstNode *get_struct_member() const;
 
 		// helper to print errors from simplify/genrtlil code
-		[[noreturn]] void formatted_input_error(std::string str) const;
+		[[noreturn]] void formatted_input_error(std::string_view format, std::string str) const;
 		template <typename... Args>
 		[[noreturn]] void input_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args) const
 		{
-			formatted_input_error(fmt.format(args...));
+			formatted_input_error(fmt.format_string(), fmt.format(args...));
 		}
 	};
 

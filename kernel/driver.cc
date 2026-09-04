@@ -19,7 +19,6 @@
 
 #include "kernel/yosys.h"
 #include "kernel/hashlib.h"
-#include "libs/sha1/sha1.h"
 #define CXXOPTS_VECTOR_DELIMITER '\0'
 #include "libs/cxxopts/include/cxxopts.hpp"
 #include <iostream>
@@ -113,6 +112,10 @@ namespace Yosys {
 };
 #endif
 
+namespace Yosys {
+	extern bool log_stderr_sink_forced;
+};
+
 #ifdef _WIN32
 int wmain(int argc, wchar_t **wargv)
 {
@@ -161,6 +164,8 @@ int main(int argc, char **argv)
 	bool run_tcl_shell = false;
 	bool mode_v = false;
 	bool mode_q = false;
+	bool quiet_warnings = false;
+	bool log_stderr = false;
 
 	cxxopts::Options options(argv[0], "Yosys Open SYnthesis Suite");
 	options.set_width(SIZE_MAX);
@@ -286,7 +291,7 @@ int main(int argc, char **argv)
 			run_shell = false;
 		}
 		if (result.count("C")) run_tcl_shell = true;
-		if (result.count("g")) log_force_debug++;
+		if (result.count("g")) logger().force_debug_on();
 		if (result.count("m")) plugin_filenames = result["m"].as<std::vector<std::string>>();
 		if (result.count("f")) frontend_command = result["f"].as<std::string>();
 		if (result.count("H")) {
@@ -314,27 +319,26 @@ int main(int argc, char **argv)
 		for (const auto& key : {"l", "L"}) {
 			if (result.count(key)) {
 				for (const auto& filename : result[key].as<std::vector<std::string>>()) {
-					if (FILE* f = fopen(filename.c_str(), "wt")) {
-						log_files.push_back(f);
-						if (key[0] == 'L') setvbuf(f, NULL, _IOLBF, 0);
-					} else {
-						std::cerr << "Can't open log file `" << filename << "' for writing!\n";
-						exit(1);
+					try {
+						logger().add_sink<FileLogSink>(filename, key[0] == 'L', false);
+					} catch (const std::runtime_error &e) {
+ 					   std::cerr << e.what();
+					   exit(1);
 					}
 				}
 			}
 		}
 		if (result.count("q")) {
 			mode_q = true;
-			if (log_errfile == stderr) log_quiet_warnings = true;
-			log_errfile = stderr;
+			if (log_stderr) quiet_warnings = true;
+			log_stderr = true;
 		}
 		if (result.count("v")) {
 			mode_v = true;
-			log_errfile = stderr;
-			log_verbose_level = result["v"].as<int>();
+			log_stderr = true;
+			logger().set_verbose_level(result["v"].as<int>());
 		}
-		if (result.count("t")) log_time = true;
+		if (result.count("t")) logger().set_log_time(true);
 		if (result.count("d")) timing_details = true;
 		for (const auto& key : {"s", "c"}) {
 			if (result.count(key)) {
@@ -353,11 +357,11 @@ int main(int argc, char **argv)
 				auto regexes = result[key].as<std::vector<std::string>>();
 				for (const auto& regex : regexes) {
 					if (std::string(key) == "W")
-						log_warn_regexes.push_back(std::regex(regex));
+						logger().add_warn(regex);
 					if (std::string(key) == "w")
-						log_nowarn_regexes.push_back(std::regex(regex));
+						logger().add_nowarn(regex);
 					if (std::string(key) == "e")
-						log_werror_regexes.push_back(std::regex(regex));
+						logger().add_werror(regex);
 				}
 			}
 		}
@@ -372,7 +376,7 @@ int main(int argc, char **argv)
 						std::cerr << "Invalid number of tokens in -P ALL." << std::endl;
 						exit(1);
 					}
-					log_hdump_all = true;
+					logger().set_hdump_all(true);
 				} else {
 					if (!tokens.empty() && !tokens[0].empty() && tokens[0].back() == '.')
 						tokens[0].pop_back();
@@ -382,14 +386,14 @@ int main(int argc, char **argv)
 						std::cerr << "Invalid number of tokens in -P." << std::endl;
 						exit(1);
 					}
-					log_hdump[tokens[0]].insert(tokens[1]);
+					logger().add_hdump(tokens[0],tokens[1]);
 				}
 			}
 		}
 		if (result.count("E")) depsfile = result["E"].as<std::string>();
 		if (result.count("x")) {
-			auto ignores = result["x"].as<std::vector<std::string>>();
-			log_experimentals_ignored.insert(ignores.begin(), ignores.end());
+			for (const auto &ignore : result["x"].as<std::vector<std::string>>())
+    			logger().add_experimental_ignore(ignore);
 		}
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
 		if (result.count("infile")) {
@@ -404,9 +408,10 @@ int main(int argc, char **argv)
 			Hasher::set_fudge((Hasher::hash_t)seed);
 		}
 
-		if (log_errfile == NULL) {
-			log_files.push_back(stdout);
-			log_error_stderr = true;
+		if (!log_stderr) {
+			logger().add_sink<ConsoleLogSink>();
+		} else {
+			logger().add_sink<StderrLogSink>(quiet_warnings);
 		}
 
 		if (print_banner)
@@ -450,7 +455,7 @@ int main(int argc, char **argv)
 #endif
 
 	if (print_stats)
-		log_hasher = new SHA1;
+		logger().start_hasher();
 
 #if defined(__OpenBSD__)
 	// save the executable origin for proc_self_dirname()
@@ -594,29 +599,27 @@ int main(int argc, char **argv)
 		fprintf(f, "\n");
 	}
 
-	if (log_expect_no_warnings && log_warnings_count_noexpect)
-		log_error("Unexpected warnings found: %d unique messages, %d total, %d expected\n", GetSize(log_warnings),
-					log_warnings_count, log_warnings_count - log_warnings_count_noexpect);
+	logger().report_unexpected_error();
 
 	if (print_stats)
 	{
-		std::string hash = log_hasher->final().substr(0, 10);
-		delete log_hasher;
-		log_hasher = nullptr;
-
-		log_time = false;
+		std::string hash = logger().finish_hasher();
+		logger().set_log_time(false);
 		yosys_xtrace = 0;
 		log_spacer();
 
-		if (mode_v && !mode_q)
-			log_files.push_back(stderr);
+		log_stderr_sink_forced = mode_v && !mode_q;
+		if (logger().get_warnings_total())
+			log("Warnings: %d unique messages, %d total\n", logger().get_warnings_unique(), logger().get_warnings_total());
 
-		if (log_warnings_count)
-			log("Warnings: %d unique messages, %d total\n", GetSize(log_warnings), log_warnings_count);
+		if (GetSize(logger().get_experimental()) != 0)
+			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(logger().get_experimental()));
 
-		if (!log_experimentals.empty())
-			log("Warnings: %d experimental features used (not excluded with -x).\n", GetSize(log_experimentals));
-
+		if (GetSize(logger().get_deprecated()) != 0) {
+			log("Deprecated features used:\n");
+			for(auto &feature : logger().get_deprecated())
+				log("    %s\n", feature);
+		}
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);
 		(void)wall_clock_start;
@@ -717,7 +720,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	log_check_expected();
+	logger().check_expected();
 
 	yosys_atexit();
 
