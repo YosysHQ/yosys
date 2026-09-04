@@ -266,13 +266,13 @@ struct FfSpec {
 
 // how good a candidate cell is, in decreasing order of importance
 struct CellRank {
-	// smaller is better -> we can compare lexicographically with std::tuple comparison operators
 	bool inv = false; // the cell only drives the inverted output, so it needs an output inverter
 	int pins = 0;
 	double area = 0;
 
-	std::tuple<bool, int, double> key() const { return std::make_tuple(inv, pins, area); }
-	bool operator<(const CellRank &other) const { return key() < other.key(); }
+	auto operator<=>(const CellRank &other) const = default;
+
+	std::string description() const { return stringf("%sinv, pins=%d, area=%.2f", inv ? "" : "non", pins, area); }
 };
 
 struct BestCell {
@@ -423,8 +423,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 	}
 
 	if (best.cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best.cell->args[0].c_str(), best.rank.inv ? "" : "non", best.rank.pins, best.rank.area, cell_type.c_str());
+		log("  cell %s (%s) is a direct match for cell type %s.\n", best.cell->args[0], best.rank.description(), cell_type);
 		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best.cell->args[0]);
 		cell_mappings[cell_type].ports = best.ports;
 	}
