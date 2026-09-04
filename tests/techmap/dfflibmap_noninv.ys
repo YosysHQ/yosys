@@ -1,0 +1,12 @@
+read_verilog -icells <<EOT
+module top(input C, D, output Q);
+  $_DFF_P_ ff (.C(C), .D(D), .Q(Q));
+endmodule
+EOT
+
+dfflibmap -liberty dfflibmap_noninv.lib
+clean
+
+select -assert-count 1 t:DFF_Q
+select -assert-none t:DFF_QN t:DFF_Q_ALT
+select -assert-none t:$_NOT_

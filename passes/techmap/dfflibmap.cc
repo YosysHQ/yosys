@@ -264,12 +264,21 @@ struct FfSpec {
 	bool dff_has_enable = false, dff_enapol = false;
 };
 
+// how good a candidate cell is, in decreasing order of importance
+struct CellRank {
+	bool inv = false; // the cell only drives the inverted output, so it needs an output inverter
+	int pins = 0;
+	double area = 0;
+
+	auto operator<=>(const CellRank &other) const = default;
+
+	std::string description() const { return stringf("%sinv, pins=%d, area=%.2f", inv ? "" : "non", pins, area); }
+};
+
 struct BestCell {
 	const LibertyAst *cell = nullptr;
 	std::map<std::string, char> ports;
-	int pins = 0;
-	bool noninv = false;
-	double area = 0;
+	CellRank rank;
 };
 
 static bool is_dont_use(const LibertyAst *cell, std::vector<std::string> &dont_use_cells)
@@ -330,16 +339,20 @@ static void find_better_cell(BestCell &best, const LibertyAst *cell, const Liber
 			this_cell_ports[pin->args[0]] = 0;
 	}
 
-	if (!found_output || (best.cell != nullptr && (num_pins > best.pins || (best.noninv && !found_noninv_output))))
+	if (!found_output)
 		return;
 
-	if (best.cell != nullptr && num_pins == best.pins && area >= best.area)
+	CellRank rank;
+	rank.inv = !found_noninv_output;
+	rank.pins = num_pins;
+	rank.area = area;
+
+	// on a tie keep the cell we found first, so the result does not depend on the cell order
+	if (best.cell != nullptr && !(rank < best.rank))
 		return;
 
 	best.cell = cell;
-	best.pins = num_pins;
-	best.area = area;
-	best.noninv = found_noninv_output;
+	best.rank = rank;
 	best.ports.swap(this_cell_ports);
 }
 
@@ -410,8 +423,7 @@ static void find_cell(std::vector<const LibertyAst *> cells, IdString cell_type,
 	}
 
 	if (best.cell != nullptr) {
-		log("  cell %s (%sinv, pins=%d, area=%.2f) is a direct match for cell type %s.\n",
-				best.cell->args[0].c_str(), best.noninv ? "non" : "", best.pins, best.area, cell_type.c_str());
+		log("  cell %s (%s) is a direct match for cell type %s.\n", best.cell->args[0], best.rank.description(), cell_type);
 		cell_mappings[cell_type].cell_name = RTLIL::escape_id(best.cell->args[0]);
 		cell_mappings[cell_type].ports = best.ports;
 	}
