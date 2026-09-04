@@ -301,7 +301,7 @@ struct AbcModuleState {
 	RunAbcState run_abc;
 
 	int state_index;
-	int map_autoidx = 0;
+	int map_autoidx;
 	std::vector<RTLIL::SigBit> signal_bits;
 	dict<RTLIL::SigBit, int> signal_map;
 	FfInitVals &initvals;
@@ -315,8 +315,8 @@ struct AbcModuleState {
 
 	int undef_bits_lost = 0;
 
-	AbcModuleState(const AbcConfig &config, FfInitVals &initvals, int state_index)
-		: run_abc(config), state_index(state_index), initvals(initvals) {}
+	AbcModuleState(const AbcConfig &config, FfInitVals &initvals, int state_index, int map_autoidx)
+		: run_abc(config), state_index(state_index), map_autoidx(map_autoidx), initvals(initvals) {}
 	AbcModuleState(AbcModuleState&&) = delete;
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
@@ -674,6 +674,8 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 
 	FILE *dot_f = nullptr;
 	int dot_nr = 0;
+	// Avoids mutating autoidx for multi-threaded determinism
+	int loop_count = 0;
 
 	// uncomment for troubleshooting the loop detection code
 	// dot_f = fopen("test.dot", "w");
@@ -753,9 +755,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 
 			log_assert(signal_bits[id1].wire != nullptr);
 
-			std::stringstream sstr;
-			sstr << "$abcloop$" << (autoidx++);
-			RTLIL::Wire *wire = module->addWire(sstr.str());
+			RTLIL::Wire *wire = module->addWire(stringf("$abcloop$%d$%d", map_autoidx, loop_count++));
 
 			bool first_line = true;
 			for (int id2 : edges[id1]) {
@@ -935,8 +935,6 @@ struct abc_output_filter
 void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 	bool dff_mode, std::string clk_str)
 {
-	map_autoidx = autoidx++;
-
 	if (clk_str != "$")
 	{
 		clk_polarity = true;
@@ -2438,7 +2436,7 @@ struct AbcPass : public Pass {
 				std::vector<RTLIL::Cell*> cells = mod->selected_cells();
 				assign_cell_connection_ports(mod, {&cells}, assign_map);
 
-				AbcModuleState state(config, initvals, 0);
+				AbcModuleState state(config, initvals, 0, autoidx++);
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				ConcurrentStack<AbcProcess> process_pool;
 				state.run_abc.run(process_pool);
@@ -2600,6 +2598,10 @@ struct AbcPass : public Pass {
 				assign_cell_connection_ports(mod, cell_sets, assign_map);
 			}
 
+			// Advance autoidx by the clock domain count for multi-threaded determinism
+			int autoidx_base = autoidx;
+			autoidx.ensure_at_least(autoidx_base + GetSize(assigned_cells));
+
 			// Reserve one core for our main thread, and don't create more worker threads
 			// than ABC runs.
 			int max_threads = assigned_cells.size();
@@ -2641,7 +2643,8 @@ struct AbcPass : public Pass {
 					work_finished_by_index[next_state_index_to_process] = nullptr;
 					++next_state_index_to_process;
 				}
-				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(config, initvals, state_index++);
+				std::unique_ptr<AbcModuleState> state = std::make_unique<AbcModuleState>(
+						config, initvals, state_index, autoidx_base + state_index);
 				state->clk_polarity = std::get<0>(it.first);
 				state->clk_sig = assign_map(std::get<1>(it.first));
 				state->en_polarity = std::get<2>(it.first);
@@ -2658,6 +2661,7 @@ struct AbcPass : public Pass {
 					state->run_abc.run(process_pool);
 					work_finished_queue.push_back(std::move(state));
 				}
+				state_index++;
 			}
 			work_queue.close();
 			while (work_finished_count < GetSize(assigned_cells)) {
