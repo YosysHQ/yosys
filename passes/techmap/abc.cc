@@ -304,6 +304,8 @@ struct AbcModuleState {
 	int map_autoidx;
 	std::vector<RTLIL::SigBit> signal_bits;
 	dict<RTLIL::SigBit, int> signal_map;
+	// Deletions are deferred until extract for multi-threaded determinism
+	std::vector<RTLIL::Cell*> cells_to_remove;
 	FfInitVals &initvals;
 	bool had_init = false;
 
@@ -321,7 +323,7 @@ struct AbcModuleState {
 
 	int map_signal(const AbcSigMap &assign_map, RTLIL::SigBit bit, gate_type_t gate_type = G(NONE), int in1 = -1, int in2 = -1, int in3 = -1, int in4 = -1);
 	void mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig);
-	bool extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff);
+	bool prepare_cell(const AbcSigMap &assign_map, RTLIL::Cell *cell, bool keepff);
 	std::string remap_name(RTLIL::IdString abc_name, RTLIL::Wire **orig_wire = nullptr);
 	void dump_loop_graph(FILE *f, int &nr, dict<int, pool<int>> &edges, pool<int> &workpool, std::vector<int> &in_counts);
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
@@ -379,7 +381,7 @@ void AbcModuleState::mark_port(const AbcSigMap &assign_map, RTLIL::SigSpec sig)
 			run_abc.signal_list[signal_map[bit]].is_port = true;
 }
 
-bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *module, RTLIL::Cell *cell, bool keepff)
+bool AbcModuleState::prepare_cell(const AbcSigMap &assign_map, RTLIL::Cell *cell, bool keepff)
 {
 	if (cell->is_builtin_ff()) {
 		FfData ff(&initvals, cell);
@@ -463,7 +465,8 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 
 		map_signal(assign_map, ff.sig_q, type, map_signal(assign_map, ff.sig_d));
 
-		ff.remove();
+		ff.remove_init();
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -477,7 +480,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 
 		map_signal(assign_map, sig_y, cell->type == ID($_BUF_) ? G(BUF) : G(NOT), map_signal(assign_map, sig_a));
 
-		module->remove(cell);
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -513,7 +516,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 		else
 			log_abort();
 
-		module->remove(cell);
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -535,7 +538,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 
 		map_signal(assign_map, sig_y, cell->type == ID($_MUX_) ? G(MUX) : G(NMUX), mapped_a, mapped_b, mapped_s);
 
-		module->remove(cell);
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -557,7 +560,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI3_) ? G(AOI3) : G(OAI3), mapped_a, mapped_b, mapped_c);
 
-		module->remove(cell);
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -582,7 +585,7 @@ bool AbcModuleState::extract_cell(const AbcSigMap &assign_map, RTLIL::Module *mo
 
 		map_signal(assign_map, sig_y, cell->type == ID($_AOI4_) ? G(AOI4) : G(OAI4), mapped_a, mapped_b, mapped_c, mapped_d);
 
-		module->remove(cell);
+		cells_to_remove.push_back(cell);
 		return true;
 	}
 
@@ -1133,7 +1136,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	had_init = false;
 	std::vector<RTLIL::Cell *> kept_cells;
 	for (auto c : cells)
-		if (!extract_cell(assign_map, module, c, config.keepff))
+		if (!prepare_cell(assign_map, c, config.keepff))
 			kept_cells.push_back(c);
 
 	if (undef_bits_lost)
@@ -1141,7 +1144,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 
 	// Wires with port_id > 0, ID::keep, and connections to cells outside our cell set have already
 	// been accounted for via AbcSigVal::is_port. Now we just need to account for
-	// connections to cells inside our cell set that weren't removed by extract_cell().
+	// connections to cells inside our cell set that weren't removed by prepare_cell().
 	for (auto cell : kept_cells)
 		for (auto &port_it : cell->connections())
 			mark_port(assign_map, port_it.second);
@@ -1514,6 +1517,10 @@ void emit_global_input_files(const AbcConfig &config)
 
 void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 {
+	for (RTLIL::Cell *cell : cells_to_remove)
+		module->remove(cell);
+	cells_to_remove.clear();
+
 	log_push();
 	log_header(design, "Executed ABC.\n");
 	run_abc.logs.flush();
