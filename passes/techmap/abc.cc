@@ -327,7 +327,7 @@ struct AbcModuleState {
 	void handle_loops(AbcSigMap &assign_map, RTLIL::Module *module);
 	void prepare_module(RTLIL::Design *design, RTLIL::Module *module, AbcSigMap &assign_map, const std::vector<RTLIL::Cell*> &cells,
 		bool dff_mode, std::string clk_str);
-	void extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module);
+	void extract(RTLIL::Design *design, RTLIL::Module *module);
 	void finish();
 };
 
@@ -787,6 +787,7 @@ void AbcModuleState::handle_loops(AbcSigMap &assign_map, RTLIL::Module *module)
 			}
 			edges[id1].swap(edges[id3]);
 
+			// TODO
 			connect(assign_map, module, RTLIL::SigSig(signal_bits[id3], signal_bits[id1]));
 			dump_loop_graph(dot_f, dot_nr, edges, workpool, in_edges_count);
 		}
@@ -1513,7 +1514,7 @@ void emit_global_input_files(const AbcConfig &config)
 	}
 }
 
-void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL::Module *module)
+void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 {
 	log_push();
 	log_header(design, "Executed ABC.\n");
@@ -1563,7 +1564,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 				RTLIL::IdString name_y = remap_name(c->getPort(ID::Y).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = RTLIL::SigSpec(c->type == ID(ZERO) ? 0 : 1, 1);
-				connect(assign_map, module, conn);
+				module->connect(conn);
 				continue;
 			}
 			if (c->type == ID(BUF)) {
@@ -1572,7 +1573,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 				RTLIL::IdString name_a = remap_name(c->getPort(ID::A).as_wire()->name);
 				conn.first = module->wire(name_y);
 				conn.second = module->wire(name_a);
-				connect(assign_map, module, conn);
+				module->connect(conn);
 				continue;
 			}
 			if (c->type == ID(NOT)) {
@@ -1704,7 +1705,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			RTLIL::SigSig conn;
 			conn.first = module->wire(remap_name(c->connections().begin()->second.as_wire()->name));
 			conn.second = RTLIL::SigSpec(c->type == ID(_const0_) ? 0 : 1, 1);
-			connect(assign_map, module, conn);
+			module->connect(conn);
 			continue;
 		}
 
@@ -1749,7 +1750,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 		if (c->type == ID($lut) && GetSize(c->getPort(ID::A)) == 1 && c->getParam(ID::LUT).as_int() == 2) {
 			SigSpec my_a = module->wire(remap_name(c->getPort(ID::A).as_wire()->name));
 			SigSpec my_y = module->wire(remap_name(c->getPort(ID::Y).as_wire()->name));
-			connect(assign_map, module, RTLIL::SigSig(my_a, my_y));
+			module->connect(RTLIL::SigSig(my_a, my_y));
 			continue;
 		}
 
@@ -1774,7 +1775,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 			conn.first = module->wire(remap_name(conn.first.as_wire()->name));
 		if (!conn.second.is_fully_const())
 			conn.second = module->wire(remap_name(conn.second.as_wire()->name));
-		connect(assign_map, module, conn);
+		module->connect(conn);
 	}
 
 	cell_stats.sort();
@@ -1795,7 +1796,7 @@ void AbcModuleState::extract(AbcSigMap &assign_map, RTLIL::Design *design, RTLIL
 				conn.second = signal_bits[si.id];
 				in_wires++;
 			}
-			connect(assign_map, module, conn);
+			module->connect(conn);
 		}
 	log("ABC RESULTS:        internal signals: %8d\n", int(run_abc.signal_list.size()) - in_wires - out_wires);
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
@@ -2441,7 +2442,7 @@ struct AbcPass : public Pass {
 				state.prepare_module(design, mod, assign_map, cells, dff_mode, clk_str);
 				ConcurrentStack<AbcProcess> process_pool;
 				state.run_abc.run(process_pool);
-				state.extract(assign_map, design, mod);
+				state.extract(design, mod);
 				continue;
 			}
 
@@ -2636,7 +2637,7 @@ struct AbcPass : public Pass {
 					++work_finished_count;
 				}
 				while (work_finished_by_index[next_state_index_to_process] != nullptr) {
-					work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+					work_finished_by_index[next_state_index_to_process]->extract(design, mod);
 					work_finished_by_index[next_state_index_to_process] = nullptr;
 					++next_state_index_to_process;
 				}
@@ -2666,7 +2667,7 @@ struct AbcPass : public Pass {
 				++work_finished_count;
 			}
 			while (next_state_index_to_process < GetSize(work_finished_by_index)) {
-				work_finished_by_index[next_state_index_to_process]->extract(assign_map, design, mod);
+				work_finished_by_index[next_state_index_to_process]->extract(design, mod);
 				work_finished_by_index[next_state_index_to_process] = nullptr;
 				++next_state_index_to_process;
 			}
