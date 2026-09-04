@@ -44,7 +44,11 @@ bool ColorLogSink::should_log(const LogMessage &msg) const
 		return true;
 	else
 		return (msg.severity == LogSeverity::Warning || msg.severity == LogSeverity::Error);
+		//return (msg.severity == LogSeverity::Warning || msg.severity == LogSeverity::Error || msg.severity == LogSeverity::Header);
 }
+
+//static constexpr std::array<std::string_view, 4> spinner = { "-", "\\", "|", "/" };
+//static int counter = 0;
 void ColorLogSink::log(const LogMessage &msg)
 {
 	FILE *f = stderr;
@@ -60,6 +64,7 @@ void ColorLogSink::log(const LogMessage &msg)
 			break;
 
 		case LogSeverity::Header:
+			//fmt::print(f,"\r\x1b[2K[{}] Processing...", spinner[counter++ % 4]); fflush(f);
 			fmt::print(f, fg(fmt::terminal_color::cyan) | fmt::emphasis::bold, "{}", msg.prefix);
 			fmt::print(f, fg(fmt::terminal_color::white) | fmt::emphasis::bold, "{}", msg.message);
 			break;
@@ -167,6 +172,7 @@ public:
 		std::string name;
 		std::string description;
 		std::vector<std::string> passes;
+		std::vector<std::string> files;
 	};
 	using SourceStandard = std::variant<
 		VerilogStandard,
@@ -188,7 +194,7 @@ public:
 	VerilogStandard verilog_standard = VerilogStandard::Latest;
 	SystemVerilogStandard system_verilog_standard = SystemVerilogStandard::Latest;
 	VhdlStandard vhdl_standard = VhdlStandard::Latest;
-	SystemVerilogFrontend system_verilog_frontend = SystemVerilogFrontend::Slang;
+	SystemVerilogFrontend system_verilog_frontend = SystemVerilogFrontend::Legacy;
 	VhdlFrontend vhdl_frontend;
 
 	void addStandardArgs();
@@ -198,12 +204,14 @@ public:
 	void printOption(const std::string& name, const std::string& desc);
 	void registerTarget(std::string name,
 						std::string description,
-						std::vector<std::string> passes)
+						std::vector<std::string> passes,
+						std::vector<std::string> files)
 	{
 		targets.push_back({
 			std::move(name),
 			std::move(description),
-			std::move(passes)
+			std::move(passes),
+			std::move(files)
 		});
 	}
 };
@@ -248,9 +256,9 @@ int YosysDriver::run(int argc, char **argv) {
 	log_error_atexit = &yc_error_atexit;
 	logger().add_sink<ColorLogSink>();
 
-	registerTarget("ice40", "Lattice iCE 40", {"synth_ice40"});
-	registerTarget("ecp5", "Lattice ECP5", {"synth_ecp5"});
-	registerTarget("gatemate", "GateMate A1", {"synth_gatemate"});
+	registerTarget("ice40", "Lattice iCE40", {"synth_ice40"}, { "+/ice40/cells_sim.v"});
+	registerTarget("ecp5", "Lattice ECP5", {"synth_ecp5"}, { "+/ecp5/cells_sim.v", "+/ecp5/cells_bb.v"});
+	registerTarget("gatemate", "GateMate A1", {"synth_gatemate"}, { "+/gatemate/cells_sim.v", "+/gatemate/cells_bb.v"});
 
 	cmdLine.add("-h,--help", options.showHelp, "Display available options");
 	cmdLine.add("--version", options.showVersion, "Display version information and exit");
@@ -542,7 +550,6 @@ int YosysDriver::run(int argc, char **argv) {
 	show_build_status = true;
 	std::vector<std::string> passes;
 
-	passes.push_back("read -noverific");
 	if (!options.defines.empty()) {
 		for (auto vdef : options.defines) {
 			switch (system_verilog_frontend)
@@ -567,10 +574,36 @@ int YosysDriver::run(int argc, char **argv) {
 			passes.push_back("read -undef " + vdef);
 	}
 
-	//for (auto fn : sourceFiles)
-		//passes.push_back(stringf("read_verilog -sv %s", fn));
-		//run_frontend(fn.c_str(), "auto");
+	auto it = std::find_if(targets.begin(), targets.end(),
+		[this](const auto &target) {
+			return target.name == options.target;
+		});
 
+	std::string files;
+	for (const auto &f : it->files) {
+		std::string fn = f;
+		rewrite_filename(fn);
+
+		if (!files.empty())
+			files += ' ';
+
+		files += fn;
+	}
+	switch (system_verilog_frontend)
+	{
+	case SystemVerilogFrontend::Legacy:
+		passes.push_back(stringf("read_verilog -lib -specify %s", files));
+		break;
+
+	case SystemVerilogFrontend::Slang:
+		passes.push_back(stringf("read_slang %s", files));
+		break;
+
+	case SystemVerilogFrontend::Verific:
+		passes.push_back(stringf("verific -vlog-incdir -I /home/micko/src/yosys/build/share/ecp5"));
+		passes.push_back(stringf("verific -sv -lib %s ", files));
+		break;
+	}	
 
 	for (const auto &file : sourceFiles)
 	{
@@ -631,10 +664,6 @@ int YosysDriver::run(int argc, char **argv) {
 	passes.push_back(stringf("hierarchy -top %s", options.topModule.value()));
 
 	//passes.push_back(stringf("synth_%s", options.target.value()));
-	auto it = std::find_if(targets.begin(), targets.end(),
-		[this](const auto &target) {
-			return target.name == options.target;
-		});
 
 	for (const auto &pass : it->passes) {
 		// run pass
