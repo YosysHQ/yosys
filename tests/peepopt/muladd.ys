@@ -1,0 +1,82 @@
+read_verilog <<EOT
+module top(input signed [7:0] a, b, c, d, input signed [15:0] e, output signed [15:0] y);
+	assign y = a*b + c*d + e;
+endmodule
+EOT
+
+prep -top top
+
+# both products share one adder
+select -assert-count 1 t:$mul %co2 t:$add %i
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 2 t:$mul %co2 t:$add %i
+design -reset
+
+read_verilog <<EOT
+module top(input [7:0] a, b, c, d, f, g, input [15:0] e, output [15:0] y);
+	assign y = e + (a*b + c*d + f*g);
+endmodule
+
+EOT
+prep -top top
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 3 t:$mul %co2 t:$add %i
+design -reset
+# Reject patterns
+
+read_verilog <<EOT
+module sumfanout(input signed [7:0] a, b, c, d, input signed [15:0] e, output signed [15:0] y, z);
+	wire signed [15:0] t = a*b + c*d; assign y = t + e, z = t;
+endmodule
+// the kept wire only aliases the partial sum, so the rule has to map it first
+module keptalias(input signed [7:0] a, b, c, d, input signed [15:0] e, output signed [15:0] y);
+	wire signed [15:0] t = a*b + c*d;
+	(* keep *) wire signed [15:0] probe; assign probe = t, y = t + e;
+endmodule
+// $add takes one signedness for both operands, so the operands cannot swap
+module signedness(input signed [7:0] x, a, b, input [7:0] c, output [15:0] y);
+	wire [15:0] t = x + a*b; assign y = t + c;
+endmodule
+// the partial sum is truncated and re-extended, so the sum really would change
+module truncated(input signed [7:0] a, b, c, d, input signed [15:0] e, output signed [15:0] y);
+	wire signed [9:0] t = a*b + c*d; assign y = t + e;
+endmodule
+// moving the second copy into the inner adder would feed it from its own output
+module sumtwice(input [7:0] x, a, b, output [7:0] y);
+	wire [7:0] t = x + a*b; assign y = t + t;
+endmodule
+// the chain has no top, so the product would travel around it forever
+module combcycle(input signed [7:0] a, b, input signed [15:0] e, output signed [15:0] o);
+	wire signed [15:0] t1, t2; assign t1 = t2 + a*b, t2 = t1 + e, o = t1;
+endmodule
+// swapping two products
+module allproducts(input signed [7:0] a, b, c, d, f, g, output signed [15:0] y);
+	assign y = a*b + c*d + f*g;
+endmodule
+EOT
+
+opt_clean
+peepopt
+cd sumfanout; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd keptalias; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd signedness; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd truncated; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd sumtwice; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd combcycle; select -assert-count 1 t:$mul %co2 t:$add %i; cd ..
+cd allproducts; select -assert-count 2 t:$mul %co2 t:$add %i; cd ..
+design -reset
+
+read_verilog <<EOT
+module top(input [11:0] a, c, d, input [31:0] e, output [31:0] y);
+	wire [31:0] q = (a * 16'd5140) / (257 * 2);
+	assign y = q + c*d + e;
+endmodule
+EOT
+
+hierarchy -top top
+peepopt
+clean
+select -assert-count 2 t:$mul %co2 t:$add %i
+design -reset
