@@ -125,6 +125,7 @@ Multithreading::~Multithreading() {
 }
 
 void Autoidx::ensure_at_least(int v) {
+	log_assert(!Multithreading::active());
 	value = std::max(value, v);
 }
 
