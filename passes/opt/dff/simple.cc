@@ -103,6 +103,18 @@ struct SimpleContext
 		}
 	}
 
+	RTLIL::SigBit port_bit(RTLIL::Cell *cell, RTLIL::IdString port, int offset)
+	{
+		return worker.sigmap(cell->getPort(port)[offset]);
+	}
+
+	void break_feedback(RTLIL::Cell *mux, RTLIL::IdString port, int offset)
+	{
+		RTLIL::SigSpec s = mux->getPort(port);
+		s[offset] = RTLIL::Sx;
+		mux->setPort(port, s);
+	}
+
 	patterns_t find_muxtree_feedback_patterns(RTLIL::SigBit d, RTLIL::SigBit q, pattern_t path)
 	{
 		// Find feedback paths D->Q through mux tree, replacing found paths with Sx
@@ -117,20 +129,17 @@ struct SimpleContext
 			return ret; // D not driven by MUX / MUX drives multiple loads
 
 		cell_int_t mbit = bit2mux.at(d);
-		RTLIL::SigSpec sig_a = worker.sigmap(mbit.first->getPort(ID::A));
-		RTLIL::SigSpec sig_b = worker.sigmap(mbit.first->getPort(ID::B));
-		RTLIL::SigSpec sig_s = worker.sigmap(mbit.first->getPort(ID::S));
-		int width = GetSize(sig_a), index = mbit.second;
+		RTLIL::Cell *mux = mbit.first;
+		int width = GetSize(mux->getPort(ID::A)), index = mbit.second;
+		int s_width = GetSize(mux->getPort(ID::S));
 
 		// Traverse MUX tree
-		for (int i = 0; i < GetSize(sig_s); i++) {
-			if (path.count(sig_s[i]) && path.at(sig_s[i])) {
-				ret = find_muxtree_feedback_patterns(sig_b[i*width + index], q, path);
-				if (sig_b[i*width + index] == q) {
-					RTLIL::SigSpec s = mbit.first->getPort(ID::B);
-					s[i*width + index] = RTLIL::Sx;
-					mbit.first->setPort(ID::B, s);
-				}
+		for (int i = 0; i < s_width; i++) {
+			RTLIL::SigBit s_bit = port_bit(mux, ID::S, i);
+			if (path.count(s_bit) && path.at(s_bit)) {
+				ret = find_muxtree_feedback_patterns(port_bit(mux, ID::B, i*width + index), q, path);
+				if (port_bit(mux, ID::B, i*width + index) == q)
+					break_feedback(mux, ID::B, i*width + index);
 
 				return ret;
 			}
@@ -138,34 +147,29 @@ struct SimpleContext
 
 		// Specific path wasn't forced, explore the 0 branch
 		pattern_t path_else = path;
-		for (int i = 0; i < GetSize(sig_s); i++) {
-			if (path.count(sig_s[i]))
+		for (int i = 0; i < s_width; i++) {
+			RTLIL::SigBit s_bit = port_bit(mux, ID::S, i);
+			if (path.count(s_bit))
 				continue;
 
 			pattern_t path_this = path;
-			path_else[sig_s[i]] = false; // Assume S=0 for 'else' path
-			path_this[sig_s[i]] = true;  // Assume S=1 for 'this' path
+			path_else[s_bit] = false; // Assume S=0 for 'else' path
+			path_this[s_bit] = true;  // Assume S=1 for 'this' path
 
 			// Selected when S=1
-			for (auto &pat : find_muxtree_feedback_patterns(sig_b[i*width + index], q, path_this))
+			for (auto &pat : find_muxtree_feedback_patterns(port_bit(mux, ID::B, i*width + index), q, path_this))
 				ret.insert(pat);
 
-			if (sig_b[i*width + index] == q) {
-				RTLIL::SigSpec s = mbit.first->getPort(ID::B);
-				s[i*width + index] = RTLIL::Sx;
-				mbit.first->setPort(ID::B, s);
-			}
+			if (port_bit(mux, ID::B, i*width + index) == q)
+				break_feedback(mux, ID::B, i*width + index);
 		}
 
 		// Selected when S=0
-		for (auto &pat : find_muxtree_feedback_patterns(sig_a[index], q, path_else))
+		for (auto &pat : find_muxtree_feedback_patterns(port_bit(mux, ID::A, index), q, path_else))
 			ret.insert(pat);
 
-		if (sig_a[index] == q) {
-			RTLIL::SigSpec s = mbit.first->getPort(ID::A);
-			s[index] = RTLIL::Sx;
-			mbit.first->setPort(ID::A, s);
-		}
+		if (port_bit(mux, ID::A, index) == q)
+			break_feedback(mux, ID::A, index);
 
 		return ret;
 	}
