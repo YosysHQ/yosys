@@ -1499,7 +1499,7 @@ struct XAiger2Backend : Backend {
 		log("        (conflicts with -flatten)\n");
 		log("\n");
 		log("    -map2 <file>\n");
-		log("        write a map2 file which 'abc_ops_reintegrate' can read to\n");
+		log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
 		log("        reintegrate a mapping\n");
 		log("        (conflicts with -flatten)\n");
 		log("\n");
