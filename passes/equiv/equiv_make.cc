@@ -34,6 +34,7 @@ struct EquivMakeWorker
 	vector<string> blacklists;
 	vector<string> encfiles;
 	bool make_assert;
+	bool nocells;
 
 	pool<IdString> blacklist_names;
 	dict<IdString, dict<Const, Const>> encdata;
@@ -420,7 +421,8 @@ struct EquivMakeWorker
 		copy_to_equiv();
 		find_undriven_nets(false);
 		find_same_wires();
-		find_same_cells();
+		if (!nocells)
+			find_same_cells();
 		find_undriven_nets(true);
 	}
 };
@@ -451,6 +453,9 @@ struct EquivMakePass : public Pass {
 		log("        Check equivalence with $assert cells instead of $equiv.\n");
 		log("        $eqx (===) is used to compare signals.");
 		log("\n");
+		log("    -nocells\n");
+		log("        Do not check for equivalent cells, just wires.\n");
+		log("\n");
 		log("Note: The circuit created by this command is not a miter (with something like\n");
 		log("a trigger output), but instead uses $equiv cells to encode the equivalence\n");
 		log("checking problem. Use 'miter -equiv' if you want to create a miter circuit.\n");
@@ -462,6 +467,7 @@ struct EquivMakePass : public Pass {
 		worker.ct.setup(design);
 		worker.inames = false;
 		worker.make_assert = false;
+		worker.nocells = false;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -480,6 +486,10 @@ struct EquivMakePass : public Pass {
 			}
 			if (args[argidx] == "-make_assert") {
 				worker.make_assert = true;
+				continue;
+			}
+			if (args[argidx] == "-nocells") {
+				worker.nocells = true;
 				continue;
 			}
 			break;
