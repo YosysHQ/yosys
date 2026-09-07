@@ -65,7 +65,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p bison
-          curl -L https://ftpmirror.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar --strip-components=1 -xzC bison
+          curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar --strip-components=1 -xzC bison
       ## Software installed by default in GitHub Action Runner VMs:
       ##  https://github.com/actions/runner-images
       - if: ${{ matrix.os.family == 'macos' }}
