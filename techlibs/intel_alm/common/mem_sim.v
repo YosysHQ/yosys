@@ -75,39 +75,52 @@ endmodule
 // --------
 // TODO
 
-module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN);
+module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN, CLK2);
 
 parameter INIT = 0;
 
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
+// Preserve the original single-clock primitive when CLK2 is omitted.
+parameter CFG_DUAL_CLOCK = 0;
 
 (* clkbuf_sink *) input CLK1;
+(* clkbuf_sink *) input CLK2;
 input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
 input [CFG_DBITS-1:0] A1DATA;
 input A1EN, B1EN;
 output reg [CFG_DBITS-1:0] B1DATA;
 
-reg [2**CFG_ABITS * CFG_DBITS - 1 : 0] mem = INIT;
+localparam [(1 << CFG_ABITS)*CFG_DBITS-1:0] INIT_DATA = INIT;
+reg [CFG_DBITS-1:0] mem [0:(1 << CFG_ABITS)-1];
+integer i;
+initial
+    for (i = 0; i < (1 << CFG_ABITS); i = i + 1)
+        mem[i] = INIT_DATA[i * CFG_DBITS +: CFG_DBITS];
 
 `ifdef cyclonev
 specify
     $setup(A1ADDR, posedge CLK1, 125);
     $setup(A1DATA, posedge CLK1, 97);
     $setup(A1EN, posedge CLK1, 140);
-    $setup(B1ADDR, posedge CLK1, 125);
-    $setup(B1EN, posedge CLK1, 161);
+    $setup(B1ADDR, posedge CLK1 &&& !CFG_DUAL_CLOCK, 125);
+    $setup(B1EN, posedge CLK1 &&& !CFG_DUAL_CLOCK, 161);
+    $setup(B1ADDR, posedge CLK2 &&& (CFG_DUAL_CLOCK != 0), 125);
+    $setup(B1EN, posedge CLK2 &&& (CFG_DUAL_CLOCK != 0), 161);
 
-    if (B1EN) (posedge CLK1 => (B1DATA : A1DATA)) = 1004;
+    if (B1EN && !CFG_DUAL_CLOCK) (posedge CLK1 => (B1DATA : A1DATA)) = 1004;
+    if (B1EN && CFG_DUAL_CLOCK) (posedge CLK2 => (B1DATA : A1DATA)) = 1004;
 endspecify
 `endif
 
-always @(posedge CLK1) begin
-    if (!A1EN)
-        mem[(A1ADDR + 1) * CFG_DBITS - 1 : A1ADDR * CFG_DBITS] <= A1DATA;
+always @(posedge CLK1)
+    if (CFG_DBITS == 40 ? A1EN : !A1EN)
+        mem[A1ADDR] <= A1DATA;
 
+wire read_clk = CFG_DUAL_CLOCK ? CLK2 : CLK1;
+always @(posedge read_clk) begin
     if (B1EN)
-        B1DATA <= mem[(B1ADDR + 1) * CFG_DBITS - 1 : B1ADDR * CFG_DBITS];
+        B1DATA <= mem[B1ADDR];
 end
 
 endmodule
