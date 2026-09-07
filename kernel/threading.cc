@@ -102,6 +102,9 @@ ParallelDispatchThreadPool::ParallelDispatchThreadPool(int pool_size)
 		: num_worker_threads_(0)
 #endif
 {
+#ifndef YOSYS_ENABLE_THREADS
+	(void)pool_size;
+#endif
 	main_to_workers_signal.resize(num_worker_threads_, 0);
 	// Don't start the threads until we've constructed all our data members.
 	thread_pool = std::make_unique<ThreadPool>(num_worker_threads_, [this](int thread_num){
@@ -148,6 +151,7 @@ void ParallelDispatchThreadPool::run_worker(int thread_num)
 	}
 	signal_worker_done();
 #else
+	(void)thread_num;
 	(void)current_work;
 #endif
 }

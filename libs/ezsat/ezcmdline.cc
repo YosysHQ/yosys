@@ -87,6 +87,9 @@ bool ezCmdlineSAT::solver(const std::vector<int> &modelExpressions, std::vector<
 	}
 	return true;
 #else
+	(void)modelExpressions;
+	(void)modelValues;
+	(void)assumptions;
 	Yosys::log_error("SAT solver command not available in this build!\n");
 #endif
 }

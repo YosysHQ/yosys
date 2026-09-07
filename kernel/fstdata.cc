@@ -22,10 +22,12 @@
 USING_YOSYS_NAMESPACE
 
 
+#if defined(YOSYS_ENABLE_SPAWN)
 static std::string file_base_name(std::string const & path)
 {
 	return path.substr(path.find_last_of("/\\") + 1);
 }
+#endif
 
 FstData::FstData(std::string filename) : ctx(nullptr)
 {
