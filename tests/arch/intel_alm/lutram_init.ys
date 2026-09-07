@@ -1,0 +1,35 @@
+read_verilog lutram_init.v
+hierarchy -top lutram_init
+proc
+memory -nomap
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -nodsp -noiopad -noclkbuf
+design -save compare
+design -load postopt
+cd lutram_init
+select -assert-count 8 t:MISTRAL_MLAB
+select -assert-none t:MISTRAL_M10K t:MISTRAL_FF
+design -load compare
+
+memory
+opt -full
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter
+
+
+design -reset
+read_verilog -DINIT_FROM_FILE lutram_init.v
+hierarchy -top lutram_init
+proc
+memory -nomap
+equiv_opt -run :prove -map +/intel_alm/common/alm_sim.v -map +/intel_alm/common/dff_sim.v -map +/intel_alm/common/mem_sim.v synth_intel_alm -family cyclonev -nobram -nodsp -noiopad -noclkbuf
+design -save compare
+design -load postopt
+cd lutram_init
+select -assert-count 8 t:MISTRAL_MLAB
+select -assert-none t:MISTRAL_M10K t:MISTRAL_FF
+design -load compare
+
+memory
+opt -full
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -prove-asserts -seq 5 -set-init-zero -show-inputs -show-outputs miter

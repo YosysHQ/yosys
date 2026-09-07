@@ -46,7 +46,9 @@ module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN,
     (* clkbuf_sink *) input CLK1,
     input [4:0] B1ADDR, output B1DATA);
 
-reg [31:0] mem = 32'b0;
+parameter [31:0] INIT = 32'b0;
+
+reg [31:0] mem = INIT;
 
 `ifdef cyclonev
 specify

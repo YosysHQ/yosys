@@ -1,5 +1,5 @@
 bram MISTRAL_MLAB
-    init   0   # TODO: Re-enable when Yosys remembers the original filename.
+    init   1
     abits  5
     dbits  1
     groups 2
