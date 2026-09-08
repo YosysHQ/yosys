@@ -50,7 +50,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	int co_count = design->scratchpad_get_int("read_aiger.co_count", 0);
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
-	dict<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> pseudopos;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -149,28 +148,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 						r.first->second.first = std::min(r.first->second.first, index);
 						r.first->second.second = std::max(r.first->second.second, index);
 					}
-				}
-			}
-			else if (type == "pseudopo") {
-				std::string port;
-				mf >> port;
-				RTLIL::IdString escaped_p = RTLIL::escape_id(port);
-
-				log_assert(variable + co_count < output_count);
-				RTLIL::IdString wire_name = stringf("$aiger$o%d", variable + co_count);
-				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
-				log_assert(wire);
-				log_assert(wire->port_output);
-				log_debug("Mapping pseudo output %s", wire);
-
-				if (index == 0) {
-					pseudopos.insert({wire_name, std::make_pair(escaped_s, escaped_p)});
-					log_debug(" -> %s.%s\n", escaped_s, escaped_p);
-				}
-				else {
-					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
-					pseudopos.insert({wire_name, std::make_pair(indexed_name, escaped_p)});
-					log_debug(" -> %s.%s\n", indexed_name, escaped_p);
 				}
 			}
 			else if (type == "box") {
@@ -375,7 +352,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			continue;
 		}
 
-		if (mapped_cell->type == ID($lut) || mapped_cell->get_bool_attribute(ID::abc9_cell)) {
+		if (mapped_cell->type == ID($lut)) {
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
@@ -528,24 +505,6 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	for (auto &it : cell_stats)
 		log("ABC RESULTS:   %15s cells: %8d\n", it.first, it.second);
 	int in_wires = 0, out_wires = 0;
-
-	for (auto pseudopo : pseudopos) {
-		auto wire_name = pseudopo.first;
-		auto box_name = pseudopo.second.first;
-		auto box_port_name = pseudopo.second.second;
-
-		RTLIL::Wire *mapped_wire = mapped_mod->wire(wire_name);
-		log_assert(mapped_wire);
-		auto box = module->cell(box_name);
-		log_assert(box);
-
-		RTLIL::Wire *remap_wire = module->wire(remap_name(wire_name));
-		box->setPort(box_port_name, remap_wire);
-
-		mapped_wire->port_output = false;
-	}
-
-	mapped_mod->fixup_ports();
 
 	// Stitch in mapped_mod's inputs/outputs into module
 	for (auto port : mapped_mod->ports) {

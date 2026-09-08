@@ -998,7 +998,7 @@ struct XAigerWriter : AigerWriter {
 			if (map_file.is_open() && !box_port) {
 				log_assert(cursor.is_top()); // TODO
 				driven_by_opaque_box.insert(bit);
-				map_file << "input " << pis.size() - 1 << " " << bit.offset
+				map_file << "pi " << pis.size() - 1 << " " << bit.offset
 						<< " " << bit.wire->name.c_str() << "\n";
 			}
 		} else {
@@ -1273,8 +1273,11 @@ struct XAigerWriter : AigerWriter {
 		for (auto w : top->wires())
 			if (w->port_output)
 				for (int i = 0; i < w->width; i++) {
-					if (map_file.is_open()) {
-						map_file << "output " << proper_pos_counter << " " << i
+					// When a module output is directly driven by an opaque box, we
+					// don't emit it to the mapping file to aid re-integration, but we
+					// do emit a proper PO.
+					if (map_file.is_open() && !driven_by_opaque_box.count(SigBit(w, i))) {
+						map_file << "po " << proper_pos_counter << " " << i
 									<< " " << w->name.c_str() << "\n";
 					}
 					proper_pos_counter++;
@@ -1499,7 +1502,7 @@ struct XAiger2Backend : Backend {
 		log("        (conflicts with -flatten)\n");
 		log("\n");
 		log("    -map2 <file>\n");
-		log("        write a map2 file which 'abc_ops_reintegrate' can read to\n");
+		log("        write a map2 file which 'read_xaiger2 -sc_mapping' can read to\n");
 		log("        reintegrate a mapping\n");
 		log("        (conflicts with -flatten)\n");
 		log("\n");
