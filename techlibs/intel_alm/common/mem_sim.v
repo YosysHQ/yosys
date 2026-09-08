@@ -160,24 +160,50 @@ end
 end endgenerate
 endmodule
 
-// Whole-word, equal-width true dual-port M10K. Each enabled positive edge
-// reads or writes its own port; a write returns NEW_DATA on that port.
+// Equal-width true dual-port M10K. Whole-word writes return NEW_DATA.
+// Byte mode preserves disabled storage lanes but their write-cycle Q is X
+// (NEW_DATA_NO_NBE_READ); enabled lanes return the input data.
 // Cross-port accesses to the same address involving a write have unspecified
 // hardware results. This model imposes no supported cross-port write priority.
 module MISTRAL_M10K_TDP(CLK1, CLK2, A1ADDR, B1ADDR, A1DATA, B1DATA,
-    A1Q, B1Q, A1EN, B1EN, A1WE, B1WE);
+    A1Q, B1Q, A1EN, B1EN, A1WE, B1WE, A1BE, B1BE);
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
+parameter CFG_BYTE_ENABLE = 0;
 parameter [10239:0] INIT = 0;
 (* clkbuf_sink *) input CLK1, CLK2;
 input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
 input [CFG_DBITS-1:0] A1DATA, B1DATA;
 input A1EN, B1EN, A1WE, B1WE;
+input [1:0] A1BE, B1BE;
 output reg [CFG_DBITS-1:0] A1Q, B1Q;
 reg [CFG_DBITS-1:0] mem [0:(1 << CFG_ABITS)-1];
 integer i;
 initial for (i = 0; i < (1 << CFG_ABITS); i = i + 1)
     mem[i] = INIT[i*CFG_DBITS +: CFG_DBITS];
+generate if (CFG_BYTE_ENABLE) begin
+    genvar lane;
+    for (lane = 0; lane < 2; lane = lane + 1) begin
+        always @(posedge CLK1) if (A1EN) begin
+            if (A1WE) begin
+                A1Q[lane*10 +: 10] <= 10'bx;
+                if (A1BE[lane]) begin
+                    mem[A1ADDR][lane*10 +: 10] <= A1DATA[lane*10 +: 10];
+                    A1Q[lane*10 +: 10] <= A1DATA[lane*10 +: 10];
+                end
+            end else A1Q[lane*10 +: 10] <= mem[A1ADDR][lane*10 +: 10];
+        end
+        always @(posedge CLK2) if (B1EN) begin
+            if (B1WE) begin
+                B1Q[lane*10 +: 10] <= 10'bx;
+                if (B1BE[lane]) begin
+                    mem[B1ADDR][lane*10 +: 10] <= B1DATA[lane*10 +: 10];
+                    B1Q[lane*10 +: 10] <= B1DATA[lane*10 +: 10];
+                end
+            end else B1Q[lane*10 +: 10] <= mem[B1ADDR][lane*10 +: 10];
+        end
+    end
+end else begin
 always @(posedge CLK1) if (A1EN) begin
     if (A1WE) begin
         mem[A1ADDR] <= A1DATA;
@@ -190,4 +216,5 @@ always @(posedge CLK2) if (B1EN) begin
         B1Q <= B1DATA;
     end else B1Q <= mem[B1ADDR];
 end
+end endgenerate
 endmodule

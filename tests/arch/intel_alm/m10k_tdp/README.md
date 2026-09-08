@@ -10,8 +10,8 @@ port holds its output and does not write.
 The physical configurations are 1024x10 and 512x20. Eight- and sixteen-bit
 payloads use the low bits of those physical words; the remaining high bits
 are padding. Both ports have the same physical width. Shared clocks are
-supported as well as independent clocks. This slice has no primitive byte
-masks, reset, or mixed-width ports.
+supported as well as independent clocks. This style has no byte masks, reset, or mixed-width ports. For the separate
+masked style and primitive extension, see [m10k_tdp_byte_enable](../m10k_tdp_byte_enable/README.md).
 
 An enabled write returns NEW_DATA on its own output. Cross-port access to
 the same word involving a write has **no guaranteed hardware result**;

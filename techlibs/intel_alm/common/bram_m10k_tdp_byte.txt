@@ -1,0 +1,15 @@
+# Separate opt-in: disabled output lanes during writes are unspecified.
+ram block $__MISTRAL_M10K_TDP_BYTE_ {
+ abits 9;
+ option "BYTE" 8 { width 16; byte 8; }
+ option "BYTE" 10 { width 20; byte 10; }
+ cost 100;
+ init any;
+ style "m10k_tdp_byte";
+ port srsw "A" "B" {
+  clock posedge;
+  clken;
+  wrbe_separate;
+  rdwr new_only;
+ }
+}
