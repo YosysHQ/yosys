@@ -81,6 +81,9 @@ parameter INIT = 0;
 
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
+parameter CFG_RD_ABITS = CFG_ABITS;
+parameter CFG_RD_DBITS = CFG_DBITS;
+parameter CFG_MIXED_WIDTH = 0;
 // Preserve the original single-clock primitive when CLK2 is omitted.
 parameter CFG_DUAL_CLOCK = 0;
 // Byte-enable mode uses two physical M10K write lanes and an active-high
@@ -89,19 +92,13 @@ parameter CFG_BYTE_ENABLE = 0;
 
 (* clkbuf_sink *) input CLK1;
 (* clkbuf_sink *) input CLK2;
-input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
+input [CFG_ABITS-1:0] A1ADDR;
+input [CFG_RD_ABITS-1:0] B1ADDR;
 input [CFG_DBITS-1:0] A1DATA;
 input A1EN;
 input [1:0] A1BE;
 input B1EN;
-output reg [CFG_DBITS-1:0] B1DATA;
-
-localparam [(1 << CFG_ABITS)*CFG_DBITS-1:0] INIT_DATA = INIT;
-reg [CFG_DBITS-1:0] mem [0:(1 << CFG_ABITS)-1];
-integer i;
-initial
-    for (i = 0; i < (1 << CFG_ABITS); i = i + 1)
-        mem[i] = INIT_DATA[i * CFG_DBITS +: CFG_DBITS];
+output reg [CFG_RD_DBITS-1:0] B1DATA;
 
 `ifdef cyclonev
 specify
@@ -113,10 +110,34 @@ specify
     $setup(B1ADDR, posedge CLK2 &&& (CFG_DUAL_CLOCK != 0), 125);
     $setup(B1EN, posedge CLK2 &&& (CFG_DUAL_CLOCK != 0), 161);
 
-    if (B1EN && !CFG_DUAL_CLOCK) (posedge CLK1 => (B1DATA : A1DATA)) = 1004;
-    if (B1EN && CFG_DUAL_CLOCK) (posedge CLK2 => (B1DATA : A1DATA)) = 1004;
+    if (B1EN && !CFG_DUAL_CLOCK) (posedge CLK1 => (B1DATA : {CFG_RD_DBITS{1'bx}})) = 1004;
+    if (B1EN && CFG_DUAL_CLOCK) (posedge CLK2 => (B1DATA : {CFG_RD_DBITS{1'bx}})) = 1004;
 endspecify
 `endif
+
+generate if (CFG_MIXED_WIDTH) begin: mixed
+    // A canonical array of 10-bit words preserves low-address-first ordering
+    // across different read and write widths and the memory_libmap INIT bus.
+    localparam [10239:0] CONTENTS = INIT;
+    reg [9:0] words [0:1023];
+    integer i, w, r;
+    initial for (i = 0; i < 1024; i = i + 1)
+        words[i] = CONTENTS[i*10 +: 10];
+    always @(posedge CLK1)
+        if (A1EN)
+            for (w = 0; w < CFG_DBITS/10; w = w + 1)
+                words[A1ADDR*(CFG_DBITS/10)+w] <= A1DATA[w*10 +: 10];
+    always @(posedge CLK2)
+        if (B1EN)
+            for (r = 0; r < CFG_RD_DBITS/10; r = r + 1)
+                B1DATA[r*10 +: 10] <= words[B1ADDR*(CFG_RD_DBITS/10)+r];
+end else begin: legacy
+localparam [(1 << CFG_ABITS)*CFG_DBITS-1:0] INIT_DATA = INIT;
+reg [CFG_DBITS-1:0] mem [0:(1 << CFG_ABITS)-1];
+integer i;
+initial
+    for (i = 0; i < (1 << CFG_ABITS); i = i + 1)
+        mem[i] = INIT_DATA[i * CFG_DBITS +: CFG_DBITS];
 
 always @(posedge CLK1) begin
     if (CFG_BYTE_ENABLE) begin
@@ -136,4 +157,5 @@ always @(posedge read_clk) begin
         B1DATA <= mem[B1ADDR];
 end
 
+end endgenerate
 endmodule

@@ -1,0 +1,9 @@
+ram block $__MISTRAL_M10K_MIXED_ {
+ abits 10;
+ widths 10 20 40 per_port;
+ cost 100;
+ init any;
+ style "m10k_mixed";
+ port sw "W" { clock posedge; }
+ port sr "R" { clock posedge; rden; }
+}

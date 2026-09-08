@@ -227,6 +227,10 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
+			if (bram_type == "m10k") {
+				run("memory_libmap -lib +/intel_alm/common/bram_m10k_mixed.txt a:ram_style=m10k_mixed");
+				run("techmap -map +/intel_alm/common/bram_m10k_mixed_map.v");
+			}
 			run(stringf("memory_bram -rules +/intel_alm/common/bram_%s.txt", bram_type));
 			run(stringf("techmap -map +/intel_alm/common/bram_%s_map.v", bram_type));
 		}

@@ -16,6 +16,7 @@ yosys_pass(synth_intel_alm
 		iopadmap
 		memory
 		memory_bram
+		memory_libmap
 		memory_map
 		opt
 		opt_clean
@@ -51,6 +52,8 @@ yosys_pass(synth_intel_alm
 		# RAM
 		common/bram_m10k.txt
 		common/bram_m10k_map.v
+		common/bram_m10k_mixed.txt
+		common/bram_m10k_mixed_map.v
 		common/lutram_mlab.txt
 
 		# Miscellaneous
