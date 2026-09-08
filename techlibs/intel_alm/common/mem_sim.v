@@ -160,28 +160,58 @@ end
 end endgenerate
 endmodule
 
-// Equal-width true dual-port M10K. Whole-word writes return NEW_DATA.
+// True dual-port M10K with optional independent port widths. Whole-word writes return NEW_DATA.
 // Byte mode preserves disabled storage lanes but their write-cycle Q is X
 // (NEW_DATA_NO_NBE_READ); enabled lanes return the input data.
-// Cross-port accesses to the same address involving a write have unspecified
+// Cross-port accesses to overlapping physical storage involving a write have unspecified
 // hardware results. This model imposes no supported cross-port write priority.
 module MISTRAL_M10K_TDP(CLK1, CLK2, A1ADDR, B1ADDR, A1DATA, B1DATA,
     A1Q, B1Q, A1EN, B1EN, A1WE, B1WE, A1BE, B1BE);
 parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
 parameter CFG_BYTE_ENABLE = 0;
+parameter CFG_MIXED_WIDTH = 0;
+// Historical RD prefix: these describe both the read and write side of port B.
+parameter CFG_RD_ABITS = CFG_ABITS;
+parameter CFG_RD_DBITS = CFG_DBITS;
 parameter [10239:0] INIT = 0;
 (* clkbuf_sink *) input CLK1, CLK2;
-input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
-input [CFG_DBITS-1:0] A1DATA, B1DATA;
+input [CFG_ABITS-1:0] A1ADDR;
+input [CFG_RD_ABITS-1:0] B1ADDR;
+input [CFG_DBITS-1:0] A1DATA;
+input [CFG_RD_DBITS-1:0] B1DATA;
 input A1EN, B1EN, A1WE, B1WE;
 input [1:0] A1BE, B1BE;
-output reg [CFG_DBITS-1:0] A1Q, B1Q;
+output reg [CFG_DBITS-1:0] A1Q;
+output reg [CFG_RD_DBITS-1:0] B1Q;
+generate if (CFG_MIXED_WIDTH) begin: mixed
+    // Canonical low-address-first 10-bit chunks, shared by both read/write ports.
+    reg [9:0] words [0:1023];
+    integer i, a, b;
+    initial for (i = 0; i < 1024; i = i + 1)
+        words[i] = INIT[i*10 +: 10];
+    always @(posedge CLK1) if (A1EN) begin
+        for (a = 0; a < CFG_DBITS/10; a = a + 1) begin
+            if (A1WE) begin
+                words[A1ADDR*(CFG_DBITS/10)+a] <= A1DATA[a*10 +: 10];
+                A1Q[a*10 +: 10] <= A1DATA[a*10 +: 10];
+            end else A1Q[a*10 +: 10] <= words[A1ADDR*(CFG_DBITS/10)+a];
+        end
+    end
+    always @(posedge CLK2) if (B1EN) begin
+        for (b = 0; b < CFG_RD_DBITS/10; b = b + 1) begin
+            if (B1WE) begin
+                words[B1ADDR*(CFG_RD_DBITS/10)+b] <= B1DATA[b*10 +: 10];
+                B1Q[b*10 +: 10] <= B1DATA[b*10 +: 10];
+            end else B1Q[b*10 +: 10] <= words[B1ADDR*(CFG_RD_DBITS/10)+b];
+        end
+    end
+end else begin: equal_width
 reg [CFG_DBITS-1:0] mem [0:(1 << CFG_ABITS)-1];
 integer i;
 initial for (i = 0; i < (1 << CFG_ABITS); i = i + 1)
     mem[i] = INIT[i*CFG_DBITS +: CFG_DBITS];
-generate if (CFG_BYTE_ENABLE) begin
+if (CFG_BYTE_ENABLE) begin
     genvar lane;
     for (lane = 0; lane < 2; lane = lane + 1) begin
         always @(posedge CLK1) if (A1EN) begin
@@ -215,6 +245,7 @@ always @(posedge CLK2) if (B1EN) begin
         mem[B1ADDR] <= B1DATA;
         B1Q <= B1DATA;
     end else B1Q <= mem[B1ADDR];
+end
 end
 end endgenerate
 endmodule

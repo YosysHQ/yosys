@@ -54,6 +54,8 @@ yosys_pass(synth_intel_alm
 		# RAM
 		common/bram_m10k_tdp_byte.txt
 		common/bram_m10k_tdp_byte_map.v
+		common/bram_m10k_tdp_mixed.txt
+		common/bram_m10k_tdp_mixed_map.v
 		common/bram_m10k_tdp.txt
 		common/bram_m10k_tdp_map.v
 		common/bram_m10k.txt

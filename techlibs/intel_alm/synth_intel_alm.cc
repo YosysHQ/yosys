@@ -199,9 +199,9 @@ struct SynthIntelALMPass : public ScriptPass {
 			// The opt-in style excludes cross-port collisions; retain explicit
 			// own-port write-through while relaxing other read/write collisions.
 			if (!nobram && bram_type == "m10k") {
-				run("opt_dff -nosdff a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte %u %m");
-				run("opt_clean a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte %u %m");
-				run("memory_dff -no-rw-check a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte");
+				run("opt_dff -nosdff a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte %u a:ram_style=m10k_tdp_mixed %u %m");
+				run("opt_clean a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte %u a:ram_style=m10k_tdp_mixed %u %m");
+				run("memory_dff -no-rw-check a:ram_style=m10k_tdp a:ram_style=m10k_tdp_byte a:ram_style=m10k_tdp_mixed");
 			}
 			run("fsm");
 			run("opt");
@@ -237,6 +237,8 @@ struct SynthIntelALMPass : public ScriptPass {
 
 		if (!nobram && check_label("map_bram", "(skip if -nobram)")) {
 			if (bram_type == "m10k") {
+				run("memory_libmap -lib +/intel_alm/common/bram_m10k_tdp_mixed.txt a:ram_style=m10k_tdp_mixed");
+				run("techmap -map +/intel_alm/common/bram_m10k_tdp_mixed_map.v");
 				run("memory_libmap -lib +/intel_alm/common/bram_m10k_tdp_byte.txt a:ram_style=m10k_tdp_byte");
 				run("techmap -map +/intel_alm/common/bram_m10k_tdp_byte_map.v");
 				run("memory_libmap -lib +/intel_alm/common/bram_m10k_tdp.txt a:ram_style=m10k_tdp");

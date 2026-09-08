@@ -31,6 +31,9 @@ existing mapping flow. Build the executable
 as well as installing the techlibs: the synthesis-pass selection changes.
 The resulting primitive requires matching nextpnr Mistral TDP support.
 
+For independent whole-word port widths, see the separate
+[m10k_tdp_mixed style](../m10k_tdp_mixed/README.md).
+
 ## Standalone primitive
 
 `MISTRAL_M10K_TDP` is also available for explicit instantiation. Its interface

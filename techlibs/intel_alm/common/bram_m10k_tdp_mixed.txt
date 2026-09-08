@@ -1,0 +1,12 @@
+ram block $__MISTRAL_M10K_TDP_MIXED_ {
+ abits 10;
+ widths 10 20 per_port;
+ cost 100;
+ init any;
+ style "m10k_tdp_mixed";
+ port srsw "A" "B" {
+  clock posedge;
+  clken;
+  rdwr new;
+ }
+}
