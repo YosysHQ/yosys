@@ -16,10 +16,12 @@ yosys_pass(synth_intel_alm
 		iopadmap
 		memory
 		memory_bram
+		memory_dff
 		memory_libmap
 		memory_map
 		opt
 		opt_clean
+		opt_dff
 		opt_expr
 		peepopt
 		proc
@@ -50,6 +52,8 @@ yosys_pass(synth_intel_alm
 		cyclonev/cells_sim.v
 
 		# RAM
+		common/bram_m10k_tdp.txt
+		common/bram_m10k_tdp_map.v
 		common/bram_m10k.txt
 		common/bram_m10k_map.v
 		common/bram_m10k_mixed.txt
