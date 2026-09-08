@@ -17,6 +17,7 @@ bram $__MISTRAL_M10K
     wrmode 1 0
     # read enable; write enable + byte enables (only for multiples of 8)
     enable 1 1
+    @D512x20 enable 2 1
     transp 0 0
     clocks 1 2
     clkpol 1 1

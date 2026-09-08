@@ -75,7 +75,7 @@ endmodule
 // --------
 // TODO
 
-module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, B1ADDR, B1DATA, B1EN, CLK2);
+module MISTRAL_M10K(CLK1, A1ADDR, A1DATA, A1EN, A1BE, B1ADDR, B1DATA, B1EN, CLK2);
 
 parameter INIT = 0;
 
@@ -83,12 +83,17 @@ parameter CFG_ABITS = 10;
 parameter CFG_DBITS = 10;
 // Preserve the original single-clock primitive when CLK2 is omitted.
 parameter CFG_DUAL_CLOCK = 0;
+// Byte-enable mode uses two physical M10K write lanes and an active-high
+// logical write enable. The default keeps the original active-low contract.
+parameter CFG_BYTE_ENABLE = 0;
 
 (* clkbuf_sink *) input CLK1;
 (* clkbuf_sink *) input CLK2;
 input [CFG_ABITS-1:0] A1ADDR, B1ADDR;
 input [CFG_DBITS-1:0] A1DATA;
-input A1EN, B1EN;
+input A1EN;
+input [1:0] A1BE;
+input B1EN;
 output reg [CFG_DBITS-1:0] B1DATA;
 
 localparam [(1 << CFG_ABITS)*CFG_DBITS-1:0] INIT_DATA = INIT;
@@ -113,9 +118,17 @@ specify
 endspecify
 `endif
 
-always @(posedge CLK1)
-    if (CFG_DBITS == 40 ? A1EN : !A1EN)
+always @(posedge CLK1) begin
+    if (CFG_BYTE_ENABLE) begin
+        if (A1EN) begin
+            if (A1BE[0]) mem[A1ADDR][(CFG_DBITS / 2 > 0 ? CFG_DBITS / 2 : CFG_DBITS)-1:0] <=
+                A1DATA[(CFG_DBITS / 2 > 0 ? CFG_DBITS / 2 : CFG_DBITS)-1:0];
+            if (A1BE[1]) mem[A1ADDR][CFG_DBITS-1:CFG_DBITS / 2] <=
+                A1DATA[CFG_DBITS-1:CFG_DBITS / 2];
+        end
+    end else if (CFG_DBITS == 40 ? A1EN : !A1EN)
         mem[A1ADDR] <= A1DATA;
+end
 
 wire read_clk = CFG_DUAL_CLOCK ? CLK2 : CLK1;
 always @(posedge read_clk) begin
