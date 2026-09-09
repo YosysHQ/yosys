@@ -266,8 +266,8 @@ struct SynthMicrochipPass : public ScriptPass {
 				log_error("Tristate buffers are unsupported without the '-iopad' option.\n");
 			run("deminout");
 			run("opt_expr");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run("opt -nodffe -nosdff");
 			run("fsm");
 			run("opt");

@@ -307,8 +307,8 @@ struct SynthPass : public ScriptPass {
 
 			// synth pass
 			run("opt_expr");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run("opt -nodffe -nosdff");
 			if (!nofsm)
 				run("fsm" + fsm_opts, "      (unless -nofsm)");

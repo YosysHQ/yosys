@@ -187,12 +187,14 @@ struct PrepPass : public ScriptPass
 				run("proc [-ifx]");
 			else
 				run(ifxmode ? "proc -ifx" : "proc");
-			if (help_mode || flatten)
+			if (help_mode || flatten) {
+				run("check");
 				run("flatten", "(if -flatten)");
+			}
 			run("future");
 			run(nokeepdc ? "opt_expr" : "opt_expr -keepdc");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run(nokeepdc ? "opt -noff" : "opt -noff -keepdc");
 			if (!ifxmode) {
 				if (help_mode)

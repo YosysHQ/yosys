@@ -299,8 +299,8 @@ struct SynthIce40Pass : public ScriptPass
 		if (check_label("coarse"))
 		{
 			run("opt_expr");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run("opt -nodffe -nosdff");
 			run("fsm");
 			run("opt");
