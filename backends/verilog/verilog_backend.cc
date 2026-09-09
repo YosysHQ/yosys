@@ -677,7 +677,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 				dump_sigspec(os, port.srst);
 				os << stringf(") begin\n");
 				clk_to_lof_body[clk_domain_str].push_back(os.str());
-				
+
 				std::ostringstream os2;
 				os2 << stringf("%s" "%s <= ", indent, temp_id);
 				dump_sigspec(os2, port.srst_value);
