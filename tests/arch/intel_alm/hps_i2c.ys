@@ -1,0 +1,4 @@
+read_verilog hps_i2c.v
+synth_intel_alm -family cyclonev -nobram -nolutram -nodsp -noiopad -noclkbuf -top top
+cd top
+select -assert-count 1 t:cyclonev_hps_interface_peripheral_i2c

@@ -715,3 +715,13 @@ input [31:0] gp_in;
 output [31:0] gp_out;
 
 endmodule
+
+(* keep *)
+module cyclonev_hps_interface_peripheral_i2c(scl, sda, out_data, out_clk);
+
+input scl;
+input sda;
+output out_data;
+output out_clk;
+
+endmodule
