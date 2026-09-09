@@ -161,8 +161,7 @@ namespace AST
 		AST_TYPEDEF,
 		AST_STRUCT,
 		AST_UNION,
-		AST_STRUCT_ITEM,
-		AST_BIND
+		AST_STRUCT_ITEM
 	};
 
 	using AstSrcLocType = Location;
@@ -297,9 +296,6 @@ namespace AST
 		// create a human-readable text representation of the AST (for debugging)
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
-
-		// Generate RTLIL for a bind construct
-		std::vector<RTLIL::Binding *> genBindings() const;
 
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = nullptr);

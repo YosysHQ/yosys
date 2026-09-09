@@ -29,7 +29,6 @@ MK_TEST_DIRS += ./arch/nexus
 MK_TEST_DIRS += ./arch/quicklogic/pp3
 MK_TEST_DIRS += ./arch/quicklogic/qlf_k6n10f
 MK_TEST_DIRS += ./arch/xilinx
-MK_TEST_DIRS += ./bind
 MK_TEST_DIRS += ./bugpoint
 MK_TEST_DIRS += ./opt
 MK_TEST_DIRS += ./sat
