@@ -2,12 +2,24 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.68 .. Yosys 0.69-dev
+Yosys 0.68 .. Yosys 0.69
 --------------------------
+ * Commands and options
+    - Removed sum of products related parameters from
+      "abc" pass.
+    - Removed coolrunner2 and greenpak4 synthesis and related
+      passes.
+    - Removed "nlutmap" pass.
+    - Removed "-retime", "-noabc9", "-abc2" and "-abc" options
+      from synthesis passes.
+    - Removed "-[no]stderr" from "logger" pass.
+
+ * Various
+    - verific: Added "-sv2023" flag option to support System
+      Verilog 2023.
 
 Yosys 0.67 .. Yosys 0.68
 --------------------------
-
  * New commands and options
     - Added "symfpu" and "symfpu_convert" passes.
     - Removed "-fast" option from "abc" pass.
