@@ -56,5 +56,5 @@ endmodule
 
 EOF
 
-logger -expect error "Malformed design" 1
+logger -expect error "Cannot find existing box cell" 1
 abc_new -liberty ../../tests/liberty/normal.lib -liberty ../../tests/liberty/dff.lib
