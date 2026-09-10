@@ -1,0 +1,47 @@
+read_rtlil <<EOT
+module \top
+  wire width 4 input 1 \a
+  wire width 4 input 2 \b
+  wire width 4 input 3 \c
+  wire input 4 \sel
+  wire width 4 \add0_y
+  wire width 4 \add1_y
+  wire width 4 output 5 \y
+
+  cell $add \add0
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 4
+    connect \A \a
+    connect \B \b
+    connect \Y \add0_y
+  end
+
+  cell $add \add1
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 4
+    parameter \Y_WIDTH 4
+    connect \A \a
+    connect \B \c
+    connect \Y \add1_y
+  end
+
+  attribute \src "opt_share_mux_src"
+  cell $mux \mux
+    parameter \WIDTH 4
+    connect \A \add0_y
+    connect \B \add1_y
+    connect \S \sel
+    connect \Y \y
+  end
+end
+EOT
+
+opt_share
+
+select -assert-count 1 t:$add
+select -assert-count 2 t:$mux a:src=opt_share_mux_src %i
