@@ -19,7 +19,7 @@ Testing Verific+Yosys+SBY for formal verification
 ========================================================
 
 Install Yosys+Verific, SBY, and Yices2. Install instructions:
-http://symbiyosys.readthedocs.io/en/latest/quickstart.html#installing
+https://yosyshq.readthedocs.io/projects/sby/en/latest/install.html
 
 Then run in the following command in this directory:
 
