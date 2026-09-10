@@ -1536,7 +1536,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
 	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_));
+	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
 
 	ifs.close();
 
@@ -2574,11 +2574,6 @@ struct AbcPass : public Pass {
 					assigned_cells[key].push_back(cell);
 					assigned_cells_reverse[cell] = key;
 				}
-
-				for (auto &it : assigned_cells)
-					it.second.clear();
-				for (auto cell : all_cells)
-					assigned_cells.at(assigned_cells_reverse.at(cell)).push_back(cell);
 
 				log_header(design, "Summary of detected clock domains:\n");
 				{
