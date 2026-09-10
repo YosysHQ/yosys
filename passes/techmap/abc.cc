@@ -2408,6 +2408,8 @@ struct AbcPass : public Pass {
 		std::vector<std::unique_ptr<AbcModuleState>> work_finished_by_index;
 		int work_finished_count = 0;
 
+		std::exception_ptr error;
+		try {
 		for (auto mod : design->selected_modules())
 		{
 			if (mod->processes.size() > 0) {
@@ -2636,6 +2638,9 @@ struct AbcPass : public Pass {
 				}
 			}
 		}
+		} catch (...) {
+			error = std::current_exception();
+		}
 		work_queue.close();
 		while (work_finished_count < state_index) {
 			std::optional<std::unique_ptr<AbcModuleState>> work =
@@ -2649,6 +2654,8 @@ struct AbcPass : public Pass {
 			work_finished_by_index[next_state_index_to_process] = nullptr;
 			++next_state_index_to_process;
 		}
+		if (error)
+			std::rethrow_exception(error);
 
 		if (config.cleanup) {
 			log("Removing global temp directory.\n");
