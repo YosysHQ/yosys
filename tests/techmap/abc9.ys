@@ -66,8 +66,7 @@ EOT
 simplemap
 equiv_opt -assert abc9 -lut 4
 design -load postopt
-select -assert-count 1 t:$lut
-select -assert-count 1 t:$_AND_
+select -assert-count 2 t:$lut
 
 
 design -reset
