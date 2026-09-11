@@ -83,6 +83,7 @@ pmgen_command(peepopt
 	peepopt_shiftpow2.pmg
 	peepopt_muldiv.pmg
 	peepopt_muldiv_c.pmg
+	peepopt_muladd.pmg
 	peepopt_formal_clockgateff.pmg
 	PREFIX
 		peepopt

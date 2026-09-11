@@ -1,0 +1,49 @@
+read_verilog <<EOT
+module top(
+	input clk,
+	input signed [5:0] px, py, tx, a, b,
+	output reg signed [11:0] out
+);
+	reg signed [5:0] tx_r;
+
+	always @(posedge clk)
+		tx_r <= tx;
+
+	always @(posedge clk)
+		out <= px * a + py * b + tx_r;
+endmodule
+
+module top2(
+	input clk,
+	input signed [15:0] pretranslate_x, pretranslate_y, translate_x, a, b,
+	output reg [23:0] out
+);
+	reg signed [15:0] translate_x_r;
+
+	always @(posedge clk)
+		translate_x_r <= translate_x;
+
+	always @(posedge clk)
+		out <= pretranslate_x * a + pretranslate_y * b + translate_x_r;
+endmodule
+EOT
+proc
+design -save read
+
+hierarchy -top top
+equiv_opt -run :prove -multiclock -assert -map +/ice40/cells_sim.v synth_ice40 -dsp
+clk2fflogic
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -set-init-zero -seq 4 -verify -prove-asserts -show-ports miter
+
+design -load postopt
+cd top
+select -assert-count 2 t:SB_MAC16
+select -assert-none t:SB_MAC16 %% t:* %D
+
+design -load read
+hierarchy -top top2
+synth_ice40 -dsp
+cd top2
+select -assert-count 2 t:SB_MAC16
+select -assert-none t:SB_MAC16 %% t:* %D
