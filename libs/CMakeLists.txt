@@ -19,7 +19,7 @@ block()
     set(FETCHCONTENT_FULLY_DISCONNECTED ON)
 
     if(NOT YOSYS_USE_BUNDLED_LIBS)
-        find_package(fmt 12.2 QUIET)
+        find_package(fmt 12.2 QUIET GLOBAL)
     endif()
     if(fmt_FOUND)
         set(SLANG_USE_SYSTEM_FMT ON)
@@ -31,6 +31,7 @@ block()
             SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/fmt
         )
         FetchContent_MakeAvailable(fmt)
+        add_subdirectory(fmt)
     endif()
 
     if(NOT YOSYS_USE_BUNDLED_LIBS)
