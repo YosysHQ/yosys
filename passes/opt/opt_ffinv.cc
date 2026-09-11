@@ -26,6 +26,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static bool is_single_bit_inverter(RTLIL::Cell *cell)
+{
+	return cell->type.in(ID($not), ID($_NOT_)) &&
+			cell->getPort(ID::A).size() == 1 &&
+			cell->getPort(ID::Y).size() == 1;
+}
+
 struct OptFfInvWorker
 {
 	int count = 0;
@@ -52,8 +59,10 @@ struct OptFfInvWorker
 				continue;
 			if (port.port != ID::Y)
 				return false;
-			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+			if (is_single_bit_inverter(port.cell)) {
 				// OK
+			} else if (port.cell->type.in(ID($not), ID($_NOT_))) {
+				return false;
 			} else if (port.cell->type.in(ID($lut))) {
 				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
@@ -78,8 +87,12 @@ struct OptFfInvWorker
 				return false;
 			if (port.port != ID::A)
 				return false;
-			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+				if (!is_single_bit_inverter(port.cell))
+					return false;
+			} else if (!port.cell->type.in(ID($lut))) {
 				return false;
+			}
 			q_luts.insert(port.cell);
 		}
 
@@ -137,8 +150,12 @@ struct OptFfInvWorker
 				continue;
 			if (port.port != ID::Y)
 				return false;
-			if (!port.cell->type.in(ID($not), ID($_NOT_), ID($lut)))
+			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+				if (!is_single_bit_inverter(port.cell))
+					return false;
+			} else if (!port.cell->type.in(ID($lut))) {
 				return false;
+			}
 			log_assert(d_lut == nullptr);
 			d_lut = port.cell;
 		}
@@ -157,8 +174,10 @@ struct OptFfInvWorker
 				return false;
 			if (port.port != ID::A)
 				return false;
-			if (port.cell->type.in(ID($not), ID($_NOT_))) {
+			if (is_single_bit_inverter(port.cell)) {
 				// OK
+			} else if (port.cell->type.in(ID($not), ID($_NOT_))) {
+				return false;
 			} else if (port.cell->type.in(ID($lut))) {
 				if (port.cell->getParam(ID::WIDTH) != 1)
 					return false;
