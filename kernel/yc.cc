@@ -187,6 +187,12 @@ public:
 		SourceStandard standard;
 	};
 
+	enum class OutputFormat {
+		Json,
+		Verilog,
+		SystemVerilog
+	};
+
 	std::vector<SourceFile> sourceFiles;
 	std::vector<Target> targets;
 
@@ -196,6 +202,7 @@ public:
 	VhdlStandard vhdl_standard = VhdlStandard::Latest;
 	SystemVerilogFrontend system_verilog_frontend = SystemVerilogFrontend::Legacy;
 	VhdlFrontend vhdl_frontend;
+	OutputFormat output_format;
 
 	void addStandardArgs();
 	int run(int argc, char **argv);
@@ -380,7 +387,31 @@ int YosysDriver::run(int argc, char **argv) {
 		},
 		"VHDL frontend to use (ghdl or verific)", "<frontend>");
 
-	cmdLine.add("-o,--out", options.outputFile, "Write the design netlist to <outfile>", "<file>");
+	cmdLine.add("-o,--out",
+		[this](std::string_view value) {
+			options.outputFile = value;
+
+			auto pos = value.rfind('.');
+			if (pos == std::string_view::npos)
+				return fmt::format(
+					"Invalid output file '{}'; expected .json, .v or .sv", value);
+
+			auto extension = value.substr(pos);
+
+			if (extension == ".json")
+				output_format = OutputFormat::Json;
+			else if (extension == ".v")
+				output_format = OutputFormat::Verilog;
+			else if (extension == ".sv")
+				output_format = OutputFormat::SystemVerilog;
+			else
+				return fmt::format(
+					"Invalid output file extension '{}'; expected .json, .v or .sv",
+					extension);
+
+			return std::string{};
+		},
+		"Write the design netlist to <outfile>", "<file>");
 	cmdLine.add("--top", options.topModule,
 				"Top-level module to instantiate"
 				"<name>");
@@ -467,12 +498,12 @@ int YosysDriver::run(int argc, char **argv) {
 	}
 
 	if (options.showHelp) {
-		printf("%s\n", cmdLine.getHelpText("Yosys compiler").c_str());
+		fmt::print(stderr, "{}\n", cmdLine.getHelpText("Yosys compiler"));
 		return 0;
 	}
 
 	if (options.showVersion) {
-		printf("%s\n", yosys_version_str);
+		fmt::print(stderr, "{}\n", yosys_version_str);
 		return 0;
 	}
 	if (options.printLanguages) {
@@ -663,18 +694,25 @@ int YosysDriver::run(int argc, char **argv) {
 	}
 	passes.push_back(stringf("hierarchy -top %s", options.topModule.value()));
 
-	//passes.push_back(stringf("synth_%s", options.target.value()));
-
 	for (const auto &pass : it->passes) {
 		// run pass
 		passes.push_back(pass);
 	}
 
-	//run_backend(options.outputFile.value(), "auto");
-	passes.push_back(stringf("write_verilog %s", options.outputFile.value()));
+	switch (output_format) {
+	case OutputFormat::Json:
+		passes.push_back(stringf("write_json %s", options.outputFile.value()));
+		break;
+	case OutputFormat::Verilog:
+		passes.push_back(stringf("write_verilog %s", options.outputFile.value()));
+		break;
+	case OutputFormat::SystemVerilog:
+		passes.push_back(stringf("write_verilog -sv %s", options.outputFile.value()));
+		break;
+	}
 
 	for(auto &p : passes) {
-		printf("%s\n",p.c_str());
+		//printf("%s\n",p.c_str());
 		run_pass(p);
 	}
 	yosys_design->check();
