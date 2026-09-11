@@ -52,9 +52,116 @@ struct TribufWorker {
 		return true;
 	}
 
+	static IdString tribuf_en_id(Cell *cell)
+	{
+		return cell->type == ID($tribuf) ? ID::EN : ID::E;
+	}
+
+	static SigSpec tribuf_en(Cell *cell)
+	{
+		return cell->getPort(tribuf_en_id(cell));
+	}
+
+	Cell *inner_tribuf(SigSpec sig, dict<SigBit, Cell*> &tribuf_driver, dict<SigBit, int> &fanout)
+	{
+		Cell *c = nullptr;
+		for (auto bit : sigmap(sig)) {
+			auto it = tribuf_driver.find(bit);
+			if (it == tribuf_driver.end() || fanout[bit] != 1)
+				return nullptr;
+			if (c && c != it->second)
+				return nullptr;
+			c = it->second;
+		}
+		if (c && sigmap(c->getPort(ID::Y)) == sigmap(sig))
+			return c;
+		return nullptr;
+	}
+
+	// Fold tri-state that is hidden behind an ordinary $mux (or behind the data input of another tribuf)
+	// into a single tribuf, so nested z like cond ? val : (en ? z : x) is not lost before iopadmap can see it
+	bool fold_tristate()
+	{
+		dict<SigBit, Cell*> tribuf_driver;
+		dict<SigBit, int> fanout;
+
+		for (auto cell : module->cells()) {
+			for (auto &conn : cell->connections())
+				if (!cell->output(conn.first))
+					for (auto bit : sigmap(conn.second))
+						fanout[bit]++;
+			if (cell->type.in(ID($tribuf), ID($_TBUF_)))
+				for (auto bit : sigmap(cell->getPort(ID::Y)))
+					tribuf_driver[bit] = cell;
+		}
+		// Ports keep their nets alive, so never fold them away
+		for (auto wire : module->wires())
+			if (wire->port_id)
+				for (auto bit : sigmap(wire))
+					fanout[bit]++;
+
+		struct MuxJob { Cell *mux, *ta, *tb; };
+		struct TriJob { Cell *outer, *inner; };
+		std::vector<MuxJob> mux_jobs;
+		std::vector<TriJob> tri_jobs;
+
+		for (auto cell : module->selected_cells()) {
+			if (cell->type.in(ID($mux), ID($_MUX_))) {
+				Cell *ta = inner_tribuf(cell->getPort(ID::A), tribuf_driver, fanout);
+				Cell *tb = inner_tribuf(cell->getPort(ID::B), tribuf_driver, fanout);
+				if (ta || tb)
+					mux_jobs.push_back({cell, ta, tb});
+			} else if (cell->type.in(ID($tribuf), ID($_TBUF_))) {
+				Cell *inner = inner_tribuf(cell->getPort(ID::A), tribuf_driver, fanout);
+				if (inner)
+					tri_jobs.push_back({cell, inner});
+			}
+		}
+
+		for (auto &job : mux_jobs) {
+			SigSpec s = job.mux->getPort(ID::S);
+			SigSpec en_a  = job.ta ? tribuf_en(job.ta) : SigSpec(State::S1);
+			SigSpec en_b  = job.tb ? tribuf_en(job.tb) : SigSpec(State::S1);
+			SigSpec val_a = job.ta ? job.ta->getPort(ID::A) : job.mux->getPort(ID::A);
+			SigSpec val_b = job.tb ? job.tb->getPort(ID::A) : job.mux->getPort(ID::B);
+			SigSpec en  = module->Mux(NEW_ID, en_a, en_b, s);
+			SigSpec val = module->Mux(NEW_ID, val_a, val_b, s);
+
+			SigSpec y = job.mux->getPort(ID::Y);
+			if (job.ta) module->remove(job.ta);
+			if (job.tb) module->remove(job.tb);
+			module->remove(job.mux);
+			module->addTribuf(NEW_ID, val, en, y);
+			module->design->scratchpad_set_bool("tribuf.added_something", true);
+		}
+
+		// A tribuf whose data is another tribuf drives its value only while both are enabled
+		pool<Cell*> folded_inner;
+		for (auto &job : mux_jobs) {
+			if (job.ta) folded_inner.insert(job.ta);
+			if (job.tb) folded_inner.insert(job.tb);
+		}
+
+		for (auto &job : tri_jobs)
+			folded_inner.insert(job.inner);
+
+		bool tri_changed = false;
+		for (auto &job : tri_jobs) {
+			if (folded_inner.count(job.outer))
+				continue;
+			SigSpec en = module->And(NEW_ID, tribuf_en(job.outer), tribuf_en(job.inner));
+			job.outer->setPort(ID::A, job.inner->getPort(ID::A));
+			job.outer->setPort(tribuf_en_id(job.outer), en);
+			module->remove(job.inner);
+			module->design->scratchpad_set_bool("tribuf.added_something", true);
+			tri_changed = true;
+		}
+
+		return !mux_jobs.empty() || tri_changed;
+	}
+
 	void run()
 	{
-		dict<SigSpec, vector<Cell*>> tribuf_cells;
 		pool<SigBit> output_bits;
 
 		if (config.logic_mode || config.formal_mode)
@@ -65,44 +172,43 @@ struct TribufWorker {
 
 		for (auto cell : module->selected_cells())
 		{
-			if (cell->type == ID($tribuf))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+			if (!cell->type.in(ID($mux), ID($_MUX_)))
+				continue;
 
-			if (cell->type == ID($_TBUF_))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+			IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
+			IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
 
-			if (cell->type.in(ID($mux), ID($_MUX_)))
-			{
-				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
-				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
+			if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
+				module->remove(cell);
+				continue;
+			}
 
-				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
-					module->remove(cell);
-					continue;
-				}
+			if (is_all_z(cell->getPort(ID::A))) {
+				cell->setPort(ID::A, cell->getPort(ID::B));
+				cell->setPort(en_port, cell->getPort(ID::S));
+				cell->unsetPort(ID::B);
+				cell->unsetPort(ID::S);
+				cell->type = tri_type;
+				module->design->scratchpad_set_bool("tribuf.added_something", true);
+				continue;
+			}
 
-				if (is_all_z(cell->getPort(ID::A))) {
-					cell->setPort(ID::A, cell->getPort(ID::B));
-					cell->setPort(en_port, cell->getPort(ID::S));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
-					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
-					module->design->scratchpad_set_bool("tribuf.added_something", true);
-					continue;
-				}
-
-				if (is_all_z(cell->getPort(ID::B))) {
-					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
-					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
-					module->design->scratchpad_set_bool("tribuf.added_something", true);
-					continue;
-				}
+			if (is_all_z(cell->getPort(ID::B))) {
+				cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
+				cell->unsetPort(ID::B);
+				cell->unsetPort(ID::S);
+				cell->type = tri_type;
+				module->design->scratchpad_set_bool("tribuf.added_something", true);
+				continue;
 			}
 		}
+
+		while (fold_tristate()) {}
+
+		dict<SigSpec, vector<Cell*>> tribuf_cells;
+		for (auto cell : module->selected_cells())
+			if (cell->type.in(ID($tribuf), ID($_TBUF_)))
+				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 		if (config.merge_mode || config.logic_mode || config.formal_mode)
 		{
@@ -130,13 +236,10 @@ struct TribufWorker {
 						for (auto other_cell : it.second) {
 							if (other_cell == cell)
 								continue;
-							else if (other_cell->type == ID($tribuf))
-								others_s.append(other_cell->getPort(ID::EN));
-							else
-								others_s.append(other_cell->getPort(ID::E));
+							others_s.append(tribuf_en(other_cell));
 						}
 
-						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(ID::EN) : cell->getPort(ID::E);
+						auto cell_s = tribuf_en(cell);
 
 						auto other_s = module->ReduceOr(NEW_ID, others_s);
 
@@ -154,10 +257,7 @@ struct TribufWorker {
 
 				SigSpec pmux_b, pmux_s;
 				for (auto cell : it.second) {
-					if (cell->type == ID($tribuf))
-						pmux_s.append(cell->getPort(ID::EN));
-					else
-						pmux_s.append(cell->getPort(ID::E));
+					pmux_s.append(tribuf_en(cell));
 					pmux_b.append(cell->getPort(ID::A));
 					module->remove(cell);
 				}
