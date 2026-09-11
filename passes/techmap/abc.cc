@@ -51,6 +51,7 @@
 #include <climits>
 #include <memory>
 #include <vector>
+#include <exception>
 
 #ifdef __linux__
 #  include <fcntl.h>
