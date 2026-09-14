@@ -274,6 +274,7 @@ struct SynthPass : public ScriptPass {
 
 	void script() override
 	{
+		run("read_verilog -icells -lib +/fabulous/cells_bb.v");
 		if (help_mode) {
 			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
 		} else
