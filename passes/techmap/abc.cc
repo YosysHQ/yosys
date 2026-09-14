@@ -2411,13 +2411,21 @@ struct AbcPass : public Pass {
 
 		std::exception_ptr error;
 		try {
-		for (auto mod : design->selected_modules())
-		{
-			if (mod->processes.size() > 0) {
+		// Process modules from the largest to the smallest. This improves
+		// the runtime when module sizes are varied, by avoiding the case
+		// where some large module is picked last
+		std::vector<RTLIL::Module*> sorted_modules;
+		for (auto mod : design->selected_modules()) {
+			if (mod->processes.empty())
+				sorted_modules.push_back(mod);
+			else
 				log("Skipping module %s as it contains processes.\n", mod);
-				continue;
-			}
+		}
+		std::stable_sort(sorted_modules.begin(), sorted_modules.end(),
+			[](RTLIL::Module *a, RTLIL::Module *b) { return GetSize(a->cells_) > GetSize(b->cells_); });
 
+		for (auto mod : sorted_modules)
+		{
 			std::shared_ptr<AbcModuleData> module_data = std::make_shared<AbcModuleData>();
 			module_data->module = mod;
 			AbcSigMap &assign_map = module_data->assign_map;
