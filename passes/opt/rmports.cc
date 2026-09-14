@@ -37,13 +37,12 @@ struct RmportsPassPass : public Pass {
 		log("\n");
 		log("An output which is driven inside the module is also removed, if no\n");
 		log("instance of the module uses it. The top module, a module which nothing\n");
-		log("instantiates, and a port with the keep attribute stay. This needs a clear\n");
-		log("top module: one with the top attribute, or the only module which nothing\n");
-		log("instantiates. Without one, a parent design which is not loaded can still\n");
-		log("use these ports.\n");
+		log("instantiates, and a port with the keep attribute stay. This needs a module\n");
+		log("with the top attribute (see hierarchy -top). Without one, a parent design\n");
+		log("which is not loaded can still use these ports.\n");
 		log("\n");
 		log("    -purge\n");
-		log("        remove driven outputs also when there is no clear top module\n");
+		log("        remove driven outputs also when no module has the top attribute\n");
 		log("\n");
 	}
 
@@ -73,11 +72,11 @@ struct RmportsPassPass : public Pass {
 		pool<IdString> instantiated;
 		pool<IdString> positional;
 		CollectInstantiated(design, instantiated);
-		bool scan_outputs = purge_mode || HasTopModule(design) || HasUniqueRoot(design, instantiated);
+		bool scan_outputs = purge_mode || HasTopModule(design);
 		if(scan_outputs)
 			ScanInstances(design, used_instance_ports, positional);
 		else
-			log("The design has no clear top module. Outputs which are driven inside their module stay.\n");
+			log("The design has no module with the top attribute. Outputs which are driven inside their module stay.\n");
 
 		// Find all of the unused ports, and remove them from that module
 		for(auto mod : design->selected_modules())
@@ -106,17 +105,6 @@ struct RmportsPassPass : public Pass {
 			if(mod->get_bool_attribute(ID::top))
 				return true;
 		return false;
-	}
-
-	// A design where only one module is not instantiated has a clear top even
-	// when no module has the attribute
-	bool HasUniqueRoot(Design *design, const pool<IdString> &instantiated)
-	{
-		int roots = 0;
-		for(auto mod : design->modules())
-			if(!instantiated.count(mod->name))
-				roots++;
-		return roots == 1;
 	}
 
 	// A port is used by an instance if some bit of its connection goes anywhere

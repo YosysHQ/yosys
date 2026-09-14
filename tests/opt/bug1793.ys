@@ -95,7 +95,7 @@ rmports
 select -assert-count 1 sub/o:*
 hierarchy -check
 
-# two modules are a root here, so there is no clear top
+# no module has the top attribute, so driven outputs stay
 design -reset
 read_verilog <<EOT
 module sub(input a, output x, output y);
@@ -122,6 +122,9 @@ select -assert-count 1 sub/o:x
 design -load roots
 delete use2
 rmports
+select -assert-count 2 sub/o:*
+hierarchy -top use1
+rmports
 hierarchy -check
 select -assert-count 1 sub/o:x
 
@@ -143,7 +146,7 @@ module sub(as, bs, ys);
   assign ys = as & bs;
 endmodule
 EOT
-hierarchy
+hierarchy -top TOP
 delete w:NC
 splitnets -ports
 rmports
