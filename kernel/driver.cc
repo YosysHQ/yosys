@@ -166,6 +166,9 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 		fmt::print(f, fg(fmt::terminal_color::blue), "{}", time_str);
 	}
 
+	if (!msg.src.filename.empty())
+		fmt::print(f, fg(fmt::terminal_color::bright_cyan), "{}:{}: ", msg.src.filename, msg.src.start_line);
+
 	switch (msg.severity) {
 		case LogSeverity::Warning:
 			fmt::print(f, fg(fmt::terminal_color::bright_yellow), "{}", msg.prefix);

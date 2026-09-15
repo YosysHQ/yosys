@@ -88,6 +88,10 @@ struct Location {
 
 		return oss.str();
 	}
+
+	YOSYS_NAMESPACE_PREFIX LogSourceLocation to_src() const {
+		return YOSYS_NAMESPACE_PREFIX LogSourceLocation(begin.filename ? *(begin.filename) : "UNKNOWN", begin.line, begin.column, end.line, end.column);
+	}
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Location& loc) {

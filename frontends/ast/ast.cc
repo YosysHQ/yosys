@@ -1460,7 +1460,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			if (design->has(child->str)) {
 				RTLIL::Module *existing_mod = design->module(child->str);
 				if (!nooverwrite && !overwrite && !existing_mod->get_blackbox_attribute()) {
-					log_file_error(*child->location.begin.filename, child->location.begin.line, "Re-definition of module `%s'!\n", child->str);
+					log_file_error(child->location.to_src(), "Re-definition of module `%s'!\n", child->str);
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s.\n",
 							child->str.c_str(), child->loc_string().c_str());
@@ -1938,7 +1938,7 @@ void AstModule::loadconfig() const
 
 void AstNode::formatted_input_error(std::string_view format, std::string str) const
 {
-	logger().formatted_file_error(*location.begin.filename, location.begin.line, format, std::move(str));
+	logger().formatted_error(location.to_src(), "ERROR:", format, std::move(str));
 }
 
 YOSYS_NAMESPACE_END
