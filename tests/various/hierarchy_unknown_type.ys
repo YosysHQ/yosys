@@ -1,0 +1,15 @@
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire output 2 \y
+  cell $__UNKNOWN \u
+    connect \A \a
+    connect \Y \y
+  end
+end
+EOT
+
+hierarchy -top top
+
+logger -expect error "Cell type ..__UNKNOWN. referenced in module ..top. in cell ..u. is neither a known internal cell type nor part of the design" 1
+hierarchy -check -top top

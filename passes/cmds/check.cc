@@ -46,6 +46,8 @@ struct CheckPass : public Pass {
 		log("  - combinatorial loops\n");
 		log("  - two or more conflicting drivers for one wire\n");
 		log("  - used wires that do not have a driver\n");
+		log("  - cells of an internal ($-prefixed) type that is neither a known cell type\n");
+		log("    nor a module in the design\n");
 		log("\n");
 		log("Options:\n");
 		log("\n");
@@ -299,6 +301,11 @@ struct CheckPass : public Pass {
 			pool<Cell *> coarsened_cells;
 			for (auto cell : module->cells())
 			{
+				if (cell->type.begins_with("$") && !yosys_celltypes.cell_known(cell->type) && design->module(cell->type) == nullptr) {
+					log_warning("Cell %s.%s has unknown internal type %s.\n", module, cell, cell->type.unescape());
+					counter++;
+				}
+
 				if (mapped && cell->type.begins_with("$") && design->module(cell->type) == nullptr) {
 					if (allow_tbuf && cell->type == ID($_TBUF_)) goto cell_allowed;
 					log_warning("Cell %s.%s is an unmapped internal cell of type %s.\n", module, cell, cell->type.unescape());

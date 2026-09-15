@@ -1,0 +1,17 @@
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire \y
+  cell $__UNKNOWN \u
+    connect \A \a
+    connect \Y \y
+  end
+end
+EOT
+
+logger -expect warning "Cell top.u has unknown internal type .__UNKNOWN" 1
+check
+logger -check-expected
+
+logger -expect error "Found 1 problems in .check -assert." 1
+check -assert
