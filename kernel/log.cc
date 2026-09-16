@@ -89,7 +89,7 @@ void FileLogSink::flush()
 
 void ConsoleLogSink::log(const LogMessage &msg)
 {
-	FILE *file = (msg.severity == LogSeverity::Error) ? stderr : stdout;
+	FILE *file = (msg.severity == LogSeverity::Error || msg.severity == LogSeverity::NonFatalError) ? stderr : stdout;
 	fputs(msg.cached_msg.c_str(), file);
 }
 
@@ -101,7 +101,7 @@ void ConsoleLogSink::flush()
 
 bool StderrLogSink::should_log(const LogMessage &msg) const
 {
-	return msg.severity == LogSeverity::Error ||
+	return msg.severity == LogSeverity::Error || msg.severity == LogSeverity::NonFatalError ||
 			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
 			log_stderr_sink_forced;
 }
@@ -383,6 +383,23 @@ void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix,
 #else
 	_Exit(1);
 #endif
+}
+
+void LogManager::formatted_nonfatal_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
+{
+	formatted_string(LogSeverity::NonFatalError, src, prefix, format, message);
+
+	for (auto &[_, item] : expect_error)
+		if (std::regex_search(message, item.pattern))
+			item.current_count++;
+
+	std::string loc = !src.filename.empty() ? stringf("%s:%d: ", src.filename, src.start_line) : "";
+	std::string pattern = loc + string(prefix) + message;
+	for (auto &[_, item] : expect_prefix_error)
+		if (std::regex_search(pattern, item.pattern))
+			item.current_count++;
+
+	errors_count++;
 }
 
 void LogManager::add_experimental(const std::string &str)

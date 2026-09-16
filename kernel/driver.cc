@@ -176,6 +176,7 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 			break;
 
 		case LogSeverity::Error:
+		case LogSeverity::NonFatalError:
 			fmt::print(f, fg(fmt::terminal_color::bright_red), "{}", msg.prefix);
 			fmt::print(f, fg(fmt::terminal_color::blue) | fmt::emphasis::bold, "{}", msg.message);
 			break;
@@ -199,7 +200,7 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 
 bool ColorConsoleLogSink::should_log(const LogMessage &msg) const
 {
-	return (!error_output) || (msg.severity == LogSeverity::Error ||
+	return (!error_output) || (msg.severity == LogSeverity::Error || msg.severity == LogSeverity::NonFatalError ||
 			(msg.severity == LogSeverity::Warning && !quiet_warnings) ||
 			log_stderr_sink_forced);
 }

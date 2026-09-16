@@ -92,6 +92,7 @@ enum class LogSeverity {
 	Info,
 	Header,
 	Warning,
+	NonFatalError,
 	Error
 };
 
@@ -417,6 +418,7 @@ public:
 	void formatted_header(RTLIL::Design *design, std::string_view format, std::string str);
 	void formatted_warning(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message);
 	[[noreturn]] void formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message);
+	void formatted_nonfatal_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message);
 	[[noreturn]] void formatted_cmd_error(std::string_view format, std::string message);
 	void suppressed();
 	void add_experimental(const std::string &str);
@@ -549,6 +551,12 @@ template <typename... Args>
 [[noreturn]] void log_file_error(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	logger().formatted_error(src, "ERROR: ", fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
+[[noreturn]] void log_file_nonfatal_error(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	logger().formatted_nonfatal_error(src, "ERROR: ", fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
