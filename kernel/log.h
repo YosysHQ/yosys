@@ -554,7 +554,7 @@ template <typename... Args>
 }
 
 template <typename... Args>
-[[noreturn]] void log_file_nonfatal_error(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+void log_file_nonfatal_error(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	logger().formatted_nonfatal_error(src, "ERROR: ", fmt.format_string(), fmt.format(args...));
 }
