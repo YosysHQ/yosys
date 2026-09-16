@@ -1,0 +1,17 @@
+read_verilog <<EOT
+module top(input a, input b, output y);
+	assign y = a & b;
+endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+logger -expect warning "Feature 'abc_new' is experimental" 1
+logger -expect warning "Feature 'write_xaiger2' is experimental" 1
+logger -expect warning "Feature 'read_xaiger2' is experimental" 1
+logger -expect log "ABC: .*i/o = +2/ +1" 2
+logger -expect log "ABC: Warning: The network is combinational\." 1
+logger -expect log "ABC: Networks are equivalent\." 1
+logger -expect warning "Wire top\.\$lit[0-9]+ is used but has no driver\." 1
+logger -expect error "Found 1 problems in 'check -assert'" 1
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+check -assert
