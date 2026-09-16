@@ -155,18 +155,21 @@ void ColorConsoleLogSink::flush()
 	fflush(stderr);
 }
 
+bool next_print_log = true;
+
 void ColorConsoleLogSink::log(const LogMessage &msg)
 {
 	FILE *f = (error_output || msg.severity == LogSeverity::Error) ? stderr : stdout;
 
-	if (logger().get_log_time()) {
+	if (logger().get_log_time() && next_print_log) {
 		auto elapsed = msg.timestamp - logger().get_initial_time();
 		auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
 		std::string time_str = stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
 		fmt::print(f, fg(fmt::terminal_color::blue), "{}", time_str);
+		next_print_log = false;
 	}
 
-	if (!msg.src.filename.empty())
+	if (next_print_log && !msg.src.filename.empty())
 		fmt::print(f, fg(fmt::terminal_color::bright_cyan), "{}:{}: ", msg.src.filename, msg.src.start_line);
 
 	switch (msg.severity) {
@@ -196,6 +199,8 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 			fmt::print(f, "{}{}", msg.prefix, msg.message);
 			break;
 	}
+	if (!msg.message.empty())
+		next_print_log = msg.message.back() == '\n';
 }
 
 bool ColorConsoleLogSink::should_log(const LogMessage &msg) const
