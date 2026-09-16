@@ -525,6 +525,12 @@ std::string proc_self_dirname()
 	uint32_t buflen = 0;
 	while (_NSGetExecutablePath(path, &buflen) != 0)
 		path = (char *) realloc((void *) path, buflen);
+	char resolved[PATH_MAX];
+	if (realpath(path, resolved) != NULL) {
+		free(path);
+		path = strdup(resolved);
+		buflen = strlen(path);
+	}
 	while (buflen > 0 && path[buflen-1] != '/')
 		buflen--;
 	std::string str(path, buflen);
