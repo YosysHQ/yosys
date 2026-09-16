@@ -406,7 +406,7 @@ The next group of commands performs a series of optimizations:
 .. literalinclude:: /code_examples/macro_commands/synth_ice40.ys
    :language: yoscrypt
    :start-at: wreduce
-   :end-before: t:$mul
+   :end-before: macc-only
    :dedent:
    :caption: ``coarse`` section (part 2)
    :name: synth_coarse2
@@ -477,11 +477,18 @@ take a quick look at the commands here and describe what they do.
 
 .. literalinclude:: /code_examples/macro_commands/synth_ice40.ys
    :language: yoscrypt
-   :start-at: t:$mul
-   :end-before: alumacc
+   :start-at: macc-only
+   :end-at: chtype
    :dedent:
    :caption: ``coarse`` section (part 3)
    :name: synth_coarse3
+
+The first three commands reassociate sums of products.  :yoscrypt:`alumacc
+-macc-only` collects each chain of `$mul` and `$add` cells into a single
+`$macc_v2` cell, and :yoscrypt:`maccmap -unmap` lowers it straight back to
+`$mul` and `$add` cells, but as a chain with the plain addends first, so that
+every multiplier has an adder of its own for `ice40_dsp` to absorb.
+`opt_clean` then removes the original cells.
 
 :yoscrypt:`wreduce t:$mul` performs width reduction again, this time targetting
 only cells of type `$mul`.  :yoscrypt:`techmap -map +/mul2dsp.v -map
@@ -516,7 +523,7 @@ That brings us to the fourth and final part for the iCE40 synthesis flow:
 
 .. literalinclude:: /code_examples/macro_commands/synth_ice40.ys
    :language: yoscrypt
-   :start-at: alumacc
+   :start-after: chtype
    :end-before: map_ram:
    :dedent:
    :caption: ``coarse`` section (part 4)
