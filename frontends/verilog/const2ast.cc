@@ -47,7 +47,7 @@ using namespace VERILOG_FRONTEND;
 
 void ConstParser::log_maybe_loc_error(std::string msg) {
 	if (loc.begin.filename)
-		log_file_error(loc.to_src(), "%s", msg);
+		log_file_error(loc.to_loc(), "%s", msg);
 	else if (!Frontend::current_script_filename.empty())
 		log_file_error(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
 			"Failed to parse constant `%s': %s", code_str, msg);
@@ -57,7 +57,7 @@ void ConstParser::log_maybe_loc_error(std::string msg) {
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {
 	if (loc.begin.filename)
-		log_file_warning(loc.to_src(), "%s", msg);
+		log_file_warning(loc.to_loc(), "%s", msg);
 	else if (!Frontend::current_script_filename.empty())
 		log_file_warning(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
 			"While parsing constant `%s': %s", code_str, msg);

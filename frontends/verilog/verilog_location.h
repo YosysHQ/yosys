@@ -89,7 +89,7 @@ struct Location {
 		return oss.str();
 	}
 
-	YOSYS_NAMESPACE_PREFIX LogSourceLocation to_src() const {
+	YOSYS_NAMESPACE_PREFIX LogSourceLocation to_loc() const {
 		return YOSYS_NAMESPACE_PREFIX LogSourceLocation(begin.filename ? *(begin.filename) : "UNKNOWN", begin.line, begin.column, end.line, end.column);
 	}
 };

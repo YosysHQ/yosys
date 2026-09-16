@@ -840,7 +840,7 @@ struct AST_INTERNAL::ProcessGenerator
 					node->detectSignWidth(width, is_signed, nullptr);
 
 					VerilogFmtArg arg = {};
-					arg.src = node->location.to_src();
+					arg.src = node->location.to_loc();
 					if (node->type == AST_CONSTANT && node->is_string) {
 						arg.type = VerilogFmtArg::STRING;
 						arg.str = node->bitsAsConst().decode_string();
@@ -866,7 +866,7 @@ struct AST_INTERNAL::ProcessGenerator
 					fmt.append_literal("\n");
 				fmt.emit_rtlil(cell);
 			} else if (!ast->str.empty()) {
-				log_file_error(ast->location.to_src(), "Found unsupported invocation of system task `%s'!\n", ast->str);
+				log_file_error(ast->location.to_loc(), "Found unsupported invocation of system task `%s'!\n", ast->str);
 			}
 			break;
 
@@ -918,7 +918,7 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->set_bool_attribute(ID(keep));
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						log_file_error(ast->location.to_src(), "Attribute `%s' with non-constant value!\n", attr.first);
+						log_file_error(ast->location.to_loc(), "Attribute `%s' with non-constant value!\n", attr.first);
 					cell->attributes[attr.first] = attr.second->asAttrConst();
 				}
 				cell->setParam(ID::FLAVOR, flavor);
@@ -1528,7 +1528,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 
 			RTLIL::SigSpec sig = realAsConst(width_hint);
-			log_file_warning(location.to_src(), "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
+			log_file_warning(location.to_loc(), "converting real value %e to binary %s.\n", realvalue, log_signal(sig));
 			return sig;
 		}
 
@@ -1553,7 +1553,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				wire->name = str;
 
 				if (flag_autowire)
-					log_file_warning(location.to_src(), "Identifier `%s' is implicitly declared.\n", str);
+					log_file_warning(location.to_loc(), "Identifier `%s' is implicitly declared.\n", str);
 				else
 					input_error("Identifier `%s' is implicitly declared and `default_nettype is set to none.\n", str);
 			}
@@ -1658,10 +1658,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						chunk.offset = source_width - (chunk.offset + chunk.width);
 					if (chunk.offset > chunk_left || chunk.offset + chunk.width < chunk_right) {
 						if (chunk.width == 1)
-							log_file_warning(location.to_src(),	"Range select out of bounds on signal `%s': Setting result bit to undef.\n",
+							log_file_warning(location.to_loc(),	"Range select out of bounds on signal `%s': Setting result bit to undef.\n",
 									str.c_str());
 						else
-							log_file_warning(location.to_src(), "Range select [%d:%d] out of bounds on signal `%s': Setting all %d result bits to undef.\n",
+							log_file_warning(location.to_loc(), "Range select [%d:%d] out of bounds on signal `%s': Setting all %d result bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), chunk.width);
 						chunk = RTLIL::SigChunk(RTLIL::State::Sx, chunk.width);
 					} else {
@@ -1675,10 +1675,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							chunk.offset += add_undef_bits_lsb;
 						}
 						if (add_undef_bits_lsb)
-							log_file_warning(location.to_src(), "Range [%d:%d] select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
+							log_file_warning(location.to_loc(), "Range [%d:%d] select out of bounds on signal `%s': Setting %d LSB bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_lsb);
 						if (add_undef_bits_msb)
-							log_file_warning(location.to_src(), "Range [%d:%d] select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
+							log_file_warning(location.to_loc(), "Range [%d:%d] select out of bounds on signal `%s': Setting %d MSB bits to undef.\n",
 									children[0]->range_left, children[0]->range_right, str.c_str(), add_undef_bits_msb);
 					}
 				}
@@ -2081,7 +2081,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						new_left.append(left[i]);
 						new_right.append(right[i]);
 					}
-				log_file_warning(location.to_src(), "Ignoring assignment to constant bits:\n"
+				log_file_warning(location.to_loc(), "Ignoring assignment to constant bits:\n"
 						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
 						log_signal(left), log_signal(right),
 						log_signal(new_left), log_signal(new_right));
@@ -2114,7 +2114,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
 					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
-						log_file_warning(location.to_src(), "Replacing floating point parameter %s.%s = %f with string.\n",
+						log_file_warning(location.to_loc(), "Replacing floating point parameter %s.%s = %f with string.\n",
 								cell, paraname.unescape(), value->realvalue);
 					else if (value->type != AST_CONSTANT)
 						input_error("Parameter %s.%s with non-constant value!\n",
@@ -2215,14 +2215,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			int sz = children.size();
 			if (str == "$info") {
 				if (sz > 0)
-					log_file_info(location.to_src(), "%s.\n", children[0]->str);
+					log_file_info(location.to_loc(), "%s.\n", children[0]->str);
 				else
-					log_file_info(location.to_src(), "\n");
+					log_file_info(location.to_loc(), "\n");
 			} else if (str == "$warning") {
 				if (sz > 0)
-					log_file_warning(location.to_src(), "%s.\n", children[0]->str);
+					log_file_warning(location.to_loc(), "%s.\n", children[0]->str);
 				else
-					log_file_warning(location.to_src(), "\n");
+					log_file_warning(location.to_loc(), "\n");
 			} else if (str == "$error") {
 				if (sz > 0)
 					input_error("%s.\n", children[0]->str);

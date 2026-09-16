@@ -34,10 +34,10 @@ USING_YOSYS_NAMESPACE
 [[noreturn]]
 void VERILOG_FRONTEND::formatted_err_at_loc(Location loc, std::string str)
 {
-    YOSYS_NAMESPACE_PREFIX log_file_error(loc.to_src(), "%s\n", std::move(str));
+    YOSYS_NAMESPACE_PREFIX log_file_error(loc.to_loc(), "%s\n", std::move(str));
 }
 
 void VERILOG_FRONTEND::formatted_warn_at_loc(Location loc, std::string str)
 {
-    YOSYS_NAMESPACE_PREFIX log_file_warning(loc.to_src(), "%s\n", std::move(str));
+    YOSYS_NAMESPACE_PREFIX log_file_warning(loc.to_loc(), "%s\n", std::move(str));
 }
