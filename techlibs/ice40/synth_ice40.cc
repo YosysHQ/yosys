@@ -313,6 +313,10 @@ struct SynthIce40Pass : public ScriptPass
 			run("opt_clean");
 			if (help_mode || dsp) {
 				run("memory_dff" + no_rw_check_opt); // ice40_dsp will merge registers, reserve memory port registers first
+				// give every product its own adder for the DSP post-adder
+				run("alumacc -macc-only", "            (if -dsp)");
+				run("maccmap -unmap", "                (if -dsp)");
+				run("opt_clean", "                     (if -dsp)");
 				run("wreduce t:$mul");
 				run("techmap -map +/mul2dsp.v -map +/ice40/dsp_map.v -D DSP_A_MAXWIDTH=16 -D DSP_B_MAXWIDTH=16 "
 						"-D DSP_A_MINWIDTH=2 -D DSP_B_MINWIDTH=2 -D DSP_Y_MINWIDTH=11 "

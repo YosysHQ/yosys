@@ -280,6 +280,10 @@ struct SynthMicrochipPass : public ScriptPass {
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
 			if (!nodsp || help_mode) {
 				run("memory_dff"); // microchip_dsp will merge registers, reserve memory port registers first
+				// give every product its own adder for the DSP post-adder
+				run("alumacc -macc-only");
+				run("maccmap -unmap");
+				run("opt_clean");
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/microchip/{family}_dsp_map.v {options}");
 				else if (family == "polarfire") // Microchip - map multipliers to DSP

@@ -1,0 +1,51 @@
+read_verilog <<EOT
+module top(input signed [7:0] a, b, c, d, input signed [15:0] e, input [7:0] p, q, output signed [15:0] y, output [8:0] s, output lt);
+	assign y = a*b + c*d + e;
+	assign s = p + q;
+	assign lt = p < q;
+endmodule
+EOT
+
+prep -top top
+design -save gold
+alumacc -macc-only
+opt_clean
+
+# only the sum of products
+select -assert-count 1 t:$macc_v2
+select -assert-count 1 t:$add
+select -assert-count 1 t:$lt
+select -assert-none t:$alu
+maccmap -unmap
+opt_clean
+
+# every product has its own adder
+select -assert-count 2 t:$mul %co2 t:$add %i
+design -stash gate
+design -load gold
+design -copy-from gate -as gate top
+rename top gold
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter
+design -reset
+
+read_verilog <<EOT
+module top(input signed [7:0] a, b, c, d, input signed [15:0] e, output signed [15:0] y);
+	wire signed [15:0] t = a*b + c*d;
+	(* keep *) wire signed [15:0] probe;
+	assign probe = t;
+	assign y = t + e;
+endmodule
+EOT
+
+prep -top top
+alumacc -macc-only
+opt_clean
+
+select -assert-count 1 t:$macc_v2
+select -assert-count 1 t:$add
+select -assert-none t:$mul
+maccmap -unmap
+opt_clean
+select -assert-count 2 t:$mul
+select -assert-count 2 t:$add
