@@ -344,14 +344,14 @@ void LogManager::suppressed() {
 	}
 }
 
-[[noreturn]]
-void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
+void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
 	int bak_make_debug = make_debug;
 	make_debug = 0;
-	suppressed();
+	if (severity == LogSeverity::Error)
+		suppressed();
 
-	formatted_string(LogSeverity::Error, src, prefix, format, message);
+	formatted_string(severity, src, prefix, format, message);
 	flush();
 
 	make_debug = bak_make_debug;
@@ -367,6 +367,12 @@ void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix,
 			item.current_count++;
 
 	errors_count++;
+}
+
+[[noreturn]]
+void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
+{
+	error_with_prefix(LogSeverity::Error, src, prefix, format, message);
 
 	check_expected();
 
@@ -387,19 +393,7 @@ void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix,
 
 void LogManager::formatted_nonfatal_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
-	formatted_string(LogSeverity::NonFatalError, src, prefix, format, message);
-
-	for (auto &[_, item] : expect_error)
-		if (std::regex_search(message, item.pattern))
-			item.current_count++;
-
-	std::string loc = !src.filename.empty() ? stringf("%s:%d: ", src.filename, src.start_line) : "";
-	std::string pattern = loc + string(prefix) + message;
-	for (auto &[_, item] : expect_prefix_error)
-		if (std::regex_search(pattern, item.pattern))
-			item.current_count++;
-
-	errors_count++;
+	error_with_prefix(LogSeverity::NonFatalError, src, prefix, format, message);
 }
 
 void LogManager::add_experimental(const std::string &str)

@@ -441,6 +441,7 @@ public:
 
 private:
 	void logv_string(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string str_in);
+	void error_with_prefix(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message);
 
 	std::vector<std::unique_ptr<LogSink>> sinks;
 	int verbose_level = 0;

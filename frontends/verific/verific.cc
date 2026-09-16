@@ -114,22 +114,35 @@ int verific_sva_fsm_limit;
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 #endif
 
+const char *get_message_type(msg_type_t msg_type)
+{
+	switch (msg_type) {
+	case VERIFIC_NONE:
+		return "VERIFIC-NONE";
+	case VERIFIC_ERROR:
+		return "VERIFIC-ERROR";
+	case VERIFIC_WARNING:
+		return "VERIFIC-WARNING";
+	case VERIFIC_IGNORE:
+		return "VERIFIC-IGNORE";
+	case VERIFIC_INFO:
+		return "VERIFIC-INFO";
+	case VERIFIC_COMMENT:
+		return "VERIFIC-COMMENT";
+	case VERIFIC_PROGRAM_ERROR:
+		return "VERIFIC-PROGRAM_ERROR";
+	default:
+		return "VERIFIC-UNKNOWN";
+	}
+}
+
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	string message_type = stringf("VERIFIC-%s",
-			msg_type == VERIFIC_NONE ? "NONE" :
-			msg_type == VERIFIC_ERROR ? "ERROR" :
-			msg_type == VERIFIC_WARNING ? "WARNING" :
-			msg_type == VERIFIC_IGNORE ? "IGNORE" :
-			msg_type == VERIFIC_INFO ? "INFO" :
-			msg_type == VERIFIC_COMMENT ? "COMMENT" :
-			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN");
-
 	std::string id = message_id ? stringf("[%s] ",message_id) : "";
 	if (log_verific_callback) {
 		string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
 		message += vstringf(msg, args);
-		string full_message = stringf("%s [%s] %s\n", message_type, id, message);
+		string full_message = stringf("%s [%s] %s\n", get_message_type(msg_type), id, message);
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS
 		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile),
 			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0,
@@ -146,7 +159,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 #else
 			int(LineFile::GetLineNo(linefile))};
 #endif
-		string message_prefix = stringf("%s: ",message_type);
+		string message_prefix = stringf("%s: ",get_message_type(msg_type));
 		string message = stringf("%s%s\n", id, vstringf(msg, args));
 		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR) {
 			logger().formatted_nonfatal_error(src, message_prefix, "%s%s\n", message);
