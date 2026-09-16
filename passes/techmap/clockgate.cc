@@ -308,7 +308,7 @@ struct ClockgatePass : public Pass {
 			LibertyMergedCells merged;
 			for (auto path : liberty_files) {
 				std::istream* f = uncompressed(path);
-				LibertyParser p(*f, path);
+				LibertyParser p(*f, path, liberty_synth_filter);
 				merged.merge(p);
 				delete f;
 			}
