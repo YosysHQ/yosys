@@ -1,0 +1,33 @@
+# `**` is right-associative: 2**3**2 is 2**(3**2) = 512.
+
+read_verilog << EOT
+module top(output [15:0] unparen, output [15:0] right, output [15:0] left);
+    assign unparen = 2**3**2;
+    assign right   = 2**(3**2);
+    assign left    = (2**3)**2;
+endmodule
+EOT
+
+prep -top top
+opt -full
+design -stash gate
+
+read_verilog << EOT
+module top(output [15:0] unparen, output [15:0] right, output [15:0] left);
+    assign unparen = 16'd512;
+    assign right   = 16'd512;
+    assign left    = 16'd64;
+endmodule
+EOT
+
+prep -top top
+opt -full
+design -stash gold
+
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+equiv_make gold gate equiv
+hierarchy -top equiv
+equiv_simple
+equiv_induct
+equiv_status -assert
