@@ -70,7 +70,7 @@ void LibertyAstCache::parsed_ast(const std::string &fname, const LibertyFilter &
 		return;
 	if (verbose)
 		log("Caching data for liberty file `%s'\n", fname);
-	cached.emplace(fname, CacheEntry{filter, ast});
+	cached[fname] = CacheEntry{filter, ast};
 }
 
 #endif
