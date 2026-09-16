@@ -514,7 +514,8 @@ struct SynthXilinxPass : public ScriptPass
 					params += " -lib +/xilinx/brams_xc4v.txt";
 					params += " -D HAS_SIZE_36";
 					params += " -D HAS_CASCADE";
-					params += " -D HAS_CONFLICT_BUG";
+					if (family == "xc6v")
+						params += " -D HAS_CONFLICT_BUG";
 					params += " -D HAS_MIXWIDTH_SDP";
 					brams_map = "+/xilinx/brams_xc6v_map.v";
 				} else if (family == "xcu" || family == "xcup") {
