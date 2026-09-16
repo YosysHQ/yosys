@@ -158,7 +158,7 @@ LogMessage::LogMessage(LogSeverity severity, LogSourceLocation src, std::string_
 			next_print_log = true;
 	}
 	std::string loc = !src.filename.empty() ? stringf("%s:%d: ", src.filename, src.start_line) : "";
-	cached_msg = stringf("%s%s%s%s", loc, time_str, prefix, message);
+	cached_msg = stringf("%s%s%s%s", time_str, loc, prefix, message);
 }
 
 static void log_id_cache_clear()
