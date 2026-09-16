@@ -1,0 +1,66 @@
+read_rtlil <<EOF
+attribute \top 1
+module \top
+  wire input 1 \clk
+  wire inout 2 \port_b_0__io__io
+  wire inout 3 \port_b_1__io__io
+  wire width 8 input 4 \payload
+
+  wire width 4 \o
+  wire width 4 $5
+  wire width 2 \o[0]
+  wire width 2 \o[1]
+  wire width 2 \o1
+
+  cell \SB_IO \buf0
+    parameter \IO_STANDARD "SB_LVCMOS"
+    parameter \PULLUP 1
+    parameter \PIN_TYPE 6'110001
+    connect \OUTPUT_CLK \clk
+    connect \D_OUT_0 \o [0]
+    connect \D_OUT_1 \o1 [0]
+    connect \OUTPUT_ENABLE 1'1
+    connect \PACKAGE_PIN \port_b_0__io__io
+  end
+  cell \SB_IO \buf1
+    parameter \IO_STANDARD "SB_LVCMOS"
+    parameter \PULLUP 1
+    parameter \PIN_TYPE 6'110001
+    connect \OUTPUT_CLK \clk
+    connect \D_OUT_0 \o [1]
+    connect \D_OUT_1 \o1 [1]
+    connect \OUTPUT_ENABLE 1'1
+    connect \PACKAGE_PIN \port_b_1__io__io
+  end
+  cell \SB_DFF \dffsb0
+    connect \C \clk
+    connect \D \o [2]
+    connect \Q \o1 [0]
+  end
+  cell \SB_DFF \dffsb1
+    connect \C \clk
+    connect \D \o [3]
+    connect \Q \o1 [1]
+  end
+  cell $dff $dff
+    parameter \WIDTH 4
+    parameter \CLK_POLARITY 1
+    connect \D $5
+    connect \CLK \clk
+    connect \Q \o
+  end
+
+  process $1
+    assign $5 [1:0] { \payload [6] \payload [7] }
+    assign $5 [3:2] { \payload [6] \payload [7] }
+  end
+
+  connect \o[0] \o [1:0]
+  connect \o[1] \o [3:2]
+end
+EOF
+
+logger -expect prefix-warning "Feature 'write_xaiger2' is experimental." 1
+synth_ice40
+logger -expect-no-warnings
+
