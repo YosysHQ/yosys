@@ -938,6 +938,9 @@ struct Smt2Worker
 			log_error("Unsupported cell type %s for cell %s.%s -- please run `clk2fflogic` before `write_smt2`.\n",
 					cell->type, module, cell);
 		}
+
+		if (cell->type == ID($input_port)) return;
+
 		log_error("Unsupported cell type %s for cell %s.%s.\n",
 				cell->type, module, cell);
 	}
