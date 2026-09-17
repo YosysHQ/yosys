@@ -70,6 +70,7 @@ MK_TEST_DIRS += ./cxxrtl
 MK_TEST_DIRS += ./liberty
 MK_TEST_DIRS += ./abc_new
 MK_TEST_DIRS += ./abc_new/openroad
+MK_TEST_DIRS += ./abc_new/librelane
 #ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 #MK_TEST_DIRS += ./functional
 #endif
