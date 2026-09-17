@@ -85,3 +85,5 @@ design -import gold -as gold
 design -import gate -as gate
 miter -equiv -flatten -make_assert -make_outputs gold gate miter
 sat -verify -prove-asserts miter
+
+# TODO
