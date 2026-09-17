@@ -1,0 +1,31 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/rmp/test/aes_dontuse_nangate45.tcl
+
+# -dont_use with exact names and a glob
+read_verilog <<EOT
+module top(input [7:0] a, b, input s, output [7:0] y, output p);
+	assign y = s ? a ^ b : ~(a & b);
+	assign p = ^a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+
+techmap
+opt
+# Set dont use for all X1 cells
+abc_new -liberty cm_test_cells.lib -dont_use X* -dont_use MUX2
+# Check that no X1 cell was used by RMP on first pass
+select -assert-none t:XOR2 t:XNOR2 t:MUX2 t:$_*_
+check -assert
+
+read_verilog cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter

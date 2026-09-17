@@ -1,0 +1,76 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/cm_test.cc
+
+# syn cm_test cases; small ones must hit the one obvious cell (Adder12 exceeds openroad's area bound, 304 vs 280.8)
+read_verilog <<EOT
+module SingleAnd(input a, b, output y); assign y = a & b; endmodule
+module NandFromAndThenNot(input a, b, output y); assign y = ~(a & b); endmodule
+module NorFromOrThenNot(input a, b, output y); assign y = ~(a | b); endmodule
+module Andnot(input a, b, output y); assign y = a & ~b; endmodule
+module AoiPattern(input a, b, c, output y); assign y = ~(a & (b | c)); endmodule
+module OrOfAnds(input a, b, c, d, output y); assign y = (a & b) | (c & d); endmodule
+module SharedFanin(input a, b, c, output y1, y2); assign y1 = a & b; assign y2 = a & c; endmodule
+module FourInputAndTree(input a, b, c, d, output y); assign y = (a & b) & (c & d); endmodule
+// y = (a & !s) | (b & s)
+module MuxFromAig(input a, b, s, output y); assign y = (a & !s) | (b & s); endmodule
+module ConstantOutput(output y0, y1); assign y0 = 1'b0; assign y1 = 1'b1; endmodule
+module InverterOnly(input a, output y); assign y = ~a; endmodule
+// 12-bit adder: bitblast lowers `adc` to Han-Carlson AIG. Output is
+// the 12-bit sum, dropping the carry-out at bit 12.
+module Adder12(input [11:0] a, b, output [11:0] y); assign y = a + b; endmodule
+// Truncated 6x6 unsigned multiplier (syn::Mul outputWidth = a.width()).
+// bitblast lowers it to a Wallace tree feeding a Han-Carlson adder.
+module Multiplier6(input [5:0] a, b, output [5:0] y); assign y = a * b; endmodule
+module top(input [11:0] a, b, input [5:0] c, d, input s, output [11:0] sum, output [5:0] prod, output [10:0] o);
+	SingleAnd u0(.a(a[0]), .b(b[0]), .y(o[0]));
+	NandFromAndThenNot u1(.a(a[1]), .b(b[1]), .y(o[1]));
+	NorFromOrThenNot u2(.a(a[2]), .b(b[2]), .y(o[2]));
+	Andnot u3(.a(a[3]), .b(b[3]), .y(o[3]));
+	AoiPattern u4(.a(a[4]), .b(b[4]), .c(a[5]), .y(o[4]));
+	OrOfAnds u5(.a(a[6]), .b(b[6]), .c(a[7]), .d(b[7]), .y(o[5]));
+	SharedFanin u6(.a(a[8]), .b(b[8]), .c(b[9]), .y1(o[6]), .y2(o[7]));
+	FourInputAndTree u7(.a(a[9]), .b(b[10]), .c(a[10]), .d(b[11]), .y(o[8]));
+	MuxFromAig u8(.a(a[11]), .b(b[0]), .s(s), .y(o[9]));
+	wire k0, k1;
+	ConstantOutput u9(.y0(k0), .y1(k1));
+	InverterOnly u10(.a(k0 ^ k1 ^ s), .y(o[10]));
+	Adder12 u11(.a(a), .b(b), .y(sum));
+	Multiplier6 u12(.a(c), .b(d), .y(prod));
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold_hier
+flatten
+opt
+design -save gold
+design -load gold_hier
+techmap
+opt -fast
+abc_new -liberty cm_test_cells.lib
+opt_clean
+select -assert-none t:$_*_
+select -assert-count 1 SingleAnd/t:AND2
+select -assert-count 1 NandFromAndThenNot/t:NAND2
+select -assert-count 1 NorFromOrThenNot/t:NOR2
+select -assert-count 1 Andnot/t:ANDNOT2
+select -assert-count 1 AoiPattern/t:AOI21
+select -assert-count 1 AoiPattern/t:*
+select -assert-count 3 OrOfAnds/t:*
+select -assert-count 2 SharedFanin/t:AND2
+select -assert-count 3 FourInputAndTree/t:*
+select -assert-count 1 MuxFromAig/t:MUX2
+select -assert-count 1 MuxFromAig/t:*
+select -assert-none ConstantOutput/t:*
+select -assert-count 1 InverterOnly/t:INV
+select -assert-count 1 InverterOnly/t:*
+# Best observed post-mapping area + 20% headroom.
+stat -liberty cm_test_cells.lib
+read_verilog cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter
