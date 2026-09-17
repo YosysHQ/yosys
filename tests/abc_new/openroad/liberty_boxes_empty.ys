@@ -1,0 +1,25 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/cut/test/empty_cut_set.v
+
+# flop only, empty cut
+read_verilog <<EOT
+module top(clk, a, b);
+	input clk;
+	input a;
+	output b;
+
+	DFF output_flop (
+		.CLK(clk),
+		.D(a),
+		.Q(b)
+	);
+
+endmodule
+EOT
+
+read_liberty -lib -unit_delay cm_test_cells.lib
+read_liberty -lib -unit_delay sm_test_cells.lib
+hierarchy -top top
+abc_new -liberty cm_test_cells.lib -liberty sm_test_cells.lib
+select -assert-count 1 t:DFF
+select -assert-count 1 t:*
+check -assert
