@@ -1,0 +1,21 @@
+# box instances with unconnected ports (the unused-output instance gets dropped, not asserted)
+read_verilog <<EOT
+module top(input a, b, output y, z);
+	wire t, unused;
+	AND2 g0 (.A(a), .Y(t));
+	OR2 g1 (.A(t), .B(b), .Y(y));
+	XOR2 g2 (.A(a), .B(b), .Y(unused));
+	assign z = t | a;
+endmodule
+EOT
+
+read_liberty -lib -unit_delay openroad/cm_test_cells.lib
+hierarchy -top top
+proc
+opt
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 1 c:g0
+select -assert-count 1 c:g1
+select -assert-none t:$_*_
+check -assert
