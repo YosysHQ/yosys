@@ -16,4 +16,4 @@ select -assert-max 1 t:INV
 select -assert-max 2 t:LUT4
 select -assert-max 6 t:WIDEFN9
 select -assert-count 6 t:FD1P3IX
-select -assert-none t:LUT4 t:FD1P3IX t:WIDEFN9 t:INV t:IB t:OB t:VLO t:VHI %% t:* %D
+select -assert-none t:LUT4 t:FD1P3IX t:WIDEFN9 t:INV t:IB t:OB t:VLO t:VHI %% t:* %D t:$input_port %d
