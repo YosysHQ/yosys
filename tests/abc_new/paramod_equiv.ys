@@ -1,0 +1,32 @@
+# two paramods of one module
+read_verilog <<EOT
+module inc #(parameter W = 4) (input [W-1:0] a, output [W-1:0] y);
+	assign y = a + 1;
+endmodule
+module top(input [3:0] a, input [7:0] b, output [3:0] y, output [7:0] z);
+	inc #(.W(4)) i4 (.a(a), .y(y));
+	inc #(.W(8)) i8 (.a(b), .y(z));
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold_hier
+flatten
+design -save gold
+design -load gold_hier
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 2 top/t:$paramod*
+select -assert-none t:$_*_
+opt_clean
+check -assert
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter
