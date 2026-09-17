@@ -68,6 +68,8 @@ MK_TEST_DIRS += ./fmt
 MK_TEST_DIRS += ./lut
 MK_TEST_DIRS += ./cxxrtl
 MK_TEST_DIRS += ./liberty
+MK_TEST_DIRS += ./abc_new
+MK_TEST_DIRS += ./abc_new/openroad
 #ifeq ($(ENABLE_FUNCTIONAL_TESTS),1)
 #MK_TEST_DIRS += ./functional
 #endif
