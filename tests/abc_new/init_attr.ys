@@ -1,0 +1,20 @@
+# init values on flop outputs survive
+read_verilog <<EOT
+module top(input clk, a, output y);
+	reg q = 1'b1;
+	reg [1:0] r = 2'b10;
+	always @(posedge clk) begin q <= a ^ q; r <= r + {1'b0, q}; end
+	assign y = q & ^r;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+techmap
+select -assert-count 2 a:init
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 1 w:q a:init %i
+select -assert-count 1 w:r a:init %i
+select -assert-none t:$_*_ t:$_DFF_P_ %d
+check -assert
