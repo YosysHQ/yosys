@@ -1,0 +1,30 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/macro_test_cells.lib
+
+# logic around a memory macro with bus pins
+read_liberty -lib macro_test_cells.lib
+read_verilog <<EOT
+module top(input clk, we, ce, input [8:0] addr, input [7:0] wd, output [7:0] rd, output p);
+	wire [7:0] q;
+	fakeram_512x8 i_memory (.clk(clk), .we_in(we & ce), .ce_in(ce), .addr_in(addr ^ {9{we}}), .wd_in(wd + 8'd3), .rd_out(q));
+	assign rd = q ^ wd;
+	assign p = ^q;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+techmap
+abc_new -liberty cm_test_cells.lib
+select -assert-count 1 t:fakeram_512x8
+select -assert-none t:$_*_
+check -assert
+read_verilog cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
