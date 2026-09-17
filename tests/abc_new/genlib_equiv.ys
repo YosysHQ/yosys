@@ -1,0 +1,29 @@
+# -genlib
+read_verilog <<EOT
+module top(input [3:0] a, b, input s, output [3:0] y, output z, w);
+	assign y = s ? a ^ b : a & b;
+	assign z = 1'b0;
+	assign w = |a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+
+techmap
+opt
+abc_new -genlib cells.genlib
+select -assert-none t:$_*_
+select -assert-min 1 t:MUX2
+check -assert
+
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter
