@@ -1,0 +1,32 @@
+# https://github.com/librelane/librelane/blob/f24e0ea5db2260719e9a0c7d51d07db74a87fa23/librelane/scripts/pyosys/synthesize.py
+
+# classic abc with the librelane "@STRATEGY@" script, -constr, -D
+read_liberty -lib ../openroad/cm_test_cells.lib
+read_liberty -lib ../openroad/sm_test_cells.lib
+read_verilog spm.v
+hierarchy -top spm -chparam bits 8
+proc
+flatten
+opt
+design -save gold
+
+synth -run fine:
+dfflibmap -liberty ../openroad/sm_test_cells.lib
+abc -script @SCRIPT@ -D 10000 -constr abc.constr -showtmp -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
+opt_clean
+select -assert-none t:$_*_
+select -assert-count 16 t:DFFR
+check -assert
+
+read_verilog ../openroad/cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold spm
+design -copy-from gate -as gate spm
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert
