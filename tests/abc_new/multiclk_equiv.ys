@@ -1,0 +1,32 @@
+# two clocks, negedge, async reset
+read_verilog <<EOT
+module top(input c1, c2, rst_n, input [3:0] d, output [3:0] y);
+	reg [3:0] p, n;
+	always @(posedge c1, negedge rst_n) if (!rst_n) p <= 0; else p <= d + p;
+	always @(negedge c2) n <= p ^ d;
+	assign y = p & n;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+synth -run fine:
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 4 t:$_DFF_PN0_
+select -assert-count 4 t:$_DFF_N_
+select -assert-none t:$_*_ t:$_DFF_* %d
+check -assert
+read_verilog openroad/cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert
