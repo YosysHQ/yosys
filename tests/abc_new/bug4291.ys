@@ -1,0 +1,18 @@
+# https://github.com/YosysHQ/yosys/issues/4291
+
+# async-set reg driving an inout bit ("visited AIG node more than once")
+read_verilog <<EOT
+module top(inout [11:0] GPIO, input _0_, input _1_, input _2_);
+	reg \GPIO_reg[1] ;
+	always @(posedge _0_, posedge _1_)
+		if (_1_) \GPIO_reg[1]  <= 1'b1;
+		else \GPIO_reg[1]  <= _2_;
+	assign GPIO[1] = \GPIO_reg[1] ;
+endmodule
+EOT
+
+synth -top top -run :fine
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 1 t:$_DFF_PP1_
+select -assert-none t:$_*_ t:$_DFF_PP1_ %d
