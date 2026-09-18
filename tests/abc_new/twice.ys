@@ -1,0 +1,12 @@
+# abc_exe_options is only appended to: a second abc_new call (or -run staging) passes every option twice, the duplicated liberty makes abc abort
+read_verilog <<EOT
+module top(input a, b, output y);
+	assign y = a & b;
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-none t:$_*_
