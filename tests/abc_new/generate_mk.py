@@ -13,7 +13,6 @@ skip = [
     "keep_wire.ys",
     "scopeinfo.ys",
     "unknown_cell_zbufs.ys",
-    "whitebox_portarcs_fpe.ys",
 ]
 
 def create_tests():
