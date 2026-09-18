@@ -820,13 +820,13 @@ int main(int argc, char **argv)
 		abort();
 
 	log_flush();
+
+	yosys_shutdown();
+
 #if defined(_MSC_VER)
 	_exit(0);
 #elif defined(_WIN32)
 	_Exit(0);
 #endif
-
-	yosys_shutdown();
-
 	return 0;
 }
