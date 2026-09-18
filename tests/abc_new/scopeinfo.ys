@@ -1,0 +1,30 @@
+# $scopeinfo cells deleted by abc_new, kept by abc
+read_verilog <<EOT
+module sub(input [1:0] a, output y); assign y = &a; endmodule
+module top(input [3:0] a, output y);
+	wire [1:0] t;
+	sub s0(.a(a[1:0]), .y(t[0]));
+	sub s1(.a(a[3:2]), .y(t[1]));
+	assign y = ^t;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+flatten -scopename
+select -assert-count 2 t:$scopeinfo
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 2 t:$scopeinfo
+select -assert-none t:$_*_
+check -assert
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter
