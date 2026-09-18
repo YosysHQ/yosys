@@ -99,6 +99,7 @@ struct AbcNewPass : public ScriptPass {
 	{
 		std::string run_from, run_to;
 		cleanup = true;
+		abc_exe_options.clear();
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||

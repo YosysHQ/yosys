@@ -12,7 +12,6 @@ skip = [
     "hier_check.ys",
     "keep_wire.ys",
     "scopeinfo.ys",
-    "twice.ys",
     "unknown_cell_zbufs.ys",
     "whitebox_portarcs_fpe.ys",
 ]
