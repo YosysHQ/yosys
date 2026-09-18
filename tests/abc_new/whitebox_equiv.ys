@@ -1,4 +1,4 @@
-# lib_whitebox mux box mapped itself, then used as timing box (needs -unit_delay, see whitebox_portarcs_fpe.ys)
+# lib_whitebox mux box mapped itself, then used as timing box (needs -unit_delay, see whitebox_no_timing.ys)
 read_verilog -specify <<EOT
 (* abc9_box, lib_whitebox *)
 module MX4(input D0, D1, D2, D3, S0, S1, output Y);

@@ -11,7 +11,6 @@ skip = [
     "hier_check.ys",
     "keep_wire.ys",
     "scopeinfo.ys",
-    "whitebox_portarcs_fpe.ys",
 ]
 
 def create_tests():
