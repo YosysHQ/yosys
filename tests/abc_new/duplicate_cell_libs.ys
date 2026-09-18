@@ -1,0 +1,13 @@
+# https://github.com/YosysHQ/yosys/issues/4977
+
+# same cell name in two liberty files: abc asserts, should be an error (#4977)
+read_verilog <<EOT
+module top(input a, b, output y);
+	assign y = ~(a & b);
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib -liberty dup_inv.lib
+select -assert-none t:$_*_
