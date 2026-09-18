@@ -114,22 +114,35 @@ int verific_sva_fsm_limit;
 vector<string> verific_incdirs, verific_libdirs, verific_libexts;
 #endif
 
+const char *get_message_type(msg_type_t msg_type)
+{
+	switch (msg_type) {
+	case VERIFIC_NONE:
+		return "VERIFIC-NONE";
+	case VERIFIC_ERROR:
+		return "VERIFIC-ERROR";
+	case VERIFIC_WARNING:
+		return "VERIFIC-WARNING";
+	case VERIFIC_IGNORE:
+		return "VERIFIC-IGNORE";
+	case VERIFIC_INFO:
+		return "VERIFIC-INFO";
+	case VERIFIC_COMMENT:
+		return "VERIFIC-COMMENT";
+	case VERIFIC_PROGRAM_ERROR:
+		return "VERIFIC-PROGRAM_ERROR";
+	default:
+		return "VERIFIC-UNKNOWN";
+	}
+}
+
 void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefile, const char *msg, va_list args)
 {
-	string message_prefix = stringf("VERIFIC-%s [%s] ",
-			msg_type == VERIFIC_NONE ? "NONE" :
-			msg_type == VERIFIC_ERROR ? "ERROR" :
-			msg_type == VERIFIC_WARNING ? "WARNING" :
-			msg_type == VERIFIC_IGNORE ? "IGNORE" :
-			msg_type == VERIFIC_INFO ? "INFO" :
-			msg_type == VERIFIC_COMMENT ? "COMMENT" :
-			msg_type == VERIFIC_PROGRAM_ERROR ? "PROGRAM_ERROR" : "UNKNOWN", message_id ? message_id : "");
-
-	string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
-	message += vstringf(msg, args);
-
+	std::string id = message_id ? stringf("[%s] ",message_id) : "";
 	if (log_verific_callback) {
-		string full_message = stringf("%s%s\n", message_prefix, message);
+		string message = linefile ? stringf("%s:%d: ", LineFile::GetFileName(linefile), LineFile::GetLineNo(linefile)) : "";
+		message += vstringf(msg, args);
+		string full_message = stringf("%s [%s] %s\n", get_message_type(msg_type), id, message);
 #ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS
 		log_verific_callback(int(msg_type), message_id, LineFile::GetFileName(linefile),
 			linefile ? linefile->GetLeftLine() : 0, linefile ? linefile->GetLeftCol() : 0,
@@ -140,13 +153,24 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			linefile ? LineFile::GetLineNo(linefile) : 0, 0, full_message.c_str());
 #endif
 	} else {
-		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_WARNING || msg_type == VERIFIC_PROGRAM_ERROR)
-			log_warning_noprefix("%s%s\n", message_prefix, message);
-		else
-			log("%s%s\n", message_prefix, message);
+		auto src = !linefile ? LogSourceLocation{} : LogSourceLocation{LineFile::GetFileName(linefile),
+#ifdef VERIFIC_LINEFILE_INCLUDES_COLUMNS
+			int(linefile->GetLeftLine()), int(linefile->GetLeftCol()), int(linefile->GetRightLine()), int(linefile->GetRightCol())};
+#else
+			int(LineFile::GetLineNo(linefile))};
+#endif
+		string message_prefix = stringf("%s: ",get_message_type(msg_type));
+		string message = stringf("%s%s\n", id, vstringf(msg, args));
+		if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR) {
+			logger().formatted_nonfatal_error(src, message_prefix, "%s%s\n", message);
+		} else if (msg_type == VERIFIC_WARNING) {
+			logger().formatted_warning(src, message_prefix, "%s%s\n", message);
+		} else {
+			logger().formatted_string(LogSeverity::Info, src, message_prefix, "%s%s\n", message);
+		}			
 	}
-	if (verific_error_msg.empty() && (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR))
-		verific_error_msg = message;
+	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR)
+		verific_error_msg = "Design elaboration failed; see full log for details";
 }
 
 void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg))
