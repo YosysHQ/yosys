@@ -1,0 +1,45 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/cut/test/side_outputs_extract.v
+
+# This test makes sure that we keep track of any outputs that aren't directly
+# on the logic cone, but are driven by cell that are. If we were to destory these
+# cells we need to make sure any pins they drive are primary outputs in ABC to
+# preserve correctness.
+read_verilog <<EOT
+module top(clk, a, b, c, d);
+	input clk;
+	input a;
+	input b;
+	output c;
+	output d;
+
+	wire flop_net;
+
+	AND2 _403_ (
+		.A(a),
+		.B(b),
+		.Y(flop_net)
+	);
+
+	DFF output_flop (
+		.CLK(clk),
+		.D(flop_net),
+		.Q(c)
+	);
+
+	DFF output_flop2 (
+		.CLK(clk),
+		.D(flop_net),
+		.Q(d)
+	);
+
+endmodule
+EOT
+
+read_liberty -lib -unit_delay cm_test_cells.lib
+read_liberty -lib -unit_delay sm_test_cells.lib
+hierarchy -top top
+abc_new -liberty cm_test_cells.lib -liberty sm_test_cells.lib
+select -assert-count 1 t:AND2
+select -assert-count 2 t:DFF
+select -assert-count 3 t:*
+check -assert

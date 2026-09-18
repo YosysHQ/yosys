@@ -1,0 +1,34 @@
+# passthrough, port-to-port, constants, undef on outputs and cone inputs, duplicated bits, dangling logic, undriven inout
+read_verilog <<EOT
+module top(input [3:0] a, input b, unused, inout io, output [3:0] y0, y1, output z0, z1, z2, z3, z4, z5, output [1:0] w);
+	assign y0 = a;
+	assign y1 = y0;
+	assign z0 = 1'b0;
+	assign z1 = 1'b1;
+	assign z2 = 1'bx;
+	assign z3 = b;
+	assign z4 = a[1] & 1'bx;
+	assign z5 = b | 1'bx;
+	assign w = {b, b};
+	wire dangling = a[0] & b;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-none t:$_*_
+check -assert
+
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter

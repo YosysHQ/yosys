@@ -1,0 +1,35 @@
+# https://github.com/YosysHQ/yosys/issues/2530
+
+# flop with async reset from its own output
+read_liberty -lib openroad/sm_test_cells.lib
+read_verilog <<EOT
+module top(input WBs_CLK_i, _1_, _0_, output reg Rx_overflow_detected_o);
+	wire rx_fifo_cntr_rst;
+	assign rx_fifo_cntr_rst = _1_ | Rx_overflow_detected_o;
+	always @(posedge WBs_CLK_i, posedge rx_fifo_cntr_rst)
+		if (rx_fifo_cntr_rst) Rx_overflow_detected_o <= 1'h0;
+		else Rx_overflow_detected_o <= _0_;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+synth -run fine:
+dfflibmap -liberty openroad/sm_test_cells.lib
+select -assert-count 1 t:DFFR
+abc_new -liberty openroad/cm_test_cells.lib -liberty openroad/sm_test_cells.lib
+select -assert-none t:$_*_
+check -assert
+read_verilog openroad/cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert

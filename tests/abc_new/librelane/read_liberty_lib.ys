@@ -1,0 +1,12 @@
+# https://github.com/librelane/librelane/blob/f24e0ea5db2260719e9a0c7d51d07db74a87fa23/librelane/scripts/pyosys/synthesize.py
+
+# plain read_liberty -lib (librelane order) makes cells abc9_box without timing; abc_new refuses, abc accepts
+read_liberty -lib ../openroad/cm_test_cells.lib
+read_liberty -lib ../openroad/sm_test_cells.lib
+read_verilog spm.v
+hierarchy -top spm -chparam bits 8
+synth -run :fine
+techmap
+dfflibmap -liberty ../openroad/sm_test_cells.lib
+abc_new -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
+select -assert-none t:$_*_

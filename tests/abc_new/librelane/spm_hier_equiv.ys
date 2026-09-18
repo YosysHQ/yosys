@@ -1,0 +1,32 @@
+# hierarchical spm: submodule mapped once, instances used as boxes
+read_liberty -lib ../openroad/sm_test_cells.lib
+read_verilog spm.v
+hierarchy -top spm -chparam bits 8
+proc
+opt
+design -save gold_hier
+flatten
+opt
+design -save gold
+design -load gold_hier
+
+synth -run fine:
+dfflibmap -liberty ../openroad/sm_test_cells.lib
+abc_new -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
+opt_clean
+select -assert-none t:$_*_
+select -assert-count 8 spm/t:delayed_serial_adder
+select -assert-count 2 delayed_serial_adder/t:DFFR
+
+read_verilog ../openroad/cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold spm
+design -copy-from gate -as gate spm
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert

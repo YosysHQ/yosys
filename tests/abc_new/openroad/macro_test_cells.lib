@@ -1,0 +1,68 @@
+/* https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/macro_test_cells.lib */
+library(macro_test) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+  type (fakeram_512x8_DATA) {
+    base_type : array ;
+    data_type : bit ;
+    bit_width : 8;
+    bit_from : 7;
+    bit_to : 0 ;
+    downto : true ;
+  }
+  type (fakeram_512x8_ADDRESS) {
+    base_type : array ;
+    data_type : bit ;
+    bit_width : 9;
+    bit_from : 8;
+    bit_to : 0 ;
+    downto : true ;
+  }
+  cell(fakeram_512x8) {
+    area : 171.993;
+    interface_timing : true;
+    memory() {
+      type : ram;
+      address_width : 9;
+      word_width : 8;
+    }
+    pin(clk) {
+      direction : input;
+      capacitance : 0.025;
+      clock : true;
+    }
+    bus(rd_out) {
+      bus_type : fakeram_512x8_DATA;
+      direction : output;
+      max_capacitance : 0.500;
+      memory_read() {
+        address : addr_in;
+      }
+    }
+    pin(we_in) {
+      direction : input;
+      capacitance : 0.005;
+    }
+    pin(ce_in) {
+      direction : input;
+      capacitance : 0.005;
+    }
+    bus(addr_in) {
+      bus_type : fakeram_512x8_ADDRESS;
+      direction : input;
+      capacitance : 0.005;
+    }
+    bus(wd_in) {
+      bus_type : fakeram_512x8_DATA;
+      memory_write() {
+        address : addr_in;
+        clocked_on : "clk";
+      }
+      direction : input;
+      capacitance : 0.005;
+    }
+  }
+}

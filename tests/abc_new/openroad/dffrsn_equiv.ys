@@ -1,0 +1,44 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/sm_test_cells.lib
+
+# dfflibmap picks DFFR, DFFS and the inverted-storage DFFRSN
+read_verilog <<EOT
+module top(input clk, rst_n, set_n, input [3:0] d, output reg [3:0] qr, qs, qrs, output y);
+	always @(posedge clk, negedge rst_n)
+		if (!rst_n) qr <= 4'b0; else qr <= d;
+	always @(posedge clk, negedge set_n)
+		if (!set_n) qs <= 4'hf; else qs <= d ^ qr;
+	always @(posedge clk, negedge rst_n, negedge set_n)
+		if (!rst_n) qrs <= 4'b0; else if (!set_n) qrs <= 4'hf; else qrs <= qr + qs;
+	assign y = ^qrs;
+endmodule
+EOT
+
+read_liberty -lib sm_test_cells.lib
+hierarchy -top top
+proc
+opt
+design -save gold
+
+synth -run fine:
+dfflibmap -liberty sm_test_cells.lib
+select -assert-count 4 t:DFFR
+select -assert-count 4 t:DFFS
+select -assert-count 4 t:DFFRSN
+abc_new -liberty cm_test_cells.lib -liberty sm_test_cells.lib
+opt_clean
+select -assert-none t:$_*_
+select -assert-count 4 t:DFFRSN
+check -assert
+
+read_verilog cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert
