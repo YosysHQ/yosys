@@ -1,0 +1,20 @@
+# https://github.com/YosysHQ/yosys/issues/5223
+
+# two blackboxes driving one net via inout
+read_verilog <<EOT
+(* blackbox *)
+module foo(inout x);
+endmodule
+module top(input a, output y);
+	wire w;
+	foo a1(.x(w));
+	foo b1(.x(w));
+	assign y = a & w;
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 2 t:foo
+select -assert-none t:$_*_

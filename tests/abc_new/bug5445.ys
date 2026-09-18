@@ -1,0 +1,41 @@
+# https://github.com/YosysHQ/yosys/issues/5445
+
+# preset-only inverted-storage flop through dfflibmap and abc_new
+read_liberty -lib -unit_delay bug5445.lib
+read_verilog <<EOT
+module top(input clk, input resetn, input a, output reg r, output y);
+	always @(posedge clk or negedge resetn) begin
+		if (!resetn) r <= 1'b1;
+		else r <= a;
+	end
+	assign y = r ^ a;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+design -save gold
+synth -run fine:
+dfflibmap -liberty bug5445.lib
+select -assert-count 1 t:DFFRQN
+abc_new -liberty openroad/cm_test_cells.lib -liberty bug5445.lib
+select -assert-none t:$_*_
+check -assert
+read_verilog <<EOT
+module DFFRQN(input CK, D, RN, output reg QN);
+	always @(posedge CK, negedge RN) if (!RN) QN <= 1'b1; else QN <= !D;
+endmodule
+EOT
+
+read_verilog openroad/cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert
