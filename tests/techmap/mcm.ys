@@ -1,0 +1,120 @@
+# tests for mcm pass
+log -header "MCM normalized A-operation width"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  output wire [16:0] a,
+  output wire [16:0] b,
+  output wire [16:0] c
+);
+  assign a = x * 17'd9;
+  assign b = x * 17'd397;
+  assign c = x * 17'd505;
+endmodule
+EOF
+equiv_opt -assert mcm
+design -load postopt
+select -assert-count 0 t:$mul
+
+design -reset
+
+log -header "MCM does not truncate an unsupported wide coefficient"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  output wire [47:0] y
+);
+  assign y = x * 48'd4294967299;
+endmodule
+EOF
+equiv_opt -assert mcm
+design -load postopt
+select -assert-count 1 t:$mul
+
+design -reset
+
+log -header "MCM prunes dead greedy-search intermediates"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  output wire [15:0] y
+);
+  assign y = x * 16'd397;
+endmodule
+EOF
+equiv_opt -assert mcm -force
+design -load postopt
+select -assert-count 0 t:$mul
+select -assert-count 3 t:$add t:$sub
+
+design -reset
+
+log -header "MCM profitability threshold can reject graphs"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  input  wire [7:0] singleton_x,
+  output wire [15:0] singleton,
+  output wire [15:0] a,
+  output wire [15:0] b
+);
+  assign singleton = singleton_x * 16'd397;
+  assign a = x * 16'd3;
+  assign b = x * 16'd5;
+endmodule
+EOF
+mcm -min_gain 100
+select -assert-count 3 t:$mul
+
+design -reset
+
+log -header "MCM accepts a profitable shared graph"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  output wire [15:0] a,
+  output wire [15:0] b
+);
+  assign a = x * 16'd3;
+  assign b = x * 16'd21;
+endmodule
+EOF
+equiv_opt -assert mcm
+design -load postopt
+select -assert-count 0 t:$mul
+select -assert-count 2 t:$add t:$sub
+
+design -reset
+
+log -header "MCM accounts for negative-coefficient output depth"
+read_verilog <<EOF
+module top(
+  input  wire signed [7:0] x,
+  output wire signed [15:0] positive,
+  output wire signed [15:0] negative
+);
+  assign positive = x * 16'sd3;
+  assign negative = x * -16'sd3;
+endmodule
+EOF
+equiv_opt -assert mcm -depth 1 -force
+design -load postopt
+select -assert-count 1 t:$mul
+select -assert-count 1 t:$add t:$sub
+
+design -reset
+
+log -header "MCM demanded widths preserve differently truncated outputs"
+read_verilog <<EOF
+module top(
+  input  wire signed [11:0] x,
+  output wire signed [8:0] narrow,
+  output wire signed [20:0] wide
+);
+  assign narrow = x * 9'sd21;
+  assign wide = x * 21'sd341;
+endmodule
+EOF
+equiv_opt -assert mcm -min_gain 0
+design -load postopt
+select -assert-count 0 t:$mul
