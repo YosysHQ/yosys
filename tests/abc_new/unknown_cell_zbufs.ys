@@ -1,0 +1,19 @@
+# cell type without a module: abc_new leaves 1'z $buf cells, opt_clean then makes conflicting drivers
+read_verilog <<EOT
+module top(input clk, rst_n, a, b, output y, output [1:0] w);
+	reg q;
+	always @(posedge clk, negedge rst_n)
+		if (!rst_n) q <= 1'b0; else q <= a & b;
+	assign y = q;
+	assign w = {q, a};
+endmodule
+EOT
+
+synth -top top -run :fine
+techmap
+dfflibmap -liberty openroad/sm_test_cells.lib
+abc_new -liberty openroad/cm_test_cells.lib -liberty openroad/sm_test_cells.lib
+select -assert-none t:$buf
+opt_clean
+read_liberty -lib openroad/sm_test_cells.lib
+check -assert
