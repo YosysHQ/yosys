@@ -2416,8 +2416,20 @@ namespace {
 			if (cell->type == ID($_TBUF_))  { port(ID::A,1); port(ID::Y,1); port(ID::E,1); check_expected(); return; }
 
 			if (cell->type == ID($_MUX4_))  { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1); port(ID::S,1); port(ID::T,1); port(ID::Y,1); check_expected(); return; }
-			if (cell->type == ID($_MUX8_))  { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1); port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::Y,1); check_expected(); return; }
-			if (cell->type == ID($_MUX16_)) { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1); port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1); port(ID::I,1); port(ID::J,1); port(ID::K,1); port(ID::L,1); port(ID::M,1); port(ID::N,1); port(ID::O,1); port(ID::P,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::V,1); port(ID::Y,1); check_expected(); return; }
+			if (cell->type == ID($_MUX8_))  { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1);
+											  port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::Y,1); check_expected(); return; }
+			if (cell->type == ID($_MUX16_)) { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1);
+											  port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1);
+											  port(ID::I,1); port(ID::J,1); port(ID::K,1); port(ID::L,1);
+											  port(ID::M,1); port(ID::N,1); port(ID::O,1); port(ID::P,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::V,1); port(ID::Y,1); check_expected(); return; }
+			if (cell->type == ID($_MUX32_)) { port(ID::A,1); port(ID::B,1); port(ID::C,1); port(ID::D,1);
+											  port(ID::E,1); port(ID::F,1); port(ID::G,1); port(ID::H,1);
+											  port(ID::I,1); port(ID::J,1); port(ID::K,1); port(ID::L,1);
+											  port(ID::M,1); port(ID::N,1); port(ID::O,1); port(ID::P,1);
+											  port(ID::QA,1); port(ID::QB,1); port(ID::QC,1); port(ID::QD,1);
+											  port(ID::QE,1); port(ID::QF,1); port(ID::QG,1); port(ID::QH,1);
+											  port(ID::QI,1); port(ID::QJ,1); port(ID::QK,1); port(ID::QL,1);
+											  port(ID::QM,1); port(ID::QN,1); port(ID::QO,1); port(ID::QP,1); port(ID::S,1); port(ID::T,1); port(ID::U,1); port(ID::V,1); port(ID::W,1); port(ID::Y,1); check_expected(); return; }
 
 			if (cell->type.in(ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)))
 				{ port(ID::S,1); port(ID::R,1); port(ID::Q,1); check_expected(); return; }
