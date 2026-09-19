@@ -26,6 +26,9 @@ coarse:
     opt_expr
     opt_clean
     memory_dff
+    alumacc -macc-only
+    maccmap -unmap
+    opt_clean
     wreduce t:$mul
     techmap
     select a:mul2dsp
