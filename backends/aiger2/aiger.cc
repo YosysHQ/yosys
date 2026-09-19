@@ -1745,6 +1745,23 @@ struct XAigerWriter : AigerWriter {
 	}
 };
 
+// $input_port cells only encode buffer-normalized form, but bufNormalize(false)
+// leaves the cells in the design
+void remove_input_port_cells(Design *design)
+{
+	std::vector<Cell *> to_remove;
+
+	for (auto module : design->modules()) {
+		to_remove.clear();
+		for (auto cell : module->cells())
+			if (cell->type == ID($input_port))
+				to_remove.push_back(cell);
+
+		for (auto cell : to_remove)
+			module->remove(cell);
+	}
+}
+
 struct Aiger2Backend : Backend {
 	Aiger2Backend() : Backend("aiger2", "(experimental) write design to AIGER file")
 	{
@@ -1842,6 +1859,7 @@ struct Aiger2Backend : Backend {
 		// flag must not be kept on past the code that can work
 		// with it)
 		design->bufNormalize(false);
+		remove_input_port_cells(design);
 	}
 } Aiger2Backend;
 
@@ -1923,6 +1941,7 @@ struct XAiger2Backend : Backend {
 		// flag must not be kept on past the code that can work
 		// with it)
 		design->bufNormalize(false);
+		remove_input_port_cells(design);
 	}
 } XAiger2Backend;
 
