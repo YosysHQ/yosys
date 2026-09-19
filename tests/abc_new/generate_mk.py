@@ -11,7 +11,6 @@ skip = [
     "duplicate_cell_libs.ys",
     "hier_check.ys",
     "keep_wire.ys",
-    "scopeinfo.ys",
     "unknown_cell_zbufs.ys",
 ]
 

@@ -12,7 +12,10 @@ EOT
 hierarchy -top top
 proc
 opt
+design -save gold_hier
+flatten
 design -save gold
+design -load gold_hier
 flatten -scopename
 select -assert-count 2 t:$scopeinfo
 techmap

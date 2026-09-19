@@ -1708,7 +1708,9 @@ struct XAigerWriter : AigerWriter {
 		if (mapping_prep) {
 			std::vector<Cell *> to_remove_cells;
 			for (auto cell : top->cells())
-				if (!top_minfo->found_blackboxes.count(cell) && !keep_cells.count(cell))
+				// $scopeinfo isn't part of the mapping
+				if (cell->type != ID($scopeinfo) &&
+						!top_minfo->found_blackboxes.count(cell) && !keep_cells.count(cell))
 					to_remove_cells.push_back(cell);
 			for (auto cell : to_remove_cells)
 				top->remove(cell);
