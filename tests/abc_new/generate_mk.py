@@ -10,7 +10,6 @@ import gen_tests_makefile
 skip = [
     "duplicate_cell_libs.ys",
     "hier_check.ys",
-    "keep_wire.ys",
     "unknown_cell_zbufs.ys",
 ]
 
