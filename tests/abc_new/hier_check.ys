@@ -11,6 +11,13 @@ EOT
 
 hierarchy -top top
 techmap
+design -save pre
+
+abc9 -lut 4
+select -assert-none t:$input_port
+check -assert
+
+design -load pre
 abc_new -liberty openroad/cm_test_cells.lib
 select -assert-none t:$input_port
 check -assert
