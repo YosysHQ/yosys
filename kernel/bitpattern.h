@@ -97,7 +97,7 @@ struct BitPatternPool
 	 * Convert a constant SigSpec to a pattern. Normalize Yosys many-valued
 	 * to three-valued logic.
 	 */
-	bits_t sig2bits(RTLIL::SigSpec sig)
+	bits_t sig2bits(const RTLIL::SigSpec &sig)
 	{
 		bits_t bits;
 		bits.bitdata = sig.as_const().to_bits();
@@ -111,7 +111,7 @@ struct BitPatternPool
 	 * A literal x/z bit can never match a 2-valued selector, so a pattern containing
 	 * one covers nothing.
 	 */
-	static bool covers_nothing(RTLIL::SigSpec sig)
+	static bool covers_nothing(const RTLIL::SigSpec &sig)
 	{
 		for (auto bit : sig)
 			if (bit.wire == NULL && (bit.data == RTLIL::State::Sx || bit.data == RTLIL::State::Sz))
@@ -122,7 +122,10 @@ struct BitPatternPool
 	/**
 	 * Two cubes match if their intersection is non-empty.
 	 */
-	bool match(bits_t a, bits_t b)
+	// The proc/proc_mux grouping path compares each query against every cube in
+	// the pool. Keep those comparisons reference-based to avoid copying vectors
+	// in the innermost loop.
+	bool match(const bits_t &a, const bits_t &b)
 	{
 		log_assert(int(a.bitdata.size()) == width);
 		log_assert(int(b.bitdata.size()) == width);
@@ -141,7 +144,7 @@ struct BitPatternPool
 	 * pool({01a}).has_any(011) == true
 	 * pool({111}).has_any(01a) == false
 	 */
-	bool has_any(RTLIL::SigSpec sig)
+	bool has_any(const RTLIL::SigSpec &sig)
 	{
 		if (covers_nothing(sig))
 			return false;
@@ -161,7 +164,7 @@ struct BitPatternPool
 	 * pool({011}).has_all(01a) == false
 	 * pool({111}).has_all(01a) == false
 	 */
-	bool has_all(RTLIL::SigSpec sig)
+	bool has_all(const RTLIL::SigSpec &sig)
 	{
 		if (covers_nothing(sig))
 			return true;
@@ -183,7 +186,7 @@ struct BitPatternPool
 	 * Taking 011 out of pool({01a}) -> pool({010}), returns true.
 	 * Taking 011 out of pool({010}) does nothing, returns false.
 	 */
-	bool take(RTLIL::SigSpec sig)
+	bool take(const RTLIL::SigSpec &sig)
 	{
 		bool status = false;
 		if (covers_nothing(sig))
