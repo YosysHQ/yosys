@@ -40,6 +40,11 @@ struct PseudoPo {
 	int offset;
 };
 
+struct KeptWire {
+	RTLIL::IdString wire;
+	int offset;
+};
+
 void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 {
 	auto design = module->design;
@@ -57,6 +62,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
+	dict<RTLIL::IdString, KeptWire> keptwires;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -171,6 +177,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 
 				pseudopos.insert({wire_name, PseudoPo{escaped_s, escaped_p, index}});
 				log_debug(" -> %s.%s[%d]\n", escaped_s, escaped_p, index);
+			}
+			else if (type == "keepwire") {
+				log_assert(variable + co_count < output_count);
+				RTLIL::IdString wire_name = stringf("$aiger$o%d", variable + co_count);
+				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
+				log_assert(wire);
+				log_assert(wire->port_output);
+				log_debug("Mapping kept wire %s", wire);
+
+				keptwires.insert({wire_name, KeptWire{escaped_s, index}});
+				log_debug(" -> %s[%d]\n", escaped_s, index);
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = mapped_mod->cell(stringf("$box%d", variable));
@@ -544,6 +561,20 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		log_assert(target.offset < GetSize(port));
 		port[target.offset] = remap_wire;
 		box->setPort(target.port, port);
+
+		mapped_wire->port_output = false;
+	}
+
+	// Drive the kept wires from the nets that replaced them
+	for (auto &[wire_name, kept] : keptwires) {
+		RTLIL::Wire *mapped_wire = mapped_mod->wire(wire_name);
+		log_assert(mapped_wire);
+		RTLIL::Wire *remap_wire = module->wire(remap_name(wire_name));
+		log_assert(remap_wire);
+
+		RTLIL::Wire *wire = module->wire(kept.wire);
+		log_assert(wire);
+		module->connect(SigBit(wire, kept.offset - wire->start_offset), remap_wire);
 
 		mapped_wire->port_output = false;
 	}
