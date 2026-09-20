@@ -3,8 +3,6 @@
 import sys
 sys.path.append("../..")
 
-import glob
-
 import gen_tests_makefile
 from construct_abc_script import ABCScriptCreator
 
@@ -24,10 +22,6 @@ config = {
 strategies = ["AREA 0", "AREA 1", "AREA 2", "AREA 3",
               "DELAY 0", "DELAY 1", "DELAY 2", "DELAY 3", "DELAY 4"]
 
-skip = [
-    "read_liberty_lib.ys",
-]
-
 creator = ABCScriptCreator(config)
 template = open("abc_librelane.ys.in").read()
 for strategy in strategies:
@@ -36,10 +30,4 @@ for strategy in strategies:
     with open(f"abc_librelane_{name}.ys", "w") as f:
         f.write(template.replace("@STRATEGY@", strategy).replace("@SCRIPT@", script))
 
-def create_tests():
-    for ys in sorted(glob.glob("*.ys")):
-        if ys in skip:
-            continue
-        gen_tests_makefile.generate_ys_test(ys)
-
-gen_tests_makefile.generate_custom(create_tests)
+gen_tests_makefile.generate(["--yosys-scripts"])

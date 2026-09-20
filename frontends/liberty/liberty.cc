@@ -736,30 +736,28 @@ struct LibertyFrontend : public Frontend {
 					simple_comb_cell = false;
 			}
 
-			if (simple_comb_cell && has_outputs) {
+			if (simple_comb_cell && has_outputs && flag_unit_delay) {
 				module->set_bool_attribute(ID::abc9_box);
 
-				if (flag_unit_delay) {
-					for (auto wi : module->wires())
-					if (wi->port_input) {
-						for (auto wo : module->wires())
-						if (wo->port_output) {
-							RTLIL::Cell *spec = module->addCell(NEW_ID, ID($specify2));
-							spec->setParam(ID::SRC_WIDTH, wi->width);
-							spec->setParam(ID::DST_WIDTH, wo->width);
-							spec->setParam(ID::T_FALL_MAX, 1000);
-							spec->setParam(ID::T_FALL_TYP, 1000);
-							spec->setParam(ID::T_FALL_MIN, 1000);
-							spec->setParam(ID::T_RISE_MAX, 1000);
-							spec->setParam(ID::T_RISE_TYP, 1000);
-							spec->setParam(ID::T_RISE_MIN, 1000);
-							spec->setParam(ID::SRC_DST_POL, false);
-							spec->setParam(ID::SRC_DST_PEN, false);
-							spec->setParam(ID::FULL, true);
-							spec->setPort(ID::EN, Const(1, 1));
-							spec->setPort(ID::SRC, wi);
-							spec->setPort(ID::DST, wo);
-						}
+				for (auto wi : module->wires())
+				if (wi->port_input) {
+					for (auto wo : module->wires())
+					if (wo->port_output) {
+						RTLIL::Cell *spec = module->addCell(NEW_ID, ID($specify2));
+						spec->setParam(ID::SRC_WIDTH, wi->width);
+						spec->setParam(ID::DST_WIDTH, wo->width);
+						spec->setParam(ID::T_FALL_MAX, 1000);
+						spec->setParam(ID::T_FALL_TYP, 1000);
+						spec->setParam(ID::T_FALL_MIN, 1000);
+						spec->setParam(ID::T_RISE_MAX, 1000);
+						spec->setParam(ID::T_RISE_TYP, 1000);
+						spec->setParam(ID::T_RISE_MIN, 1000);
+						spec->setParam(ID::SRC_DST_POL, false);
+						spec->setParam(ID::SRC_DST_PEN, false);
+						spec->setParam(ID::FULL, true);
+						spec->setPort(ID::EN, Const(1, 1));
+						spec->setPort(ID::SRC, wi);
+						spec->setPort(ID::DST, wo);
 					}
 				}
 			}
