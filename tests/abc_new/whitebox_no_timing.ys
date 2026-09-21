@@ -1,4 +1,5 @@
-# mapped cells without timing: portarcs -draw divides by zero (portarcs.cc:285), SIGFPE
+# abc_new maps the box to cells without timing; prep_box must reject it, not crash
+logger -expect error "has no timing" 1
 read_verilog -specify <<EOT
 (* abc9_box, lib_whitebox *)
 module MX4(input D0, D1, D2, D3, S0, S1, output Y);
