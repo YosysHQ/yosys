@@ -1,0 +1,17 @@
+/* https://github.com/YosysHQ/yosys/issues/5445
+
+   changed: INV cell dropped, openroad/cm_test_cells.lib has one */
+library(demo) {
+  cell(DFFRQN) {
+    area: 18;
+    ff(IQN, IQNN) { clocked_on: "CK";
+                    next_state: "!D";
+                    preset : "!RN"; }
+    pin(CK) { direction: input;
+                 clock: true; }
+    pin(D)  { direction: input; }
+    pin(RN) { direction: input; }
+    pin(QN) { direction: output;
+              function: "IQN"; }
+  }
+}

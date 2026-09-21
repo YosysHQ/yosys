@@ -1,0 +1,20 @@
+# https://github.com/YosysHQ/yosys/issues/6179
+
+# wrapcell abc9_box operator module ("cannot find existing box cell $box0")
+read_liberty -overwrite -setattr liberty_cell -lib ../liberty/normal.lib
+read_liberty -overwrite -setattr liberty_cell -unit_delay -wb -ignore_miss_func -ignore_buses ../liberty/normal.lib
+read_verilog <<EOT
+module tiny(input clk, input [15:0] a, b, output reg [15:0] y);
+	always @(posedge clk) y <= a + b;
+endmodule
+EOT
+
+synth -flatten -top tiny -run :fine
+techmap -dont_map $alu
+wrapcell -setattr arithmetic_operator -name ALU_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}{%unused}_HAN_CARLSON t:$alu
+techmap -map +/techmap.v -map +/choices/han-carlson.v A:arithmetic_operator
+setattr -mod -set abc9_box 1 A:arithmetic_operator
+techmap
+abc_new -liberty ../liberty/normal.lib
+select -assert-count 1 tiny/t:ALU_*
+select -assert-none tiny/t:$_*_ tiny/t:$_DFF_P_ %d

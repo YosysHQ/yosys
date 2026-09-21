@@ -1,0 +1,4 @@
+# https://github.com/librelane/librelane/blob/f24e0ea5db2260719e9a0c7d51d07db74a87fa23/librelane/scripts/pyosys/synthesize.py
+# https://github.com/YosysHQ/abc/blob/28d955ca97a1c4be3aed4062aec0241a734fac5d/src/map/scl/sclUtil.c#L257
+set_driving_cell BUF
+set_load 0.01

@@ -1,0 +1,17 @@
+# latches stay as boundary cells
+read_verilog <<EOT
+module top(input en, input [3:0] d, output reg [3:0] q, output y);
+	always @* if (en) q = d ^ {d[2:0], d[3]};
+	assign y = ^q;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+techmap
+select -assert-count 4 t:$_DLATCH_P_
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 4 t:$_DLATCH_P_
+select -assert-none t:$_*_ t:$_DLATCH_P_ %d
+check -assert

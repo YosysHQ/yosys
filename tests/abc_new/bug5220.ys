@@ -1,0 +1,15 @@
+# https://github.com/YosysHQ/yosys/issues/5220
+
+# 1'z constants into write_xaiger2
+read_verilog <<EOT
+module top(input a, output [1:0] y, output z);
+	assign y = 2'bzz;
+	assign z = a & 1'bz;
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-none t:$_*_
+check -assert
