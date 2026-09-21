@@ -30,6 +30,40 @@ struct AOp {
 	bool sub, swapped;
 };
 
+struct AdderGraphConfig {
+	int max_depth = 3;
+	int max_shift = 12;
+	int max_nodes = 64;
+	long long work_budget = 2000000;
+};
+
+struct McmConfig {
+	AdderGraphConfig search;
+	int min_const = 3;
+	int min_gain = 0;
+	bool force = false;
+};
+
+struct AdderGraphCandidate {
+	int value = -1;
+	int depth = 0;
+	int score = -1;
+	AOp op;
+};
+
+using CandidateMap = dict<int, AdderGraphCandidate>;
+
+struct AdderGraph {
+	dict<int, int> depth;
+	std::vector<AOp> ops;
+};
+
+enum class AdderGraphStatus {
+	success,
+	no_graph,
+	budget_exhausted,
+};
+
 static int oddify(int n)
 {
 	if (n < 0)
@@ -66,17 +100,16 @@ static int naf_weight(int n)
 	return weight;
 }
 
-struct McmSolver {
-	int max_depth, max_shift, limit;
-	long long search_budget, search_work;
+struct AdderGraphSolver {
+	AdderGraphConfig config;
+	int limit;
+	long long search_work;
 	bool budget_exhausted;
-	dict<int, int> depth;          // value -> depth
-	std::vector<AOp> ops;
+	AdderGraph graph;
 	dict<std::pair<int, int>, std::vector<AOp>> op_cache;
 
-	McmSolver(int max_depth, int max_shift, long long search_budget)
-		: max_depth(max_depth), max_shift(max_shift), limit(1), search_budget(search_budget), search_work(0),
-		  budget_exhausted(false)
+	explicit AdderGraphSolver(const AdderGraphConfig &config)
+		: config(config), limit(1), search_work(0), budget_exhausted(false)
 	{}
 
 	static bool op_less(const AOp &a, const AOp &b)
@@ -85,8 +118,8 @@ struct McmSolver {
 				std::tie(b.u, b.su, b.v, b.sv, b.sub, b.swapped, b.norm);
 	}
 
-	// Enumerate odd values reachable by one A-operation from u,v.
-	const std::vector<AOp> &enumerate(int u, int v)
+	// Enumerate odd coefficients reachable from a pair of graph nodes.
+	const std::vector<AOp> &enumerate_pair(int u, int v)
 	{
 		if (u > v)
 			std::swap(u, v);
@@ -94,57 +127,65 @@ struct McmSolver {
 		if (op_cache.count(key))
 			return op_cache.at(key);
 
-		auto &out = op_cache[key];
+		auto &ops = op_cache[key];
 		dict<int, AOp> unique;
 		long long bound = 4LL * limit;
-		for (int su = 0; su <= max_shift; su++) {
+		for (int su = 0; su <= config.max_shift; su++) {
 			if (su >= 63 || (long long) u > (bound >> su))
 				break;
 			long long us = (long long)u << su;
-			for (int sv = 0; sv <= max_shift; sv++) {
+			for (int sv = 0; sv <= config.max_shift; sv++) {
 				if (sv >= 63 || (long long) v > (bound >> sv))
 					break;
-				if (search_work >= search_budget) {
+				if (search_work >= config.work_budget) {
 					budget_exhausted = true;
-					return out;
+					return ops;
 				}
 				search_work++;
 				long long vs = (long long)v << sv;
-				long long cand[3] = { us + vs, us - vs, vs - us };
-				bool issub[3] = { false, true, true };
-				bool swp[3] = { false, false, true };
+				long long results[3] = {us + vs, us - vs, vs - us};
+				bool subtract[3] = {false, true, true};
+				bool swapped[3] = {false, false, true};
 				for (int i = 0; i < 3; i++) {
-					if (cand[i] <= 0 || cand[i] > bound || cand[i] > std::numeric_limits<int>::max())
+					if (results[i] <= 0 || results[i] > bound || results[i] > std::numeric_limits<int>::max())
 						continue;
-					AOp o;
-					o.res = oddify((int)cand[i]);
-					o.u = u; o.su = su; o.v = v; o.sv = sv;
-					o.sub = issub[i]; o.swapped = swp[i];
-					o.norm = shift_of((int)cand[i]);
-					if (!unique.count(o.res) || op_less(o, unique.at(o.res)))
-						unique[o.res] = o;
+					AOp op;
+					op.res = oddify((int)results[i]);
+					op.u = u;
+					op.su = su;
+					op.v = v;
+					op.sv = sv;
+					op.sub = subtract[i];
+					op.swapped = swapped[i];
+					op.norm = shift_of((int)results[i]);
+					if (!unique.count(op.res) || op_less(op, unique.at(op.res)))
+						unique[op.res] = op;
 				}
 			}
 		}
 		for (auto &it : unique)
-			out.push_back(it.second);
-		return out;
+			ops.push_back(it.second);
+		return ops;
 	}
 
-	// Keep only the shallowest deterministic realization of each new value.
-	bool all_ops(dict<int, std::pair<int, AOp>> &out)
+	bool build_frontier(CandidateMap &candidates)
 	{
-		for (auto &a : depth) {
-			for (auto &b : depth) {
-				if (a.first > b.first || 1 + std::max(a.second, b.second) > max_depth)
+		for (auto &a : graph.depth) {
+			for (auto &b : graph.depth) {
+				if (a.first > b.first || 1 + std::max(a.second, b.second) > config.max_depth)
 					continue;
-				for (auto &o : enumerate(a.first, b.first)) {
-					if (depth.count(o.res) || o.res == 1)
+				for (auto &op : enumerate_pair(a.first, b.first)) {
+					if (graph.depth.count(op.res) || op.res == 1)
 						continue;
 					int d = 1 + std::max(a.second, b.second);
-					if (!out.count(o.res) || d < out.at(o.res).first ||
-							(d == out.at(o.res).first && op_less(o, out.at(o.res).second)))
-						out[o.res] = std::make_pair(d, o);
+					if (!candidates.count(op.res) || d < candidates.at(op.res).depth ||
+							(d == candidates.at(op.res).depth && op_less(op, candidates.at(op.res).op))) {
+						AdderGraphCandidate candidate;
+						candidate.value = op.res;
+						candidate.depth = d;
+						candidate.op = op;
+						candidates[op.res] = candidate;
+					}
 				}
 				if (budget_exhausted)
 					return false;
@@ -153,309 +194,417 @@ struct McmSolver {
 		return true;
 	}
 
-	// Greedy Hcub-style construction. Returns false if no graph found.
-	bool solve(const std::vector<int> &targets_in)
+	// Prefer a target we can produce immediately.
+	bool select_direct_target(const CandidateMap &candidates, const pool<int> &remaining,
+			AdderGraphCandidate &selected) const
 	{
-		pool<int> targets;
-		for (int t : targets_in) {
-			int o = oddify(t);
-			if (o > 1)
-				targets.insert(o);
-		}
-		limit = 1;
-		for (int t : targets)
-			limit = std::max(limit, t);
-
-		depth.clear(); ops.clear(); op_cache.clear();
-		search_work = 0; budget_exhausted = false;
-		depth[1] = 0;
-
-		int guard = 0;
-		while (true) {
-			pool<int> remaining;
-			for (int t : targets)
-				if (!depth.count(t))
-					remaining.insert(t);
-			if (remaining.empty())
-				break;
-			if (++guard > 64)
-				return false;
-
-			dict<int, std::pair<int, AOp>> cand_map;
-			if (!all_ops(cand_map))
-				return false;
-
-			// 1) take any target directly reachable, shallowest first
-			bool progressed = false;
-			int best = -1, best_d = -1; AOp best_op;
-			for (auto &c : cand_map) {
-				if (!remaining.count(c.first))
-					continue;
-				int d = c.second.first;
-				if (best_d < 0 || d < best_d || (d == best_d && c.first < best)) {
-					best = c.first; best_d = d; best_op = c.second.second; progressed = true;
-				}
-			}
-			if (progressed) {
-				depth[best] = best_d;
-				ops.push_back(best_op);
+		for (auto &entry : candidates) {
+			if (!remaining.count(entry.first))
 				continue;
+			int depth = entry.second.depth;
+			if (selected.value < 0 || depth < selected.depth ||
+					(depth == selected.depth && entry.first < selected.value)) {
+				selected.value = entry.first;
+				selected.depth = depth;
+				selected.op = entry.second.op;
 			}
-
-			// otherwise add the intermediate unlocking the most targets
-			if (cand_map.empty())
-				return false;
-
-			int pick = -1, pick_score = -1, pick_depth = 0; AOp pick_op;
-			for (auto &c : cand_map) {
-				int w = c.first, d = c.second.first;
-				// how many remaining targets become reachable once w is present
-				pool<int> unlocked;
-				for (auto &a : depth) {
-					if (1 + std::max(d, a.second) > max_depth)
-						continue;
-					for (auto &o : enumerate(w, a.first))
-						if (remaining.count(o.res))
-							unlocked.insert(o.res);
-					if (budget_exhausted)
-						return false;
-				}
-				if (1 + d <= max_depth) {
-					for (auto &o : enumerate(w, w))
-						if (remaining.count(o.res))
-							unlocked.insert(o.res);
-					if (budget_exhausted)
-						return false;
-				}
-				int score = GetSize(unlocked);
-				if (score > pick_score || (score == pick_score && (d < pick_depth ||
-						(d == pick_depth && (pick < 0 || w < pick))))) {
-					pick_score = score; pick = w; pick_depth = d; pick_op = c.second.second;
-				}
-			}
-			if (pick < 0)
-				return false;
-			depth[pick] = pick_depth;
-			ops.push_back(pick_op);
 		}
+		return selected.value >= 0;
+	}
+
+	// Score an intermediate by how many targets it makes reachable in one step.
+	bool score_intermediate(const AdderGraphCandidate &candidate, const pool<int> &remaining, int &score)
+	{
+		pool<int> unlocked;
+		for (auto &node : graph.depth) {
+			if (1 + std::max(candidate.depth, node.second) > config.max_depth)
+				continue;
+			for (auto &op : enumerate_pair(candidate.value, node.first))
+				if (remaining.count(op.res))
+					unlocked.insert(op.res);
+			if (budget_exhausted)
+				return false;
+		}
+		if (1 + candidate.depth <= config.max_depth) {
+			for (auto &op : enumerate_pair(candidate.value, candidate.value))
+				if (remaining.count(op.res))
+					unlocked.insert(op.res);
+			if (budget_exhausted)
+				return false;
+		}
+		score = GetSize(unlocked);
 		return true;
 	}
+
+	bool select_intermediate(const CandidateMap &candidates, const pool<int> &remaining,
+			AdderGraphCandidate &selected)
+	{
+		for (auto &entry : candidates) {
+			AdderGraphCandidate candidate = entry.second;
+			if (!score_intermediate(candidate, remaining, candidate.score))
+				return false;
+			if (selected.value < 0 || candidate.score > selected.score ||
+					(candidate.score == selected.score && (candidate.depth < selected.depth ||
+					(candidate.depth == selected.depth && candidate.value < selected.value))))
+				selected = candidate;
+		}
+		return selected.value >= 0;
+	}
+
+	bool select_next_candidate(const CandidateMap &candidates, const pool<int> &remaining,
+			AdderGraphCandidate &selected)
+	{
+		if (select_direct_target(candidates, remaining, selected))
+			return true;
+		if (candidates.empty())
+			return false;
+		return select_intermediate(candidates, remaining, selected);
+	}
+
+	void commit(const AdderGraphCandidate &candidate)
+	{
+		graph.depth[candidate.value] = candidate.depth;
+		graph.ops.push_back(candidate.op);
+	}
+
+	pool<int> find_remaining_targets(const pool<int> &targets) const
+	{
+		pool<int> remaining;
+		for (int target : targets)
+			if (!graph.depth.count(target))
+				remaining.insert(target);
+		return remaining;
+	}
+
+	AdderGraphStatus solve(const std::vector<int> &targets_in)
+	{
+		pool<int> targets;
+		for (int target : targets_in) {
+			int odd_target = oddify(target);
+			if (odd_target > 1)
+				targets.insert(odd_target);
+		}
+		limit = 1;
+		for (int target : targets)
+			limit = std::max(limit, target);
+
+		graph.depth.clear();
+		graph.ops.clear();
+		op_cache.clear();
+		search_work = 0;
+		budget_exhausted = false;
+		graph.depth[1] = 0;
+
+		int committed_nodes = 0;
+		while (true) {
+			pool<int> remaining = find_remaining_targets(targets);
+			if (remaining.empty())
+				break;
+			if (committed_nodes >= config.max_nodes)
+				return AdderGraphStatus::no_graph;
+
+			CandidateMap candidates;
+			if (!build_frontier(candidates))
+				return budget_exhausted ? AdderGraphStatus::budget_exhausted : AdderGraphStatus::no_graph;
+
+			AdderGraphCandidate selected;
+			if (!select_next_candidate(candidates, remaining, selected))
+				return budget_exhausted ? AdderGraphStatus::budget_exhausted : AdderGraphStatus::no_graph;
+			commit(selected);
+			committed_nodes++;
+		}
+		return AdderGraphStatus::success;
+	}
+};
+
+struct McmItem {
+	Cell *cell;
+	int coefficient;
+};
+
+struct McmGroup {
+	SigSpec input;
+	bool is_signed = false;
+	std::vector<McmItem> items;
+};
+
+using McmGroupMap = std::map<std::pair<SigSpec, bool>, McmGroup>;
+
+struct McmPlan {
+	std::vector<int> active_items;
+	std::vector<AOp> ops;
+	dict<int, int> demand;
+	dict<int, int> raw_width;
+	int realized_depth = 0;
+	long long shared_cost = 0;
+	long long independent_cost = 0;
 };
 
 struct McmWorker {
 	Module *module;
 	SigMap sigmap;
-	int max_depth, max_shift, min_const, min_gain;
-	long long search_budget;
-	bool force;
-	int n_groups = 0, n_muls = 0, n_adders = 0;
+	McmConfig config;
+	int n_groups = 0;
+	int n_muls = 0;
+	int n_adders = 0;
 
-	McmWorker(Module *m, int d, int s, int mc, int mg, long long sb, bool f)
-		: module(m), sigmap(m), max_depth(d), max_shift(s), min_const(mc), min_gain(mg), search_budget(sb), force(f) {}
+	McmWorker(Module *m, const McmConfig &config) : module(m), sigmap(m), config(config) {}
 
-	// sig << n, then widened/truncated to width w
 	SigSpec shl(SigSpec sig, int n, int w, bool is_signed)
 	{
-		SigSpec r;
+		SigSpec result;
 		if (n > 0)
-			r.append(SigSpec(State::S0, n));
-		r.append(sig);
-		r.extend_u0(w, is_signed);
-		return r;
+			result.append(SigSpec(State::S0, n));
+		result.append(sig);
+		result.extend_u0(w, is_signed);
+		return result;
+	}
+
+	bool decode_multiplier(Cell *cell, SigSpec &input, int &coefficient, bool &is_signed)
+	{
+		if (cell->type != ID($mul) || cell->has_keep_attr())
+			return false;
+
+		SigSpec sig_a = sigmap(cell->getPort(ID::A));
+		SigSpec sig_b = sigmap(cell->getPort(ID::B));
+		bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
+		bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
+		if (a_signed != b_signed)
+			return false;
+		is_signed = a_signed;
+
+		Const constant;
+		if (sig_b.is_fully_const() && !sig_a.is_fully_const()) {
+			input = sig_a;
+			constant = sig_b.as_const();
+		} else if (sig_a.is_fully_const() && !sig_b.is_fully_const()) {
+			input = sig_b;
+			constant = sig_a.as_const();
+		} else {
+			return false;
+		}
+		if (!constant.is_fully_def())
+			return false;
+
+		auto value = constant.try_as_int(is_signed);
+		if (!value || *value == std::numeric_limits<int>::min()) {
+			log_debug("Skipping constant multiplier %s: coefficient %s is outside the supported range.\n",
+					log_id(cell), log_const(constant));
+			return false;
+		}
+
+		coefficient = *value;
+		int magnitude = coefficient < 0 ? -coefficient : coefficient;
+		if (magnitude == 0 || magnitude == 1)
+			return false;
+		if ((magnitude & (magnitude - 1)) == 0)
+			return false;
+		return magnitude >= config.min_const;
+	}
+
+	McmGroupMap collect_groups()
+	{
+		McmGroupMap groups;
+		for (auto cell : module->selected_cells()) {
+			SigSpec input;
+			int coefficient;
+			bool is_signed;
+			if (!decode_multiplier(cell, input, coefficient, is_signed))
+				continue;
+
+			auto key = std::make_pair(input, is_signed);
+			auto &group = groups[key];
+			if (group.items.empty()) {
+				group.input = input;
+				group.is_signed = is_signed;
+			}
+			group.items.push_back(McmItem{cell, coefficient});
+		}
+		return groups;
+	}
+
+	bool select_active_items(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
+	{
+		for (int i = 0; i < GetSize(group.items); i++) {
+			int odd = oddify(group.items[i].coefficient);
+			int depth = graph.depth.at(odd) + (group.items[i].coefficient < 0 ? 1 : 0);
+			if (depth > config.search.max_depth) {
+				log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
+						log_id(group.items[i].cell), config.search.max_depth);
+				continue;
+			}
+			plan.active_items.push_back(i);
+			plan.realized_depth = std::max(plan.realized_depth, depth);
+		}
+		return !plan.active_items.empty();
+	}
+
+	void prune_graph(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
+	{
+		dict<int, int> producer;
+		for (int i = 0; i < GetSize(graph.ops); i++)
+			producer[graph.ops[i].res] = i;
+
+		pool<int> live_values;
+		std::function<void(int)> mark_live = [&](int value) {
+			if (value == 1 || live_values.count(value))
+				return;
+			live_values.insert(value);
+			log_assert(producer.count(value));
+			auto &op = graph.ops[producer.at(value)];
+			mark_live(op.u);
+			mark_live(op.v);
+		};
+		for (int i : plan.active_items)
+			mark_live(oddify(group.items[i].coefficient));
+
+		for (auto &op : graph.ops)
+			if (live_values.count(op.res))
+				plan.ops.push_back(op);
+	}
+
+	void propagate_widths(const McmGroup &group, McmPlan &plan)
+	{
+		for (int i : plan.active_items) {
+			int odd = oddify(group.items[i].coefficient);
+			int shift = shift_of(group.items[i].coefficient);
+			int need = std::max(1, GetSize(group.items[i].cell->getPort(ID::Y)) - shift);
+			plan.demand[odd] = std::max(plan.demand[odd], need);
+		}
+		for (auto it = plan.ops.rbegin(); it != plan.ops.rend(); ++it) {
+			auto &op = *it;
+			log_assert(plan.demand.count(op.res));
+			int width = plan.demand.at(op.res) + op.norm;
+			plan.raw_width[op.res] = width;
+			plan.demand[op.u] = std::max(plan.demand[op.u], std::max(1, width - op.su));
+			plan.demand[op.v] = std::max(plan.demand[op.v], std::max(1, width - op.sv));
+		}
+	}
+
+	void estimate_cost(const McmGroup &group, McmPlan &plan)
+	{
+		for (auto &op : plan.ops)
+			plan.shared_cost += plan.raw_width.at(op.res);
+		for (int i : plan.active_items) {
+			auto &item = group.items[i];
+			int width = GetSize(item.cell->getPort(ID::Y));
+			int multiply_width = std::max(1, width - shift_of(item.coefficient));
+			plan.independent_cost +=
+					(long long)std::max(0, naf_weight(item.coefficient) - 1) * multiply_width;
+			if (item.coefficient < 0) {
+				plan.shared_cost += width;
+				plan.independent_cost += width;
+			}
+		}
+	}
+
+	bool is_profitable(const McmPlan &plan) const
+	{
+		if (config.force)
+			return true;
+		return plan.independent_cost != 0 &&
+				(long double)plan.shared_cost * 100 <=
+						(long double)plan.independent_cost * (100 - config.min_gain);
+	}
+
+	bool prepare_plan(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
+	{
+		if (!select_active_items(group, graph, plan))
+			return false;
+		prune_graph(group, graph, plan);
+		propagate_widths(group, plan);
+		estimate_cost(group, plan);
+		if (is_profitable(plan))
+			return true;
+		log_debug("Skipping MCM group in module %s: estimated bit cost %lld vs %lld "
+				"does not meet %d%% minimum gain.\n", log_id(module), plan.shared_cost,
+				plan.independent_cost, config.min_gain);
+		return false;
+	}
+
+	void emit_plan(McmGroup &group, const McmPlan &plan)
+	{
+		dict<int, SigSpec> nodes;
+		log_assert(plan.demand.count(1));
+		SigSpec input = group.input;
+		input.extend_u0(plan.demand.at(1), group.is_signed);
+		nodes.emplace(1, std::move(input));
+
+		for (auto &op : plan.ops) {
+			int width = plan.raw_width.at(op.res);
+			SigSpec a = shl(nodes.at(op.u), op.su, width, group.is_signed);
+			SigSpec b = shl(nodes.at(op.v), op.sv, width, group.is_signed);
+			SigSpec y = module->addWire(NEW_ID, width);
+			if (!op.sub)
+				module->addAdd(NEW_ID, a, b, y, group.is_signed);
+			else if (!op.swapped)
+				module->addSub(NEW_ID, a, b, y, group.is_signed);
+			else
+				module->addSub(NEW_ID, b, a, y, group.is_signed);
+
+			SigSpec normalized = y;
+			if (op.norm > 0)
+				normalized = y.extract(op.norm, width - op.norm);
+			nodes.emplace(op.res, std::move(normalized));
+		}
+		n_adders += GetSize(plan.ops);
+
+		for (int i : plan.active_items) {
+			auto &item = group.items[i];
+			int coefficient = item.coefficient;
+			int odd = oddify(coefficient);
+			int shift = shift_of(coefficient);
+			log_assert(nodes.count(odd));
+			SigSpec output = item.cell->getPort(ID::Y);
+			SigSpec value = shl(nodes.at(odd), shift, GetSize(output), group.is_signed);
+			if (coefficient < 0) {
+				SigSpec negated = module->addWire(NEW_ID, GetSize(output));
+				module->addNeg(NEW_ID, value, negated, group.is_signed);
+				value = negated;
+				n_adders++;
+			}
+			module->connect(output, value);
+			module->remove(item.cell);
+			n_muls++;
+		}
+	}
+
+	void process_group(McmGroup &group)
+	{
+		std::vector<int> targets;
+		for (auto &item : group.items)
+			targets.push_back(item.coefficient);
+
+		AdderGraphSolver solver(config.search);
+		AdderGraphStatus status = solver.solve(targets);
+		if (status != AdderGraphStatus::success) {
+			if (status == AdderGraphStatus::budget_exhausted)
+				log("  mcm: search budget of %lld exhausted for %d constant(s), skipping.\n",
+						config.search.work_budget, GetSize(group.items));
+			else
+				log("  mcm: no adder graph within depth %d for %d constant(s), skipping.\n",
+						config.search.max_depth, GetSize(group.items));
+			return;
+		}
+
+		McmPlan plan;
+		if (!prepare_plan(group, solver.graph, plan))
+			return;
+		emit_plan(group, plan);
+		n_groups++;
+
+		int negations = std::count_if(plan.active_items.begin(), plan.active_items.end(),
+				[&](int i) { return group.items[i].coefficient < 0; });
+		log("  mcm: %d constant multiplier(s) sharing one operand -> %d adder(s), depth %d, "
+				"estimated bit cost %lld (independent %lld).\n", GetSize(plan.active_items),
+				GetSize(plan.ops) + negations, plan.realized_depth, plan.shared_cost, plan.independent_cost);
 	}
 
 	void run()
 	{
-		// Group constant multiplies by their variable operand + signedness.
-		struct Item { Cell *cell; int konst; };
-		std::map<std::pair<std::string, bool>, std::vector<Item>> groups;
-		std::map<std::pair<std::string, bool>, SigSpec> gsig;
-
-		for (auto cell : module->selected_cells()) {
-			if (cell->type != ID($mul))
-				continue;
-			if (cell->has_keep_attr())
-				continue;
-			SigSpec A = sigmap(cell->getPort(ID::A));
-			SigSpec B = sigmap(cell->getPort(ID::B));
-			bool a_signed = cell->getParam(ID::A_SIGNED).as_bool();
-			bool b_signed = cell->getParam(ID::B_SIGNED).as_bool();
-			if (a_signed != b_signed)
-				continue;
-
-			SigSpec var; Const kc;
-			if (B.is_fully_const() && !A.is_fully_const()) {
-				var = A; kc = B.as_const();
-			} else if (A.is_fully_const() && !B.is_fully_const()) {
-				var = B; kc = A.as_const();
-			} else
-				continue;
-			if (!kc.is_fully_def())
-				continue;
-
-			auto k_opt = kc.try_as_int(b_signed);
-			if (!k_opt || *k_opt == std::numeric_limits<int>::min()) {
-				log_debug("Skipping constant multiplier %s: coefficient %s is outside the supported range.\n",
-						log_id(cell), log_const(kc));
-				continue;
-			}
-			int k = *k_opt;
-			int ak = k < 0 ? -k : k;
-			if (ak == 0 || ak == 1)
-				continue;                      
-			if ((ak & (ak - 1)) == 0)
-				continue;                       
-			if (ak < min_const)
-				continue;
-
-			auto key = std::make_pair(log_signal(var), a_signed);
-			groups[key].push_back(Item{cell, k});
-			gsig[key] = var;
-		}
-
-		for (auto &g : groups) {
-			auto &items = g.second;
-			SigSpec var = gsig[g.first];
-			bool is_signed = g.first.second;
-			std::vector<int> targets;
-			for (auto &it : items)
-				targets.push_back(it.konst);
-
-			McmSolver solver(max_depth, max_shift, search_budget);
-			if (!solver.solve(targets)) {
-				if (solver.budget_exhausted)
-					log("  mcm: search budget of %lld exhausted for %d constant(s), skipping.\n",
-							search_budget, GetSize(items));
-				else
-					log("  mcm: no adder graph within depth %d for %d constant(s), skipping.\n",
-							max_depth, GetSize(items));
-				continue;
-			}
-
-			std::vector<int> active_items;
-			int realized_depth = 0;
-			for (int i = 0; i < GetSize(items); i++) {
-				int od = oddify(items[i].konst);
-				int d = solver.depth.at(od) + (items[i].konst < 0 ? 1 : 0);
-				if (d > max_depth) {
-					log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
-							log_id(items[i].cell), max_depth);
-					continue;
-				}
-				active_items.push_back(i);
-				realized_depth = std::max(realized_depth, d);
-			}
-			if (active_items.empty())
-				continue;
-
-			dict<int, int> producer;
-			for (int i = 0; i < GetSize(solver.ops); i++)
-				producer[solver.ops[i].res] = i;
-			pool<int> live_values;
-			std::function<void(int)> mark_live = [&](int value) {
-				if (value == 1 || live_values.count(value))
-					return;
-				live_values.insert(value);
-				log_assert(producer.count(value));
-				auto &o = solver.ops[producer.at(value)];
-				mark_live(o.u);
-				mark_live(o.v);
-			};
-			for (int i : active_items)
-				mark_live(oddify(items[i].konst));
-			std::vector<AOp> ops;
-			for (auto &o : solver.ops)
-				if (live_values.count(o.res))
-					ops.push_back(o);
-
-			// Determine demanded widths backwards.
-			dict<int, int> demand, raw_width;
-			for (int i : active_items) {
-				int od = oddify(items[i].konst);
-				int sh = shift_of(items[i].konst);
-				int need = std::max(1, GetSize(items[i].cell->getPort(ID::Y)) - sh);
-				demand[od] = std::max(demand[od], need);
-			}
-			for (auto it = ops.rbegin(); it != ops.rend(); ++it) {
-				auto &o = *it;
-				log_assert(demand.count(o.res));
-				int width = demand.at(o.res) + o.norm;
-				raw_width[o.res] = width;
-				demand[o.u] = std::max(demand[o.u], std::max(1, width - o.su));
-				demand[o.v] = std::max(demand[o.v], std::max(1, width - o.sv));
-			}
-
-			// Estimate hardware in one-bit adders.
-			long long shared_cost = 0, independent_cost = 0;
-			for (auto &o : ops)
-				shared_cost += raw_width.at(o.res);
-			for (int i : active_items) {
-				auto &item = items[i];
-				int width = GetSize(item.cell->getPort(ID::Y));
-				int multiply_width = std::max(1, width - shift_of(item.konst));
-				independent_cost += (long long)std::max(0, naf_weight(item.konst) - 1) * multiply_width;
-				if (item.konst < 0) {
-					shared_cost += width;
-					independent_cost += width;
-				}
-			}
-			if (!force && (independent_cost == 0 ||
-					(long double)shared_cost * 100 > (long double)independent_cost * (100 - min_gain))) {
-				log_debug("Skipping MCM group in module %s: estimated bit cost %lld vs %lld "
-						"does not meet %d%% minimum gain.\n", log_id(module), shared_cost,
-						independent_cost, min_gain);
-				continue;
-			}
-
-			dict<int, SigSpec> node;
-			log_assert(demand.count(1));
-			SigSpec input = var;
-			input.extend_u0(demand.at(1), is_signed);
-			node.emplace(1, std::move(input));
-
-			for (auto &o : ops) {
-				int width = raw_width.at(o.res);
-				SigSpec a = shl(node.at(o.u), o.su, width, is_signed);
-				SigSpec b = shl(node.at(o.v), o.sv, width, is_signed);
-				SigSpec y = module->addWire(NEW_ID, width);
-				if (!o.sub)
-					module->addAdd(NEW_ID, a, b, y, is_signed);
-				else if (!o.swapped)
-					module->addSub(NEW_ID, a, b, y, is_signed);
-				else
-					module->addSub(NEW_ID, b, a, y, is_signed);
-				// value == res << norm, so res is y with the low bits dropped
-				SigSpec r = y;
-				if (o.norm > 0)
-					r = y.extract(o.norm, width - o.norm);
-				node.emplace(o.res, std::move(r));
-			}
-			n_adders += GetSize(ops);
-
-			for (int i : active_items) {
-				auto &it = items[i];
-				int k = it.konst;
-				int od = oddify(k), sh = shift_of(k);
-				log_assert(node.count(od));
-				SigSpec Y = it.cell->getPort(ID::Y);
-				SigSpec v = shl(node.at(od), sh, GetSize(Y), is_signed);
-				if (k < 0) {
-					SigSpec nv = module->addWire(NEW_ID, GetSize(Y));
-					module->addNeg(NEW_ID, v, nv, is_signed);
-					v = nv;
-					n_adders++;
-				}
-				module->connect(Y, v);
-				module->remove(it.cell);
-				n_muls++;
-			}
-			n_groups++;
-			log("  mcm: %d constant multiplier(s) sharing one operand -> %d adder(s), depth %d, "
-					"estimated bit cost %lld (independent %lld).\n", GetSize(active_items),
-					GetSize(ops) + (int)std::count_if(active_items.begin(), active_items.end(),
-							[&](int i) { return items[i].konst < 0; }), realized_depth,
-					shared_cost, independent_cost);
-		}
+		auto groups = collect_groups();
+		for (auto &entry : groups)
+			process_group(entry.second);
 	}
 };
 
@@ -496,63 +645,65 @@ struct McmPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		log_header(design, "Executing MCM pass (multiple constant multiplication).\n");
+		log_header(design, "Executing MCM pass (constant-multiplication adder graphs).\n");
 
-		int max_depth = 3, max_shift = 12, min_const = 3, min_gain = 0;
-		long long search_budget = 2000000;
-		bool force = false;
+		McmConfig config;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-depth" && argidx + 1 < args.size()) {
-				max_depth = atoi(args[++argidx].c_str());
-				if (max_depth < 1)
+				config.search.max_depth = atoi(args[++argidx].c_str());
+				if (config.search.max_depth < 1)
 					log_cmd_error("mcm: -depth must be >= 1\n");
 				continue;
 			}
 			if (args[argidx] == "-max_shift" && argidx + 1 < args.size()) {
-				max_shift = atoi(args[++argidx].c_str());
-				if (max_shift < 1)
+				config.search.max_shift = atoi(args[++argidx].c_str());
+				if (config.search.max_shift < 1)
 					log_cmd_error("mcm: -max_shift must be >= 1\n");
 				continue;
 			}
 			if (args[argidx] == "-min_const" && argidx + 1 < args.size()) {
-				min_const = atoi(args[++argidx].c_str());
+				config.min_const = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-min_gain" && argidx + 1 < args.size()) {
-				min_gain = atoi(args[++argidx].c_str());
-				if (min_gain < 0 || min_gain > 100)
+				config.min_gain = atoi(args[++argidx].c_str());
+				if (config.min_gain < 0 || config.min_gain > 100)
 					log_cmd_error("mcm: -min_gain must be between 0 and 100\n");
 				continue;
 			}
 			if (args[argidx] == "-search_budget" && argidx + 1 < args.size()) {
-				search_budget = atoll(args[++argidx].c_str());
-				if (search_budget < 1)
+				config.search.work_budget = atoll(args[++argidx].c_str());
+				if (config.search.work_budget < 1)
 					log_cmd_error("mcm: -search_budget must be >= 1\n");
 				continue;
 			}
 			if (args[argidx] == "-force") {
-				force = true;
+				config.force = true;
 				continue;
 			}
 			break;
 		}
 		extra_args(args, argidx, design);
 
-		int tot_g = 0, tot_m = 0, tot_a = 0;
+		int total_groups = 0;
+		int total_muls = 0;
+		int total_adders = 0;
 		for (auto module : design->selected_modules()) {
 			if (module->get_blackbox_attribute())
 				continue;
-			McmWorker w(module, max_depth, max_shift, min_const, min_gain, search_budget, force);
-			w.run();
-			if (w.n_muls)
+			McmWorker worker(module, config);
+			worker.run();
+			if (worker.n_muls)
 				log("Module %s: replaced %d constant multiplier(s) in %d group(s) "
-					"with %d adder(s).\n", log_id(module), w.n_muls, w.n_groups, w.n_adders);
-			tot_g += w.n_groups; tot_m += w.n_muls; tot_a += w.n_adders;
+					"with %d adder(s).\n", log_id(module), worker.n_muls, worker.n_groups, worker.n_adders);
+			total_groups += worker.n_groups;
+			total_muls += worker.n_muls;
+			total_adders += worker.n_adders;
 		}
-		if (tot_m)
+		if (total_muls)
 			log("Replaced %d constant multiplier(s) in %d group(s) with %d adder(s).\n",
-					tot_m, tot_g, tot_a);
+					total_muls, total_groups, total_adders);
 		else
 			log("No constant multipliers found to restructure.\n");
 	}
