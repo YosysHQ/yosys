@@ -1607,6 +1607,20 @@ struct XAigerWriter : AigerWriter {
 		}
 	}
 
+	static bool is_keep_po(Wire *w)
+	{
+		return !w->port_input && !w->port_output && w->get_bool_attribute(ID::keep);
+	}
+
+	void add_proper_po(Wire *w, int i, const char *symbol)
+	{
+		if (map_file.is_open())
+			map_file << symbol << " " << proper_pos_counter << " " << w->start_offset + i
+				<< " " << w->name.c_str() << "\n";
+		proper_pos_counter++;
+		pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+	}
+
 	void write(std::ostream *f) {
 		reset_counters();
 
@@ -1620,20 +1634,21 @@ struct XAigerWriter : AigerWriter {
 
 		int proper_po_num = 0;
 		for (auto w : top->wires())
-			if (w->port_output)
+			if (w->port_output || is_keep_po(w))
 				proper_po_num += w->width;
 
 		prep_boxes(proper_po_num);
 		for (auto w : top->wires())
 			if (w->port_output)
-				for (int i = 0; i < w->width; i++) {
-					if (map_file.is_open()) {
-						map_file << "output " << proper_pos_counter << " " << w->start_offset + i
-									<< " " << w->name.c_str() << "\n";
-					}
-					proper_pos_counter++;
-					pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
-				}
+				for (int i = 0; i < w->width; i++)
+					add_proper_po(w, i, "output");
+
+		for (auto w : top->wires())
+			if (is_keep_po(w)) {
+				keep_wires.insert(w);
+				for (int i = 0; i < w->width; i++)
+					add_proper_po(w, i, "keepwire");
+			}
 
 		this->f = f;
 		// start with the header

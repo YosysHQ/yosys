@@ -9,7 +9,6 @@ import gen_tests_makefile
 
 skip = [
     "hier_check.ys",
-    "keep_wire.ys",
 ]
 
 def create_tests():
