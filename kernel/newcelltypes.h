@@ -15,8 +15,8 @@ namespace StaticCellTypes {
 
 // Given by last internal cell type IdString constids.inc, compilation error if too low
 constexpr int MAX_CELLS = 300;
-// Currently given by _MUX16_, compilation error if too low
-constexpr int MAX_PORTS = 20;
+// Currently given by _MUX32_, compilation error if too low
+constexpr int MAX_PORTS = 37;
 struct CellTableBuilder {
 	struct PortList {
 		std::array<RTLIL::IdString, MAX_PORTS> ports{};
