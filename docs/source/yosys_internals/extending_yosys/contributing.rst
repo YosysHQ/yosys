@@ -1,6 +1,15 @@
 Contributing to Yosys
 =====================
 
+LLM usage
+---------
+
+While we develop a complete policy around the usage of LLMs in Yosys, we have an
+`Interim YosysHQ LLM Policy
+<https://blog.yosyshq.com/p/interim-yosyshq-llm-policy/>`_.  As a general rule:
+Please do not file pull requests to our GitHub projects containing LLM generated
+code.
+
 Reporting bugs
 --------------
 
