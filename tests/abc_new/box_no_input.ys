@@ -1,0 +1,15 @@
+# an abc9 box needs an input, or it can carry no timing arcs
+logger -expect error "has no input port" 1
+read_verilog -specify <<EOT
+(* abc9_box, blackbox *)
+module SRC(output Y);
+endmodule
+module top(input a, output y, z);
+	SRC s (.Y(z));
+	assign y = a;
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib

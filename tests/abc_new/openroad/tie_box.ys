@@ -1,6 +1,6 @@
 # https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/cut/test/sky130_const_cell.v
 
-# input-less box (tie cell): abc asserts in Gia_ManLevelWithBoxes, same with abc9 -lut
+# input-less cells are not abc9 boxes as abc cannot represent a box with no inputs
 read_verilog <<EOT
 module top(clk, c);
 	input clk;

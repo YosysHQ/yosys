@@ -1,0 +1,15 @@
+# an abc9 box needs an output, or it can carry no timing arcs
+logger -expect error "has no output port" 1
+read_verilog -specify <<EOT
+(* abc9_box, blackbox *)
+module SINK(input A, B);
+endmodule
+module top(input a, b, output y);
+	SINK s (.A(a), .B(b));
+	assign y = a & b;
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
