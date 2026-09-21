@@ -8,7 +8,6 @@ import glob
 import gen_tests_makefile
 
 skip = [
-    "duplicate_cell_libs.ys",
     "hier_check.ys",
     "keep_wire.ys",
     "scopeinfo.ys",
