@@ -575,7 +575,7 @@ struct LibertyFrontend : public Frontend {
 			for (auto &attr : attributes)
 				module->attributes[attr] = 1;
 
-			bool simple_comb_cell = true, has_outputs = false;
+			bool simple_comb_cell = true, has_inputs = false, has_outputs = false;
 
 			for (auto node : cell->children)
 			{
@@ -693,6 +693,7 @@ struct LibertyFrontend : public Frontend {
 					}
 
 					if (dir && dir->value == "input") {
+						has_inputs = true;
 						wire->port_input = true;
 						continue;
 					}
@@ -736,7 +737,7 @@ struct LibertyFrontend : public Frontend {
 					simple_comb_cell = false;
 			}
 
-			if (simple_comb_cell && has_outputs && flag_unit_delay) {
+			if (simple_comb_cell && has_inputs && has_outputs && flag_unit_delay) {
 				module->set_bool_attribute(ID::abc9_box);
 
 				for (auto wi : module->wires())
