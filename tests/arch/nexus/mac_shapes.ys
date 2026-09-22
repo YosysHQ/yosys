@@ -1,0 +1,44 @@
+read_verilog -sv mac_shapes.sv
+design -save pristine
+
+# Wide multiply-add -> MULTADDSUB36X36, no fabric carry
+design -load pristine
+hierarchy -top mac36_add
+synth_nexus -family lifcl -top mac36_add
+select -assert-count 1 t:MULTADDSUB36X36
+select -assert-count 0 t:MULT36X36
+select -assert-count 0 t:CCU2
+
+# C - A*B -> same primitive, subtract
+design -load pristine
+hierarchy -top mac36_sub
+synth_nexus -family lifcl -top mac36_sub
+select -assert-count 1 t:MULTADDSUB36X36
+select -assert-count 0 t:CCU2
+
+# A*B - C cannot fold into the DSP post-adder
+design -load pristine
+hierarchy -top mac36_subrev
+synth_nexus -family lifcl -top mac36_subrev
+select -assert-count 0 t:MULTADDSUB36X36
+
+# 16x16 MAC stays on the 18-bit primitive
+design -load pristine
+hierarchy -top mac18_still
+synth_nexus -family lifcl -top mac18_still
+select -assert-count 1 t:MULTADDSUB18X18
+select -assert-count 0 t:MULTADDSUB36X36
+
+# Signed product plus a zero-extended offset
+design -load pristine
+hierarchy -top mac36_mix
+synth_nexus -family lifcl -top mac36_mix
+select -assert-count 1 t:MULTADDSUB36X36
+select -assert-count 0 t:CCU2
+
+# 4-lane 9x9 dot plus C -> one wide DSP, accumulate inside ACC54
+design -load pristine
+hierarchy -top dot4_acc
+synth_nexus -family lifcl -top dot4_acc
+select -assert-count 1 t:MULTADDSUB9X9WIDE
+select -assert-count 0 t:CCU2

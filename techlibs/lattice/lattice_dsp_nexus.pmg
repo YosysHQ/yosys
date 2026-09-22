@@ -59,6 +59,79 @@ code
 	accept;
 endcode
 
+// Wide multiply-add: A,B <= 36 and the sum <= 108. nextpnr packs
+// MULTADDSUB36X36 as two cascaded ACC54s (108-bit CINPUT / SUM). Runs
+// after nexus_mac18 so an 18-bit MAC still takes the smaller primitive.
+pattern nexus_mac36
+
+match mul
+	select mul->type.in($mul)
+	select GetSize(port(mul, \A)) <= 36
+	select GetSize(port(mul, \B)) <= 36
+	select GetSize(port(mul, \Y)) <= 108
+endmatch
+
+match add
+	select add->type.in($add, $sub)
+	select GetSize(port(add, \Y)) <= 108
+	choice <IdString> AB {\A, \B}
+	index <SigBit> port(add, AB)[0] === port(mul, \Y)[0]
+endmatch
+
+code
+	if (mul->getParam(\A_SIGNED).as_bool() != mul->getParam(\B_SIGNED).as_bool()) {
+		reject;
+	}
+
+	{
+		SigSpec mul_out = port(mul, \Y);
+		IdString add_AB;
+
+		if (GetSize(port(add, \A)) >= GetSize(mul_out) && port(add, \A).extract(0, GetSize(mul_out)) == mul_out) {
+			add_AB = \A;
+		} else if (GetSize(port(add, \B)) >= GetSize(mul_out) && port(add, \B).extract(0, GetSize(mul_out)) == mul_out) {
+			add_AB = \B;
+		} else {
+			reject;
+		}
+
+		// $sub is A-B. The primitive does C +/- product, never product - C.
+		if (add->type == $sub && add_AB == \A)
+			reject;
+
+		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC36X36");
+		IdString add_C = (add_AB == \A) ? \B : \A;
+
+		bool ab_signed = mul->getParam(\A_SIGNED).as_bool();
+		// C's signedness is the adder port's, not the multiplier's. The
+		// primitive adds the full 108-bit CINPUT, so the extension here is
+		// the only sign treatment C gets.
+		bool c_signed = add->getParam(add_C == \A ? \A_SIGNED : \B_SIGNED).as_bool();
+		SigSpec sigA = port(mul, \A);
+		SigSpec sigB = port(mul, \B);
+		SigSpec sigC = port(add, add_C);
+		sigA.extend_u0(36, ab_signed);
+		sigB.extend_u0(36, ab_signed);
+		sigC.extend_u0(108, c_signed);
+
+		SigSpec sigY = port(add, \Y);
+		if (GetSize(sigY) < 108)
+			sigY.append(module->addWire(NEW_ID, 108 - GetSize(sigY)));
+
+		mac->setPort(\A, sigA);
+		mac->setPort(\B, sigB);
+		mac->setPort(\C, sigC);
+		mac->setPort(\Y, sigY);
+		mac->setParam(\A_SIGNED, mul->getParam(\A_SIGNED));
+		mac->setParam(\SUBTRACT, add->type == $sub ? State::S1 : State::S0);
+
+		autoremove(mul);
+		autoremove(add);
+	}
+
+	accept;
+endcode
+
 pattern nexus_preadd18
 
 match preadd
@@ -203,12 +276,255 @@ code
 		mac->setPort(\B2, ext9(port(mul2, \B)));
 		mac->setPort(\A3, ext9(port(mul3, \A)));
 		mac->setPort(\B3, ext9(port(mul3, \B)));
+		mac->setPort(\C, SigSpec(State::S0, 54));
 		mac->setPort(\Y, port(add_top, \Y));
 		mac->setParam(\SIGNED, is_signed ? State::S1 : State::S0);
+		mac->setParam(\USE_C, State::S0);
 
 		autoremove(add_top);
 		autoremove(add_mid);
 		autoremove(add_bot);
+		autoremove(mul0);
+		autoremove(mul1);
+		autoremove(mul2);
+		autoremove(mul3);
+	}
+
+	accept;
+endcode
+
+// Same four-lane 9x9 dot as nexus_mac9_4lane, plus a trailing accumulate.
+// nextpnr wires MULTADDSUB9X9WIDE.C straight to ACC54.CINPUT and LOADC to
+// ACC54.LOAD, so +C folds into the accumulator instead of a carry chain.
+// Must run before nexus_mac9_4lane so the trailing add is consumed first.
+// The spine is the same left-associated chain as nexus_mac9_4lane; a
+// balanced ((m0+m1)+(m2+m3))+C tree does not match.
+pattern nexus_mac9_4lane_c
+
+match add_top
+	select add_top->type == $add
+endmatch
+
+match add_mid
+	select add_mid->type == $add
+	index <SigBit> port(add_mid, \Y)[0] === port(add_top, \A)[0]
+endmatch
+
+match add_bot
+	select add_bot->type == $add
+	index <SigBit> port(add_bot, \Y)[0] === port(add_mid, \A)[0]
+endmatch
+
+match mul3
+	select mul3->type == $mul
+	select GetSize(port(mul3, \A)) <= 9 && GetSize(port(mul3, \B)) <= 9
+	index <SigBit> port(mul3, \Y)[0] === port(add_top, \B)[0]
+endmatch
+
+match mul2
+	select mul2->type == $mul
+	select GetSize(port(mul2, \A)) <= 9 && GetSize(port(mul2, \B)) <= 9
+	index <SigBit> port(mul2, \Y)[0] === port(add_mid, \B)[0]
+endmatch
+
+match mul1
+	select mul1->type == $mul
+	select GetSize(port(mul1, \A)) <= 9 && GetSize(port(mul1, \B)) <= 9
+	index <SigBit> port(mul1, \Y)[0] === port(add_bot, \B)[0]
+endmatch
+
+match mul0
+	select mul0->type == $mul
+	select GetSize(port(mul0, \A)) <= 9 && GetSize(port(mul0, \B)) <= 9
+	index <SigBit> port(mul0, \Y)[0] === port(add_bot, \A)[0]
+endmatch
+
+match add_acc
+	select add_acc->type == $add
+	select GetSize(port(add_acc, \Y)) <= 54
+	choice <IdString> CC {\A, \B}
+	index <SigBit> port(add_acc, CC)[0] === port(add_top, \Y)[0]
+endmatch
+
+code
+	bool is_signed = mul0->getParam(\A_SIGNED).as_bool();
+
+	if (
+		mul0->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\B_SIGNED).as_bool() != is_signed
+	) {
+		reject;
+	}
+
+	{
+		// The bit[0] index is only a coarse join. Re-derive which add_acc
+		// input carries the full dot4 sum; the other input is C.
+		SigSpec top_out = port(add_top, \Y);
+		IdString acc_AB;
+
+		if (GetSize(port(add_acc, \A)) >= GetSize(top_out) && port(add_acc, \A).extract(0, GetSize(top_out)) == top_out) {
+			acc_AB = \A;
+		} else if (GetSize(port(add_acc, \B)) >= GetSize(top_out) && port(add_acc, \B).extract(0, GetSize(top_out)) == top_out) {
+			acc_AB = \B;
+		} else {
+			reject;
+		}
+
+		IdString acc_C = (acc_AB == \A) ? \B : \A;
+		bool c_signed = add_acc->getParam(acc_C == \A ? \A_SIGNED : \B_SIGNED).as_bool();
+
+		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
+
+		auto ext9 = [&](SigSpec s) {
+			s.extend_u0(9, is_signed);
+			return s;
+		};
+
+		mac->setPort(\A0, ext9(port(mul0, \A)));
+		mac->setPort(\B0, ext9(port(mul0, \B)));
+		mac->setPort(\A1, ext9(port(mul1, \A)));
+		mac->setPort(\B1, ext9(port(mul1, \B)));
+		mac->setPort(\A2, ext9(port(mul2, \A)));
+		mac->setPort(\B2, ext9(port(mul2, \B)));
+		mac->setPort(\A3, ext9(port(mul3, \A)));
+		mac->setPort(\B3, ext9(port(mul3, \B)));
+
+		SigSpec sigC = port(add_acc, acc_C);
+		sigC.extend_u0(54, c_signed);
+		mac->setPort(\C, sigC);
+
+		SigSpec sigY = port(add_acc, \Y);
+		if (GetSize(sigY) < 54)
+			sigY.append(module->addWire(NEW_ID, 54 - GetSize(sigY)));
+		mac->setPort(\Y, sigY);
+		mac->setParam(\SIGNED, is_signed ? State::S1 : State::S0);
+		mac->setParam(\USE_C, State::S1);
+
+		autoremove(add_acc);
+		autoremove(add_top);
+		autoremove(add_mid);
+		autoremove(add_bot);
+		autoremove(mul0);
+		autoremove(mul1);
+		autoremove(mul2);
+		autoremove(mul3);
+	}
+
+	accept;
+endcode
+
+// maccmap -unmap rebuilds dot4+C as C first, then each product:
+// (((C + m0) + m1) + m2) + m3. That is what synth_lattice sees. The
+// products land on the B port of each $add. Run before nexus_mac18 so
+// those adds are not each taken as a separate 18-bit MAC.
+pattern nexus_mac9_4lane_c_pre
+
+match add0
+	select add0->type == $add
+	select GetSize(port(add0, \Y)) <= 54
+endmatch
+
+match mul0
+	select mul0->type == $mul
+	select GetSize(port(mul0, \A)) <= 9 && GetSize(port(mul0, \B)) <= 9
+	index <SigBit> port(mul0, \Y)[0] === port(add0, \B)[0]
+endmatch
+
+match add1
+	select add1->type == $add
+	index <SigBit> port(add1, \A)[0] === port(add0, \Y)[0]
+endmatch
+
+match mul1
+	select mul1->type == $mul
+	select GetSize(port(mul1, \A)) <= 9 && GetSize(port(mul1, \B)) <= 9
+	index <SigBit> port(mul1, \Y)[0] === port(add1, \B)[0]
+endmatch
+
+match add2
+	select add2->type == $add
+	index <SigBit> port(add2, \A)[0] === port(add1, \Y)[0]
+endmatch
+
+match mul2
+	select mul2->type == $mul
+	select GetSize(port(mul2, \A)) <= 9 && GetSize(port(mul2, \B)) <= 9
+	index <SigBit> port(mul2, \Y)[0] === port(add2, \B)[0]
+endmatch
+
+match add3
+	select add3->type == $add
+	select GetSize(port(add3, \Y)) <= 54
+	index <SigBit> port(add3, \A)[0] === port(add2, \Y)[0]
+endmatch
+
+match mul3
+	select mul3->type == $mul
+	select GetSize(port(mul3, \A)) <= 9 && GetSize(port(mul3, \B)) <= 9
+	index <SigBit> port(mul3, \Y)[0] === port(add3, \B)[0]
+endmatch
+
+code
+	bool is_signed = mul0->getParam(\A_SIGNED).as_bool();
+
+	if (
+		mul0->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul1->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul2->getParam(\B_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\A_SIGNED).as_bool() != is_signed ||
+		mul3->getParam(\B_SIGNED).as_bool() != is_signed
+	) {
+		reject;
+	}
+
+	{
+		auto low_eq = [&](SigSpec wide, SigSpec narrow) {
+			return GetSize(wide) >= GetSize(narrow) && wide.extract(0, GetSize(narrow)) == narrow;
+		};
+		if (!low_eq(port(add0, \B), port(mul0, \Y)) || !low_eq(port(add1, \B), port(mul1, \Y)) ||
+		    !low_eq(port(add2, \B), port(mul2, \Y)) || !low_eq(port(add3, \B), port(mul3, \Y)) ||
+		    !low_eq(port(add1, \A), port(add0, \Y)) || !low_eq(port(add2, \A), port(add1, \Y)) ||
+		    !low_eq(port(add3, \A), port(add2, \Y)))
+			reject;
+		bool c_signed = add0->getParam(\A_SIGNED).as_bool();
+		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
+
+		auto ext9 = [&](SigSpec s) {
+			s.extend_u0(9, is_signed);
+			return s;
+		};
+
+		mac->setPort(\A0, ext9(port(mul0, \A)));
+		mac->setPort(\B0, ext9(port(mul0, \B)));
+		mac->setPort(\A1, ext9(port(mul1, \A)));
+		mac->setPort(\B1, ext9(port(mul1, \B)));
+		mac->setPort(\A2, ext9(port(mul2, \A)));
+		mac->setPort(\B2, ext9(port(mul2, \B)));
+		mac->setPort(\A3, ext9(port(mul3, \A)));
+		mac->setPort(\B3, ext9(port(mul3, \B)));
+
+		SigSpec sigC = port(add0, \A);
+		sigC.extend_u0(54, c_signed);
+		mac->setPort(\C, sigC);
+
+		SigSpec sigY = port(add3, \Y);
+		if (GetSize(sigY) < 54)
+			sigY.append(module->addWire(NEW_ID, 54 - GetSize(sigY)));
+		mac->setPort(\Y, sigY);
+		mac->setParam(\SIGNED, is_signed ? State::S1 : State::S0);
+		mac->setParam(\USE_C, State::S1);
+
+		autoremove(add0);
+		autoremove(add1);
+		autoremove(add2);
+		autoremove(add3);
 		autoremove(mul0);
 		autoremove(mul1);
 		autoremove(mul2);

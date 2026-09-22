@@ -137,6 +137,38 @@ module \$__NX_MAC18X18 (input [17:0] A, input [17:0] B, input [47:0] C, output [
 	);
 endmodule
 
+module \$__NX_MAC36X36 (input [35:0] A, input [35:0] B, input [107:0] C, output [107:0] Y);
+
+	parameter A_WIDTH = 36;
+	parameter B_WIDTH = 36;
+	parameter C_WIDTH = 108;
+	parameter Y_WIDTH = 108;
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter SUBTRACT = 0;
+
+	MULTADDSUB36X36 #(
+		.REGINPUTA("BYPASS"),
+		.REGINPUTB("BYPASS"),
+		.REGINPUTC("BYPASS"),
+		.REGADDSUB("BYPASS"),
+		.REGLOADC("BYPASS"),
+		.REGLOADC2("BYPASS"),
+		.REGCIN("BYPASS"),
+		.REGPIPELINE("BYPASS"),
+		.REGOUTPUT("BYPASS")
+	) _TECHMAP_REPLACE_ (
+		.A(A),
+		.B(B),
+		.C(C),
+		.SIGNED(A_SIGNED ? 1'b1 : 1'b0),
+		.ADDSUB(SUBTRACT ? 1'b1 : 1'b0),
+		.LOADC(1'b1),
+		.CIN(1'b0),
+		.Z(Y)
+	);
+endmodule
+
 module \$__NX_PREADD18X18 (input [17:0] A, input [17:0] B, input [17:0] C, input CLK, output [35:0] Y);
 
 	parameter PIPELINED = 0;
@@ -161,25 +193,35 @@ module \$__NX_PREADD18X18 (input [17:0] A, input [17:0] B, input [17:0] C, input
 	);
 endmodule
 
-module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, output [53:0] Y);
+module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, input [53:0] C, output [53:0] Y);
 
 	parameter SIGNED = 0;
+	parameter USE_C = 0;
 
+	// nextpnr copies C onto ACC54.CINPUT and LOADC onto ACC54.LOAD.
+	// LOADC=1 selects that C input; leaving it undriven selects the
+	// accumulator feedback instead. Register bypasses match the
+	// combinational MULTADDSUB18X18 map (the sim model defaults to REGISTER).
 	MULTADDSUB9X9WIDE #(
 		.REGINPUTAB0("BYPASS"),
 		.REGINPUTAB1("BYPASS"),
 		.REGINPUTAB2("BYPASS"),
 		.REGINPUTAB3("BYPASS"),
 		.REGINPUTC("BYPASS"),
+		.REGADDSUB("BYPASS"),
+		.REGLOADC("BYPASS"),
+		.REGLOADC2("BYPASS"),
+		.REGPIPELINE("BYPASS"),
 		.REGOUTPUT("BYPASS")
 	) _TECHMAP_REPLACE_ (
 		.A0(A0), .B0(B0),
 		.A1(A1), .B1(B1),
 		.A2(A2), .B2(B2),
 		.A3(A3), .B3(B3),
-		.C(54'b0),
+		.C(USE_C ? C : 54'b0),
 		.SIGNED(SIGNED ? 1'b1 : 1'b0),
 		.ADDSUB(4'b0000),
+		.LOADC(1'b1),
 		.Z(Y)
 	);
 endmodule
