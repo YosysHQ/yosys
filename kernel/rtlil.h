@@ -2028,7 +2028,7 @@ public:
 	void unsetPort(RTLIL::IdString portname);
 	void setPort(RTLIL::IdString portname, RTLIL::SigSpec signal);
 	template<typename N, YS_NAME_STRING(N)> void setPort(N portname, RTLIL::SigSpec signal)
-		{ setPort(module->design->twines.add(std::move(portname)), std::move(signal)); }
+		{ setPort(module->twines().add(std::move(portname)), std::move(signal)); }
 	const RTLIL::SigSpec &getPort(RTLIL::IdString portname) const;
 	const dict<RTLIL::IdString, RTLIL::SigSpec> &connections() const;
 
@@ -2043,13 +2043,13 @@ public:
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	template<typename N, YS_NAME_STRING(N)> bool hasParam(N name) const
-		{ return hasParam(module->design->twines.add(std::move(name))); }
+		{ return hasParam(module->twines().add(std::move(name))); }
 	template<typename N, YS_NAME_STRING(N)> void unsetParam(N name)
-		{ unsetParam(module->design->twines.add(std::move(name))); }
+		{ unsetParam(module->twines().add(std::move(name))); }
 	template<typename N, YS_NAME_STRING(N)> void setParam(N name, RTLIL::Const value)
-		{ setParam(module->design->twines.add(std::move(name)), std::move(value)); }
+		{ setParam(module->twines().add(std::move(name)), std::move(value)); }
 	template<typename N, YS_NAME_STRING(N)> const RTLIL::Const &getParam(N name) const
-		{ return getParam(module->design->twines.add(std::move(name))); }
+		{ return getParam(module->twines().add(std::move(name))); }
 
 	void sort();
 	void check();

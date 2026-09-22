@@ -603,7 +603,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 		vlog_file << stringf("  %s_expr uut_expr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
-			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			std::string port_name = gold_mod->twines().str(gold_mod->ports[i]);
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_expr");
 		}
@@ -611,7 +611,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 		vlog_file << stringf("  %s_expr uut_noexpr(", uut_name);
 		for (int i = 0; i < GetSize(gold_mod->ports); i++) {
-			std::string port_name = gold_mod->design->twines.str(gold_mod->ports[i]);
+			std::string port_name = gold_mod->twines().str(gold_mod->ports[i]);
 			vlog_file << stringf("%s.%s(%s%s)", i ? ", " : "", port_name, port_name,
 					gold_mod->wire(gold_mod->ports[i])->port_input ? "" : "_noexpr");
 		}

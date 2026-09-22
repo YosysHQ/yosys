@@ -78,8 +78,8 @@ struct EquivStructWorker
 					if (bits_a[i] != bits_b[i]) {
 						inputs_a.append(bits_a[i]);
 						inputs_b.append(bits_b[i]);
-						input_names.push_back(GetSize(bits_a) == 1 ? module->design->twines.str(port_a.first) :
-								stringf("%s[%d]", module->design->twines.unescaped_str(port_a.first).c_str(), i));
+						input_names.push_back(GetSize(bits_a) == 1 ? module->twines().str(port_a.first) :
+								stringf("%s[%d]", module->twines().unescaped_str(port_a.first).c_str(), i));
 					}
 		}
 
@@ -211,7 +211,7 @@ struct EquivStructWorker
 				for (auto cell_name : merge_cache[key]) {
 					Cell *c = module->cell(cell_name);
 					if (c != nullptr) {
-						string n = module->design->twines.str(cell_name);
+						string n = module->twines().str(cell_name);
 						cells_type = c->type;
 						if (GetSize(n) > 5 && n.compare(GetSize(n)-5, std::string::npos, "_gold") == 0)
 							gold_cells.push_back(c);

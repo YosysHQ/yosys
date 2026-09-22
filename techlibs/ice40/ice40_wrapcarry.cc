@@ -58,7 +58,7 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	cell->setPort(ID::O, st.lut->getPort(ID::O));
 	cell->setParam(ID::LUT, st.lut->getParam(ID(LUT_INIT)));
 
-	TwinePool &twines = cell->module->design->twines;
+	TwinePool &twines = cell->twines();
 	for (const auto &a : st.carry->attributes)
 		cell->attributes[twines.add(stringf("\\SB_CARRY.%s", twines.str(a.first)))] = a.second;
 	for (const auto &a : st.lut->attributes)
@@ -123,7 +123,7 @@ struct Ice40WrapCarryPass : public Pass {
 					carry->setPort(ID::CI, cell->getPort(ID::CI));
 					carry->setPort(ID::CO, cell->getPort(ID::CO));
 					module->swap_names(carry, cell);
-					TwinePool &twines = module->design->twines;
+					TwinePool &twines = module->twines();
 					IdString lut_name_attr = twines.add(std::string("\\SB_LUT4.name"));
 					auto lut_name = cell->attributes.find(lut_name_attr);
 					auto lut = lut_name != cell->attributes.end()

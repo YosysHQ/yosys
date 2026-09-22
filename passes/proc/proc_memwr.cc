@@ -35,7 +35,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<std::string, int>
 	{
 		std::vector<int> prev_port_ids;
 		for (auto memwr : sr->mem_write_actions) {
-			std::string memid = mod->design->twines.str(memwr.memid);
+			std::string memid = mod->twines().str(memwr.memid);
 			int port_id = next_port_id[memid]++;
 			Const priority_mask(State::S0, port_id);
 			for (int i = 0; i < GetSize(prev_port_ids); i++)

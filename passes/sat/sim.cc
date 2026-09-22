@@ -356,7 +356,7 @@ struct SimInstance
 				std::string name_str = cell->parameters.at(ID::MEMID).decode_string();
 				auto mit = memid_by_name.find(RTLIL::unescape_id(name_str));
 				IdString name = mit != memid_by_name.end() ? mit->second
-						: module->design->twines.add(std::string(name_str));
+						: module->twines().add(std::string(name_str));
 				mem_cells[cell] = name;
 				if (shared->fst)
 					fst_memories[name] = shared->fst->getMemoryHandles(scope + "." + RTLIL::unescape_id(name_str));
@@ -1042,7 +1042,7 @@ struct SimInstance
 				enter_scope(name);
 			exit_scopes = hdlname.size();
 		} else
-			enter_scope(module->design->twines.unescaped_str(name()));
+			enter_scope(module->twines().unescaped_str(name()));
 
 		dict<Wire*,bool> registers;
 		for (auto cell : module->cells())
@@ -1090,7 +1090,7 @@ struct SimInstance
 				for (auto name : hdlname)
 					enter_scope(name);
 			} else {
-				signal_name = module->design->twines.unescaped_str(memid);
+				signal_name = module->twines().unescaped_str(memid);
 			}
 
 			for (auto &trace_index : trace_mem.second) {
@@ -1186,7 +1186,7 @@ struct SimInstance
 		for (auto cell : module->cells())
 		{
 			if (cell->is_mem_cell()) {
-				IdString memid = module->design->twines.add(cell->parameters.at(ID::MEMID).decode_string());
+				IdString memid = module->twines().add(cell->parameters.at(ID::MEMID).decode_string());
 				for (auto &data : fst_memories[memid])
 				{
 					std::string v = shared->fst->valueOf(data.second);
@@ -1217,7 +1217,7 @@ struct SimInstance
 						}
 					}
 					if (!found)
-						log_error("Unable to find required '%s' signal in file\n",(scope + "." + module->design->twines.unescaped_str(sig_y.as_wire()->name)));
+						log_error("Unable to find required '%s' signal in file\n",(scope + "." + module->twines().unescaped_str(sig_y.as_wire()->name)));
 				}
 			}
 		}
@@ -1553,7 +1553,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", PooledName(topmod, portref).unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", PooledName(topmod, portref).unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + topmod->design->twines.unescaped_str(portref));
+			fstHandle id = fst->getHandle(scope + "." + topmod->twines().unescaped_str(portref));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, PooledName(topmod, portref).unescape());
 			fst_clock.push_back(id);
@@ -1566,7 +1566,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", PooledName(topmod, portref).unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", PooledName(topmod, portref).unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + topmod->design->twines.unescaped_str(portref));
+			fstHandle id = fst->getHandle(scope + "." + topmod->twines().unescaped_str(portref));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, PooledName(topmod, portref).unescape());
 			fst_clock.push_back(id);
@@ -1692,16 +1692,16 @@ struct SimWorker : SimShared
 		if (mf.fail())
 			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
-			IdString escaped_s = topmod->design->twines.add(RTLIL::escape_id(symbol));
+			IdString escaped_s = topmod->twines().add(RTLIL::escape_id(symbol));
 			Wire *w = topmod->wire(escaped_s);
 			if (!w) {
-				escaped_s = topmod->design->twines.add(RTLIL::escape_id(cell_name(symbol)));
+				escaped_s = topmod->twines().add(RTLIL::escape_id(cell_name(symbol)));
 				Cell *c = topmod->cell(escaped_s);
 				if (!c)
 					log_warning("Wire/cell %s not present in module %s\n",symbol,topmod);
 
 				if (c->is_mem_cell()) {
-					IdString memid = topmod->design->twines.add(c->parameters.at(ID::MEMID).decode_string());
+					IdString memid = topmod->twines().add(c->parameters.at(ID::MEMID).decode_string());
 					auto &state = top->mem_database[memid];
 
 					int offset = (mem_cell_addr(symbol) - state.mem->start_offset) * state.mem->width + index;
@@ -1841,7 +1841,7 @@ struct SimWorker : SimShared
 		int curr_cycle = 0;
 		std::vector<std::string> parts;
 		size_t len = 0;
-		TwinePool& twines = topmod->design->twines;
+		TwinePool& twines = topmod->twines();
 		std::optional<TwineSearch> search;
 		while (!f.eof())
 		{
@@ -1924,7 +1924,7 @@ struct SimWorker : SimShared
 
 						Const addr = Const::from_string(parts[1].substr(1,parts[1].size()-2));
 						Const data = Const::from_string(parts[2]);
-						top->set_memory_state(topmod->design->twines.add(c->parameters.at(ID::MEMID).decode_string()), addr, data);
+						top->set_memory_state(topmod->twines().add(c->parameters.at(ID::MEMID).decode_string()), addr, data);
 					}
 					break;
 			}
@@ -2226,7 +2226,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", PooledName(topmod, portref).unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", PooledName(topmod, portref).unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + topmod->design->twines.unescaped_str(portref));
+			fstHandle id = fst->getHandle(scope + "." + topmod->twines().unescaped_str(portref));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, PooledName(topmod, portref).unescape());
 			fst_clock.push_back(id);
@@ -2240,7 +2240,7 @@ struct SimWorker : SimShared
 				log_error("Can't find port %s on module %s.\n", PooledName(topmod, portref).unescape(), top->module);
 			if (!w->port_input)
 				log_error("Clock port %s on module %s is not input.\n", PooledName(topmod, portref).unescape(), top->module);
-			fstHandle id = fst->getHandle(scope + "." + topmod->design->twines.unescaped_str(portref));
+			fstHandle id = fst->getHandle(scope + "." + topmod->twines().unescaped_str(portref));
 			if (id==0)
 				log_error("Can't find port %s.%s in FST.\n", scope, PooledName(topmod, portref).unescape());
 			fst_clock.push_back(id);
@@ -2561,7 +2561,7 @@ struct AIWWriter : public OutputWriter
 		if (mf.fail())
 			log_cmd_error("Not able to read AIGER witness map file.\n");
 		while (mf >> type >> variable >> index >> symbol) {
-			IdString escaped_s = worker->top->module->design->twines.add(RTLIL::escape_id(symbol));
+			IdString escaped_s = worker->top->module->twines().add(RTLIL::escape_id(symbol));
 			Wire *w = worker->top->module->wire(escaped_s);
 			if (!w)
 				log_error("Wire %s not present in module %s\n", PooledName(worker->top->module, escaped_s).unescape(), worker->top->module);

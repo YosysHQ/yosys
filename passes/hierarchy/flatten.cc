@@ -128,7 +128,7 @@ struct FlattenWorker
 				if (object->has_attribute(ID::hdlname)) {
 					new_hdlname += object->get_string_attribute(ID(hdlname));
 				} else {
-					new_hdlname += cell->module->design->twines.unescaped_str(orig_object_name);
+					new_hdlname += cell->twines().unescaped_str(orig_object_name);
 				}
 				object->set_string_attribute(ID(hdlname), new_hdlname);
 			} else if (object->has_attribute(ID(scopename))) {

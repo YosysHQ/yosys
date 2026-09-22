@@ -47,7 +47,7 @@ static RTLIL::SigSpec parse_func_identifier(RTLIL::Module *module, const char *&
 		return *(expr++) == '0' ? RTLIL::State::S0 : RTLIL::State::S1;
 
 	std::string id = RTLIL::escape_id(std::string(expr, id_len));
-	IdString wire_ref = module->design->twines.find(id);
+	IdString wire_ref = module->twines().find(id);
 	RTLIL::Wire *w = module->wire(wire_ref);
 	if (!w)
 		log_error("Can't resolve wire name %s in %s.\n", RTLIL::unescape_id(id), module);
@@ -198,8 +198,8 @@ static void create_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 
 static std::pair<RTLIL::SigSpec, RTLIL::SigSpec> find_latch_ff_wires(RTLIL::Module *module, const LibertyAst *node)
 {
-	IdString iq_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(0)));
-	IdString iqn_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(1)));
+	IdString iq_ref = module->twines().find(RTLIL::escape_id(node->args.at(0)));
+	IdString iqn_ref = module->twines().find(RTLIL::escape_id(node->args.at(1)));
 	auto* iq_wire = module->wire(iq_ref);
 	auto* iqn_wire = module->wire(iqn_ref);
 	log_assert(iq_wire && iqn_wire);
@@ -686,7 +686,7 @@ struct LibertyFrontend : public Frontend {
 					if (flag_lib && dir->value == "internal")
 						continue;
 
-					IdString wire_ref = module->design->twines.find(RTLIL::escape_id(node->args.at(0)));
+					IdString wire_ref = module->twines().find(RTLIL::escape_id(node->args.at(0)));
 					RTLIL::Wire *wire = module->wire(wire_ref);
 					log_assert(wire);
 

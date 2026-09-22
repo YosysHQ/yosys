@@ -89,13 +89,13 @@ public:
 		for (const auto &it : a->attributes) {
 			IdString in_b = bridge.a_to_b(it.first);
 			if (b->attributes.count(in_b) == 0)
-				return "missing attribute " + std::string(mod_a->design->twines.unescaped_str(it.first)) + " in second design";
+				return "missing attribute " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->attributes.at(in_b))
-				return "attribute " + std::string(mod_a->design->twines.unescaped_str(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->attributes.at(in_b));
+				return "attribute " + std::string(mod_a->twines().unescaped_str(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->attributes.at(in_b));
 		}
 		for (const auto &it : b->attributes)
 			if (a->attributes.count(bridge.b_to_a(it.first)) == 0)
-				return "missing attribute " + std::string(mod_b->design->twines.unescaped_str(it.first)) + " in first design";
+				return "missing attribute " + std::string(mod_b->twines().unescaped_str(it.first)) + " in first design";
 		return "";
 	}
 
@@ -164,24 +164,24 @@ public:
 		for (const auto &it : a->parameters) {
 			IdString in_b = bridge.a_to_b(it.first);
 			if (b->parameters.count(in_b) == 0)
-				return "parameter mismatch: missing parameter " + std::string(mod_a->design->twines.unescaped_str(it.first)) + " in second design";
+				return "parameter mismatch: missing parameter " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->parameters.at(in_b))
-				return "parameter mismatch: " + std::string(mod_a->design->twines.unescaped_str(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->parameters.at(in_b));
+				return "parameter mismatch: " + std::string(mod_a->twines().unescaped_str(it.first)) + " mismatch: " + log_const(it.second) + " != " + log_const(b->parameters.at(in_b));
 		}
 		for (const auto &it : b->parameters)
 			if (a->parameters.count(bridge.b_to_a(it.first)) == 0)
-				return "parameter mismatch: missing parameter " + std::string(mod_b->design->twines.unescaped_str(it.first)) + " in first design";
+				return "parameter mismatch: missing parameter " + std::string(mod_b->twines().unescaped_str(it.first)) + " in first design";
 
 		for (const auto &it : a->connections()) {
 			IdString in_b = bridge.a_to_b(it.first);
 			if (b->connections().count(in_b) == 0)
-				return "connection mismatch: missing connection " + a->module->design->twines.unescaped_str(it.first) + " in second design";
+				return "connection mismatch: missing connection " + a->twines().unescaped_str(it.first) + " in second design";
 			if (!compare_sigspec(it.second, b->connections().at(in_b)))
-				return "connection " + a->module->design->twines.unescaped_str(it.first) + " mismatch: " + log_signal(it.second) + " != " + log_signal(b->connections().at(in_b));
+				return "connection " + a->twines().unescaped_str(it.first) + " mismatch: " + log_signal(it.second) + " != " + log_signal(b->connections().at(in_b));
 		}
 		for (const auto &it : b->connections())
 			if (a->connections().count(bridge.b_to_a(it.first)) == 0)
-				return "connection mismatch: missing connection " + a->module->design->twines.unescaped_str(it.first) + " in first design";
+				return "connection mismatch: missing connection " + a->twines().unescaped_str(it.first) + " in first design";
 
 		return "";
 	}
@@ -279,7 +279,7 @@ public:
 			const auto &ma = a->mem_write_actions[i];
 			const auto &mb = b->mem_write_actions[i];
 			if (!bridge.same(ma.memid, mb.memid))
-				return "mem_write_actions " + std::to_string(i) + " memid mismatch: " + mod_a->design->twines.unescaped_str(ma.memid) + " != " + mod_b->design->twines.unescaped_str(mb.memid);
+				return "mem_write_actions " + std::to_string(i) + " memid mismatch: " + mod_a->twines().unescaped_str(ma.memid) + " != " + mod_b->twines().unescaped_str(mb.memid);
 			if (!compare_sigspec(ma.address, mb.address))
 				return "mem_write_actions " + std::to_string(i) + " address mismatch: " + log_signal(ma.address) + " != " + log_signal(mb.address);
 			if (!compare_sigspec(ma.data, mb.data))

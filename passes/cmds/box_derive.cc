@@ -121,7 +121,7 @@ struct BoxDerivePass : Pass {
 				}
 
 				if (apply_mode)
-					cell->type = cell->module->design->twines.copy_from(done[index]->design->twines, done[index]->name);
+					cell->type = cell->twines().copy_from(done[index]->twines(), done[index]->name);
 			}
 		}
 	}
