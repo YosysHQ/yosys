@@ -503,7 +503,7 @@ struct BoothPassWorker {
 			for (auto pp_wire : get<0>(pp)) {
 				RTLIL::IdString wire_name = pp_wire->name;
 
-				printf(" [%d]:%s ", ix, module->design->twines.str(wire_name).c_str());
+				printf(" [%d]:%s ", ix, module->twines().str(wire_name).c_str());
 				ix++;
 			}
 			printf("\n");
@@ -1077,7 +1077,7 @@ struct BoothPassWorker {
 		// 1st row exception: two localized inverters due to sign extension structure
 		SigBit d08_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv1"), PPij[(0 * dec_count) + dec_count - 1]);
 		SigBit d18_inv = module->NotGate(NEW_ID_SUFFIX("bfa_0_exc_inv2"), PPij[(1 * dec_count) + dec_count - 1]);
-		BuildBitwiseFa(module, module->design->twines.add(NEW_ID_SUFFIX("fa_row_0")),
+		BuildBitwiseFa(module, module->twines().add(NEW_ID_SUFFIX("fa_row_0")),
 			/* A */ {State::S0, d08_inv, PPij[(0 * dec_count) + x_sz], PPij.extract((0 * dec_count) + 2, x_sz - 1)},
 			/* B */ {State::S1, d18_inv, PPij.extract((1 * dec_count), x_sz)},
 			/* C */ fa_carry[0].extract(1, x_sz + 2),
@@ -1093,7 +1093,7 @@ struct BoothPassWorker {
 			SigBit d_inv = module->NotGate(NEW_ID_SUFFIX(stringf("bfa_se_inv_%d_L", fa_row_ix)),
 						       PPij[((fa_row_ix + 1) * dec_count) + dec_count - 1]);
 
-			BuildBitwiseFa(module, module->design->twines.add(NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix))),
+			BuildBitwiseFa(module, module->twines().add(NEW_ID_SUFFIX(stringf("fa_row_%d", fa_row_ix))),
 				/* A */	{State::S0, fa_carry[fa_row_ix - 1][fa_count - 1], fa_sum[fa_row_ix - 1].extract(2, x_sz + 2)},
 				/* B */ {State::S1, d_inv, PPij.extract((fa_row_ix + 1) * dec_count, x_sz), State::S0, State::S0},
 

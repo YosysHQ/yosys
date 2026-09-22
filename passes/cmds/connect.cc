@@ -184,7 +184,7 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Can't use -port together with -nounset.\n");
 
-			TwineSearch search(&module->design->twines);
+			TwineSearch search(&module->twines());
 			RTLIL::Cell *port_cell_obj = module->cell(search.find(RTLIL::escape_id(port_cell)));
 			if (port_cell_obj == nullptr)
 				log_cmd_error("Can't find cell %s.\n", port_cell);
@@ -193,7 +193,7 @@ struct ConnectPass : public Pass {
 			if (!RTLIL::SigSpec::parse_sel(sig, design, module, port_expr))
 				log_cmd_error("Failed to parse port expression `%s'.\n", port_expr);
 
-			IdString port_port_ref = module->design->twines.add(RTLIL::escape_id(port_port));
+			IdString port_port_ref = module->twines().add(RTLIL::escape_id(port_port));
 			if (!flag_assert) {
 				port_cell_obj->setPort(port_port_ref, sigmap(sig));
 			} else {

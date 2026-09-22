@@ -39,7 +39,7 @@ static RTLIL::Wire * add_wire(RTLIL::Module *module, std::string name, int width
 	RTLIL::Wire *wire = NULL;
 	name = RTLIL::escape_id(name);
 
-	IdString t = module->design->twines.add(name);
+	IdString t = module->twines().add(name);
 
 	if (module->count_id(t) != 0)
 	{

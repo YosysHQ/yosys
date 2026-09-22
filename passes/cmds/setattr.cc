@@ -189,7 +189,7 @@ struct SetparamPass : public Pass {
 		{
 			for (auto cell : module->selected_cells()) {
 				if (!new_cell_type.empty())
-					cell->type = cell->module->design->twines.add(new_cell_type);
+					cell->type = cell->twines().add(new_cell_type);
 				do_setunset(design, cell->parameters, setunset_list);
 			}
 		}

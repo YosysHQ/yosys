@@ -98,7 +98,7 @@ struct Chunk {
 	{
 		if (len == cell->getPort(port).size())
 			return port;
-		auto &pool = cell->module->design->twines;
+		auto &pool = cell->twines();
 		if (len == 1)
 			return pool.add(stringf("%s[%d]", pool.str(port).c_str(), base));
 		return pool.add(stringf("%s[%d:%d]", pool.str(port).c_str(), base + len - 1, base));
@@ -223,7 +223,7 @@ struct WrapcellPass : Pass {
 				if (!unused_outputs.empty()) {
 					context.unused_outputs += "_unused";
 					for (auto chunk : collect_chunks(unused_outputs))
-						context.unused_outputs += "_" + module->design->twines.unescaped_str(chunk.format(cell));
+						context.unused_outputs += "_" + module->twines().unescaped_str(chunk.format(cell));
 				}
 
 				std::optional<std::string> unescaped_name = format_with_params(d->twines, name_fmt, cell->parameters, context);

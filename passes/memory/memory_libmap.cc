@@ -132,7 +132,7 @@ typedef std::vector<MemConfig> MemConfigs;
 
 static void set_ram_port(RTLIL::Cell *cell, const std::string &port_name, const RTLIL::SigSpec &sig)
 {
-	cell->setPort(cell->module->design->twines.add(port_name), sig);
+	cell->setPort(cell->twines().add(port_name), sig);
 }
 
 struct MapWorker {
@@ -2073,7 +2073,7 @@ void MemMapping::emit(const MemConfig &cfg) {
 	for (int rp = 0; rp < cfg.repl_port; rp++) {
 		std::vector<Cell *> cells;
 		for (int rd = 0; rd < cfg.repl_d; rd++) {
-			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid.str(), rp, rd), mem.module->design->twines.add(std::string(cfg.def->id)));
+			Cell *cell = mem.module->addCell(stringf("%s.%d.%d", mem.memid.str(), rp, rd), mem.module->twines().add(std::string(cfg.def->id)));
 			if (cfg.def->width_mode == WidthMode::Global || opts.force_params)
 				cell->setParam(ID::WIDTH, cfg.def->dbits[cfg.base_width_log2]);
 			if (opts.force_params)

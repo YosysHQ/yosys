@@ -127,7 +127,7 @@ struct SplitcellsWorker
 				if (slice->hasParam(ID::WIDTH))
 					slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
 
-				log("  slice %d: %s => %s\n", i, module->design->twines.str(slice_name).c_str(), log_signal(slice->getPort(ID::Y)));
+				log("  slice %d: %s => %s\n", i, module->twines().str(slice_name).c_str(), log_signal(slice->getPort(ID::Y)));
 			}
 
 			module->remove(cell);
@@ -162,7 +162,7 @@ struct SplitcellsWorker
 				int slice_msb = slices[i]-1;
 				int slice_lsb = slices[i-1];
 
-				TwinePool &twines = module->design->twines;
+				TwinePool &twines = module->twines();
 				std::string s = cell->name.str() + (slice_msb == slice_lsb ?
 						stringf("%c%d%c", format[0], slice_lsb, format[1]) :
 						stringf("%c%d%c%d%c", format[0], slice_msb, format[2], slice_lsb, format[1]));

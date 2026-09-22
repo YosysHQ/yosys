@@ -419,7 +419,7 @@ void prep_bypass(RTLIL::Design *design)
 			//   original cell, but with additional inputs taken from the
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, translate(map_design, cell->module->design, cell->type));
-			auto bypass_cell = map_module->addCell(NEW_ID, map_module->design->twines.add(std::string{cell->type.str() + "_$abc9_byp"}));
+			auto bypass_cell = map_module->addCell(NEW_ID, map_module->twines().add(std::string{cell->type.str() + "_$abc9_byp"}));
 			for (const auto &conn : cell->connections()) {
 				auto port = map_module->wire(translate(map_design, design, conn.first));
 				if (cell->input(conn.first)) {

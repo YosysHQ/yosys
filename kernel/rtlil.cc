@@ -1443,7 +1443,7 @@ size_t RTLIL::Module::count_id(RTLIL::IdString id)
 
 pool<std::string> RTLIL::object_names(const RTLIL::Module *module)
 {
-	const TwinePool &twines = module->design->twines;
+	const TwinePool &twines = module->twines();
 	pool<std::string> names;
 	for (auto &it : module->wires_)
 		names.insert(twines.str(it.first));
@@ -2596,7 +2596,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	log_assert(new_mod->refcount_wires_ == 0);
 	log_assert(new_mod->refcount_cells_ == 0);
 
-	TwinePool &dst_twines = new_mod->design->twines;
+	TwinePool &dst_twines = new_mod->twines();
 
 	new_mod->avail_parameters.clear();
 	for (IdString param : avail_parameters)
@@ -3078,7 +3078,7 @@ RTLIL::Wire *RTLIL::wire_by_name(RTLIL::Module *module, const std::string &name)
 		return nullptr;
 	std::string escaped = escape_id(name);
 	for (auto wire : module->wires())
-		if (module->design->twines.name_equal(wire->name, escaped))
+		if (module->twines().name_equal(wire->name, escaped))
 			return wire;
 	return nullptr;
 }
@@ -3128,7 +3128,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 
 	IdString type = other->type_impl;
 	if (cross_pool)
-		type = this->design->twines.copy_from(src_design->twines, other->type_impl);
+		type = twines().copy_from(src_design->twines, other->type_impl);
 
 	RTLIL::Cell *cell = addCell(name, type);
 	RTLIL::copy_attr_dict(cell->parameters, other->parameters, src_design, this->design);
@@ -3139,7 +3139,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 	else
 		for (int i = GetSize(other->connections_) - 1; i >= 0; i--) {
 			auto &c = *other->connections_.element(i);
-			cell->connections_[this->design->twines.copy_from(src_design->twines, c.first)] = c.second;
+			cell->connections_[twines().copy_from(src_design->twines, c.first)] = c.second;
 		}
 	return cell;
 }
@@ -4381,9 +4381,9 @@ const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
 
 void RTLIL::Cell::sort()
 {
-	connections_.sort(sort_by_id_str(module->design->twines));
-	parameters.sort(sort_by_id_str(module->design->twines));
-	attributes.sort(sort_by_id_str(module->design->twines));
+	connections_.sort(sort_by_id_str(module->twines()));
+	parameters.sort(sort_by_id_str(module->twines()));
+	attributes.sort(sort_by_id_str(module->twines()));
 }
 
 void RTLIL::Cell::check()
@@ -5733,7 +5733,7 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 static RTLIL::Wire *sigspec_parse_wire(RTLIL::Module *module,
 		std::optional<dict<std::string, RTLIL::Wire*>> &wires_by_name, const std::string &netname)
 {
-	if (RTLIL::Wire *wire = module->wire(module->design->twines.find(netname)))
+	if (RTLIL::Wire *wire = module->wire(module->twines().find(netname)))
 		return wire;
 
 	if (!wires_by_name) {

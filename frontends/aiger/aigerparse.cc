@@ -596,7 +596,7 @@ void AigerReader::parse_xaiger()
 				uint32_t boxUniqueId = parse_xaiger_literal(f);
 				log_assert(boxUniqueId > 0);
 				uint32_t oldBoxNum = parse_xaiger_literal(f);
-				IdString _type = module->design->twines.add(std::string{stringf("$__boxid%u", boxUniqueId)});
+				IdString _type = module->twines().add(std::string{stringf("$__boxid%u", boxUniqueId)});
 				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), _type);
 				cell->setPort(ID::i, SigSpec(State::S0, boxInputs));
 				cell->setPort(ID::o, SigSpec(State::S0, boxOutputs));

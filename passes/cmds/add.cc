@@ -34,7 +34,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 {
 	std::string escaped_name = RTLIL::escape_id(name);
 	std::string escaped_enable_name = (enable_name != "") ? RTLIL::escape_id(enable_name) : "";
-	TwineSearch search(&module->design->twines);
+	TwineSearch search(&module->twines());
 	RTLIL::Wire *wire = module->wire(search.find(escaped_name));
 	log_assert(is_formal_celltype(celltype));
 

@@ -47,7 +47,7 @@ private:
 
 		//Get a SigSpec for the corresponding taint signal for the cell port, creating one if necessary:
 		if (sig.is_wire()) {
-			IdString taint_name_ref = module->design->twines.add(sig.as_wire()->name.str() + "_t");
+			IdString taint_name_ref = module->twines().add(sig.as_wire()->name.str() + "_t");
 			RTLIL::Wire *w = module->wire(taint_name_ref);
 			if (w == nullptr) w = module->addWire(sig.as_wire()->name.str() + "_t", 1);
 			ret = w;

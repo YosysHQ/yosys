@@ -62,7 +62,7 @@ struct BlifDumperConfig
 static IdString match_port(RTLIL::Cell *cell, const std::string &escaped_name)
 {
 	for (auto &conn : cell->connections())
-		if (cell->module->design->twines.name_equal(conn.first, escaped_name))
+		if (cell->twines().name_equal(conn.first, escaped_name))
 			return conn.first;
 	return IdString();
 }

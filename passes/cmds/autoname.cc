@@ -162,7 +162,7 @@ struct ModuleAutonamer
 			nd.is_public = nd.name().isPublic();
 			nd.renameable = !nd.is_public && (nd.cell || nd.wire->port_id == 0);
 			if (nd.is_public)
-				nd.name_length = module->design->twines.str(nd.name()).size();
+				nd.name_length = module->twines().str(nd.name()).size();
 		}
 
 		// Only possible once every fanout is known
@@ -176,7 +176,7 @@ struct ModuleAutonamer
 		node &nd = nodes[to];
 		if (!nd.renameable || nd.decided)
 			return;
-		std::string port = module->design->twines.unescaped_str(edge.port);
+		std::string port = module->twines().unescaped_str(edge.port);
 		string suffix = nd.cell
 			? stringf("_%s_%s", nd.cell->type.unescape(), port)
 			: stringf("_%s", port);
@@ -223,7 +223,7 @@ struct ModuleAutonamer
 	{
 		const node &nd = nodes[n];
 		if (nd.is_public || nd.selected) {
-			out += module->design->twines.str(nd.name());
+			out += module->twines().str(nd.name());
 			return;
 		}
 		append_name(nd.from_node, out);

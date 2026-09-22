@@ -31,7 +31,7 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	from_name = RTLIL::escape_id(from_name);
 	to_name = RTLIL::escape_id(to_name);
 
-	TwineSearch search(&module->design->twines);
+	TwineSearch search(&module->twines());
 	IdString to_ref = search.find(to_name);
 	if (module->count_id(to_ref))
 		log_cmd_error("There is already an object `%s' in module `%s'.\n", RTLIL::unescape_id(to_name), module);
@@ -110,15 +110,15 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 	RTLIL::Wire *wire;
 
 	if (move_to_cell) {
-		IdString name_ref = cell->module->design->twines.find(name);
+		IdString name_ref = cell->twines().find(name);
 		if (!(wire = cell->module->wire(name_ref)) || !(wire->port_input || wire->port_output))
-			return cell->module->design->twines.add(std::move(name));
+			return cell->twines().add(std::move(name));
 	}
 
 	if (suffix.empty()) {
 		suffix = cell->type.str();
 	}
-	return cell->module->design->twines.add(name + suffix);
+	return cell->twines().add(name + suffix);
 }
 
 static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &cache, RTLIL::Module *module)
@@ -146,7 +146,7 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 					if ((c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && (c < '0' || c > '9') && c != '_')
 						c = '_';
 				auto new_id = module->uniquify("\\_witness_." + name);
-				cell->set_hdlname_attribute({ "_witness_", strstr(module->design->twines.str(new_id).c_str(), ".") + 1 });
+				cell->set_hdlname_attribute({ "_witness_", strstr(module->twines().str(new_id).c_str(), ".") + 1 });
 				renames.emplace_back(cell, new_id);
 			}
 		}
@@ -169,7 +169,7 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 							c = '_';
 					auto new_id = module->uniquify("\\_witness_." + name);
 					auto new_wire = module->addWire(new_id, GetSize(sig_out));
-					new_wire->set_hdlname_attribute({ "_witness_", strstr(module->design->twines.str(new_id).c_str(), ".") + 1 });
+					new_wire->set_hdlname_attribute({ "_witness_", strstr(module->twines().str(new_id).c_str(), ".") + 1 });
 					if (clk2fflogic)
 						module->connect({new_wire, sig_out});
 					else
@@ -191,7 +191,7 @@ static bool rename_witness(RTLIL::Design *design, dict<RTLIL::Module *, int> &ca
 					c = '_';
 			auto new_id = module->uniquify("\\_witness_." + name);
 			renames.emplace_back(cell, new_id);
-			cell->set_hdlname_attribute({ "_witness_", strstr(module->design->twines.str(new_id).c_str(), ".") + 1 });
+			cell->set_hdlname_attribute({ "_witness_", strstr(module->twines().str(new_id).c_str(), ".") + 1 });
 		}
 	}
 	for (auto rename : renames) {
@@ -397,11 +397,11 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (!wire->name.isPublic())
-						new_wire_names.emplace(wire, module->design->twines.add(derive_name_from_src(wire->get_src_attribute(), counter++)));
+						new_wire_names.emplace(wire, module->twines().add(derive_name_from_src(wire->get_src_attribute(), counter++)));
 
 				for (auto cell : module->selected_cells())
 					if (!cell->name.isPublic())
-						new_cell_names.emplace(cell, module->design->twines.add(derive_name_from_src(cell->get_src_attribute(), counter++)));
+						new_cell_names.emplace(cell, module->twines().add(derive_name_from_src(cell->get_src_attribute(), counter++)));
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);
@@ -428,7 +428,7 @@ struct RenamePass : public Pass {
 							if (wire_suffix.empty()) {
 								for (auto const &[port, _] : cell->connections()) {
 									if (cell->output(port)) {
-										wire_suffix += stringf("%s.%s", cell->type, module->design->twines.str(port).c_str() + 1);
+										wire_suffix += stringf("%s.%s", cell->type, module->twines().str(port).c_str() + 1);
 										break;
 									}
 								}
@@ -499,11 +499,11 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (wire->name.isPublic() && wire->port_id == 0)
-						new_wire_names[wire] = module->design->twines.add(NEW_ID);
+						new_wire_names[wire] = module->twines().add(NEW_ID);
 
 				for (auto cell : module->selected_cells())
 					if (cell->name.isPublic())
-						new_cell_names[cell] = module->design->twines.add(NEW_ID);
+						new_cell_names[cell] = module->twines().add(NEW_ID);
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);
@@ -548,12 +548,12 @@ struct RenamePass : public Pass {
 				for (auto wire : module->selected_wires())
 					if (wire->port_id == 0) {
 						seed = mkhash_xorshift(seed);
-						new_wire_names[wire] = module->design->twines.add(stringf("$_%u_", seed));
+						new_wire_names[wire] = module->twines().add(stringf("$_%u_", seed));
 					}
 
 				for (auto cell : module->selected_cells()) {
 					seed = mkhash_xorshift(seed);
-					new_cell_names[cell] = module->design->twines.add(stringf("$_%u_", seed));
+					new_cell_names[cell] = module->twines().add(stringf("$_%u_", seed));
 				}
 
 				for (auto &it : new_wire_names)
@@ -580,7 +580,7 @@ struct RenamePass : public Pass {
 					if (!VERILOG_BACKEND::id_is_verilog_escaped(name))
 						continue;
 					new_wire_names[wire] = module->uniquify("\\" + renamed_unescaped(name));
-					auto new_name = module->design->twines.str(new_wire_names[wire]).substr(1);
+					auto new_name = module->twines().str(new_wire_names[wire]).substr(1);
 					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
 						log_error("Failed to rename wire %s -> %s\n", name, new_name);
 				}
@@ -593,7 +593,7 @@ struct RenamePass : public Pass {
 					if (!VERILOG_BACKEND::id_is_verilog_escaped(name))
 						continue;
 					new_cell_names[cell] = module->uniquify("\\" + renamed_unescaped(name));
-					auto new_name = module->design->twines.str(new_cell_names[cell]).substr(1);
+					auto new_name = module->twines().str(new_cell_names[cell]).substr(1);
 					if (VERILOG_BACKEND::id_is_verilog_escaped(new_name))
 						log_error("Failed to rename cell %s -> %s\n", name, new_name);
 				}

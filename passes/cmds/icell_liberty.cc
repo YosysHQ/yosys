@@ -67,11 +67,11 @@ struct LibertyStubber {
 		i.indent = 3;
 		auto sorted_ports = derived->ports;
 		// Hack for CLK and C coming before Q does
-		auto cmp = [derived](IdString l, IdString r) { return derived->design->twines.str(l) < derived->design->twines.str(r); };
+		auto cmp = [derived](IdString l, IdString r) { return derived->twines().str(l) < derived->twines().str(r); };
 		std::sort(sorted_ports.begin(), sorted_ports.end(), cmp);
 		std::string clock_pin_name = "";
 		for (auto x : sorted_ports) {
-			std::string port_name = derived->design->twines.unescaped_str(x);
+			std::string port_name = derived->twines().unescaped_str(x);
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
 			f << "\t\tpin (" << port_name << ") {\n";
@@ -130,7 +130,7 @@ struct LibertyStubber {
 		auto& base_type = ct.cell_types[base->name];
 		f << "\tcell (\"" << derived_name << "\") {\n";
 		for (auto x : derived->ports) {
-			std::string port_name = derived->design->twines.unescaped_str(x);
+			std::string port_name = derived->twines().unescaped_str(x);
 			bool is_input = base_type.inputs.count(x);
 			bool is_output = base_type.outputs.count(x);
 			f << "\t\tpin (" << port_name << ") {\n";

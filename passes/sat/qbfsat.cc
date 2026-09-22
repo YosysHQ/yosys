@@ -82,7 +82,7 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		log_cmd_error("could not read solution file.\n");
 
 	std::string buf;
-	TwineSearch search(&module->design->twines);
+	TwineSearch search(&module->twines());
 	while (std::getline(fin, buf)) {
 		bool bit_assn = true;
 		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
@@ -160,7 +160,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 }
 
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
-	TwineSearch search(&module->design->twines);
+	TwineSearch search(&module->twines());
 	for (auto &n : input_wires) {
 		RTLIL::Wire *input = module->wire(search.find(n));
 		log_assert(input != nullptr);

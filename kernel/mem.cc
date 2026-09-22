@@ -122,7 +122,7 @@ void Mem::emit() {
 		}
 		if (!cell) {
 			if (memid.empty())
-				memid = PooledName(module->design, module->design->twines.add(NEW_ID));
+				memid = PooledName(module->design, module->twines().add(NEW_ID));
 			cell = module->addCell(memid, ID($mem_v2));
 		}
 		cell->type = ID($mem_v2);
@@ -291,7 +291,7 @@ void Mem::emit() {
 		}
 		if (!mem) {
 			if (memid.empty())
-				memid = PooledName(module->design, module->design->twines.add(NEW_ID));
+				memid = PooledName(module->design, module->twines().add(NEW_ID));
 			mem = module->addMemory(memid);
 		}
 		mem->width = width;
@@ -716,7 +716,7 @@ namespace {
 	}
 
 	Mem mem_from_cell(Cell *cell) {
-		Mem res(cell->module, cell->module->design->twines.add(cell->parameters.at(ID::MEMID).decode_string()),
+		Mem res(cell->module, cell->twines().add(cell->parameters.at(ID::MEMID).decode_string()),
 			cell->parameters.at(ID::WIDTH).as_int(),
 			cell->parameters.at(ID::OFFSET).as_int(),
 			cell->parameters.at(ID::SIZE).as_int()
@@ -992,7 +992,7 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 			}
 		}
 
-		IdString name = module->design->twines.add(stringf("$%s$rdreg[%d]", memid_str, idx));
+		IdString name = module->twines().add(stringf("$%s$rdreg[%d]", memid_str, idx));
 		FfData ff(module, initvals, name);
 		ff.width = GetSize(port.data);
 		ff.has_clk = true;

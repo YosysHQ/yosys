@@ -454,7 +454,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 			notmap[sigmap(cell->getPort(ID::A))].insert(cell);
 	}
 
-	auto &twines = module->design->twines;
+	auto &twines = module->twines();
 
 	std::map<std::string, int> stats;
 	for (auto cell : cell_list)

@@ -59,7 +59,7 @@ struct SmvWorker
 	{
 		if (!idcache.count(id))
 		{
-			string name = "_" + module->design->twines.str(id);
+			string name = "_" + module->twines().str(id);
 
 			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);

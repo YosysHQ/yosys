@@ -60,7 +60,7 @@ struct Smt2Worker
 	const char *get_id(IdString n)
 	{
 		if (ids.count(n) == 0) {
-			std::string str = module->design->twines.unescaped_str(n);
+			std::string str = module->twines().unescaped_str(n);
 			for (int i = 0; i < GetSize(str); i++) {
 				if (str[i] == '\\')
 					str[i] = '/';
@@ -207,7 +207,7 @@ struct Smt2Worker
 				}
 			else if (is_output || !is_input)
 				log_error("Unsupported or unknown directionality on port %s of cell %s.%s (%s).\n",
-						module->design->twines.unescaped_str(conn.first), module, cell, cell->type.unescape());
+						module->twines().unescaped_str(conn.first), module, cell, cell->type.unescape());
 
 			if (cell->type.in(ID($dff), ID($_DFF_P_), ID($_DFF_N_)) && conn.first.in(ID::CLK, ID::C))
 			{

@@ -371,7 +371,7 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
-				auto& twines = module->design->twines;
+				auto& twines = module->twines();
 				Cell* icg = module->addCell(NEW_ID, twines.add(std::string{matching_icg_desc->name}));
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);

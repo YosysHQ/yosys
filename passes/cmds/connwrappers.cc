@@ -77,18 +77,18 @@ struct ConnwrappersWorker
 
 			for (auto &conn : cell->connections())
 			{
-				std::pair<std::string, std::string> key(cell->type, module->design->twines.str(conn.first));
+				std::pair<std::string, std::string> key(cell->type, module->twines().str(conn.first));
 
 				if (!decls.count(key))
 					continue;
 
 				portdecl_t &decl = decls.at(key);
 
-				IdString widthparam = module->design->twines.find(decl.widthparam);
+				IdString widthparam = module->twines().find(decl.widthparam);
 				if (widthparam == IdString::Null || !cell->parameters.count(widthparam))
 					continue;
 
-				IdString signparam = decl.signparam.empty() ? IdString::Null : module->design->twines.find(decl.signparam);
+				IdString signparam = decl.signparam.empty() ? IdString::Null : module->twines().find(decl.signparam);
 				if (!decl.signparam.empty() && (signparam == IdString::Null || !cell->parameters.count(signparam)))
 					continue;
 

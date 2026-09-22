@@ -1549,7 +1549,7 @@ struct SelectPass : public Pass {
 					log("%s\n", mod);
 				if (!list_mod_mode)
 					for (auto it : mod->selected_members())
-						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), mod->design->twines.unescaped_str(it->name_).c_str())
+						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), mod->twines().unescaped_str(it->name_).c_str())
 			}
 			if (count_mode)
 			{
@@ -1802,7 +1802,7 @@ static void log_matches(const char *title, Module *module, const T &list)
 
 	if (!matches.empty()) {
 		log("\n%d %s:\n", int(matches.size()), title);
-		auto &twines = module->design->twines;
+		auto &twines = module->twines();
 		std::sort(matches.begin(), matches.end(), [&](IdString a, IdString b) {
 			return twines.str(a) < twines.str(b);
 		});

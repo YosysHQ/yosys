@@ -758,7 +758,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 		if (child->str.empty() && para_counter >= module->avail_parameters.size())
 			return nullptr; // let hierarchy handle this error
 		IdString paraname = child->str.empty() ? module->avail_parameters[para_counter++]
-				: module->design->twines.add(std::string(child->str));
+				: module->twines().add(std::string(child->str));
 
 		const AstNode *value = child->children[0].get();
 		if (value->type != AST_REALVALUE && value->type != AST_CONSTANT)
@@ -771,7 +771,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 	for (RTLIL::IdString param : module->avail_parameters) {
 		auto it = cell_params_map.find(param);
 		if (it != cell_params_map.end())
-			named_parameters.emplace_back(module->design->twines.str(it->first), it->second);
+			named_parameters.emplace_back(module->twines().str(it->first), it->second);
 	}
 	std::string modname = celltype->str;
 	if (cell_params_map.size()) // not named_parameters to cover hierarchical defparams
@@ -1493,7 +1493,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			size_t port_counter = 0;
 			dict<std::string, IdString> ports_by_name;
 			for (auto port : module->ports)
-				ports_by_name[module->design->twines.str(port)] = port;
+				ports_by_name[module->twines().str(port)] = port;
 			for (auto& child : children) {
 				if (child->type != AST_ARGUMENT)
 					continue;
@@ -1516,7 +1516,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				if (ref == nullptr)
 					input_error("Cell instance refers to port %s which does not exist in module %s!.\n",
 							child->str.size() ? RTLIL::unescape_id(child->str)
-									: module->design->twines.unescaped_str(port_name),
+									: module->twines().unescaped_str(port_name),
 							module->name.unescape());
 
 				// select the argument, if present

@@ -154,8 +154,8 @@ struct EquivMakeWorker
 
 		for (auto id : wire_names)
 		{
-			IdString gold_id = search.find(equiv_mod->design->twines.str(id) + "_gold");
-			IdString gate_id = search.find(equiv_mod->design->twines.str(id) + "_gate");
+			IdString gold_id = search.find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = search.find(equiv_mod->twines().str(id) + "_gate");
 
 			Wire *gold_wire = equiv_mod->wire(gold_id);
 			Wire *gate_wire = equiv_mod->wire(gate_id);
@@ -164,8 +164,8 @@ struct EquivMakeWorker
 			{
 				log("Creating encoder/decoder for signal %s.\n", PooledName(equiv_mod->design, id).unescape());
 
-				Wire *dec_wire = equiv_mod->addWire(equiv_mod->design->twines.str(id) + "_decoded", gold_wire->width);
-				Wire *enc_wire = equiv_mod->addWire(equiv_mod->design->twines.str(id) + "_encoded", gate_wire->width);
+				Wire *dec_wire = equiv_mod->addWire(equiv_mod->twines().str(id) + "_decoded", gold_wire->width);
+				Wire *enc_wire = equiv_mod->addWire(equiv_mod->twines().str(id) + "_encoded", gate_wire->width);
 
 				SigSpec dec_a, dec_b, dec_s;
 				SigSpec enc_a, enc_b, enc_s;
@@ -331,8 +331,8 @@ struct EquivMakeWorker
 
 		for (auto id : cell_names)
 		{
-			IdString gold_id = search.find(equiv_mod->design->twines.str(id) + "_gold");
-			IdString gate_id = search.find(equiv_mod->design->twines.str(id) + "_gate");
+			IdString gold_id = search.find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = search.find(equiv_mod->twines().str(id) + "_gate");
 
 			Cell *gold_cell = equiv_mod->cell(gold_id);
 			Cell *gate_cell = equiv_mod->cell(gate_id);
@@ -421,7 +421,7 @@ struct EquivMakeWorker
 	{
 		copy_to_equiv();
 		find_undriven_nets(false);
-		TwineSearch search(&equiv_mod->design->twines);
+		TwineSearch search(&equiv_mod->twines());
 		find_same_wires(search);
 		find_same_cells(search);
 		find_undriven_nets(true);
