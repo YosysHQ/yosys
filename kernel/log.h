@@ -471,8 +471,8 @@ LogManager &logger();
 
 extern void (*log_error_atexit)();
 
-void set_verific_logging(void (*cb)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg));
-extern void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg);
+void set_verific_logging(void (*cb)(int msg_type, const char *message_id, LogSourceLocation src, const char *msg));
+extern void (*log_verific_callback)(int msg_type, const char *message_id, LogSourceLocation src, const char *msg);
 
 #ifndef NDEBUG
 static inline bool ys_debug(int n = 0) { return logger().is_debug(n); }

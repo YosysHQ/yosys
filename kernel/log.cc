@@ -52,8 +52,8 @@ std::chrono::steady_clock::time_point LogManager::get_initial_time() const
 	return initial_time;
 }
 
-void (*log_error_atexit)() = NULL;
-void (*log_verific_callback)(int msg_type, const char *message_id, const char* file_path, unsigned int left_line, unsigned int left_col, unsigned int right_line, unsigned int right_col, const char *msg) = NULL;
+void (*log_error_atexit)() = nullptr;
+void (*log_verific_callback)(int msg_type, const char *message_id, LogSourceLocation src, const char *msg) = nullptr;
 
 // TODO: remove when log_id is removed
 vector<char*> log_id_cache;
