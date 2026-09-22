@@ -208,7 +208,7 @@ struct RpcModule : RTLIL::Module {
 			for (auto module : derived_design->modules())
 				for (auto cell : module->cells())
 					if (name_mangling.count(cell->type.str()))
-						cell->type = cell->module->design->twines.add(name_mangling[cell->type.str()]);
+						cell->type = cell->twines().add(name_mangling[cell->type.str()]);
 
 			for (auto module : derived_design->modules_) {
 				std::string mangled_name = name_mangling[derived_design->twines.str(module.first)];

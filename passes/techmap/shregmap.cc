@@ -332,7 +332,7 @@ struct ShregmapWorker
 				if (opts.ffe) first_cell->setParam(ID(ENPOL), param_enpol);
 			}
 
-			first_cell->type = first_cell->module->design->twines.add(shreg_cell_type_str);
+			first_cell->type = first_cell->twines().add(shreg_cell_type_str);
 			first_cell->setPort(q_port, last_cell->getPort(q_port));
 			first_cell->setParam(ID::DEPTH, depth);
 

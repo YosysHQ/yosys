@@ -340,7 +340,7 @@ void handle_clkpol_celltype_swap(Cell *cell, string type1, string type2, IdStrin
 					PooledName(cell->module, port).unescape(), cell->type.unescape(), cell, cell->module,
 					log_signal(sig), log_signal(invert_map.at(sig)));
 			cell->setPort(port, (invert_map.at(sig)));
-			cell->type = cell->module->design->twines.add(cell->type == type1 ? type2 : type1);
+			cell->type = cell->twines().add(cell->type == type1 ? type2 : type1);
 		}
 	}
 }

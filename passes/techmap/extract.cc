@@ -129,7 +129,7 @@ public:
 			for (auto &conn : needleCell->connections())
 			{
 				RTLIL::SigSpec needleSig = conn.second;
-				RTLIL::SigSpec haystackSig = haystackCell->getPort(haystackCell->module->design->twines.add(std::string{portMapping.at(needleCell->module->design->twines.str(conn.first))}));
+				RTLIL::SigSpec haystackSig = haystackCell->getPort(haystackCell->twines().add(std::string{portMapping.at(needleCell->twines().str(conn.first))}));
 
 				for (int i = 0; i < min(needleSig.size(), haystackSig.size()); i++) {
 					RTLIL::Wire *needleWire = needleSig[i].wire, *haystackWire = haystackSig[i].wire;
@@ -155,7 +155,7 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 {
 	SigMap sigmap(mod);
 	std::map<RTLIL::SigBit, bit_ref_t> sig_bit_ref;
-	auto &tw = mod->design->twines;
+	auto &tw = mod->twines();
 
 	if (sel && !sel->selected(mod)) {
 		log("  Skipping module %s as it is not selected.\n", mod->name.unescape());
@@ -293,14 +293,14 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 {
 	SigMap sigmap(needle);
 	SigSet<std::pair<IdString, int>> sig2port;
-	auto &tw = needle->design->twines;
+	auto &tw = needle->twines();
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), haystack->design->twines.copy_from(tw, needle->name));
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), haystack->twines().copy_from(tw, needle->name));
 
 	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {
-			IdString portname = haystack->design->twines.add(tw.str(wire->name));
+			IdString portname = haystack->twines().add(tw.str(wire->name));
 			for (int i = 0; i < wire->width; i++)
 				sig2port.insert(sigmap(RTLIL::SigSpec(wire, i)), std::pair<IdString, int>(portname, i));
 			cell->setPort(portname, RTLIL::SigSpec(RTLIL::State::Sz, wire->width));
@@ -322,7 +322,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 			if (mapping.portMapping.count(tw.str(conn.first)) > 0 && sig2port.has(sigmap(sig))) {
 				for (int i = 0; i < sig.size(); i++)
 				for (auto &port : sig2port.find(sig[i])) {
-					RTLIL::SigSpec bitsig = haystack_cell->getPort(haystack_cell->module->design->twines.add(std::string{mapping.portMapping[tw.str(conn.first)]})).extract(i, 1);
+					RTLIL::SigSpec bitsig = haystack_cell->getPort(haystack_cell->twines().add(std::string{mapping.portMapping[tw.str(conn.first)]})).extract(i, 1);
 					RTLIL::SigSpec new_sig = cell->getPort(port.first);
 					new_sig.replace(port.second, bitsig);
 					cell->setPort(port.first, new_sig);

@@ -183,7 +183,7 @@ struct FfData : FfTypeData {
 	}
 
 	FfData(Module *module, FfInitVals *initvals, TwineSpec &&name)
-			: FfData(module, initvals, module->design->twines.add(std::move(name))) {}
+			: FfData(module, initvals, module->twines().add(std::move(name))) {}
 
 	FfData(FfInitVals *initvals, Cell *cell_);
 

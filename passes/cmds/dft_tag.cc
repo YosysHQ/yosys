@@ -371,7 +371,7 @@ struct DftTagWorker {
 
 	IdString tag_id(const Cell *cell)
 	{
-		return module->design->twines.add(RTLIL::escape_id(cell->getParam(ID::TAG).decode_string()));
+		return module->twines().add(RTLIL::escape_id(cell->getParam(ID::TAG).decode_string()));
 	}
 
 	void propagate_tags(Cell *cell)
@@ -379,10 +379,10 @@ struct DftTagWorker {
 		if (cell->type == ID($set_tag)) {
 			IdString tag = tag_id(cell);
 			if (all_tags.insert(tag).second) {
-				std::string tag_str = module->design->twines.str(tag);
+				std::string tag_str = module->twines().str(tag);
 				auto group_sep = tag_str.find(':');
 				IdString tag_group = group_sep != std::string::npos
-						? module->design->twines.add(tag_str.substr(0, group_sep)) : tag;
+						? module->twines().add(tag_str.substr(0, group_sep)) : tag;
 				tag_groups[tag_group].insert(tag);
 				group_of_tag[tag] = tag_group;
 			}
@@ -705,7 +705,7 @@ struct DftTagWorker {
 				auto sig_q = ff.sig_q;
 				auto sig_d = ff.sig_d;
 
-				ff.name = module->design->twines.add(NEW_ID);
+				ff.name = module->twines().add(NEW_ID);
 				ff.cell = nullptr;
 				ff.sig_d = tag_signal(tag, ff.sig_d);
 				ff.sig_q = module->addWire(NEW_ID, width);
@@ -779,7 +779,7 @@ struct DftTagWorker {
 						continue;
 
 					int index = 0;
-					std::string tag_str = module->design->twines.unescaped_str(tag);
+					std::string tag_str = module->twines().unescaped_str(tag);
 					auto name = module->uniquify(stringf("%s:%s", wire->name, tag_str), index);
 					auto hdlname = wire->get_hdlname_attribute();
 

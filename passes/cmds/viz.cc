@@ -703,7 +703,7 @@ struct VizWorker
 
 	void update_attrs()
 	{
-		IdString vg_id = module->design->twines.add(std::string("\\vg"));
+		IdString vg_id = module->twines().add(std::string("\\vg"));
 		for (auto c : module->cells())
 			c->attributes.erase(vg_id);
 		for (auto g : graph.nodes) {
@@ -734,7 +734,7 @@ struct VizWorker
 			buffer.emplace_back();
 
 			for (auto name : g->names())
-				buffer.back().push_back(module->design->twines.unescaped_str(name));
+				buffer.back().push_back(module->twines().unescaped_str(name));
 
 			std::sort(buffer.back().begin(), buffer.back().end());
 			std::sort(buffer.begin(), buffer.end());

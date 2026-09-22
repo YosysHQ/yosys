@@ -464,7 +464,7 @@ void check_cell_connections(const RTLIL::Module &module, RTLIL::Cell &cell, RTLI
 			continue;
 		}
 
-		std::string param_name = module.design->twines.str(param.first);
+		std::string param_name = module.twines().str(param.first);
 		if (mod.avail_parameters.count(param.first) == 0 &&
 		    param_name[0] != '$' &&
 		    param_name.find('.') == std::string::npos) {
@@ -509,7 +509,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->module->design->twines.add(std::string{cell->type.str().substr(pos_type + 1)});
+			cell->type = cell->twines().add(std::string{cell->type.str().substr(pos_type + 1)});
 		}
 
 		dict<IdString, RTLIL::Module*> interfaces_by_name;
@@ -621,7 +621,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 		for (auto &conn : cell->connections_) {
 			int conn_size = conn.second.size();
 			IdString portname = conn.first;
-			std::string portname_str = module->design->twines.str(conn.first);
+			std::string portname_str = module->twines().str(conn.first);
 			if (portname_str.empty() || portname_str[0] != '$') {
 			} else {
 				int port_id = atoi(portname_str.substr(1).data());
@@ -786,7 +786,7 @@ RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::stri
 		std::optional<TwineSearch> &search)
 {
 	if (!search)
-		search.emplace(&module->design->twines);
+		search.emplace(&module->twines());
 	const std::string &cellname = cell->name.str();
 	size_t idx = cellname.size();
 	while ((idx = cellname.find_last_of('.', idx-1)) != std::string::npos) {

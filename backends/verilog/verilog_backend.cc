@@ -189,7 +189,7 @@ std::string id(const std::string &internal_id, bool may_rename = true)
 
 std::string id_of(RTLIL::IdString internal_id, bool may_rename = true)
 {
-	return id(active_module->design->twines.str(internal_id), may_rename);
+	return id(active_module->twines().str(internal_id), may_rename);
 }
 
 bool is_reg_wire(RTLIL::SigSpec sig, std::string &reg_name)
@@ -2084,7 +2084,7 @@ void dump_cell(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 	bool first_arg = true;
 	std::set<RTLIL::IdString> numbered_ports;
 	for (int i = 1; true; i++) {
-		IdString port = active_module->design->twines.find(stringf("$%d", i));
+		IdString port = active_module->twines().find(stringf("$%d", i));
 		if (port == IdString::Null || !cell->hasPort(port))
 			break;
 		if (!first_arg)

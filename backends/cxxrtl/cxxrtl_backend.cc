@@ -906,7 +906,7 @@ struct CxxrtlWorker {
 				params += ", ";
 			first = false;
 			params += "/*" + param_name + "=*/";
-			IdString id_param_name = cell->module->design->twines.find('\\' + param_name);
+			IdString id_param_name = cell->twines().find('\\' + param_name);
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
 				              cell->module, cell, param_name.c_str(), cell_module);

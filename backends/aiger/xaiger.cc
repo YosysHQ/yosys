@@ -268,7 +268,7 @@ struct XAigerWriter
 					if (ys_debug(1)) {
 						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
-								cell->type.unescape(), cell->module->design->twines.unescaped_str(i.first.name), offset, d);
+								cell->type.unescape(), cell->twines().unescaped_str(i.first.name), offset, d);
 					}
 #endif
 					arrival_times[rhs[offset]] = d;
@@ -285,7 +285,7 @@ struct XAigerWriter
 				auto is_input = (port_wire && port_wire->port_input) || !cell_known || cell->input(c.first);
 				auto is_output = (port_wire && port_wire->port_output) || !cell_known || cell->output(c.first);
 				if (!is_input && !is_output)
-					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", cell->module->design->twines.unescaped_str(c.first), cell, cell->type.unescape());
+					log_error("Connection '%s' on cell '%s' (type '%s') not recognised!\n", cell->twines().unescaped_str(c.first), cell, cell->type.unescape());
 
 				if (is_input)
 					for (auto b : c.second) {
@@ -644,7 +644,7 @@ struct XAigerWriter
 			else
 				holes_design = nullptr;
 			RTLIL::Module *holes_module = holes_design ?
-					holes_design->module(holes_design->twines.find_from(module->design->twines, module->name)) : nullptr;
+					holes_design->module(holes_design->twines.find_from(module->twines(), module->name)) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */);

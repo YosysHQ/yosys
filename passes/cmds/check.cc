@@ -169,7 +169,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first)) {
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (case rule) in process %s",
-										log_signal(action.first), log_signal(action.second), module->design->twines.unescaped_str(proc_it.first).c_str()));
+										log_signal(action.first), log_signal(action.second), module->twines().unescaped_str(proc_it.first).c_str()));
 							if (bit.wire)
 								proc_driven_bits.insert(bit);
 						}
@@ -193,7 +193,7 @@ struct CheckPass : public Pass {
 						for (auto bit : sigmap(action.first)) {
 							wire_drivers[bit].push_back(
 								stringf("action %s <= %s (sync rule) in process %s",
-										log_signal(action.first), log_signal(action.second), module->design->twines.unescaped_str(proc_it.first).c_str()));
+										log_signal(action.first), log_signal(action.second), module->twines().unescaped_str(proc_it.first).c_str()));
 							if (bit.wire && sync->type != RTLIL::SyncType::STi)
 								proc_driven_bits.insert(bit);
 						}
@@ -335,7 +335,7 @@ struct CheckPass : public Pass {
 						if (output && !input && bit.wire)
 						wire_drivers_count[bit]++;
 						if (output && (bit.wire || !input))
-							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", cell->module->design->twines.unescaped_str(conn.first).c_str(), i,
+							wire_drivers[bit].push_back(stringf("port %s[%d] of cell %s (%s)", cell->twines().unescaped_str(conn.first).c_str(), i,
 																cell, cell->type.unescape()));
 						if (output)
 							driver_cells[bit] = cell;
@@ -436,8 +436,8 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", cell->module->design->twines.unescaped_str(from_port).c_str(), from_bit,
-												   cell->module->design->twines.unescaped_str(to_port).c_str(), to_bit);
+								message += stringf("      %s[%d] --> %s[%d]\n", cell->twines().unescaped_str(from_port).c_str(), from_bit,
+												   cell->twines().unescaped_str(to_port).c_str(), to_bit);
 							if (nhits == HITS_LIMIT)
 								message += "      ...\n";
 						}

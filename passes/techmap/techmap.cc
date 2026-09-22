@@ -103,7 +103,7 @@ struct PrefixApplier
 
 static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString name)
 {
-	return tpl->wire(tpl->design->twines.find_from(src->twines, name));
+	return tpl->wire(tpl->twines().find_from(src->twines, name));
 }
 
 struct TechmapWorker
@@ -132,7 +132,7 @@ struct TechmapWorker
 	std::string constmap_tpl_name(SigMap &sigmap, RTLIL::Module *tpl, RTLIL::Cell *cell, bool verbose)
 	{
 		std::string constmap_info;
-		auto &twines = cell->module->design->twines;
+		auto &twines = cell->twines();
 		dict<RTLIL::SigBit, std::pair<IdString, int>> connbits_map;
 
 		for (auto &conn : cell->connections())
@@ -217,10 +217,10 @@ struct TechmapWorker
 		dict<std::string, std::string> memory_renames;
 
 		for (auto &it : tpl->memories) {
-			std::string old_m_id = tpl->design->twines.str(it.first);
+			std::string old_m_id = tpl->twines().str(it.first);
 			std::string m_name_id = old_m_id;
 			apply_prefix(cell->name, m_name_id);
-			IdString m_ref = module->design->twines.add(std::string(m_name_id));
+			IdString m_ref = module->twines().add(std::string(m_name_id));
 			RTLIL::Memory *m = module->addMemory(m_ref, it.second);
 			if (m->has_attribute(ID::src))
 				m->add_strpool_attribute(ID::src, extra_src_attrs);
@@ -236,10 +236,10 @@ struct TechmapWorker
 		{
 			if (tpl_w->port_id > 0)
 			{
-				IdString posportref = module->design->twines.add(std::string{stringf("$%d", tpl_w->port_id)});
+				IdString posportref = module->twines().add(std::string{stringf("$%d", tpl_w->port_id)});
 				positional_ports.emplace(posportref, tpl_w->name);
 
-				IdString tpl_portname = module->design->twines.find_from(tpl->design->twines, tpl_w->name);
+				IdString tpl_portname = module->twines().find_from(tpl->twines(), tpl_w->name);
 				if (tpl_w->get_bool_attribute(ID::techmap_autopurge) &&
 						(!cell->hasPort(tpl_portname) || !GetSize(cell->getPort(tpl_portname))) &&
 						(!cell->hasPort(posportref) || !GetSize(cell->getPort(posportref))))
@@ -379,9 +379,9 @@ struct TechmapWorker
 			std::string tpl_cell_name = tpl_cell->name.str();
 			IdString c_ref;
 			if (techmap_replace_cell)
-				c_ref = module->design->twines.add(std::string{orig_cell_name});
+				c_ref = module->twines().add(std::string{orig_cell_name});
 			else if (const char *p = strstr(tpl_cell_name.c_str(), "_TECHMAP_REPLACE_."))
-				c_ref = module->design->twines.add(stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_")));
+				c_ref = module->twines().add(stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_")));
 			else
 				c_ref = ap.name(tpl_cell->name);
 
@@ -389,7 +389,7 @@ struct TechmapWorker
 			design->select(module, c);
 
 			if (c->type == ID::_TECHMAP_PLACEHOLDER_ && tpl_cell->has_attribute(ID::techmap_chtype)) {
-				c->type = module->design->twines.add(std::string{RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype))});
+				c->type = module->twines().add(std::string{RTLIL::escape_id(tpl_cell->get_string_attribute(ID::techmap_chtype))});
 				c->attributes.erase(ID::techmap_chtype);
 			}
 
@@ -611,7 +611,7 @@ struct TechmapWorker
 							}
 						}
 
-						cell->type = cell->module->design->twines.add(std::string{m_name});
+						cell->type = cell->twines().add(std::string{m_name});
 						cell->parameters.clear();
 
 						if (!extern_mode || in_recursion) {
@@ -913,7 +913,7 @@ struct TechmapWorker
 							std::string new_name = final_id.substr(0, split_idx)
 												+ "_TECHMAP_DONE_"
 												+ final_id.substr(split_idx + 12);
-							while (tpl->wire(tpl->design->twines.add(std::string{new_name})) != nullptr)
+							while (tpl->wire(tpl->twines().add(std::string{new_name})) != nullptr)
 								new_name += "_";
 							tpl->rename(data.wire->name, new_name);
 
@@ -961,7 +961,7 @@ struct TechmapWorker
 						for (auto &it2 : it.second) {
 							auto val = it2.value.as_const();
 							auto wirename = RTLIL::escape_id(it.first.substr(21, it.first.size() - 21 - 1));
-							IdString wirename_ref = cell->module->design->twines.add(std::string{wirename});
+							IdString wirename_ref = cell->twines().add(std::string{wirename});
 							auto it = cell->connections().find(wirename_ref);
 							if (it != cell->connections().end()) {
 								auto sig = sigmap(it->second);
@@ -986,7 +986,7 @@ struct TechmapWorker
 					}
 
 					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), m_name.c_str());
-					cell->type = cell->module->design->twines.add(std::string{m_name});
+					cell->type = cell->twines().add(std::string{m_name});
 					cell->parameters.clear();
 				}
 				else
