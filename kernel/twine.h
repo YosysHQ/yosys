@@ -131,6 +131,7 @@ public:
 
 	// A ref is "empty" when it names nothing at all.
 	constexpr bool empty() const { return value == TWINE_NULL_VAL; }
+	constexpr void clear() { value = TWINE_NULL_VAL; }
 	constexpr bool isPublic() const { return value != TWINE_NULL_VAL && (value & TWINE_PUBLIC_BIT); }
 
 	constexpr IdString untag() const {
