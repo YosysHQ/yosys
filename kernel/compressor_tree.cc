@@ -110,8 +110,22 @@ std::vector<DepthSig> generate_partial_products(Module *module, SigSpec a, SigSp
 		push_one_at(width_a - 1);
 	if (a_signed)
 		push_one_at(width_b - 1);
-	if (a_signed || b_signed)
-		push_one_at(width_a + width_b - 1);
+	if (a_signed || b_signed) {
+		// The Baugh-Wooley partial products above represent the signed
+		// product with an implicit correction at the product sign bit.
+		// When the product is accumulated at a width larger than
+		// width_a + width_b, that correction must be sign-extended through
+		// the accumulation width. A single bit at the product sign bit
+		// is sufficient at the native product width, but is incorrect
+		// when the product is embedded in a wider FMA tree.
+		long long sign_extension_start = static_cast<long long>(width_a) + width_b - 1;
+		if (sign_extension_start >= 0 && sign_extension_start < width) {
+			std::vector<RTLIL::State> v(width, RTLIL::State::S0);
+			for (int i = static_cast<int>(sign_extension_start); i < width; i++)
+				v[i] = RTLIL::State::S1;
+			products.push_back({SigSpec(RTLIL::Const(v)), 0});
+		}
+	}
 
 	return products;
 }

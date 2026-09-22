@@ -1,0 +1,58 @@
+# Regression test for signed FMA correction bits in a wider accumulator.
+#
+# The implementation is intentionally kept as a small two-product signed
+# FMA. The SAT check below compares the arith_tree result with an
+# independently elaborated copy of the RTL function, rather than checking
+# an internal netlist shape.
+
+read_verilog -sv <<EOT
+module fma_impl #(
+	parameter W = 4
+)(
+	input signed [W-1:0] a, b,
+	output signed [W+15:0] y
+);
+	wire signed [W+15:0] sa = {{16{a[W-1]}}, a};
+	wire signed [W+15:0] sb = {{16{b[W-1]}}, b};
+	wire signed [W+15:0] p0 = sa * 24'sd3;
+	wire signed [W+15:0] p1 = sb * -24'sd2;
+	assign y = p0 + p1;
+endmodule
+EOT
+
+hierarchy -top fma_impl
+synth -top fma_impl -arith_tree
+rename fma_impl fma_candidate
+
+read_verilog -sv <<EOT
+module fma_gold #(
+	parameter W = 4
+)(
+	input signed [W-1:0] a, b,
+	output signed [W+15:0] y
+);
+	wire signed [W+15:0] sa = {{16{a[W-1]}}, a};
+	wire signed [W+15:0] sb = {{16{b[W-1]}}, b};
+	wire signed [W+15:0] p0 = sa * 24'sd3;
+	wire signed [W+15:0] p1 = sb * -24'sd2;
+	assign y = p0 + p1;
+endmodule
+
+module fma_miter #(
+	parameter W = 4
+)(
+	input signed [W-1:0] a, b,
+	output mismatch
+);
+	wire signed [W+15:0] candidate_y, gold_y;
+	fma_candidate candidate(.a(a), .b(b), .y(candidate_y));
+	fma_gold #(.W(W)) gold(.a(a), .b(b), .y(gold_y));
+	assign mismatch = |(candidate_y ^ gold_y);
+endmodule
+EOT
+
+hierarchy -top fma_miter
+prep -top fma_miter
+flatten
+prep -top fma_miter
+sat -prove mismatch 0 -verify -set-def-inputs -show-ports
