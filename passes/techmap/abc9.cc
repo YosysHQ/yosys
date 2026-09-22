@@ -329,7 +329,7 @@ struct Abc9Pass : public ScriptPass
 							if (module->cell(active_design->twines.find(stringf("%s_$abc9_flop", module->name))))
 								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name));
 						}
-						active_design->selected_active_module = IdString::Null;
+						active_design->selected_active_module.clear();
 					}
 					run("abc9_ops -prep_dff_unmap", "                                                  (only if -dff)");
 					run("design -copy-to $abc9 =*_$abc9_flop", "                                       (only if -dff)"); // copy submod out
