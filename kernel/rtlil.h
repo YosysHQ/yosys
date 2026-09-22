@@ -2334,9 +2334,6 @@ void RTLIL::Process::rewrite_sigspecs2(T &functor)
 		it->rewrite_sigspecs2(functor);
 }
 
-namespace RTLIL {
-}
-
 #include "kernel/rtlil_twine_compat_impl.h"
 
 YOSYS_NAMESPACE_END

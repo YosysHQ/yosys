@@ -23,15 +23,6 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#include <version>
-#if __cpp_lib_source_location >= 201907L
-	#include <source_location>
-	using std::source_location;
-#else
-	#include <experimental/source_location>
-	using std::experimental::source_location;
-#endif
-
 YOSYS_NAMESPACE_BEGIN
 
 // Track whether garbage collection is enabled. Garbage collection must be disabled

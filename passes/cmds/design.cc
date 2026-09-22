@@ -359,7 +359,7 @@ struct DesignPass : public Pass {
 
 			design->selection_stack.clear();
 			design->selection_vars.clear();
-			design->selected_active_module = IdString::Null;
+			design->selected_active_module.clear();
 
 			design->push_full_selection();
 		}
