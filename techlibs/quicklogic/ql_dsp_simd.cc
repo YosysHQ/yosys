@@ -197,7 +197,7 @@ struct QlDspSimdPass : public Pass {
 					// MODE_BITS parameter
 					Const mode_bits;
 					for (const auto &it : m_DspParams) {
-						IdString param = module->design->twines.add("\\" + it);
+						IdString param = module->twines().add("\\" + it);
 						auto val_a = dsp_a->getParam(param);
 						auto val_b = dsp_b->getParam(param);
 

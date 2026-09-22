@@ -892,7 +892,7 @@ struct XpropWorker
 					ff.val_init = init_q_is_1;
 					ff.emit();
 
-					ff.name = module->design->twines.add(NEW_ID);
+					ff.name = module->twines().add(NEW_ID);
 					ff.cell = nullptr;
 					ff.sig_d = enc_d.is_x;
 					ff.sig_q = enc_q.is_x;
@@ -982,8 +982,8 @@ struct XpropWorker
 				if (wire->port_input == wire->port_output) {
 					log_warning("Port %s not an input or an output port which is not supported by xprop\n", wire);
 				} else if ((options.split_inputs && !options.assume_def_inputs && wire->port_input) || (options.split_outputs && wire->port_output)) {
-					auto port_d = module->uniquify(module->design->twines.str(port) + "_d");
-					auto port_x = module->uniquify(module->design->twines.str(port) + "_x");
+					auto port_d = module->uniquify(module->twines().str(port) + "_d");
+					auto port_x = module->uniquify(module->twines().str(port) + "_x");
 
 					auto wire_d = module->addWire(port_d, GetSize(wire));
 					auto wire_x = module->addWire(port_x, GetSize(wire));

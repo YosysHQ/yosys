@@ -171,7 +171,7 @@ struct MuxcoverWorker
 			}
 			char port_name[3] = {'\\', *path, 0};
 			Cell *cell = tree.muxes.at(bit);
-			return follow_muxtree(ret_bit, tree, sigmap(cell->getPort(cell->module->design->twines.add(std::string(port_name)))), path+1, false);
+			return follow_muxtree(ret_bit, tree, sigmap(cell->getPort(cell->twines().add(std::string(port_name)))), path+1, false);
 		} else {
 			ret_bit = bit;
 			return true;

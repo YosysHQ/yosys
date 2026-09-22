@@ -866,7 +866,7 @@ grow_read_ports:;
 
 	dict<IdString, Const> variant_params;
 	for (auto &other_bram : rules.brams.at(bram.name))
-		bram.find_variant_params(module->design->twines, variant_params, other_bram);
+		bram.find_variant_params(module->twines(), variant_params, other_bram);
 
 	// actually replace that memory cell
 

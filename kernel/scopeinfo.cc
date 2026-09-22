@@ -100,7 +100,7 @@ static const char *attr_prefix(ScopeinfoAttrs attrs)
 bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
-	TwinePool &twines = scopeinfo->module->design->twines;
+	TwinePool &twines = scopeinfo->twines();
 	IdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
 	return key != IdString::Null && scopeinfo->has_attribute(key);
 }
@@ -108,7 +108,7 @@ bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs,
 RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, RTLIL::IdString id)
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
-	TwinePool &twines = scopeinfo->module->design->twines;
+	TwinePool &twines = scopeinfo->twines();
 	IdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
 	if (key == IdString::Null)
 		return RTLIL::Const();
@@ -124,7 +124,7 @@ dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scop
 
 	const char *prefix = attr_prefix(attrs);
 	size_t prefix_len = strlen(prefix);
-	TwinePool &twines = scopeinfo->module->design->twines;
+	TwinePool &twines = scopeinfo->twines();
 
 	for (auto const &entry : scopeinfo->attributes) {
 		std::string name = twines.str(entry.first);

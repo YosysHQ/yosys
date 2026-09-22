@@ -294,7 +294,7 @@ void emit_extmodule(FirrtlNames &names, RTLIL::Cell *cell, RTLIL::Module *mod_in
 		const RTLIL::IdString p_id = p.first;
 		const RTLIL::Const p_value = p.second;
 
-		std::string param_name(cell->module->design->twines.str(p_id));
+		std::string param_name(cell->twines().str(p_id));
 		const std::string param_value = dump_const(p_value);
 
 		// Remove backslashes from parameters as these come from the internal RTLIL
