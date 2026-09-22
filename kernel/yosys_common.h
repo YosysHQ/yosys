@@ -45,6 +45,15 @@
 #include <ostream>
 #include <iostream>
 
+#include <version>
+#if __cpp_lib_source_location >= 201907L
+	#include <source_location>
+	using std::source_location;
+#else
+	#include <experimental/source_location>
+	using std::experimental::source_location;
+#endif
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -153,6 +162,17 @@
 // This has to precede including "kernel/io.h"
 YOSYS_NAMESPACE_BEGIN
 [[noreturn]] void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message);
+
+[[noreturn]]
+void log_assert_failure(const char *expr, source_location location);
+#ifndef NDEBUG
+static inline void log_assert_worker(bool cond, const char *expr, source_location location = source_location::current()) {
+	if (!cond) log_assert_failure(expr, location);
+}
+#  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_)
+#else
+#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
+#endif
 YOSYS_NAMESPACE_END
 
 #include "kernel/io.h"
@@ -271,17 +291,6 @@ inline void memhasher() { if (memhasher_active) memhasher_do(); }
 void yosys_banner();
 int ceil_log2(int x) YS_ATTRIBUTE(const);
 
-[[noreturn]]
-void log_assert_failure(const char *expr, const char *file, int line);
-#ifndef NDEBUG
-static inline void log_assert_worker(bool cond, const char *expr, const char *file, int line) {
-	if (!cond) log_assert_failure(expr, file, line);
-}
-#  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_, __FILE__, __LINE__)
-#else
-#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
-#endif
-
 template<typename T> int GetSize(const T &obj) { return obj.size(); }
 inline int GetSize(RTLIL::Wire *wire);
 
@@ -315,15 +324,15 @@ extern bool yosys_write_versions;
 const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
 
 #define NEW_ID \
-	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](std::string_view func) -> const std::string * { \
-		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](source_location location, std::string_view func) -> const std::string * { \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(location.file_name(), location.line(), func)); \
 		return prefix.get(); \
-	}(__FUNCTION__), std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
+	}(source_location::current(), __FUNCTION__), std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 #define NEW_ID_SUFFIX(suffix) \
-	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](std::string_view func) -> const std::string * { \
-		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](source_location location, std::string_view func) -> const std::string * { \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(location.file_name(), location.line(), func)); \
 		return prefix.get(); \
-	}(__FUNCTION__), std::string(suffix) + "$" + std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
+	}(source_location::current(), __FUNCTION__), std::string(suffix) + "$" + std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 
 YOSYS_NAMESPACE_END
 

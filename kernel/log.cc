@@ -258,8 +258,6 @@ void LogManager::formatted_header(RTLIL::Design *design, std::string_view format
 		for (auto &filename : hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename);
 			Pass::call(design, {"dump", "-o", filename});
-			if (yosys_xtrace)
-				log("#X# -- end of dump --\n");
 		}
 	log_stderr_sink_forced = false;
 }
@@ -405,9 +403,9 @@ void LogManager::formatted_error(std::string_view format, std::string str)
 	error_with_prefix("ERROR: ", format, std::move(str));
 }
 
-void log_assert_failure(const char *expr, const char *file, int line)
+void log_assert_failure(const char *expr, source_location location)
 {
-	log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+	log_error("Assert `%s' failed in %s:%d.\n", expr, location.file_name(), location.line());
 }
 
 void log_abort_internal(const char *file, int line)

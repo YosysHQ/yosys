@@ -670,7 +670,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 
 static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &sel)
 {
-	if (design->selected_active_module == IdString::Null)
+	if (design->selected_active_module.empty())
 		return;
 
 	if (sel.full_selection) {
@@ -834,7 +834,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		select_blackboxes = true;
 	}
 
-	if (design->selected_active_module != IdString::Null) {
+	if (!design->selected_active_module.empty()) {
 		arg_mod = design->twines.str(design->selected_active_module);
 		arg_memb = arg;
 		if (!isprefixed(arg_memb))
@@ -1519,7 +1519,7 @@ struct SelectPass : public Pass {
 
 		if (clear_mode) {
 			design->selection() = RTLIL::Selection::FullSelection(design);
-			design->selected_active_module = IdString::Null;
+			design->selected_active_module.clear();
 			return;
 		}
 
@@ -1730,7 +1730,7 @@ struct CdPass : public Pass {
 		if (args.size() == 1 || args[1] == "/") {
 			design->pop_selection();
 			design->push_full_selection();
-			design->selected_active_module = IdString::Null;
+			design->selected_active_module.clear();
 			return;
 		}
 
@@ -1740,7 +1740,7 @@ struct CdPass : public Pass {
 
 			design->pop_selection();
 			design->push_full_selection();
-			design->selected_active_module = IdString::Null;
+			design->selected_active_module.clear();
 
 			TwineSearch search(&design->twines);
 			while (1)
@@ -1771,7 +1771,7 @@ struct CdPass : public Pass {
 		TwineSearch search(&design->twines);
 		IdString modname = search.find(RTLIL::escape_id(args[1]));
 
-		if (design->module(modname) == nullptr && design->selected_active_module != IdString::Null) {
+		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
 			RTLIL::Module *module = design->module(design->selected_active_module);
 			IdString cell_ref = modname;
 			if (module != nullptr && cell_ref != IdString::Null && module->cell(cell_ref) != nullptr)
@@ -1834,7 +1834,7 @@ struct LsPass : public Pass {
 		size_t argidx = 1;
 		extra_args(args, argidx, design);
 
-		if (design->selected_active_module == IdString::Null)
+		if (design->selected_active_module.empty())
 		{
 			std::vector<IdString> matches;
 

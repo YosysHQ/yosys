@@ -307,7 +307,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::string command)
 {
 	IdString backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = IdString::Null;
+	design->selected_active_module.clear();
 	design->push_selection(selection);
 
 	Pass::call(design, command);
@@ -319,7 +319,7 @@ void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &sele
 void Pass::call_on_selection(RTLIL::Design *design, const RTLIL::Selection &selection, std::vector<std::string> args)
 {
 	IdString backup_selected_active_module = design->selected_active_module;
-	design->selected_active_module = IdString::Null;
+	design->selected_active_module.clear();
 	design->push_selection(selection);
 
 	Pass::call(design, args);

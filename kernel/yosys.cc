@@ -343,10 +343,10 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter)
 	if (recursion_counter > 1)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
-	if (design->selected_active_module != IdString::Null)
+	if (!design->selected_active_module.empty())
 		str += stringf(" [%s]", RTLIL::unescape_id(design->twines.str(design->selected_active_module)).c_str());
 	if (!design->full_selection()) {
-		if (design->selected_active_module == IdString::Null)
+		if (design->selected_active_module.empty())
 			str += "*";
 		else if (design->selection().selected_modules.size() != 1 || design->selection().selected_members.size() != 0 ||
 				design->selection().selected_modules.count(design->selected_active_module) == 0)
@@ -931,7 +931,7 @@ static char *readline_obj_generator(const char *text, int state)
 		RTLIL::Design *design = yosys_get_design();
 		int len = strlen(text);
 
-		if (design->selected_active_module == IdString::Null)
+		if (design->selected_active_module.empty())
 		{
 			for (auto mod : design->modules()) {
 				std::string mod_name = mod->name.str();

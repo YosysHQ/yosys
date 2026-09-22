@@ -1008,7 +1008,7 @@ RTLIL::Design::Design()
 	hashidx_ = hashidx_count;
 
 	refcount_modules_ = 0;
-	selected_active_module = IdString::Null;
+	selected_active_module.clear();
 	push_full_selection();
 
 	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
@@ -1227,21 +1227,21 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 
 bool RTLIL::Design::selected_module(IdString mod_name) const
 {
-	if (selected_active_module != IdString::Null && mod_name != selected_active_module)
+	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
 	return selection().selected_module(mod_name);
 }
 
 bool RTLIL::Design::selected_whole_module(RTLIL::IdString mod_name) const
 {
-	if (selected_active_module != IdString::Null && mod_name != selected_active_module)
+	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
 	return selection().selected_whole_module(mod_name);
 }
 
 bool RTLIL::Design::selected_member(RTLIL::IdString mod_name, RTLIL::IdString memb_name) const
 {
-	if (selected_active_module != IdString::Null && mod_name != selected_active_module)
+	if (!selected_active_module.empty() && mod_name != selected_active_module)
 		return false;
 	return selection().selected_member(mod_name, memb_name);
 }

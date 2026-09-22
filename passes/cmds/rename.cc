@@ -615,7 +615,7 @@ struct RenamePass : public Pass {
 			std::string from_name = args[argidx++];
 			std::string to_name = args[argidx++];
 
-			if (design->selected_active_module != IdString::Null)
+			if (!design->selected_active_module.empty())
 			{
 				if (design->module(design->selected_active_module) != nullptr)
 					rename_in_module(design->module(design->selected_active_module), from_name, to_name, flag_output);
