@@ -288,64 +288,76 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 
 	if (unmap)
 	{
-		typedef std::pair<RTLIL::SigSpec, bool> summand_t;
-		std::vector<summand_t> summands;
+		struct summand_t {
+			RTLIL::SigSpec sig;
+			bool do_subtract, is_signed;
+		};
+		
+		std::string src = cell->get_src_attribute();
+		std::vector<summand_t> summands, products;
 
 		RTLIL::SigSpec bit_terms;
 
 		for (auto &term : macc.terms) {
 			summand_t this_summand;
+			this_summand.do_subtract = term.do_subtract;
+			this_summand.is_signed = term.is_signed;
 			if (GetSize(term.in_b)) {
-				this_summand.first = module->addWire(NEW_ID, width);
-				module->addMul(NEW_ID, term.in_a, term.in_b, this_summand.first, term.is_signed);
-			} else if (GetSize(term.in_a) == 1 && GetSize(term.in_b) == 0 && !term.is_signed && !term.do_subtract) {
+				int product_width = std::min(width, GetSize(term.in_a) + GetSize(term.in_b));
+				this_summand.sig = module->addWire(NEW_ID, product_width);
+				module->addMul(NEW_ID, term.in_a, term.in_b, this_summand.sig, term.is_signed)->set_src_attribute(src);
+				products.push_back(this_summand);
+			} else if (GetSize(term.in_a) == 1 && !term.is_signed && !term.do_subtract) {
 				// Mimic old 'bit_terms' treatment in case it's relevant for performance,
 				// i.e. defer single-bit summands to be the last ones
 				bit_terms.append(term.in_a);
-				continue;
-			} else if (GetSize(term.in_a) != width) {
-				this_summand.first = module->addWire(NEW_ID, width);
-				module->addPos(NEW_ID, term.in_a, this_summand.first, term.is_signed);
 			} else {
-				this_summand.first = term.in_a;
+				this_summand.sig = term.in_a;
+				summands.push_back(this_summand);
 			}
-			this_summand.second = term.do_subtract;
-			summands.push_back(this_summand);
 		}
 
 		for (auto &bit : bit_terms)
-			summands.push_back(summand_t(bit, false));
+			summands.push_back(summand_t{bit, false, false});
+
+		// every product gets its own adder
+		summands.insert(summands.end(), products.begin(), products.end());
 
 		if (GetSize(summands) == 0)
-			summands.push_back(summand_t(RTLIL::SigSpec(0, width), false));
+			summands.push_back(summand_t{RTLIL::SigSpec(0, width), false, false});
 
-		while (GetSize(summands) > 1)
+		summand_t acc = summands.front();
+		for (int i = 1; i < GetSize(summands); i++)
 		{
-			std::vector<summand_t> new_summands;
-			for (int i = 0; i < GetSize(summands); i += 2) {
-				if (i+1 < GetSize(summands)) {
-					summand_t this_summand;
-					this_summand.first = module->addWire(NEW_ID, width);
-					this_summand.second = summands[i].second && summands[i+1].second;
-					if (summands[i].second == summands[i+1].second)
-						module->addAdd(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
-					else if (summands[i].second)
-						module->addSub(NEW_ID, summands[i+1].first, summands[i].first, this_summand.first);
-					else if (summands[i+1].second)
-						module->addSub(NEW_ID, summands[i].first, summands[i+1].first, this_summand.first);
-					else
-						log_abort();
-					new_summands.push_back(this_summand);
-				} else
-					new_summands.push_back(summands[i]);
+			summand_t nxt = summands[i], res;
+			bool acc_narrow = GetSize(acc.sig) < width;
+			bool nxt_narrow = GetSize(nxt.sig) < width;
+			bool is_signed = acc_narrow ? acc.is_signed : nxt.is_signed;
+
+			// one signedness for both operands
+			if (acc_narrow && nxt_narrow && acc.is_signed != nxt.is_signed) {
+				acc.sig.extend_u0(width, acc.is_signed);
+				nxt.sig.extend_u0(width, nxt.is_signed);
+				is_signed = false;
 			}
-			summands.swap(new_summands);
+
+			res.sig = module->addWire(NEW_ID, width);
+			res.do_subtract = acc.do_subtract && nxt.do_subtract;
+			res.is_signed = is_signed;
+			if (acc.do_subtract == nxt.do_subtract)
+				module->addAdd(NEW_ID, acc.sig, nxt.sig, res.sig, is_signed)->set_src_attribute(src);
+			else if (acc.do_subtract)
+				module->addSub(NEW_ID, nxt.sig, acc.sig, res.sig, is_signed)->set_src_attribute(src);
+			else
+				module->addSub(NEW_ID, acc.sig, nxt.sig, res.sig, is_signed)->set_src_attribute(src);
+			acc = res;
 		}
 
-		if (summands.front().second)
-			module->addNeg(NEW_ID, summands.front().first, cell->getPort(ID::Y));
+		acc.sig.extend_u0(width, acc.is_signed);
+		if (acc.do_subtract)
+			module->addNeg(NEW_ID, acc.sig, cell->getPort(ID::Y), acc.is_signed)->set_src_attribute(src);
 		else
-			module->connect(cell->getPort(ID::Y), summands.front().first);
+			module->connect(cell->getPort(ID::Y), acc.sig);
 	}
 	else
 	{
@@ -382,7 +394,9 @@ struct MaccmapPass : public Pass {
 		log("    maccmap [-unmap] [selection]\n");
 		log("\n");
 		log("This pass maps $macc cells to yosys $fa and $alu cells. When the -unmap option\n");
-		log("is used then the $macc cell is mapped to $add, $sub, etc. cells instead.\n");
+		log("is used then the $macc cell is mapped to $add, $sub, etc. cells instead: a\n");
+		log("left-deep chain with the addends first, so that every product has its own\n");
+		log("adder.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

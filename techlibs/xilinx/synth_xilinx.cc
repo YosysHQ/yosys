@@ -383,6 +383,10 @@ struct SynthXilinxPass : public ScriptPass
 		if (check_label("map_dsp", "(skip if '-nodsp')")) {
 			if (!nodsp || help_mode) {
 				run("memory_dff"); // xilinx_dsp will merge registers, reserve memory port registers first
+				// give every product its own adder for the DSP post-adder
+				run("alumacc -macc-only");
+				run("maccmap -unmap");
+				run("opt_clean");
 				// NB: Xilinx multipliers are signed only
 				if (help_mode)
 					run("techmap -map +/mul2dsp.v -map +/xilinx/{family}_dsp_map.v {options}");

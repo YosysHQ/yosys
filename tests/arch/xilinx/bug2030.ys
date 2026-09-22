@@ -1,0 +1,26 @@
+read_verilog <<EOT
+module top(
+	input clk,
+	input signed [5:0] px, py, tx, a, b,
+	output reg signed [11:0] out
+);
+	reg signed [5:0] tx_r;
+
+	always @(posedge clk)
+		tx_r <= tx;
+
+	always @(posedge clk)
+		out <= px * a + py * b + tx_r;
+endmodule
+EOT
+
+proc
+equiv_opt -run :prove -multiclock -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
+clk2fflogic
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -set-init-zero -seq 4 -verify -prove-asserts -show-ports miter
+
+design -load postopt
+cd top
+select -assert-count 2 t:DSP48E1
+select -assert-none t:DSP48E1 t:BUFG %% t:* %D
