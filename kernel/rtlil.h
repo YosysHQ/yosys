@@ -1493,6 +1493,8 @@ public:
 	RTLIL::Design *design;
 	pool<RTLIL::Monitor*> monitors;
 
+	TwinePool &twines() const { return design->twines; }
+
 	int refcount_wires_;
 	int refcount_cells_;
 
@@ -1927,6 +1929,7 @@ public:
 	bool port_input, port_output, upto, is_signed;
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+	TwinePool &twines() const { return module->twines(); }
 
 	bool known_driver() const { return driverCell_ != nullptr; }
 
@@ -1968,6 +1971,7 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	RTLIL::Module *module = nullptr;
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+	TwinePool &twines() const { return module->twines(); }
 
 	YS_NO_UNIQUE_ADDRESS RTLIL::MemoryNameMasq name;
 
@@ -2012,6 +2016,7 @@ public:
 	RTLIL::Module *module;
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+	TwinePool &twines() const { return module->twines(); }
 
 	IdString type_impl;
 	YS_NO_UNIQUE_ADDRESS RTLIL::CellTypeMasq type;
@@ -2133,6 +2138,7 @@ public:
 	std::vector<RTLIL::SyncRule*> syncs;
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
+	TwinePool &twines() const { return module->twines(); }
 
 	YS_NO_UNIQUE_ADDRESS RTLIL::ProcessNameMasq name;
 
