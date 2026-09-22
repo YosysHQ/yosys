@@ -23,6 +23,7 @@ yosys_pass(proc_mux
 )
 yosys_pass(proc_dlatch
   proc_dlatch.cc
+  proc_dlatch.h
 )
 yosys_pass(proc_dff
   proc_dff.cc

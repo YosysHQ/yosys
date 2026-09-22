@@ -21,6 +21,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "passes/proc/proc_dlatch.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -105,11 +106,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
-		log("    -latches <info|warn|error>\n");
-		log("        select the behaviour for latches that cannot be mapped to a\n");
-		log("        dedicated hardware primitive and are implemented using LUTs\n");
-		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
-		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("%s", SynthLatchesConfig::help());
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
@@ -117,7 +114,8 @@ struct SynthIce40Pass : public ScriptPass
 		log("\n");
 	}
 
-	string top_opt, blif_file, edif_file, json_file, device_opt, latches;
+	string top_opt, blif_file, edif_file, json_file, device_opt;
+	SynthLatchesConfig latches;
 	bool nocarry, nodffe, nobram, spram, dsp, flatten, noabc, vpr, dff, no_rw_check;
 	int min_ce_use;
 
@@ -138,7 +136,7 @@ struct SynthIce40Pass : public ScriptPass
 		vpr = false;
 		device_opt = "hx";
 		no_rw_check = false;
-		latches = "error";
+		latches = SynthLatchesConfig();
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -241,10 +239,8 @@ struct SynthIce40Pass : public ScriptPass
 				no_rw_check = true;
 				continue;
 			}
-			if (args[argidx] == "-latches" && argidx+1 < args.size()) {
-				latches = args[++argidx];
+			if (latches.parse(args, argidx))
 				continue;
-			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -253,8 +249,6 @@ struct SynthIce40Pass : public ScriptPass
 			log_cmd_error("This command only operates on fully selected designs!\n");
 		if (device_opt != "hx" && device_opt != "lp" && device_opt !="u")
 			log_cmd_error("Invalid or no device specified: '%s'\n", device_opt);
-		if (latches != "info" && latches != "warn" && latches != "error")
-			log_cmd_error("Invalid value '%s' for -latches (expected info, warn or error)\n", latches.c_str());
 
 		log_header(design, "Executing SYNTH_ICE40 pass.\n");
 		log_push();
@@ -283,7 +277,7 @@ struct SynthIce40Pass : public ScriptPass
 		{
 			run("read_verilog " + define + " -lib -specify +/ice40/cells_sim.v");
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
-			run("proc -latches " + (latches == "info" ? std::string("info") : std::string("warn")));
+			run(stringf("proc -latches %s", latches.str()));
 		}
 
 		if (check_label("flatten", "(unless -noflatten)"))
@@ -384,7 +378,7 @@ struct SynthIce40Pass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			if (latches == "error" || help_mode)
+			if (latches.policy == LatchPolicy::Error || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -map +/ice40/latches_map.v");
 			if (noabc || help_mode) {

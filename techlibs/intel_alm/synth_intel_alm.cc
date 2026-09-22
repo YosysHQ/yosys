@@ -183,7 +183,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("coarse")) {
-			run("proc");
+			run("proc -latches error");
 			if (flatten || help_mode) {
 				run("check");
 				run("flatten", "(skip if -noflatten)");
@@ -241,6 +241,7 @@ struct SynthIntelALMPass : public ScriptPass {
 		}
 
 		if (check_label("map_ffs")) {
+			run("check -latchonly -assert");
 			run("techmap");
 			run("dfflegalize -cell $_DFFE_PN0P_ 0 -cell $_SDFFCE_PP0P_ 0");
 			run("techmap -map +/intel_alm/common/dff_map.v");
