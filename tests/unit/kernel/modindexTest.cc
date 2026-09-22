@@ -28,7 +28,7 @@ TEST(ModIndexSwapTest, has)
 
 TEST(ModIndexDeleteTest, has)
 {
-    if (log_files.empty()) log_files.emplace_back(stdout);
+    if (logger().empty()) logger().add_sink<ConsoleLogSink>();
     Design* d = new Design;
     Module* m = d->addModule("$m");
     Wire* w = m->addWire("$w");

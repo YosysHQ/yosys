@@ -1,0 +1,23 @@
+# $input_port cells left in the submodule, check fails until opt_clean
+read_verilog <<EOT
+module sub(input a, b, c, output y);
+	assign y = (a & b) | c;
+endmodule
+module top(input a, b, c, d, output y, z);
+	assign z = (a ^ b) & d;
+	sub s_i (.a(a), .b(b), .c(c), .y(y));
+endmodule
+EOT
+
+hierarchy -top top
+techmap
+design -save pre
+
+abc9 -lut 4
+select -assert-none t:$input_port
+check -assert
+
+design -load pre
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-none t:$input_port
+check -assert

@@ -34,6 +34,17 @@ inline std::string remap_name(RTLIL::IdString abc9_name)
 	return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str()+1);
 }
 
+struct PseudoPo {
+	RTLIL::IdString cell;
+	RTLIL::IdString port;
+	int offset;
+};
+
+struct KeptWire {
+	RTLIL::IdString wire;
+	int offset;
+};
+
 void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 {
 	auto design = module->design;
@@ -50,7 +61,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 	int co_count = design->scratchpad_get_int("read_aiger.co_count", 0);
 
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
-	dict<RTLIL::IdString, std::pair<RTLIL::IdString, RTLIL::IdString>> pseudopos;
+	dict<RTLIL::IdString, PseudoPo> pseudopos;
+	dict<RTLIL::IdString, KeptWire> keptwires;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -163,15 +175,19 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 				log_assert(wire->port_output);
 				log_debug("Mapping pseudo output %s", wire);
 
-				if (index == 0) {
-					pseudopos.insert({wire_name, std::make_pair(escaped_s, escaped_p)});
-					log_debug(" -> %s.%s\n", escaped_s, escaped_p);
-				}
-				else {
-					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
-					pseudopos.insert({wire_name, std::make_pair(indexed_name, escaped_p)});
-					log_debug(" -> %s.%s\n", indexed_name, escaped_p);
-				}
+				pseudopos.insert({wire_name, PseudoPo{escaped_s, escaped_p, index}});
+				log_debug(" -> %s.%s[%d]\n", escaped_s, escaped_p, index);
+			}
+			else if (type == "keepwire") {
+				log_assert(variable + co_count < output_count);
+				RTLIL::IdString wire_name = stringf("$aiger$o%d", variable + co_count);
+				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
+				log_assert(wire);
+				log_assert(wire->port_output);
+				log_debug("Mapping kept wire %s", wire);
+
+				keptwires.insert({wire_name, KeptWire{escaped_s, index}});
+				log_debug(" -> %s[%d]\n", escaped_s, index);
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = mapped_mod->cell(stringf("$box%d", variable));
@@ -283,7 +299,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		}
 	}
 
-	std::vector<Cell*> boxes;
+	pool<Cell*> boxes;
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->has_keep_attr())
 			continue;
@@ -303,7 +319,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
 			module->remove(cell);
 		else if (cell->attributes.erase(ID::abc9_box_seq))
-			boxes.emplace_back(cell);
+			boxes.insert(cell);
 	}
 
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
@@ -430,6 +446,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			cell->parameters = existing_cell->parameters;
 			cell->attributes = existing_cell->attributes;
 			module->swap_names(cell, existing_cell);
+			boxes.insert(existing_cell);
 
 			auto jt = mapped_cell->connections_.find(ID(i));
 			log_assert(jt != mapped_cell->connections_.end());
@@ -531,16 +548,33 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 
 	for (auto pseudopo : pseudopos) {
 		auto wire_name = pseudopo.first;
-		auto box_name = pseudopo.second.first;
-		auto box_port_name = pseudopo.second.second;
+		auto &target = pseudopo.second;
 
 		RTLIL::Wire *mapped_wire = mapped_mod->wire(wire_name);
 		log_assert(mapped_wire);
-		auto box = module->cell(box_name);
+		auto box = module->cell(target.cell);
 		log_assert(box);
 
+		// replace only the driven bit
 		RTLIL::Wire *remap_wire = module->wire(remap_name(wire_name));
-		box->setPort(box_port_name, remap_wire);
+		RTLIL::SigSpec port = box->getPort(target.port);
+		log_assert(target.offset < GetSize(port));
+		port[target.offset] = remap_wire;
+		box->setPort(target.port, port);
+
+		mapped_wire->port_output = false;
+	}
+
+	// Drive the kept wires from the nets that replaced them
+	for (auto &[wire_name, kept] : keptwires) {
+		RTLIL::Wire *mapped_wire = mapped_mod->wire(wire_name);
+		log_assert(mapped_wire);
+		RTLIL::Wire *remap_wire = module->wire(remap_name(wire_name));
+		log_assert(remap_wire);
+
+		RTLIL::Wire *wire = module->wire(kept.wire);
+		log_assert(wire);
+		module->connect(SigBit(wire, kept.offset - wire->start_offset), remap_wire);
 
 		mapped_wire->port_output = false;
 	}

@@ -20,6 +20,12 @@
  #include "kernel/yosys.h"
  #include "passes/techmap/libparse.h"
 
+ YOSYS_NAMESPACE_BEGIN
+ // Read by convert_liberty_files_to_merged_scl() in liberty_cache.h
+ bool scl_cache_enabled = true;
+ std::string scl_cache_dir;
+ YOSYS_NAMESPACE_END
+
  USING_YOSYS_NAMESPACE
  PRIVATE_NAMESPACE_BEGIN
 
@@ -43,6 +49,16 @@
 		log("\n");
 		log("By default caching is disabled.\n");
 		log("\n");
+		log("    libcache -scl {-enable|-disable}\n");
+		log("\n");
+		log("Controls the on-disk cache of merged SCL files that the abc and abc9 passes\n");
+		log("generate from liberty files. By default this caching is enabled.\n");
+		log("\n");
+		log("    libcache -scl -dir [path]\n");
+		log("\n");
+		log("Stores the merged SCL files in [path] instead of a directory of this user in\n");
+		log("the temp directory. <empty> means a per user directory in the temp directory.\n");
+		log("\n");
 		log("    libcache -list\n");
 		log("\n");
 		log("Displays the current cache settings and cached paths.\n");
@@ -61,9 +77,12 @@
 		bool disable = false;
 		bool purge = false;
 		bool all = false;
+		bool scl = false;
 		bool list = false;
 		bool verbose = false;
 		bool quiet = false;
+		bool dir = false;
+		std::string dir_path;
 		std::vector<std::string> paths;
 
 		size_t argidx;
@@ -73,7 +92,11 @@
 				continue;
 			}
 			if (args[argidx] == "-disable") {
-				enable = true;
+				disable = true;
+				continue;
+			}
+			if (args[argidx] == "-scl") {
+				scl = true;
 				continue;
 			}
 			if (args[argidx] == "-purge") {
@@ -96,30 +119,50 @@
 				quiet = true;
 				continue;
 			}
+			if (args[argidx] == "-dir") {
+				if (argidx+1 >= args.size())
+					log_cmd_error("The -dir option needs a path.\n");
+				dir = true;
+				dir_path = args[++argidx];
+				continue;
+			}
 			append_globbed(paths, args[argidx]);
 			break;
 		}
-		int modes = enable + disable + purge + list + verbose + quiet;
+		int modes = enable + disable + purge + list + verbose + quiet + dir;
 		if (modes == 0)
-			log_cmd_error("At least one of -enable, -disable, -purge, -list,\n-verbose, or -quiet is required.\n");
+			log_cmd_error("At least one of -enable, -disable, -purge, -list,\n-verbose, -quiet, or -dir is required.\n");
 		if (modes > 1)
-			log_cmd_error("Only one of -enable, -disable, -purge, -list,\n-verbose, or -quiet may be present.\n");
+			log_cmd_error("Only one of -enable, -disable, -purge, -list,\n-verbose, -quiet, or -dir may be present.\n");
 
 		if (all && !paths.empty())
 			log_cmd_error("The -all option cannot be combined with a list of paths.\n");
 		if (list && (all || !paths.empty()))
 			log_cmd_error("The -list mode takes no further options.\n");
-		if (!list && !all && paths.empty())
+		if (scl && !(enable || disable || dir))
+			log_cmd_error("The -scl option can only be combined with -enable, -disable, or -dir.\n");
+		if (dir && !scl)
+			log_cmd_error("The -dir option requires -scl.\n");
+		if (scl && (all || !paths.empty()))
+			log_cmd_error("The -scl option cannot be combined with -all or a list of paths.\n");
+		if (!list && !all && !scl && paths.empty())
 			log("No paths specified, use -all to %s\n", purge ? "purge all paths" : "change the default setting");
 
 		if (list) {
 			log("Caching is %s by default.\n", LibertyAstCache::instance.cache_by_default ? "enabled" : "disabled");
+			log("SCL caching is %s.\n", scl_cache_enabled ? "enabled" : "disabled");
+			if (scl_cache_dir.empty())
+				log("SCL files are cached in a directory of this user in the temp directory.\n");
+			else
+				log("SCL files are cached in `%s'.\n", scl_cache_dir);
 			for (auto const &entry : LibertyAstCache::instance.cache_path)
 				log("Caching is %s for `%s'.\n", entry.second ? "enabled" : "disabled", entry.first);
 			for (auto const &entry : LibertyAstCache::instance.cached)
 				log("Data for `%s' is currently cached.\n", entry.first);
 		} else if (enable || disable) {
-			if (all) {
+			if (scl) {
+				scl_cache_enabled = enable;
+			} else if (all) {
 				LibertyAstCache::instance.cache_by_default = enable;
 			} else {
 				for (auto const &path : paths) {
@@ -135,6 +178,16 @@
 					LibertyAstCache::instance.cached.erase(path);
 					LibertyAstCache::instance.cache_path.erase(path);
 				}
+			}
+		} else if (dir) {
+			rewrite_filename(dir_path);
+
+			if (dir_path.empty()) {
+				scl_cache_dir.clear();
+			} else {
+				scl_cache_dir = absolute_path(dir_path);
+				if (scl_cache_dir.empty())
+					log_cmd_error("Cannot make `%s' an absolute path.\n", dir_path);
 			}
 		} else if (verbose) {
 			LibertyAstCache::instance.verbose = true;

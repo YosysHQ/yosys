@@ -1,0 +1,13 @@
+
+read_verilog -formal <<EOT
+module top (input clk, input req, output reg ack);
+	(* allseq *) reg test;
+    always @(posedge clk) ack <= req;
+    always @(posedge clk) assert(ack & test);
+endmodule
+EOT
+prep -top top
+async2sync
+dffunmap
+logger -expect error "Unsupported cell type .allseq..*" 1
+write_btor /dev/null

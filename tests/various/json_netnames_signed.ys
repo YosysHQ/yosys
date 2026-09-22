@@ -1,0 +1,8 @@
+! mkdir -p temp
+read_verilog json_netnames_signed.v
+write_json temp/json_netnames_signed_r1.json
+design -reset
+read_json temp/json_netnames_signed_r1.json
+write_json temp/json_netnames_signed_r2.json
+# the internal signed wire t must survive the roundtrip with signedness intact
+! python3 -c "import json; d=json.load(open('temp/json_netnames_signed_r2.json')); assert d['modules']['top']['netnames']['t'].get('signed') == 1, 'signedness lost on internal net t'"

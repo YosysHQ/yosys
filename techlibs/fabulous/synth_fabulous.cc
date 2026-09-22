@@ -268,6 +268,7 @@ struct SynthPass : public ScriptPass {
 
 	void script() override
 	{
+		run("read_verilog -icells -lib +/fabulous/cells_bb.v");
 		if (help_mode) {
 			run("read_verilog -lib <extra_plib.v>", "(for each -extra-plib)");
 		} else
@@ -301,8 +302,8 @@ struct SynthPass : public ScriptPass {
 
 			// synth pass
 			run("opt_expr");
-			run("opt_clean");
 			run("check");
+			run("opt_clean");
 			run("opt -nodffe -nosdff");
 			if (!nofsm)
 				run("fsm" + fsm_opts, "      (unless -nofsm)");
@@ -411,7 +412,7 @@ struct SynthPass : public ScriptPass {
 		}
 
 		if (check_label("map_luts")) {
-			run(stringf("abc -lut %d -dress", lut));
+			run(stringf("abc9 -lut %d", lut));
 			run("clean");
 		}
 

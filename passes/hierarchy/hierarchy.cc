@@ -19,6 +19,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/celltypes.h"
 #include "frontends/verific/verific.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -383,10 +384,14 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 		return mod;
 	}
 
-	// If the cell type starts with '$' and isn't '$abstract', we should
-	// treat it as a black box and skip.
-	if (cell_type[0] == '$')
+	// Internal cell types have no module to load. With check set they
+	// must at least be known cell types.
+	if (cell_type[0] == '$') {
+		if (check && !yosys_celltypes.cell_known(cell.type))
+			log_error("Cell type `%s' referenced in module `%s' in cell `%s' is neither a known internal cell type nor part of the design.\n",
+			          cell_type.c_str(), parent.name.c_str(), cell.name.c_str());
 		return nullptr;
+	}
 
 	for (auto &dir : libdirs) {
 		static const vector<pair<string, string>> extensions_list =

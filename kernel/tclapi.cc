@@ -100,10 +100,7 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 	yosys_get_design()->scratchpad_unset("result.string");
 
 	bool in_repl = yosys_tcl_repl_active;
-	bool restore_log_cmd_error_throw = log_cmd_error_throw;
-
-	log_cmd_error_throw = true;
-
+	auto guard = logger().error_throw_scope();
 	try {
 		if (args.size() == 1) {
 			Pass::call(yosys_get_design(), args[0]);
@@ -120,14 +117,12 @@ static int tcl_yosys_cmd(ClientData, Tcl_Interp *interp, int argc, const char *a
 		Tcl_SetResult(interp, (char *)"Yosys command produced an error", TCL_STATIC);
 
 		yosys_tcl_repl_active = in_repl;
-		log_cmd_error_throw = restore_log_cmd_error_throw;
 		return TCL_ERROR;
 	} catch (...) {
 		log_error("uncaught exception during Yosys command invoked from TCL\n");
 	}
 
 	yosys_tcl_repl_active = in_repl;
-	log_cmd_error_throw = restore_log_cmd_error_throw;
 
 	auto &scratchpad = yosys_get_design()->scratchpad;
 	auto result = scratchpad.find("result.json");

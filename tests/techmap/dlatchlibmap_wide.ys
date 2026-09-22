@@ -1,0 +1,5 @@
+read_verilog ../sim/dlatch.v
+proc
+logger -expect error "not supported" 1
+dfflibmap -liberty dlatchlibmap.lib
+logger -check-expected

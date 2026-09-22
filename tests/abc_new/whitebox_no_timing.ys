@@ -1,0 +1,36 @@
+# abc_new maps the box to cells without timing; prep_box must reject it, not crash
+logger -expect error "has no timing" 1
+read_verilog -specify <<EOT
+(* abc9_box, lib_whitebox *)
+module MX4(input D0, D1, D2, D3, S0, S1, output Y);
+	specify
+		(D0 => Y) = 100; (D1 => Y) = 100; (D2 => Y) = 100; (D3 => Y) = 100;
+		(S0 => Y) = 50; (S1 => Y) = 50;
+	endspecify
+	assign Y = S1 ? (S0 ? D3 : D2) : (S0 ? D1 : D0);
+endmodule
+module top(input [3:0] d, input [1:0] s, input a, output y, z);
+	wire m;
+	MX4 mux (.D0(d[0]), .D1(d[1]), .D2(d[2]), .D3(d[3]), .S0(s[0]), .S1(s[1]), .Y(m));
+	assign y = m ^ a;
+	assign z = m & d[0];
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 1 top/t:MX4
+select -assert-none top/t:$_*_
+check -assert
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter

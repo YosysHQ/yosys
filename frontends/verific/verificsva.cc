@@ -19,7 +19,7 @@
 
 
 // Currently supported SVA sequence and property syntax:
-// http://symbiyosys.readthedocs.io/en/latest/verific.html
+// https://yosyshq.readthedocs.io/projects/sby/en/latest/verific.html
 //
 // Next gen property syntax:
 //   basic_property

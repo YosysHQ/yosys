@@ -3,7 +3,7 @@ requires = [
 	"wheel",
 	"packaging",
 	"pybind11>=3,<4",
-	"cxxheaderparser",
+	"cxxheaderparser>=1.4",
 ]
 backend-path = ["pyosys/build"]
 build-backend = "local_backend"

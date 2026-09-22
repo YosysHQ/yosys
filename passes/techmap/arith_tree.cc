@@ -134,6 +134,13 @@ struct ArithTreeWorker {
 			else if (consumer != c)
 				return nullptr;
 		}
+		// A link truncates its own result at its own Y width. That truncation
+		// is invisible only if the consumer truncates at least as hard, since
+		// (x % 2**link) % 2**parent == x % 2**parent only when parent <= link.
+		// A link narrower than its consumer discards a carry that the wider
+		// consumer would otherwise see, so it must not be flattened away.
+		if (consumer != nullptr && GetSize(sig) < GetSize(consumer->getPort(ID::Y)))
+			return nullptr;
 		return consumer;
 	}
 

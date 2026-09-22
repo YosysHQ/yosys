@@ -1,0 +1,75 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/cut/test/side_outputs_extract_logic_depth.v
+
+# This test makes sure that we keep track of any outputs that aren't directly
+# on the logic cone, but are driven by cell that are. If we were to destroy these
+# cells we need to make sure any pins they drive are primary outputs in ABC to
+# preserve correctness.
+read_verilog <<EOT
+module top(clk, a, b, c, d);
+	input clk;
+	input a;
+	input b;
+	output c;
+	output d;
+
+	wire flop_net;
+	wire inv_net;
+
+	AND2 _403_ (
+		.A(a),
+		.B(b),
+		.Y(flop_net)
+	);
+
+	INV _404_ (
+		.A(flop_net),
+		.Y(inv_net)
+	);
+
+	DFFR output_flop (
+		.CLK(clk),
+		.D(inv_net),
+		.Q(c),
+		.RST_N(1'b1)
+	);
+
+	DFFR output_flop2 (
+		.CLK(clk),
+		.D(flop_net),
+		.Q(d),
+		.RST_N(1'b1)
+	);
+
+endmodule
+EOT
+
+read_verilog cells_sim.v
+hierarchy -top top
+proc
+flatten
+opt
+hierarchy -top top
+read_liberty -lib sm_test_cells.lib
+design -save gold
+
+synth -run fine:
+select -assert-count 2 t:$_DFF_P_
+abc_new -liberty cm_test_cells.lib
+dfflibmap -liberty sm_test_cells.lib
+opt_clean
+select -assert-none t:$_*_
+select -assert-count 2 t:DFF
+check -assert
+
+read_verilog cells_sim.v
+proc
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+async2sync
+equiv_make gold gate equiv
+equiv_simple -seq 5
+equiv_induct -seq 5
+equiv_status -assert

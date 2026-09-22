@@ -19,6 +19,7 @@
 #include "kernel/yosys.h"
 #include "kernel/celltypes.h"
 #include "kernel/sigtools.h"
+#include "kernel/unused_bits.h"
 #include "backends/rtlil/rtlil_backend.h"
 
 USING_YOSYS_NAMESPACE
@@ -190,19 +191,10 @@ struct WrapcellPass : Pass {
 
 		bool tracking_unused = has_fmt_field(name_fmt, "%unused");
 
-		for (auto module : d->selected_modules()) {
-			SigPool unused;
+		NewCellTypes ct_all(d);
 
-			for (auto wire : module->wires())
-			if (wire->has_attribute(ID::unused_bits)) {
-				std::string str = wire->get_string_attribute(ID::unused_bits);
-				for (auto it = str.begin(); it != str.end();) {
-					auto sep = it;
-					for (; sep != str.end() && *sep != ' '; sep++);
-					unused.add(SigBit(wire, std::stoi(std::string(it, sep))));
-					for (it = sep; it != str.end() && *it == ' '; it++);
-				}
-			}
+		for (auto module : d->selected_modules()) {
+			UnusedBits unused(module, ct_all);
 
 			for (auto cell : module->selected_cells()) {
 				Module *subm;

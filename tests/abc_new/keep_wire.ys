@@ -1,0 +1,29 @@
+# (* keep *) wires dropped by abc_new, kept by abc
+read_verilog <<EOT
+module top(input [3:0] a, b, output y);
+	(* keep *) wire t = &a;
+	(* keep *) wire u = |b;
+	(* keep *) wire [2:1] v = a[2:1] & b[2:1];
+	assign y = t ^ u ^ ^v ^ (a[0] & b[0]);
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-count 1 w:t a:keep %i
+select -assert-count 1 w:u a:keep %i
+select -assert-count 1 w:v a:keep %i
+select -assert-none t:$_*_
+check -assert
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter

@@ -144,27 +144,19 @@ struct DebugPass : public Pass {
 			log_cmd_error("Cannot specify both -on and -off\n");
 
 		if (mode_on) {
-			log_force_debug++;
+			logger().force_debug_on();
 			return;
 		}
 
 		if (mode_off) {
-			if (log_force_debug > 0)
-				log_force_debug--;
+			logger().force_debug_off();
 			return;
 		}
 
-		log_force_debug++;
+		auto force_debug = logger().force_debug_scope(true);
 
-		try {
-			std::vector<std::string> new_args(args.begin() + argidx, args.end());
-			Pass::call(design, new_args);
-		} catch (...) {
-			log_force_debug--;
-			throw;
-		}
-
-		log_force_debug--;
+		std::vector<std::string> new_args(args.begin() + argidx, args.end());
+		Pass::call(design, new_args);
 	}
 } DebugPass;
 

@@ -1,0 +1,69 @@
+read_verilog <<EOT
+module tdp (
+	input  wire        clk,
+	input  wire [12:0] aaddr,
+	output reg  [15:0] adata,
+	input  wire [12:0] baddr,
+	input  wire        bwe,
+	input  wire [15:0] bwdata,
+	output reg  [15:0] brdata
+);
+	(* ram_style = "block" *) reg [15:0] mem [0:8191];
+
+	always @(negedge clk)
+		adata <= mem[aaddr];
+
+	always @(posedge clk) begin
+		brdata <= mem[baddr];
+		if (bwe)
+			mem[baddr] <= bwdata;
+	end
+endmodule
+EOT
+
+design -save tdp
+synth_xilinx -top tdp -noiopad
+cd tdp
+select -assert-count 4 t:RAMB36E1
+select -assert-count 1 t:INV
+
+# relies on inter-port READ_FIRST
+design -reset
+read_verilog <<EOT
+module tdp_rmw (
+	input  wire        clk,
+	input  wire [12:0] aaddr,
+	input  wire        awe,
+	input  wire [15:0] awdata,
+	output reg  [15:0] ardata,
+	input  wire [12:0] baddr,
+	input  wire        bwe,
+	input  wire [15:0] bwdata,
+	output reg  [15:0] brdata
+);
+	(* ram_style = "block" *) reg [15:0] mem [0:8191];
+
+	always @(negedge clk) begin
+		ardata <= mem[aaddr];
+		if (awe)
+			mem[aaddr] <= awdata;
+	end
+
+	always @(negedge clk) begin
+		brdata <= mem[baddr];
+		if (bwe)
+			mem[baddr] <= bwdata;
+	end
+endmodule
+EOT
+
+synth_xilinx -top tdp_rmw -noiopad
+cd tdp_rmw
+select -assert-count 4 t:RAMB36E1
+select -assert-count 1 t:INV
+
+# Virtex 6 can corrupt the array on such a collision, so it keeps
+# refusing READ_FIRST unless both ports share a clock
+design -load tdp
+logger -expect error "no valid mapping found for memory tdp\.mem" 1
+synth_xilinx -top tdp -family xc6v -noiopad

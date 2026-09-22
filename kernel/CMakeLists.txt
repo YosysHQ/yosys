@@ -4,10 +4,10 @@ configure_file(yosys_config.h.in yosys_config.h @ONLY)
 set(cellhelp_sources)
 foreach (library simlib simcells)
 	add_custom_command(
-		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/cellhelp.py ${CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
+		DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/cellhelp.py ${YOSYS_CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
 		OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${library}_help.inc
 		COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/cellhelp.py
-			${CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
+			${YOSYS_CMAKE_SOURCE_DIR}/techlibs/common/${library}.v
 			> ${CMAKE_CURRENT_BINARY_DIR}/${library}_help.inc
 		VERBATIM
 	)
@@ -15,8 +15,6 @@ foreach (library simlib simcells)
 endforeach()
 
 yosys_core(kernel
-	binding.cc
-	binding.h
 	bitpattern.h
 	calc.cc
 	cellaigs.cc
@@ -80,6 +78,7 @@ yosys_core(kernel
 	threading.h
 	timinginfo.h
 	topo_scc.h
+	unused_bits.h
 	utils.h
 	version.cc
 	yosys.cc
@@ -114,7 +113,6 @@ yosys_core(kernel
 	DATA_DIR
 		include/kernel
 	DATA_FILES
-		binding.h
 		bitpattern.h
 		cellaigs.h
 		celledges.h
@@ -145,6 +143,7 @@ yosys_core(kernel
 		sigtools.h
 		threading.h
 		timinginfo.h
+		unused_bits.h
 		utils.h
 		yosys.h
 		yosys_common.h
@@ -179,6 +178,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		INCLUDE_DIRS
 			${pybind11_INCLUDE_DIR}
 		LIBRARIES
+			fmt::fmt
 			$<${YOSYS_ENABLE_READLINE}:PkgConfig::readline>
 			$<${YOSYS_ENABLE_EDITLINE}:PkgConfig::editline>
 			$<${YOSYS_ENABLE_TCL}:PkgConfig::tcl>

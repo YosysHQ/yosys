@@ -15,11 +15,11 @@ database/DBCompileFlags.h:
 	DB_PRESERVE_INITIAL_VALUE
 
 
-Testing Verific+Yosys+SymbiYosys for formal verification
+Testing Verific+Yosys+SBY for formal verification
 ========================================================
 
-Install Yosys+Verific, SymbiYosys, and Yices2. Install instructions:
-http://symbiyosys.readthedocs.io/en/latest/quickstart.html#installing
+Install Yosys+Verific, SBY, and Yices2. Install instructions:
+https://yosyshq.readthedocs.io/projects/sby/en/latest/install.html
 
 Then run in the following command in this directory:
 

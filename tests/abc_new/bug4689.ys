@@ -1,0 +1,18 @@
+# https://github.com/YosysHQ/yosys/issues/4689
+
+# combinational loop through a mux: clean error, no segfault
+logger -expect error "Combinational cycle through" 1
+read_verilog <<EOT
+module test(input [1:0] a, b,
+						input c,
+						output [1:0] q);
+wire s;
+assign s = c ? q[0] : q[1];
+assign q = s ? a : b;
+endmodule
+EOT
+
+hierarchy -top test
+proc
+techmap
+abc_new -liberty openroad/cm_test_cells.lib

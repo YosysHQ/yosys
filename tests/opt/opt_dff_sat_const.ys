@@ -170,3 +170,147 @@ async2sync
 equiv_make test_case gate equiv
 equiv_induct equiv
 equiv_status -assert
+
+
+# async reset
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire rst,
+	input wire en,
+	output reg q0,
+	output reg q1
+);
+	initial q0 = 1'b0;
+	initial q1 = 1'b0;
+	always @(posedge clk or posedge rst)
+		if (rst) q0 <= 1'b0;
+		else q0 <= q0 & en;
+	always @(posedge clk or posedge rst)
+		if (rst) q1 <= 1'b0;
+		else q1 <= q1 | en;
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+select -assert-count 2 t:$adff
+design -save gold
+
+opt_dff
+opt_clean -purge
+select -assert-count 2 t:$adff
+
+design -load gold
+opt_dff -sat
+opt_clean -purge
+select -assert-count 1 t:$adff
+design -save gate
+
+design -load gold
+design -copy-from gate -as gate test_case
+async2sync
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# set/clear, set never fires on bit 0
+design -reset
+read_rtlil <<EOT
+module \test_case
+  wire input 1 \clk
+  wire input 2 \r
+  wire input 3 \s
+  wire input 4 \en
+  wire width 2 output 5 \q
+  wire width 2 \d
+  cell $and \mask
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \B_SIGNED 0
+    parameter \B_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A \q
+    connect \B { \en \en }
+    connect \Y \d
+  end
+  cell $dffsr \ff
+    parameter \WIDTH 2
+    parameter \CLK_POLARITY 1
+    parameter \SET_POLARITY 1
+    parameter \CLR_POLARITY 1
+    connect \CLK \clk
+    connect \SET { \s 1'0 }
+    connect \CLR { \r \r }
+    connect \D \d
+    connect \Q \q
+  end
+end
+EOT
+
+select -assert-count 1 t:$dffsr
+design -save gold
+
+opt_dff
+opt_clean -purge
+simplemap
+select -assert-count 2 t:$_DFFSR_PPP_
+
+design -load gold
+opt_dff -sat
+opt_clean -purge
+design -save gate
+simplemap
+select -assert-count 1 t:$_DFFSR_PPP_
+
+design -load gold
+design -copy-from gate -as gate test_case
+async2sync
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert
+
+
+# clock enable gating
+design -reset
+read_verilog -sv <<EOT
+module test_case (
+	input wire clk,
+	input wire ce,
+	input wire en,
+	output reg q0,
+	output reg q1
+);
+	initial q0 = 1'b0;
+	initial q1 = 1'b0;
+	always @(posedge clk)
+		if (ce) begin
+			q0 <= q0 & en;
+			q1 <= q1 | en;
+		end
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+opt_dff
+opt_clean -purge
+simplemap
+select -assert-count 2 t:$_DFFE_PP_
+
+design -load gold
+opt_dff -sat
+opt_clean -purge
+design -save gate
+simplemap
+select -assert-count 1 t:$_DFFE_PP_
+
+design -load gold
+design -copy-from gate -as gate test_case
+equiv_make test_case gate equiv
+equiv_induct equiv
+equiv_status -assert

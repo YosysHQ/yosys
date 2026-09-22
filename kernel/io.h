@@ -503,10 +503,31 @@ bool check_directory_exists(const std::string& dirname, bool is_exec = false);
 bool is_absolute_path(std::string filename);
 void remove_directory(std::string dirname);
 bool create_directory(const std::string& dirname);
+bool make_private_directory(const std::string& dirname);
+std::string make_user_tmpdir(const std::string& name);
 std::string escape_filename_spaces(const std::string& filename);
 void append_globbed(std::vector<std::string>& paths, std::string pattern);
 std::string name_from_file_path(std::string path);
+std::string absolute_path(const std::string& path);
 std::string parent_from_file_path(std::string path);
+
+// Exclusive inter-process file lock (flock/LockFileEx, no-op on WASI),
+// released on destruction. Never unlinks the lock file: that would reopen the race.
+struct ScopedFileLock {
+	ScopedFileLock(const std::string &path);
+	~ScopedFileLock();
+	ScopedFileLock(const ScopedFileLock &) = delete;
+	ScopedFileLock &operator=(const ScopedFileLock &) = delete;
+private:
+#if defined(_WIN32)
+	void *handle = nullptr;
+#elif !defined(__wasi__)
+	int fd = -1;
+#endif
+};
+
+// Current process id (0 on WASI).
+unsigned get_process_id();
 
 YOSYS_NAMESPACE_END
 

@@ -4,7 +4,7 @@ proc
 equiv_opt -assert -map prims.v synth_fabulous -noiopad -ff $_DFF_P_ x -ff $_DLATCH_?_ x -extra-plib prims.v -cells-map cells_map.v  -arith-map arith_map.v -extra-map ff_map.v -extra-map latches_map.v # equivalency check
 design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
 cd top # Constrain all select calls below inside the top module
-select -assert-max 1 t:LUT1
-select -assert-max 6 t:LUT2
+select -assert-max 4 t:LUT1
+select -assert-max 3 t:LUT2
 select -assert-max 2 t:LUT4
 select -assert-none t:LUT1 t:LUT2 t:LUT4 %% t:* %D

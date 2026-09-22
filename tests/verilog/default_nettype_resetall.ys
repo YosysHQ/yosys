@@ -1,0 +1,17 @@
+# `resetall must restore `default_nettype to its `wire' default.
+read_verilog <<EOT
+`default_nettype none
+module explicit_nets (input wire i, output wire o);
+    assign o = i;
+endmodule
+`resetall
+module implicit_after_resetall (input i, output o);
+    // `w' is undeclared: legal only if `resetall restored `default_nettype to
+    // `wire'. Under the bug it stayed `none' and read_verilog aborted.
+    assign w = i;
+    assign o = w;
+endmodule
+EOT
+hierarchy -top implicit_after_resetall
+# The implicit net `w' must have been created as a wire.
+select -assert-count 1 implicit_after_resetall/w:w

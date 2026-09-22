@@ -1,0 +1,24 @@
+# bit permutations across wide ports
+read_verilog <<EOT
+module top(input [15:0] a, input s, output [15:0] y, output [7:0] z);
+	assign y = s ? {a[0], a[15:1]} : {a[7:0], a[15:8]};
+	assign z = a[15:8] ^ a[7:0];
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+techmap
+abc_new -liberty openroad/cm_test_cells.lib
+select -assert-none t:$_*_
+check -assert
+read_verilog openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -prove-asserts -show-ports miter

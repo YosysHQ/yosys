@@ -33,63 +33,56 @@ YOSYS_NAMESPACE_BEGIN
 
 void log_cmd_error(const char *format, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-    log_formatted_cmd_error(formatted);
+	logger().formatted_cmd_error(format, formatted);
 }
 
 void log_warning(const char *format, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-    log_formatted_warning("Warning: ", formatted);
+	logger().formatted_warning("Warning: ", format, formatted);
 }
 
 void log_warning_noprefix(const char *format, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-    log_formatted_warning("", formatted);
+	logger().formatted_warning({}, format, formatted);
 }
 
 void log_error(const char *format, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-    log_formatted_error(formatted);
-}
-
-static inline void log_formatted(std::string const &str)
-{
-    // We use this inline wrapper as the following becomes ambiguous as soon as
-    // the `log` function below is declared.
-    return log("%s", str);
+	logger().formatted_error(format, formatted);
 }
 
 void log(const char *format, ...)
 {
-    va_list ap;
+	va_list ap;
 	va_start(ap, format);
 	std::string formatted = vstringf(format, ap);
 	va_end(ap);
-    log_formatted(formatted);
+	logger().formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 void log_compat(const char *format, ...)
 {
-    va_list ap;
-    va_start(ap, format);
-    std::string formatted = vstringf(format, ap);
-    va_end(ap);
-    log_formatted(formatted);
+	va_list ap;
+	va_start(ap, format);
+	std::string formatted = vstringf(format, ap);
+	va_end(ap);
+	logger().formatted_string(LogSeverity::Info, {}, format, formatted);
 }
 
 YOSYS_NAMESPACE_END

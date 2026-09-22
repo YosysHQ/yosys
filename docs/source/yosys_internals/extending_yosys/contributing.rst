@@ -1,6 +1,15 @@
 Contributing to Yosys
 =====================
 
+LLM usage
+---------
+
+While we develop a complete policy around the usage of LLMs in Yosys, we have an
+`Interim YosysHQ LLM Policy
+<https://blog.yosyshq.com/p/interim-yosyshq-llm-policy/>`_.  As a general rule:
+Please do not file pull requests to our GitHub projects containing LLM generated
+code.
+
 Reporting bugs
 --------------
 
@@ -16,10 +25,10 @@ briefly describe the issue, for example:
 
    techmap of wide mux with undefined inputs raises error during synth_xilinx
 
-   + tells us what's happening ("raises error")
-   + gives the command affected (`techmap`)
-   + an overview of the input design ("wide mux with undefined inputs")
-   + and some context where it was found ("during `synth_xilinx`")
++ tells us what's happening ("raises error")
++ gives the command affected (`techmap`)
++ an overview of the input design ("wide mux with undefined inputs")
++ and some context where it was found ("during `synth_xilinx`")
 
 
 Reproduction Steps
@@ -58,10 +67,8 @@ code-formatting (starting and ending with single backquotes).
    `yosys -p ': minimum sequence of commands;' min.v`
 
 Alternatively, you can provide a single code-block which includes the minimized
-design as a "here document" followed by the sequence of commands which
-reproduce the error
-
-  + see :doc:`/using_yosys/more_scripting/load_design` for more on heredocs.
+design as a "here document" followed by the sequence of commands which reproduce
+the error:
 
 .. code-block:: markdown
 
@@ -71,6 +78,8 @@ reproduce the error
    EOF
    # minimum sequence of commands
    ```
+
+.. seealso:: See :doc:`/using_yosys/more_scripting/load_design` for more on heredocs.
 
 Don't forget to mention:
 

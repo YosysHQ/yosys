@@ -179,7 +179,6 @@ std::string AST::type2str(AstNodeType type)
 	X(AST_STRUCT)
 	X(AST_UNION)
 	X(AST_STRUCT_ITEM)
-	X(AST_BIND)
 #undef X
 	default:
 		log_abort();
@@ -321,8 +320,11 @@ AstNode::~AstNode()
 void AstNode::dumpAst(FILE *f, std::string indent) const
 {
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpAst(f, indent);
+		logger().for_each_sink([&](LogSink &sink) {
+			FILE *f = sink.file_handle();
+			if (f)
+				dumpAst(f, indent);
+		});
 		return;
 	}
 
@@ -425,8 +427,11 @@ void AstNode::dumpVlog(FILE *f, std::string indent) const
 	std::vector<AstNode*> rem_children1, rem_children2;
 
 	if (f == NULL) {
-		for (auto f : log_files)
-			dumpVlog(f, indent);
+		logger().for_each_sink([&](LogSink &sink) {
+			FILE *f = sink.file_handle();
+			if (f)
+				dumpVlog(f, indent);
+		});
 		return;
 	}
 
@@ -1478,11 +1483,6 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 			design->verilog_packages.push_back(child->clone());
 			current_scope.clear();
 		}
-		else if (child->type == AST_BIND) {
-			// top-level bind construct
-			for (RTLIL::Binding *binding : child->genBindings())
-				design->add(binding);
-		}
 		else {
 			// must be global definition
 			if (child->type == AST_PARAMETER)
@@ -1936,9 +1936,9 @@ void AstModule::loadconfig() const
 	flag_autowire = autowire;
 }
 
-void AstNode::formatted_input_error(std::string str) const
+void AstNode::formatted_input_error(std::string_view format, std::string str) const
 {
-	log_formatted_file_error(*location.begin.filename, location.begin.line, std::move(str));
+	logger().formatted_file_error(*location.begin.filename, location.begin.line, format, std::move(str));
 }
 
 YOSYS_NAMESPACE_END

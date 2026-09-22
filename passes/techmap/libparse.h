@@ -22,7 +22,11 @@
 
 #include "kernel/yosys.h"
 #include <stdio.h>
+#include <algorithm>
+#include <array>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <set>
 
@@ -33,11 +37,119 @@
 
 namespace Yosys
 {
+	class LibertyFilter
+	{
+		std::span<const std::string_view> allowed;
+		bool unrestricted;
+	public:
+		constexpr LibertyFilter() : allowed{}, unrestricted(true) {}
+		constexpr explicit LibertyFilter(std::span<const std::string_view> sorted_ids)
+				: allowed(sorted_ids), unrestricted(false) {}
+
+		constexpr bool allows(std::string_view id) const {
+			return unrestricted || std::binary_search(allowed.begin(), allowed.end(), id);
+		}
+
+		constexpr bool covers(const LibertyFilter &other) const {
+			if (unrestricted)
+				return true;
+			if (other.unrestricted)
+				return false;
+			return std::includes(allowed.begin(), allowed.end(),
+					other.allowed.begin(), other.allowed.end());
+		}
+
+		static constexpr LibertyFilter all() { return {}; }
+	};
+
+	template <std::size_t N>
+	consteval std::array<std::string_view, N> liberty_names(const char *const (&ids)[N])
+	{
+		std::array<std::string_view, N> sorted{};
+		for (std::size_t i = 0; i < N; i++)
+			sorted[i] = ids[i];
+		std::sort(sorted.begin(), sorted.end());
+		if (std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end())
+			throw "duplicate id in liberty name list";
+		return sorted;
+	}
+
+	template <std::size_t A, std::size_t B>
+	consteval std::array<std::string_view, A + B> merge_names(
+			const std::array<std::string_view, A> &a, const std::array<std::string_view, B> &b)
+	{
+		std::array<std::string_view, A + B> merged{};
+		std::merge(a.begin(), a.end(), b.begin(), b.end(), merged.begin());
+		return merged;
+	}
+
+	template <std::size_t A, std::size_t B, typename... Rest>
+	consteval auto merge_names(const std::array<std::string_view, A> &a,
+			const std::array<std::string_view, B> &b, const Rest &... rest)
+	{
+		return merge_names(merge_names(a, b), rest...);
+	}
+
+	inline constexpr auto liberty_common_names = liberty_names({
+		"library", "cell", "area",
+	});
+
+	inline constexpr auto liberty_pin_names = liberty_names({
+		"pin", "direction",
+	});
+
+	inline constexpr auto liberty_ff_names = liberty_names({
+		"ff", "clocked_on", "next_state", "clear", "preset",
+	});
+
+	inline constexpr auto read_liberty_names = merge_names(
+		liberty_common_names, liberty_pin_names, liberty_ff_names,
+		liberty_names({
+			"bus", "type", "statetable", "ff_bank", "latch", "latch_bank",
+			"bus_type", "capacitance", "function", "three_state",
+			"base_type", "data_type", "bit_width", "bit_from", "bit_to", "downto",
+			"data_in", "enable", "clear_preset_var1", "clear_preset_var2",
+		}));
+
+	inline constexpr auto dfflibmap_names = merge_names(
+		liberty_common_names, liberty_pin_names, liberty_ff_names,
+		liberty_names({
+			"dont_use", "function",
+		}));
+
+	inline constexpr auto clockgate_names = merge_names(
+		liberty_common_names, liberty_pin_names,
+		liberty_names({
+			"dont_use", "clock_gating_integrated_cell",
+			"clock_gate_clock_pin", "clock_gate_enable_pin",
+			"clock_gate_out_pin", "clock_gate_test_pin",
+		}));
+
+	inline constexpr auto stat_liberty_names = merge_names(
+		liberty_common_names,
+		liberty_names({
+			"ff", "port_names",
+			"single_area_parameterised", "double_area_parameterised",
+		}));
+
+	inline constexpr auto liberty_synthesis_names =
+			merge_names(read_liberty_names, dfflibmap_names, clockgate_names, stat_liberty_names);
+
+	inline constexpr LibertyFilter liberty_synth_filter{liberty_synthesis_names};
+
+	static_assert(liberty_synth_filter.covers(LibertyFilter{read_liberty_names}));
+	static_assert(liberty_synth_filter.covers(LibertyFilter{dfflibmap_names}));
+	static_assert(liberty_synth_filter.covers(LibertyFilter{clockgate_names}));
+	static_assert(liberty_synth_filter.covers(LibertyFilter{stat_liberty_names}));
+	static_assert(!liberty_synth_filter.allows("timing"));
+	static_assert(!liberty_synth_filter.allows("internal_power"));
+
 	struct LibertyAst
 	{
 		std::string id, value;
 		std::vector<std::string> args;
 		std::vector<LibertyAst*> children;
+		LibertyFilter filter;
 		~LibertyAst();
 		const LibertyAst *find(std::string name) const;
 
@@ -147,14 +259,20 @@ namespace Yosys
 		LibertyAstCache() {};
 		~LibertyAstCache() {};
 	public:
-		dict<std::string, std::shared_ptr<const LibertyAst>> cached;
+		struct CacheEntry {
+			LibertyFilter filter;
+			std::shared_ptr<const LibertyAst> ast;
+		};
+
+		dict<std::string, CacheEntry> cached;
 
 		bool cache_by_default = false;
 		bool verbose = false;
 		dict<std::string, bool> cache_path;
 
-		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname);
-		void parsed_ast(const std::string &fname, const std::shared_ptr<const LibertyAst> &ast);
+		std::shared_ptr<const LibertyAst> cached_ast(const std::string &fname, const LibertyFilter &filter);
+		void parsed_ast(const std::string &fname, const LibertyFilter &filter,
+				const std::shared_ptr<const LibertyAst> &ast);
 		static LibertyAstCache instance;
 	};
 #endif
@@ -166,6 +284,16 @@ namespace Yosys
 	private:
 		LibertyInputStream f;
 		int line;
+		LibertyFilter filter;
+
+		struct ParseResult {
+			enum Kind { Node, Skipped, Closed } kind;
+			LibertyAst *ast;
+
+			static ParseResult node(LibertyAst *ast) { return {Node, ast}; }
+			static ParseResult skipped() { return {Skipped, nullptr}; }
+			static ParseResult closed() { return {Closed, nullptr}; }
+		};
 
 		/* lexer return values:
 		   'v': identifier, string, array range [...] -> str holds the token string
@@ -178,7 +306,8 @@ namespace Yosys
 		void report_unexpected_token(int tok);
 		void parse_vector_range(int tok);
 		int consume_wrecked_str(int tok, std::string& out_str);
-		LibertyAst *parse(bool top_level);
+		ParseResult try_parse(bool top_level, bool skipping);
+		LibertyAst *parse(bool top_level, bool skipping);
 		void error() const;
 		void error(const std::string &str) const;
 
@@ -186,8 +315,9 @@ namespace Yosys
 		std::shared_ptr<const LibertyAst> shared_ast;
 		const LibertyAst *ast = nullptr;
 
-		LibertyParser(std::istream &f) : f(f), line(1) {
-			shared_ast.reset(parse(true));
+		LibertyParser(std::istream &f, LibertyFilter filter = LibertyFilter::all())
+				: f(f), line(1), filter(filter) {
+			shared_ast.reset(parse(true, false));
 			ast = shared_ast.get();
 			if (!ast) {
 #ifdef FILTERLIB
@@ -200,11 +330,12 @@ namespace Yosys
 		}
 
 #ifndef FILTERLIB
-		LibertyParser(std::istream &f, const std::string &fname) : f(f), line(1) {
-			shared_ast = LibertyAstCache::instance.cached_ast(fname);
+		LibertyParser(std::istream &f, const std::string &fname,
+				LibertyFilter filter = LibertyFilter::all()) : f(f), line(1), filter(filter) {
+			shared_ast = LibertyAstCache::instance.cached_ast(fname, filter);
 			if (!shared_ast) {
-				shared_ast.reset(parse(true));
-				LibertyAstCache::instance.parsed_ast(fname, shared_ast);
+				shared_ast.reset(parse(true, false));
+				LibertyAstCache::instance.parsed_ast(fname, filter, shared_ast);
 			}
 			ast = shared_ast.get();
 			if (!ast) {

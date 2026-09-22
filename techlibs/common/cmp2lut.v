@@ -32,6 +32,7 @@ parameter _TECHMAP_CONSTVAL_B_ = 0;
 
 function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 	input integer width;
+	input integer cst_width;
 	input integer operation;
 	input integer swap;
 	input integer sign;
@@ -40,11 +41,13 @@ function automatic [(1 << `LUT_WIDTH)-1:0] gen_lut;
 	begin
 		gen_lut = width'b0;
 		for (n = 0; n < (1 << width); n++) begin
-			if (sign)
+			if (sign) begin
 				i_var = n[width-1:0];
-			else
+				i_cst = operand[cst_width-1:0];
+			end else begin
 				i_var = n;
-			i_cst = operand;
+				i_cst = operand;
+			end
 			if (swap) begin
 				lhs = i_cst;
 				rhs = i_var;
@@ -78,7 +81,7 @@ generate
 	else if (&_TECHMAP_CONSTMSK_B_)
 		\$lut #(
 			.WIDTH(A_WIDTH),
-			.LUT({ gen_lut(A_WIDTH, operation, 0, A_SIGNED && B_SIGNED, _TECHMAP_CONSTVAL_B_) })
+			.LUT({ gen_lut(A_WIDTH, B_WIDTH, operation, 0, A_SIGNED && B_SIGNED, _TECHMAP_CONSTVAL_B_) })
 		) _TECHMAP_REPLACE_ (
 			.A(A),
 			.Y(Y)
@@ -86,7 +89,7 @@ generate
 	else if (&_TECHMAP_CONSTMSK_A_)
 		\$lut #(
 			.WIDTH(B_WIDTH),
-			.LUT({ gen_lut(B_WIDTH, operation, 1, A_SIGNED && B_SIGNED, _TECHMAP_CONSTVAL_A_) })
+			.LUT({ gen_lut(B_WIDTH, A_WIDTH, operation, 1, A_SIGNED && B_SIGNED, _TECHMAP_CONSTVAL_A_) })
 		) _TECHMAP_REPLACE_ (
 			.A(B),
 			.Y(Y)

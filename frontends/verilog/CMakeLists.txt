@@ -1,5 +1,5 @@
 if (NOT FLEX_INCLUDE_DIRS)
-	set(FLEX_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/libs/flex)
+	set(FLEX_INCLUDE_DIRS ${YOSYS_CMAKE_SOURCE_DIR}/libs/flex)
 endif()
 
 flex_target(verilog_lexer

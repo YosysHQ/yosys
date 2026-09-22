@@ -3,12 +3,19 @@
 #include <iostream>
 #include <string>
 #include <filesystem>
+#include <system_error>
 
 #if !defined(WIN32)
 #include <dirent.h>
 #include <unistd.h>
 #else
 #include <io.h>
+#endif
+
+#if !defined(_WIN32) && !defined(__wasi__)
+#include <sys/file.h>
+#include <fcntl.h>
+#include <cerrno>
 #endif
 
 YOSYS_NAMESPACE_BEGIN
@@ -368,6 +375,61 @@ bool create_directory(const std::string& dirname)
 	}
 }
 
+bool make_private_directory(const std::string& dirname)
+{
+#if defined(_WIN32) || defined(__wasi__)
+	if (!create_directory(dirname)) {
+		log_warning("Cannot create the directory %s\n", dirname.c_str());
+		return false;
+	}
+	return true;
+#else
+	if (mkdir(dirname.c_str(), 0700) == 0)
+		return true;
+
+	// Keep the errno of each mkdir(), create_directory() below makes its own calls
+	int err = errno;
+	std::string parent = std::filesystem::path(dirname).parent_path().string();
+
+	if (err == ENOENT && !parent.empty() && create_directory(parent)) {
+		if (mkdir(dirname.c_str(), 0700) == 0)
+			return true;
+		err = errno;
+	}
+
+	if (err != EEXIST) {
+		log_warning("Cannot create the directory %s: %s\n", dirname.c_str(), strerror(err));
+		return false;
+	}
+
+	// Do not use a leftover that isn't ours
+	struct stat st;
+	if (lstat(dirname.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != geteuid()) {
+		log_warning("%s is not a directory of this user\n", dirname.c_str());
+		return false;
+	}
+	// Repair the mode if something changed it
+	mode_t mode = st.st_mode & 0777;
+	if (((mode & S_IRWXU) != S_IRWXU || (mode & (S_IWGRP | S_IWOTH)) != 0) && chmod(dirname.c_str(), 0700) != 0) {
+		log_warning("Cannot make the directory %s private: %s\n", dirname.c_str(), strerror(errno));
+		return false;
+	}
+
+	return true;
+#endif
+}
+
+std::string make_user_tmpdir(const std::string& name)
+{
+	log_assert(!name.empty() && name.find('/') == std::string::npos);
+#if defined(_WIN32) || defined(__wasi__)
+	std::string dirname = get_base_tmpdir() + "/" + name;
+#else
+	std::string dirname = stringf("%s/%s-%u", get_base_tmpdir().c_str(), name.c_str(), (unsigned)geteuid());
+#endif
+	return make_private_directory(dirname) ? dirname : "";
+}
+
 std::string escape_filename_spaces(const std::string& filename)
 {
 	std::string out;
@@ -391,6 +453,22 @@ void append_globbed(std::vector<std::string>& paths, std::string pattern)
 
 std::string name_from_file_path(std::string path) {
 	return std::filesystem::path(path).filename().string();
+}
+
+std::string absolute_path(const std::string& path)
+{
+	std::error_code ec;
+	std::filesystem::path result = std::filesystem::absolute(path, ec);
+
+	if (ec)
+		return "";
+
+	result = std::filesystem::weakly_canonical(result, ec);
+
+	if (ec)
+		return "";
+
+	return result.string();
 }
 
 // Includes OS_PATH_SEP at the end if present
@@ -613,6 +691,70 @@ void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynam
 	DynamicIntCount num_dynamic_ints, const void *arg)
 {
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg);
+}
+
+#if defined(_WIN32)
+ScopedFileLock::ScopedFileLock(const std::string &path)
+{
+	HANDLE h = CreateFileA(path.c_str(), GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (h == INVALID_HANDLE_VALUE) {
+		log_warning("Cannot open lock file %s, proceeding without lock\n", path.c_str());
+		return;
+	}
+	OVERLAPPED ov = {};
+	if (!LockFileEx(h, LOCKFILE_EXCLUSIVE_LOCK, 0, MAXDWORD, MAXDWORD, &ov)) {
+		log_warning("Cannot lock %s, proceeding without lock\n", path.c_str());
+		CloseHandle(h);
+		return;
+	}
+	handle = h;
+}
+
+ScopedFileLock::~ScopedFileLock()
+{
+	if (handle != nullptr) {
+		OVERLAPPED ov = {};
+		UnlockFileEx(handle, 0, MAXDWORD, MAXDWORD, &ov);
+		CloseHandle(handle);
+	}
+}
+#elif !defined(__wasi__)
+ScopedFileLock::ScopedFileLock(const std::string &path)
+{
+	fd = open(path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0666);
+	if (fd < 0)
+		fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
+	if (fd < 0) {
+		log_warning("Cannot open lock file %s, proceeding without lock\n", path.c_str());
+		return;
+	}
+	int ret;
+	while ((ret = flock(fd, LOCK_EX)) != 0 && errno == EINTR);
+	if (ret != 0)
+		log_warning("Cannot lock %s, proceeding without lock\n", path.c_str());
+}
+
+ScopedFileLock::~ScopedFileLock()
+{
+	if (fd >= 0)
+		close(fd); // releases the flock
+}
+#else
+ScopedFileLock::ScopedFileLock(const std::string &) {}
+ScopedFileLock::~ScopedFileLock() {}
+#endif
+
+unsigned get_process_id()
+{
+#if defined(_WIN32)
+	return GetCurrentProcessId();
+#elif defined(__wasi__)
+	return 0;
+#else
+	return getpid();
+#endif
 }
 
 YOSYS_NAMESPACE_END

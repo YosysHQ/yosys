@@ -11,7 +11,7 @@
 function(yosys_call_git)
 	execute_process(
 		COMMAND ${GIT_EXECUTABLE} ${ARGV}
-		WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}
 		RESULT_VARIABLE git_result
 		OUTPUT_VARIABLE git_output
 		OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -87,8 +87,8 @@ function(yosys_extract_version)
 		# Build YOSYS_CHECKOUT_INFO (git sha1 and dirty status).
 		if (git_abbrev STREQUAL "")
 			# No git checkout, see if the tarball was created with `git archive`.
-			file(READ ${CMAKE_SOURCE_DIR}/.gitcommit git_abbrev)
-			set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/.gitcommit)
+			file(READ ${YOSYS_CMAKE_SOURCE_DIR}/.gitcommit git_abbrev)
+			set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${YOSYS_CMAKE_SOURCE_DIR}/.gitcommit)
 			string(STRIP "${git_abbrev}" git_abbrev)
 			if (git_abbrev MATCHES "Format:")
 				# No substitutions, we're out of options.

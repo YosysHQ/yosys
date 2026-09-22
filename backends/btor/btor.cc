@@ -745,6 +745,11 @@ struct BtorWorker
 			goto okay;
 		}
 
+		if (cell->type.in(ID($allconst), ID($allseq)))
+			log_error("Unsupported cell type %s for cell %s.%s",
+					cell->type.unescape(), module, cell);
+
+
 		if (cell->type.in(ID($anyconst), ID($anyseq)))
 		{
 			SigSpec sig_y = sigmap(cell->getPort(ID::Y));
@@ -1266,6 +1271,14 @@ struct BtorWorker
 
 		for (auto cell : module->cells())
 		{
+			if (cell->type == ID($check))
+				log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync` or `clk2fflogic` before `write_btor`.\n",
+						cell->type.unescape(), module, cell);
+
+			if (cell->type.in(ID($live), ID($fair), ID($equiv)))
+				log_error("Unsupported cell type %s for cell %s.%s",
+						cell->type.unescape(), module, cell);
+
 			if (cell->type == ID($assume))
 			{
 				btorf_push(cell->name.unescape());

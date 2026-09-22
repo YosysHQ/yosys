@@ -69,9 +69,6 @@ struct SynthSf2Pass : public ScriptPass
 		log("    -discard-ffinit\n");
 		log("        discard FF init value instead of emitting an error\n");
 		log("\n");
-		log("    -retime\n");
-		log("        run 'abc' with '-dff -D 1' options\n");
-		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
 		help_script();
@@ -88,7 +85,6 @@ struct SynthSf2Pass : public ScriptPass
 		vlog_file = "";
 		json_file = "";
 		flatten = true;
-		retime = false;
 		iobs = true;
 		clkbuf = false;
 		discard_ffinit = false;
@@ -131,7 +127,7 @@ struct SynthSf2Pass : public ScriptPass
 				continue;
 			}
 			if (args[argidx] == "-retime") {
-				retime = true;
+				// Removed: ABC9 does not support retiming.
 				continue;
 			}
 			if (args[argidx] == "-noiobs") {
@@ -192,8 +188,6 @@ struct SynthSf2Pass : public ScriptPass
 			run("opt -undriven -fine");
 			run("techmap -map +/techmap.v -map +/sf2/arith_map.v");
 			run("opt -fast");
-			if (retime || help_mode)
-				run("abc -dff -D 1", "(only if -retime)");
 		}
 
 		if (check_label("map_ffs"))
@@ -209,7 +203,7 @@ struct SynthSf2Pass : public ScriptPass
 
 		if (check_label("map_luts"))
 		{
-			run("abc -lut 4");
+			run("abc9 -lut 4");
 			run("clean");
 		}
 

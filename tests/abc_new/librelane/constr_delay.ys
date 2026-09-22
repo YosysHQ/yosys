@@ -1,0 +1,33 @@
+# https://github.com/librelane/librelane/blob/f24e0ea5db2260719e9a0c7d51d07db74a87fa23/librelane/scripts/pyosys/synthesize.py
+
+# -constr and -D; -D only reaches abc through {D} in the script
+read_verilog <<EOT
+module top(input [5:0] a, b, output [11:0] y);
+	assign y = a * b;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+design -save gold
+
+techmap
+opt
+logger -expect log "read_constr -v abc.constr" 1
+logger -expect log "&nf -D 1234" 2
+# ABC only supports these two:
+# https://github.com/YosysHQ/abc/blob/28d955ca97a1c4be3aed4062aec0241a734fac5d/src/map/scl/sclUtil.c#L257
+abc_new -liberty ../openroad/cm_test_cells.lib -constr abc.constr -D 1234 -script +&st;&dch,-r;&nf,{D};&st;&syn2;&if,-g,-K,6;&synch2,-r;&nf,{D}
+logger -check-expected
+select -assert-none t:$_*_
+check -assert
+
+read_verilog ../openroad/cells_sim.v
+flatten
+opt_clean
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter

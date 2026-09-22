@@ -421,7 +421,6 @@ TIME_SCALE_SUFFIX [munpf]?s
 "const"      { if (mode->formal) return parser::make_TOK_CONST(out_loc); SV_KEYWORD(parser::make_TOK_CONST(out_loc)); }
 "checker"    { if (mode->formal) return parser::make_TOK_CHECKER(out_loc); SV_KEYWORD(parser::make_TOK_CHECKER(out_loc)); }
 "endchecker" { if (mode->formal) return parser::make_TOK_ENDCHECKER(out_loc); SV_KEYWORD(parser::make_TOK_ENDCHECKER(out_loc)); }
-"bind"       { if (mode->formal) return parser::make_TOK_BIND(out_loc); SV_KEYWORD(parser::make_TOK_BIND(out_loc)); }
 "final"      { SV_KEYWORD(parser::make_TOK_FINAL(out_loc)); }
 "logic"      { SV_KEYWORD(parser::make_TOK_LOGIC(out_loc)); }
 "var"        { SV_KEYWORD(parser::make_TOK_VAR(out_loc)); }

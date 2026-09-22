@@ -1,0 +1,23 @@
+# halfadder/latch/tri_inv/dff instances from normal.lib survive, gates around them get mapped
+read_liberty -lib -unit_delay ../liberty/normal.lib
+read_liberty -lib -unit_delay ../liberty/dff.lib
+read_verilog <<EOT
+module top(input clk, g, en, input [1:0] a, b, output [1:0] s, output c, output z, output q);
+	wire [1:0] t = a ^ b;
+	halfadder ha0(.A(t[0]), .B(b[1]), .CO(c), .Y(s[0]));
+	latch l0(.D(t[1]), .G(g), .Q(s[1]), .QN());
+	tri_inv ti(.A(a[0] & b[0]), .S(en), .Z(z));
+	dff d0(.D(t[0] | t[1]), .CLK(clk), .Q(q));
+endmodule
+EOT
+
+hierarchy -top top
+proc
+techmap
+abc_new -liberty ../liberty/normal.lib -liberty ../liberty/dff.lib
+select -assert-count 1 t:halfadder
+select -assert-count 1 t:latch
+select -assert-count 1 t:tri_inv
+select -assert-count 1 t:dff
+select -assert-none t:$_*_
+check -assert

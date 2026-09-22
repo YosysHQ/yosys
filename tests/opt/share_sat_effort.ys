@@ -1,0 +1,53 @@
+design -reset
+read_verilog <<EOT
+module test_case (
+	input wire [3:0] a,
+	input wire [3:0] b,
+	input wire [3:0] c,
+	input wire [3:0] d,
+	output wire [7:0] y,
+	output wire [7:0] z
+);
+	wire s1 = d < 4'd5;
+	wire s2 = d > 4'd10;
+	assign y = s1 ? a*b : 8'd0;
+	assign z = s2 ? a*c : 8'd0;
+endmodule
+EOT
+
+hierarchy -top test_case
+prep
+design -save gold
+
+share
+opt_clean -purge
+select -assert-count 1 t:$mul
+design -save gate_full
+
+# low budget skips all merges
+design -load gold
+scratchpad -set share.sat_effort 1
+logger -expect warning "solver effort budget for module test_case is exhausted" 1
+share
+logger -check-expected
+opt_clean -purge
+select -assert-count 2 t:$mul
+design -save gate_low
+
+# 0 disables the limit
+design -load gold
+scratchpad -set share.sat_effort 0
+share
+opt_clean -purge
+select -assert-count 1 t:$mul
+
+# eq
+design -load gold
+design -copy-from gate_full -as gate test_case
+miter -equiv -flatten -make_outputs test_case gate miter
+sat -verify -prove trigger 0 miter
+
+design -load gold
+design -copy-from gate_low -as gate test_case
+miter -equiv -flatten -make_outputs test_case gate miter
+sat -verify -prove trigger 0 miter

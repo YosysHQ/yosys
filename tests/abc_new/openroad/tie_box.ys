@@ -1,0 +1,30 @@
+# https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/cut/test/sky130_const_cell.v
+
+# input-less cells are not abc9 boxes as abc cannot represent a box with no inputs
+read_verilog <<EOT
+module top(clk, c);
+	input clk;
+	output c;
+
+	wire flop_net;
+
+	TIEHI _403_ (
+		.Y(flop_net)
+	);
+
+	DFF output_flop (
+		.D(flop_net),
+		.Q(c),
+		.CLK(clk)
+	);
+
+endmodule
+EOT
+
+read_liberty -lib -unit_delay cm_test_cells.lib
+read_liberty -lib -unit_delay sm_test_cells.lib
+hierarchy -top top
+abc_new -liberty cm_test_cells.lib -liberty sm_test_cells.lib
+select -assert-count 1 t:TIEHI
+select -assert-count 1 t:DFF
+check -assert

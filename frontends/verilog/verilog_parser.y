@@ -510,7 +510,7 @@
 %token TOK_BIT_OR_ASSIGN TOK_BIT_AND_ASSIGN TOK_BIT_XOR_ASSIGN TOK_ADD_ASSIGN
 %token TOK_SUB_ASSIGN TOK_DIV_ASSIGN TOK_MOD_ASSIGN TOK_MUL_ASSIGN
 %token TOK_SHL_ASSIGN TOK_SHR_ASSIGN TOK_SSHL_ASSIGN TOK_SSHR_ASSIGN
-%token TOK_BIND TOK_TIME_SCALE
+%token TOK_TIME_SCALE
 %token TOK_IMPORT
 
 %token TOK_EXCL "'!'"
@@ -610,7 +610,6 @@ design:
 	package design |
 	import_stmt design |
 	interface design |
-	bind_directive design |
 	%empty;
 
 attr:
@@ -881,29 +880,7 @@ interface_body:
 
 interface_body_stmt:
 	param_decl | localparam_decl | typedef_decl | defparam_decl | wire_decl | always_stmt | assign_stmt |
-	modport_stmt | bind_directive;
-
-bind_directive:
-	TOK_BIND {
-		(void)extra->pushChild(std::make_unique<AstNode>(@$, AST_BIND));
-	}
-	bind_target {
-		// bind_target should have added at least one child
-		log_assert(extra->ast_stack.back()->children.size() >= 1);
-	}
-	TOK_ID {
-		// The single_cell parser in cell_list_no_array uses extra->astbuf1 as
-		// a sort of template for constructing cells.
-		extra->astbuf1 = std::make_unique<AstNode>(@$, AST_CELL);
-		extra->astbuf1->children.push_back(std::make_unique<AstNode>(@$, AST_CELLTYPE));
-		extra->astbuf1->children[0]->str = *$5;
-	}
-	cell_parameter_list_opt cell_list_no_array TOK_SEMICOL {
-		// cell_list should have added at least one more child
-		log_assert(extra->ast_stack.back()->children.size() >= 2);
-		(void)extra->astbuf1.reset();
-		extra->ast_stack.pop_back();
-	};
+	modport_stmt;
 
 // bind_target matches the target of the bind (everything before
 // bind_instantiation in the IEEE 1800 spec).
@@ -1125,7 +1102,7 @@ module_body:
 
 module_body_stmt:
 	task_func_decl | specify_block | param_decl | localparam_decl | typedef_decl | defparam_decl | specparam_declaration | wire_decl | assign_stmt | cell_stmt |
-	enum_decl | struct_decl | bind_directive |
+	enum_decl | struct_decl |
 	always_stmt | TOK_GENERATE module_gen_body TOK_ENDGENERATE | defattr | assert_property | checker_decl | ignored_specify_block;
 
 checker_decl:

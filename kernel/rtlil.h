@@ -122,7 +122,6 @@ namespace RTLIL
 	struct MemWriteAction;
 	struct SyncRule;
 	struct Process;
-	struct Binding;
 	struct IdString;
 	struct OwningIdString;
 
@@ -1902,7 +1901,6 @@ struct RTLIL::Design
 
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
-	std::vector<RTLIL::Binding*> bindings_;
 
 	std::vector<std::unique_ptr<AST::AstNode>> verilog_packages, verilog_globals;
 	std::unique_ptr<define_map_t> verilog_defines;
@@ -1924,7 +1922,6 @@ struct RTLIL::Design
 	}
 
 	void add(RTLIL::Module *module);
-	void add(RTLIL::Binding *binding);
 
 	RTLIL::Module *addModule(RTLIL::IdString name);
 	void remove(RTLIL::Module *module);
@@ -2078,7 +2075,6 @@ public:
 	dict<RTLIL::IdString, RTLIL::Cell*> cells_;
 
 	std::vector<RTLIL::SigSig>   connections_;
-	std::vector<RTLIL::Binding*> bindings_;
 
 	idict<RTLIL::IdString> avail_parameters;
 	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
@@ -2165,8 +2161,6 @@ public:
 	RTLIL::ObjRange<RTLIL::Cell*> cells() { return RTLIL::ObjRange<RTLIL::Cell*>(&cells_, &refcount_cells_); }
 	int cells_size() const { return cells_.size(); }
 	RTLIL::Cell* cell_at(int index) const { return cells_.element(index)->second; }
-
-	void add(RTLIL::Binding *binding);
 
 	// Removing wires is expensive. If you have to remove wires, remove them all at once.
 	void remove(const pool<RTLIL::Wire*> &wires);

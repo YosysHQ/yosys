@@ -485,8 +485,7 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			if (filename.size() <= 2)
 				log_error("Missing EOT marker in here document!\n");
 			std::string eot_marker = filename.substr(2);
-			if (Frontend::current_script_file == nullptr)
-				filename = "<stdin>";
+			filename = (Frontend::current_script_file == nullptr) ?  "<stdin>" : "<inlined>";
 			last_here_document.clear();
 			while (1) {
 				std::string buffer;
@@ -805,9 +804,11 @@ struct HelpPass : public Pass {
 
 				// dump command help
 				std::ostringstream buf;
-				log_streams.push_back(&buf);
-				pass->help();
-				log_streams.pop_back();
+				{
+					auto log_scope = logger().sink_scope();
+					logger().add_sink<StreamLogSink>(buf);
+					pass->help();
+				}
 				std::stringstream ss;
 				ss << buf.str();
 

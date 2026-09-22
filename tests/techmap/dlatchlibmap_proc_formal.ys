@@ -1,0 +1,133 @@
+##################################################################
+
+read_verilog -sv -icells <<EOT
+
+module top(input E, D, S, R, output [3:0] Q);
+
+	always_latch
+		if      (R)  Q[0] <= 1'b0;
+		else if (S)  Q[0] <= 1'b1;
+		else if (E)  Q[0] <= D;
+
+	always_latch
+		if      (S)  Q[1] <= 1'b1;
+		else if (R)  Q[1] <= 1'b0;
+		else if (E)  Q[1] <= D;
+
+assign Q[3:2] = ~Q[1:0];
+
+endmodule
+
+EOT
+
+proc
+opt
+techmap
+copy top top_unmapped
+design -save start
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_s.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_s.lib
+
+clk2fflogic
+flatten
+opt_clean -purge
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_r.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_r.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_l.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_l.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_h.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_h.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_mixedpol.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_mixedpol.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_not_data.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_not_data.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
+
+##################################################################
+
+design -load start
+logger -expect log "  mapped 2" 1
+dfflibmap -liberty dlatchlibmap_dlatchsr_not_data_l.lib top
+logger -check-expected
+read_liberty dlatchlibmap_dlatchsr_not_data_l.lib
+
+clk2fflogic
+flatten
+miter -equiv -make_assert -flatten top_unmapped top miter
+
+# Prove that this is equivalent
+sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter

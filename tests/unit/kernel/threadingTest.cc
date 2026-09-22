@@ -7,8 +7,7 @@ YOSYS_NAMESPACE_BEGIN
 class ThreadingTest : public testing::Test {
 protected:
 	ThreadingTest() {
-		if (log_files.empty())
-			log_files.emplace_back(stdout);
+		if (logger().empty()) logger().add_sink<ConsoleLogSink>();
 	}
 };
 

@@ -1,0 +1,116 @@
+/* https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/sm_test_cells.lib */
+library(sm_test) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+
+  cell(DFF) {
+    area : 3;
+    ff ("IQ" , "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+    }
+    pin(D) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(CLK) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(Q) {
+      direction : output;
+      function : "IQ";
+    }
+  }
+
+  cell(DFFR) {
+    area : 5;
+    ff ("IQ" , "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+      clear : "!RST_N";
+    }
+    pin(D) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(CLK) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(RST_N) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(Q) {
+      direction : output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+
+  cell(DFFS) {
+    area : 5;
+    ff ("IQ" , "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+      preset : "!SET_N";
+    }
+    pin(D) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(CLK) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(SET_N) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(Q) {
+      direction : output;
+      function : "IQ";
+    }
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+
+  cell(DFFRSN) {
+    area : 4;
+    ff ("IQN" , "IQ") {
+      next_state : "!D";
+      clocked_on : "CLK";
+      clear : "!SET_N";
+      preset : "!RST_N";
+    }
+    pin(D) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(CLK) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(RST_N) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(SET_N) {
+      direction : input;
+      capacitance : 0.001;
+    }
+    pin(QN) {
+      direction : output;
+      function : "IQN";
+    }
+  }
+}

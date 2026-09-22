@@ -13,8 +13,8 @@ flatten:
 
 coarse:
     opt_expr
-    opt_clean
     check
+    opt_clean
     opt -nodffe -nosdff
     fsm
     opt
@@ -26,6 +26,9 @@ coarse:
     opt_expr
     opt_clean
     memory_dff
+    alumacc -macc-only
+    maccmap -unmap
+    opt_clean
     wreduce t:$mul
     techmap
     select a:mul2dsp
@@ -54,7 +57,6 @@ map_gates:
     ice40_wrapcarry
     techmap
     opt -fast
-    abc -dff -D 1
     ice40_opt
 
 map_ffs:
@@ -65,8 +67,6 @@ map_ffs:
     ice40_opt -full
 
 map_luts:
-    abc
-    ice40_opt
     check
     techmap
     simplemap

@@ -31,4 +31,5 @@ yosys_pass(synth_fabulous
 	DATA_DIR
 		fabulous
 	DATA_FILES
+		cells_bb.v
 )

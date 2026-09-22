@@ -10,7 +10,7 @@ foreach (strategy virtualenv host uv fail)
 	elseif (strategy STREQUAL "host")
 		set(PyosysEnv_PYTHON ${Python3_EXECUTABLE})
 	elseif (strategy STREQUAL "uv")
-		set(PyosysEnv_PYTHON uv run --no-project --with pybind11>3,<4 --with cxxheaderparser python)
+		set(PyosysEnv_PYTHON uv run --no-project --with pybind11>3,<4 --with cxxheaderparser>=1.4 python)
 	else()
 		set(PyosysEnv_PYTHON)
 		break()
@@ -28,7 +28,7 @@ foreach (strategy virtualenv host uv fail)
 		list(FILTER pybind11_INCLUDE_DIR INCLUDE REGEX "/pybind11/")
 
 		execute_process(
-			COMMAND ${PyosysEnv_PYTHON} ${CMAKE_SOURCE_DIR}/pyosys/generator.py --help
+			COMMAND ${PyosysEnv_PYTHON} ${YOSYS_CMAKE_SOURCE_DIR}/pyosys/generator.py --help
 			RESULT_VARIABLE result
 			OUTPUT_QUIET
 			ERROR_QUIET

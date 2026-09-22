@@ -67,7 +67,7 @@ enum FfInit {
 };
 
 struct DffLegalizePass : public Pass {
-	DffLegalizePass() : Pass("dfflegalize", "convert FFs to types supported by the target") { }
+	DffLegalizePass() : Pass("dfflegalize", "convert FFs and LATCHes to types supported by the target") { }
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -1071,7 +1071,7 @@ struct DffLegalizePass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 
-		log_header(design, "Executing DFFLEGALIZE pass (convert FFs to types supported by the target).\n");
+		log_header(design, "Executing DFFLEGALIZE pass (convert FFs and LATCHes to types supported by the target).\n");
 
 		for (int i = 0; i < NUM_FFTYPES; i++) {
 			for (int j = 0; j < NUM_NEG; j++)

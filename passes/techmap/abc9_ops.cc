@@ -33,23 +33,33 @@ void check(RTLIL::Design *design, bool dff_mode)
 	dict<IdString,IdString> box_lookup;
 	for (auto m : design->modules()) {
 		auto flop = m->get_bool_attribute(ID::abc9_flop);
+		auto box = m->get_bool_attribute(ID::abc9_box);
 		auto it = m->attributes.find(ID::abc9_box_id);
 		if (!flop) {
-			if (it == m->attributes.end())
+			if (!box && it == m->attributes.end())
 				continue;
-			auto id = it->second.as_int();
-			auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), m->name));
-			if (!r.second)
-				log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-						m, id, r.first->second.unescape());
+			if (it != m->attributes.end()) {
+				auto id = it->second.as_int();
+				auto r = box_lookup.insert(std::make_pair(stringf("$__boxid%d", id), m->name));
+				if (!r.second)
+					log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
+							m, id, r.first->second.unescape());
+			}
 		}
 
 		// Make carry in the last PI, and carry out the last PO
 		//   since ABC requires it this way
 		IdString carry_in, carry_out;
+		bool has_input = false, has_output = false;
 		for (const auto &port_name : m->ports) {
 			auto w = m->wire(port_name);
 			log_assert(w);
+			if (GetSize(w)) {
+				if (w->port_input)
+					has_input = true;
+				if (w->port_output)
+					has_output = true;
+			}
 			if (w->get_bool_attribute(ID::abc9_carry)) {
 				if (w->port_input) {
 					if (carry_in != IdString())
@@ -68,6 +78,13 @@ void check(RTLIL::Design *design, bool dff_mode)
 			log_error("Module '%s' contains an (* abc9_carry *) input port but no output port.\n", m);
 		if (carry_in == IdString() && carry_out != IdString())
 			log_error("Module '%s' contains an (* abc9_carry *) output port but no input port.\n", m);
+
+		// A timing arc spans an input to an output, so a box missing either
+		// carries no timing for abc to work with
+		if (!flop && !has_input)
+			log_error("Module '%s' with (* abc9_box *) has no input port.\n", m);
+		if (!flop && !has_output)
+			log_error("Module '%s' with (* abc9_box *) has no output port.\n", m);
 
 		if (flop) {
 			int num_outputs = 0;

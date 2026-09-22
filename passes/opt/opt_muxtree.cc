@@ -483,11 +483,14 @@ struct OptMuxtreeWorker
 		bool did_something = false;
 
 		int width_if_b = 0;
-		idict<int> ctrl_bits;
+		// map wire bit -> first S position
+		dict<int, int> ctrl_bits;
 		if (portname == ID::B)
 			width_if_b = GetSize(muxinfo.cell->getPort(ID::A));
-		for (int bit : sig2bits(muxinfo.cell->getPort(ID::S), false))
-			ctrl_bits(bit);
+		vector<int> s_bits = sig2bits(muxinfo.cell->getPort(ID::S), false);
+		for (int j = 0; j < GetSize(s_bits); j++)
+			if (s_bits[j] >= 0)
+				ctrl_bits.insert({s_bits[j], j});
 
 		int slice_idx = 0, slice_off = 0;
 		vector<int> bits = sig2bits(sig, false);

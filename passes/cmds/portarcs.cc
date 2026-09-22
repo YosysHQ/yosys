@@ -262,6 +262,9 @@ struct PortarcsPass : Pass {
 							max_delay = p[i];
 				}
 
+				if (max_delay == 0)
+					max_delay = 1;
+
 				log("Delay legend:\n\n");
 				log("    ");
 				for (int i = 0; i < 24; i++)

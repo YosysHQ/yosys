@@ -1,0 +1,40 @@
+# This is invalid or at least not supported by Yosys so we error out
+# https://www.edaboard.com/threads/verilog-or-systemverilog-signal-initialization-rule-mentor-multiply-driven.342388/
+read_verilog -sv <<EOT
+module ff1 (input logic clk, input logic d, output logic q);
+	always_ff @(posedge clk) q <= d;
+endmodule
+
+module top (input logic clk, input logic d);
+	logic q_inst = 0;
+	ff1 u0 (clk, d, q_inst);
+endmodule
+EOT
+
+# before `hierarchy` the port directions are unknown, so nothing is reported yet
+logger -expect log "Found and reported 0 problems." 1
+check
+logger -check-expected
+
+hierarchy -top top -check
+
+logger -expect warning "multiple conflicting drivers for top" 1
+logger -expect log "Found and reported 1 problems." 1
+check
+logger -check-expected
+
+# This is what was meant in the previous example, but it is supported and gives no warnings
+design -reset
+read_verilog -sv <<EOT
+module top (input logic clk, input logic d, output logic q);
+	logic q_inst = 0;
+	always_ff @(posedge clk) q_inst <= d;
+	assign q = q_inst;
+endmodule
+EOT
+
+hierarchy -top top -check
+
+logger -expect log "Found and reported 0 problems." 1
+check
+logger -check-expected

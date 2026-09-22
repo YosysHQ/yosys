@@ -82,12 +82,14 @@ jobs:
 
       - name: Run Yosys tests
         run: |
-          make -C tests -j$procs vanilla-test
+          YOSYS_NOVERIFIC=1 make -C tests -j$procs vanilla-test
 
       - name: Run Verific specific Yosys tests
         run: |
+          make -C tests prep
           make -C tests/sva
           make -C tests/svtypes
+          make -C tests/check_mem
 
       - name: Run coverage
         if: ${{ github.event_name != 'merge_group'}}

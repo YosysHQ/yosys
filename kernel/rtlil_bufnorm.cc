@@ -28,6 +28,24 @@
 YOSYS_NAMESPACE_BEGIN
 
 
+static void buf_norm_seed_queues(RTLIL::Module *module)
+{
+	// When entering buf normalized mode, we need the first module-level bufNormalize
+	// call to know about all drivers, about all module ports (whether represented by
+	// a cell or not) and about all used but undriven wires (whether represented by a
+	// cell or not). We ensure this by enqueing all cell output ports and all wires.
+
+	for (auto cell : module->cells())
+	for (auto &conn : cell->connections()) {
+		if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
+			continue;
+		module->buf_norm_cell_queue.insert(cell);
+		module->buf_norm_cell_port_queue.emplace(cell, conn.first);
+	}
+	for (auto wire : module->wires())
+		module->buf_norm_wire_queue.insert(wire);
+}
+
 void RTLIL::Design::bufNormalize(bool enable)
 {
 	if (!enable)
@@ -53,23 +71,7 @@ void RTLIL::Design::bufNormalize(bool enable)
 	if (!flagBufferedNormalized)
 	{
 		for (auto module : modules())
-		{
-			// When entering buf normalized mode, we need the first module-level bufNormalize
-			// call to know about all drivers, about all module ports (whether represented by
-			// a cell or not) and about all used but undriven wires (whether represented by a
-			// cell or not). We ensure this by enqueing all cell output ports and all wires.
-
-			for (auto cell : module->cells())
-			for (auto &conn : cell->connections()) {
-				if (GetSize(conn.second) == 0 || (cell->port_dir(conn.first) != RTLIL::PD_OUTPUT && cell->port_dir(conn.first) != RTLIL::PD_INOUT))
-					continue;
-				module->buf_norm_cell_queue.insert(cell);
-				module->buf_norm_cell_port_queue.emplace(cell, conn.first);
-			}
-			for (auto wire : module->wires())
-				module->buf_norm_wire_queue.insert(wire);
-
-		}
+			buf_norm_seed_queues(module);
 
 		flagBufferedNormalized = true;
 	}
@@ -99,7 +101,7 @@ void RTLIL::Module::bufNormalize()
 	{
 		// Ensure that every enqueued input port is represented by a cell
 		for (auto wire : buf_norm_wire_queue) {
-			if (wire->port_input && !wire->port_output) {
+			if (wire->port_input && !wire->port_output && GetSize(wire) != 0) {
 				if (wire->driverCell_ != nullptr && wire->driverCell_->type != ID($input_port)) {
 					wire->driverCell_ = nullptr;
 					wire->driverPort_.clear();
@@ -425,6 +427,10 @@ void RTLIL::Module::bufNormalize()
 		// connected via `$connect` cells but every wire of the net has the
 		// corresponding bit still driven by a buffered `Sz`.
 		for (auto wire : wire_queue_entries) {
+			// A zero-width wire carries no bits and needs no driver
+			if (GetSize(wire) == 0)
+				continue;
+
 			SigSpec wire_drivers;
 			for (int i = 0; i < GetSize(wire); ++i) {
 				SigBit bit(wire, i);
@@ -668,6 +674,27 @@ void RTLIL::Cell::setPort(RTLIL::IdString portname, RTLIL::SigSpec signal)
 	}
 	conn_it->second = std::move(signal);
 
+}
+
+void RTLIL::Design::add(RTLIL::Module *module)
+{
+	log_assert(modules_.count(module->name) == 0);
+	log_assert(refcount_modules_ == 0);
+	modules_[module->name] = module;
+	module->design = this;
+
+	for (auto mon : monitors)
+		mon->notify_module_add(module);
+
+	if (yosys_xtrace) {
+		log("#X# New Module: %s\n", module);
+		log_backtrace("-X- ", yosys_xtrace-1);
+	}
+
+	if (flagBufferedNormalized) {
+		buf_norm_seed_queues(module);
+		module->bufNormalize();
+	}
 }
 
 YOSYS_NAMESPACE_END

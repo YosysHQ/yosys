@@ -36,6 +36,7 @@ struct ShareWorkerConfig
 {
 	int limit;
 	size_t pattern_limit;
+	int sat_effort;
 	bool opt_aggressive;
 	bool opt_fast;
 	StaticCellTypes::Categories::Category generic_uni_ops, generic_bin_ops, generic_cbin_ops, generic_other_ops;
@@ -54,6 +55,9 @@ struct ShareWorker
 
 	pool<RTLIL::Cell*> cells_to_remove;
 	pool<RTLIL::Cell*> recursion_state;
+
+	SatEffortBudget sat_budget;
+	bool sat_warned = false;
 
 	SigMap topo_sigmap;
 	std::map<RTLIL::Cell*, std::set<RTLIL::Cell*, cell_ptr_cmp>, cell_ptr_cmp> topo_cell_drivers;
@@ -1197,6 +1201,18 @@ struct ShareWorker
 	// Setup and run
 	// -------------
 
+	bool warn_if_budget_spent()
+	{
+		if (!sat_budget.spent())
+			return false;
+		if (!sat_warned)
+			log_warning("share: solver effort budget for module %s is exhausted, leaving the "
+					"remaining cells un-shared. Raise or clear the limit with the scratchpad "
+					"option 'share.sat_effort' (0 disables it).\n", log_id(module));
+		sat_warned = true;
+		return true;
+	}
+
 	void remove_cell(Cell *cell)
 	{
 		shareable_cells.erase(cell);
@@ -1222,6 +1238,8 @@ struct ShareWorker
 	#endif
 
 		limit = config.limit;
+		sat_budget = SatEffortBudget(config.sat_effort);
+		sat_warned = false;
 		modwalker.setup(module);
 
 		cells_to_remove.clear();
@@ -1242,7 +1260,7 @@ struct ShareWorker
 		log("Found %d cells in module %s that may be considered for resource sharing.\n",
 				GetSize(shareable_cells), module);
 
-		while (!shareable_cells.empty() && config.limit != 0)
+		while (!shareable_cells.empty() && config.limit != 0 && !warn_if_budget_spent())
 		{
 			RTLIL::Cell *cell = *shareable_cells.begin();
 			shareable_cells.erase(cell);
@@ -1280,6 +1298,9 @@ struct ShareWorker
 
 			for (auto other_cell : candidates)
 			{
+				if (warn_if_budget_spent())
+					break;
+
 				log("    Analyzing resource sharing with %s (%s):\n", other_cell, other_cell->type.unescape());
 
 				const pool<ssc_pair_t> &other_cell_activation_patterns = find_cell_activation_patterns(other_cell, "      ");
@@ -1325,6 +1346,7 @@ struct ShareWorker
 					qcsat.max_cell_outs = 3;
 					qcsat.max_cell_count = 100;
 				}
+				int64_t cells_charged = 0;
 
 				std::set<RTLIL::SigBit> bits_queue;
 
@@ -1345,16 +1367,39 @@ struct ShareWorker
 				int sub1 = qcsat.ez->expression(qcsat.ez->OpOr, cell_active);
 				int sub2 = qcsat.ez->expression(qcsat.ez->OpOr, other_cell_active);
 
-				bool pattern_only_solve = qcsat.ez->solve(qcsat.ez->AND(sub1, sub2));
-				qcsat.prepare();
+				auto pattern_res = sat_budget.solve(qcsat, 0, {qcsat.ez->AND(sub1, sub2)});
+				if (pattern_res == SatEffortBudget::Result::LimitReached) {
+					warn_if_budget_spent();
+					break;
+				}
+				bool pattern_only_solve = pattern_res == SatEffortBudget::Result::Sat;
 
-				if (!qcsat.ez->solve(sub1)) {
+				// Don't import more of the cone than the budget can still pay for
+				if (sat_budget.enabled()) {
+					int import_cap = max(int(sat_budget.remaining / SatEffortBudget::import_cell_cost), 1);
+					if (!qcsat.max_cell_count || import_cap < qcsat.max_cell_count)
+						qcsat.max_cell_count = import_cap;
+				}
+				qcsat.prepare();
+				sat_budget.charge_import(qcsat, cells_charged);
+
+				auto act_res = sat_budget.solve(qcsat, 0, {sub1});
+				if (act_res == SatEffortBudget::Result::LimitReached) {
+					warn_if_budget_spent();
+					break;
+				}
+				if (act_res == SatEffortBudget::Result::Unsat) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", cell);
 					cells_to_remove.insert(cell);
 					break;
 				}
 
-				if (!qcsat.ez->solve(sub2)) {
+				act_res = sat_budget.solve(qcsat, 0, {sub2});
+				if (act_res == SatEffortBudget::Result::LimitReached) {
+					warn_if_budget_spent();
+					break;
+				}
+				if (act_res == SatEffortBudget::Result::Unsat) {
 					log("      According to the SAT solver the cell %s is never active. Sharing is pointless, we simply remove it.\n", other_cell);
 					cells_to_remove.insert(other_cell);
 					shareable_cells.erase(other_cell);
@@ -1376,7 +1421,13 @@ struct ShareWorker
 					log("      Size of SAT problem: %zu cells, %d variables, %d clauses\n",
 							qcsat.imported_cells.size(), qcsat.ez->numCnfVariables(), qcsat.ez->numCnfClauses());
 
-					if (qcsat.ez->solve(sat_model, sat_model_values)) {
+					auto res = sat_budget.solve(qcsat, 0, sat_model, sat_model_values, {});
+					if (res == SatEffortBudget::Result::LimitReached) {
+						warn_if_budget_spent();
+						break;
+					}
+
+					if (res == SatEffortBudget::Result::Sat) {
 						log("      According to the SAT solver this pair of cells can not be shared.\n");
 						log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
 						for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
@@ -1529,6 +1580,7 @@ struct SharePass : public Pass {
 
 		config.limit = -1;
 		config.pattern_limit = design->scratchpad_get_int("share.pattern_limit", 1000);
+		config.sat_effort = design->scratchpad_get_int("share.sat_effort", 1000000000);
 		config.opt_aggressive = false;
 		config.opt_fast = false;
 

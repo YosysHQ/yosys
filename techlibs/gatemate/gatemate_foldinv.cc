@@ -125,6 +125,10 @@ struct FoldInvWorker {
     void fold_output_inverters()
     {
         pool<SigBit> used_bits;
+        for (auto wire : module->wires())
+            if (wire->port_output)
+                for (auto bit : sigmap(SigSpec(wire)))
+                    used_bits.insert(bit);
         // Find bits that are actually used
         for (auto cell : module->selected_cells()) {
             for (auto conn : cell->connections()) {

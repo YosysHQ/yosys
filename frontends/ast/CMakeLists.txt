@@ -1,6 +1,4 @@
 yosys_core(ast
-	ast_binding.cc
-	ast_binding.h
 	ast.cc
 	ast.h
 	dpicall.cc

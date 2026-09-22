@@ -2,12 +2,27 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.68 .. Yosys 0.69-dev
+Yosys 0.69 .. Yosys 0.70-dev
 --------------------------
+
+Yosys 0.68 .. Yosys 0.69
+--------------------------
+ * Commands and options
+    - Removed sum of products related parameters from
+      "abc" pass.
+    - Removed coolrunner2 and greenpak4 synthesis and related
+      passes.
+    - Removed "nlutmap" pass.
+    - Removed "-retime", "-noabc9", "-abc2" and "-abc" options
+      from synthesis passes.
+    - Removed "-[no]stderr" from "logger" pass.
+
+ * Various
+    - verific: Added "-sv2023" flag option to support System
+      Verilog 2023.
 
 Yosys 0.67 .. Yosys 0.68
 --------------------------
-
  * New commands and options
     - Added "symfpu" and "symfpu_convert" passes.
     - Removed "-fast" option from "abc" pass.
@@ -1315,7 +1330,7 @@ Yosys 0.7 .. Yosys 0.8
     - Added "write_smt2 -stbv" and "write_smt2 -stdt"
     - Fix equiv_simple, old behavior now available with "equiv_simple -short"
     - Change to Yices2 as default SMT solver (it is GPL now)
-    - Added "yosys-smtbmc --presat" (now default in SymbiYosys)
+    - Added "yosys-smtbmc --presat" (now default in SBY)
     - Added "yosys-smtbmc --smtc-init --smtc-top --noinit"
     - Added a brand new "write_btor" command for BTOR2
     - Added clk2fflogic memory support and other improvements

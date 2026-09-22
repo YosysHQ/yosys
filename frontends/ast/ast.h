@@ -161,8 +161,7 @@ namespace AST
 		AST_TYPEDEF,
 		AST_STRUCT,
 		AST_UNION,
-		AST_STRUCT_ITEM,
-		AST_BIND
+		AST_STRUCT_ITEM
 	};
 
 	using AstSrcLocType = Location;
@@ -298,9 +297,6 @@ namespace AST
 		void dumpAst(FILE *f, std::string indent) const;
 		void dumpVlog(FILE *f, std::string indent) const;
 
-		// Generate RTLIL for a bind construct
-		std::vector<RTLIL::Binding *> genBindings() const;
-
 		// used by genRTLIL() for detecting expression width and sign
 		void detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *found_real = nullptr);
 		void detectSignWidth(int &width_hint, bool &sign_hint, bool *found_real = nullptr);
@@ -379,11 +375,11 @@ namespace AST
 		AstNode *get_struct_member() const;
 
 		// helper to print errors from simplify/genrtlil code
-		[[noreturn]] void formatted_input_error(std::string str) const;
+		[[noreturn]] void formatted_input_error(std::string_view format, std::string str) const;
 		template <typename... Args>
 		[[noreturn]] void input_error(FmtString<TypeIdentity<Args>...> fmt, const Args &... args) const
 		{
-			formatted_input_error(fmt.format(args...));
+			formatted_input_error(fmt.format_string(), fmt.format(args...));
 		}
 	};
 

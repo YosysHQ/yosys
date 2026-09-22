@@ -1,0 +1,20 @@
+# partial module selection leaves the other modules alone
+read_verilog <<EOT
+module m1(input [1:0] a, output y); assign y = &a; endmodule
+module m2(input [1:0] a, output y); assign y = |a; endmodule
+module top(input [3:0] a, output y);
+	wire [1:0] t;
+	m1 i1(.a(a[1:0]), .y(t[0]));
+	m2 i2(.a(a[3:2]), .y(t[1]));
+	assign y = ^t;
+endmodule
+EOT
+
+hierarchy -top top
+proc
+opt
+techmap
+abc_new -liberty openroad/cm_test_cells.lib m1
+select -assert-none m1/t:$_*_
+select -assert-count 1 m2/t:$_OR_
+select -assert-count 1 top/t:$_XOR_
