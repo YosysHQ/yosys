@@ -1,0 +1,19 @@
+read_verilog <<EOT
+(* blackbox *)
+module pad(inout B, output O);
+endmodule
+
+module top(input i, output o);
+  wire a, b;
+  assign a = i;
+  assign b = i;
+  pad p (.B(a), .O(o));
+endmodule
+EOT
+
+hierarchy -top top
+bufnorm -update
+bufnorm -reset
+clean
+check -assert
+select -assert-count 1 t:pad %x:+[B] w:i %i
