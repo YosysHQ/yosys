@@ -1,0 +1,21 @@
+read_verilog <<EOT
+module top(input i, output o);
+  wire t;
+  inpad u_in (.i(i), .o(t));
+  outpad u_out (.i(t), .o(o));
+endmodule
+
+module inpad(input i, output o);
+  IB ib (.I(i), .O(o));
+endmodule
+
+module outpad(input i, output o);
+  OB ob (.I(~i), .O(o));
+endmodule
+EOT
+
+synth_lattice -family ecp5 -top top
+hierarchy -check
+check -assert
+select -assert-count 2 t:TRELLIS_IO
+select -assert-count 1 t:TRELLIS_IO %x:+[B] w:i %i
