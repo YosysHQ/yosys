@@ -402,10 +402,8 @@ void RTLIL::Module::bufNormalize()
 			}
 		}
 
-		// If a wire has one or more inout drivers and an unconditional driver, that's still a conflict
 		for (auto driver : weakly_driven)
-			if (!driven.insert(driver).second)
-				conflicted.insert(driver);
+			driven.insert(driver);
 
 		// This only leaves the drivers matching `driven`'s definition above
 		for (auto driver : conflicted)
