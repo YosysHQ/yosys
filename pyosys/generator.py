@@ -224,6 +224,11 @@ pyosys_headers = [
 ]
 
 
+python_type_aliases = {
+    "LeafIdString": "IdString",
+}
+
+
 @dataclass(frozen=True)  # hashable
 class PyosysType:
     """
@@ -263,7 +268,7 @@ class PyosysType:
         return Self(base, specialization, const)
 
     def generate_identifier(self):
-        title = self.base.title()
+        title = python_type_aliases.get(self.base, self.base).title()
         if len(self.specialization) == 0:
             return title
 
