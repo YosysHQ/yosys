@@ -34,8 +34,7 @@ struct VerilogFmtArg {
 	} type;
 
 	// All types
-	std::string filename;
-	unsigned first_line;
+	LogSourceLocation src;
 
 	// STRING type
 	std::string str;

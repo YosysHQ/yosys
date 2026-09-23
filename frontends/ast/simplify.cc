@@ -149,8 +149,7 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 		while (node_arg->simplify(true, stage, -1, false)) { }
 
 		VerilogFmtArg arg = {};
-		arg.filename = *location.begin.filename;
-		arg.first_line = location.begin.line;
+		arg.src = location.to_loc();
 		if (node_arg->type == AST_CONSTANT && node_arg->is_string) {
 			arg.type = VerilogFmtArg::STRING;
 			arg.str = node_arg->bitsAsConst().decode_string();
@@ -167,10 +166,10 @@ Fmt AstNode::processFormat(int stage, bool sformat_like, int default_base, size_
 			arg.sig = node_arg->bitsAsConst();
 			arg.signed_ = node_arg->is_signed;
 		} else if (may_fail) {
-			log_file_info(*location.begin.filename, location.begin.line, "Skipping system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
+			log_file_info(arg.src, "Skipping system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
 			return Fmt();
 		} else {
-			log_file_error(*location.begin.filename, location.begin.line, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
+			log_file_error(arg.src, "Failed to evaluate system task `%s' with non-constant argument at position %zu.\n", str, index + 1);
 		}
 		args.push_back(arg);
 	}
@@ -1178,7 +1177,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	// note that $display, $finish, and $stop are used for synthesis-time DRC so they're not in this list
 	if ((type == AST_FCALL || type == AST_TCALL) && (str == "$strobe" || str == "$monitor" || str == "$time" ||
 			str == "$dumpfile" || str == "$dumpvars" || str == "$dumpon" || str == "$dumpoff" || str == "$dumpall")) {
-		log_file_warning(*location.begin.filename, location.begin.line, "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str);
+		log_file_warning(location.to_loc(), "Ignoring call to system %s %s.\n", type == AST_FCALL ? "function" : "task", str);
 		delete_children();
 		str = std::string();
 	}
@@ -1188,7 +1187,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		 str == "$write"   || str == "$writeb"   || str == "$writeh"   || str == "$writeo"))
 	{
 		if (!current_always) {
-			log_file_warning(*location.begin.filename, location.begin.line, "System task `%s' outside initial or always block is unsupported.\n", str);
+			log_file_warning(location.to_loc(), "System task `%s' outside initial or always block is unsupported.\n", str);
 			delete_children();
 			str = std::string();
 		} else {
@@ -2362,7 +2361,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			int width = std::abs(children[1]->range_left - children[1]->range_right) + 1;
 			if (children[0]->type == AST_REALVALUE) {
 				RTLIL::Const constvalue = children[0]->realAsConst(width);
-				log_file_warning(*location.begin.filename, location.begin.line, "converting real value %e to binary %s.\n",
+				log_file_warning(location.to_loc(), "converting real value %e to binary %s.\n",
 						children[0]->realvalue, log_signal(constvalue));
 				children[0] = mkconst_bits(location, constvalue.to_bits(), sign_hint);
 				fixup_hierarchy_flags();
