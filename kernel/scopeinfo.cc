@@ -101,7 +101,7 @@ bool scopeinfo_has_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs,
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
 	TwinePool &twines = scopeinfo->twines();
-	IdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
+	LeafIdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
 	return key != IdString::Null && scopeinfo->has_attribute(key);
 }
 
@@ -109,7 +109,7 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 {
 	log_assert(scopeinfo->type == ID($scopeinfo));
 	TwinePool &twines = scopeinfo->twines();
-	IdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
+	LeafIdString key = twines.find(attr_prefix(attrs) + twines.unescaped_str(id));
 	if (key == IdString::Null)
 		return RTLIL::Const();
 	auto found = scopeinfo->attributes.find(key);
@@ -118,9 +118,9 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 	return found->second;
 }
 
-dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs)
+dict<RTLIL::LeafIdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs)
 {
-	dict<RTLIL::IdString, RTLIL::Const> attributes;
+	dict<RTLIL::LeafIdString, RTLIL::Const> attributes;
 
 	const char *prefix = attr_prefix(attrs);
 	size_t prefix_len = strlen(prefix);

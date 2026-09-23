@@ -105,7 +105,7 @@ static bool is_free(RTLIL::IdString type)
 unsigned int max_inp_width(RTLIL::Cell *cell)
 {
 	unsigned int max = 0;
-	RTLIL::IdString input_width_params[] = {
+	RTLIL::LeafIdString input_width_params[] = {
 	  ID::WIDTH,
 	  ID::A_WIDTH,
 	  ID::B_WIDTH,
@@ -115,7 +115,7 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 	if (cell->type == ID($bmux))
 		return cell->getParam(ID::WIDTH).as_int() << cell->getParam(ID::S_WIDTH).as_int();
 
-	for (RTLIL::IdString param : input_width_params)
+	for (RTLIL::LeafIdString param : input_width_params)
 		if (cell->hasParam(param))
 			max = std::max(max, (unsigned int)cell->getParam(param).as_int());
 	return max;
@@ -124,7 +124,7 @@ unsigned int max_inp_width(RTLIL::Cell *cell)
 unsigned int port_width_sum(RTLIL::Cell *cell)
 {
 	unsigned int sum = 0;
-	RTLIL::IdString port_width_params[] = {
+	RTLIL::LeafIdString port_width_params[] = {
 	  ID::WIDTH, ID::A_WIDTH, ID::B_WIDTH, ID::S_WIDTH, ID::Y_WIDTH,
 	};
 

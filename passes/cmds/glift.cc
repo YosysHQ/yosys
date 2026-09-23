@@ -35,7 +35,7 @@ private:
 	RTLIL::Module *module = nullptr;
 
 	const IdString cost_model_wire_name = ID::__glift_weight;
-	const IdString glift_attribute_name = ID::glift;
+	const LeafIdString glift_attribute_name = ID::glift;
 
 
 	RTLIL::SigSpec get_corresponding_taint_signal(RTLIL::SigSpec sig) {

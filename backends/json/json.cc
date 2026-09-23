@@ -130,7 +130,7 @@ struct JsonWriter
 		}
 	}
 
-	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
+	void write_parameters(const dict<LeafIdString, Const> &parameters, bool for_module=false)
 	{
 		bool first = true;
 		for (auto &param : parameters) {

@@ -109,7 +109,7 @@ static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString na
 struct TechmapWorker
 {
 	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
-	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
+	dict<std::pair<IdString, dict<LeafIdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	dict<RTLIL::Module*, bool> techmap_do_cache;
 	pool<RTLIL::Module*> module_queue;
 	dict<Module*, SigMap> sigmaps;
@@ -532,7 +532,7 @@ struct TechmapWorker
 			{
 				IdString derived_name = tpl_name;
 				RTLIL::Module *tpl = map->module(derived_name);
-				dict<IdString, RTLIL::Const> parameters;
+				dict<LeafIdString, RTLIL::Const> parameters;
 				for (auto &p : cell->parameters)
 					parameters[map->twines.copy_from(design->twines, p.first)] = p.second;
 
@@ -662,7 +662,8 @@ struct TechmapWorker
 					RTLIL::Wire *tpl_port = map_port(tpl, design, conn.first);
 					if (tpl_port != nullptr && tpl_port->port_id > 0)
 						continue;
-					IdString conn_id = map->twines.copy_from(design->twines, conn.first);
+					// Constant ports are passed as the template parameter of the same name
+					LeafIdString conn_id = map->twines.flatten(map->twines.copy_from(design->twines, conn.first));
 					if (!conn.second.is_fully_const() || parameters.count(conn_id) > 0 || tpl->avail_parameters.count(conn_id) == 0)
 						goto next_tpl;
 					parameters[conn_id] = conn.second.as_const();
@@ -741,7 +742,7 @@ struct TechmapWorker
 			use_wrapper_tpl:;
 					// do not register techmap_wrap modules with techmap_cache
 				} else {
-					std::pair<IdString, dict<IdString, RTLIL::Const>> key(tpl_name, parameters);
+					std::pair<IdString, dict<LeafIdString, RTLIL::Const>> key(tpl_name, parameters);
 					auto it = techmap_cache.find(key);
 					if (it != techmap_cache.end()) {
 						tpl = it->second;

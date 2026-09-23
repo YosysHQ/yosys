@@ -175,7 +175,7 @@ struct ExampleDtPass : public Pass
 					} else if (chunk.is_marker()) {
 						Cell *cell = cells[chunk.marker().marker];
 
-						node.set_function(ExampleFn(cell->type, cell->parameters));
+						node.set_function(ExampleFn(cell->type, dict<IdString, Const>(cell->parameters.begin(), cell->parameters.end())));
 						for (auto const &conn : cell->connections()) {
 							if (!dm.celltypes.cell_input(cell->type, conn.first))
 								continue;

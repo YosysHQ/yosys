@@ -36,6 +36,8 @@ public:
 
 	IdString a_to_b(IdString ref) const { return search_b.find(pool_a->str(ref)); }
 	IdString b_to_a(IdString ref) const { return search_a.find(pool_b->str(ref)); }
+	LeafIdString a_to_b(LeafIdString ref) const { return pool_b->find_from(*pool_a, ref); }
+	LeafIdString b_to_a(LeafIdString ref) const { return pool_a->find_from(*pool_b, ref); }
 
 	bool same(IdString a, IdString b) const { return pool_a->str(a) == pool_b->str(b); }
 };
@@ -87,7 +89,7 @@ public:
 	std::string compare_attributes(const RTLIL::AttrObject *a, const RTLIL::AttrObject *b)
 	{
 		for (const auto &it : a->attributes) {
-			IdString in_b = bridge.a_to_b(it.first);
+			LeafIdString in_b = bridge.a_to_b(it.first);
 			if (b->attributes.count(in_b) == 0)
 				return "missing attribute " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->attributes.at(in_b))
@@ -162,7 +164,7 @@ public:
 			return mismatch;
 
 		for (const auto &it : a->parameters) {
-			IdString in_b = bridge.a_to_b(it.first);
+			LeafIdString in_b = bridge.a_to_b(it.first);
 			if (b->parameters.count(in_b) == 0)
 				return "parameter mismatch: missing parameter " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->parameters.at(in_b))

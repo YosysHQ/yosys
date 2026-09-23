@@ -279,7 +279,7 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (!obj)
 		ERROR("object not found")
 
-	IdString attr_twine = search.find(attr_id);
+	LeafIdString attr_twine = yosys_design->twines.find(attr_id);
 
 	if (string_flag) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->get_string_attribute(attr_twine).c_str(), -1));
@@ -347,7 +347,7 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (!obj)
 		ERROR("object not found")
 
-	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(search.find(attr_id))).c_str(), -1));
+	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(yosys_design->twines.find(attr_id))).c_str(), -1));
 	return TCL_OK;
 }
 
@@ -403,7 +403,7 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (!obj)
 		ERROR("object not found")
 
-	IdString attr_twine = yosys_design->twines.add(std::string(attr_id));
+	LeafIdString attr_twine = yosys_design->twines.add(std::string(attr_id));
 
 	if (string_flag) {
 		obj->set_string_attribute(attr_twine, Tcl_GetString(objv[i++]));
@@ -473,7 +473,7 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 	if (!cell)
 		ERROR("object not found")
 
-	IdString param_twine = search.find(param_id);
+	LeafIdString param_twine = yosys_design->twines.find(param_id);
 	if (!cell->hasParam(param_twine))
 		ERROR("parameter missing")
 
@@ -523,7 +523,7 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	if (!cell)
 		ERROR("object not found")
 
-	IdString param_twine = yosys_design->twines.add(std::string(param_id));
+	LeafIdString param_twine = yosys_design->twines.add(std::string(param_id));
 
 	if (string_flag) {
 		cell->setParam(param_twine, Const(std::string(Tcl_GetString(objv[i++]))));

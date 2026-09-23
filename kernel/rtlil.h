@@ -125,10 +125,11 @@ struct SigMap;
 
 namespace RTLIL { using YOSYS_NAMESPACE_PREFIX ID; }
 namespace RTLIL { using YOSYS_NAMESPACE_PREFIX IdString; }
+namespace RTLIL { using YOSYS_NAMESPACE_PREFIX LeafIdString; }
 
 namespace RTLIL {
-	void copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
-			const dict<IdString, RTLIL::Const> &src,
+	void copy_attr_dict(dict<LeafIdString, RTLIL::Const> &dst,
+			const dict<LeafIdString, RTLIL::Const> &src,
 			const RTLIL::Design *src_design, RTLIL::Design *dst_design);
 
 	extern dict<std::string, std::string> constpad;
@@ -636,24 +637,24 @@ public:
 
 struct RTLIL::AttrObject
 {
-	dict<RTLIL::IdString, RTLIL::Const> attributes;
+	dict<RTLIL::LeafIdString, RTLIL::Const> attributes;
 
-	bool has_attribute(RTLIL::IdString id) const;
+	bool has_attribute(RTLIL::LeafIdString id) const;
 
-	void set_bool_attribute(RTLIL::IdString id, bool value=true);
-	bool get_bool_attribute(RTLIL::IdString id) const;
+	void set_bool_attribute(RTLIL::LeafIdString id, bool value=true);
+	bool get_bool_attribute(RTLIL::LeafIdString id) const;
 
 	[[deprecated("Use Module::get_blackbox_attribute() instead.")]]
 	bool get_blackbox_attribute(bool ignore_wb=false) const {
 		return get_bool_attribute(ID::blackbox) || (!ignore_wb && get_bool_attribute(ID::whitebox));
 	}
 
-	void set_string_attribute(IdString id, string value);
-	string get_string_attribute(RTLIL::IdString id) const;
+	void set_string_attribute(RTLIL::LeafIdString id, string value);
+	string get_string_attribute(RTLIL::LeafIdString id) const;
 
-	void set_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
-	void add_strpool_attribute(RTLIL::IdString id, const pool<string> &data);
-	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
+	void set_strpool_attribute(RTLIL::LeafIdString id, const pool<string> &data);
+	void add_strpool_attribute(RTLIL::LeafIdString id, const pool<string> &data);
+	pool<string> get_strpool_attribute(RTLIL::LeafIdString id) const;
 
 	void set_src_attribute(const std::string &src) {
 		set_string_attribute(ID::src, src);
@@ -665,8 +666,8 @@ struct RTLIL::AttrObject
 	void set_hdlname_attribute(const vector<string> &hierarchy);
 	vector<string> get_hdlname_attribute() const;
 
-	void set_intvec_attribute(IdString id, const vector<int> &data);
-	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
+	void set_intvec_attribute(RTLIL::LeafIdString id, const vector<int> &data);
+	vector<int> get_intvec_attribute(RTLIL::LeafIdString id) const;
 };
 
 struct RTLIL::NamedObject : public RTLIL::AttrObject
@@ -1314,7 +1315,7 @@ struct RTLIL::Design
 		return twines.str(obj->name_);
 	}
 
-	void absorb_attrs(RTLIL::AttrObject *obj, dict<IdString, RTLIL::Const> &&buf);
+	void absorb_attrs(RTLIL::AttrObject *obj, dict<LeafIdString, RTLIL::Const> &&buf);
 
 	size_t gc_twines();
 
@@ -1503,15 +1504,15 @@ public:
 
 	std::vector<RTLIL::SigSig>   connections_;
 
-	idict<RTLIL::IdString> avail_parameters;
-	dict<RTLIL::IdString, RTLIL::Const> parameter_default_values;
+	idict<RTLIL::LeafIdString> avail_parameters;
+	dict<RTLIL::LeafIdString, RTLIL::Const> parameter_default_values;
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 
 	Module();
 	virtual ~Module();
-	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
-	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
+	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, bool mayfail = false);
+	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
 	virtual size_t count_id(RTLIL::IdString id);
 	virtual void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces);
 	virtual bool reprocess_if_necessary(RTLIL::Design *design);
@@ -2023,7 +2024,7 @@ public:
 	IdString type_impl;
 	YS_NO_UNIQUE_ADDRESS RTLIL::CellTypeMasq type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
-	dict<RTLIL::IdString, RTLIL::Const> parameters;
+	dict<RTLIL::LeafIdString, RTLIL::Const> parameters;
 
 	// access cell ports
 	bool hasPort(RTLIL::IdString portname) const;
@@ -2039,10 +2040,10 @@ public:
 	bool output(RTLIL::IdString portname) const;
 	PortDir port_dir(RTLIL::IdString portname) const;
 
-	bool hasParam(RTLIL::IdString paramname) const;
-	void unsetParam(RTLIL::IdString paramname);
-	void setParam(RTLIL::IdString paramname, RTLIL::Const value);
-	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
+	bool hasParam(RTLIL::LeafIdString paramname) const;
+	void unsetParam(RTLIL::LeafIdString paramname);
+	void setParam(RTLIL::LeafIdString paramname, RTLIL::Const value);
+	const RTLIL::Const &getParam(RTLIL::LeafIdString paramname) const;
 
 	template<typename N, YS_NAME_STRING(N)> bool hasParam(N name) const
 		{ return hasParam(module->twines().add(std::move(name))); }

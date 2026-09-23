@@ -97,7 +97,7 @@ struct rules_t
 			return portinfos;
 		}
 
-		void find_variant_params(TwinePool &twines, dict<IdString, Const> &variant_params, const bram_t &other) const
+		void find_variant_params(TwinePool &twines, dict<LeafIdString, Const> &variant_params, const bram_t &other) const
 		{
 			log_assert(name == other.name);
 
@@ -135,7 +135,7 @@ struct rules_t
 		dict<string, int> min_limits, max_limits;
 		bool or_next_if_better, make_transp, make_outreg;
 		char shuffle_enable;
-		vector<vector<std::tuple<bool,IdString,Const>>> attributes;
+		vector<vector<std::tuple<bool,LeafIdString,Const>>> attributes;
 	};
 
 	bool attr_icase;
@@ -352,7 +352,7 @@ struct rules_t
 					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
 					size_t c2 = tokens[idx].find("=");
 					bool exists = (c1 == 0);
-					IdString key = design->twines.add(RTLIL::escape_id(tokens[idx].substr(c1, c2)));
+					LeafIdString key = design->twines.add(RTLIL::escape_id(tokens[idx].substr(c1, c2)));
 					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
 
 					data.attributes.back().emplace_back(exists, key, map_case(val));
@@ -741,7 +741,7 @@ grow_read_ports:;
 			bool found = false;
 			for (const auto &term : sums) {
 				bool exists = std::get<0>(term);
-				IdString key = std::get<1>(term);
+				LeafIdString key = std::get<1>(term);
 				const Const &value = std::get<2>(term);
 				auto it = mem.attributes.find(key);
 				if (it == mem.attributes.end()) {
@@ -864,7 +864,7 @@ grow_read_ports:;
 
 	// prepare variant parameters
 
-	dict<IdString, Const> variant_params;
+	dict<LeafIdString, Const> variant_params;
 	for (auto &other_bram : rules.brams.at(bram.name))
 		bram.find_variant_params(module->twines(), variant_params, other_bram);
 
@@ -1119,7 +1119,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 				bool found = false;
 				for (const auto &term : sums) {
 					bool exists = std::get<0>(term);
-					IdString key = std::get<1>(term);
+					LeafIdString key = std::get<1>(term);
 					const Const &value = std::get<2>(term);
 					auto it = mem.attributes.find(key);
 					if (it == mem.attributes.end()) {

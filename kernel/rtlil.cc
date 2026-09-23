@@ -637,12 +637,12 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 }
 #undef check /* check(condition) for Const */
 
-bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
+bool RTLIL::AttrObject::has_attribute(RTLIL::LeafIdString id) const
 {
 	return attributes.count(id);
 }
 
-void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
+void RTLIL::AttrObject::set_bool_attribute(RTLIL::LeafIdString id, bool value)
 {
 	if (value)
 		attributes[id] = RTLIL::Const(1);
@@ -650,7 +650,7 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 		attributes.erase(id);
 }
 
-bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
+bool RTLIL::AttrObject::get_bool_attribute(RTLIL::LeafIdString id) const
 {
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
@@ -658,7 +658,7 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 	return it->second.as_bool();
 }
 
-void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
+void RTLIL::AttrObject::set_string_attribute(RTLIL::LeafIdString id, string value)
 {
 	if (value.empty())
 		attributes.erase(id);
@@ -666,7 +666,7 @@ void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 		attributes[id] = value;
 }
 
-string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
+string RTLIL::AttrObject::get_string_attribute(RTLIL::LeafIdString id) const
 {
 	std::string value;
 	const auto it = attributes.find(id);
@@ -675,7 +675,7 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
-void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+void RTLIL::AttrObject::set_strpool_attribute(RTLIL::LeafIdString id, const pool<string> &data)
 {
 	string attrval;
 	for (const auto &s : data) {
@@ -686,7 +686,7 @@ void RTLIL::AttrObject::set_strpool_attribute(RTLIL::IdString id, const pool<str
 	set_string_attribute(id, attrval);
 }
 
-void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<string> &data)
+void RTLIL::AttrObject::add_strpool_attribute(RTLIL::LeafIdString id, const pool<string> &data)
 {
 	pool<string> union_data = get_strpool_attribute(id);
 	union_data.insert(data.begin(), data.end());
@@ -694,7 +694,7 @@ void RTLIL::AttrObject::add_strpool_attribute(RTLIL::IdString id, const pool<str
 		set_strpool_attribute(id, union_data);
 }
 
-void RTLIL::Design::absorb_attrs(RTLIL::AttrObject *obj, dict<IdString, RTLIL::Const> &&buf)
+void RTLIL::Design::absorb_attrs(RTLIL::AttrObject *obj, dict<LeafIdString, RTLIL::Const> &&buf)
 {
 	obj->attributes = std::move(buf);
 }
@@ -817,7 +817,7 @@ size_t RTLIL::Design::gc_twines()
 
 
 
-pool<string> RTLIL::AttrObject::get_strpool_attribute(IdString id) const
+pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::LeafIdString id) const
 {
 	pool<string> data;
 	if (attributes.count(id) != 0)
@@ -842,7 +842,7 @@ vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
 	return split_tokens(get_string_attribute(ID::hdlname), " ");
 }
 
-void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<int> &data)
+void RTLIL::AttrObject::set_intvec_attribute(RTLIL::LeafIdString id, const vector<int> &data)
 {
 	std::stringstream attrval;
 	for (auto &i : data) {
@@ -853,7 +853,7 @@ void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<in
 	attributes[id] = RTLIL::Const(attrval.str());
 }
 
-vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::IdString id) const
+vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::LeafIdString id) const
 {
 	vector<int> data;
 	auto it = attributes.find(id);
@@ -1425,7 +1425,7 @@ bool RTLIL::Module::reprocess_if_necessary(RTLIL::Design *)
 	return false;
 }
 
-RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, bool mayfail)
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::LeafIdString, RTLIL::Const> &, bool mayfail)
 {
 	if (mayfail)
 		return IdString::Null;
@@ -1433,7 +1433,7 @@ RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString
 }
 
 
-RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::IdString, RTLIL::Const> &, const dict<RTLIL::IdString, RTLIL::Module*> &, const dict<RTLIL::IdString, RTLIL::IdString> &, bool mayfail)
+RTLIL::IdString RTLIL::Module::derive(RTLIL::Design*, const dict<RTLIL::LeafIdString, RTLIL::Const> &, const dict<RTLIL::IdString, RTLIL::Module*> &, const dict<RTLIL::IdString, RTLIL::IdString> &, bool mayfail)
 {
 	if (mayfail)
 		return IdString::Null;
@@ -1466,7 +1466,7 @@ namespace {
 	{
 		const RTLIL::Module *module;
 		RTLIL::Cell *cell;
-		pool<IdString> expected_params;
+		pool<LeafIdString> expected_params;
 		pool<IdString> expected_ports;
 
 		InternalCellChecker(const RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
@@ -1488,7 +1488,7 @@ namespace {
 			}
 		}
 
-		int param(RTLIL::IdString name)
+		int param(RTLIL::LeafIdString name)
 		{
 			auto it = cell->parameters.find(name);
 			if (it == cell->parameters.end()) {
@@ -1499,7 +1499,7 @@ namespace {
 			return it->second.as_int();
 		}
 
-		int param_bool(RTLIL::IdString name)
+		int param_bool(RTLIL::LeafIdString name)
 		{
 			int v = param(name);
 			if (GetSize(cell->parameters.at(name)) > 32)
@@ -1509,7 +1509,7 @@ namespace {
 			return v;
 		}
 
-		int param_bool(RTLIL::IdString name, bool expected)
+		int param_bool(RTLIL::LeafIdString name, bool expected)
 		{
 			int v = param_bool(name);
 			if (v != expected)
@@ -1517,14 +1517,14 @@ namespace {
 			return v;
 		}
 
-		void param_bits(RTLIL::IdString name, int width)
+		void param_bits(RTLIL::LeafIdString name, int width)
 		{
 			param(name);
 			if (GetSize(cell->parameters.at(name)) != width)
 				error(__LINE__);
 		}
 
-		std::string param_string(RTLIL::IdString name)
+		std::string param_string(RTLIL::LeafIdString name)
 		{
 			param(name);
 			return cell->parameters.at(name).decode_string();
@@ -2461,12 +2461,10 @@ void RTLIL::Module::sort()
 }
 
 #ifndef NDEBUG
-static void check_id_keys(const RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &keyed)
+static void check_id_keys(const dict<RTLIL::LeafIdString, RTLIL::Const> &keyed)
 {
-	for (auto &it : keyed) {
+	for (auto &it : keyed)
 		log_assert(!it.first.empty());
-		log_assert(design->twines[it.first].is_leaf());
-	}
 }
 #endif
 
@@ -2482,7 +2480,7 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 		log_assert(it.first != IdString::Null);
 		log_assert(it.second->width >= 0);
 		log_assert(it.second->size >= 0);
-		check_id_keys(module->design, it.second->attributes);
+		check_id_keys(it.second->attributes);
 		memory_strings.insert(it.second->name.str());
 	}
 
@@ -2499,8 +2497,8 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 				log_assert(it2.first != IdString::Null);
 				it2.second.check(const_module);
 			}
-			check_id_keys(const_module->design, it.second->attributes);
-			check_id_keys(const_module->design, it.second->parameters);
+			check_id_keys(it.second->attributes);
+			check_id_keys(it.second->parameters);
 			InternalCellChecker checker(const_module, it.second);
 			checker.check();
 			if (it.second->has_memid()) {
@@ -2533,7 +2531,7 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 			log_assert(it.first != IdString::Null);
 			log_assert(it.second->width >= 0);
 			log_assert(it.second->port_id >= 0);
-			check_id_keys(const_module->design, it.second->attributes);
+			check_id_keys(it.second->attributes);
 			if (it.second->port_id) {
 				log_assert(GetSize(const_module->ports) >= it.second->port_id);
 				log_assert(const_module->ports.at(it.second->port_id-1) == it.second->name);
@@ -2591,7 +2589,7 @@ void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool
 		it.second.check(module);
 	}
 
-	check_id_keys(module->design, module->attributes);
+	check_id_keys(module->attributes);
 #endif
 }
 
@@ -2614,7 +2612,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	TwinePool &dst_twines = new_mod->twines();
 
 	new_mod->avail_parameters.clear();
-	for (IdString param : avail_parameters)
+	for (LeafIdString param : avail_parameters)
 		new_mod->avail_parameters(dst_twines.copy_from(design->twines, param));
 	new_mod->parameter_default_values.clear();
 	for (auto &it : parameter_default_values)
@@ -3072,8 +3070,8 @@ void RTLIL::Module::fixup_ports()
 	}
 }
 
-void RTLIL::copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
-		const dict<IdString, RTLIL::Const> &src,
+void RTLIL::copy_attr_dict(dict<LeafIdString, RTLIL::Const> &dst,
+		const dict<LeafIdString, RTLIL::Const> &src,
 		const RTLIL::Design *src_design, RTLIL::Design *dst_design)
 {
 	if (!src_design || !dst_design || src_design == dst_design) {
@@ -4378,22 +4376,22 @@ RTLIL::PortDir RTLIL::Cell::port_dir(RTLIL::IdString portname) const
 	return PortDir::PD_UNKNOWN;
 }
 
-bool RTLIL::Cell::hasParam(RTLIL::IdString paramname) const
+bool RTLIL::Cell::hasParam(RTLIL::LeafIdString paramname) const
 {
 	return parameters.count(paramname) != 0;
 }
 
-void RTLIL::Cell::unsetParam(RTLIL::IdString paramname)
+void RTLIL::Cell::unsetParam(RTLIL::LeafIdString paramname)
 {
 	parameters.erase(paramname);
 }
 
-void RTLIL::Cell::setParam(RTLIL::IdString paramname, RTLIL::Const value)
+void RTLIL::Cell::setParam(RTLIL::LeafIdString paramname, RTLIL::Const value)
 {
 	parameters[paramname] = std::move(value);
 }
 
-const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::IdString paramname) const
+const RTLIL::Const &RTLIL::Cell::getParam(RTLIL::LeafIdString paramname) const
 {
 	const auto &it = parameters.find(paramname);
 	if (it != parameters.end())

@@ -59,7 +59,7 @@ struct DffinitPass : public Pass {
 	{
 		log_header(design, "Executing DFFINIT pass (set INIT param on FF cells).\n");
 
-		dict<IdString, dict<IdString, IdString>> ff_types;
+		dict<IdString, dict<IdString, LeafIdString>> ff_types;
 		bool highlow_mode = false, noreinit = false;
 		std::string high_string, low_string;
 
@@ -81,7 +81,7 @@ struct DffinitPass : public Pass {
 				TwineSearch search(&design->twines);
 				IdString cell_name = search.find(RTLIL::escape_id(args[++argidx]));
 				IdString output_port = search.find(RTLIL::escape_id(args[++argidx]));
-				IdString init_param = search.find(RTLIL::escape_id(args[++argidx]));
+				LeafIdString init_param = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				ff_types[cell_name][output_port] = init_param;
 				continue;
 			}

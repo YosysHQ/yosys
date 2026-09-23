@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct LUTPin {
     int input_bit;
-    IdString init_param;
+    LeafIdString init_param;
 };
 
 struct LUTType {
