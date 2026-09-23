@@ -1,0 +1,22 @@
+# Equivalence
+read_verilog << EOF
+module gold(input a, input b, output c);
+    assign c = a + b;
+endmodule
+
+module gate_header (
+    .a(x),
+    .b(y),
+    .c(z)
+);
+    input x;
+    input y;
+    output z;
+
+    assign z = x + y;
+endmodule
+EOF
+
+equiv_make gold gate_header equiv_header
+equiv_simple
+equiv_status -assert
