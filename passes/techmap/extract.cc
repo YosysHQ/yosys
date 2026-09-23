@@ -34,13 +34,13 @@ class SubCircuitSolver : public SubCircuit::Solver
 public:
 	bool ignore_parameters;
 	std::set<std::pair<RTLIL::IdString, RTLIL::IdString>> ignored_parameters;
-	std::set<RTLIL::IdString> cell_attr, wire_attr;
+	std::set<RTLIL::LeafIdString> cell_attr, wire_attr;
 
 	SubCircuitSolver() : ignore_parameters(false)
 	{
 	}
 
-	bool compareAttributes(const std::set<RTLIL::IdString> &attr, const dict<RTLIL::IdString, RTLIL::Const> &needleAttr, const dict<RTLIL::IdString, RTLIL::Const> &haystackAttr)
+	bool compareAttributes(const std::set<RTLIL::LeafIdString> &attr, const dict<RTLIL::LeafIdString, RTLIL::Const> &needleAttr, const dict<RTLIL::LeafIdString, RTLIL::Const> &haystackAttr)
 	{
 		for (auto &it : attr) {
 			size_t nc = needleAttr.count(it), hc = haystackAttr.count(it);
@@ -124,7 +124,7 @@ public:
 		{
 			RTLIL::Wire *lastNeedleWire = nullptr;
 			RTLIL::Wire *lastHaystackWire = nullptr;
-			dict<RTLIL::IdString, RTLIL::Const> emptyAttr;
+			dict<RTLIL::LeafIdString, RTLIL::Const> emptyAttr;
 
 			for (auto &conn : needleCell->connections())
 			{

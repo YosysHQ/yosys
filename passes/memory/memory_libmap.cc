@@ -487,7 +487,7 @@ void MemMapping::dump_config(MemConfig &cfg) {
 	}
 }
 
-std::pair<bool, Const> search_for_attribute(Mem mem, IdString attr) {
+std::pair<bool, Const> search_for_attribute(Mem mem, LeafIdString attr) {
 	// priority of attributes:
 	// 1. attributes on memory itself
 	// 2. attributes on a read or write port

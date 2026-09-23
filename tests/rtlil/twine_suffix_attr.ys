@@ -1,0 +1,12 @@
+# Attribute names are leaf twines, Yosys never writes them as suffix twines
+logger -expect error "Expected leaf twine for attribute or parameter name, got suffix twine `\\keep'" 1
+read_rtlil <<EOT
+twines
+  leaf 100000 "kee"
+  suffix 100001 100000 "p"
+end
+module \top
+  attribute $pub@100001 1
+  wire \w
+end
+EOT

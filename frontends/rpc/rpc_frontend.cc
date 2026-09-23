@@ -115,7 +115,7 @@ struct RpcServer {
 		return modules;
 	}
 
-	std::pair<std::string, std::string> derive_module(const RTLIL::Design *design, const std::string &module, const dict<IdString, RTLIL::Const> &parameters) {
+	std::pair<std::string, std::string> derive_module(const RTLIL::Design *design, const std::string &module, const dict<LeafIdString, RTLIL::Const> &parameters) {
 		Json::object json_parameters;
 		for (auto &param : parameters) {
 			std::string type, value;
@@ -157,7 +157,7 @@ struct RpcServer {
 struct RpcModule : RTLIL::Module {
 	std::shared_ptr<RpcServer> server;
 
-	RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/) override {
+	RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, bool /*mayfail*/) override {
 		std::string stripped_name = name.str();
 		if (stripped_name.compare(0, 9, "$abstract") == 0)
 			stripped_name = stripped_name.substr(9);

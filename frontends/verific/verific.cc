@@ -441,7 +441,7 @@ static const std::string verific_unescape(const char *value)
 }
 #endif
 
-void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl, int wire_width_hint)
+void VerificImporter::import_attributes(dict<RTLIL::LeafIdString, RTLIL::Const> &attributes, DesignObj *obj, Netlist *nl, int wire_width_hint)
 {
 	if (!obj)
 		return;
@@ -1586,7 +1586,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	const char *param_value ;
 	MapIter mi;
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
-		IdString param_id = design->twines.add(RTLIL::escape_id(param_name));
+		LeafIdString param_id = design->twines.add(RTLIL::escape_id(param_name));
 		module->avail_parameters(param_id);
 		const TypeRange *tr = nl->GetTypeRange(param_name) ;
 		const char* type_name = (tr) ? tr->GetTypeName() : nullptr;

@@ -906,7 +906,7 @@ struct CxxrtlWorker {
 				params += ", ";
 			first = false;
 			params += "/*" + param_name + "=*/";
-			IdString id_param_name = cell->twines().find('\\' + param_name);
+			LeafIdString id_param_name = cell->twines().find('\\' + param_name);
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
 				              cell->module, cell, param_name.c_str(), cell_module);
@@ -2285,7 +2285,7 @@ struct CxxrtlWorker {
 		dec_indent();
 	}
 
-	void dump_serialized_metadata(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+	void dump_serialized_metadata(const dict<RTLIL::LeafIdString, RTLIL::Const> &metadata_map) {
 		// Creating thousands metadata_map objects using initializer lists in a single function results in one of:
 		// 1. Megabytes of stack usage (with __attribute__((optnone))).
 		// 2. Minutes of compile time (without __attribute__((optnone))).
@@ -2328,7 +2328,7 @@ struct CxxrtlWorker {
 		f << escape_c_string(data);
 	}
 
-	void dump_metadata_map(const dict<RTLIL::IdString, RTLIL::Const> &metadata_map) {
+	void dump_metadata_map(const dict<RTLIL::LeafIdString, RTLIL::Const> &metadata_map) {
 		if (metadata_map.empty()) {
 			f << "metadata_map()";
 		} else {
@@ -2361,7 +2361,7 @@ struct CxxrtlWorker {
 
 	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
-		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
+		dict<RTLIL::LeafIdString, RTLIL::Const> attributes = object->attributes;
 		// Inherently necessary to get access to the object, so a waste of space to emit.
 		attributes.erase(ID::hdlname);
 		// Internal Yosys attribute that should be removed but isn't.

@@ -550,7 +550,7 @@ struct VerilogFrontend : public Frontend {
 		for (auto &child : parse_state.current_ast->children) {
 			if (child->type == AST::AST_MODULE)
 				for (auto &attr : attributes) {
-					IdString attr_id = AST::intern_attr_name(attr);
+					LeafIdString attr_id = AST::intern_attr_name(attr);
 					if (child->attributes.count(attr_id) == 0)
 						child->attributes[attr_id] = AST::AstNode::mkconst_int(top_loc, 1, false);
 				}

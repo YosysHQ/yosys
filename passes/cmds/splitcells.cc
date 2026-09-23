@@ -178,7 +178,7 @@ struct SplitcellsWorker
 					}
 				}
 
-				for (IdString paramname : splitparams) {
+				for (LeafIdString paramname : splitparams) {
 					if (slice->hasParam(paramname)) {
 						Const val = slice->getParam(paramname);
 						val = val.extract(slice_lsb, slice_msb-slice_lsb+1);
