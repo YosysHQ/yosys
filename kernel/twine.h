@@ -155,6 +155,30 @@ private:
 constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
 
+/**
+ * LeafIdString is an IdString that is statically known to be a leaf twine
+ * (or Null). Handles only compare equal when they're structurally equal,
+ * so a key that's looked up with static ids or strings interned with
+ * TwinePool::add(std::string), like attribute and parameter keys,
+ * has to be a leaf: a suffix twine spelling the same name wouldn't be found.
+ *
+ * Static ids are leaves. Otherwise, only the TwinePool methods that
+ * intern leaves construct one, so where a suffix would sneak in,
+ * the conversion has to be spelled out with TwinePool::flatten.
+ */
+struct LeafIdString : IdString {
+	constexpr LeafIdString() = default;
+	constexpr LeafIdString(NullIdString) {}
+
+	constexpr LeafIdString untag() const { return LeafIdString(IdString::untag()); }
+	constexpr LeafIdString tag(bool pub) const { return LeafIdString(IdString::tag(pub)); }
+
+private:
+	explicit constexpr LeafIdString(IdString ref) : IdString(ref) {}
+	friend struct ID;
+	friend struct TwinePool;
+};
+
 namespace hashlib {
 	template<>
 	struct hash_ops<IdString> {
@@ -169,6 +193,8 @@ namespace hashlib {
 			return h;
 		}
 	};
+	template<>
+	struct hash_ops<LeafIdString> : hash_ops<IdString> {};
 }
 
 inline bool IdString::in_one(const pool<IdString> &rhs) const { return rhs.count(*this) != 0; }
@@ -186,7 +212,7 @@ enum : short {
 struct ID {
 // Static ids are name handles: non-'$' constids were '\'-escaped publics,
 // so their handles carry the publicity bit baked in at compile time.
-#define X(N) static constexpr IdString N = IdString(IDX_##N).tag((#N)[0] != '$');
+#define X(N) static constexpr LeafIdString N = LeafIdString(IdString(IDX_##N)).tag((#N)[0] != '$');
 #include "kernel/constids.inc"
 #undef X
 
@@ -196,7 +222,7 @@ struct ID {
 #undef X
 	};
 
-	static constexpr IdString lookup(std::string_view name)
+	static constexpr LeafIdString lookup(std::string_view name)
 	{
 		int low = 0, high = STATIC_TWINE_END;
 		while (high - low >= 2) {
@@ -210,11 +236,18 @@ struct ID {
 		if (name != static_names[low])
 			throw "unknown twine id";
 
-		return IdString(low).tag(name[0] != '$');
+		return LeafIdString(IdString(low)).tag(name[0] != '$');
 	}
 
 	static constexpr bool is_static(IdString ref) {
 		return ref.untag().raw() < STATIC_TWINE_END;
+	}
+
+	// All static twines are leaves
+	static constexpr LeafIdString static_leaf(size_t raw) {
+		if (!is_static(IdString(raw)))
+			throw "not a static twine id";
+		return LeafIdString(IdString(raw));
 	}
 
 	// Static IdString can be constructed without a design pointer
@@ -222,7 +255,7 @@ struct ID {
 	static std::string unescaped_str(IdString ref);
 };
 
-template<size_t Raw> inline constexpr IdString constid = IdString(Raw);
+template<size_t Raw> inline constexpr LeafIdString constid = ID::static_leaf(Raw);
 
 #define ID(id) (YOSYS_NAMESPACE_PREFIX constid<YOSYS_NAMESPACE_PREFIX ID::lookup(#id).raw()>)
 
@@ -362,6 +395,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	size_t serial() const;
 	bool owns(IdString ref) const;
 	IdString stamp(IdString ref) const;
+	LeafIdString stamp(LeafIdString ref) const;
 	void check_owned(IdString ref) const;
 	const TwineNode& operator[](IdString ref) const;
 
@@ -404,17 +438,20 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	IdString prefix_of(IdString ref) const;
 
 	// Only finds leaves. For compatibility only
-	IdString find(const std::string &name) const;
+	LeafIdString find(const std::string &name) const;
 	IdString find(TwineSpec t) const;
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
 	IdString auto_prefix(const std::string *prefix);
 	// Infers publicity from first character
-	IdString add(std::string s);
+	LeafIdString add(std::string s);
+	LeafIdString flatten(IdString ref);
 	IdString copy_from(const TwinePool& src, IdString ref);
+	LeafIdString copy_from(const TwinePool& src, LeafIdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
+	LeafIdString find_from(const TwinePool& src, LeafIdString ref) const;
 	// Opaque handle for files that never leave one run of yosys.
 	// Only valid until garbage collection reuses the slot.
 	std::string ref_token(IdString ref) const;

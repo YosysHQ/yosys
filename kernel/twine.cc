@@ -176,6 +176,10 @@ IdString TwinePool::stamp(IdString ref) const {
 	return ref.stamped(serial_);
 }
 
+LeafIdString TwinePool::stamp(LeafIdString ref) const {
+	return LeafIdString(stamp(IdString(ref)));
+}
+
 void TwinePool::check_owned(IdString ref) const {
 	if constexpr (IdString::MAX_SERIAL != 0)
 		log_assert(owns(ref));
@@ -295,12 +299,12 @@ IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
 	return add_inner(TwineNode{prefix, text});
 }
 
-IdString TwinePool::find(const std::string &name) const {
+LeafIdString TwinePool::find(const std::string &name) const {
 	bool is_public = !name.empty() && name[0] == '\\';
 	std::string_view content = name;
 	if (is_public)
 		content.remove_prefix(1);
-	return stamp(find_content(TwineNode::NO_PREFIX, content).tag(is_public));
+	return stamp(LeafIdString(find_content(TwineNode::NO_PREFIX, content)).tag(is_public));
 }
 
 IdString TwinePool::find(TwineSpec t) const {
@@ -340,11 +344,17 @@ IdString TwinePool::add(IdString prefix, std::string_view tail) {
 	return stamp(intern((uint32_t)prefix.untag().raw(), tail).tag(prefix.isPublic()));
 }
 
-IdString TwinePool::add(std::string s) {
+LeafIdString TwinePool::add(std::string s) {
 	if (s.empty())
 		return IdString::Null;
 	auto [content, is_public] = twine_unescape(std::move(s));
-	return stamp(intern(TwineNode::NO_PREFIX, content).tag(is_public));
+	return stamp(LeafIdString(intern(TwineNode::NO_PREFIX, content)).tag(is_public));
+}
+
+LeafIdString TwinePool::flatten(IdString ref) {
+	if (ref == IdString::Null || ID::is_static(ref) || (*this)[ref].is_leaf())
+		return LeafIdString(stamp(ref));
+	return stamp(LeafIdString(intern(TwineNode::NO_PREFIX, unescaped_str(ref))).tag(ref.isPublic()));
 }
 
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
@@ -369,6 +379,11 @@ IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
 	return IdString::Null;
 }
 
+// Copying preserves structure, so leaves stay leaves
+LeafIdString TwinePool::copy_from(const TwinePool& src, LeafIdString ref) {
+	return LeafIdString(copy_from(src, IdString(ref)));
+}
+
 IdString TwinePool::find_from(const TwinePool& src, IdString ref) const {
 	if (ref == IdString::Null)
 		return ref;
@@ -391,6 +406,10 @@ IdString TwinePool::find_from(const TwinePool& src, IdString ref) const {
 		break;
 	}
 	return IdString::Null;
+}
+
+LeafIdString TwinePool::find_from(const TwinePool& src, LeafIdString ref) const {
+	return LeafIdString(find_from(src, IdString(ref)));
 }
 
 std::string TwinePool::ref_token(IdString ref) const {
