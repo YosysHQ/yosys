@@ -124,7 +124,7 @@ struct Ice40WrapCarryPass : public Pass {
 					carry->setPort(ID::CO, cell->getPort(ID::CO));
 					module->swap_names(carry, cell);
 					TwinePool &twines = module->twines();
-					IdString lut_name_attr = twines.add(std::string("\\SB_LUT4.name"));
+					LeafIdString lut_name_attr = twines.add(std::string("\\SB_LUT4.name"));
 					auto lut_name = cell->attributes.find(lut_name_attr);
 					auto lut = lut_name != cell->attributes.end()
 						? module->addCell(lut_name->second.decode_string(), ID($lut))

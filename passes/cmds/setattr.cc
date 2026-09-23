@@ -46,11 +46,11 @@ struct setunset_t
 	}
 };
 
-static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
+static void do_setunset(RTLIL::Design *design, dict<LeafIdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
 		if (item.unset) {
-			IdString name = design->twines.find(item.name);
+			LeafIdString name = design->twines.find(item.name);
 			if (name != IdString::Null)
 				attrs.erase(name);
 		} else
@@ -216,7 +216,7 @@ struct ChparamPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		std::vector<setunset_t> setunset_list;
-		dict<RTLIL::IdString, RTLIL::Const> new_parameters;
+		dict<RTLIL::LeafIdString, RTLIL::Const> new_parameters;
 		bool list_mode = false;
 
 		size_t argidx;

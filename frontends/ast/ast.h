@@ -37,7 +37,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace AST
 {
 	TwinePool &ast_name_pool();
-	inline IdString intern_attr_name(const std::string &name) { return ast_name_pool().add(std::string(name)); }
+	inline LeafIdString intern_attr_name(const std::string &name) { return ast_name_pool().add(std::string(name)); }
 	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
 
 	// all node types, type2str() must be extended
@@ -187,8 +187,8 @@ namespace AST
 		std::vector<std::unique_ptr<AstNode>> children;
 
 		// The list of attributes assigned to this node. Keys are IdStrings
-		std::map<IdString, std::unique_ptr<AstNode>> attributes;
-		bool get_bool_attribute(IdString id);
+		std::map<LeafIdString, std::unique_ptr<AstNode>> attributes;
+		bool get_bool_attribute(LeafIdString id);
 		bool get_bool_attribute(const std::string &id) { return get_bool_attribute(intern_attr_name(id)); }
 
 		// node content - most of it is unused in most node types
@@ -357,7 +357,7 @@ namespace AST
 		// to evaluate widths of dynamic ranges)
 		std::unique_ptr<AstNode> clone_at_zero();
 
-		void set_attribute(RTLIL::IdString key, std::unique_ptr<AstNode> node)
+		void set_attribute(RTLIL::LeafIdString key, std::unique_ptr<AstNode> node)
 		{
 			node->set_in_param_flag(true);
 			attributes[key] = std::move(node);
@@ -401,9 +401,9 @@ namespace AST
 	struct AstModule : RTLIL::Module {
 		std::unique_ptr<AstNode> ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, pwires, autowire;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;
-		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
-		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, std::unique_ptr<AstNode>* new_ast_out, bool quiet = false);
+		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, bool mayfail) override;
+		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail) override;
+		std::string derive_common(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, std::unique_ptr<AstNode>* new_ast_out, bool quiet = false);
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;

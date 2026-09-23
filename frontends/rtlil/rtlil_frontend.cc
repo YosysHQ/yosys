@@ -46,7 +46,7 @@ struct RTLILFrontendWorker {
 	std::string_view line;
 
 	RTLIL::Module *current_module;
-	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
+	dict<RTLIL::LeafIdString, RTLIL::Const> attrbuf;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
@@ -516,7 +516,7 @@ struct RTLILFrontendWorker {
 
 	void parse_attribute()
 	{
-		IdString id = parse_twine();
+		LeafIdString id = parse_leaf_twine();
 		RTLIL::Const c = parse_const();
 		attrbuf.insert({std::move(id), std::move(c)});
 		expect_eol();
@@ -604,6 +604,16 @@ struct RTLILFrontendWorker {
 		return *t;
 	}
 
+	// Attribute and parameter names are leaves, Yosys never writes them as suffix twines
+	LeafIdString parse_leaf_twine()
+	{
+		IdString ref = parse_twine();
+		if (!design->twines[ref].is_leaf())
+			error("Expected leaf twine for attribute or parameter name, got suffix twine `%s'.",
+					design->twines.str(ref));
+		return design->twines.flatten(ref);
+	}
+
 	void parse_twines()
 	{
 		expect_eol();
@@ -654,7 +664,7 @@ struct RTLILFrontendWorker {
 
 	void parse_parameter()
 	{
-		IdString id = parse_twine();
+		LeafIdString id = parse_leaf_twine();
 		current_module->avail_parameters(id);
 		if (try_parse_eol())
 			return;
@@ -790,7 +800,7 @@ struct RTLILFrontendWorker {
 
 	void legalize_width_parameter(RTLIL::Cell *cell, RTLIL::IdString port_name)
 	{
-		IdString width_param = design->twines.find(design->twines.str(port_name) + "_WIDTH");
+		LeafIdString width_param = design->twines.find(design->twines.str(port_name) + "_WIDTH");
 		if (width_param == IdString::Null || cell->parameters.count(width_param) == 0)
 			return;
 		RTLIL::Const &param = cell->parameters.at(width_param);
@@ -835,7 +845,7 @@ struct RTLILFrontendWorker {
 				} else if (try_parse_keyword("unsized")) {
 					is_unsized = true;
 				}
-				IdString param_name = parse_twine();
+				LeafIdString param_name = parse_leaf_twine();
 				RTLIL::Const val = parse_const();
 				if (is_signed)
 					val.flags |= RTLIL::CONST_FLAG_SIGNED;

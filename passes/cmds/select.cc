@@ -105,7 +105,7 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	log_abort();
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
+static bool match_attr(const TwinePool &pool, const dict<LeafIdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
@@ -117,18 +117,18 @@ static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const>
 		}
 	} else {
 		if (name_pat.size() > 0 && (name_pat[0] == '\\' || name_pat[0] == '$')) {
-			IdString key = pool.find(name_pat);
+			LeafIdString key = pool.find(name_pat);
 			if (key != IdString::Null && attributes.count(key) && match_attr_val(attributes.at(key), value_pat, match_op))
 				return true;
 		}
-		IdString key = pool.find("\\" + name_pat);
+		LeafIdString key = pool.find("\\" + name_pat);
 		if (key != IdString::Null && attributes.count(key) && match_attr_val(attributes.at(key), value_pat, match_op))
 			return true;
 	}
 	return false;
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &match_expr)
+static bool match_attr(const TwinePool &pool, const dict<LeafIdString, RTLIL::Const> &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 

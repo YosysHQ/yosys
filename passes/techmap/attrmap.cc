@@ -118,9 +118,9 @@ struct AttrmapRemove : AttrmapAction {
 	}
 };
 
-void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr<AttrmapAction>> &actions, dict<IdString, RTLIL::Const> &attributes)
+void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr<AttrmapAction>> &actions, dict<LeafIdString, RTLIL::Const> &attributes)
 {
-	dict<RTLIL::IdString, RTLIL::Const> new_attributes;
+	dict<RTLIL::LeafIdString, RTLIL::Const> new_attributes;
 
 	for (auto attr : attributes)
 	{
