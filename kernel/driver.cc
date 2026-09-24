@@ -169,7 +169,7 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 		next_print_log = false;
 	}
 
-	if (next_print_log && !msg.src.filename.empty())
+	if (!msg.src.filename.empty())
 		fmt::print(f, fg(fmt::terminal_color::bright_cyan), "{}:{}: ", msg.src.filename, msg.src.start_line);
 
 	switch (msg.severity) {
@@ -189,6 +189,10 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 			fmt::print(f, fg(fmt::terminal_color::white) | fmt::emphasis::bold, "{}", msg.message);
 			break;
 
+		case LogSeverity::Highlight:
+			fmt::print(f, fg(fmt::terminal_color::cyan) | fmt::emphasis::bold, "{}{}", msg.prefix, msg.message);
+			break;
+
 		case LogSeverity::Comment:
 		case LogSeverity::Debug:
 			fmt::print(f, fg(fmt::terminal_color::bright_black), "{}{}", msg.prefix, msg.message);
@@ -196,7 +200,9 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 
 		case LogSeverity::Info:
 		default:
-			fmt::print(f, "{}{}", msg.prefix, msg.message);
+			if (!msg.prefix.empty())
+				fmt::print(f, fg(fmt::terminal_color::bright_black), "{}", msg.prefix);
+			fmt::print(f, "{}", msg.message);
 			break;
 	}
 	if (!msg.message.empty())

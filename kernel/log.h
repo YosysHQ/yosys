@@ -90,6 +90,7 @@ enum class LogSeverity {
 	Debug,
 	Comment,
 	Info,
+	Highlight,
 	Header,
 	Warning,
 	NonFatalError,
@@ -493,6 +494,12 @@ inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... ar
 }
 
 template <typename... Args>
+inline void log_highlight(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	logger().formatted_string(LogSeverity::Highlight, LogSourceLocation{}, {}, fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
 inline void log_formatted_string(LogSeverity severity, LogSourceLocation src, std::string_view prefix,
 		FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
@@ -539,7 +546,7 @@ void log_file_warning(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fm
 template <typename... Args>
 void log_file_info(LogSourceLocation src, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
-	logger().formatted_string(LogSeverity::Info, src, "Info: ", fmt.format_string(), fmt.format(args...));
+	logger().formatted_string(LogSeverity::Info, src, "NOTE: ", fmt.format_string(), fmt.format(args...));
 }
 
 template <typename... Args>
