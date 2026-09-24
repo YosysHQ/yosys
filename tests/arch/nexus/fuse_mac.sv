@@ -74,3 +74,19 @@ module neg_dot_mixed (input clk, input [8:0] a0,b0,a1,b1, input [17:0] a2, b2, o
 	end
 	assign p = p_r;
 endmodule
+
+// The pre-adder result is also an output
+module preadd_fanout (input [5:0] a, b, d, output [15:0] p, output [6:0] q);
+	assign q = a + d;
+	assign p = q * b;
+endmodule
+
+// The input register is also an output
+module mul_reg_fanout (input clk, input [5:0] a, b, output reg [11:0] y, output [5:0] q);
+	reg [5:0] a_r, b_r;
+	always @(posedge clk) begin
+		a_r <= a; b_r <= b;
+		y <= a_r * b_r;
+	end
+	assign q = a_r;
+endmodule

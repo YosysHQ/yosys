@@ -33,3 +33,14 @@ hierarchy -top neg_dot_mixed;
 synth_nexus -family lifcl -top neg_dot_mixed
 select -assert-count 0 t:MULTADDSUB9X9WIDE
 select -assert-count 2 t:MULTADDSUB18X18
+
+# Cells read elsewhere must not be removed
+design -load pristine
+hierarchy -top preadd_fanout;
+proc
+equiv_opt -assert -map +/lattice/cells_sim_nexus.v synth_nexus -family lifcl -top preadd_fanout -run begin:map_ram
+
+design -load pristine
+hierarchy -top mul_reg_fanout;
+proc
+equiv_opt -assert -map +/lattice/cells_sim_nexus.v synth_nexus -family lifcl -top mul_reg_fanout -run begin:map_ram

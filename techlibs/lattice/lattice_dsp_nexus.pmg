@@ -64,6 +64,7 @@ pattern nexus_preadd18
 match preadd
 	select preadd->type.in($add, $sub)
 	select GetSize(port(preadd, \Y)) <= 19
+	select nusers(port(preadd, \Y)) == 2
 endmatch
 
 match mul
@@ -76,6 +77,7 @@ endmatch
 match pipe_ff
 	select pipe_ff->type.in($dff, $dffe, $sdff, $sdffe)
 	index <SigBit> port(pipe_ff, \D)[0] === port(mul, \Y)[0]
+	filter nusers(port(mul, \Y)) == 2
 	optional
 endmatch
 
@@ -385,6 +387,7 @@ match ff
 	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
 	filter GetSize(port(ff, \Q)) == GetSize(argQ)
 	index <SigSpec> port(ff, \Q) === argQ
+	filter nusers(port(ff, \Q)) == 2
 endmatch
 
 code
@@ -422,6 +425,7 @@ match ff
 	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
 	filter GetSize(port(ff, \D)) == GetSize(argD)
 	index <SigSpec> port(ff, \D) === argD
+	filter nusers(port(ff, \D)) == 2
 endmatch
 
 code
