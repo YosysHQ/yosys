@@ -55,8 +55,8 @@ module dot4 (
 	assign p = p_r;
 endmodule
 
-// Oversized 24x24 MAC
-module neg_mac24 (input clk, clear, input [23:0] a, b, output [47:0] p);
+// 24x24 MAC
+module mac24 (input clk, clear, input [23:0] a, b, output [47:0] p);
 	reg [23:0] a_r, b_r; reg [47:0] p_r; reg clear_r;
 	always_ff @(posedge clk) begin
 		a_r <= a; b_r <= b; clear_r <= clear;
@@ -73,6 +73,35 @@ module neg_dot_mixed (input clk, input [8:0] a0,b0,a1,b1, input [17:0] a2, b2, o
 		p_r <= 36'(36'(a0_r*b0_r) + 36'(a1_r*b1_r) + 36'(a2_r*b2_r));
 	end
 	assign p = p_r;
+endmodule
+
+// https://github.com/YosysHQ/yosys/issues/6233
+
+module mac36 (input [35:0] a, b, input [107:0] c, output [107:0] y);
+	assign y = c + a * b;
+endmodule
+
+module msub36 (input [35:0] a, b, input [107:0] c, output [107:0] y);
+	assign y = c - a * b;
+endmodule
+
+module neg_mulsub36 (input [35:0] a, b, input [107:0] c, output [107:0] y);
+	assign y = a * b - c;
+endmodule
+
+module mac16 (input [15:0] a, b, input [51:0] c, output [51:0] y);
+	assign y = c + a * b;
+endmodule
+
+module dot4_acc (input [8:0] a0, b0, a1, b1, a2, b2, a3, b3, input [53:0] c, output [53:0] y);
+	assign y = a0*b0 + a1*b1 + a2*b2 + a3*b3 + c;
+endmodule
+
+// The mux select reads the product
+module mac_sel (input [3:0] a, b, input [5:0] c, output [5:0] y);
+	wire [7:0] p = a * b;
+	wire [5:0] s = c + p[5:0];
+	assign y = p[7] ? p[5:0] : s;
 endmodule
 
 // The pre-adder result is also an output

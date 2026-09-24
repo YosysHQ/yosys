@@ -105,14 +105,9 @@ module \$__NX_MUL9X9 (input [8:0] A, input [8:0] B, output [17:0] Y);
 	);
 endmodule
 
-module \$__NX_MAC18X18 (input [17:0] A, input [17:0] B, input [47:0] C, output [53:0] Y);
+module \$__NX_MAC18X18 (input [17:0] A, input [17:0] B, input [53:0] C, output [53:0] Y);
 
-	parameter A_WIDTH = 18;
-	parameter B_WIDTH = 18;
-	parameter C_WIDTH = 48;
-	parameter Y_WIDTH = 48;
 	parameter A_SIGNED = 0;
-	parameter B_SIGNED = 0;
 	parameter SUBTRACT = 0;
 
 	MULTADDSUB18X18 #(
@@ -128,7 +123,34 @@ module \$__NX_MAC18X18 (input [17:0] A, input [17:0] B, input [47:0] C, output [
 	) _TECHMAP_REPLACE_ (
 		.A(A),
 		.B(B),
-		.C({6'b0, C}),
+		.C(C),
+		.SIGNED(A_SIGNED ? 1'b1 : 1'b0),
+		.ADDSUB(SUBTRACT ? 1'b1 : 1'b0),
+		.LOADC(1'b1),
+		.CIN(1'b0),
+		.Z(Y)
+	);
+endmodule
+
+module \$__NX_MAC36X36 (input [35:0] A, input [35:0] B, input [107:0] C, output [107:0] Y);
+
+	parameter A_SIGNED = 0;
+	parameter SUBTRACT = 0;
+
+	MULTADDSUB36X36 #(
+		.REGINPUTA("BYPASS"),
+		.REGINPUTB("BYPASS"),
+		.REGINPUTC("BYPASS"),
+		.REGADDSUB("BYPASS"),
+		.REGLOADC("BYPASS"),
+		.REGLOADC2("BYPASS"),
+		.REGCIN("BYPASS"),
+		.REGPIPELINE("BYPASS"),
+		.REGOUTPUT("BYPASS")
+	) _TECHMAP_REPLACE_ (
+		.A(A),
+		.B(B),
+		.C(C),
 		.SIGNED(A_SIGNED ? 1'b1 : 1'b0),
 		.ADDSUB(SUBTRACT ? 1'b1 : 1'b0),
 		.LOADC(1'b1),
@@ -161,7 +183,7 @@ module \$__NX_PREADD18X18 (input [17:0] A, input [17:0] B, input [17:0] C, input
 	);
 endmodule
 
-module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, output [53:0] Y);
+module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, input [53:0] C, output [53:0] Y);
 
 	parameter SIGNED = 0;
 
@@ -181,7 +203,7 @@ module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, outp
 		.A1(A1), .B1(B1),
 		.A2(A2), .B2(B2),
 		.A3(A3), .B3(B3),
-		.C(54'b0),
+		.C(C),
 		.SIGNED(SIGNED ? 1'b1 : 1'b0),
 		.ADDSUB(4'b0000),
 		.LOADC(1'b1),

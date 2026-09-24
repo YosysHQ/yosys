@@ -9,6 +9,11 @@ synth_nexus -family lifcl -top mac
 select -assert-count 1 t:MULTADDSUB18X18
 select -assert-count 0 t:CCU2
 
+design -load pristine
+hierarchy -top mac;
+synth_nexus -family lifcl -top mac -run begin:map_ram
+check -assert
+
 # 18x18 pre-add MAC
 design -load pristine
 hierarchy -top madd_pre;
@@ -23,9 +28,10 @@ select -assert-count 1 t:MULTADDSUB9X9WIDE
 
 # 24x24 MAC
 design -load pristine
-hierarchy -top neg_mac24;
-synth_nexus -family lifcl -top neg_mac24
+hierarchy -top mac24;
+synth_nexus -family lifcl -top mac24
 select -assert-count 0 t:MULTADDSUB18X18
+select -assert-count 1 t:MULTADDSUB36X36
 
 # mixed
 design -load pristine
@@ -34,7 +40,46 @@ synth_nexus -family lifcl -top neg_dot_mixed
 select -assert-count 0 t:MULTADDSUB9X9WIDE
 select -assert-count 2 t:MULTADDSUB18X18
 
+# 36x36 MAC
+design -load pristine
+hierarchy -top mac36;
+synth_nexus -family lifcl -top mac36
+select -assert-count 1 t:MULTADDSUB36X36
+select -assert-count 0 t:CCU2
+
+# 36x36 C - A*B
+design -load pristine
+hierarchy -top msub36;
+synth_nexus -family lifcl -top msub36
+select -assert-count 1 t:MULTADDSUB36X36
+select -assert-count 0 t:CCU2
+
+# A*B - C is not a DSP operation
+design -load pristine
+hierarchy -top neg_mulsub36;
+synth_nexus -family lifcl -top neg_mulsub36
+select -assert-count 0 t:MULTADDSUB36X36
+
+# 16x16 MAC with a 52-bit sum stays on the 18x18 cell
+design -load pristine
+hierarchy -top mac16;
+synth_nexus -family lifcl -top mac16
+select -assert-count 1 t:MULTADDSUB18X18
+select -assert-count 0 t:MULTADDSUB36X36
+
+# 4-lane 9x9 dot product with addend
+design -load pristine
+hierarchy -top dot4_acc;
+synth_nexus -family lifcl -top dot4_acc
+select -assert-count 1 t:MULTADDSUB9X9WIDE
+select -assert-count 0 t:CCU2
+
 # Cells read elsewhere must not be removed
+design -load pristine
+hierarchy -top mac_sel;
+proc
+equiv_opt -assert -map +/lattice/cells_sim_nexus.v synth_nexus -family lifcl -top mac_sel -run begin:map_ram
+
 design -load pristine
 hierarchy -top preadd_fanout;
 proc
