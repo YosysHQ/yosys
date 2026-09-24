@@ -171,6 +171,10 @@ module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, outp
 		.REGINPUTAB2("BYPASS"),
 		.REGINPUTAB3("BYPASS"),
 		.REGINPUTC("BYPASS"),
+		.REGADDSUB("BYPASS"),
+		.REGLOADC("BYPASS"),
+		.REGLOADC2("BYPASS"),
+		.REGPIPELINE("BYPASS"),
 		.REGOUTPUT("BYPASS")
 	) _TECHMAP_REPLACE_ (
 		.A0(A0), .B0(B0),
@@ -180,6 +184,7 @@ module \$__NX_MAC9X9WIDE_4LANE (input [8:0] A0, B0, A1, B1, A2, B2, A3, B3, outp
 		.C(54'b0),
 		.SIGNED(SIGNED ? 1'b1 : 1'b0),
 		.ADDSUB(4'b0000),
+		.LOADC(1'b1),
 		.Z(Y)
 	);
 endmodule
