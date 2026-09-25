@@ -215,7 +215,12 @@ struct CellTypes
 		setup_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true);
 		setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, true);
 		setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, true);
-		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, true);
+		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+		                          ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, true);
+		setup_type(ID($_MUX32_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+		                          ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P,
+		                          ID::QA, ID::QB, ID::QC, ID::QD, ID::QE, ID::QF, ID::QG, ID::QH,
+		                          ID::QI, ID::QJ, ID::QK, ID::QL, ID::QM, ID::QN, ID::QO, ID::QP, ID::S, ID::T, ID::U, ID::V, ID::W}, {ID::Y}, true);
 		setup_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
 		setup_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true);
 		setup_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true);

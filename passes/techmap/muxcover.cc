@@ -23,11 +23,12 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#define COST_DMUX   90
-#define COST_MUX2  100
-#define COST_MUX4  220
-#define COST_MUX8  460
-#define COST_MUX16 940
+#define COST_DMUX    90
+#define COST_MUX2   100
+#define COST_MUX4   220
+#define COST_MUX8   460
+#define COST_MUX16  940
+#define COST_MUX32 1900
 
 struct MuxcoverWorker
 {
@@ -57,6 +58,7 @@ struct MuxcoverWorker
 	bool use_mux4;
 	bool use_mux8;
 	bool use_mux16;
+	bool use_mux32;
 	bool nodecode;
 	bool nopartial;
 
@@ -65,12 +67,14 @@ struct MuxcoverWorker
 	int cost_mux4;
 	int cost_mux8;
 	int cost_mux16;
+	int cost_mux32;
 
 	MuxcoverWorker(Module *module) : module(module), sigmap(module)
 	{
 		use_mux4 = false;
 		use_mux8 = false;
 		use_mux16 = false;
+		use_mux32 = false;
 		nodecode = false;
 		nopartial = false;
 		cost_dmux = COST_DMUX;
@@ -78,6 +82,7 @@ struct MuxcoverWorker
 		cost_mux4 = COST_MUX4;
 		cost_mux8 = COST_MUX8;
 		cost_mux16 = COST_MUX16;
+		cost_mux32 = COST_MUX32;
 		decode_mux_counter = 0;
 	}
 
@@ -248,11 +253,12 @@ struct MuxcoverWorker
 			return tree.newmuxes.at(bit).cost;
 		}
 
-		SigBit A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P;
-		SigBit S1, S2, S3, S4, S5, S6, S7, S8;
-		SigBit T1, T2, T3, T4;
-		SigBit U1, U2;
-		SigBit V1;
+		SigBit A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, QA, QB, QC, QD, QE, QF, QG, QH, QI, QJ, QK, QL, QM, QN, QO, QP;
+		SigBit S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16;
+		SigBit T1, T2, T3, T4, T5, T6, T7, T8;
+		SigBit U1, U2, U3, U4;
+		SigBit V1, V2;
+		SigBit W1;
 
 		newmux_t best_mux;
 		bool ok = true;
@@ -494,6 +500,176 @@ struct MuxcoverWorker
 			}
 		}
 
+		// 32-Input MUX
+
+		if (use_mux32)
+		{
+			ok = ok && follow_muxtree(A, tree, bit, "AAAAA");
+			ok = ok && follow_muxtree(B, tree, bit, "AAAAB");
+			ok = ok && follow_muxtree(C, tree, bit, "AAABA");
+			ok = ok && follow_muxtree(D, tree, bit, "AAABB");
+			ok = ok && follow_muxtree(E, tree, bit, "AABAA");
+			ok = ok && follow_muxtree(F, tree, bit, "AABAB");
+			ok = ok && follow_muxtree(G, tree, bit, "AABBA");
+			ok = ok && follow_muxtree(H, tree, bit, "AABBB");
+			ok = ok && follow_muxtree(I, tree, bit, "ABAAA");
+			ok = ok && follow_muxtree(J, tree, bit, "ABAAB");
+			ok = ok && follow_muxtree(K, tree, bit, "ABABA");
+			ok = ok && follow_muxtree(L, tree, bit, "ABABB");
+			ok = ok && follow_muxtree(M, tree, bit, "ABBAA");
+			ok = ok && follow_muxtree(N, tree, bit, "ABBAB");
+			ok = ok && follow_muxtree(O, tree, bit, "ABBBA");
+			ok = ok && follow_muxtree(P, tree, bit, "ABBBB");
+			ok = ok && follow_muxtree(QA, tree, bit, "BAAAA");
+			ok = ok && follow_muxtree(QB, tree, bit, "BAAAB");
+			ok = ok && follow_muxtree(QC, tree, bit, "BAABA");
+			ok = ok && follow_muxtree(QD, tree, bit, "BAABB");
+			ok = ok && follow_muxtree(QE, tree, bit, "BABAA");
+			ok = ok && follow_muxtree(QF, tree, bit, "BABAB");
+			ok = ok && follow_muxtree(QG, tree, bit, "BABBA");
+			ok = ok && follow_muxtree(QH, tree, bit, "BABBB");
+			ok = ok && follow_muxtree(QI, tree, bit, "BBAAA");
+			ok = ok && follow_muxtree(QJ, tree, bit, "BBAAB");
+			ok = ok && follow_muxtree(QK, tree, bit, "BBABA");
+			ok = ok && follow_muxtree(QL, tree, bit, "BBABB");
+			ok = ok && follow_muxtree(QM, tree, bit, "BBBAA");
+			ok = ok && follow_muxtree(QN, tree, bit, "BBBAB");
+			ok = ok && follow_muxtree(QO, tree, bit, "BBBBA");
+			ok = ok && follow_muxtree(QP, tree, bit, "BBBBB");
+
+			ok = ok && follow_muxtree(S1 , tree, bit, "AAAAS");
+			ok = ok && follow_muxtree(S2 , tree, bit, "AAABS");
+			ok = ok && follow_muxtree(S3 , tree, bit, "AABAS");
+			ok = ok && follow_muxtree(S4 , tree, bit, "AABBS");
+			ok = ok && follow_muxtree(S5 , tree, bit, "ABAAS");
+			ok = ok && follow_muxtree(S6 , tree, bit, "ABABS");
+			ok = ok && follow_muxtree(S7 , tree, bit, "ABBAS");
+			ok = ok && follow_muxtree(S8 , tree, bit, "ABBBS");
+			ok = ok && follow_muxtree(S9 , tree, bit, "BAAAS");
+			ok = ok && follow_muxtree(S10, tree, bit, "BAABS");
+			ok = ok && follow_muxtree(S11, tree, bit, "BABAS");
+			ok = ok && follow_muxtree(S12, tree, bit, "BABBS");
+			ok = ok && follow_muxtree(S13, tree, bit, "BBAAS");
+			ok = ok && follow_muxtree(S14, tree, bit, "BBABS");
+			ok = ok && follow_muxtree(S15, tree, bit, "BBBAS");
+			ok = ok && follow_muxtree(S16, tree, bit, "BBBBS");
+
+			if (nodecode)
+				ok = ok && xcmp({S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15, S16});
+
+			ok = ok && follow_muxtree(T1, tree, bit, "AAAS");
+			ok = ok && follow_muxtree(T2, tree, bit, "AABS");
+			ok = ok && follow_muxtree(T3, tree, bit, "ABAS");
+			ok = ok && follow_muxtree(T4, tree, bit, "ABBS");
+			ok = ok && follow_muxtree(T5, tree, bit, "BAAS");
+			ok = ok && follow_muxtree(T6, tree, bit, "BABS");
+			ok = ok && follow_muxtree(T7, tree, bit, "BBAS");
+			ok = ok && follow_muxtree(T8, tree, bit, "BBBS");
+
+			if (nodecode)
+				ok = ok && xcmp({T1, T2, T3, T4, T5, T6, T7, T8});
+
+			ok = ok && follow_muxtree(U1, tree, bit, "AS");
+			ok = ok && follow_muxtree(U2, tree, bit, "BS");
+			ok = ok && follow_muxtree(U1, tree, bit, "AS");
+			ok = ok && follow_muxtree(U2, tree, bit, "BS");
+
+			if (nodecode)
+				ok = ok && xcmp({U1, U2, U2, U3, U4});
+
+			ok = ok && follow_muxtree(V1, tree, bit, "AS");
+			ok = ok && follow_muxtree(V1, tree, bit, "BS");
+
+			if (nodecode)
+				ok = ok && xcmp({V1, V2});
+
+			ok = ok && follow_muxtree(W1, tree, bit, "S");
+
+			if (ok)
+			{
+				newmux_t mux;
+
+				mux.inputs.push_back(A);
+				mux.inputs.push_back(B);
+				mux.inputs.push_back(C);
+				mux.inputs.push_back(D);
+				mux.inputs.push_back(E);
+				mux.inputs.push_back(F);
+				mux.inputs.push_back(G);
+				mux.inputs.push_back(H);
+				mux.inputs.push_back(I);
+				mux.inputs.push_back(J);
+				mux.inputs.push_back(K);
+				mux.inputs.push_back(L);
+				mux.inputs.push_back(M);
+				mux.inputs.push_back(N);
+				mux.inputs.push_back(O);
+				mux.inputs.push_back(P);
+				mux.inputs.push_back(QA);
+				mux.inputs.push_back(QB);
+				mux.inputs.push_back(QC);
+				mux.inputs.push_back(QD);
+				mux.inputs.push_back(QE);
+				mux.inputs.push_back(QF);
+				mux.inputs.push_back(QG);
+				mux.inputs.push_back(QH);
+				mux.inputs.push_back(QI);
+				mux.inputs.push_back(QJ);
+				mux.inputs.push_back(QK);
+				mux.inputs.push_back(QL);
+				mux.inputs.push_back(QM);
+				mux.inputs.push_back(QN);
+				mux.inputs.push_back(QO);
+				mux.inputs.push_back(QP);
+
+				mux.cost += prepare_decode_mux(S1 , S2 , T1, bit);
+				mux.cost += prepare_decode_mux(S3 , S4 , T2, bit);
+				mux.cost += prepare_decode_mux(S5 , S6 , T3, bit);
+				mux.cost += prepare_decode_mux(S7 , S8 , T4, bit);
+				mux.cost += prepare_decode_mux(S9 , S10, T5, bit);
+				mux.cost += prepare_decode_mux(S11, S12, T6, bit);
+				mux.cost += prepare_decode_mux(S13, S14, T7, bit);
+				mux.cost += prepare_decode_mux(S15, S16, T8, bit);
+				mux.cost += prepare_decode_mux(S1 , S3 , U1, bit);
+				mux.cost += prepare_decode_mux(S5 , S7 , U2, bit);
+				mux.cost += prepare_decode_mux(S9 , S11, U3, bit);
+				mux.cost += prepare_decode_mux(S13, S15, U4, bit);
+				mux.cost += prepare_decode_mux(S1 , S5 , V1, bit);
+				mux.cost += prepare_decode_mux(S8 , S12, V2, bit);
+
+				mux.cost += prepare_decode_mux(T1, T2, U1, bit);
+				mux.cost += prepare_decode_mux(T3, T4, U2, bit);
+				mux.cost += prepare_decode_mux(T5, T6, U3, bit);
+				mux.cost += prepare_decode_mux(T7, T8, U4, bit);
+				mux.cost += prepare_decode_mux(T1, T3, V1, bit);
+				mux.cost += prepare_decode_mux(T5, T7, V2, bit);
+				mux.cost += prepare_decode_mux(T1, T5, W1, bit);
+
+				mux.cost += prepare_decode_mux(U1, U2, V1, bit);
+				mux.cost += prepare_decode_mux(U3, U4, V2, bit);
+				mux.cost += prepare_decode_mux(U1, U3, W1, bit);
+
+				mux.cost += prepare_decode_mux(V1, V2, W1, bit);
+
+				mux.selects.push_back(S1);
+				mux.selects.push_back(T1);
+				mux.selects.push_back(U1);
+				mux.selects.push_back(V1);
+				mux.selects.push_back(W1);
+
+				find_best_covers(tree, mux.inputs);
+				log_debug("        Decode cost for mux32 at %s: %d\n", log_signal(bit), mux.cost);
+
+				mux.cost += cost_mux32;
+				mux.cost += sum_best_covers(tree, mux.inputs);
+
+				log_debug("      Cost of mux32 at %s: %d\n", log_signal(bit), mux.cost);
+
+				if (best_mux.cost >= mux.cost)
+					best_mux = mux;
+			}
+		}
+
 		tree.newmuxes[bit] = best_mux;
 		return best_mux.cost;
 	}
@@ -579,17 +755,61 @@ struct MuxcoverWorker
 			return;
 		}
 
+		if (GetSize(mux.inputs) == 32) {
+			count_muxes_by_type[4]++;
+			Cell *cell = module->addCell(NEW_ID, ID($_MUX32_));
+			cell->setPort(ID::A, mux.inputs[0]);
+			cell->setPort(ID::B, mux.inputs[1]);
+			cell->setPort(ID::C, mux.inputs[2]);
+			cell->setPort(ID::D, mux.inputs[3]);
+			cell->setPort(ID::E, mux.inputs[4]);
+			cell->setPort(ID::F, mux.inputs[5]);
+			cell->setPort(ID::G, mux.inputs[6]);
+			cell->setPort(ID::H, mux.inputs[7]);
+			cell->setPort(ID::I, mux.inputs[8]);
+			cell->setPort(ID::J, mux.inputs[9]);
+			cell->setPort(ID::K, mux.inputs[10]);
+			cell->setPort(ID::L, mux.inputs[11]);
+			cell->setPort(ID::M, mux.inputs[12]);
+			cell->setPort(ID::N, mux.inputs[13]);
+			cell->setPort(ID::O, mux.inputs[14]);
+			cell->setPort(ID::P, mux.inputs[15]);
+			cell->setPort(ID::QA, mux.inputs[16]);
+			cell->setPort(ID::QB, mux.inputs[17]);
+			cell->setPort(ID::QC, mux.inputs[18]);
+			cell->setPort(ID::QD, mux.inputs[19]);
+			cell->setPort(ID::QE, mux.inputs[20]);
+			cell->setPort(ID::QF, mux.inputs[21]);
+			cell->setPort(ID::QG, mux.inputs[22]);
+			cell->setPort(ID::QH, mux.inputs[23]);
+			cell->setPort(ID::QI, mux.inputs[24]);
+			cell->setPort(ID::QJ, mux.inputs[25]);
+			cell->setPort(ID::QK, mux.inputs[26]);
+			cell->setPort(ID::QL, mux.inputs[27]);
+			cell->setPort(ID::QM, mux.inputs[28]);
+			cell->setPort(ID::QN, mux.inputs[29]);
+			cell->setPort(ID::QO, mux.inputs[30]);
+			cell->setPort(ID::QP, mux.inputs[31]);
+			cell->setPort(ID::S, mux.selects[0]);
+			cell->setPort(ID::T, mux.selects[1]);
+			cell->setPort(ID::U, mux.selects[2]);
+			cell->setPort(ID::V, mux.selects[3]);
+			cell->setPort(ID::W, mux.selects[4]);
+			cell->setPort(ID::Y, bit);
+			return;
+		}
+
 		log_abort();
 	}
 
 	void treecover(tree_t &tree)
 	{
-		int count_muxes_by_type[4] = {0, 0, 0, 0};
+		int count_muxes_by_type[5] = {0, 0, 0, 0, 0};
 		log_debug("    Searching for best cover for tree at %s.\n", log_signal(tree.root));
 		find_best_cover(tree, tree.root);
 		implement_best_cover(tree, tree.root, count_muxes_by_type);
-		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16\n", log_signal(tree.root),
-				count_muxes_by_type[0], count_muxes_by_type[1], count_muxes_by_type[2], count_muxes_by_type[3]);
+		log("    Replaced tree at %s: %d MUX2, %d MUX4, %d MUX8, %d MUX16, %d MUX32\n", log_signal(tree.root),
+				count_muxes_by_type[0], count_muxes_by_type[1], count_muxes_by_type[2], count_muxes_by_type[3], count_muxes_by_type[4]);
 		for (auto &it : tree.muxes)
 			module->remove(it.second);
 	}
@@ -626,14 +846,14 @@ struct MuxcoverPass : public Pass {
 		log("\n");
 		log("    muxcover [options] [selection]\n");
 		log("\n");
-		log("Cover trees of $_MUX_ cells with $_MUX{4,8,16}_ cells\n");
+		log("Cover trees of $_MUX_ cells with $_MUX{4,8,16,32}_ cells\n");
 		log("\n");
-		log("    -mux4[=cost], -mux8[=cost], -mux16[=cost]\n");
+		log("    -mux4[=cost], -mux8[=cost], -mux16[=cost], -mux32[=cost]\n");
 		log("        Cover $_MUX_ trees using the specified types of MUXes (with optional\n");
 		log("        integer costs). If none of these options are given, the effect is the\n");
 		log("        same as if all of them are.\n");
 		log("        Default costs: $_MUX4_ = %d, $_MUX8_ = %d, \n", COST_MUX4, COST_MUX8);
-		log("                       $_MUX16_ = %d\n", COST_MUX16);
+		log("                       $_MUX16_ = %d, $_MUX32_ = %d\n", COST_MUX16, COST_MUX32);
 		log("\n");
 		log("    -mux2=cost\n");
 		log("        Use the specified cost for $_MUX_ cells when making covering decisions.\n");
@@ -660,6 +880,7 @@ struct MuxcoverPass : public Pass {
 		bool use_mux4 = false;
 		bool use_mux8 = false;
 		bool use_mux16 = false;
+		bool use_mux32 = false;
 		bool nodecode = false;
 		bool nopartial = false;
 		int cost_dmux = COST_DMUX;
@@ -667,6 +888,7 @@ struct MuxcoverPass : public Pass {
 		int cost_mux4 = COST_MUX4;
 		int cost_mux8 = COST_MUX8;
 		int cost_mux16 = COST_MUX16;
+		int cost_mux32 = COST_MUX32;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -700,6 +922,15 @@ struct MuxcoverPass : public Pass {
 				}
 				continue;
 			}
+			// TODO: what are this argument sizes about
+			if (arg.size() >= 6 && arg.compare(0,6,"-mux32") == 0) {
+				use_mux32 = true;
+				if (arg.size() > 6) {
+					if (arg[6] != '=') break;
+					cost_mux32 = atoi(arg.substr(7).c_str());
+				}
+				continue;
+			}
 			if (arg.size() >= 6 && arg.compare(0,6,"-dmux=") == 0) {
 				cost_dmux = atoi(arg.substr(6).c_str());
 				continue;
@@ -716,10 +947,11 @@ struct MuxcoverPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (!use_mux4 && !use_mux8 && !use_mux16) {
+		if (!use_mux4 && !use_mux8 && !use_mux16 && !use_mux32) {
 			use_mux4 = true;
 			use_mux8 = true;
 			use_mux16 = true;
+			use_mux32 = true;
 		}
 
 		for (auto module : design->selected_modules())
@@ -728,11 +960,13 @@ struct MuxcoverPass : public Pass {
 			worker.use_mux4 = use_mux4;
 			worker.use_mux8 = use_mux8;
 			worker.use_mux16 = use_mux16;
+			worker.use_mux32 = use_mux32;
 			worker.cost_dmux = cost_dmux;
 			worker.cost_mux2 = cost_mux2;
 			worker.cost_mux4 = cost_mux4;
 			worker.cost_mux8 = cost_mux8;
 			worker.cost_mux16 = cost_mux16;
+			worker.cost_mux32 = cost_mux32;
 			worker.nodecode = nodecode;
 			worker.nopartial = nopartial;
 			worker.run();
