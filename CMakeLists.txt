@@ -420,6 +420,7 @@ endif()
 yosys_expand_components(library_components essentials ${YOSYS_COMPONENTS})
 if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	yosys_expand_components(driver_components driver ${YOSYS_COMPONENTS})
+	yosys_expand_components(yc_components yc ${YOSYS_COMPONENTS})
 endif()
 
 # Main Yosys executable (compiler driver).
@@ -443,6 +444,13 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	endif()
 
 	target_compile_options(yosys PRIVATE -fsanitize=undefined)
+
+	yosys_cxx_executable(yc
+		OUTPUT_NAME yc
+		INSTALL_IF ${YOSYS_INSTALL_DRIVER}
+	)
+	yosys_link_components(yc PRIVATE ${yc_components})
+	target_compile_options(yc PRIVATE -fsanitize=undefined)
 endif()
 
 # Yosys components as a library.
