@@ -144,7 +144,7 @@ def yw2yw(inputs, output, append, skip_x):
         for t, values in inyw.steps(1):
             outyw.step(values, skip_x=skip_x)
 
-        click.echo(f"  copied {t + 1} time steps.")
+        click.echo(f"  copied {len(inyw)} time steps.")
         first_witness = False
 
     outyw.end_trace()
