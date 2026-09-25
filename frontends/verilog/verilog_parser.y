@@ -575,7 +575,7 @@
 %left OP_SHL OP_SHR OP_SSHL OP_SSHR
 %left TOK_PLUS TOK_MINUS
 %left TOK_ASTER TOK_SLASH TOK_PERC
-%left OP_POW
+%right OP_POW
 %precedence OP_CAST
 %precedence UNARY_OPS
 
