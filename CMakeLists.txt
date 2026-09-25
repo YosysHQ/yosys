@@ -610,3 +610,19 @@ add_custom_target(increment-minor-version
 		>> ${YOSYS_CMAKE_SOURCE_DIR}/cmake/YosysVersionData.cmake
 	VERBATIM
 )
+
+if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
+	block()
+		set(ABC_SOURCE_DIR "${YOSYS_CMAKE_SOURCE_DIR}/abc")
+		add_subdirectory(abc/tools/sn)
+
+		set_target_properties(sn_slang_lib PROPERTIES YOSYS_IS_ABC ON)
+		set_target_properties(sn PROPERTIES YOSYS_IS_ABC ON)
+		if(SANITIZE)
+			target_link_options(sn PRIVATE -fsanitize=${SANITIZE})
+		endif()
+
+		set_target_properties(sn PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YOSYS_CMAKE_BINARY_DIR}")
+		install(TARGETS sn RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+	endblock()
+endif()
