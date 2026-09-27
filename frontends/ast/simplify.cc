@@ -3501,84 +3501,82 @@ skip_dynamic_range_lvalue_expansion:;
 
 				current_ast_mod->children.push_back(std::move(meminit_owned));
 				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
-
-				goto apply_newNode;
-			}
-
-			// Warn if array assignment expansion is large.
-			if (total_elements > 10000)
-				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
-					total_elements, location.to_string().c_str());
-
-			// Collect all assignments
-			std::vector<std::unique_ptr<AstNode>> assignments;
-			std::vector<std::unique_ptr<AstNode>> pattern_temp_assignments;
-
-			foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
-				auto lhs_idx = add_position_to_id(lhs->clone(), lhs_mem, position);
-
-				std::unique_ptr<AstNode> rhs_expr;
-				if (is_direct_assign) {
-					rhs_expr = add_position_to_id(rhs->clone(), direct_rhs_mem, position);
-				} else if (is_ternary_assign) {
-					// Ternary case
-					AstNode *cond = rhs->children[0].get();
-					AstNode *true_val = rhs->children[1].get();
-					AstNode *false_val = rhs->children[2].get();
-
-					auto true_idx = add_position_to_id(true_val->clone(), true_mem, position);
-					auto false_idx = add_position_to_id(false_val->clone(), false_mem, position);
-
-					rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
-						cond->clone(), std::move(true_idx), std::move(false_idx));
-				} else {
-					auto pattern_rhs = pattern_element_at_position(position, GetSize(assignments));
-
-					if (type == AST_ASSIGN_EQ) {
-						auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE,
-							std::make_unique<AstNode>(location, AST_RANGE,
-								mkconst_int(location, element_width - 1, true),
-								mkconst_int(location, 0, true)));
-						auto wire_tmp = wire_tmp_owned.get();
-						wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
-							RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
-						current_scope[wire_tmp->str] = wire_tmp;
-						current_ast_mod->children.push_back(std::move(wire_tmp_owned));
-						wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
-						while (wire_tmp->simplify(true, 1, -1, false)) { }
-						wire_tmp->is_logic = true;
-						wire_tmp->is_signed = lhs_mem->is_signed;
-
-						auto tmp_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
-						tmp_id->str = wire_tmp->str;
-						pattern_temp_assignments.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ,
-							tmp_id->clone(), std::move(pattern_rhs)));
-						rhs_expr = std::move(tmp_id);
-					} else {
-						rhs_expr = std::move(pattern_rhs);
-					}
-				}
-
-				auto assign = std::make_unique<AstNode>(location, type,
-					std::move(lhs_idx), std::move(rhs_expr));
-				assign->was_checked = true;
-				assignments.push_back(std::move(assign));
-			});
-
-			// For continuous assignments, add to module; for procedural, use block
-			if (type == AST_ASSIGN) {
-				// Add all but last to module
-				for (size_t i = 0; i + 1 < assignments.size(); i++)
-					current_ast_mod->children.push_back(std::move(assignments[i]));
-				// Last one replaces current node
-				newNode = std::move(assignments.back());
 			} else {
-				// Wrap in AST_BLOCK for procedural
-				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
-				for (auto& assign : pattern_temp_assignments)
-					newNode->children.push_back(std::move(assign));
-				for (auto& assign : assignments)
-					newNode->children.push_back(std::move(assign));
+				// Warn if array assignment expansion is large.
+				if (total_elements > 10000)
+					log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
+						total_elements, location.to_string().c_str());
+
+				// Collect all assignments
+				std::vector<std::unique_ptr<AstNode>> assignments;
+				std::vector<std::unique_ptr<AstNode>> pattern_temp_assignments;
+
+				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+					auto lhs_idx = add_position_to_id(lhs->clone(), lhs_mem, position);
+
+					std::unique_ptr<AstNode> rhs_expr;
+					if (is_direct_assign) {
+						rhs_expr = add_position_to_id(rhs->clone(), direct_rhs_mem, position);
+					} else if (is_ternary_assign) {
+						// Ternary case
+						AstNode *cond = rhs->children[0].get();
+						AstNode *true_val = rhs->children[1].get();
+						AstNode *false_val = rhs->children[2].get();
+
+						auto true_idx = add_position_to_id(true_val->clone(), true_mem, position);
+						auto false_idx = add_position_to_id(false_val->clone(), false_mem, position);
+
+						rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
+							cond->clone(), std::move(true_idx), std::move(false_idx));
+					} else {
+						auto pattern_rhs = pattern_element_at_position(position, GetSize(assignments));
+
+						if (type == AST_ASSIGN_EQ) {
+							auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE,
+								std::make_unique<AstNode>(location, AST_RANGE,
+									mkconst_int(location, element_width - 1, true),
+									mkconst_int(location, 0, true)));
+							auto wire_tmp = wire_tmp_owned.get();
+							wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
+								RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+							current_scope[wire_tmp->str] = wire_tmp;
+							current_ast_mod->children.push_back(std::move(wire_tmp_owned));
+							wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
+							while (wire_tmp->simplify(true, 1, -1, false)) { }
+							wire_tmp->is_logic = true;
+							wire_tmp->is_signed = lhs_mem->is_signed;
+
+							auto tmp_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
+							tmp_id->str = wire_tmp->str;
+							pattern_temp_assignments.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ,
+								tmp_id->clone(), std::move(pattern_rhs)));
+							rhs_expr = std::move(tmp_id);
+						} else {
+							rhs_expr = std::move(pattern_rhs);
+						}
+					}
+
+					auto assign = std::make_unique<AstNode>(location, type,
+						std::move(lhs_idx), std::move(rhs_expr));
+					assign->was_checked = true;
+					assignments.push_back(std::move(assign));
+				});
+
+				// For continuous assignments, add to module; for procedural, use block
+				if (type == AST_ASSIGN) {
+					// Add all but last to module
+					for (size_t i = 0; i + 1 < assignments.size(); i++)
+						current_ast_mod->children.push_back(std::move(assignments[i]));
+					// Last one replaces current node
+					newNode = std::move(assignments.back());
+				} else {
+					// Wrap in AST_BLOCK for procedural
+					newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+					for (auto& assign : pattern_temp_assignments)
+						newNode->children.push_back(std::move(assign));
+					for (auto& assign : assignments)
+						newNode->children.push_back(std::move(assign));
+				}
 			}
 
 			goto apply_newNode;
