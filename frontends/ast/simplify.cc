@@ -4244,24 +4244,7 @@ skip_dynamic_range_lvalue_expansion:;
 					finish_addr = int(node_addr->asInt(false));
 				}
 
-				bool unconditional_init = false;
-				if (current_always->type == AST_INITIAL) {
-					pool<AstNode*> queue;
-					log_assert(current_always->children[0]->type == AST_BLOCK);
-					queue.insert(current_always->children[0].get());
-					while (!unconditional_init && !queue.empty()) {
-						pool<AstNode*> next_queue;
-						for (auto& n : queue)
-						for (auto& c : n->children) {
-							if (c.get() == this)
-								unconditional_init = true;
-							next_queue.insert(c.get());
-						}
-						next_queue.swap(queue);
-					}
-				}
-
-				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, unconditional_init);
+				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, this->is_in_unconditional_init());
 				goto apply_newNode;
 			}
 
@@ -5804,6 +5787,26 @@ bool AstNode::is_simple_const_expr()
 		if (!child->is_simple_const_expr())
 			return false;
 	return true;
+}
+
+bool AstNode::is_in_unconditional_init() {
+	if (current_always && current_always->type == AST_INITIAL) {
+		pool<AstNode*> queue;
+		log_assert(current_always->children[0]->type == AST_BLOCK);
+		queue.insert(current_always->children[0].get());
+		while (!queue.empty()) {
+			pool<AstNode*> next_queue;
+			for (auto& n : queue)
+			for (auto& c : n->children) {
+				if (c.get() == this)
+					return true;
+				next_queue.insert(c.get());
+			}
+			next_queue.swap(queue);
+		}
+	}
+
+	return false;
 }
 
 // helper function for AstNode::eval_const_function()
