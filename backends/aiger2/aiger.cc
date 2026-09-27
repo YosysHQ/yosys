@@ -1292,6 +1292,27 @@ struct XAigerWriter : AigerWriter {
 		}
 	}
 
+	void move_init_to_kept(const pool<Wire *> &to_remove)
+	{
+		for (auto wire : to_remove) {
+			auto it = wire->attributes.find(ID::init);
+			if (it == wire->attributes.end())
+				continue;
+			for (int i = 0; i < GetSize(wire) && i < GetSize(it->second); i++) {
+				SigBit bit(wire, i);
+				for (int n = 0; n < GetSize(to_remove) && bit.wire && to_remove.count(bit.wire) &&
+						bit.wire->known_driver() && bit.wire->driverCell()->type == ID($buf); n++)
+					bit = bit.wire->driverCell()->getPort(ID::A)[bit.offset];
+				if (!bit.wire || to_remove.count(bit.wire) || it->second[i] == State::Sx)
+					continue;
+				Const &init = bit.wire->attributes[ID::init];
+				init.resize(GetSize(bit.wire), State::Sx);
+				if (init[bit.offset] == State::Sx)
+					init.set(bit.offset, it->second[i]);
+			}
+		}
+	}
+
 	SigBit mapped_name(SigBit bit)
 	{
 		auto found = named_alias.find(bit);
@@ -1721,6 +1742,11 @@ struct XAigerWriter : AigerWriter {
 		f->seekp(0, std::ios::end);
 
 		if (mapping_prep) {
+			pool<Wire *> to_remove;
+			for (auto wire : top->wires())
+				if (!wire->port_input && !wire->port_output && !keep_wires.count(wire))
+					to_remove.insert(wire);
+			move_init_to_kept(to_remove);
 			std::vector<Cell *> to_remove_cells;
 			for (auto cell : top->cells())
 				// $scopeinfo isn't part of the mapping
@@ -1729,10 +1755,6 @@ struct XAigerWriter : AigerWriter {
 					to_remove_cells.push_back(cell);
 			for (auto cell : to_remove_cells)
 				top->remove(cell);
-			pool<Wire *> to_remove;
-			for (auto wire : top->wires())
-				if (!wire->port_input && !wire->port_output && !keep_wires.count(wire))
-					to_remove.insert(wire);
 			prune_kept_cells(to_remove);
 			top->remove(to_remove);
 		}
