@@ -3451,6 +3451,48 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 			}
 
+			if (is_pattern_assign && this->is_in_unconditional_init() && rhs->is_simple_const_expr()) {
+				vector<State> en_bits(element_width, State::S1);
+				vector<State> meminit_bits;
+				int idx = 0;
+
+				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+					auto elem = pattern_element_at_position(position, idx++);
+					vector<State> bits;
+
+					switch (elem->type) {
+						case AST_CONSTANT:
+							bits = elem->bitsAsConst(element_width, elem->is_signed).to_bits();
+							break;
+						case AST_REALVALUE:
+							bits = elem->realAsConst(element_width).to_bits();
+							break;
+						default:
+							input_error("Array assignment element is not constant!\n");
+					}
+
+					meminit_bits.insert(meminit_bits.end(), bits.begin(), bits.end());
+				});
+
+				auto meminit_owned = std::make_unique<AstNode>(
+					location,
+					AST_MEMINIT,
+					AstNode::mkconst_int(location, 0, false),
+					AstNode::mkconst_bits(location, meminit_bits, false),
+					AstNode::mkconst_bits(location, en_bits, false),
+					AstNode::mkconst_int(location, total_elements, false)
+				);
+
+				auto meminit = meminit_owned.get();
+				meminit->str = lhs_mem->str;
+				meminit->id2ast = lhs_mem;
+
+				current_ast_mod->children.push_back(std::move(meminit_owned));
+				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+
+				goto apply_newNode;
+			}
+
 			// Warn if array assignment expansion is large.
 			if (total_elements > 10000)
 				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
