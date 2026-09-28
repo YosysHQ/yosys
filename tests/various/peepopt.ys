@@ -96,6 +96,34 @@ select -assert-count 0 t:*
 
 ####################
 
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_1 (input [1:0] a, input [1:0] b, output [3:0] o);
+	wire [3:0] t = a * b;
+	assign o = t / a;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$div
+
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_2 (input [1:0] a, input [1:0] b, output [7:0] o);
+	wire [3:0] t = a * b;
+	assign o = t / a;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$div
+
+####################
+
 # shiftpow2: a power-of-two part-select i[s*W+:W] becomes a $bmux word mux
 design -reset
 read_verilog <<EOT

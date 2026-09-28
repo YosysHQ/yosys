@@ -1,7 +1,7 @@
 pattern muldiv
 
 state <SigSpec> t x y
-state <bool> is_signed
+state <bool> is_signed x_nonzero
 
 match mul
 	select mul->type == $mul
@@ -17,11 +17,17 @@ code t x y is_signed
 	std::swap(x, y);
 endcode
 
+code x_nonzero
+	x_nonzero = x.is_fully_def() && !x.is_fully_zero();
+endcode
+
 match div
 	select div->type.in($div)
 	index <SigSpec> port(div, \A) === t
 	index <SigSpec> port(div, \B) === x
 	filter param(div, \A_SIGNED).as_bool() == is_signed
+	filter param(div, \B_SIGNED).as_bool() == is_signed
+	filter x_nonzero || is_signed || GetSize(port(div, \Y)) <= GetSize(t)
 endmatch
 
 code
@@ -33,7 +39,12 @@ code
 
 	did_something = true;
 	log("muldiv pattern in %s: mul=%s, div=%s\n", module, mul, div);
-	module->connect(div_y, val_y);
+	if (x_nonzero) {
+		module->connect(div_y, val_y);
+	} else {
+		SigSpec div_zero = module->LogicNot(NEW_ID, x);
+		module->addMux(NEW_ID, val_y, Const(State::S1, GetSize(div_y)), div_zero, div_y);
+	}
 	autoremove(div);
 	accept;
 endcode
