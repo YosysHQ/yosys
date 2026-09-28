@@ -827,10 +827,12 @@ struct Index {
 		}
 	};
 
-	bool visit_hook(int, HierCursor&, SigBit)
+	bool visit_prehook(int, HierCursor&, SigBit)
 	{
 		return false;
 	}
+
+	void visit_posthook(Lit, SigBit) {}
 
 	Lit visit(HierCursor &cursor, SigBit bit)
 	{
@@ -856,7 +858,7 @@ struct Index {
 
 		// provide means for the derived class to override
 		// the visit behavior
-		if ((static_cast<Writer*>(this))->visit_hook(idx, cursor, bit)) {
+		if ((static_cast<Writer*>(this))->visit_prehook(idx, cursor, bit)) {
 			return lits[idx];
 		}
 
@@ -867,6 +869,7 @@ struct Index {
 
 			if (known_ops(driver->type)) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
+				//log("870: lit %d = %s\n", ret, bit.wire->name);
 			} else {
 				Module *def = cursor.enter(*this, driver);
 				{
@@ -879,6 +882,7 @@ struct Index {
 						log_error("Bit position %d of output port %s on instance %s of %s is out of range (port has width %d)\n",
 								  bit.offset, portname.unescape(), driver, def, w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
+					//log("883: lit %d = %s\n", ret, w->name); // not this one?
 				}
 				cursor.exit(*this);
 			}
@@ -902,6 +906,8 @@ struct Index {
 			}
 			cursor.enter(*this, instance);
 		}
+
+		(static_cast<Writer*>(this))->visit_posthook(ret, bit);
 
 		lits[idx] = ret;
 		return ret;
@@ -1010,6 +1016,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				 ninputs + nlatches + nands, ninputs, nlatches, noutputs, nands);
 		f->write(buf, strlen(buf));
 	}
+
+	// I am not proud of this hack, but it works.
+	virtual void visit_posthook(int, SigBit) {}
 
 	void write(std::ostream *f) {
 		reset_counters();
@@ -1149,7 +1158,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 	pool<Cell *> seen;
 
-	bool visit_hook(int idx, HierCursor &cursor, SigBit bit)
+	bool visit_prehook(int idx, HierCursor &cursor, SigBit bit)
 	{
 		log_assert(cursor.is_top()); // TOOD: fix analyzer to work with hierarchy
 
@@ -1178,6 +1187,8 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 		return true;
 	}
+
+	void visit_posthook(int, SigBit) {}
 
 	void analyze(Module *top)
 	{
@@ -1388,6 +1399,15 @@ struct XAigerWriter : AigerWriter {
 				}
 			}
 		}
+	}
+
+	void visit_posthook(int lit, SigBit bit) override
+	{
+		if (map_file) {
+			map_file << "name " << lit << " " << bit.offset
+				<< " " << bit.wire->name.c_str() << "\n";
+		}
+		log("name %d %d %s\n", lit, bit.offset, bit.wire->name);
 	}
 
 	RTLIL::Module *holes_module;
@@ -1619,6 +1639,13 @@ struct XAigerWriter : AigerWriter {
 				<< " " << w->name.c_str() << "\n";
 		proper_pos_counter++;
 		pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+	}
+
+	void add_node(Wire *w, int i)
+	{
+		if (map_file.is_open())
+			map_file << "node" << " " << proper_pos_counter << " " << w->start_offset + i
+				<< " " << w->name.c_str() << "\n";
 	}
 
 	void write(std::ostream *f) {
