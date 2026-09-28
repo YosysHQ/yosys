@@ -90,6 +90,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
+	dict<int, std::pair<RTLIL::IdString, int>> names;
+	dict<int, pool<RTLIL::IdString>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -225,6 +227,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines().unescaped_str(escaped_ref));
 				else
 					mapped_mod->rename(cell, escaped_ref);
+			}
+			else if (type == "name") {
+				names.insert({variable, std::make_pair(escaped_ref, index)});
+			}
+			else if (type == "source") {
+				auto entry = sources.find(variable);
+				if (entry != sources.end()) {
+					entry->second.insert({escaped_ref});
+				} else {
+					sources.insert({variable, pool<RTLIL::IdString>{escaped_ref}});
+				}
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -431,6 +444,55 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::Cell *cell = module->addCell(remap(mapped_cell->name), mapped_cell->type);
 			RTLIL::copy_attr_dict(cell->parameters, mapped_cell->parameters, mapped_mod->design, design);
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
+
+			if (cell->has_attribute(ID::abc9_src)) {
+				auto abc9_srcs = cell->get_intvec_attribute(ID::abc9_src);
+				auto src_pool = pool<std::string>{};
+				for (auto abc9_src : abc9_srcs) {
+					RTLIL::Wire* equiv_wire = nullptr;
+
+					auto name = names.find(abc9_src);
+					if (name != names.end()) {
+						src_pool.insert(stringf("containing signal %s", design->twines().str(name->second.first)));
+						equiv_wire = module->wire(name->second.first);
+					} else {
+						// Perhaps we can use the src attribute of the inverted signal?
+						abc9_src ^= 1;
+						name = names.find(abc9_src);
+						if (name != names.end()) {
+							src_pool.insert(stringf("containing inverted signal %s", design->twines().str(name->second.first)));
+							equiv_wire = module->wire(name->second.first);
+						} else {
+							// No luck.
+							continue;
+						}
+					}
+
+					if (equiv_wire && equiv_wire->has_attribute(ID::src)) {
+						for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+							src_pool.insert(stringf("    defined in %s", src));
+						}
+					}
+					auto source = sources.find(abc9_src);
+					if (source != sources.end()) {
+						for (auto src : source->second) {
+							src_pool.insert(stringf("    defined in %s", design->twines().str(src)));
+						}
+					}
+				}
+				if (!src_pool.empty()) {
+					src_pool.insert(std::string{"end of name recovery"});
+				}
+				cell->add_strpool_attribute(ID::src, src_pool);
+				if (cell->hasPort(ID::Y)) {
+					for (auto bit : cell->getPort(ID::Y)) {
+						if (bit.is_wire()) {
+							bit.wire->add_strpool_attribute(ID::src, src_pool);
+						}
+					}
+				}
+			}
+			cell->attributes.erase(ID::abc9_src);
 
 			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;

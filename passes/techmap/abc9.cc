@@ -377,7 +377,7 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("exe")) {
-			run("aigmap");
+			//run("aigmap");
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
@@ -421,7 +421,7 @@ struct Abc9Pass : public ScriptPass
 					if (xaiger == 1)
 						run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
 					else
-						run_nocheck(stringf("write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
+						run_nocheck(stringf("debug write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
@@ -442,7 +442,7 @@ struct Abc9Pass : public ScriptPass
 							abc9_exe_cmd += stringf(" -box %s", box_file);
 						run_nocheck(abc9_exe_cmd);
 						run_nocheck(stringf("read_aiger -xaiger -module_name %s$abc9 %s/output.aig", mod, tempdir_name));
-						run_nocheck(stringf("abc_ops_reintegrate -map %s/input.sym %s", tempdir_name, dff_mode ? "-dff" : ""));
+						run_nocheck(stringf("debug abc_ops_reintegrate -map %s/input.sym %s", tempdir_name, dff_mode ? "-dff" : ""));
 					}
 					else
 						log("Don't call ABC as there is nothing to map.\n");
