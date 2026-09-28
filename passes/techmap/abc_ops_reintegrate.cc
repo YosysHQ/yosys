@@ -91,6 +91,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
 	dict<int, std::pair<RTLIL::IdString, int>> names;
+	dict<int, pool<RTLIL::IdString>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -228,7 +229,15 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					mapped_mod->rename(cell, escaped_ref);
 			}
 			else if (type == "name") {
-				names.insert({variable, std::make_pair(escaped_s, index)});
+				names.insert({variable, std::make_pair(escaped_ref, index)});
+			}
+			else if (type == "source") {
+				auto entry = sources.find(variable);
+				if (entry != sources.end()) {
+					entry->second.insert({escaped_ref});
+				} else {
+					sources.insert({variable, pool<RTLIL::IdString>{escaped_ref}});
+				}
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -436,65 +445,50 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::copy_attr_dict(cell->parameters, mapped_cell->parameters, mapped_mod->design, design);
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
 
-			if (mapped_cell->hasPort(ID::Y)) {
-				for (auto bit: mapped_cell->getPort(ID::Y)) {
-					if (bit.is_wire()) {
-						log("%s:\n", bit.wire->name);
-						for (auto [attr, value] : bit.wire->attributes) {
-							log("  %s = %s\n", attr, value.decode_string());
-						}
+			if (cell->has_attribute(ID::abc9_src)) {
+				auto abc9_srcs = cell->get_intvec_attribute(ID::abc9_src);
+				auto src_pool = pool<std::string>{};
+				for (auto abc9_src : abc9_srcs) {
+					RTLIL::Wire* equiv_wire = nullptr;
 
-						if (bit.wire->has_attribute(ID::abc9_equiv)) {
-							uint32_t equiv_literal = bit.wire->attributes[ID::abc9_equiv].as_int();
-							uint32_t equiv_node = equiv_literal >> 1;
-							bool equiv_inverted = equiv_literal & 1;
-							log("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
-							auto name = names.find(equiv_node);
-							if (name != names.end()) {
-								log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
-								auto equiv_wire = module->wire(name->second.first);
-								if (equiv_wire) {
-									log("        which exists in module\n");
-								}
-							}
+					auto name = names.find(abc9_src);
+					if (name != names.end()) {
+						src_pool.insert(stringf("containing signal %s", design->twines().str(name->second.first)));
+						equiv_wire = module->wire(name->second.first);
+					} else {
+						// Perhaps we can use the src attribute of the inverted signal?
+						abc9_src ^= 1;
+						name = names.find(abc9_src);
+						if (name != names.end()) {
+							src_pool.insert(stringf("containing inverted signal %s", design->twines().str(name->second.first)));
+							equiv_wire = module->wire(name->second.first);
+						} else {
+							// No luck.
+							continue;
+						}
+					}
+
+					if (equiv_wire && equiv_wire->has_attribute(ID::src)) {
+						for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+							src_pool.insert(stringf("    defined in %s", src));
+						}
+					}
+					auto source = sources.find(abc9_src);
+					if (source != sources.end()) {
+						for (auto src : source->second) {
+							src_pool.insert(stringf("    defined in %s", design->twines().str(src)));
 						}
 					}
 				}
-			}
-
-			if (mapped_cell->has_attribute(ID::abc9_src)) {
-				auto sources = mapped_cell->get_intvec_attribute(ID::abc9_src);
-				log("found sources: %s contains nodes:\n", mapped_cell->name);
-				for (auto source : sources) {
-					log("  %d\n", source);
-					auto name = names.find(source);
-					if (name != names.end()) {
-						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
-						auto equiv_wire = module->wire(name->second.first);
-						if (equiv_wire) {
-							log("        which exists in module\n");
-							if (equiv_wire->has_attribute(ID::src)) {
-								log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
-							} else {
-								log("            but has no src attribute :(\n");
-							}
+				if (!src_pool.empty()) {
+					src_pool.insert(std::string{"end of name recovery"});
+				}
+				cell->add_strpool_attribute(ID::src, src_pool);
+				if (cell->hasPort(ID::Y)) {
+					for (auto bit : cell->getPort(ID::Y)) {
+						if (bit.is_wire()) {
+							bit.wire->add_strpool_attribute(ID::src, src_pool);
 						}
-						continue;
-					}
-					// Perhaps we can use the src attribute of the inverted signal?
-					name = names.find(source ^ 1);
-					if (name != names.end()) {
-						log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
-						auto equiv_wire = module->wire(name->second.first);
-						if (equiv_wire) {
-							log("        which exists in module\n");
-							if (equiv_wire->has_attribute(ID::src)) {
-								log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
-							} else {
-								log("            but has no src attribute :(\n");
-							}
-						}
-						continue;
 					}
 				}
 			}

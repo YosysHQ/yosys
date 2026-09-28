@@ -364,6 +364,7 @@ RTLIL::Wire* AigerReader::getOrCreateNormalWire(RTLIL::Module *module, unsigned 
 	std::string name = stringf("$aiger%d$%d", aiger_autoidx, variable);
 	if (RTLIL::Wire *wire = module->wire(name))
 		return wire;
+	log_debug2("Creating %s\n", name);
 	return addVariableWire(module, std::move(name), variable);
 }
 
@@ -381,7 +382,7 @@ RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigne
 
 RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, std::string name, unsigned variable)
 {
-	log_debug2("Creating %s\n", name);
+	log_debug2("Creating %s\n", name.c_str());
 	RTLIL::Wire *wire = module->addWire(std::move(name));
 	wire_to_variable[wire] = variable;
 	return wire;
@@ -456,7 +457,7 @@ void AigerReader::parse_xaiger()
 			for (unsigned i = 0; i < lutNum; ++i) {
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
-				log("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
 				RTLIL::Wire *output_sig = aiger_wires.at(rootNodeID << 1);
 				log_assert(output_sig);
 				uint32_t nodeID;
@@ -493,10 +494,10 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell *lut = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 
 				auto sources_pool = pool<int>{};
-				log("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
+				log_debug("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
 				for (auto literal : ce.deps) {
 					if (literal.is_wire()) {
-						log("  %d: %s\n", wire_to_variable.at(literal), literal.wire->name);
+						log_debug("  %d: %s\n", wire_to_variable.at(literal), design->twines().ref_token(literal.wire->name));
 						log_assert(wire_to_variable.find(literal) != wire_to_variable.end());
 						sources_pool.insert(wire_to_variable.at(literal));
 					}
@@ -652,30 +653,6 @@ void AigerReader::parse_xaiger()
 				log("%u -> %u\n", i, entry);
 				equivalences.push_back(entry);
 			}
-
-			/* {
-				RTLIL::Cell* cell = module->cell(stringf("$lut$aiger%d$%d", aiger_autoidx, i));
-				if (!cell) continue;
-
-				if (entry == ~0u) { // i is not equivalent to any other node.
-					if (cell->has_attribute(ID::abc9_src)) {
-						cell->attributes.erase(ID::abc9_src);
-					}
-					continue;
-				} else if (i == 0) { // the zero node is always equivalent, but not useful
-					continue;
-				}
-
-				// TODO: standard cell handling means looking for the output port instead of hardcoding it.
-				log_assert(cell->hasPort(ID::Y));
-
-				auto y = cell->getPort(ID::Y);
-				log_assert(y.size() == 1);
-				log_assert(y.is_wire());
-				auto y_wire = y.as_wire();
-				y_wire->attributes[ID::abc9_equiv] = entry;
-				log("%s -> %s: %s = %d\n", cell->name, y_wire->name, ID::abc9_equiv, entry);
-			}*/
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
 			uint32_t dataSize = parse_xaiger_literal(f);
@@ -699,7 +676,7 @@ void AigerReader::parse_xaiger()
 			}
 			lut->set_intvec_attribute(ID::abc9_src, mapped_sources);
 
-			log("%s: %s\n", lut->name, lut->attributes[ID::abc9_src].decode_string());
+			log_debug("%s: %s\n", lut->name, lut->attributes[ID::abc9_src].decode_string());
 		}
 	}
 
@@ -991,10 +968,8 @@ void AigerReader::post_process()
 
 	design->scratchpad_set_int("read_aiger.co_count", co_count);
 
-	log_module(module, "before ");
 	design->add(module);
-	Pass::call_on_module(design, module, "opt_clean");
-	log_module(module, "after ");
+	Pass::call_on_module(design, module, "clean");
 
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->type != ID($lut)) continue;

@@ -30,6 +30,9 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 
+#define log_debug2(...) ;
+//#define log_debug2(...) log_debug(__VA_ARGS__)
+
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
@@ -876,7 +879,6 @@ struct Index {
 
 			if (is_known_op(driver)) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
-				//log("870: lit %d = %s\n", ret, bit.wire->name);
 			} else {
 				Module *def = cursor.enter(*this, driver);
 				{
@@ -889,7 +891,6 @@ struct Index {
 						log_error("Bit position %d of output port %s on instance %s of %s is out of range (port has width %d)\n",
 								  bit.offset, design->twines().unescaped_str(portname), driver, def, w->width);
 					ret = visit(cursor, SigBit(w, bit.offset));
-					//log("883: lit %d = %s\n", ret, w->name); // not this one?
 				}
 				cursor.exit(*this);
 			}
@@ -1433,9 +1434,18 @@ struct XAigerWriter : AigerWriter {
 	{
 		if (map_file) {
 			map_file << "name " << lit << " " << bit.offset
-				<< " " << bit.wire->name.c_str() << "\n";
+				<< " " << design->twines().ref_token(bit.wire->name) << "\n";
+			if (bit.wire->has_attribute(ID::src)) {
+				for (auto source : bit.wire->get_strpool_attribute(ID::src)) {
+					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+				}
+			}
+			if (bit.wire->driverCell()->has_attribute(ID::src)) {
+				for (auto source : bit.wire->driverCell()->get_strpool_attribute(ID::src)) {
+					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+				}
+			}
 		}
-		log("name %d %d %s\n", lit, bit.offset, bit.wire->name);
 	}
 
 	RTLIL::Module *holes_module;
@@ -1672,7 +1682,7 @@ struct XAigerWriter : AigerWriter {
 	{
 		if (map_file.is_open())
 			map_file << "node" << " " << proper_pos_counter << " " << w->start_offset + i
-				<< " " << w->name.c_str() << "\n";
+				<< " " << design->twines().ref_token(w->name) << "\n";
 	}
 
 	void write(std::ostream *f) {
