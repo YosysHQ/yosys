@@ -259,7 +259,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		if (dff_mode)
 			abc9_script += "; &verify -s";
 		else
-			abc9_script += "; &verify";
+			abc9_script += stringf("; &verify -y; &write -n %s/output.aig", tempdir_name);
 	}
 	abc9_script += "; time";
 	abc9_script = add_echos_to_abc9_cmd(abc9_script);
