@@ -416,6 +416,8 @@ void AigerReader::parse_xaiger()
 	for (int c = f.get(); c != EOF; c = f.get()) {
 		// XAIGER extensions
 		if (c == 'm') { // LUT 'm'apping
+			log("got 'm'\n");
+
 			uint32_t dataSize = parse_xaiger_literal(f);
 			uint32_t lutNum = parse_xaiger_literal(f);
 			uint32_t lutSize = parse_xaiger_literal(f);
@@ -588,6 +590,39 @@ void AigerReader::parse_xaiger()
 				cell->setPort(ID(o), SigSpec(State::S0, boxOutputs));
 				cell->attributes[ID::abc9_box_seq] = oldBoxNum;
 				boxes.emplace_back(cell);
+			}
+		}
+		else if (c == 'y') { // equivalence classes
+			log("got 'y'\n");
+			uint32_t entryCount = parse_xaiger_literal(f) / 4;
+			for (unsigned i = 0; i < entryCount; i++) {
+				uint32_t entry;
+				// Surprise! This is native-endian not big-endian.
+				f.read(reinterpret_cast<char*>(&entry), sizeof(entry));
+				if (entry == ~0u) { // i is not equivalent to any other node.
+					continue;
+				} else if (i == 0) { // the zero node is always equivalent, but not useful
+					continue;
+				}				
+
+				// Let's play "guess the cell name": this gate may or may not have been mapped.
+				RTLIL::Cell* cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, i));
+				if (!cell) cell = module->cell(stringf("$not$aiger%d$%d", aiger_autoidx, i));
+				if (!cell) cell = module->cell(stringf("$lut$aiger%d$%d", aiger_autoidx, i));
+				if (!cell) cell = module->cell(stringf("$sc$aiger%d$%d", aiger_autoidx, i));
+
+				// Due to mapping consuming gates, we might not have the equivalent gate in the design anymore.
+				// Skip this entry if so.
+				if (!cell) continue;
+
+				if ((entry & 1) == 0) {
+					log("%s === in(%u)\n", cell->name, entry >> 1);
+				} else {
+					log("%s === ~in(%u)\n", cell->name, entry >> 1);
+				}
+
+				// TODO: the naming of these attributes needs workshopping.
+				cell->set_intvec_attribute(ID::abc9_equiv, std::vector<int>{entry});
 			}
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {

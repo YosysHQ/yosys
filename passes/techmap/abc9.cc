@@ -377,7 +377,7 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("exe")) {
-			run("aigmap");
+			//run("aigmap");
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
@@ -419,7 +419,7 @@ struct Abc9Pass : public ScriptPass
 					if (xaiger == 1)
 						run_nocheck(stringf("write_xaiger -map %s/input.sym %s %s/input.xaig", tempdir_name, dff_mode ? "-dff" : "", tempdir_name));
 					else
-						run_nocheck(stringf("write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
+						run_nocheck(stringf("debug write_xaiger2 -mapping_prep -map2 %s/input.sym %s/input.xaig", tempdir_name, tempdir_name));
 
 					int num_outputs = active_design->scratchpad_get_int("write_xaiger.num_outputs");
 
