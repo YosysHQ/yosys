@@ -5936,14 +5936,8 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 				variable.arg = fcall->children.at(argidx++).get();
 			}
 			// load the constant arg's value into this variable
-			if (variable.arg) {
-				if (variable.arg->type == AST_CONSTANT) {
-					variable.val = variable.arg->bitsAsConst(width);
-				} else {
-					log_assert(variable.arg->type == AST_REALVALUE);
-					variable.val = variable.arg->realAsConst(width);
-				}
-			}
+			if (variable.arg)
+				variable.val = variable.arg->valueAsConst(width);
 			current_scope[stmt->str] = stmt.get();
 			temporary_nodes.push_back(std::move(stmt));
 
@@ -5984,8 +5978,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			if (stmt->type != AST_ASSIGN_EQ)
 				continue;
 
-			if (stmt->children.at(1)->type != AST_CONSTANT &&
-					!(assigns_real && stmt->children.at(1)->type == AST_REALVALUE)) {
+			if (!stmt->children.at(1)->isConst()) {
 				if (!must_succeed)
 					goto finished;
 				stmt->input_error("Non-constant expression in constant function\n%s: ... called from here. X\n",
@@ -6009,7 +6002,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			if (assigns_real) {
 				variables[stmt->children.at(0)->str].realval = stmt->children.at(1)->asReal(true);
 			} else if (stmt->children.at(0)->children.empty()) {
-				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.size());
+				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->valueAsConst(variables[stmt->children.at(0)->str].val.size());
 			} else {
 				AstNode *range = stmt->children.at(0)->children.at(0).get();
 				if (!range->range_valid) {
@@ -6020,7 +6013,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
-				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.size());
+				RTLIL::Const r = stmt->children.at(1)->valueAsConst(v.val.size());
 				for (int i = 0; i < width; i++) {
 					int index = i + offset - v.offset;
 					if (v.range_swapped)
@@ -6079,7 +6072,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			num->set_in_param_flag(true);
 			while (num->simplify(true, 1, -1, false)) { }
 
-			if (num->type != AST_CONSTANT) {
+			if (!num->isConst()) {
 				if (!must_succeed)
 					goto finished;
 				stmt->input_error("Non-constant expression in constant function\n%s: ... called from here.\n",
@@ -6088,7 +6081,9 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 
 			temporary_nodes.push_back(std::move(stmt));
 			block->children.erase(block->children.begin());
-			for (int i = 0; i < num->bitsAsConst().as_int(); i++)
+			// A real count converts to an integer, at the same width as $rtoi.
+			const int repeat_count = num->valueAsConst(32).as_int();
+			for (int i = 0; i < repeat_count; i++)
 				block->children.insert(block->children.begin(), temporary_nodes.back()->children.at(1)->clone());
 
 			continue;
