@@ -83,6 +83,8 @@ match add
 	filter !(!offset_negative && varport_signed)
 	// -> data >> (var-c) (with var unsigned) is illegal
 	filter !(offset_negative && !varport_signed)
+	// shift must read B with the add/sub signedness
+	filter varport_signed == (param(shift, \B_SIGNED).as_bool() && !msb_zeros)
 
 	// state-variables are assigned at the end only:
 	// shift the log2scale offset in-front of add to get true value: (var+c)<<N -> (var<<N)+(c<<N)
