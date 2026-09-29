@@ -172,6 +172,13 @@ struct proc_dlatch_db_t
 		return rules_db(node);
 	}
 
+	void enter_mux_bit(SigBit bit, Cell *cell)
+	{
+		if (!active_bits.insert(bit).second)
+			log_error("Found logic loop through %s cell `%s.%s' (%s).\n",
+					cell->type, module->name, cell->name, cell->get_src_attribute());
+	}
+
 	int find_mux_feedback(SigBit haystack, SigBit needle, bool set_undef)
 	{
 		if (sigusers[haystack] > 1)
@@ -187,9 +194,7 @@ struct proc_dlatch_db_t
 		Cell *cell = it->second.first;
 		int index = it->second.second;
 
-		if (!active_bits.insert(haystack).second)
-			log_error("Found logic loop through %s cell `%s.%s' (%s).\n",
-					cell->type, module->name, cell->name, cell->get_src_attribute());
+		enter_mux_bit(haystack, cell);
 
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
@@ -264,9 +269,7 @@ struct proc_dlatch_db_t
 		Cell *cell = it->second.first;
 		int index = it->second.second;
 
-		if (!active_bits.insert(haystack).second)
-			log_error("Found logic loop through %s cell `%s.%s' (%s).\n",
-					cell->type, module->name, cell->name, cell->get_src_attribute());
+		enter_mux_bit(haystack, cell);
 
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
