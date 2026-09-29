@@ -40,6 +40,7 @@ struct proc_dlatch_db_t
 	dict<Cell*, vector<SigBit>> mux_srcbits;
 	dict<SigBit, pair<Cell*, int>> mux_drivers;
 	dict<SigBit, int> sigusers;
+	pool<SigBit> active_bits;
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
@@ -186,6 +187,10 @@ struct proc_dlatch_db_t
 		Cell *cell = it->second.first;
 		int index = it->second.second;
 
+		if (!active_bits.insert(haystack).second)
+			log_error("Found logic loop through %s cell `%s.%s' (%s).\n",
+					cell->type, module->name, cell->name, cell->get_src_attribute());
+
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
 		SigSpec sig_a = sigmap(cell->getPort(ID::A));
@@ -236,6 +241,8 @@ struct proc_dlatch_db_t
 			}
 		}
 
+		active_bits.erase(haystack);
+
 		if (children.empty())
 			return false_node;
 
@@ -256,6 +263,10 @@ struct proc_dlatch_db_t
 
 		Cell *cell = it->second.first;
 		int index = it->second.second;
+
+		if (!active_bits.insert(haystack).second)
+			log_error("Found logic loop through %s cell `%s.%s' (%s).\n",
+					cell->type, module->name, cell->name, cell->get_src_attribute());
 
 		log_assert(cell->type.in(ID($mux), ID($pmux), ID($bwmux)));
 		bool is_bwmux = (cell->type == ID($bwmux));
@@ -293,6 +304,8 @@ struct proc_dlatch_db_t
 				children.insert(make_inner(sig_s[is_bwmux ? index : i], State::S1, n));
 			}
 		}
+
+		active_bits.erase(haystack);
 
 		if (children.empty())
 			return false_node;
