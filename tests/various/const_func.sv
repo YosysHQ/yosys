@@ -62,6 +62,14 @@ module top(out);
     localparam signed Y = $floor(W / X);
     localparam signed Z = negate($floor(W / X));
 
+    function automatic real scaled;
+        input real factor;
+        input integer inp;
+        scaled = inp;
+        scaled = scaled * factor;
+    endfunction
+    localparam signed Q = $rtoi(scaled(0.25, W) * 10.0);
+
     always_comb begin
         assert(a1 == 0);
         assert(a2 == 0);
@@ -82,5 +90,6 @@ module top(out);
 
         assert(Y == 3);
         assert(Z == ~3);
+        assert(Q == 25);
     end
 endmodule
