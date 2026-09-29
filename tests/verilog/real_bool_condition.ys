@@ -1,0 +1,24 @@
+# A real is nonzero or it is not, so it can drive a condition.
+read_verilog -sv <<EOT
+module top(output [3:0] y);
+    localparam real R = 0.5;
+    function automatic integer f;
+        input integer inp;
+        integer i;
+        f = 0;
+        i = inp;
+        while (i * 1.0) begin
+            i = i - 1;
+            if (1.5) f = f + 1;
+        end
+    endfunction
+    generate
+        if (R) assign y = f(7);
+        else   assign y = f(0);
+    endgenerate
+    always_comb assert (y == 7);
+endmodule
+EOT
+proc
+async2sync
+sat -verify -prove-asserts

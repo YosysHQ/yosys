@@ -1022,6 +1022,8 @@ RTLIL::Const AstNode::asParaConst() const
 
 bool AstNode::asBool() const
 {
+	if (type == AST_REALVALUE)
+		return realvalue != 0;
 	log_assert(type == AST_CONSTANT);
 	for (auto &bit : bits)
 		if (bit == RTLIL::State::S1)
