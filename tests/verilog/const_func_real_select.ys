@@ -1,0 +1,12 @@
+# A real holds no bits, so a select on one cannot be evaluated.
+logger -expect error "Select on real variable" 1
+read_verilog -sv <<EOT
+module top;
+    function automatic real f;
+        input integer inp;
+        f = inp;
+        f = f[0];
+    endfunction
+    localparam integer P = $rtoi(f(3));
+endmodule
+EOT
