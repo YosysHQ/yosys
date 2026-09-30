@@ -1,0 +1,15 @@
+# https://github.com/YosysHQ/yosys/issues/6235
+# '&get' loses the mapping
+read_verilog <<EOT
+module top(input [7:0] a, b, input [2:0] s, output [7:0] y);
+	assign y = (a << s) | (b >> s);
+endmodule
+EOT
+
+hierarchy -top top
+proc
+techmap
+opt
+
+logger -expect error "ABC returned unmapped node" 1
+abc_new -liberty openroad/cm_test_cells.lib -script +&put;strash;map;&get

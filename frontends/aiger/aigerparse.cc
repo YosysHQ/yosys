@@ -400,14 +400,19 @@ void AigerReader::parse_xaiger()
 	if (n0)
 		module->connect(n0, State::S0);
 
+	// Skip the symbol table (present after e.g. '&get -n'); XAIGER wires are positional
+	std::string s;
 	int c = f.get();
+	while (c == 'i' || c == 'l' || c == 'o' || c == 'b') {
+		std::getline(f, s);
+		c = f.get();
+	}
 	if (c != 'c') // 'c'omment section (used for extensions)
 		log_error("Line %u: cannot interpret first character '%c'!\n", line_count, c);
 	if (f.peek() == '\n')
 		f.get();
 
-	// Parse footer (symbol table, comments, etc.)
-	std::string s;
+	// Parse footer (comments, extensions)
 	for (int c = f.get(); c != EOF; c = f.get()) {
 		// XAIGER extensions
 		if (c == 'm') { // LUT 'm'apping

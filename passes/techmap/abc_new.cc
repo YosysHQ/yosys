@@ -196,7 +196,7 @@ struct AbcNewPass : public ScriptPass {
 				run(stringf("  abc9_exe %s -cwd %s -box %s/input.box", exe_options, tmpdir, tmpdir));
 				run(stringf("  read_aiger -xaiger -module_name %s$abc9 %s/output.aig",
 							modname, tmpdir));
-				run(stringf("  abc_ops_reintegrate -map %s/input.map2", tmpdir));
+				run(stringf("  abc_ops_reintegrate -stdcell -map %s/input.map2", tmpdir));
 				if (!help_mode && mod->has_attribute(ID(abc9_script))) {
 					if (script_save.empty())
 						active_design->scratchpad_unset("abc9.script");
