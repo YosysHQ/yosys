@@ -3456,7 +3456,7 @@ module DSP48E1 (
         if (USE_MULT == "MULTIPLY" && USE_DPORT == "TRUE")      \D.PCOUT.comb = 3700;
     end
     endfunction
-
+`ifndef VERIFIC
     generate
         if (PREG == 0 && MREG == 0 && AREG == 0 && ADREG == 0)
             specify
@@ -3521,6 +3521,7 @@ module DSP48E1 (
                 if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
             endspecify
     endgenerate
+`endif
 `endif
 
     initial begin
