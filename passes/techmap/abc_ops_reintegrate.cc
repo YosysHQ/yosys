@@ -45,7 +45,12 @@ struct KeptWire {
 	int offset;
 };
 
-void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
+void unmapped_error(RTLIL::Cell *cell)
+{
+	log_error("ABC returned unmapped node '%s'. Check your abc script.\n", cell);
+}
+
+void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::string map_filename)
 {
 	auto design = module->design;
 	log_assert(design);
@@ -348,6 +353,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 		if (mapped_cell->type == ID($_NOT_)) {
 			RTLIL::SigBit a_bit = mapped_cell->getPort(ID::A);
 			RTLIL::SigBit y_bit = mapped_cell->getPort(ID::Y);
+			if (stdcell_mode && a_bit != State::S0)
+				unmapped_error(mapped_cell);
 			bit_users[a_bit].insert(mapped_cell->name);
 			// Ignore inouts for topo ordering
 			if (y_bit.wire && !(y_bit.wire->port_input && y_bit.wire->port_output))
@@ -390,6 +397,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, std::string map_filename)
 			}
 			continue;
 		}
+
+		if (stdcell_mode && mapped_cell->type.in(ID($lut), ID($_AND_)))
+			unmapped_error(mapped_cell);
 
 		if (mapped_cell->type == ID($lut) || mapped_cell->get_bool_attribute(ID::abc9_cell)) {
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
@@ -718,12 +728,17 @@ struct AbcOpsReintegratePass : public Pass {
 		log("    -map <filename>\n");
 		log("        read file with port and latch symbols\n");
 		log("\n");
+		log("    -stdcell\n");
+		log("        expect a result mapped to standard cells. AIG nodes and LUTs in the\n");
+		log("        result are an error.\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing ABC_OPS_REINTEGRATE pass (reintegrate ABC mapped design into module).\n");
 
 		bool dff_mode = false;
+		bool stdcell_mode = false;
 		std::string map_filename;
 
 		size_t argidx;
@@ -731,6 +746,10 @@ struct AbcOpsReintegratePass : public Pass {
 			std::string arg = args[argidx];
 			if (arg == "-dff") {
 				dff_mode = true;
+				continue;
+			}
+			if (arg == "-stdcell") {
+				stdcell_mode = true;
 				continue;
 			}
 			if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
@@ -749,7 +768,7 @@ struct AbcOpsReintegratePass : public Pass {
 			if (!design->selected_whole_module(mod))
 				log_error("Can't handle partially selected module %s!\n", mod);
 
-			reintegrate(mod, dff_mode, map_filename);
+			reintegrate(mod, dff_mode, stdcell_mode, map_filename);
 		}
 	}
 } AbcOpsReintegratePass;
