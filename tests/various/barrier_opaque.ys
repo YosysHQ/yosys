@@ -145,3 +145,14 @@ select -assert-count 1 t:$mux
 select -assert-count 0 w:d %co1:+[A] t:$mux %i
 design -reset
 
+# check loop
+read_verilog -icells <<EOT
+module top(output w);
+	wire n;
+	\$barrier #(.WIDTH(1)) bar (.A(n), .Y(w));
+	assign n = ~w;
+endmodule
+EOT
+logger -expect warning "found logic loop" 1
+check
+logger -check-expected
