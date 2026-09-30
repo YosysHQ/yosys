@@ -3482,11 +3482,15 @@ skip_dynamic_range_lvalue_expansion:;
 			}
 
 			if (use_meminit) {
+				int start = lhs_mem->unpacked_dimensions == 1
+					? lhs_mem->dimensions[0].range_right
+					: 0;
+
 				vector<State> en_bits(element_width, State::S1);
 				auto meminit_owned = std::make_unique<AstNode>(
 					location,
 					AST_MEMINIT,
-					AstNode::mkconst_int(location, 0, false),
+					AstNode::mkconst_int(location, start, false),
 					AstNode::mkconst_bits(location, meminit_bits, false),
 					AstNode::mkconst_bits(location, en_bits, false),
 					AstNode::mkconst_int(location, total_elements, false)
