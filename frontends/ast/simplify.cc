@@ -4226,7 +4226,7 @@ skip_dynamic_range_lvalue_expansion:;
 				if (node_memory->type != AST_IDENTIFIER || node_memory->id2ast == nullptr || node_memory->id2ast->type != AST_MEMORY)
 					input_error("Failed to evaluate system function `%s' with non-memory 2nd argument.\n", str);
 
-				int start_addr = -1, finish_addr = -1;
+				std::optional<int> start_addr = {}, finish_addr = {};
 
 				if (GetSize(children) > 2) {
 					auto node_addr = children[2]->clone();
@@ -4827,7 +4827,7 @@ void AstNode::replace_result_wire_name_in_function(const std::string &from, cons
 }
 
 // replace a readmem[bh] TCALL ast node with a block of memory assignments
-std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, int start_addr, int finish_addr, bool unconditional_init)
+std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_filename, AstNode *memory, std::optional<int> start_addr, std::optional<int> finish_addr, bool unconditional_init)
 {
 	int mem_width, mem_size, addr_bits;
 	memory->meminfo(mem_width, mem_size, addr_bits);
@@ -4835,7 +4835,6 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	auto block = std::make_unique<AstNode>(location, AST_BLOCK);
 
 	AstNode* meminit = nullptr;
-	int next_meminit_cursor=0;
 	vector<State> meminit_bits;
 	vector<State> en_bits;
 	int meminit_size=0;
@@ -4859,15 +4858,41 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 	int range_left =  memory->children[1]->range_left, range_right =  memory->children[1]->range_right;
 	int range_min = min(range_left, range_right), range_max = max(range_left, range_right);
 
-	if (start_addr < 0)
-		start_addr = range_min;
+	int offset = 0;
+	int stride = 1;
 
-	if (finish_addr < 0)
-		finish_addr = range_max + 1;
+	// 1D arrays maintain their original bounds, which may not be normalized to start from 0.
+	// However, multidimensional arrays get normalized to a 1D array that starts from 0.
+	//
+	// The spec still requires `$readmem[bh]` to honor the original layout, so multidimensional
+	// array addresses get scaled by the number of individual elements contained in the leftmost
+	// dimension and offset by its starting position.
+	//
+	// The cursor is kept relative to the flattened, potentially-normalized 1D layout. Addressed
+	// read from the file are scaled by the stride, and only during `AST_MEMINIT` the offset is
+	// applied to the cursor to yield the correct 1D position.
+	if (memory->unpacked_dimensions > 1) {
+		for (int i = 1; i < memory->unpacked_dimensions; i++) {
+			auto dim = memory->dimensions[i];
+			stride *= dim.range_width;
+		}
+
+		auto highest_dim = memory->dimensions[memory->unpacked_dimensions - 1];
+		offset = stride * highest_dim.range_right;
+	}
+
+	int s_addr = start_addr.has_value()
+		? start_addr.value() * stride
+		: range_min;
+
+	int f_addr = finish_addr.has_value()
+		? finish_addr.value() * stride
+		: range_max + 1;
 
 	bool in_comment = false;
-	int increment = start_addr <= finish_addr ? +1 : -1;
-	int cursor = start_addr;
+	int increment = s_addr <= f_addr ? +1 : -1;
+	int cursor = s_addr;
+	int next_meminit_cursor = cursor;
 
 	while (!f.eof())
 	{
@@ -4897,7 +4922,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 				token = token.substr(1);
 				const char *nptr = token.c_str();
 				char *endptr;
-				cursor = strtol(nptr, &endptr, 16);
+				cursor = strtol(nptr, &endptr, 16) * stride - offset;
 				if (!*nptr || *endptr)
 					input_error("Can not parse address `%s` for %s.\n", nptr, str);
 				continue;
@@ -4917,7 +4942,7 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 
 					auto meminit_owned = std::make_unique<AstNode>(location, AST_MEMINIT);
 					meminit = meminit_owned.get();
-					meminit->children.push_back(AstNode::mkconst_int(location, cursor, false));
+					meminit->children.push_back(AstNode::mkconst_int(location, cursor - offset, false));
 					meminit->children.push_back(nullptr);
 					meminit->children.push_back(AstNode::mkconst_bits(location, en_bits, false));
 					meminit->children.push_back(nullptr);
@@ -4949,11 +4974,11 @@ std::unique_ptr<AstNode> AstNode::readmem(bool is_readmemh, std::string mem_file
 			}
 
 			cursor += increment;
-			if ((cursor == finish_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
+			if ((cursor == f_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
 				break;
 		}
 
-		if ((cursor == finish_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
+		if ((cursor == f_addr+increment) || (increment > 0 && cursor > range_max) || (increment < 0 && cursor < range_min))
 			break;
 	}
 
