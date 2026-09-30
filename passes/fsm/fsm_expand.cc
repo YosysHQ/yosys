@@ -229,6 +229,7 @@ struct FsmExpand
 		assign_map.set(module);
 		ct.setup_internals();
 		ct.setup_stdcells();
+		ct.cell_types.erase(ID($barrier)); // never merge through a barrier
 
 		for (auto &cell_it : module->cells_) {
 			RTLIL::Cell *c = cell_it.second;
