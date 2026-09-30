@@ -3451,12 +3451,16 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 			}
 
-			if (is_pattern_assign && this->is_in_unconditional_init() && rhs->is_simple_const_expr()) {
-				vector<State> en_bits(element_width, State::S1);
-				vector<State> meminit_bits;
-				int idx = 0;
+			// Build a single AST_MEMINIT if all elements have folded to constants before this point
+			bool use_meminit = is_pattern_assign && this->is_in_unconditional_init() && rhs->is_simple_const_expr();
+			vector<State> meminit_bits;
 
+			if (use_meminit) {
+				int idx = 0;
 				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+					if (!use_meminit)
+						return;
+
 					auto elem = pattern_element_at_position(position, idx++);
 					vector<State> bits;
 
@@ -3468,12 +3472,17 @@ skip_dynamic_range_lvalue_expansion:;
 							bits = elem->realAsConst(element_width).to_bits();
 							break;
 						default:
-							input_error("Array assignment element is not constant!\n");
+							// Probably a packed sub-pattern, which will error out neatly in genrtlil
+							use_meminit = false;
+							return;
 					}
 
 					meminit_bits.insert(meminit_bits.end(), bits.begin(), bits.end());
 				});
+			}
 
+			if (use_meminit) {
+				vector<State> en_bits(element_width, State::S1);
 				auto meminit_owned = std::make_unique<AstNode>(
 					location,
 					AST_MEMINIT,
