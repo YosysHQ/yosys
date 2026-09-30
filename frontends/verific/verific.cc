@@ -31,6 +31,7 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #endif
+#include <filesystem>
 
 #include "frontends/verific/verific.h"
 
@@ -3426,6 +3427,13 @@ struct VerificPass : public Pass {
 		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("    verific -target <target> [-family <family>]]\n");
+		log("\n");
+		log("Loads required cell definitions for specificed <target> and <family>.\n");
+		log("\n");
+		log("\n");
+#endif
 #if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
 		VerificExtensions::Help();
 #endif
@@ -3774,6 +3782,68 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-target") {
+			argidx++;
+
+			if (argidx >= GetSize(args))
+				log_cmd_error("Missing target for `-target'.\n");
+
+			std::string synth_target = args[argidx++];
+			std::string synth_family;
+
+			if (argidx < GetSize(args) && args[argidx] == "-family") {
+				argidx++;
+
+				if (argidx >= GetSize(args))
+					log_cmd_error("Missing family for `-family'.\n");
+
+				synth_family = args[argidx++];
+			} else if (argidx < GetSize(args) && args[argidx][0] == '-') {
+				log_cmd_error("Unknown option `%s'.\n", args[argidx].c_str());
+			}
+			auto target_it = target_register.find(synth_target);
+			if (target_it == target_register.end())
+				log_cmd_error("Unknown target '%s'.\n", synth_target.c_str());
+
+			auto family_it = target_it->second.families.find(synth_family);
+			if (family_it == target_it->second.families.end()) {
+				if (synth_family.empty())
+					log_cmd_error("Family must be specified for target '%s'.\n", synth_target.c_str());
+				else
+					log_cmd_error("Unknown family '%s' for target '%s'.\n",
+							synth_family.c_str(), synth_target.c_str());
+			}
+
+			bool flag_lib = true;
+			Array file_names;
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+			veri_file::DefineMacro("YOSYS");
+			veri_file::DefineMacro("VERIFIC");
+
+			for (auto &file : family_it->second.files) {
+				rewrite_filename(file);
+				file_names.Insert(strdup(file.c_str()));
+				std::string dir = std::filesystem::path(file).parent_path().string();
+				veri_file::AddIncludeDir(dir.c_str());
+			}
+
+			Map map(POINTER_HASH);
+			add_modules_to_map(map, work, flag_lib);
+			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
+					verific_error_msg.clear();
+					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+			}
+			char* fn;
+			int i = 0;
+
+			FOREACH_ARRAY_ITEM(&file_names, i, fn) {
+				free(fn);
+			}
+			set_modules_to_blackbox(map, work, flag_lib);
+			verific_import_pending = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;
