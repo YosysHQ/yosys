@@ -166,3 +166,53 @@ design -pop
 # With barriers they aren't
 prep -barriers
 select -assert-none w:c %ci1 w:d %ci1 %i
+
+design -reset
+
+# init on FF output
+read_verilog <<EOT
+module top(input clk, input d, output reg q = 1'b1);
+always @(posedge clk) q <= d;
+endmodule
+EOT
+
+proc
+optbarriers
+select -assert-count 1 t:$barrier
+select -assert-count 1 t:$dff %co:+[Q] w:* %i a:init %i
+select -assert-none w:q a:init %i
+
+design -reset
+
+# init on alias
+read_verilog <<EOT
+module top(input clk, input d, output reg q = 1'b1, output w);
+assign w = q;
+always @(posedge clk) q <= d;
+endmodule
+EOT
+proc
+setattr -set init 1'b1 w:w
+optbarriers -noconns
+select -assert-none t:$barrier %co:+[Y] w:* %i a:init %i
+
+design -reset
+
+# Init on input port
+read_rtlil <<EOT
+module \top
+  wire input 1 \i
+  attribute \init 1'1
+  wire output 2 \y
+  wire $a
+  connect $a \i
+  cell $barrier \b
+    parameter \WIDTH 1
+    connect \A $a
+    connect \Y \y
+  end
+end
+EOT
+optbarriers
+opt_clean
+select -assert-none w:i a:init %i

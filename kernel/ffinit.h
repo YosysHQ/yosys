@@ -143,6 +143,64 @@ struct FfInitVals
 			remove_init(bit);
 	}
 
+	// Move $barrier output init value to it's input
+	void move_barrier_inits(RTLIL::Module *module)
+	{
+		dict<RTLIL::SigBit, RTLIL::SigBit> next;
+		for (auto cell : module->cells()) {
+			if (cell->type != ID($barrier))
+				continue;
+			RTLIL::SigSpec sig_y = (*sigmap)(cell->getPort(ID::Y)), sig_a = cell->getPort(ID::A);
+			for (int i = 0; i < GetSize(sig_y); i++)
+				next[sig_y[i]] = sig_a[i];
+		}
+		pool<RTLIL::SigBit> inputs = input_nets(module), moved;
+		for (auto [from, to] : next) {
+			RTLIL::State val = (*this)(from);
+			if (val == State::Sx)
+				continue;
+			moved.insert(from);
+			for (int i = 0; i < GetSize(next) && next.count((*sigmap)(to)); i++)
+				to = next.at((*sigmap)(to));
+			RTLIL::SigBit to_net = (*sigmap)(to);
+			if (to_net.wire == nullptr || inputs.count(to_net))
+				continue;
+			RTLIL::State to_val = (*this)(to);
+			if (to_val == State::Sx)
+				set_init(to, val);
+			else if (to_val != val)
+				log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
+						log_signal(to), log_signal(from), log_signal(val), log_signal(to_val));
+		}
+		remove_net_inits(module, moved);
+	}
+
+	pool<RTLIL::SigBit> input_nets(RTLIL::Module *module) const
+	{
+		pool<RTLIL::SigBit> nets;
+		for (auto wire : module->wires())
+			if (wire->port_input)
+				for (auto bit : (*sigmap)(wire))
+					nets.insert(bit);
+		return nets;
+	}
+
+	void remove_net_inits(RTLIL::Module *module, const pool<RTLIL::SigBit> &nets)
+	{
+		for (auto bit : nets)
+			initbits.erase(bit);
+		for (auto wire : module->wires()) {
+			auto it = wire->attributes.find(ID::init);
+			if (it == wire->attributes.end())
+				continue;
+			for (int i = 0; i < GetSize(wire) && i < GetSize(it->second); i++)
+				if (nets.count((*sigmap)(RTLIL::SigBit(wire, i))))
+					it->second.set(i, State::Sx);
+			if (it->second.is_fully_undef())
+				wire->attributes.erase(it);
+		}
+	}
+
 	void clear()
 	{
 		initbits.clear();

@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/ffinit.h"
 #include <algorithm>
 
 USING_YOSYS_NAMESPACE
@@ -455,6 +456,11 @@ struct OptBarriersPass : public Pass {
 				}
 				module->new_connections(new_connections);
 			}
+
+			// Init values belong to the driver side of the barriers
+			SigMap init_sigmap(module);
+			FfInitVals initvals(&init_sigmap, module);
+			initvals.move_barrier_inits(module);
 		}
 	}
 
