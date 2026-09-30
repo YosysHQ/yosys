@@ -975,7 +975,8 @@ struct FirrtlWorker
 				if (a_width < y_width) {
 					a_expr = stringf("pad(%s, %d)", a_expr, y_width);
 				}
-				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, y_width));
+				// $buf and $barrier have no Y_WIDTH
+				wire_decls.push_back(stringf("%swire %s: UInt<%d>\n", indent, y_id, GetSize(cell->getPort(ID::Y))));
 				cell_exprs.push_back(stringf("%s%s <= %s\n", indent, y_id, a_expr));
 				register_reverse_wire_map(y_id, cell->getPort(ID::Y));
 				continue;
