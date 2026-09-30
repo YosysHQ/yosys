@@ -1,0 +1,47 @@
+# Opaque to optimizers, buffer to verification
+
+# sat, equiv_*, sim, eval
+read_verilog -icells <<EOT
+module top(input [3:0] a, output [3:0] y);
+	\$barrier #(.WIDTH(4)) b (.A(a), .Y(y));
+endmodule
+EOT
+sat -verify -prove y a
+sat -verify -enable_undef -set-def-inputs -prove y a
+logger -expect log "Eval result: \\y = 4'0101\." 1
+eval -set a 4'b0101 -show y
+logger -check-expected
+design -reset
+
+read_verilog -icells <<EOT
+module top(output [3:0] y);
+	\$barrier #(.WIDTH(4)) b (.A(4'b0101), .Y(y));
+	\$assert chk (.A(y == 4'b0101), .EN(1'b1));
+endmodule
+EOT
+sim -n 1 -assert
+design -reset
+
+read_verilog -icells <<EOT
+module gold(input a, b, output y);
+	wire w;
+	\$barrier #(.WIDTH(1)) gbar (.A(a), .Y(w));
+	assign y = w & b;
+endmodule
+module gate(input a, b, output y);
+	\$barrier #(.WIDTH(1)) tbar (.A(a & b), .Y(y));
+endmodule
+EOT
+design -save gg
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
+design -load gg
+equiv_make gold gate equiv
+equiv_induct
+equiv_status -assert
+design -load gg
+hierarchy -top gold
+equiv_opt -assert opt -full
+design -reset
+

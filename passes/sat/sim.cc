@@ -602,6 +602,11 @@ struct SimInstance
 			return;
 		}
 
+		if (cell->type == ID($barrier)) {
+			set_state(cell->getPort(ID::Y), get_state(cell->getPort(ID::A)));
+			return;
+		}
+
 		if (cell->type == ID($print))
 			return;
 

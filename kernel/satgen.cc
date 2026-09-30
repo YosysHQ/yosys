@@ -1325,7 +1325,10 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		return true;
 	}
 
-	if (cell->type.in(ID($_BUF_), ID($equiv)))
+	if (cell->type == ID($barrier) && !model_barriers)
+		return true;
+
+	if (cell->type.in(ID($_BUF_), ID($equiv), ID($barrier)))
 	{
 		std::vector<int> a = importDefSigSpec(cell->getPort(ID::A), timestep);
 		std::vector<int> y = importDefSigSpec(cell->getPort(ID::Y), timestep);
