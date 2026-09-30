@@ -1,5 +1,43 @@
 # Opaque to optimizers, buffer to verification
 
+# opt -share_all
+read_verilog -icells <<EOT
+module top(input a, output y1, y2);
+	\$barrier #(.WIDTH(1)) b1 (.A(a), .Y(y1));
+	\$barrier #(.WIDTH(1)) b2 (.A(a), .Y(y2));
+endmodule
+EOT
+opt -share_all
+select -assert-count 2 t:$barrier
+design -reset
+
+# freduce
+read_verilog -icells <<EOT
+module top(output y);
+	wire k;
+	\$barrier #(.WIDTH(1)) bar (.A(1'b1), .Y(k));
+	assign y = ~k;
+endmodule
+EOT
+freduce
+select -assert-count 1 t:$barrier
+select -assert-count 1 t:$not
+design -reset
+
+# opt_dff -sat
+read_verilog -icells <<EOT
+module top(input clk, a, output reg q);
+	initial q = 1'b0;
+	wire w;
+	\$barrier #(.WIDTH(1)) b (.A(1'b0), .Y(w));
+	always @(posedge clk) q <= a & w;
+endmodule
+EOT
+proc
+opt_dff -sat
+select -assert-count 1 t:$dff
+design -reset
+
 # sat, equiv_*, sim, eval
 read_verilog -icells <<EOT
 module top(input [3:0] a, output [3:0] y);
