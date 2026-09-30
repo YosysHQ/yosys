@@ -29,6 +29,25 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthIntelALMPass : public ScriptPass {
 	SynthIntelALMPass() : ScriptPass("synth_intel_alm", "synthesis for ALM-based Intel (Altera) FPGAs.") {}
 
+	void on_register() override
+	{
+		target_register.emplace("intel_alm", Target{
+			"Intel (Altera) ALM-based",
+			{
+				{"cyclonev", {
+					"Cyclone V",
+					{ "+/intel_alm/cyclonev/cells_sim.v",
+					  "+/intel_alm/common/alm_sim.v",
+					  "+/intel_alm/common/dff_sim.v",
+					  "+/intel_alm/common/dsp_sim.v",
+					  "+/intel_alm/common/mem_sim.v",
+					  "+/intel_alm/common/misc_sim.v",
+					}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

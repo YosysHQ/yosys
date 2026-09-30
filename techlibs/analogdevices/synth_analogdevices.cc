@@ -34,6 +34,15 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	{
 		RTLIL::constpad["synth_analogdevices.abc9.W"] = "300"; // Number with which ABC will map a 6-input gate
 								    // to one LUT6 (instead of a LUT5 + LUT2)
+		target_register.emplace("analogdevices", Target{
+			"Analog Devices",
+			{
+				{"", { // default
+					"",
+					{"+/analogdevices/cells_sim.v"}
+				}}
+			}
+		});
 	}
 
 	void help() override

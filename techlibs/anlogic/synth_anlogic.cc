@@ -30,6 +30,19 @@ struct SynthAnlogicPass : public ScriptPass
 {
 	SynthAnlogicPass() : ScriptPass("synth_anlogic", "synthesis for Anlogic FPGAs") { }
 
+	void on_register() override
+	{
+		target_register.emplace("anlogic", Target{
+			"Anlogic",
+			{
+				{"", { // default
+					"",
+					{"+/anlogic/cells_sim.v", "+/anlogic/eagle_bb.v"}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
