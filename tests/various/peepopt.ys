@@ -315,3 +315,53 @@ equiv_opt -assert peepopt
 design -load postopt
 clean
 select -assert-count 0 t:$add
+
+####################
+
+# shiftadd: signed add read unsigned by $shr (#6241)
+design -reset
+read_verilog <<EOT
+module peepopt_shiftadd_signed_add (input signed [3:0] v, input [15:0] data, output [15:0] out);
+	wire signed [1:0] c = -1;
+	wire [4:0] amt = v + c;
+	assign out = data >> amt;
+endmodule
+EOT
+
+proc
+equiv_opt -assert peepopt
+
+####################
+
+# shiftadd: unsigned add read signed by $shift, MSB of the sum can be set
+design -reset
+read_rtlil <<EOT
+module \peepopt_shiftadd_unsigned_shift
+  wire width 4 input 1 \v
+  wire width 16 input 2 \d
+  wire width 5 \s
+  wire width 16 output 3 \y
+  cell $add \add
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 5
+    connect \A \v
+    connect \B 3'011
+    connect \Y \s
+  end
+  cell $shift \sh
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 1
+    parameter \A_WIDTH 16
+    parameter \B_WIDTH 5
+    parameter \Y_WIDTH 16
+    connect \A \d
+    connect \B \s
+    connect \Y \y
+  end
+end
+EOT
+
+equiv_opt -assert peepopt
