@@ -192,10 +192,17 @@ int run_command(const std::string &command, std::function<void(const std::string
 
 	std::string line;
 	char logbuf[128];
-	while (fgets(logbuf, 128, f) != NULL) {
-		line += logbuf;
-		if (!line.empty() && line.back() == '\n')
-			process_line(line), line.clear();
+	while (true) {
+		if (fgets(logbuf, 128, f) != NULL) {
+			line += logbuf;
+			if (!line.empty() && line.back() == '\n')
+				process_line(line), line.clear();
+		} else if (ferror(f) && errno == EINTR) {
+			clearerr(f);
+			continue;
+		} else {
+			break;
+		}
 	}
 	if (!line.empty())
 		process_line(line);
@@ -206,6 +213,8 @@ int run_command(const std::string &command, std::function<void(const std::string
 #ifdef _WIN32
 	return ret;
 #else
+	if (!WIFEXITED(ret))
+		return -1;
 	return WEXITSTATUS(ret);
 #endif
 }
