@@ -284,7 +284,7 @@ struct OptMergeThreadWorker
 				// mem can have an excessively large parameter holding the init data
 				continue;
 			}
-			if (cell->type == ID($scopeinfo))
+			if (cell->type.in(ID($scopeinfo), ID($barrier)))
 				continue;
 			if (mode_keepdc && has_dont_care_initval(cell))
 				continue;
@@ -559,7 +559,6 @@ struct OptMergePass : public Pass {
 		ct.cell_types.erase(ID($anyconst));
 		ct.cell_types.erase(ID($allseq));
 		ct.cell_types.erase(ID($allconst));
-		ct.cell_types.erase(ID($barrier));
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
