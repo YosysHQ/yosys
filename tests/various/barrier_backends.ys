@@ -27,3 +27,8 @@ write_cxxrtl temp/barrier.cc
 
 write_btor temp/barrier.btor
 write_aiger2 temp/barrier.aig
+
+# write_xaiger2 cuts at barriers so the cell is kept by -mapping_prep
+write_xaiger2 -mapping_prep -map2 temp/barrier.map2 temp/barrier.xaig
+select -assert-count 1 t:$barrier
+select -assert-count 0 t:$and

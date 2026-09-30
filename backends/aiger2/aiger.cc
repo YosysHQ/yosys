@@ -115,6 +115,13 @@ struct Index {
 	bool inline_whiteboxes = false;
 	bool allow_blackboxes = false;
 
+	bool is_known_op(Cell *cell)
+	{
+		if (cell->type == ID($barrier))
+			return !allow_blackboxes;
+		return known_ops(cell->type);
+	}
+
 	int index_module(RTLIL::Module *m)
 	{
 		ModuleInfo &info = modules[m];
@@ -129,7 +136,7 @@ struct Index {
 		int pos = index_wires(info, m);
 
 		for (auto cell : m->cells()) {
-			if (known_ops(cell->type) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($specrule), ID($input_port)))
+			if (is_known_op(cell) || cell->type.in(ID($scopeinfo), ID($specify2), ID($specify3), ID($specrule), ID($input_port)))
 				continue;
 
 			Module *submodule = cell_def(m->design, cell);
@@ -865,7 +872,7 @@ struct Index {
 			// an output of a cell
 			Cell *driver = bit.wire->driverCell();
 
-			if (known_ops(driver->type)) {
+			if (is_known_op(driver)) {
 				ret = impl_op(cursor, driver, bit.wire->driverPort(), bit.offset);
 			} else {
 				Module *def = cursor.enter(*this, driver);
