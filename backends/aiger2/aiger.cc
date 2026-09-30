@@ -1784,6 +1784,30 @@ void remove_input_port_cells(Design *design)
 	}
 }
 
+// the same goes for the plain $buf cells: turn them back into connections,
+// leaving 'z bits undriven (opt_clean keeps a $buf with 'z bits on its input,
+// so such a cell would otherwise make it into the final netlist)
+void remove_buf_cells(Design *design)
+{
+	std::vector<Cell *> to_remove;
+
+	for (auto module : design->modules()) {
+		to_remove.clear();
+		for (auto cell : module->cells())
+			if (cell->type == ID($buf) && cell->attributes.empty() && !cell->name.isPublic())
+				to_remove.push_back(cell);
+
+		for (auto cell : to_remove) {
+			SigSpec sig_a = cell->getPort(ID::A);
+			SigSpec sig_y = cell->getPort(ID::Y);
+			for (int i = 0; i < GetSize(sig_y); i++)
+				if (sig_a[i] != State::Sz)
+					module->connect(sig_y[i], sig_a[i]);
+			module->remove(cell);
+		}
+	}
+}
+
 struct Aiger2Backend : Backend {
 	Aiger2Backend() : Backend("aiger2", "(experimental) write design to AIGER file")
 	{
@@ -1882,6 +1906,7 @@ struct Aiger2Backend : Backend {
 		// with it)
 		design->bufNormalize(false);
 		remove_input_port_cells(design);
+		remove_buf_cells(design);
 	}
 } Aiger2Backend;
 
@@ -1964,6 +1989,7 @@ struct XAiger2Backend : Backend {
 		// with it)
 		design->bufNormalize(false);
 		remove_input_port_cells(design);
+		remove_buf_cells(design);
 	}
 } XAiger2Backend;
 
