@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module top(input en, s, d, output reg q);
+	wire a = s ? a : d;
+	always @*
+		if (en)
+			q = a;
+endmodule
+EOT
+logger -expect error "Found logic loop through \$mux cell" 1
+proc
