@@ -4,9 +4,10 @@ begin:
     hierarchy -check [-top <top> | -auto-top]
 
 coarse:
+    optbarriers    (if -barriers)
     proc [-ifx]
     check
-    flatten    (if -flatten)
+    flatten [-barriers]    (if -flatten)
     future
     opt_expr -keepdc
     check
