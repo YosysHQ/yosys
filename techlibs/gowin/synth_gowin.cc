@@ -29,6 +29,27 @@ struct SynthGowinPass : public ScriptPass
 {
 	SynthGowinPass() : ScriptPass("synth_gowin", "synthesis for Gowin FPGAs") { }
 
+	void on_register() override
+	{
+		target_register.emplace("gowin", Target{
+			"Gowin",
+			{
+				{"gw1n", {
+					"GW1N",
+					{"+/gowin/cells_sim.v", "+/gowin/cells_xtra_gw1n.v"}
+				}},
+				{"gw2a", {
+					"GW2A",
+					{"+/gowin/cells_sim.v", "+/gowin/cells_xtra_gw2a.v"}
+				}},
+				{"gw5a", {
+					"GW5A",
+					{"+/gowin/cells_sim.v", "+/gowin/cells_xtra_gw5a.v"}
+				}}
+			}
+		});
+	}
+
 	struct DSPRule {
 		int a_maxwidth;
 		int b_maxwidth;

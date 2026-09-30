@@ -27,6 +27,19 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthMicrochipPass : public ScriptPass {
 	SynthMicrochipPass() : ScriptPass("synth_microchip", "synthesis for Microchip FPGAs") {}
 
+	void on_register() override
+	{
+		target_register.emplace("microchip", Target{
+			"Microchip",
+			{
+				{"polarfire", {
+					"PolarFire",
+					{"+/microchip/cells_sim.v"}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
