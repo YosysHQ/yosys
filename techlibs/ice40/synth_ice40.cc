@@ -35,6 +35,15 @@ struct SynthIce40Pass : public ScriptPass
 		RTLIL::constpad["synth_ice40.abc9.hx.W"] = "250";
 		RTLIL::constpad["synth_ice40.abc9.lp.W"] = "400";
 		RTLIL::constpad["synth_ice40.abc9.u.W"] = "750";
+		target_register.emplace("ice40", Target{
+			"Lattice iCE40",
+			{
+				{"", { // default
+					"",
+					{"+/ice40/cells_sim.v"}
+				}}
+			}
+		});
 	}
 
 	void help() override
