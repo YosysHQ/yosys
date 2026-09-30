@@ -245,3 +245,73 @@ design -load postopt
 clean
 select -assert-count 1 t:$bmux
 select -assert-count 0 t:$bmux t:* %D
+
+####################
+
+# shiftadd left an empty A on a signed $shr, which techmap turned into x (#6214)
+design -reset
+read_verilog <<EOT
+module peepopt_shiftadd_6214 (input signed [1:0] in, output Y);
+	assign Y = !((in >> 2) >> (1 + in[0]));
+endmodule
+EOT
+
+synth
+sat -verify -prove Y 1'b1
+
+####################
+
+# signed $shr sign-extends A to Y_WIDTH, the narrowed A must carry that extension
+design -reset
+read_verilog <<EOT
+module peepopt_shiftadd_signed_shr (input signed [3:0] D, input [1:0] S, output [7:0] Y);
+	wire signed [7:0] A = D;
+	assign Y = A >> (S + 1);
+endmodule
+EOT
+
+prep
+# wreduce narrows A below Y_WIDTH
+wreduce
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 0 t:$add
+
+####################
+
+# A_WIDTH > Y_WIDTH needs no extension, but A_SIGNED must still be cleared
+design -reset
+read_rtlil <<EOT
+module \t
+  wire width 4 input 1 signed \A
+  wire input 2 \S
+  wire width 2 output 3 \Y
+  wire width 3 \BS
+  cell $add \a
+    parameter \A_SIGNED 0
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \B_WIDTH 1
+    parameter \Y_WIDTH 3
+    connect \A 2'11
+    connect \B \S
+    connect \Y \BS
+  end
+  cell $shr \s
+    parameter \A_SIGNED 1
+    parameter \B_SIGNED 0
+    parameter \A_WIDTH 4
+    parameter \B_WIDTH 3
+    parameter \Y_WIDTH 2
+    connect \A \A
+    connect \B \BS
+    connect \Y \Y
+  end
+end
+EOT
+
+equiv_opt -assert peepopt
+design -load postopt
+clean
+select -assert-count 0 t:$add

@@ -110,6 +110,12 @@ code
 		reject;
 	}
 
+	// $shr and $shift sign-extend A to max(A_WIDTH, Y_WIDTH), so bake that in
+	// before reslicing A and clear A_SIGNED, or it gets applied twice
+	bool a_signed = shift->type.in($shr, $shift) && param(shift, \A_SIGNED).as_bool();
+	if (a_signed && !old_a.empty())
+		old_a.extend_u0(max(GetSize(old_a), GetSize(port(shift, \Y))), true);
+
 	did_something = true;
 	log("shiftadd pattern in %s: shift=%s, add/sub=%s, offset: %d\n", \
 			module, shift, add, offset);
@@ -143,6 +149,8 @@ code
 
 	shift->setPort(\A, new_a);
 	shift->setParam(\A_WIDTH, GetSize(new_a));
+	if (a_signed)
+		shift->setParam(\A_SIGNED, 0);
 	shift->setPort(\B, new_b);
 	shift->setParam(\B_WIDTH, GetSize(new_b));
 	blacklist(add);
