@@ -433,7 +433,7 @@ struct RenamePass : public Pass {
 									}
 								}
 							}
-							module->rename(found_wire, found_wire->name.unescape() + wire_suffix);
+							module->rename(found_wire, found_wire->name.str() + wire_suffix);
 						}
 					}
 					module->rename(cell, new_name);

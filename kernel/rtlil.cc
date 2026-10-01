@@ -2953,7 +2953,7 @@ IdString RTLIL::Module::uniquify(IdString name, int &index)
 	}
 
 	while (1) {
-		IdString new_name = (design->twines.add(TwineSpec::Suffix{name, stringf("_%d", index)})).tag(name.isPublic());
+		IdString new_name = design->twines.add(TwineSpec::Suffix{name, stringf("_%d", index)});
 		if (count_id(new_name) == 0)
 			return new_name;
 		index++;

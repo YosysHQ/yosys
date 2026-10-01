@@ -4,15 +4,14 @@
 namespace RTLIL {
 
 template<typename Derived> struct NameMasqBase;
-template<typename Owner> struct ObjNameMasq;
-struct CellTypeMasq;
-struct ModuleNameMasq;
+template<typename Owner, auto Field = &NamedObject::name_> struct IdFieldMasq;
 struct PooledName;
 
-using WireNameMasq = ObjNameMasq<Wire>;
-using CellNameMasq = ObjNameMasq<Cell>;
-using MemoryNameMasq = ObjNameMasq<Memory>;
-using ProcessNameMasq = ObjNameMasq<Process>;
+using ModuleNameMasq = IdFieldMasq<Module>;
+using WireNameMasq = IdFieldMasq<Wire>;
+using CellNameMasq = IdFieldMasq<Cell>;
+using MemoryNameMasq = IdFieldMasq<Memory>;
+using ProcessNameMasq = IdFieldMasq<Process>;
 
 namespace masq_detail {
 
@@ -34,6 +33,8 @@ template<typename Derived>
 struct NameMasqBase {
 	operator IdString() const { return self().ref(); }
 	operator std::string() const { return self().escaped(); }
+	std::string escaped() const { return masq_detail::render_escaped(self().pool(), self().ref()); }
+	std::string unescape() const { return masq_detail::render_unescaped(self().pool(), self().ref()); }
 	bool isPublic() const { return self().ref().isPublic(); }
 	bool empty() const { return self().ref() == IdString::Null; }
 	std::string str() const { return self().escaped(); }
@@ -65,7 +66,6 @@ struct NameMasqBase {
 	friend bool operator==(const Derived &lhs, NullIdString) { return lhs.ref() == IdString::Null; }
 	friend bool operator==(const Derived &lhs, const std::string &rhs) { return lhs.escaped() == rhs; }
 	friend bool operator<(const Derived &lhs, const Derived &rhs) { return lhs.ref() < rhs.ref(); }
-	[[nodiscard]] Hasher hash_into(Hasher h) const { return self().ref().hash_into(h); }
 private:
 	const Derived &self() const { return *static_cast<const Derived *>(this); }
 };
@@ -88,53 +88,19 @@ auto make_pair(A &&a, B &&b) { return std::make_pair(std::forward<A>(a), b.ref()
 template<IsNameMasq A, IsNameMasq B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(a.ref(), b.ref()); }
 
-template<typename Owner>
-struct ObjNameMasq : NameMasqBase<ObjNameMasq<Owner>> {
-	ObjNameMasq() = default;
-	ObjNameMasq(const ObjNameMasq &) = delete;
-	ObjNameMasq(ObjNameMasq &&) = delete;
-	IdString ref() const;
+template<typename Owner, auto Field>
+struct IdFieldMasq : NameMasqBase<IdFieldMasq<Owner, Field>> {
+	IdFieldMasq() = default;
+	IdFieldMasq(const IdFieldMasq &) = delete;
+	IdFieldMasq(IdFieldMasq &&) = delete;
+	IdString ref() const { return owner()->*Field; }
 	const TwinePool *pool() const;
-	std::string escaped() const;
-	std::string unescape() const;
-	ObjNameMasq &operator=(IdString id);
-	ObjNameMasq &operator=(const ObjNameMasq &other) { return *this = other.ref(); }
-	ObjNameMasq &operator=(ObjNameMasq &&other) { return *this = other.ref(); }
+	IdFieldMasq &operator=(IdString id) { owner()->*Field = id; return *this; }
+	IdFieldMasq &operator=(const IdFieldMasq &other) { return *this = other.ref(); }
+	IdFieldMasq &operator=(IdFieldMasq &&other) { return *this = other.ref(); }
 private:
 	const Owner *owner() const;
-	Owner *owner();
-};
-
-struct CellTypeMasq : NameMasqBase<CellTypeMasq> {
-	CellTypeMasq() = default;
-	CellTypeMasq(const CellTypeMasq &) = delete;
-	CellTypeMasq(CellTypeMasq &&) = delete;
-	IdString ref() const;
-	const TwinePool *pool() const;
-	std::string escaped() const;
-	std::string unescape() const;
-	CellTypeMasq &operator=(IdString id);
-	CellTypeMasq &operator=(const CellTypeMasq &other) { return *this = other.ref(); }
-	CellTypeMasq &operator=(CellTypeMasq &&other) { return *this = other.ref(); }
-private:
-	const Cell *owner() const;
-	Cell *owner();
-};
-
-struct ModuleNameMasq : NameMasqBase<ModuleNameMasq> {
-	ModuleNameMasq() = default;
-	ModuleNameMasq(const ModuleNameMasq &) = delete;
-	ModuleNameMasq(ModuleNameMasq &&) = delete;
-	IdString ref() const;
-	const TwinePool *pool() const;
-	std::string escaped() const;
-	std::string unescape() const;
-	ModuleNameMasq &operator=(IdString id);
-	ModuleNameMasq &operator=(const ModuleNameMasq &other) { return *this = other.ref(); }
-	ModuleNameMasq &operator=(ModuleNameMasq &&other) { return *this = other.ref(); }
-private:
-	const Module *owner() const;
-	Module *owner();
+	Owner *owner() { return const_cast<Owner *>(static_cast<const IdFieldMasq *>(this)->owner()); }
 };
 
 Module *module_by_name(Design *design, const std::string &name);
@@ -152,8 +118,6 @@ struct PooledName : NameMasqBase<PooledName> {
 		  id_(static_cast<const D &>(masq).ref()) {}
 	IdString ref() const { return id_; }
 	const TwinePool *pool() const { return pool_; }
-	std::string escaped() const;
-	std::string unescape() const;
 private:
 	const TwinePool *pool_ = nullptr;
 	IdString id_ = IdString::Null;
@@ -173,10 +137,8 @@ namespace hashlib {
 		}
 	};
 
-	template<typename Owner>
-	struct hash_ops<RTLIL::ObjNameMasq<Owner>> : masq_hash_ops<RTLIL::ObjNameMasq<Owner>> {};
-	template<> struct hash_ops<RTLIL::CellTypeMasq> : masq_hash_ops<RTLIL::CellTypeMasq> {};
-	template<> struct hash_ops<RTLIL::ModuleNameMasq> : masq_hash_ops<RTLIL::ModuleNameMasq> {};
+	template<typename Owner, auto Field>
+	struct hash_ops<RTLIL::IdFieldMasq<Owner, Field>> : masq_hash_ops<RTLIL::IdFieldMasq<Owner, Field>> {};
 	template<> struct hash_ops<RTLIL::PooledName> : masq_hash_ops<RTLIL::PooledName> {};
 }
 

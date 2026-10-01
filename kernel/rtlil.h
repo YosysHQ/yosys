@@ -155,11 +155,7 @@ namespace RTLIL {
 		return str.substr(1);
 	}
 
-	template <typename T> struct sort_by_name_id {
-		bool operator()(T *a, T *b) const {
-			return a->name < b->name;
-		}
-	};
+	template <typename T> using sort_by_name_id = IdString::compare_ptr_by_name<T>;
 
 	template <typename T> struct sort_by_name_str {
 		bool operator()(T *a, T *b) const {
@@ -2020,7 +2016,7 @@ public:
 	TwinePool &twines() const { return module->twines(); }
 
 	IdString type_impl;
-	YS_NO_UNIQUE_ADDRESS RTLIL::CellTypeMasq type;
+	YS_NO_UNIQUE_ADDRESS RTLIL::IdFieldMasq<Cell, &Cell::type_impl> type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::LeafIdString, RTLIL::Const> parameters;
 

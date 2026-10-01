@@ -141,8 +141,6 @@ public:
 		return value == TWINE_NULL_VAL ? *this : IdString(pub ? (value | TWINE_PUBLIC_BIT) : (value & ~TWINE_PUBLIC_BIT));
 	}
 
-	Hasher hash_into(Hasher h) const;
-
 	std::string handle_token() const;
 	static size_t handle_token_prefix(std::string_view token, bool &is_public);
 };
@@ -151,21 +149,12 @@ constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
 
 /**
- * LeafIdString is an IdString that is statically known to be a leaf twine
- * (or Null). Handles only compare equal when they're structurally equal,
- * so a key that's looked up with static ids or strings interned with
- * TwinePool::add(std::string), like attribute and parameter keys,
- * has to be a leaf: a suffix twine spelling the same name wouldn't be found.
- *
- * Static ids are leaves. Otherwise, only the TwinePool methods that
- * intern leaves construct one, so where a suffix would sneak in,
- * the conversion has to be spelled out with TwinePool::flatten.
+ * LeafIdString is an IdString that is statically known to be a leaf
  */
 struct LeafIdString : IdString {
 	constexpr LeafIdString() = default;
 	constexpr LeafIdString(NullIdString) {}
 
-	constexpr LeafIdString untag() const { return LeafIdString(IdString::untag()); }
 	constexpr LeafIdString tag(bool pub) const { return LeafIdString(IdString::tag(pub)); }
 
 private:
@@ -180,7 +169,7 @@ namespace hashlib {
 		static inline bool cmp(IdString a, IdString b) { return a == b; }
 		[[nodiscard]] static inline Hasher hash(IdString id) {
 			Hasher h;
-			h.force((Hasher::hash_t) id.bits());
+			h.force((Hasher::hash_t) id.eq_key());
 			return h;
 		}
 		[[nodiscard]] static inline Hasher hash_into(IdString id, Hasher h) {
@@ -194,7 +183,6 @@ namespace hashlib {
 
 
 enum : short {
-	// STATIC_TWINE_BEGIN = 0,
 #define X(N) IDX_##N,
 #include "kernel/constids.inc"
 #undef X
@@ -281,8 +269,6 @@ struct TwineSpec {
 	TwineSpec(Suffix v);
 	TwineSpec(AutoSuffix v);
 
-	bool holds_leaf() const;
-	bool holds_suffix() const;
 	// Only for the pool-free variants, Leaf and AutoSuffix
 	std::string content_str() const;
 };
@@ -360,8 +346,6 @@ private:
 static_assert(sizeof(TwineNode) == 16);
 
 struct StaticTwines {
-	static constexpr size_t count = STATIC_TWINE_END;
-
 	static void init();
 	static const TwineNode &node(size_t idx);
 	static bool ready();
@@ -373,10 +357,8 @@ private:
 extern int64_t twine_gc_ns;
 extern int twine_gc_count;
 
-std::pair<std::string, bool> twine_unescape(std::string s);
-
 struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
-	static constexpr size_t STATIC_COUNT = StaticTwines::count;
+	static constexpr size_t STATIC_COUNT = STATIC_TWINE_END;
 
 	TwinePool();
 	TwinePool(const TwinePool& other);
@@ -384,15 +366,9 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	TwinePool& operator=(const TwinePool& other);
 	TwinePool& operator=(TwinePool&& other);
 
-	size_t serial() const;
-	bool owns(IdString ref) const;
-	IdString stamp(IdString ref) const;
-	LeafIdString stamp(LeafIdString ref) const;
-	void check_owned(IdString ref) const;
 	const TwineNode& operator[](IdString ref) const;
 
 	static const TwineNode& static_node(size_t idx);
-	// static IdString untag(IdString ref);
 
 	static void check_ready();
 	static void canonicalize(TwineNode& t);
@@ -413,8 +389,6 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	}
 
 	void dump(IdString ref, std::ostream& os = std::cout) const;
-	void print(IdString ref, std::ostream& os = std::cout) const;
-	void append_str(IdString ref, std::string& out) const;
 
 	// Publicity bit provides escaping
 	std::string str(IdString ref) const;
@@ -435,7 +409,6 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
-	IdString auto_prefix(const std::string *prefix);
 	// Infers publicity from first character
 	LeafIdString add(std::string s);
 	LeafIdString flatten(IdString ref);
@@ -449,10 +422,15 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	std::string ref_token(IdString ref) const;
 	// Null unless the token names a live twine stamped by this pool
 	IdString ref_from_token(std::string_view token) const;
-	void dump(std::ostream& os = std::cout) const;
-	using HashConsPool::gc;
 
 private:
+	bool owns(IdString ref) const;
+	IdString stamp(IdString ref) const;
+	void check_owned(IdString ref) const;
+	void append_str(IdString ref, std::string& out) const;
+	IdString auto_prefix(const std::string *prefix);
+	template<typename Lookup>
+	IdString transfer(const TwinePool& src, IdString ref, Lookup lookup) const;
 	IdString add_inner(TwineNode t);
 	IdString intern(uint32_t prefix, std::string_view text);
 	IdString find_content(uint32_t prefix, std::string_view text) const;
@@ -503,7 +481,6 @@ struct DeepTwineEq {
 // Best used only for cases where you're searching for a lot of strings
 // with a single TwineSearch
 struct TwineSearch {
-	const TwinePool* pool;
 	std::unordered_set<IdString, DeepTwineHash, DeepTwineEq> index;
 	TwineSearch(const TwinePool* pool);
 	void insert(IdString ref);
