@@ -208,10 +208,8 @@ template <typename Masq> struct masq_caster {
 	}
 };
 
-template <typename Owner>
-struct type_caster<Yosys::RTLIL::ObjNameMasq<Owner>> : masq_caster<Yosys::RTLIL::ObjNameMasq<Owner>> {};
-template <> struct type_caster<Yosys::RTLIL::ModuleNameMasq> : masq_caster<Yosys::RTLIL::ModuleNameMasq> {};
-template <> struct type_caster<Yosys::RTLIL::CellTypeMasq> : masq_caster<Yosys::RTLIL::CellTypeMasq> {};
+template <typename Owner, auto Field>
+struct type_caster<Yosys::RTLIL::IdFieldMasq<Owner, Field>> : masq_caster<Yosys::RTLIL::IdFieldMasq<Owner, Field>> {};
 
 }
 }

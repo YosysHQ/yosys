@@ -373,18 +373,12 @@ struct RTLILFrontendWorker {
 			// We don't need to addref/release in this case.
 			std::optional<std::string> id = try_parse_id();
 			if (id.has_value()) {
-				const std::string &s = *id;
-				bool pub = !s.empty() && s[0] == '\\';
-				IdString ref = (design->twines.find(pub ? s.substr(1) : s)).tag(pub);
-				RTLIL::Wire *wire = current_module->wire(ref);
+				RTLIL::Wire *wire = current_module->wire(design->twines.find(*id));
 				if (wire == nullptr) {
 					if (flag_legalize)
 						wire = legalize_wire(design->twines.add(std::string(*id)));
-					else {
-						for (auto wire : current_module->wires())
-							design->twines.dump(wire->name);
+					else
 						error("Wire `%s' not found.", *id);
-					}
 				}
 				sig = RTLIL::SigSpec(wire);
 			} else {
@@ -604,7 +598,6 @@ struct RTLILFrontendWorker {
 		return *t;
 	}
 
-	// Attribute and parameter names are leaves, Yosys never writes them as suffix twines
 	LeafIdString parse_leaf_twine()
 	{
 		IdString ref = parse_twine();

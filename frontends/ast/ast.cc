@@ -1115,7 +1115,7 @@ static IdString build_hier_content(TwinePool &pool, std::string_view content)
 {
 	size_t dot = content.rfind('.');
 	if (dot == std::string_view::npos)
-		return pool.add(std::string{content}).tag(true);
+		return pool.add(TwineSpec::Leaf{std::string{content}}).tag(true);
 	IdString prefix = build_hier_content(pool, content.substr(0, dot));
 	return pool.add(TwineSpec::Suffix{prefix, std::string{content.substr(dot)}});
 }
