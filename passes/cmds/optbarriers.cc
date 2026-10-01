@@ -39,6 +39,12 @@ struct ProcessDependencyWorker {
 		find_sccs();
 	}
 
+	ProcessDependencyWorker(const std::vector<RTLIL::SigSig>& connections) {
+		for (const auto& sigsig : connections)
+			add_sigsig(sigsig);
+		find_sccs();
+	}
+
 	void add_process(const RTLIL::Process& proc) {
 		add_caserule(proc.root_case);
 
@@ -110,6 +116,63 @@ private:
 	pool<SigBit> no_nodes;
 };
 
+struct ResetPathWorker {
+	ResetPathWorker(RTLIL::Module* module) {
+		for (auto* cell : module->cells())
+			if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not), ID($not), ID($eq), ID($eqx), ID($ne), ID($nex)))
+				if (GetSize(cell->getPort(ID::Y)) == 1)
+					drivers[cell->getPort(ID::Y)[0]] = cell;
+
+		for (const auto& [_, proc] : module->processes) {
+			pool<SigBit> edges;
+			for (const auto* sync : proc->syncs)
+				if (sync->type == RTLIL::STp || sync->type == RTLIL::STn || sync->type == RTLIL::STe)
+					for (const auto& bit : sync->signal)
+						edges.insert(bit);
+			if (!edges.empty())
+				visit(proc->root_case, edges);
+		}
+	}
+
+	void visit(const RTLIL::CaseRule& caserule, const pool<SigBit>& edges) {
+		if (GetSize(caserule.switches) != 1)
+			return;
+		const auto* sw = caserule.switches[0];
+		std::vector<SigBit> trace;
+		if (reaches_edge(sw->signal, edges, trace))
+			path.insert(trace.begin(), trace.end());
+		for (const auto* rule : sw->cases)
+			visit(*rule, edges);
+	}
+
+	bool reaches_edge(RTLIL::SigSpec signal, const pool<SigBit>& edges, std::vector<SigBit>& trace) {
+		while (GetSize(signal) == 1) {
+			const SigBit bit = signal[0];
+			if (edges.count(bit))
+				return true;
+			const auto it = drivers.find(bit);
+			if (it == drivers.end() || GetSize(trace) > GetSize(drivers))
+				return false;
+			trace.push_back(bit);
+			signal = next_signal(it->second);
+		}
+		return false;
+	}
+
+	static RTLIL::SigSpec next_signal(RTLIL::Cell* cell) {
+		if (!cell->type.in(ID($eq), ID($eqx), ID($ne), ID($nex)))
+			return cell->getPort(ID::A);
+		if (cell->getPort(ID::A).is_fully_const())
+			return cell->getPort(ID::B);
+		if (cell->getPort(ID::B).is_fully_const())
+			return cell->getPort(ID::A);
+		return RTLIL::SigSpec();
+	}
+
+	dict<SigBit, RTLIL::Cell*> drivers;
+	pool<SigBit> path;
+};
+
 struct OptBarriersPass : public Pass {
 	OptBarriersPass() : Pass("optbarriers", "insert optimization barriers") {}
 
@@ -131,7 +194,9 @@ struct OptBarriersPass : public Pass {
 		log("        don't add optimization barriers to the left hand sides of connections\n");
 		log("\n");
 		log("    -private\n");
-		log("        also add optimization barriers to private wires\n");
+		log("        also add optimization barriers to private wires driven by cells and\n");
+		log("        connections. Private wires driven by processes are frontend\n");
+		log("        temporaries and never get barriers.\n");
 		log("\n");
 		log("    -remove\n");
 		log("        replace selected optimization barriers with connections\n");
@@ -194,16 +259,31 @@ struct OptBarriersPass : public Pass {
 			// Y to A
 			dict<RTLIL::SigBit, RTLIL::SigBit> new_barriers;
 
-			// Skip constants, unselected wires and private wires when not in
-			// private mode. This works for SigChunk or SigBit input.
-			const auto skip = [&](const auto& chunk) {
-				if (!chunk.is_wire())
+			// Nets that already drive a barrier input which must not get a second barrier
+			const SigMap sigmap(module);
+			pool<SigBit> barrier_inputs;
+			for (auto* cell : module->cells())
+				if (cell->type == ID($barrier))
+					for (const auto& bit : sigmap(cell->getPort(ID::A)))
+						barrier_inputs.insert(bit);
+			const ResetPathWorker reset_path(module);
+
+			// Skip constants, unselected wires, private wires when not in
+			// private mode, input and inout ports, and private pre-barrier bits.
+			const auto skip = [&](const SigBit& bit) {
+				if (!bit.is_wire())
 					return true;
 
-				if (!design->selected(module, chunk.wire))
+				if (!design->selected(module, bit.wire))
 					return true;
 
-				if (!private_mode && !chunk.wire->name.isPublic())
+				if (bit.wire->port_input)
+					return true;
+
+				if (reset_path.path.count(bit))
+					return true;
+
+				if (!bit.wire->name.isPublic() && (!private_mode || barrier_inputs.count(sigmap(bit))))
 					return true;
 
 				return false;
@@ -211,27 +291,24 @@ struct OptBarriersPass : public Pass {
 
 			const auto rewrite_sigspec = [&](const SigSpec& sig) {
 				RTLIL::SigSpec new_output;
-				for (const auto& chunk : sig.chunks()) {
-					if (skip(chunk)) {
-						new_output.append(chunk);
+				for (const auto& bit : sig) {
+					if (skip(bit)) {
+						new_output.append(bit);
 						continue;
 					}
 
 					// Add a wire to drive if one does not already exist
-					auto* new_wire = new_wires.at(chunk.wire, nullptr);
+					auto* new_wire = new_wires.at(bit.wire, nullptr);
 					if (!new_wire) {
-						new_wire = module->addWire(NEW_ID_SUFFIX(chunk.wire->name.str()), GetSize(chunk.wire));
-						new_wires.emplace(chunk.wire, new_wire);
+						new_wire = module->addWire(NEW_ID_SUFFIX(bit.wire->name.str()), GetSize(bit.wire));
+						new_wires.emplace(bit.wire, new_wire);
 					}
 
-					RTLIL::SigChunk new_chunk = chunk;
-					new_chunk.wire = new_wire;
-
 					// Rewrite output to drive new wire, and schedule adding
-					// barrier bits from new wire to original
-					new_output.append(new_chunk);
-					for (int i = 0; i < GetSize(chunk); i++)
-						new_barriers.emplace(chunk[i], new_chunk[i]);
+					// a barrier bit from new wire to original
+					const SigBit new_bit(new_wire, bit.offset);
+					new_output.append(new_bit);
+					new_barriers.emplace(bit, new_bit);
 				}
 
 				return new_output;
@@ -294,7 +371,8 @@ struct OptBarriersPass : public Pass {
 
 					// Enumerate driven bits that need barriers added
 					for (const auto& [variant_bit, _] : dep_worker.dependencies) {
-						if (skip(variant_bit))
+						// Private bits driven by processes are frontend temporaries
+						if (skip(variant_bit) || !variant_bit.wire->name.isPublic())
 							continue;
 
 						// Collect the bits that are in an SCC with this bit and
@@ -381,7 +459,7 @@ struct OptBarriersPass : public Pass {
 			for (auto* cell : module->cells())
 				if (cell->type != ID($barrier))
 				for (const auto& [name, sig] : cell->connections())
-					if (cell->output(name))
+					if (cell->output(name) && !cell->input(name))
 						cell->setPort(name, rewrite_sigspec(sig));
 
 			// Add all the scheduled barriers. To minimize the number of cells,
@@ -402,12 +480,15 @@ struct OptBarriersPass : public Pass {
 
 			// Rewrite connections
 			if (!noconns_mode) {
+				// A connection on a cycle of connections would become a barrier loop
+				const ProcessDependencyWorker conn_deps(module->connections());
 				std::vector<RTLIL::SigSig> new_connections;
 				for (const auto& conn : module->connections()) {
 					RTLIL::SigSig skip_conn, barrier_conn;
 
 					for (int i = 0; i < GetSize(conn.first); i++) {
-						auto& sigsig = skip(conn.first[i]) ? skip_conn : barrier_conn;
+						bool keep_conn = skip(conn.first[i]) || !conn_deps.scc_nodes(conn.first[i]).empty();
+						auto& sigsig = keep_conn ? skip_conn : barrier_conn;
 						sigsig.first.append(conn.first[i]);
 						sigsig.second.append(conn.second[i]);
 					}
