@@ -6,6 +6,13 @@ module $__ABC9_DELAY (input I, output O);
   endspecify
 endmodule
 
+(* abc9_box *)
+module $__ABC9_BARRIER (input I, output O);
+  specify
+    (I => O) = 0;
+  endspecify
+endmodule
+
 module $__ABC9_SCC_BREAKER (input [WIDTH-1:0] I, output [WIDTH-1:0] O);
 parameter WIDTH = 0;
 endmodule

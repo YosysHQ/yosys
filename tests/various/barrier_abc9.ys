@@ -1,3 +1,18 @@
+# abc9 timing
+read_verilog -icells <<EOT
+module top(input [63:0] a, input [62:0] b, output y);
+	wire t;
+	\$barrier #(.WIDTH(1)) bar (.A(&a), .Y(t));
+	assign y = &{t, b};
+endmodule
+EOT
+abc9 -lut 4
+logger -expect log "Longest topological path in top \(length=6\)" 1
+ltp -noff
+logger -check-expected
+
+design -reset
+
 # ABC must not optimize through $barrier
 read_verilog -icells <<EOT
 module top(input [3:0] a, b, output [3:0] y);
@@ -13,7 +28,7 @@ design -stash gold
 
 design -load orig
 abc9 -lut 4
-select -assert-count 1 t:$barrier
+select -assert-count 4 t:$barrier
 select -assert-count 8 t:$lut
 optbarriers -remove
 design -stash gate

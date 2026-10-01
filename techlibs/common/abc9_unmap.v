@@ -14,3 +14,7 @@ module $__ABC9_SCC_BREAKER (input [WIDTH-1:0] I, output [WIDTH-1:0] O);
 parameter WIDTH = 0;
 assign O = I;
 endmodule
+
+module $__ABC9_BARRIER (input I, output O);
+  $barrier #(.WIDTH(1)) _TECHMAP_REPLACE_ (.A(I), .Y(O));
+endmodule
