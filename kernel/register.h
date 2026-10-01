@@ -46,7 +46,7 @@ public:
 // Call from anywhere to request GC at the next safe point.
 void request_garbage_collection();
 
-// GC if GarbageCollectionGuard::is_enabled() and GC was requested.
+// GC the active design if GarbageCollectionGuard::is_enabled() and GC was requested.
 void try_collect_garbage();
 
 struct Pass
