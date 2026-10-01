@@ -471,6 +471,23 @@ if (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY)
 	yosys_install_component_data(${library_components} DESTINATION ${YOSYS_INSTALL_DATADIR})
 endif()
 
+# Build SN binary part of ABC
+if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
+	block()
+		set(ABC_SOURCE_DIR "${YOSYS_CMAKE_SOURCE_DIR}/abc")
+		add_subdirectory(abc/tools/sn EXCLUDE_FROM_ALL)
+
+		set_target_properties(sn_slang_lib PROPERTIES YOSYS_IS_ABC ON)
+		set_target_properties(sn PROPERTIES YOSYS_IS_ABC ON)
+		if(SANITIZE)
+			target_link_options(sn PRIVATE -fsanitize=${SANITIZE})
+		endif()
+
+		set_target_properties(sn PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YOSYS_CMAKE_BINARY_DIR}")
+		install(TARGETS sn DESTINATION ${CMAKE_INSTALL_BINDIR})
+	endblock()
+endif()
+
 # Python binary extension (for using Yosys as a Python library).
 if (YOSYS_ENABLE_PYTHON)
 	yosys_cxx_library(pyosys MODULE
@@ -499,6 +516,12 @@ if (YOSYS_ENABLE_PYTHON)
 		if (YOSYS_ENABLE_ABC AND YOSYS_ABC_EXECUTABLE STREQUAL "")
 			# If ABC is vendored it needs to be installed as a part of pyosys.
 			install(TARGETS yosys-abc
+				DESTINATION ${pyosys_install_dir}
+			)
+		endif()
+		if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
+			add_dependencies(pyosys sn)
+			install(TARGETS sn 
 				DESTINATION ${pyosys_install_dir}
 			)
 		endif()
@@ -610,19 +633,3 @@ add_custom_target(increment-minor-version
 		>> ${YOSYS_CMAKE_SOURCE_DIR}/cmake/YosysVersionData.cmake
 	VERBATIM
 )
-
-if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
-	block()
-		set(ABC_SOURCE_DIR "${YOSYS_CMAKE_SOURCE_DIR}/abc")
-		add_subdirectory(abc/tools/sn)
-
-		set_target_properties(sn_slang_lib PROPERTIES YOSYS_IS_ABC ON)
-		set_target_properties(sn PROPERTIES YOSYS_IS_ABC ON)
-		if(SANITIZE)
-			target_link_options(sn PRIVATE -fsanitize=${SANITIZE})
-		endif()
-
-		set_target_properties(sn PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YOSYS_CMAKE_BINARY_DIR}")
-		install(TARGETS sn RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-	endblock()
-endif()
