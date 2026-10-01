@@ -20,7 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
-#include <algorithm>
+#include "kernel/topo_scc.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -36,6 +36,7 @@ overloaded(Ts...) -> overloaded<Ts...>;
 struct ProcessDependencyWorker {
 	ProcessDependencyWorker(const RTLIL::Process& proc) {
 		add_process(proc);
+		find_sccs();
 	}
 
 	void add_process(const RTLIL::Process& proc) {
@@ -66,84 +67,47 @@ struct ProcessDependencyWorker {
 	void add_sigsig(const RTLIL::SigSig& sigsig) {
 		for (int i = 0; i < GetSize(sigsig.first); i++) {
 			const auto lhs = sigsig.first[i], rhs = sigsig.second[i];
+			// Every driven bit is a node, also one only assigned constants
+			auto& rhs_bits = dependencies[lhs];
 			if (rhs.is_wire())
-				dependencies[lhs].emplace(rhs);
+				rhs_bits.emplace(rhs);
 		}
 	}
 
-	// Returns the set of nodes that appear in an SCC with this bit
-	pool<SigBit> scc_nodes(const SigBit bit) {
-		pool<SigBit> scc_nodes;
-
-		// This uses a DFS to iterate through the graph stopping when it detects
-		// SCCs
-		struct StackElem {
-			const SigBit lhs;
-			pool<SigBit>::const_iterator current_rhs;
-			const pool<SigBit>::const_iterator end;
-
-			StackElem(
-				const SigBit lhs,
-				pool<SigBit>::const_iterator current_rhs,
-				const pool<SigBit>::const_iterator end
-			) : lhs{lhs}, current_rhs{current_rhs}, end{end} {}
-		};
-		std::vector<StackElem> node_stack;
-
-		// Try to add a new node to the stack. Returns false if it is already
-		// in the stack (we have found an SCC) or doesn't exist in the dependency
-		// map (has no children), otherwise true
-		const auto try_add_node = [&](const SigBit node) {
-			const auto stack_it = std::find_if(
-				node_stack.cbegin(), node_stack.cend(),
-				[&](const auto& elem){ return elem.lhs == node; }
-			);
-
-			if (stack_it != node_stack.cend())
-				return false;
-
-			const auto it = dependencies.find(node);
-
-			if (it == dependencies.end())
-				return false;
-
-			node_stack.emplace_back(node, it->second.begin(), it->second.end());
-			return true;
-		};
-
-		try_add_node(bit);
-
-		while (!node_stack.empty()) {
-			auto& top = node_stack.back();
-
-			// If we have explored all children of this node backtrack
-			if (top.current_rhs == top.end) {
-				node_stack.pop_back();
-				if (!node_stack.empty())
-					++node_stack.back().current_rhs;
-				continue;
-			}
-
-			// Not yet at an SCC so try to add this top node to the stack. If
-			// it doesn't form an SCC and has children, carry on (with the new top node)
-			if (try_add_node(*top.current_rhs))
-				continue;
-
-			// We have found an SCC or a node without children. If it loops back
-			// to the starting bit, add the whole stack as it is all in the SCC
-			// being searched for
-			if (*top.current_rhs == bit)
-				for (const auto& elem : node_stack)
-					scc_nodes.emplace(elem.lhs);
-
-			// Increment the iterator to keep going
-			++top.current_rhs;
-		}
-
-		return scc_nodes;
+	// Returns the set of nodes that are on a cycle through this bit - its SCC,
+	// or nothing when the bit is on no cycle
+	const pool<SigBit>& scc_nodes(const SigBit bit) const {
+		const auto it = scc_of.find(bit);
+		return it == scc_of.end() ? no_nodes : sccs[it->second];
 	}
 
 	dict<SigBit, pool<SigBit>> dependencies;
+private:
+	// A lone bit is on a cycle only with a self-loop
+	void find_sccs() {
+		idict<SigBit> ids;
+		IntGraph graph;
+		for (const auto& [lhs, rhs_bits] : dependencies)
+			for (const auto& rhs : rhs_bits)
+				if (dependencies.count(rhs))
+					graph.add_edge(ids(lhs), ids(rhs));
+
+		TopoSortedSccs(graph, [&](int* begin, int* end) {
+			pool<SigBit> scc;
+			for (int* it = begin; it != end; it++)
+				scc.insert(ids[*it]);
+			const SigBit bit = *scc.begin();
+			if (GetSize(scc) == 1 && !dependencies.at(bit).count(bit))
+				return;
+			for (const auto& member : scc)
+				scc_of[member] = GetSize(sccs);
+			sccs.push_back(std::move(scc));
+		}).process_all();
+	}
+
+	dict<SigBit, int> scc_of;
+	std::vector<pool<SigBit>> sccs;
+	pool<SigBit> no_nodes;
 };
 
 struct OptBarriersPass : public Pass {

@@ -184,6 +184,55 @@ select -assert-none w:q a:init %i
 
 design -reset
 
+# constant process bits
+read_rtlil <<EOT
+module \top
+  wire input 1 \clk
+  wire input 2 \s
+  wire output 3 \y
+  wire output 4 \q
+  wire output 5 \z
+  process \p
+    assign \y 1'1
+    switch \s
+      case 1'1
+        assign \z 1'0
+      case
+        assign \z \s
+    end
+    sync posedge \clk
+      update \q 1'0
+  end
+end
+EOT
+
+optbarriers
+proc
+select -assert-count 3 t:$barrier
+
+design -reset
+
+# SCC runtime
+read_verilog <<EOT
+module top(input clk, input [7:0] sel, output o);
+reg [11:0] w;
+integer i, j;
+always @(posedge clk)
+	for (i = 0; i < 12; i = i + 1)
+		for (j = 0; j < 12; j = j + 1)
+			if (i != j && sel == i * 12 + j)
+				w[i] <= w[j];
+assign o = w[0];
+endmodule
+EOT
+
+optbarriers
+proc
+select -assert-min 1 t:$barrier
+select -assert-none t:$aldff
+
+design -reset
+
 # init on alias
 read_verilog <<EOT
 module top(input clk, input d, output reg q = 1'b1, output w);
