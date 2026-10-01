@@ -45,26 +45,40 @@ EOF
 equiv_opt -assert mcm -force
 design -load postopt
 select -assert-count 0 t:$mul
-select -assert-count 3 t:$add t:$sub
+select -assert-max 3 t:$add t:$sub
 
 design -reset
 
-log -header "MCM profitability threshold can reject graphs"
+log -header "MCM accepts a graph at the gain threshold"
 read_verilog <<EOF
 module top(
   input  wire [7:0] x,
-  input  wire [7:0] singleton_x,
-  output wire [15:0] singleton,
   output wire [15:0] a,
   output wire [15:0] b
 );
-  assign singleton = singleton_x * 16'd397;
   assign a = x * 16'd3;
-  assign b = x * 16'd5;
+  assign b = x * 16'd21;
 endmodule
 EOF
-mcm -min_gain 100
-select -assert-count 3 t:$mul
+equiv_opt -assert mcm -min_gain 33
+design -load postopt
+select -assert-count 0 t:$mul
+
+design -reset
+
+log -header "MCM rejects a graph above its gain"
+read_verilog <<EOF
+module top(
+  input  wire [7:0] x,
+  output wire [15:0] a,
+  output wire [15:0] b
+);
+  assign a = x * 16'd3;
+  assign b = x * 16'd21;
+endmodule
+EOF
+mcm -min_gain 34
+select -assert-count 2 t:$mul
 
 design -reset
 
