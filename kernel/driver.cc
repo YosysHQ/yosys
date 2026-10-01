@@ -708,8 +708,11 @@ int main(int argc, char **argv)
 
 		if (GetSize(logger().get_deprecated()) != 0) {
 			log("Deprecated features used:\n");
-			for(auto &feature : logger().get_deprecated())
-				log("    %s\n", feature);
+			for (auto &[feature, earliest_removal] : logger().get_deprecated())
+				if (earliest_removal.empty())
+					log("    %s\n", feature);
+				else
+					log("    %s (may be removed as soon as Yosys %s)\n", feature, earliest_removal);
 		}
 #ifdef _WIN32
 		log("End of script. Logfile hash: %s\n", hash);

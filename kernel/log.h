@@ -394,7 +394,7 @@ public:
 	int get_warnings_total() const { return warnings_count; }
 	int get_errors_total() const { return errors_count; }
 	const std::set<std::string> &get_experimental() const { return experimental; }
-	const std::set<std::string> &get_deprecated() const { return deprecated; }
+	const std::map<std::string, std::string> &get_deprecated() const { return deprecated; }
 	std::chrono::steady_clock::time_point get_initial_time() const;
 
 	void add_hdump(std::string name, std::string value) { hdump[name].insert(value); }
@@ -409,7 +409,7 @@ public:
 	[[noreturn]] void formatted_cmd_error(std::string_view format, std::string message);
 	void suppressed();
 	void add_experimental(const std::string &str);
-	void add_deprecated(const std::string &str);
+	void add_deprecated(const std::string &feature, const std::string &earliest_removal);
 	void spacer();
 	void push();
 	void pop();
@@ -437,7 +437,8 @@ private:
 	int errors_count = 0;
 	int warnings_count = 0;
 	int warnings_count_noexpect = 0;
-	std::set<std::string> warnings, experimental, experimental_ignored, deprecated;
+	std::set<std::string> warnings, experimental, experimental_ignored;
+	std::map<std::string, std::string> deprecated;
 
 	std::vector<std::regex> warn_regexes, nowarn_regexes, werror_regexes;
 	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
@@ -511,9 +512,9 @@ inline void log_experimental(const std::string &str)
 	logger().add_experimental(str);
 }
 
-inline void log_deprecated(const std::string &str)
+inline void log_deprecated(const std::string &feature, const std::string &earliest_removal = "")
 {
-	logger().add_deprecated(str);
+	logger().add_deprecated(feature, earliest_removal);
 }
 
 // Log with filename to report a problem in a source file.
