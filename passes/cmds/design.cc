@@ -371,6 +371,9 @@ struct DesignPass : public Pass {
 			design->verilog_defines->clear();
 		}
 
+		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
+			design->twines = TwinePool();
+
 		if (!load_name.empty() || pop_mode)
 		{
 			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
