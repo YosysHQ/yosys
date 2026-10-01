@@ -154,18 +154,6 @@ pyosys_headers = [
                 "IdString",
                 string_expr="s.str()",
                 hash_expr="s.str()",
-                denylist=frozenset(
-                    # shouldn't be messed with from python in general
-                    {
-                        "global_id_storage_",
-                        "global_id_index_",
-                        "global_autoidx_id_storage_",
-                        "global_refcount_storage_",
-                        "global_free_idx_list_",
-                        "builtin_ff_cell_types",
-                        "substrings",
-                    }
-                ),
             ),
             PyosysClass(
                 "Const",
@@ -584,8 +572,8 @@ class PyosysWrapperGenerator(object):
     def is_name_masq(type_info: Any) -> bool:
         if not isinstance(type_info, Type):
             return False
-        basename = type_info.typename.segments[-1].format()
-        return basename.endswith("NameMasq") or basename.endswith("TypeMasq")
+        name = type_info.typename.segments[-1].name
+        return name == "IdFieldMasq" or name.endswith("NameMasq")
 
     def process_field(self, metadata: PyosysClass, field: Field):
         if field.access != "public":

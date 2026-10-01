@@ -57,7 +57,6 @@ struct HashConsPool {
 protected:
 	std::deque<Node> backing;
 	Index index;
-	// Indices of monostate, kept sorted
 	std::vector<size_t> free_list;
 
 public:
