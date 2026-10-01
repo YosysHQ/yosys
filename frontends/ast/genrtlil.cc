@@ -163,7 +163,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	return wire;
 }
 
-static void check_unique_id(RTLIL::Module *module, const std::string &id,
+static void check_unique_id(RTLIL::Module *module, IdString id,
 		const AstNode *node, const char *to_add_kind)
 {
 	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
@@ -172,18 +172,23 @@ static void check_unique_id(RTLIL::Module *module, const std::string &id,
 		if (!src.empty())
 			location_str = "at " + src;
 		node->input_error("Cannot add %s `%s' because a %s with the same name was already created %s!\n",
-						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
+						  to_add_kind, module->twines().str(id), existing_kind, location_str.c_str());
 	};
 
-	IdString id_tw = intern_hier_name(module->design, id);
-	if (const RTLIL::Wire *wire = module->wire(id_tw))
+	if (const RTLIL::Wire *wire = module->wire(id))
 		already_exists(wire, "signal");
-	if (const RTLIL::Cell *cell = module->cell(id_tw))
+	if (const RTLIL::Cell *cell = module->cell(id))
 		already_exists(cell, "cell");
-	if (module->processes.count(id_tw))
-		already_exists(module->processes.at(id_tw), "process");
-	if (module->memories.count(id_tw))
-		already_exists(module->memories.at(id_tw), "memory");
+	if (module->processes.count(id))
+		already_exists(module->processes.at(id), "process");
+	if (module->memories.count(id))
+		already_exists(module->memories.at(id), "memory");
+}
+
+static void check_unique_id(RTLIL::Module *module, const std::string &id,
+		const AstNode *node, const char *to_add_kind)
+{
+	check_unique_id(module, intern_hier_name(module->design, id), node, to_add_kind);
 }
 
 // helper class for rewriting simple lookahead references in AST always blocks
@@ -892,7 +897,7 @@ struct AST_INTERNAL::ProcessGenerator
 							stringf("$%s", flavor), autoidx++);
 				else
 					cellname = current_module->twines().add(std::string{ast->str});
-				check_unique_id(current_module, current_module->twines().str(cellname), ast, "procedural assertion");
+				check_unique_id(current_module, cellname, ast, "procedural assertion");
 
 				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
 				if (GetSize(check) != 1)
@@ -957,25 +962,24 @@ struct AST_INTERNAL::ProcessGenerator
 		for (auto& child : always->children)
 			if (child->type == AST_MEMWR)
 			{
-				std::string memid = child->str;
+				std::string memid_str = child->str;
 				int portid = child->children[3]->asInt(false);
 				int cur_idx = GetSize(sync->mem_write_actions);
 				RTLIL::MemWriteAction action;
 				set_src_attr(&action, child.get());
-				action.memid = current_module->twines().add(std::string(memid));
+				action.memid = current_module->twines().add(memid_str);
 				action.address = child->children[0]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
-				IdString memid_tw = current_module->twines().find(memid);
-				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid_tw]->width, true, &subst_rvalue_map.stdmap());
+				action.data = child->children[1]->genWidthRTLIL(current_module->memories[action.memid]->width, true, &subst_rvalue_map.stdmap());
 				action.enable = child->children[2]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
 				RTLIL::Const orig_priority_mask = child->children[4]->bitsAsConst();
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
-					int new_bit = port_map[std::make_pair(memid, i)];
+					int new_bit = port_map[std::make_pair(memid_str, i)];
 					priority_mask.set(new_bit, orig_priority_mask[i]);
 				}
 				action.priority_mask = priority_mask;
 				sync->mem_write_actions.push_back(action);
-				port_map[std::make_pair(memid, portid)] = cur_idx;
+				port_map[std::make_pair(memid_str, portid)] = cur_idx;
 			}
 	}
 };
@@ -2050,7 +2054,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						stringf("$%s", flavor), autoidx++);
 			else
 				cellname = current_module->twines().add(std::string{str});
-			check_unique_id(current_module, current_module->twines().str(cellname), this, "procedural assertion");
+			check_unique_id(current_module, cellname, this, "procedural assertion");
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
 			if (GetSize(check) != 1)

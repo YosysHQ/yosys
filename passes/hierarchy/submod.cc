@@ -152,9 +152,9 @@ struct SubmodWorker
 			if (!flags.is_int_driven.is_fully_zero() && flags.is_ext_driven)
 				new_wire_port_input = true, new_wire_port_output = true;
 
-			std::string new_wire_name = wire->name.str();
+			std::string new_wire_name;
 			if (new_wire_port_input || new_wire_port_output) {
-				if (new_wire_name[0] == '$')
+				if (!wire->name.isPublic())
 					while (1) {
 						std::string next_wire_name = stringf("%s\\n%d", hidden_mode ? "$submod" : "", auto_name_counter++);
 						if (all_wire_names.count(next_wire_name) == 0) {
@@ -164,10 +164,11 @@ struct SubmodWorker
 						}
 					}
 				else if (hidden_mode)
-					new_wire_name = stringf("$submod%s", new_wire_name);
+					new_wire_name = stringf("$submod%s", wire->name.str());
 			}
 
-			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_name, wire->width);
+			IdString new_wire_ref = new_wire_name.empty() ? IdString(wire->name) : IdString(design->twines.add(new_wire_name));
+			RTLIL::Wire *new_wire = new_mod->addWire(new_wire_ref, wire->width);
 			new_wire->port_input = new_wire_port_input;
 			new_wire->port_output = new_wire_port_output;
 			new_wire->start_offset = wire->start_offset;
