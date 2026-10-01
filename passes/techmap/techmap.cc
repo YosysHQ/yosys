@@ -202,10 +202,9 @@ struct TechmapWorker
 				log_error("Technology map yielded processes -> this is not supported (use -autoproc to run 'proc' automatically).\n");
 		}
 
-		std::string orig_cell_name;
+		IdString orig_cell_ref = cell->name;
 		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
 
-		orig_cell_name = cell->name.str();
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
 				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
@@ -274,7 +273,7 @@ struct TechmapWorker
 
 			std::string tpl_w_name = tpl_w->name.str();
 			if (const char *p = strstr(tpl_w_name.c_str(), "_TECHMAP_REPLACE_.")) {
-				Wire *replace_w = module->addWire(std::string(orig_cell_name) + (p + strlen("_TECHMAP_REPLACE_")), tpl_w);
+				Wire *replace_w = module->addWire(module->twines().add(orig_cell_ref, p + strlen("_TECHMAP_REPLACE_")), tpl_w);
 				module->connect(replace_w, w);
 			}
 		}
@@ -379,9 +378,9 @@ struct TechmapWorker
 			std::string tpl_cell_name = tpl_cell->name.str();
 			IdString c_ref;
 			if (techmap_replace_cell)
-				c_ref = module->twines().add(std::string{orig_cell_name});
+				c_ref = orig_cell_ref;
 			else if (const char *p = strstr(tpl_cell_name.c_str(), "_TECHMAP_REPLACE_."))
-				c_ref = module->twines().add(stringf("%s%s", orig_cell_name, p + strlen("_TECHMAP_REPLACE_")));
+				c_ref = module->twines().add(orig_cell_ref, p + strlen("_TECHMAP_REPLACE_"));
 			else
 				c_ref = ap.name(tpl_cell->name);
 
