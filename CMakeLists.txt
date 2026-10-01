@@ -485,6 +485,7 @@ if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
 
 		set_target_properties(sn PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${YOSYS_CMAKE_BINARY_DIR}")
 		install(TARGETS sn DESTINATION ${CMAKE_INSTALL_BINDIR})
+		add_dependencies(yosys-abc sn)
 	endblock()
 endif()
 
@@ -520,7 +521,6 @@ if (YOSYS_ENABLE_PYTHON)
 			)
 		endif()
 		if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
-			add_dependencies(pyosys sn)
 			install(TARGETS sn 
 				DESTINATION ${pyosys_install_dir}
 			)
