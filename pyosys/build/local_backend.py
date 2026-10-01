@@ -1,11 +1,12 @@
-# To build a wheel with additional CMake options, use `--build-option`, e.g.:
+# To build a wheel with additional CMake options, use `-C/--config-settings`, e.g.:
 #
-# 	python -m build -w -Ccmake=-DYOSYS_COMPILER_LAUNCHER=ccache
-#   pip install -Ccmake=-DYOSYS_COMPILER_LAUNCHER=ccache .
+# 	python -m build -w -Ccmake="-DYOSYS_COMPILER_LAUNCHER=ccache -DCMAKE_BUILD_TYPE=Release"
+#   pip install -Ccmake="-DYOSYS_COMPILER_LAUNCHER=ccache -DCMAKE_BUILD_TYPE=Release".
 
 import re
 import os
 import sys
+import shlex
 import pathlib
 import tarfile
 import tempfile
@@ -57,23 +58,26 @@ PLATFORM_TAG = PLATFORM_TAG_RAW.lower().replace("-", "_").replace(".", "_").repl
 COMPAT_TAG = f"{PYTHON_TAG}-{ABI_TAG}-{PLATFORM_TAG}"
 
 
-def compile_pyosys(cmake_options=[], parallel=os.cpu_count() or 1):
+def compile_pyosys(cmake_options=None, parallel=os.cpu_count() or 1):
 	install_dir = tempfile.TemporaryDirectory(prefix="pyosys_install")
 	with tempfile.TemporaryDirectory(prefix="pyosys_build") as build_dir:
 		subprocess.check_call([
 			"cmake",
 			"-S", ".",
 			"-B", build_dir,
-			"-DCMAKE_BUILD_TYPE=Release",
-			f"-DPython3_EXECUTABLE={sys.executable}",
-			"-DYOSYS_WITH_PYTHON=ON",
-			"-DYOSYS_INSTALL_DRIVER=OFF",
-			"-DYOSYS_INSTALL_LIBRARY=OFF",
-			"-DYOSYS_INSTALL_PYTHON=ON",
 			f"-DCMAKE_INSTALL_PREFIX={install_dir.name}",
 			f"-DYOSYS_INSTALL_PYTHON_SITEDIR=python",
-			"-DYOSYS_BUILD_PYTHON_ONLY=ON",
-			*cmake_options,
+			# Build Pyosys and only Pyosys
+			f"-DPython3_EXECUTABLE={sys.executable}",
+			"-DYOSYS_WITH_PYTHON:BOOL=ON",
+			"-DYOSYS_INSTALL_DRIVER:BOOL=OFF",
+			"-DYOSYS_INSTALL_LIBRARY:BOOL=OFF",
+			"-DYOSYS_INSTALL_PYTHON:BOOL=ON",
+			"-DYOSYS_BUILD_PYTHON_ONLY:BOOL=ON",
+			# Tcl interpreter not very useful when only building libyosys
+			"-DYOSYS_WITHOUT_TCL:BOOL=ON",
+			# Extra options
+			*(cmake_options or []),
 			*MACOSX_DEPLOYMENT_TARGET_FLAGS,
 		])
 		subprocess.check_call([
@@ -168,7 +172,7 @@ def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
 		if config_settings is not None:
 			if cmake_options := config_settings.get("cmake", cmake_options):
 				if isinstance(cmake_options, str):
-					cmake_options = [cmake_options]
+					cmake_options = shlex.split(cmake_options)
 		with compile_pyosys(cmake_options) as install_dir:
 			wheel.write_files(pathlib.Path(install_dir) / "python")
 
