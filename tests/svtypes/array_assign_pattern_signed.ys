@@ -1,0 +1,11 @@
+# Signed assignment pattern elements are sign-extended to the element width.
+read_verilog -sv <<EOT
+module top(output [15:0] o0, o1);
+    logic [15:0] a [2];
+    assign a = '{$signed(4'hf), 4'sb1000 >>> 1};
+    assign o0 = a[0];
+    assign o1 = a[1];
+endmodule
+EOT
+proc
+sat -verify -prove o0 16'hffff -prove o1 16'hfffc

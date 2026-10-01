@@ -1973,6 +1973,18 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				width_hint_here = -1, sign_hint_here = false;
 			if (children_are_self_determined)
 				width_hint_here = -1, sign_hint_here = false;
+			if (type == AST_ASSIGN_PATTERN) {
+				// It's unlikely for this simplify to run, but just to be sure
+				while (!children[i]->basic_prep && children[i]->simplify(false, stage, -1, false))
+					did_something = true;
+				// Undo signedness inheritance of the children from the parent AST_ASSIGN_PATTERN
+				// but widen as needed
+				int child_width_hint;
+				bool child_sign_hint;
+				children[i]->detectSignWidth(child_width_hint, child_sign_hint);
+				width_hint_here = max(width_hint, child_width_hint);
+				sign_hint_here = child_sign_hint;
+			}
 			did_something_here = children[i]->simplify(const_fold_here, stage, width_hint_here, sign_hint_here);
 			if (did_something_here)
 				did_something = true;
