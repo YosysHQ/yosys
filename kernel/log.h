@@ -466,6 +466,7 @@ private:
 	int make_debug = 0;
 	int force_debug = 0;
 	std::unique_ptr<SHA1> hasher;
+	bool handling_err;
 };
 
 LogManager &logger();
