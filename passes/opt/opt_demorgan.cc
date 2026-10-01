@@ -186,7 +186,7 @@ struct OptDemorganPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing OPT_DEMORGAN pass (push inverters through $reduce_* cells).\n");
-		log_deprecated("opt_demorgan");
+		log_deprecated("opt_demorgan", "0.72");
 
 		int argidx = 1;
 		extra_args(args, argidx, design);
