@@ -278,13 +278,13 @@ IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
 }
 
 IdString TwinePool::find(const std::string &name) const {
-	if (name.empty())
-		return IdString::Null;
-	check_name(name);
 	return find(std::string_view(name));
 }
 
 IdString TwinePool::find(std::string_view name) const {
+	if (name.empty())
+		return IdString::Null;
+	check_name(name);
 	auto [content, is_public] = unescape_name(name);
 	return stamp(find_content(TwineNode::NO_PREFIX, content).tag(is_public));
 }
