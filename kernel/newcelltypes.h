@@ -458,8 +458,11 @@ struct Categories {
 		}
 		constexpr void set_id(IdString type, bool val = true) {
 			size_t idx = type.raw();
-			if (idx >= MAX_CELLS)
-				return; // TODO should be an assert but then it's not constexpr
+			if (idx >= MAX_CELLS) {
+				if (std::is_constant_evaluated())
+					throw "cell type index out of range";
+				log_abort();
+			}
 			data[idx] = val;
 		}
 		constexpr void set(size_t idx, bool val = true) {
