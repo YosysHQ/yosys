@@ -1023,7 +1023,7 @@ struct HierarchyPass : public Pass {
 			top_mod = design->module(top_name);
 			RTLIL::Module *abstract_mod = design->module(abstract_id);
 
-			dict<RTLIL::LeafIdString, RTLIL::Const> top_parameters;
+			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
 			if ((top_mod == nullptr && abstract_mod) || top_mod != nullptr) {
 				for (auto &para : parameters) {
 					SigSpec sig_value;
@@ -1115,7 +1115,7 @@ struct HierarchyPass : public Pass {
 		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
 			IdString top_name = design->twines.add(top_mod->name.str().substr(strlen("$abstract")));
 
-			dict<RTLIL::LeafIdString, RTLIL::Const> top_parameters;
+			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
 			for (auto &para : parameters) {
 				SigSpec sig_value;
 				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
@@ -1265,7 +1265,7 @@ struct HierarchyPass : public Pass {
 					}
 				}
 
-				pool<std::pair<LeafIdString, LeafIdString>> params_rename;
+				pool<std::pair<IdString, IdString>> params_rename;
 				for (const auto &p : cell->parameters) {
 					int id;
 					if (read_id_num(*design, p.first, &id)) {

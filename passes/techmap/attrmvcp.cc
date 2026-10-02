@@ -107,7 +107,7 @@ struct AttrmvcpPass : public Pass {
 
 			for (auto wire : module->selected_wires())
 			{
-				dict<LeafIdString, Const> new_attributes;
+				dict<IdString, Const> new_attributes;
 
 				for (auto attr : wire->attributes)
 				{

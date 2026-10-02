@@ -749,14 +749,14 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 
 	// build a mapping from true param name to param value
 	size_t para_counter = 0;
-	dict<RTLIL::LeafIdString, RTLIL::Const> cell_params_map;
+	dict<RTLIL::IdString, RTLIL::Const> cell_params_map;
 	for (auto& child : children) {
 		if (child->type != AST_PARASET)
 			continue;
 
 		if (child->str.empty() && para_counter >= module->avail_parameters.size())
 			return nullptr; // let hierarchy handle this error
-		LeafIdString paraname = child->str.empty() ? module->avail_parameters[para_counter++]
+		IdString paraname = child->str.empty() ? module->avail_parameters[para_counter++]
 				: module->twines().add(std::string(child->str));
 
 		const AstNode *value = child->children[0].get();
@@ -767,7 +767,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 
 	// put the parameters in order and generate the derived module name
 	std::vector<std::pair<std::string, RTLIL::Const>> named_parameters;
-	for (RTLIL::LeafIdString param : module->avail_parameters) {
+	for (RTLIL::IdString param : module->avail_parameters) {
 		auto it = cell_params_map.find(param);
 		if (it != cell_params_map.end())
 			named_parameters.emplace_back(module->twines().str(it->first), it->second);
@@ -965,7 +965,7 @@ static bool is_autonamed_block(const std::string &str) {
 // nosync to local variables as necessary
 static void check_auto_nosync(AstNode *node)
 {
-	std::vector<RTLIL::LeafIdString> attrs_to_drop;
+	std::vector<RTLIL::IdString> attrs_to_drop;
 	for (const auto& elem : node->attributes) {
 		std::string attr_str = attr_name_str(elem.first);
 		// skip attributes that don't begin with the prefix
@@ -994,7 +994,7 @@ static void check_auto_nosync(AstNode *node)
 	}
 
 	// remove the attributes we've "consumed"
-	for (LeafIdString id : attrs_to_drop) {
+	for (IdString id : attrs_to_drop) {
 		auto it = node->attributes.find(id);
 		node->attributes.erase(it);
 	}

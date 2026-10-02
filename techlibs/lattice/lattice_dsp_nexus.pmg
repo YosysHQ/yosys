@@ -95,8 +95,8 @@ code
 		Cell *mac = module->addCell(NEW_ID, "$__NX_PREADD18X18");
 
 		IdString mul_other = (actual_mul_AB == \A) ? \B : \A;
-		LeafIdString sgn_AC = (mul_other == \A) ? \B_SIGNED : \A_SIGNED;
-		LeafIdString sgn_B = (mul_other == \A) ? \A_SIGNED : \B_SIGNED;
+		IdString sgn_AC = (mul_other == \A) ? \B_SIGNED : \A_SIGNED;
+		IdString sgn_B = (mul_other == \A) ? \A_SIGNED : \B_SIGNED;
 
 		SigSpec sig_A = port(preadd, \A);
 		SigSpec sig_C = port(preadd, \B);

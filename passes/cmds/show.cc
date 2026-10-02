@@ -73,7 +73,7 @@ struct ShowWorker
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections;
 
 	std::map<RTLIL::Const, int> colorattr_cache;
-	RTLIL::LeafIdString colorattr;
+	RTLIL::IdString colorattr;
 
 
 	static uint32_t xorshift32(uint32_t x) {
@@ -487,7 +487,7 @@ struct ShowWorker
 
 			for (auto &p : in_ports) {
 				std::string p_str = design->twines.str(p);
-				LeafIdString signed_param = design->twines.find(p_str + "_SIGNED");
+				IdString signed_param = design->twines.find(p_str + "_SIGNED");
 				bool signed_suffix = genSignedLabels && signed_param != IdString::Null
 									 && cell->hasParam(signed_param)
 									 && cell->getParam(signed_param).as_bool();
@@ -630,7 +630,7 @@ struct ShowWorker
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
 			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
-			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::LeafIdString colorattr) :
+			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
 			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
@@ -799,7 +799,7 @@ struct ShowPass : public Pass {
 		bool flag_href = false;
 		bool custom_prefix = false;
 		std::string background = "&";
-		RTLIL::LeafIdString colorattr;
+		RTLIL::IdString colorattr;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)

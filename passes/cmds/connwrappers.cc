@@ -84,11 +84,11 @@ struct ConnwrappersWorker
 
 				portdecl_t &decl = decls.at(key);
 
-				LeafIdString widthparam = module->twines().find(decl.widthparam);
+				IdString widthparam = module->twines().find(decl.widthparam);
 				if (widthparam == IdString::Null || !cell->parameters.count(widthparam))
 					continue;
 
-				LeafIdString signparam = decl.signparam.empty() ? IdString::Null : module->twines().find(decl.signparam);
+				IdString signparam = decl.signparam.empty() ? IdString::Null : module->twines().find(decl.signparam);
 				if (!decl.signparam.empty() && (signparam == IdString::Null || !cell->parameters.count(signparam)))
 					continue;
 

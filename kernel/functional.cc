@@ -246,7 +246,7 @@ private:
 		return handle_alu(g, factory.bitwise_or(p, g), g.width(), false, ci, factory.constant(Const(State::S0, 1))).at(ID(CO));
 	}
 public:
-	std::variant<dict<IdString, Node>, Node> handle(IdString cellName, IdString cellType, dict<LeafIdString, Const> parameters, dict<IdString, Node> inputs)
+	std::variant<dict<IdString, Node>, Node> handle(IdString cellName, IdString cellType, dict<IdString, Const> parameters, dict<IdString, Node> inputs)
 	{
 		int a_width = parameters.at(ID(A_WIDTH), Const(-1)).as_int();
 		int b_width = parameters.at(ID(B_WIDTH), Const(-1)).as_int();

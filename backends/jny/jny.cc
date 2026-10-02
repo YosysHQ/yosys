@@ -345,7 +345,7 @@ struct JnyWriter
         }
     }
 
-    void write_prams(dict<RTLIL::LeafIdString, RTLIL::Const>& params, uint16_t indent_level = 0) {
+    void write_prams(dict<RTLIL::IdString, RTLIL::Const>& params, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
 
         bool first_param{true};

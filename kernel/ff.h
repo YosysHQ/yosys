@@ -169,7 +169,7 @@ struct FfData : FfTypeData {
 	Const val_init;
 	// The FF data width in bits.
 	int width;
-	dict<LeafIdString, Const> attributes;
+	dict<IdString, Const> attributes;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

@@ -97,7 +97,7 @@ struct ExtractinvPass : public Pass {
 				auto it = cell_wire->attributes.find(ID::invertible_pin);
 				if (it == cell_wire->attributes.end())
 					continue;
-				LeafIdString param_name = design->twines.find(RTLIL::escape_id(it->second.decode_string()));
+				IdString param_name = design->twines.find(RTLIL::escape_id(it->second.decode_string()));
 				auto it2 = cell->parameters.find(param_name);
 				// Inversion not used -- skip.
 				if (it2 == cell->parameters.end())

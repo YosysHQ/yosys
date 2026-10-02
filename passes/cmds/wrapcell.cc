@@ -48,7 +48,7 @@ struct ContextData {
 	std::string unused_outputs;
 };
 
-std::optional<std::string> format_with_params(const TwinePool &twines, std::string fmt, const dict<LeafIdString, Const> &parameters,
+std::optional<std::string> format_with_params(const TwinePool &twines, std::string fmt, const dict<IdString, Const> &parameters,
 								  const ContextData &context)
 {
 	std::stringstream result;
@@ -70,7 +70,7 @@ std::optional<std::string> format_with_params(const TwinePool &twines, std::stri
 				result << context.unused_outputs;
 			} else {
 				auto name = RTLIL::escape_id(std::string(beg, it));
-				LeafIdString id = twines.find(name);
+				IdString id = twines.find(name);
 				if (id == IdString::Null || !parameters.count(id)) {
 					log("Parameter %s referenced in format string '%s' not found\n", name, fmt);
 					return {};
@@ -162,10 +162,10 @@ struct WrapcellPass : Pass {
 		log_header(d, "Executing WRAPCELL pass. (wrap selected cells)\n");
 
 		struct AttrRule {
-			LeafIdString name;
+			IdString name;
 			std::string value_fmt;
 
-			AttrRule(LeafIdString name, std::string value_fmt)
+			AttrRule(IdString name, std::string value_fmt)
 				: name(name), value_fmt(value_fmt) {}
 		};
 		std::vector<AttrRule> attributes;
@@ -176,7 +176,7 @@ struct WrapcellPass : Pass {
 			if (args[argidx] == "-setattr" && argidx+1 < args.size()) {
 				attributes.emplace_back(d->twines.add(RTLIL::escape_id(args[++argidx])), "");
 			} else if (args[argidx] == "-formatattr" && argidx+2 < args.size()) {
-				LeafIdString id = d->twines.add(RTLIL::escape_id(args[++argidx]));
+				IdString id = d->twines.add(RTLIL::escape_id(args[++argidx]));
 				attributes.emplace_back(id, args[++argidx]);
 			} else if (args[argidx] == "-name" && argidx+1 < args.size()) {
 				name_fmt = args[++argidx];

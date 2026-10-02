@@ -192,7 +192,7 @@ std::string AST::type2str(AstNodeType type)
 }
 
 // check if attribute exists and has non-zero value
-bool AstNode::get_bool_attribute(RTLIL::LeafIdString id)
+bool AstNode::get_bool_attribute(RTLIL::IdString id)
 {
 	if (attributes.count(id) == 0)
 		return false;
@@ -1703,7 +1703,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 
 // create a new parametric module (when needed) and return the name of the generated module - WITH support for interfaces
 // This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool /*mayfail*/)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool /*mayfail*/)
 {
 	std::unique_ptr<AstNode> new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast);
@@ -1792,7 +1792,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::LeafI
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
-RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, bool /*mayfail*/)
+RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
 	bool quiet = lib || attributes.count(ID::blackbox) || attributes.count(ID::whitebox);
 
@@ -1840,7 +1840,7 @@ std::string AST::derived_module_name(std::string stripped_name, const std::vecto
 }
 
 // create a new parametric module (when needed) and return the name of the generated module
-std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::LeafIdString, RTLIL::Const> &parameters, std::unique_ptr<AstNode>* new_ast_out, bool quiet)
+std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, std::unique_ptr<AstNode>* new_ast_out, bool quiet)
 {
 	std::string stripped_name = name.str();
 	(*new_ast_out) = nullptr;
