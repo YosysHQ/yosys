@@ -1,0 +1,43 @@
+# write_aiger2/write_xaiger2 buffer-normalize the design while writing it;
+# on the way out, the design has to be left without the $buf cells that inserts
+read_verilog <<EOT
+module top(input clk, output [1:0] o);
+	reg [7:0] c = 8'd0;
+	always @(posedge clk) c <= c + 1'b1;
+	assign o = c[1:0];
+endmodule
+EOT
+prep
+opt_clean -purge
+design -save gold
+
+select -assert-none t:$buf
+write_xaiger2 aiger2_bufnorm_cleanup_x.aig
+select -assert-none t:$buf
+select -assert-none t:$input_port
+check -assert
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 3 -set-init-zero -set-def-inputs miter
+
+design -reset
+read_verilog <<EOT
+module top(input [1:0] a, b, output [1:0] o);
+	assign o = {a[1] & b[1], a[0]};
+endmodule
+EOT
+prep
+opt_clean -purge
+design -save gold
+
+write_aiger2 aiger2_bufnorm_cleanup.aig
+select -assert-none t:$buf
+select -assert-none t:$input_port
+check -assert
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts miter
