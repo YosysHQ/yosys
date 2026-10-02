@@ -268,7 +268,6 @@ end_of_header:
 	// Parse footer (symbol table, comments, etc.)
 	unsigned l1;
 	std::string s;
-	TwineSearch search(&design->twines);
 	for (int c = f.peek(); c != EOF; c = f.peek(), ++line_count) {
 		if (c == 'i' || c == 'l' || c == 'o' || c == 'b') {
 			f.ignore(1);
@@ -287,7 +286,7 @@ end_of_header:
 				log_assert(l1 < latches.size());
 				wire = latches[l1];
 			} else if (c == 'o') {
-				wire = module->wire(search.find(escaped_s));
+				wire = module->wire(design->twines.find(escaped_s));
 				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
@@ -300,7 +299,7 @@ end_of_header:
 				wire = bad_properties[l1];
 			} else log_abort();
 
-			module->rename(wire, intern_name(escaped_s, search));
+			module->rename(wire, design->twines.add(std::string{escaped_s}));
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -863,14 +862,6 @@ void AigerReader::parse_aiger_binary()
 		RTLIL::Wire *i2_wire = createWireIfNotExists(module, l3);
 		module->addAndGate("$and" + o_wire->name.str(), i1_wire, i2_wire, o_wire);
 	}
-}
-
-IdString AigerReader::intern_name(const std::string &escaped, TwineSearch &search)
-{
-	IdString existing = search.find(escaped);
-	if (existing != IdString::Null)
-		return existing;
-	return design->twines.add(std::string{escaped});
 }
 
 void AigerReader::post_process()

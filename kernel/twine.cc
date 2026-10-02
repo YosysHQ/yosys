@@ -477,12 +477,7 @@ bool TwinePool::begins_with(IdString ref, std::string_view prefix) const
 
 bool TwinePool::name_equal(IdString ref, std::string_view name) const
 {
-	if (ref.isPublic()) {
-		if (!name.starts_with('\\'))
-			return false;
-		name.remove_prefix(1);
-	}
-	return DeepTwineEq{this}(ref.untag(), name);
+	return str_size(ref) == name.size() && begins_with(ref, name);
 }
 
 static int compare_segments(TwineSegments &sa, TwineSegments &sb)
@@ -497,15 +492,6 @@ static int compare_segments(TwineSegments &sa, TwineSegments &sb)
 		sa.advance(n);
 		sb.advance(n);
 	}
-}
-
-bool TwinePool::content_equal(IdString a, IdString b) const
-{
-	if (a == b)
-		return true;
-
-	TwineSegments sa(*this, a.untag()), sb(*this, b.untag());
-	return compare_segments(sa, sb) == 0;
 }
 
 IdString TwinePool::find_content(uint32_t prefix, std::string_view text, uint64_t hash) const {
@@ -560,50 +546,6 @@ int TwinePool::compare_by_name(IdString a, IdString b) const
 
 	TwineSegments sa(*this, a), sb(*this, b);
 	return compare_segments(sa, sb);
-}
-
-static size_t mix_content_hash(uint64_t hash) {
-	Hasher h;
-	h.hash64(hash);
-	return h.yield();
-}
-
-size_t DeepTwineHash::operator()(std::string_view sv) const {
-	return mix_content_hash(TwineNode::extend_hash(0, sv));
-}
-
-size_t DeepTwineHash::operator()(IdString t) const {
-	return mix_content_hash(t == IdString::Null ? 0 : (*pool)[t].hash());
-}
-
-bool DeepTwineEq::consume(IdString t, std::string_view& sv) const noexcept {
-	if (t == IdString::Null)
-		return true;
-	const TwineNode& n = (*pool)[t];
-	switch (n.kind()) {
-	case TwineNode::Kind::Dead:
-		return true;
-	case TwineNode::Kind::Suffix:
-		if (!consume(n.prefix(), sv)) return false;
-		[[fallthrough]];
-	case TwineNode::Kind::Leaf:
-		if (!sv.starts_with(n.text())) return false;
-		sv.remove_prefix(n.text().size());
-		return true;
-	}
-	return false;
-}
-
-bool DeepTwineEq::operator()(IdString t, std::string_view sv) const noexcept {
-	return consume(t, sv) && sv.empty();
-}
-
-bool DeepTwineEq::operator()(std::string_view sv, IdString t) const noexcept {
-	return (*this)(t, sv);
-}
-
-bool DeepTwineEq::operator()(IdString a, IdString b) const {
-	return pool->content_equal(a, b);
 }
 
 YOSYS_NAMESPACE_END

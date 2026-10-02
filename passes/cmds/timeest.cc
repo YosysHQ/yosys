@@ -422,12 +422,11 @@ struct TimeestPass : Pass {
 		if (select && d->selected_modules().size() > 1)
 			log_cmd_error("The -select option operates on a single selected module\n");
 
-		TwineSearch search(&d->twines);
 		for (auto m : d->selected_modules()) {
 			std::optional<SigBit> clk;
 
 			if (clk_domain_specified) {
-				IdString clk_ref = search.find(RTLIL::escape_id(clk_name));
+				IdString clk_ref = d->twines.find(RTLIL::escape_id(clk_name));
 				if (!m->wire(clk_ref)) {
 					log_warning("No domain '%s' in module %s\n", clk_name.c_str(), m);
 					continue;

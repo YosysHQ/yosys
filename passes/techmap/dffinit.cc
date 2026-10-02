@@ -78,9 +78,8 @@ struct DffinitPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ff" && argidx+3 < args.size()) {
-				TwineSearch search(&design->twines);
-				IdString cell_name = search.find(RTLIL::escape_id(args[++argidx]));
-				IdString output_port = search.find(RTLIL::escape_id(args[++argidx]));
+				IdString cell_name = design->twines.find(RTLIL::escape_id(args[++argidx]));
+				IdString output_port = design->twines.find(RTLIL::escape_id(args[++argidx]));
 				LeafIdString init_param = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				ff_types[cell_name][output_port] = init_param;
 				continue;
