@@ -237,7 +237,7 @@ void LogManager::logv_string(LogSeverity severity, LogSourceLocation src, std::s
 
 void LogManager::formatted_string(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string str)
 {
-	if (!handling_err) log_assert(!Multithreading::active());
+	log_assert(!Multithreading::active());
 
 	if (make_debug && !is_debug(1))
 		return;
@@ -351,7 +351,7 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 	if (severity == LogSeverity::Error)
 		suppressed();
 
-	formatted_string(severity, src, prefix, format, message);
+	logv_string(severity, src, prefix, format, message);
 	flush();
 
 	make_debug = bak_make_debug;
@@ -372,7 +372,6 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 [[noreturn]]
 void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
-	handling_err = true;
 	error_with_prefix(LogSeverity::Error, src, prefix, format, message);
 
 	check_expected();
