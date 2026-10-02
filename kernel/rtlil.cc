@@ -794,8 +794,7 @@ size_t RTLIL::Design::gc_twines()
 		}
 	}
 
-	for (auto &[name, sel] : selection_vars) {
-		root(name);
+	auto root_selection = [&](const RTLIL::Selection &sel) {
 		for (IdString m : sel.selected_modules)
 			root(m);
 		for (auto &[m, members] : sel.selected_members) {
@@ -803,7 +802,15 @@ size_t RTLIL::Design::gc_twines()
 			for (IdString member : members)
 				root(member);
 		}
+	};
+
+	for (auto &[name, sel] : selection_vars) {
+		root(name);
+		root_selection(sel);
 	}
+
+	for (auto &sel : selection_stack)
+		root_selection(sel);
 
 	size_t erased = twines.gc(live);
 
