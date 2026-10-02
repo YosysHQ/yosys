@@ -107,13 +107,21 @@ static std::optional<std::string> match_re(const std::regex& re)
 
 static const std::regex comment_single_regex (R"(^//[^\r\n]*)");
 static const std::regex comment_multi_regex (R"(^/\*[\s\S]*?\*/)");
-static const std::regex ws_regex (R"(^[ \t\v\f\r]+)");
-static const std::regex ws_nl_regex (R"(^[ \t\v\f\r\n]+)");
 
 static std::string skip_spaces(bool skip_nl = false)
 {
 	std::string spaces;
 	while (1) {
+		char ch = next_char();
+		if (ch == 0)
+			break;
+		if (ch != ' ' && ch != '\t' && ch != '\v' && ch != '\f' && ch != '\r' && (!skip_nl || ch != '\n')) {
+            return_char(ch);
+		} else {
+			spaces += ch;
+			continue;
+		}
+
 		std::optional<std::string> comment_single_match = match_re(comment_single_regex);
 		if (comment_single_match) {
 			spaces += *comment_single_match;
@@ -124,21 +132,7 @@ static std::string skip_spaces(bool skip_nl = false)
 			spaces += *comment_multi_match;
 			continue;
 		}
-		if (skip_nl) {
-			std::optional<std::string> ws_match = match_re(ws_nl_regex);
-			if (ws_match) {
-				spaces += *ws_match;
-				continue;
-			}
-			break;
-		} else {
-			std::optional<std::string> ws_match = match_re(ws_regex);
-			if (ws_match) {
-				spaces += *ws_match;
-				continue;
-			}
-			break;
-		}
+		break;
 	}
 	return spaces;
 }
