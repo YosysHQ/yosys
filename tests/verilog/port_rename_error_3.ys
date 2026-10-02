@@ -1,0 +1,15 @@
+# Multiple names for an output port
+logger -expect error "Missing details for module port" 1
+read_verilog << EOF
+module gate_multi_output (
+    a,
+    .c(b),
+    .b(b)
+);
+    input a;
+    output b;
+    assign b = a;
+endmodule
+EOF
+logger -check-expected
+design -reset
