@@ -101,7 +101,7 @@ TEST(TwinePublicityTest, SearchPublicity)
 	ASSERT_EQ(priv, pub.untag());
 
 	IdString found_pub = pool.find(std::string_view("\\sig"));
-	IdString found_priv = pool.find(std::string_view("sig"));
+	IdString found_priv = pool.find(TwineSpec::Leaf{"sig"});
 
 	EXPECT_TRUE(found_pub.isPublic());
 	EXPECT_FALSE(found_priv.isPublic());
