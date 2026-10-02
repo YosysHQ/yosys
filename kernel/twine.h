@@ -43,18 +43,6 @@ struct IdString;
  * without a pointer to the TwinePool.
  * Compile-time allocated indices defined in kernel/constids.inc
  * live in a global read-only pool, so they're an exception to that.
- *
- * Two IdStrings that resolve to the same string won't generally compare
- * equal with operator== so that comparisons are cheap,
- * but alternate mechanisms are provided for cases
- * where that is absolutely necessary but it should be avoided for performance,
- * like DeepTwine and TwineSearch.
- * Twines are deduplicated within a TwinePool in a "shallow" way, similar to FRAIGing.
- * Lookup from a string to IdString is expensive and provided by TwineSearch.
- *
- * TwinePool is backed by an std::deque and a free list
- * and provides stable indices outside of garbage collection.
- * "Content" refers to the untagged backing.
  */
 
 struct NullIdString {
@@ -148,20 +136,7 @@ public:
 constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
 
-/**
- * LeafIdString is an IdString that is statically known to be a leaf
- */
-struct LeafIdString : IdString {
-	constexpr LeafIdString() = default;
-	constexpr LeafIdString(NullIdString) {}
-
-	constexpr LeafIdString tag(bool pub) const { return LeafIdString(IdString::tag(pub)); }
-
-private:
-	explicit constexpr LeafIdString(IdString ref) : IdString(ref) {}
-	friend struct ID;
-	friend struct TwinePool;
-};
+using LeafIdString = IdString;
 
 namespace hashlib {
 	template<>
@@ -177,8 +152,6 @@ namespace hashlib {
 			return h;
 		}
 	};
-	template<>
-	struct hash_ops<LeafIdString> : hash_ops<IdString> {};
 }
 
 
@@ -308,9 +281,17 @@ struct TwineNode {
 		std::string_view text;
 	};
 
+	static constexpr uint64_t extend_hash(uint64_t hash, std::string_view tail) {
+		for (char c : tail)
+			hash = ((hash << 5) + hash) + static_cast<unsigned char>(c);
+		return hash;
+	}
+
 	TwineNode() = default;
-	explicit TwineNode(std::string_view content) : text_(content), prefix_(NO_PREFIX) {}
-	TwineNode(uint32_t prefix, std::string_view tail) : text_(tail), prefix_(prefix) {}
+	explicit TwineNode(std::string_view content)
+		: text_(content), prefix_(NO_PREFIX), hash_(extend_hash(0, content)) {}
+	TwineNode(uint32_t prefix, std::string_view tail, uint64_t hash)
+		: text_(tail), prefix_(prefix), hash_(hash) {}
 	TwineNode(const TwineNode &other) = default;
 	TwineNode(TwineNode &&other) noexcept;
 	TwineNode &operator=(const TwineNode &other) = default;
@@ -331,6 +312,7 @@ struct TwineNode {
 
 	std::string_view text() const { return text_.view(); }
 	IdString prefix() const { return IdString(prefix_); }
+	uint64_t hash() const { return hash_; }
 	Key key() const { return {prefix_, text()}; }
 
 	bool operator==(const TwineNode &other) const
@@ -341,9 +323,10 @@ struct TwineNode {
 private:
 	YS_NO_UNIQUE_ADDRESS SmallString text_;
 	uint32_t prefix_ = DEAD;
+	uint64_t hash_ = 0;
 };
 
-static_assert(sizeof(TwineNode) == 16);
+static_assert(sizeof(TwineNode) == 24);
 
 struct StaticTwines {
 	static void init();
@@ -371,9 +354,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	static const TwineNode& static_node(size_t idx);
 
 	static void check_ready();
-	static void canonicalize(TwineNode& t);
-	static size_t hash_node(const TwineNode& t);
-	static size_t hash_key(const TwineNode::Key& k);
+	static uint64_t hash_node(const TwineNode& t) { return t.hash(); }
 
 	template<typename F>
 	static void for_each_child(const TwineNode& t, F&& f) {
@@ -403,20 +384,17 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	int compare_by_name(IdString a, IdString b) const;
 	IdString prefix_of(IdString ref) const;
 
-	// Only finds leaves. For compatibility only
-	LeafIdString find(const std::string &name) const;
+	IdString find(const std::string &name) const;
+	IdString find(std::string_view name) const;
 	IdString find(TwineSpec t) const;
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
 	// Infers publicity from first character
-	LeafIdString add(std::string s);
-	LeafIdString flatten(IdString ref);
+	IdString add(std::string s);
 	IdString copy_from(const TwinePool& src, IdString ref);
-	LeafIdString copy_from(const TwinePool& src, LeafIdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
-	LeafIdString find_from(const TwinePool& src, LeafIdString ref) const;
 	// Opaque handle for files that never leave one run of yosys.
 	// Only valid until garbage collection reuses the slot.
 	std::string ref_token(IdString ref) const;
@@ -429,10 +407,10 @@ private:
 	void check_owned(IdString ref) const;
 	void append_str(IdString ref, std::string& out) const;
 	IdString auto_prefix(const std::string *prefix);
-	template<typename Lookup>
-	IdString transfer(const TwinePool& src, IdString ref, Lookup lookup) const;
 	IdString add_inner(TwineNode t);
 	IdString intern(uint32_t prefix, std::string_view text);
+	uint64_t content_hash(uint32_t prefix, std::string_view text) const;
+	IdString find_content(uint32_t prefix, std::string_view text, uint64_t hash) const;
 	IdString find_content(uint32_t prefix, std::string_view text) const;
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;
@@ -452,15 +430,6 @@ struct DeepTwineHash {
 	using is_transparent = void;
 	const TwinePool* pool = nullptr;
 
-	// Hashes 8 characters as a time
-	struct Stream {
-		Hasher h;
-		uint64_t buf = 0;
-		int fill = 0;
-		void push(std::string_view sv);
-		size_t finish();
-	};
-	void combine(Stream& s, IdString t) const;
 	size_t operator()(std::string_view sv) const;
 	size_t operator()(IdString t) const;
 };
@@ -475,17 +444,11 @@ struct DeepTwineEq {
 	bool operator()(IdString a, IdString b) const;
 };
 
-// EXPENSIVE ephemeral search for string_view -> IdString
-// No automatic tracking abilities,
-// so you won't find things you created after you created the search.
-// Best used only for cases where you're searching for a lot of strings
-// with a single TwineSearch
 struct TwineSearch {
-	std::unordered_set<IdString, DeepTwineHash, DeepTwineEq> index;
-	TwineSearch(const TwinePool* pool);
-	void insert(IdString ref);
+	const TwinePool* pool;
+	TwineSearch(const TwinePool* pool) : pool(pool) {}
 	// Infers publicity from first character
-	IdString find(std::string_view sv) const;
+	IdString find(std::string_view sv) const { return pool->find(sv); }
 };
 
 YOSYS_NAMESPACE_END
