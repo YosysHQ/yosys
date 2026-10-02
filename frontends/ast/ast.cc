@@ -1610,16 +1610,13 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 // that it should be reprocessed once the specified module has been elaborated.
 bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 {
-	std::optional<TwineSearch> search;
 	for (const RTLIL::Cell *cell : cells())
 	{
 		std::string modname = cell->get_string_attribute(ID::reprocess_after);
 		if (modname.empty())
 			continue;
-		if (!search)
-			search.emplace(&design->twines);
-		IdString mod_ref = search->find(modname);
-		IdString abstract_ref = search->find("$abstract" + modname);
+		IdString mod_ref = design->twines.find(modname);
+		IdString abstract_ref = design->twines.find("$abstract" + modname);
 		if (design->module(mod_ref) || design->module(abstract_ref)) {
 			log("Reprocessing module %s because instantiated module %s has become available.\n",
 					PooledName(design, name).unescape(), RTLIL::unescape_id(modname));

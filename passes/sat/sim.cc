@@ -1842,7 +1842,6 @@ struct SimWorker : SimShared
 		std::vector<std::string> parts;
 		size_t len = 0;
 		TwinePool& twines = topmod->twines();
-		std::optional<TwineSearch> search;
 		while (!f.eof())
 		{
 			std::string line;
@@ -1875,8 +1874,6 @@ struct SimWorker : SimShared
 				continue;
 			}
 
-			if (!search)
-				search.emplace(&twines);
 			switch(state)
 			{
 				case 0:
@@ -1897,7 +1894,7 @@ struct SimWorker : SimShared
 
 					std::string unescaped_s = signal_name(parts[len-1]);
 					std::string escaped_s = RTLIL::escape_id(unescaped_s);
-					IdString found = search->find(escaped_s);
+					IdString found = twines.find(escaped_s);
 					if (len==3) {
 						Wire *w = topmod->wire(found);
 						if (!w) {

@@ -742,18 +742,12 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 	if (db.count(module) == 0) {
 		int score = 0;
 		db[module] = 0;
-		std::optional<TwineSearch> search;
 		for (auto cell : module->cells()) {
 			// Is this cell a module instance?
 			RTLIL::Module *instModule;
 			if (cell->type.begins_with("$array:")) {
 				std::string type = basic_cell_type(cell->type.str());
 				instModule = design->module(design->twines.find(type));
-				if (instModule == nullptr) {
-					if (!search)
-						search.emplace(&design->twines);
-					instModule = design->module(search->find(type));
-				}
 			}
 			else
 				instModule = design->module(cell->type);
@@ -782,23 +776,20 @@ RTLIL::Module *check_if_top_has_changed(Design *design, Module *top_mod)
 }
 
 // Find a matching wire for an implicit port connection; traversing generate block scope
-RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::string& port,
-		std::optional<TwineSearch> &search)
+RTLIL::Wire *find_implicit_port_wire(Module *module, Cell *cell, const std::string& port)
 {
-	if (!search)
-		search.emplace(&module->twines());
 	const std::string &cellname = cell->name.str();
 	size_t idx = cellname.size();
 	while ((idx = cellname.find_last_of('.', idx-1)) != std::string::npos) {
 		std::string wire_name = cellname.substr(0, idx+1) + port.substr(1);
-		IdString ref = search->find(wire_name);
+		IdString ref = module->twines().find(wire_name);
 		if (ref != IdString::Null) {
 			Wire *found = module->wire(ref);
 			if (found != nullptr)
 				return found;
 		}
 	}
-	IdString ref = search->find(port);
+	IdString ref = module->twines().find(port);
 	if (ref != IdString::Null)
 		return module->wire(ref);
 	return nullptr;
@@ -1332,8 +1323,6 @@ struct HierarchyPass : public Pass {
 		// Process SV implicit wildcard port connections
 		std::set<Module*> blackbox_derivatives;
 		std::vector<Module*> design_modules = design->modules();
-		std::optional<TwineSearch> implicit_port_search;
-
 		for (auto module : design_modules)
 		{
 			for (auto cell : module->cells())
@@ -1365,7 +1354,7 @@ struct HierarchyPass : public Pass {
 					if (old_connections.count(wire->name))
 						continue;
 					// Make sure a wire of correct name exists in the parent
-					Wire* parent_wire = find_implicit_port_wire(module, cell, wire->name.str(), implicit_port_search);
+					Wire* parent_wire = find_implicit_port_wire(module, cell, wire->name.str());
 
 					// Missing wires are OK when a default value is set
 					if (!nodefaults && parent_wire == nullptr && defaults_db.count(cell->type) && defaults_db.at(cell->type).count(wire->name))

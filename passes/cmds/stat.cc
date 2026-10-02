@@ -737,19 +737,19 @@ struct statdata_t {
 	}
 };
 
-statdata_t hierarchy_worker(const TwineSearch &search, std::map<IdString, statdata_t> &mod_stat, IdString mod, int level, bool quiet = false, bool has_area = true,
+statdata_t hierarchy_worker(const TwinePool &twines, std::map<IdString, statdata_t> &mod_stat, IdString mod, int level, bool quiet = false, bool has_area = true,
 			    bool hierarchy_mode = true)
 {
 	statdata_t mod_data = mod_stat.at(mod);
 
 	for (auto &it : mod_data.num_submodules_by_type) {
-		IdString sub = search.find(it.first);
+		IdString sub = twines.find(it.first);
 		if (sub != IdString::Null && mod_stat.count(sub) > 0) {
 			if (!quiet)
 				mod_data.print_log_line(RTLIL::unescape_id(it.first), mod_stat.at(sub).local_num_cells,
 							mod_stat.at(sub).local_area, mod_stat.at(sub).num_cells, mod_stat.at(sub).area,
 							level, has_area, hierarchy_mode);
-			hierarchy_worker(search, mod_stat, sub, level + 1, quiet, has_area, hierarchy_mode) * it.second;
+			hierarchy_worker(twines, mod_stat, sub, level + 1, quiet, has_area, hierarchy_mode) * it.second;
 		}
 	}
 
@@ -960,8 +960,7 @@ struct StatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
-				TwineSearch search(&design->twines);
-				IdString top_ref = search.find(RTLIL::escape_id(args[argidx + 1]));
+				IdString top_ref = design->twines.find(RTLIL::escape_id(args[argidx + 1]));
 				if (design->module(top_ref) == nullptr)
 					log_cmd_error("Can't find module %s.\n", args[argidx + 1]);
 				top_mod = design->module(top_ref);
@@ -1046,8 +1045,7 @@ struct StatPass : public Pass {
 								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}
 
-			TwineSearch search(&design->twines);
-			statdata_t data = hierarchy_worker(search, mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
+			statdata_t data = hierarchy_worker(design->twines, mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
 
 			if (json_mode)
 				data.log_data_json("design", true, hierarchy_mode, true);

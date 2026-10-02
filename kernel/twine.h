@@ -380,7 +380,6 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	bool begins_with(IdString ref, std::string_view prefix) const;
 	// Publicity bit provides escaping, as in str()
 	bool name_equal(IdString ref, std::string_view name) const;
-	bool content_equal(IdString a, IdString b) const;
 	int compare_by_name(IdString a, IdString b) const;
 	IdString prefix_of(IdString ref) const;
 
@@ -415,40 +414,6 @@ private:
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
-};
-
-/**
- * DeepTwine
- * Compare and hash IdString a and b equal iff their .str() are equal
- * without really constructing those strings.
- */
-
-struct DeepTwineHash {
-	// Transparent hashing allows us to compare diverse types, so that
-	// we don't have to get a temporary string out of an IdString
-	// just to hash it
-	using is_transparent = void;
-	const TwinePool* pool = nullptr;
-
-	size_t operator()(std::string_view sv) const;
-	size_t operator()(IdString t) const;
-};
-
-// see DeepTwineHash explanation above
-struct DeepTwineEq {
-	using is_transparent = void;
-	const TwinePool* pool = nullptr;
-	bool consume(IdString t, std::string_view& sv) const noexcept;
-	bool operator()(IdString t, std::string_view sv) const noexcept;
-	bool operator()(std::string_view sv, IdString t) const noexcept;
-	bool operator()(IdString a, IdString b) const;
-};
-
-struct TwineSearch {
-	const TwinePool* pool;
-	TwineSearch(const TwinePool* pool) : pool(pool) {}
-	// Infers publicity from first character
-	IdString find(std::string_view sv) const { return pool->find(sv); }
 };
 
 YOSYS_NAMESPACE_END

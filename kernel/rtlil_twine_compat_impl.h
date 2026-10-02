@@ -48,7 +48,7 @@ inline PooledName::PooledName(const Module *module, IdString id)
 #endif
 
 template<typename Derived>
-inline void log_dump_val_worker(const RTLIL::NameMasqBase<Derived> &name) {
+inline void log_dump_val_worker(const RTLIL::IdMasqBase<Derived> &name) {
 	log("%s", static_cast<const Derived &>(name).unescape());
 }
 

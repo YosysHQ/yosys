@@ -184,8 +184,7 @@ struct ConnectPass : public Pass {
 			if (flag_nounset)
 				log_cmd_error("Can't use -port together with -nounset.\n");
 
-			TwineSearch search(&module->twines());
-			RTLIL::Cell *port_cell_obj = module->cell(search.find(RTLIL::escape_id(port_cell)));
+			RTLIL::Cell *port_cell_obj = module->cell(module->twines().find(RTLIL::escape_id(port_cell)));
 			if (port_cell_obj == nullptr)
 				log_cmd_error("Can't find cell %s.\n", port_cell);
 

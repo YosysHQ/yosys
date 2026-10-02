@@ -276,10 +276,6 @@ struct DesignPass : public Pass {
 				done[mod->name] = as_name_ref;
 			}
 
-			std::optional<TwineSearch> src_search;
-			if (copy_from_design)
-				src_search.emplace(&copy_from_design->twines);
-
 			while (!queue.empty() && copy_from_design)
 			{
 				pool<Module*> old_queue;
@@ -289,7 +285,7 @@ struct DesignPass : public Pass {
 				for (auto cell : mod->cells())
 				{
 					Module *fmod = copy_from_design->module(
-							src_search->find(copy_to_design->twines.str(cell->type)));
+							copy_from_design->twines.find(copy_to_design->twines.str(cell->type)));
 
 					if (fmod == nullptr)
 						continue;

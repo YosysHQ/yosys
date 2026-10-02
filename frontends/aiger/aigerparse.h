@@ -54,7 +54,6 @@ struct AigerReader
     void parse_aiger_binary();
     void post_process();
 
-    IdString intern_name(const std::string &escaped, TwineSearch &search);
     RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal);
 };
 

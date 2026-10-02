@@ -3,7 +3,7 @@
 
 namespace RTLIL {
 
-template<typename Derived> struct NameMasqBase;
+template<typename Derived> struct IdMasqBase;
 template<typename Owner, auto Field = &NamedObject::name_> struct IdFieldMasq;
 struct PooledName;
 
@@ -30,7 +30,7 @@ inline std::string render_unescaped(const TwinePool *pool, IdString id) {
 }
 
 template<typename Derived>
-struct NameMasqBase {
+struct IdMasqBase {
 	operator IdString() const { return self().ref(); }
 	operator std::string() const { return self().escaped(); }
 	std::string escaped() const { return masq_detail::render_escaped(self().pool(), self().ref()); }
@@ -64,32 +64,35 @@ struct NameMasqBase {
 	friend bool operator==(const Derived &lhs, const Derived &rhs) { return lhs.ref() == rhs.ref(); }
 	friend bool operator==(const Derived &lhs, IdString rhs) { return lhs.ref() == rhs; }
 	friend bool operator==(const Derived &lhs, NullIdString) { return lhs.ref() == IdString::Null; }
-	friend bool operator==(const Derived &lhs, const std::string &rhs) { return lhs.escaped() == rhs; }
+	friend bool operator==(const Derived &lhs, const std::string &rhs) {
+		const TwinePool *pool = lhs.pool();
+		return pool ? pool->name_equal(lhs.ref(), rhs) : lhs.escaped() == rhs;
+	}
 	friend bool operator<(const Derived &lhs, const Derived &rhs) { return lhs.ref() < rhs.ref(); }
 private:
 	const Derived &self() const { return *static_cast<const Derived *>(this); }
 };
 
 template<typename T>
-concept IsNameMasq = std::is_base_of_v<NameMasqBase<std::decay_t<T>>, std::decay_t<T>>;
+concept IsIdMasq = std::is_base_of_v<IdMasqBase<std::decay_t<T>>, std::decay_t<T>>;
 
 // Two masq can be compared for equality by comparing .ref()
-template<IsNameMasq A, IsNameMasq B>
+template<IsIdMasq A, IsIdMasq B>
 requires (!std::is_same_v<A, B>)
 inline bool operator==(const A &lhs, const B &rhs) { return lhs.ref() == rhs.ref(); }
 
 // A pair can be created from two masqs
 // otherwise, you'd try to construct masqs in the arguments of std::make_pair
 // which would error out as the constructor is deleted
-template<IsNameMasq A, typename B>
+template<IsIdMasq A, typename B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(a.ref(), std::forward<B>(b)); }
-template<typename A, IsNameMasq B>
+template<typename A, IsIdMasq B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(std::forward<A>(a), b.ref()); }
-template<IsNameMasq A, IsNameMasq B>
+template<IsIdMasq A, IsIdMasq B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(a.ref(), b.ref()); }
 
 template<typename Owner, auto Field>
-struct IdFieldMasq : NameMasqBase<IdFieldMasq<Owner, Field>> {
+struct IdFieldMasq : IdMasqBase<IdFieldMasq<Owner, Field>> {
 	IdFieldMasq() = default;
 	IdFieldMasq(const IdFieldMasq &) = delete;
 	IdFieldMasq(IdFieldMasq &&) = delete;
@@ -107,13 +110,13 @@ Module *module_by_name(Design *design, const std::string &name);
 Wire *wire_by_name(Module *module, const std::string &name);
 pool<std::string> object_names(const Module *module);
 
-struct PooledName : NameMasqBase<PooledName> {
+struct PooledName : IdMasqBase<PooledName> {
 	PooledName() = default;
 	explicit PooledName(IdString id) : id_(id) {}
 	PooledName(const TwinePool *pool, IdString id) : pool_(pool), id_(id) {}
 	PooledName(const Design *design, IdString id);
 	PooledName(const Module *module, IdString id);
-	template<typename D> PooledName(const NameMasqBase<D> &masq)
+	template<typename D> PooledName(const IdMasqBase<D> &masq)
 		: pool_(static_cast<const D &>(masq).pool()),
 		  id_(static_cast<const D &>(masq).ref()) {}
 	IdString ref() const { return id_; }
