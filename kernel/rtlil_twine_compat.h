@@ -106,10 +106,6 @@ private:
 	Owner *owner() { return const_cast<Owner *>(static_cast<const IdFieldMasq *>(this)->owner()); }
 };
 
-Module *module_by_name(Design *design, const std::string &name);
-Wire *wire_by_name(Module *module, const std::string &name);
-pool<std::string> object_names(const Module *module);
-
 struct PooledName : IdMasqBase<PooledName> {
 	PooledName() = default;
 	explicit PooledName(IdString id) : id_(id) {}

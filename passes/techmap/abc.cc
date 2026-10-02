@@ -986,14 +986,14 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			clk_polarity = false;
 			clk_str = clk_str.substr(1);
 		}
-		if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, clk_str))
+		if (RTLIL::Wire *wire = module->wire(module->twines().find(RTLIL::escape_id(clk_str))))
 			clk_sig = assign_map(wire);
 		if (en_str != "") {
 			if (en_str[0] == '!') {
 				en_polarity = false;
 				en_str = en_str.substr(1);
 			}
-			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, en_str))
+			if (RTLIL::Wire *wire = module->wire(module->twines().find(RTLIL::escape_id(en_str))))
 				en_sig = assign_map(wire);
 		}
 		if (arst_str != "") {
@@ -1001,7 +1001,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 				arst_polarity = false;
 				arst_str = arst_str.substr(1);
 			}
-			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, arst_str))
+			if (RTLIL::Wire *wire = module->wire(module->twines().find(RTLIL::escape_id(arst_str))))
 				arst_sig = assign_map(wire);
 		}
 		if (srst_str != "") {
@@ -1009,7 +1009,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 				srst_polarity = false;
 				srst_str = srst_str.substr(1);
 			}
-			if (RTLIL::Wire *wire = RTLIL::wire_by_name(module, srst_str))
+			if (RTLIL::Wire *wire = module->wire(module->twines().find(RTLIL::escape_id(srst_str))))
 				srst_sig = assign_map(wire);
 		}
 	}
