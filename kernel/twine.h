@@ -193,7 +193,7 @@ struct ID {
 		}
 
 		if (name != static_names[low])
-			throw "unknown twine id";
+			throw "unknown twine id, strings that aren't statically allocated in kernel/constids.inc must be interned into a TwinePool";
 
 		return IdString(low).tag(name[0] != '$');
 	}
