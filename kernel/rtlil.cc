@@ -2780,7 +2780,7 @@ void RTLIL::Module::add(RTLIL::Wire *wire)
 {
 	log_assert(wire->name != IdString::Null);
 	IdString id = wire->name;
-	log_assert(wires_.count(id) == 0);
+	log_assert(count_id(id) == 0);
 	log_assert(refcount_wires_ == 0);
 	wires_[id] = wire;
 	wire->module = this;
@@ -2790,7 +2790,7 @@ void RTLIL::Module::add(RTLIL::Cell *cell)
 {
 	log_assert(cell->name != IdString::Null);
 	IdString id = cell->name;
-	log_assert(cells_.count(id) == 0);
+	log_assert(count_id(id) == 0);
 	log_assert(refcount_cells_ == 0);
 	cells_[id] = cell;
 	cell->module = this;
