@@ -41,6 +41,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <regex>
 
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
@@ -82,18 +83,62 @@ static char next_char()
 	return ch == '\r' ? next_char() : ch;
 }
 
-static std::string skip_spaces()
+static std::optional<std::string> match_re(const std::regex& re)
+{
+	if (input_buffer.empty())
+		return std::nullopt;
+
+	log_assert(input_buffer_charp <= input_buffer.front().size());
+	if (input_buffer_charp == input_buffer.front().size()) {
+		input_buffer_charp = 0;
+		input_buffer.pop_front();
+		return match_re(re);
+	}
+
+	std::smatch match;
+	const auto &remaining = input_buffer.front().cbegin() + input_buffer_charp;
+	if (!std::regex_search(remaining, input_buffer.front().cend(), match, re))
+		return std::nullopt;
+
+	std::string result = match[0];
+	input_buffer_charp += result.size();
+	return result;
+}
+
+static const std::regex comment_single_regex (R"(^//[^\r\n]*)");
+static const std::regex comment_multi_regex (R"(^/\*[\s\S]*?\*/)");
+static const std::regex ws_regex (R"(^[ \t\v\f\r]+)");
+static const std::regex ws_nl_regex (R"(^[ \t\v\f\r\n]+)");
+
+static std::string skip_spaces(bool skip_nl = false)
 {
 	std::string spaces;
 	while (1) {
-		char ch = next_char();
-		if (ch == 0)
+		std::optional<std::string> comment_single_match = match_re(comment_single_regex);
+		if (comment_single_match) {
+			spaces += *comment_single_match;
+			continue;
+		}
+		std::optional<std::string> comment_multi_match = match_re(comment_multi_regex);
+		if (comment_multi_match) {
+			spaces += *comment_multi_match;
+			continue;
+		}
+		if (skip_nl) {
+			std::optional<std::string> ws_match = match_re(ws_nl_regex);
+			if (ws_match) {
+				spaces += *ws_match;
+				continue;
+			}
 			break;
-		if (ch != ' ' && ch != '\t') {
-			return_char(ch);
+		} else {
+			std::optional<std::string> ws_match = match_re(ws_regex);
+			if (ws_match) {
+				spaces += *ws_match;
+				continue;
+			}
 			break;
 		}
-		spaces += ch;
 	}
 	return spaces;
 }
@@ -115,10 +160,10 @@ static std::string next_token(bool pass_newline = false)
 		return token;
 	}
 
-	if (ch == ' ' || ch == '\t')
+	if (ch == ' ' || ch == '\t' || ch == '\v' || ch == '\f' || ch == '\r')
 	{
 		while ((ch = next_char()) != 0) {
-			if (ch != ' ' && ch != '\t') {
+			if (ch != ' ' && ch != '\t' && ch != '\v' && ch != '\f' && ch != '\r') {
 				return_char(ch);
 				break;
 			}
@@ -407,7 +452,7 @@ static void input_file(std::istream &f, std::string filename)
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
-	skip_spaces();
+	skip_spaces(true);
 	std::vector<char> openers;
 	for (;;) {
 		std::string tok = next_token(true);
