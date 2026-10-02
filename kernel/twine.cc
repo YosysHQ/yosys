@@ -270,6 +270,7 @@ IdString TwinePool::find_content(uint32_t prefix, std::string_view text) const {
 }
 
 IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
+	log_assert(!Multithreading::active());
 	uint64_t hash = content_hash(prefix, text);
 	IdString ref = find_content(prefix, text, hash);
 	if (ref != IdString::Null)
