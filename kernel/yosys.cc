@@ -946,7 +946,7 @@ static char *readline_obj_generator(const char *text, int state)
 		if (design->selected_active_module.empty())
 		{
 			for (auto mod : design->modules()) {
-				std::string mod_name = mod->name.str();
+				std::string mod_name = mod->name.unescape();
 				if (mod_name.compare(0, len, text) == 0)
 					obj_names.push_back(strdup(mod_name.c_str()));
 			}
@@ -960,7 +960,7 @@ static char *readline_obj_generator(const char *text, int state)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories) {
-				std::string mem_name = design->twines.str(it.first);
+				std::string mem_name = design->twines.unescaped_str(it.first);
 				if (mem_name.compare(0, len, text) == 0)
 					obj_names.push_back(strdup(mem_name.c_str()));
 			}
@@ -970,7 +970,7 @@ static char *readline_obj_generator(const char *text, int state)
 					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes) {
-				std::string proc_name = design->twines.str(it.first);
+				std::string proc_name = design->twines.unescaped_str(it.first);
 				if (proc_name.compare(0, len, text) == 0)
 					obj_names.push_back(strdup(proc_name.c_str()));
 			}
