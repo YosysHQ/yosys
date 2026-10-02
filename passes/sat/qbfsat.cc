@@ -82,7 +82,6 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		log_cmd_error("could not read solution file.\n");
 
 	std::string buf;
-	TwineSearch search(&module->twines());
 	while (std::getline(fin, buf)) {
 		bool bit_assn = true;
 		if (!std::regex_search(buf, bit_m, hole_bit_assn_regex)) {
@@ -101,8 +100,8 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
 		//then try to find a cell with a matching location.
 		RTLIL::SigBit hole_sigbit;
-		if (module->wire(search.find(hole_name)) != nullptr) {
-			RTLIL::Wire *hole_wire = module->wire(search.find(hole_name));
+		if (module->wire(module->twines().find(hole_name)) != nullptr) {
+			RTLIL::Wire *hole_wire = module->wire(module->twines().find(hole_name));
 			hole_sigbit = RTLIL::SigSpec(hole_wire)[hole_offset];
 		} else {
 			auto locs = split_tokens(hole_loc, "|");
@@ -160,9 +159,8 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 }
 
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
-	TwineSearch search(&module->twines());
 	for (auto &n : input_wires) {
-		RTLIL::Wire *input = module->wire(search.find(n));
+		RTLIL::Wire *input = module->wire(module->twines().find(n));
 		log_assert(input != nullptr);
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, ID($allconst));

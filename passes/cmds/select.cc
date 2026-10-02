@@ -1355,7 +1355,6 @@ struct SelectPass : public Pass {
 
 		work_stack.clear();
 
-		std::optional<TwineSearch> search;
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
@@ -1423,9 +1422,7 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				std::string mod_name = RTLIL::escape_id(args[++argidx]);
-				if (!search)
-					search.emplace(&design->twines);
-				IdString t = search->find(mod_name);
+				IdString t = design->twines.find(mod_name);
 				if (t == IdString::Null || design->module(t) == nullptr)
 					log_cmd_error("No such module: %s\n", RTLIL::unescape_id(mod_name));
 				design->selected_active_module = t;
@@ -1469,10 +1466,8 @@ struct SelectPass : public Pass {
 				}
 				std::string mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
 				std::string obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
-				if (!search)
-					search.emplace(&design->twines);
-				IdString mod_ref = search->find(mod_name);
-				IdString obj_ref = search->find(obj_name);
+				IdString mod_ref = design->twines.find(mod_name);
+				IdString obj_ref = design->twines.find(obj_name);
 				if (mod_ref == IdString::Null || obj_ref == IdString::Null)
 					continue;
 				sel.selected_members[mod_ref].insert(obj_ref);
@@ -1742,7 +1737,6 @@ struct CdPass : public Pass {
 			design->push_full_selection();
 			design->selected_active_module.clear();
 
-			TwineSearch search(&design->twines);
 			while (1)
 			{
 				size_t pos = modname.rfind('.');
@@ -1751,7 +1745,7 @@ struct CdPass : public Pass {
 					break;
 
 				modname = modname.substr(0, pos);
-				IdString mod_ref = search.find(modname);
+				IdString mod_ref = design->twines.find(modname);
 				Module *mod = design->module(mod_ref);
 
 				if (mod == nullptr)
@@ -1768,8 +1762,7 @@ struct CdPass : public Pass {
 			return;
 		}
 
-		TwineSearch search(&design->twines);
-		IdString modname = search.find(RTLIL::escape_id(args[1]));
+		IdString modname = design->twines.find(RTLIL::escape_id(args[1]));
 
 		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
 			RTLIL::Module *module = design->module(design->selected_active_module);

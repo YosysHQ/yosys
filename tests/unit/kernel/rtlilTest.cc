@@ -421,8 +421,6 @@ namespace RTLIL {
 	TEST_F(KernelRtlilTest, LookupAutoidxId) {
 		TwinePool twines;
 		IdString id = twines.add(NEW_ID);
-		TwineSearch search(&twines);
-		EXPECT_EQ(id, search.find(twines.str(id)));
 		EXPECT_EQ(twines.find(twines.str(id)), id);
 	}
 

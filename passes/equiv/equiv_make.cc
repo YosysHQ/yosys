@@ -41,7 +41,7 @@ struct EquivMakeWorker
 	pool<SigBit> undriven_bits;
 	SigMap assign_map;
 
-	void read_blacklists(const TwineSearch &search)
+	void read_blacklists()
 	{
 		for (auto fn : blacklists)
 		{
@@ -55,7 +55,7 @@ struct EquivMakeWorker
 					token = next_token(line);
 					if (token.empty())
 						break;
-					IdString name = search.find(RTLIL::escape_id(token));
+					IdString name = gold_mod->twines().find(RTLIL::escape_id(token));
 					if (name != IdString::Null)
 						blacklist_names.insert(name);
 				}
@@ -63,7 +63,7 @@ struct EquivMakeWorker
 		}
 	}
 
-	void read_encfiles(const TwineSearch &search)
+	void read_encfiles()
 	{
 		for (auto fn : encfiles)
 		{
@@ -80,9 +80,9 @@ struct EquivMakeWorker
 					continue;
 
 				if (token == ".fsm") {
-					IdString modname = search.find(RTLIL::escape_id(next_token(line)));
+					IdString modname = gold_mod->twines().find(RTLIL::escape_id(next_token(line)));
 					(void)modname;
-					IdString signame = search.find(RTLIL::escape_id(next_token(line)));
+					IdString signame = gold_mod->twines().find(RTLIL::escape_id(next_token(line)));
 					if (encdata.count(signame))
 						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", PooledName(gold_mod->design, signame).unescape(), fn);
 					encdata[signame] = dict<Const, Const>();
@@ -143,7 +143,7 @@ struct EquivMakeWorker
 		equiv_mod->addAssert(NEW_ID_SUFFIX("assert"), eq_wire, State::S1);
 	}
 
-	void find_same_wires(const TwineSearch &search)
+	void find_same_wires()
 	{
 		SigMap assign_map(equiv_mod);
 		SigMap rd_signal_map;
@@ -154,8 +154,8 @@ struct EquivMakeWorker
 
 		for (auto id : wire_names)
 		{
-			IdString gold_id = search.find(equiv_mod->twines().str(id) + "_gold");
-			IdString gate_id = search.find(equiv_mod->twines().str(id) + "_gate");
+			IdString gold_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gate");
 
 			Wire *gold_wire = equiv_mod->wire(gold_id);
 			Wire *gate_wire = equiv_mod->wire(gate_id);
@@ -325,14 +325,14 @@ struct EquivMakeWorker
 		equiv_mod->fixup_ports();
 	}
 
-	void find_same_cells(const TwineSearch &search)
+	void find_same_cells()
 	{
 		SigMap assign_map(equiv_mod);
 
 		for (auto id : cell_names)
 		{
-			IdString gold_id = search.find(equiv_mod->twines().str(id) + "_gold");
-			IdString gate_id = search.find(equiv_mod->twines().str(id) + "_gate");
+			IdString gold_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gate");
 
 			Cell *gold_cell = equiv_mod->cell(gold_id);
 			Cell *gate_cell = equiv_mod->cell(gate_id);
@@ -421,9 +421,8 @@ struct EquivMakeWorker
 	{
 		copy_to_equiv();
 		find_undriven_nets(false);
-		TwineSearch search(&equiv_mod->twines());
-		find_same_wires(search);
-		find_same_cells(search);
+		find_same_wires();
+		find_same_cells();
 		find_undriven_nets(true);
 	}
 };
@@ -491,10 +490,9 @@ struct EquivMakePass : public Pass {
 		if (argidx+3 != args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		TwineSearch search(&design->twines);
-		worker.gold_mod = design->module(search.find(RTLIL::escape_id(args[argidx])));
-		worker.gate_mod = design->module(search.find(RTLIL::escape_id(args[argidx+1])));
-		worker.equiv_mod = design->module(search.find(RTLIL::escape_id(args[argidx+2])));
+		worker.gold_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx])));
+		worker.gate_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+1])));
+		worker.equiv_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+2])));
 
 		if (worker.gold_mod == nullptr)
 			log_cmd_error("Can't find gold module %s.\n", args[argidx]);
@@ -511,8 +509,8 @@ struct EquivMakePass : public Pass {
 		if (worker.gate_mod->has_memories() || worker.gate_mod->has_processes())
 			log_cmd_error("Gate module contains memories or processes. Run 'memory' or 'proc' respectively.\n");
 
-		worker.read_blacklists(search);
-		worker.read_encfiles(search);
+		worker.read_blacklists();
+		worker.read_encfiles();
 
 		log_header(design, "Executing EQUIV_MAKE pass (creating equiv checking module).\n");
 

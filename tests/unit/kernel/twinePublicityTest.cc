@@ -72,11 +72,10 @@ TEST(TwinePublicityTest, LookupTag)
 	IdString pub = pool.add(std::string("\\net"));
 	IdString priv = pool.add(std::string("$net"));
 
-	TwineSearch search(&pool);
-	EXPECT_EQ(search.find("\\net"), pub);
-	EXPECT_EQ(search.find("$net"), priv);
-	EXPECT_EQ(search.find("\\A"), ID::A);
-	EXPECT_EQ(search.find("\\nonexistent"), IdString::Null);
+	EXPECT_EQ(pool.find(std::string_view("\\net")), pub);
+	EXPECT_EQ(pool.find(std::string_view("$net")), priv);
+	EXPECT_EQ(pool.find(std::string_view("\\A")), ID::A);
+	EXPECT_EQ(pool.find(std::string_view("\\nonexistent")), IdString::Null);
 }
 
 TEST(TwinePublicityTest, SearchUnifies)
@@ -89,9 +88,8 @@ TEST(TwinePublicityTest, SearchUnifies)
 	ASSERT_EQ(flat, split);
 	EXPECT_TRUE(pool[split].is_leaf());
 
-	TwineSearch search(&pool);
-	EXPECT_EQ(search.find("$abc"), flat);
-	EXPECT_EQ(search.find("$a"), head);
+	EXPECT_EQ(pool.find(std::string_view("$abc")), flat);
+	EXPECT_EQ(pool.find(std::string_view("$a")), head);
 }
 
 TEST(TwinePublicityTest, SearchPublicity)
@@ -102,9 +100,8 @@ TEST(TwinePublicityTest, SearchPublicity)
 
 	ASSERT_EQ(priv, pub.untag());
 
-	TwineSearch search(&pool);
-	IdString found_pub = search.find("\\sig");
-	IdString found_priv = search.find("sig");
+	IdString found_pub = pool.find(std::string_view("\\sig"));
+	IdString found_priv = pool.find(std::string_view("sig"));
 
 	EXPECT_TRUE(found_pub.isPublic());
 	EXPECT_FALSE(found_priv.isPublic());
@@ -151,9 +148,8 @@ TEST(TwinePublicityTest, WireMasquerade)
 
 	// Distinct dict keys despite shared content.
 	EXPECT_NE(pub, priv);
-	TwineSearch search(&design.twines);
-	EXPECT_EQ(mod->wire(search.find("\\sig")), pub);
-	EXPECT_EQ(mod->wire(search.find("$sig")), priv);
+	EXPECT_EQ(mod->wire(design.twines.find(std::string_view("\\sig"))), pub);
+	EXPECT_EQ(mod->wire(design.twines.find(std::string_view("$sig"))), priv);
 
 	// uniquify keeps publicity.
 	IdString uniq = mod->uniquify(pub->name);

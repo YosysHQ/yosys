@@ -31,12 +31,11 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	from_name = RTLIL::escape_id(from_name);
 	to_name = RTLIL::escape_id(to_name);
 
-	TwineSearch search(&module->twines());
-	IdString to_ref = search.find(to_name);
+	IdString to_ref = module->twines().find(to_name);
 	if (module->count_id(to_ref))
 		log_cmd_error("There is already an object `%s' in module `%s'.\n", RTLIL::unescape_id(to_name), module);
 
-	IdString from_ref = search.find(from_name);
+	IdString from_ref = module->twines().find(from_name);
 	RTLIL::Wire *wire_to_rename = module->wire(from_ref);
 	RTLIL::Cell *cell_to_rename = module->cell(from_ref);
 
