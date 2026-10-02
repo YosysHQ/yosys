@@ -419,8 +419,8 @@ struct EvalPass : public Pass {
 				/* this should only be used for regression testing of ConstEval -- see vloghammer */
 				std::string mod1_name = RTLIL::escape_id(args[++argidx]);
 				std::string mod2_name = RTLIL::escape_id(args[++argidx]);
-				RTLIL::Module *mod1 = design->module(design->twines.find(mod1_name));
-				RTLIL::Module *mod2 = design->module(design->twines.find(mod2_name));
+				RTLIL::Module *mod1 = design->module(mod1_name);
+				RTLIL::Module *mod2 = design->module(mod2_name);
 				if (mod1 == nullptr)
 					log_error("Can't find module `%s'!\n", mod1_name);
 				if (mod2 == nullptr)

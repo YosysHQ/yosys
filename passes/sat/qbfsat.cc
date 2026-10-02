@@ -100,8 +100,8 @@ void specialize_from_file(RTLIL::Module *module, const std::string &file) {
 		//We have two options to identify holes.  First, try to match wire names.  If we can't find a matching wire,
 		//then try to find a cell with a matching location.
 		RTLIL::SigBit hole_sigbit;
-		if (module->wire(module->twines().find(hole_name)) != nullptr) {
-			RTLIL::Wire *hole_wire = module->wire(module->twines().find(hole_name));
+		if (module->wire(hole_name) != nullptr) {
+			RTLIL::Wire *hole_wire = module->wire(hole_name);
 			hole_sigbit = RTLIL::SigSpec(hole_wire)[hole_offset];
 		} else {
 			auto locs = split_tokens(hole_loc, "|");
@@ -160,7 +160,7 @@ void specialize(RTLIL::Module *module, const QbfSolutionType &sol, bool quiet = 
 
 void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wires) {
 	for (auto &n : input_wires) {
-		RTLIL::Wire *input = module->wire(module->twines().find(n));
+		RTLIL::Wire *input = module->wire(n);
 		log_assert(input != nullptr);
 
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, ID($allconst));

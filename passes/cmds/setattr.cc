@@ -237,8 +237,8 @@ struct ChparamPass : public Pass {
 		}
 
 		for (int i = argidx; i < GetSize(args); i++)
-			if (design->module(design->twines.find("$abstract\\" + args[i])) != nullptr &&
-					design->module(design->twines.find(RTLIL::escape_id(args[i]))) == nullptr)
+			if (design->module("$abstract\\" + args[i]) != nullptr &&
+					design->module(RTLIL::escape_id(args[i])) == nullptr)
 				args[i] = "$abstract\\" + args[i];
 
 		extra_args(args, argidx, design);

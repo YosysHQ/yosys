@@ -286,7 +286,7 @@ end_of_header:
 				log_assert(l1 < latches.size());
 				wire = latches[l1];
 			} else if (c == 'o') {
-				wire = module->wire(design->twines.find(escaped_s));
+				wire = module->wire(escaped_s);
 				log_assert(l1 < outputs.size());
 				if (wire) {
 					// Could have been renamed by a latch
@@ -341,7 +341,7 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	if (auto it = aiger_wires.find(literal); it != aiger_wires.end())
 		return it->second;
 	std::string wire_name = stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : "");
-	RTLIL::Wire *wire = module->wire(design->twines.find(wire_name));
+	RTLIL::Wire *wire = module->wire(wire_name);
 	if (wire) {
 		aiger_wires[literal] = wire;
 		return wire;
@@ -359,7 +359,7 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	}
 	else {
 		std::string wire_inv_name = stringf("$aiger%d$%d", aiger_autoidx, variable);
-		wire_inv = module->wire(design->twines.find(wire_inv_name));
+		wire_inv = module->wire(wire_inv_name);
 		if (!wire_inv) {
 			wire_inv_existed = false;
 			log_debug2("Creating %s\n", wire_inv_name);
@@ -472,7 +472,7 @@ void AigerReader::parse_xaiger()
 					log_assert(o.wire == nullptr);
 					lut_mask.set(gray, o.data);
 				}
-				RTLIL::Cell *output_cell = module->cell(design->twines.find(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID)));
+				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
 				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
@@ -541,7 +541,7 @@ void AigerReader::parse_xaiger()
 					} else { // inverted
 						output_cell_name = stringf("$not$aiger%d$%d", aiger_autoidx, rootNodeID >> 1);
 					}
-					RTLIL::Cell *output_cell = module->cell(design->twines.find(output_cell_name));
+					RTLIL::Cell *output_cell = module->cell(output_cell_name);
 					log_assert(output_cell);
 					module->remove(output_cell);
 				}

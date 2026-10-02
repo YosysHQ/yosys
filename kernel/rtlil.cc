@@ -5764,7 +5764,7 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 
 static RTLIL::Wire *sigspec_parse_wire(RTLIL::Module *module, const std::string &netname)
 {
-	return module->wire(module->twines().find(netname));
+	return module->wire(netname);
 }
 
 bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)

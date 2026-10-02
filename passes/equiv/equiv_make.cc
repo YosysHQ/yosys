@@ -490,9 +490,9 @@ struct EquivMakePass : public Pass {
 		if (argidx+3 != args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		worker.gold_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx])));
-		worker.gate_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+1])));
-		worker.equiv_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+2])));
+		worker.gold_mod = design->module(RTLIL::escape_id(args[argidx]));
+		worker.gate_mod = design->module(RTLIL::escape_id(args[argidx+1]));
+		worker.equiv_mod = design->module(RTLIL::escape_id(args[argidx+2]));
 
 		if (worker.gold_mod == nullptr)
 			log_cmd_error("Can't find gold module %s.\n", args[argidx]);

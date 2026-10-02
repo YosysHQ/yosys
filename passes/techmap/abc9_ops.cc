@@ -552,7 +552,7 @@ void prep_dff_unmap(RTLIL::Design *design)
 		// Make sure the box module has all the same ports present on flop cell
 		auto replace_cell = module->cell(ID::_TECHMAP_REPLACE_);
 		log_assert(replace_cell);
-		auto box_module = design->module(design->twines.find(module->name.str() + "_$abc9_flop"));
+		auto box_module = design->module(module->name.str() + "_$abc9_flop");
 		log_assert(box_module);
 		for (auto port_name : module->ports) {
 			auto port = module->wire(port_name);
@@ -928,7 +928,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 					if (w->port_input) {
 						for (int i = 0; i < GetSize(w); i++) {
 							box_inputs++;
-							RTLIL::Wire *holes_wire = holes_module->wire(holes_design->twines.find(stringf("\\i%d", box_inputs)));
+							RTLIL::Wire *holes_wire = holes_module->wire(stringf("\\i%d", box_inputs));
 							if (!holes_wire) {
 								holes_wire = holes_module->addWire(stringf("\\i%d", box_inputs));
 								holes_wire->port_input = true;

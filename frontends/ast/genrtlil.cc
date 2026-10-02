@@ -495,7 +495,7 @@ struct AST_INTERNAL::ProcessGenerator
 						chunk.wire->name, chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
-			} while (current_module->wire(current_module->twines().find(wire_name)) != nullptr);
+			} while (current_module->wire(wire_name) != nullptr);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
 			set_src_attr(wire, always.get());
