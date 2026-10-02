@@ -870,9 +870,7 @@ IdString AigerReader::intern_name(const std::string &escaped, TwineSearch &searc
 	IdString existing = search.find(escaped);
 	if (existing != IdString::Null)
 		return existing;
-	IdString ref = design->twines.add(std::string{escaped});
-	search.insert(ref);
-	return ref;
+	return design->twines.add(std::string{escaped});
 }
 
 void AigerReader::post_process()
