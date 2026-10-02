@@ -2801,7 +2801,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	{
 		auto buf = children[0]->clone();
 		while (buf->simplify(true, stage, width_hint, sign_hint)) { }
-		if (buf->type != AST_CONSTANT) {
+		if (!buf->isConst()) {
 			//logger().for_each_sink([&](LogSink &sink) {
 			//	FILE *f = sink.file_handle();
 			//	if (f)
@@ -4618,6 +4618,9 @@ replace_fcall_later:;
 			if (children[0]->type == AST_CONSTANT) {
 				RTLIL::Const y = const_func(RTLIL::Const(children[0]->bits), dummy_arg, false, false, -1);
 				newNode = mkconst_bits(location, y.to_bits(), false);
+			} else
+			if (type == AST_REDUCE_BOOL && children[0]->type == AST_REALVALUE) {
+				newNode = mkconst_int(location, children[0]->asReal(sign_hint) != 0, false, 1);
 			}
 			break;
 		case AST_LOGIC_NOT:
@@ -6024,7 +6027,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			cond->set_in_param_flag(true);
 			while (cond->simplify(true, 1, -1, false)) { }
 
-			if (cond->type != AST_CONSTANT) {
+			if (!cond->isConst()) {
 				if (!must_succeed)
 					goto finished;
 				stmt->input_error("Non-constant expression in constant function\n%s: ... called from here.\n",
