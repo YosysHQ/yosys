@@ -75,7 +75,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 
 	map_autoidx = autoidx++;
 
-	RTLIL::Module *mapped_mod = design->module(design->twines.find(stringf("%s$abc9", module->name)));
+	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name));
 	if (mapped_mod == NULL)
 		log_error("ABC output file does not contain a module `%s$abc'.\n", module);
 
@@ -96,7 +96,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			IdString escaped_ref = ref_from_token(design, symbol);
 			if (type == "input") {
 				log_assert(variable < input_count);
-				RTLIL::Wire* wire = mapped_mod->wire(design->twines.find(stringf("$aiger$i%d", variable + 1)));
+				RTLIL::Wire* wire = mapped_mod->wire(stringf("$aiger$i%d", variable + 1));
 				log_assert(wire);
 				log_assert(wire->port_input);
 				std::string message = stringf("Renaming input %s", wire);
@@ -143,7 +143,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			}
 			else if (type == "output") {
 				log_assert(variable + co_count < output_count);
-				RTLIL::Wire* wire = mapped_mod->wire(design->twines.find(stringf("$aiger$o%d", variable + co_count)));
+				RTLIL::Wire* wire = mapped_mod->wire(stringf("$aiger$o%d", variable + co_count));
 				log_assert(wire);
 				log_assert(wire->port_output);
 				std::string message = stringf("Renaming output %s", wire);
@@ -216,7 +216,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				log_debug("Mapping kept wire %s -> %s[%d]\n", wire, PooledName(design, escaped_ref), index);
 			}
 			else if (type == "box") {
-				RTLIL::Cell* cell = mapped_mod->cell(design->twines.find(stringf("$box%d", variable)));
+				RTLIL::Cell* cell = mapped_mod->cell(stringf("$box%d", variable));
 				if (!cell)
 					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines.unescaped_str(escaped_ref));
 				else

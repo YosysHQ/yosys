@@ -379,7 +379,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
                           const std::vector<std::string> &libdirs)
 {
 	std::string cell_type = cell.type.str();
-	RTLIL::Module *abs_mod = design.module(design.twines.find("$abstract" + cell_type));
+	RTLIL::Module *abs_mod = design.module("$abstract" + cell_type);
 	if (abs_mod) {
 		cell.type = abs_mod->derive(&design, cell.parameters);
 		cell.parameters.clear();
@@ -659,7 +659,7 @@ void hierarchy_worker(RTLIL::Design *design, std::set<RTLIL::Module*> &used, RTL
 	for (auto cell : mod->cells()) {
 		RTLIL::Module *cm;
 		if (cell->type.begins_with("$array:"))
-			cm = design->module(design->twines.find(basic_cell_type(cell->type.str())));
+			cm = design->module(basic_cell_type(cell->type.str()));
 		else
 			cm = design->module(cell->type);
 		if (cm)
@@ -747,7 +747,7 @@ int find_top_mod_score(Design *design, Module *module, dict<Module*, int> &db)
 			RTLIL::Module *instModule;
 			if (cell->type.begins_with("$array:")) {
 				std::string type = basic_cell_type(cell->type.str());
-				instModule = design->module(design->twines.find(type));
+				instModule = design->module(type);
 			}
 			else
 				instModule = design->module(cell->type);
@@ -1061,7 +1061,7 @@ struct HierarchyPass : public Pass {
 #ifdef YOSYS_ENABLE_VERIFIC
 			if (verific_import_pending) {
 				load_top_mod = verific_import(design, parameters, load_top_mod);
-				top_mod = design->module(design->twines.find(RTLIL::escape_id(load_top_mod)));
+				top_mod = design->module(RTLIL::escape_id(load_top_mod));
 			}
 #endif
 			if (top_mod == NULL)

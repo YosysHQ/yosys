@@ -708,7 +708,7 @@ void AST::set_simplify_design_context(const RTLIL::Design *design)
 static const RTLIL::Module* lookup_module(const std::string &name)
 {
 	const RTLIL::Design *design = simplify_design_context;
-	if (const RTLIL::Module *module = design->module(design->twines.find(name)))
+	if (const RTLIL::Module *module = design->module(name))
 		return module;
 
 	if (simplify_design_modules_size != design->modules_.size()) {

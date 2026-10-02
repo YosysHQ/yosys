@@ -1273,6 +1273,13 @@ inline constexpr bool is_unpooled_name_v =
 
 #define YS_UNPOOLED_NAME(N) std::enable_if_t<is_unpooled_name_v<N>, int> = 0
 
+template<typename N>
+inline constexpr bool is_name_string_v =
+	std::is_same_v<std::decay_t<N>, std::string> ||
+	std::is_same_v<std::decay_t<N>, const char *> || std::is_same_v<std::decay_t<N>, char *>;
+
+#define YS_NAME_STRING(N) std::enable_if_t<is_name_string_v<N>, int> = 0
+
 // Forwarders from various string-representing types into a canonical IdString method
 
 // Forwards _func(name, arg1...)
@@ -1327,11 +1334,17 @@ struct RTLIL::Design
 	RTLIL::ObjRange<RTLIL::Module*, IdString> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
 	const RTLIL::Module *module(RTLIL::IdString name) const;
+	template<typename N, YS_NAME_STRING(N)> RTLIL::Module *module(N name)
+		{ return module(twines.find(std::string_view(name))); }
+	template<typename N, YS_NAME_STRING(N)> const RTLIL::Module *module(N name) const
+		{ return module(twines.find(std::string_view(name))); }
 	RTLIL::Module *top_module() const;
 
 	bool has(RTLIL::IdString id) const {
 		return modules_.count(id) != 0;
 	}
+	template<typename N, YS_NAME_STRING(N)> bool has(N name) const
+		{ return has(twines.find(std::string_view(name))); }
 
 	void add(RTLIL::Module *module);
 
@@ -1579,6 +1592,15 @@ public:
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
+
+	template<typename N, YS_NAME_STRING(N)> RTLIL::Wire *wire(N name)
+		{ return wire(twines().find(std::string_view(name))); }
+	template<typename N, YS_NAME_STRING(N)> RTLIL::Cell *cell(N name)
+		{ return cell(twines().find(std::string_view(name))); }
+	template<typename N, YS_NAME_STRING(N)> const RTLIL::Wire *wire(N name) const
+		{ return wire(twines().find(std::string_view(name))); }
+	template<typename N, YS_NAME_STRING(N)> const RTLIL::Cell *cell(N name) const
+		{ return cell(twines().find(std::string_view(name))); }
 
 	RTLIL::ObjRange<RTLIL::Wire*> wires() { return RTLIL::ObjRange<RTLIL::Wire*>(&wires_, &refcount_wires_); }
 	int wires_size() const { return wires_.size(); }
@@ -1981,13 +2003,6 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	std::string to_rtlil_str() const;
 };
 
-template<typename N>
-inline constexpr bool is_name_string_v =
-	std::is_same_v<std::decay_t<N>, std::string> ||
-	std::is_same_v<std::decay_t<N>, const char *> || std::is_same_v<std::decay_t<N>, char *>;
-
-#define YS_NAME_STRING(N) std::enable_if_t<is_name_string_v<N>, int> = 0
-
 struct RTLIL::Cell : public RTLIL::NamedObject
 {
 private:
@@ -2041,13 +2056,13 @@ public:
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	template<typename N, YS_NAME_STRING(N)> bool hasParam(N name) const
-		{ return hasParam(module->twines().add(std::move(name))); }
+		{ return hasParam(module->twines().find(std::string_view(name))); }
 	template<typename N, YS_NAME_STRING(N)> void unsetParam(N name)
-		{ unsetParam(module->twines().add(std::move(name))); }
+		{ unsetParam(module->twines().find(std::string_view(name))); }
 	template<typename N, YS_NAME_STRING(N)> void setParam(N name, RTLIL::Const value)
 		{ setParam(module->twines().add(std::move(name)), std::move(value)); }
 	template<typename N, YS_NAME_STRING(N)> const RTLIL::Const &getParam(N name) const
-		{ return getParam(module->twines().add(std::move(name))); }
+		{ return getParam(module->twines().find(std::string_view(name))); }
 
 	void sort();
 	void check();

@@ -148,8 +148,8 @@ TEST(TwinePublicityTest, WireMasquerade)
 
 	// Distinct dict keys despite shared content.
 	EXPECT_NE(pub, priv);
-	EXPECT_EQ(mod->wire(design.twines.find(std::string_view("\\sig"))), pub);
-	EXPECT_EQ(mod->wire(design.twines.find(std::string_view("$sig"))), priv);
+	EXPECT_EQ(mod->wire("\\sig"), pub);
+	EXPECT_EQ(mod->wire("$sig"), priv);
 
 	// uniquify keeps publicity.
 	IdString uniq = mod->uniquify(pub->name);

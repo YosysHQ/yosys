@@ -34,7 +34,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 {
 	std::string escaped_name = RTLIL::escape_id(name);
 	std::string escaped_enable_name = (enable_name != "") ? RTLIL::escape_id(enable_name) : "";
-	RTLIL::Wire *wire = module->wire(module->twines().find(escaped_name));
+	RTLIL::Wire *wire = module->wire(escaped_name);
 	log_assert(is_formal_celltype(celltype));
 
 	if (wire == nullptr) {
@@ -48,7 +48,7 @@ static void add_formal(RTLIL::Module *module, const std::string &celltype, const
 			log("Added $%s cell for wire \"%s.%s\"\n", celltype, module->name.str(), name);
 		}
 		else {
-			RTLIL::Wire *enable_wire = module->wire(module->twines().find(escaped_enable_name));
+			RTLIL::Wire *enable_wire = module->wire(escaped_enable_name);
 			if(enable_wire == nullptr)
 				log_error("Could not find enable wire with name \"%s\".\n", enable_name);
 

@@ -1874,7 +1874,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 	if (parameters.size()) // not named_parameters to cover hierarchical defparams
 		modname = derived_module_name(stripped_name, named_parameters);
 
-	if (design->has(design->twines.find(modname)))
+	if (design->has(modname))
 		return modname;
 
 	if (!quiet)

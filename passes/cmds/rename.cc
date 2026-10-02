@@ -454,7 +454,7 @@ struct RenamePass : public Pass {
 					if (!wire->name.isPublic()) {
 						std::string buf;
 						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
-						while (module->wire(design->twines.find(buf)) != nullptr);
+						while (module->wire(buf) != nullptr);
 						new_wire_names[wire] = design->twines.add(std::move(buf));
 					}
 
@@ -462,7 +462,7 @@ struct RenamePass : public Pass {
 					if (!cell->name.isPublic()) {
 						std::string buf;
 						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
-						while (module->cell(design->twines.find(buf)) != nullptr);
+						while (module->cell(buf) != nullptr);
 						new_cell_names[cell] = design->twines.add(std::move(buf));
 					}
 
