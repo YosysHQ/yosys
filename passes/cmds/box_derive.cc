@@ -75,7 +75,7 @@ struct BoxDerivePass : Pass {
 		}
 		extra_args(args, argidx, d);
 
-		LeafIdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines.find(naming_attr);
+		IdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines.find(naming_attr);
 
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {
@@ -85,7 +85,7 @@ struct BoxDerivePass : Pass {
 				log_cmd_error("Base module %s not found.\n", RTLIL::unescape_id(base_name));
 		}
 
-		dict<std::pair<RTLIL::IdString, dict<RTLIL::LeafIdString, RTLIL::Const>>, Module*> done;
+		dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Module*> done;
 
 		for (auto module : d->selected_modules()) {
 			for (auto cell : module->selected_cells()) {

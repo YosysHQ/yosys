@@ -140,15 +140,6 @@ namespace pyosys {
 			return false;
 		}
 	}
-
-	static RTLIL::LeafIdString find_flat(const TwinePool *pool, RTLIL::IdString ref)
-	{
-		if (ID::is_static(ref))
-			return ID::static_leaf(ref.raw());
-		if (pool == nullptr || ref.empty())
-			return RTLIL::LeafIdString();
-		return pool->find(pool->str(ref));
-	}
 }
 
 namespace pybind11 {
@@ -172,28 +163,6 @@ public:
 	}
 
 	static handle cast(Yosys::RTLIL::IdString src, return_value_policy, handle)
-	{
-		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
-	}
-};
-
-template <> struct type_caster<Yosys::RTLIL::LeafIdString> {
-public:
-	PYBIND11_TYPE_CASTER(Yosys::RTLIL::LeafIdString, const_name("IdString"));
-
-	bool load(handle src, bool convert)
-	{
-		make_caster<Yosys::RTLIL::IdString> id;
-		if (!id.load(src, convert))
-			return false;
-		Yosys::RTLIL::IdString ref = cast_op<Yosys::RTLIL::IdString>(id);
-		const Yosys::TwinePool *pool = isinstance<Yosys::RTLIL::PooledName>(src)
-			? src.cast<const Yosys::RTLIL::PooledName &>().pool() : nullptr;
-		value = pyosys::find_flat(pool, ref);
-		return !value.empty() && value == ref;
-	}
-
-	static handle cast(Yosys::RTLIL::LeafIdString src, return_value_policy, handle)
 	{
 		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
 	}

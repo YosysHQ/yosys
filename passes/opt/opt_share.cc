@@ -152,7 +152,7 @@ bool decode_port_signed(RTLIL::Cell *cell, RTLIL::IdString port_name)
 	if (cell->type.in(BITWISE_OPS, LOGICAL_OPS))
 		return false;
 
-	RTLIL::LeafIdString param_name = port_name == ID::A ? ID::A_SIGNED : ID::B_SIGNED;
+	RTLIL::IdString param_name = port_name == ID::A ? ID::A_SIGNED : ID::B_SIGNED;
 	if (cell->hasParam(param_name))
 		return cell->getParam(param_name).as_bool();
 

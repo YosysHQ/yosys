@@ -130,8 +130,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 		return wire;
 	};
 
-	dict<RTLIL::LeafIdString, RTLIL::Const> *obj_attributes = nullptr;
-	dict<RTLIL::LeafIdString, RTLIL::Const> *obj_parameters = nullptr;
+	dict<RTLIL::IdString, RTLIL::Const> *obj_attributes = nullptr;
+	dict<RTLIL::IdString, RTLIL::Const> *obj_parameters = nullptr;
 
 	dict<RTLIL::IdString, std::pair<int, bool>> wideports_cache;
 
@@ -322,7 +322,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 			if (!strcmp(cmd, ".attr") || !strcmp(cmd, ".param")) {
 				char *n = strtok(NULL, " \t\r\n");
 				char *v = strtok(NULL, "\r\n");
-				LeafIdString id_n = design->twines.add(RTLIL::escape_id(n));
+				IdString id_n = design->twines.add(RTLIL::escape_id(n));
 				Const const_v;
 				if (v[0] == '"') {
 					std::string str(v+1);

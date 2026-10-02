@@ -187,7 +187,7 @@ struct BlifDumper
 		return subckt_or_gate(config->gates_mode ? design->module(cell_type) : nullptr);
 	}
 
-	void dump_params(const char *command, dict<LeafIdString, Const> &params)
+	void dump_params(const char *command, dict<IdString, Const> &params)
 	{
 		for (auto &param : params) {
 			f << stringf("%s %s ", command, design->twines.unescaped_str(param.first));

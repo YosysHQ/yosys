@@ -416,7 +416,7 @@ void dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig)
 	}
 }
 
-void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::LeafIdString, RTLIL::Const> &attributes, std::string term = "\n", bool modattr = false, bool regattr = false, bool as_comment = false)
+void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string term = "\n", bool modattr = false, bool regattr = false, bool as_comment = false)
 {
 	if (noattr)
 		return;
@@ -1042,18 +1042,18 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 	}
 }
 
-LeafIdString signed_param_of(RTLIL::IdString port)
+IdString signed_param_of(RTLIL::IdString port)
 {
 	if (port == ID::A)
 		return ID::A_SIGNED;
 	if (port == ID::B)
 		return ID::B_SIGNED;
-	return LeafIdString();
+	return IdString();
 }
 
 void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, RTLIL::IdString port, bool gen_signed = true)
 {
-	LeafIdString signed_param = gen_signed ? signed_param_of(port) : LeafIdString();
+	IdString signed_param = gen_signed ? signed_param_of(port) : IdString();
 	if (signed_param != IdString::Null && cell->parameters.count(signed_param) > 0 && cell->parameters[signed_param].as_bool()) {
 		f << stringf("$signed(");
 		dump_sigspec(f, cell->getPort(port));

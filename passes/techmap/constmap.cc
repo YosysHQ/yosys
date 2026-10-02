@@ -26,7 +26,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 static std::string celltype, cell_portname, cell_paramname;
 static IdString celltype_ref, cell_portname_ref;
-static LeafIdString cell_paramname_ref;
+static IdString cell_paramname_ref;
 
 static RTLIL::Module *module;
 static RTLIL::SigChunk value;
