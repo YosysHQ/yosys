@@ -5762,19 +5762,9 @@ static void sigspec_parse_split(std::vector<std::string> &tokens, const std::str
 	tokens.push_back(text.substr(start));
 }
 
-static RTLIL::Wire *sigspec_parse_wire(RTLIL::Module *module,
-		std::optional<dict<std::string, RTLIL::Wire*>> &wires_by_name, const std::string &netname)
+static RTLIL::Wire *sigspec_parse_wire(RTLIL::Module *module, const std::string &netname)
 {
-	if (RTLIL::Wire *wire = module->wire(module->twines().find(netname)))
-		return wire;
-
-	if (!wires_by_name) {
-		wires_by_name.emplace();
-		for (auto wire : module->wires())
-			wires_by_name->emplace(wire->name.str(), wire);
-	}
-	auto it = wires_by_name->find(netname);
-	return it == wires_by_name->end() ? nullptr : it->second;
+	return module->wire(module->twines().find(netname));
 }
 
 bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
@@ -5783,7 +5773,6 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 	sigspec_parse_split(tokens, str, ',');
 
 	sig = RTLIL::SigSpec();
-	std::optional<dict<std::string, RTLIL::Wire*>> wires_by_name;
 	for (int tokidx = int(tokens.size())-1; tokidx >= 0; tokidx--)
 	{
 		std::string netname = tokens[tokidx];
@@ -5807,7 +5796,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 		if (netname[0] != '$' && netname[0] != '\\')
 			netname = "\\" + netname;
 
-		if (sigspec_parse_wire(module, wires_by_name, netname) == nullptr) {
+		if (sigspec_parse_wire(module, netname) == nullptr) {
 			size_t indices_pos = netname.size()-1;
 			if (indices_pos > 2 && netname[indices_pos] == ']')
 			{
@@ -5824,7 +5813,7 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 			}
 		}
 
-		RTLIL::Wire *wire = sigspec_parse_wire(module, wires_by_name, netname);
+		RTLIL::Wire *wire = sigspec_parse_wire(module, netname);
 		if (wire == nullptr)
 			return false;
 
