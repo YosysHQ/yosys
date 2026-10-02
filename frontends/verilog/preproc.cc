@@ -452,9 +452,13 @@ static void input_file(std::istream &f, std::string filename)
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
+	skip_spaces(true);
 	std::vector<char> openers;
 	for (;;) {
-		skip_spaces(true);
+		std::string skipped = skip_spaces(true);
+		if (skipped != "") {
+			dest += " ";
+		}
 		std::string tok = next_token(true);
 		if (tok == ")") {
 			if (openers.empty()) {
