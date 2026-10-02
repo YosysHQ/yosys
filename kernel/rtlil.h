@@ -2040,13 +2040,13 @@ public:
 	const RTLIL::Const &getParam(RTLIL::IdString paramname) const;
 
 	template<typename N, YS_NAME_STRING(N)> bool hasParam(N name) const
-		{ return hasParam(module->twines().add(std::move(name))); }
+		{ return hasParam(module->twines().find(std::string_view(name))); }
 	template<typename N, YS_NAME_STRING(N)> void unsetParam(N name)
-		{ unsetParam(module->twines().add(std::move(name))); }
+		{ unsetParam(module->twines().find(std::string_view(name))); }
 	template<typename N, YS_NAME_STRING(N)> void setParam(N name, RTLIL::Const value)
 		{ setParam(module->twines().add(std::move(name)), std::move(value)); }
 	template<typename N, YS_NAME_STRING(N)> const RTLIL::Const &getParam(N name) const
-		{ return getParam(module->twines().add(std::move(name))); }
+		{ return getParam(module->twines().find(std::string_view(name))); }
 
 	void sort();
 	void check();
