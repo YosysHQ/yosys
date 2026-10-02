@@ -662,7 +662,7 @@ struct TechmapWorker
 					if (tpl_port != nullptr && tpl_port->port_id > 0)
 						continue;
 					// Constant ports are passed as the template parameter of the same name
-					LeafIdString conn_id = map->twines.flatten(map->twines.copy_from(design->twines, conn.first));
+					LeafIdString conn_id = map->twines.copy_from(design->twines, conn.first);
 					if (!conn.second.is_fully_const() || parameters.count(conn_id) > 0 || tpl->avail_parameters.count(conn_id) == 0)
 						goto next_tpl;
 					parameters[conn_id] = conn.second.as_const();

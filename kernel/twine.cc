@@ -105,7 +105,7 @@ SmallString &SmallString::operator=(SmallString &&other) noexcept
 SmallString::~SmallString() { release(); }
 
 TwineNode::TwineNode(TwineNode &&other) noexcept
-	: text_(std::move(other.text_)), prefix_(other.prefix_)
+	: text_(std::move(other.text_)), prefix_(other.prefix_), hash_(other.hash_)
 {
 	other.prefix_ = DEAD;
 }
@@ -116,6 +116,7 @@ TwineNode &TwineNode::operator=(TwineNode &&other) noexcept
 		return *this;
 	text_ = std::move(other.text_);
 	prefix_ = other.prefix_;
+	hash_ = other.hash_;
 	other.prefix_ = DEAD;
 	return *this;
 }
@@ -187,8 +188,6 @@ const TwineNode& TwinePool::operator[](IdString ref) const {
 const TwineNode& TwinePool::static_node(size_t idx) { return StaticTwines::node(idx); }
 void TwinePool::check_ready() { log_assert(StaticTwines::ready()); }
 
-void TwinePool::canonicalize(TwineNode&) {}
-
 size_t TwinePool::next_serial() {
 	static size_t counter = 0;
 	size_t serial = ++counter;
@@ -203,18 +202,6 @@ IdString TwinePool::add_inner(TwineNode t) {
 		log_error("Out of twine handles: a design may name at most %zu distinct twines.\n",
 				IdString::MAX_INDEX - STATIC_COUNT);
 	return HashConsPool::add_inner(std::move(t));
-}
-
-size_t TwinePool::hash_node(const TwineNode& t) {
-	return hash_key(t.key());
-}
-
-size_t TwinePool::hash_key(const TwineNode::Key& k) {
-	Hasher h;
-	if (k.prefix < TwineNode::DEAD)
-		h.eat(IdString(k.prefix));
-	h.eat(k.text);
-	return h.yield();
 }
 
 void TwinePool::dump(IdString ref, std::ostream& os) const {
@@ -264,32 +251,38 @@ std::string TwinePool::unescaped_str(IdString ref) const {
 	return str(ref.untag());
 }
 
+uint64_t TwinePool::content_hash(uint32_t prefix, std::string_view text) const {
+	uint64_t hash = prefix == TwineNode::NO_PREFIX ? 0 : (*this)[IdString(prefix)].hash();
+	return TwineNode::extend_hash(hash, text);
+}
+
 IdString TwinePool::find_content(uint32_t prefix, std::string_view text) const {
-	return HashConsPool::find_key(TwineNode::Key{prefix, text});
+	return find_content(prefix, text, content_hash(prefix, text));
 }
 
 IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
-	IdString ref = HashConsPool::find_key(TwineNode::Key{prefix, text});
+	uint64_t hash = content_hash(prefix, text);
+	IdString ref = find_content(prefix, text, hash);
 	if (ref != IdString::Null)
 		return ref;
-	return add_inner(TwineNode{prefix, text});
+	return add_inner(TwineNode{prefix, text, hash});
 }
 
-LeafIdString TwinePool::find(const std::string &name) const {
+IdString TwinePool::find(const std::string &name) const {
 	if (name.empty())
 		return IdString::Null;
 	check_name(name);
+	return find(std::string_view(name));
+}
+
+IdString TwinePool::find(std::string_view name) const {
 	auto [content, is_public] = unescape_name(name);
-	return LeafIdString(stamp(find_content(TwineNode::NO_PREFIX, content).tag(is_public)));
+	return stamp(find_content(TwineNode::NO_PREFIX, content).tag(is_public));
 }
 
 IdString TwinePool::find(TwineSpec t) const {
-	if (auto *ap = std::get_if<TwineSpec::AutoSuffix>(&t.data)) {
-		IdString prefix = find_content(TwineNode::NO_PREFIX, *ap->prefix);
-		if (prefix == IdString::Null)
-			return IdString::Null;
-		return stamp(find_content((uint32_t)prefix.untag().raw(), ap->tail).tag(prefix.isPublic()));
-	}
+	if (std::holds_alternative<TwineSpec::AutoSuffix>(t.data))
+		return stamp(find_content(TwineNode::NO_PREFIX, t.content_str()));
 	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
 		return stamp(find_content(TwineNode::NO_PREFIX, leaf->s));
 	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
@@ -318,56 +311,25 @@ IdString TwinePool::add(IdString prefix, std::string_view tail) {
 	return stamp(intern((uint32_t)prefix.untag().raw(), tail).tag(prefix.isPublic()));
 }
 
-LeafIdString TwinePool::add(std::string s) {
+IdString TwinePool::add(std::string s) {
 	if (s.empty())
 		return IdString::Null;
 	check_name(s);
 	auto [content, is_public] = unescape_name(s);
-	return LeafIdString(stamp(intern(TwineNode::NO_PREFIX, content).tag(is_public)));
-}
-
-LeafIdString TwinePool::flatten(IdString ref) {
-	if (ref == IdString::Null || (*this)[ref].is_leaf())
-		return LeafIdString(stamp(ref));
-	return LeafIdString(stamp(intern(TwineNode::NO_PREFIX, unescaped_str(ref)).tag(ref.isPublic())));
-}
-
-template<typename Lookup>
-IdString TwinePool::transfer(const TwinePool& src, IdString ref, Lookup lookup) const {
-	if (ref == IdString::Null || ID::is_static(ref))
-		return ref;
-	const TwineNode& t = src[ref.untag()];
-	uint32_t prefix = TwineNode::NO_PREFIX;
-	switch (t.kind()) {
-	case TwineNode::Kind::Dead:
-		return IdString::Null;
-	case TwineNode::Kind::Suffix: {
-		IdString transferred = transfer(src, t.prefix(), lookup);
-		if (transferred == IdString::Null)
-			return IdString::Null;
-		prefix = (uint32_t)transferred.untag().raw();
-		break;
-	}
-	case TwineNode::Kind::Leaf:
-		break;
-	}
-	return stamp(lookup(prefix, t.text()).tag(ref.isPublic()));
+	return stamp(intern(TwineNode::NO_PREFIX, content).tag(is_public));
 }
 
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
-	return transfer(src, ref, [this](uint32_t prefix, std::string_view text) { return intern(prefix, text); });
-}
-
-LeafIdString TwinePool::copy_from(const TwinePool& src, LeafIdString ref) {
-	return LeafIdString(copy_from(src, IdString(ref)));
-}
-
-IdString TwinePool::find_from(const TwinePool& src, IdString ref) const {
-	return transfer(src, ref, [this](uint32_t prefix, std::string_view text) { return find_content(prefix, text); });
-}
-
-LeafIdString TwinePool::find_from(const TwinePool& src, LeafIdString ref) const {
-	return LeafIdString(find_from(src, IdString(ref)));
+	IdString found = find_from(src, ref);
+	if (found != IdString::Null || ref == IdString::Null)
+		return found;
+	const TwineNode& t = src[ref.untag()];
+	if (t.is_dead())
+		return IdString::Null;
+	uint32_t prefix = TwineNode::NO_PREFIX;
+	if (t.is_suffix())
+		prefix = (uint32_t)copy_from(src, t.prefix()).untag().raw();
+	return stamp(intern(prefix, t.text()).tag(ref.isPublic()));
 }
 
 std::string TwinePool::ref_token(IdString ref) const {
@@ -410,6 +372,7 @@ IdString TwinePool::ref_from_token(std::string_view token) const {
 struct TwineSegments {
 	static constexpr size_t SEGMENT_INLINE_DEPTH = 8;
 	TwineSegments(const TwinePool &pool, IdString ref);
+	TwineSegments(const TwinePool &pool, IdString head, std::string_view tail);
 	std::string_view peek();
 	void advance(size_t n);
 	size_t total_size() const;
@@ -446,6 +409,12 @@ TwineSegments::TwineSegments(const TwinePool &pool, IdString ref)
 	if (ref.isPublic())
 		push("\\");
 	std::reverse(segs(), segs() + count);
+}
+
+TwineSegments::TwineSegments(const TwinePool &pool, IdString head, std::string_view tail)
+	: TwineSegments(pool, head)
+{
+	push(tail);
 }
 
 std::string_view TwineSegments::peek()
@@ -539,6 +508,31 @@ bool TwinePool::content_equal(IdString a, IdString b) const
 	return compare_segments(sa, sb) == 0;
 }
 
+IdString TwinePool::find_content(uint32_t prefix, std::string_view text, uint64_t hash) const {
+	return find_hashed(hash, [&](IdString ref) {
+		const TwineNode &t = (*this)[ref];
+		if (t == TwineNode::Key{prefix, text})
+			return true;
+		IdString head = prefix == TwineNode::NO_PREFIX ? IdString::Null : IdString(prefix);
+		TwineSegments sa(*this, ref), sb(*this, head, text);
+		return compare_segments(sa, sb) == 0;
+	});
+}
+
+IdString TwinePool::find_from(const TwinePool& src, IdString ref) const {
+	if (ref == IdString::Null || ID::is_static(ref))
+		return ref;
+	IdString idx = ref.untag();
+	const TwineNode& t = src[idx];
+	if (t.is_dead())
+		return IdString::Null;
+	IdString found = find_hashed(t.hash(), [&](IdString cand) {
+		TwineSegments sa(*this, cand), sb(src, idx);
+		return compare_segments(sa, sb) == 0;
+	});
+	return stamp(found.tag(ref.isPublic()));
+}
+
 IdString TwinePool::prefix_of(IdString ref) const {
 	const TwineNode &t = (*this)[ref];
 	if (!t.is_suffix())
@@ -568,48 +562,18 @@ int TwinePool::compare_by_name(IdString a, IdString b) const
 	return compare_segments(sa, sb);
 }
 
-void DeepTwineHash::Stream::push(std::string_view sv) {
-	for (char c : sv) {
-		buf |= uint64_t(static_cast<unsigned char>(c)) << (8 * fill);
-		if (++fill == 8) {
-			h.hash64(buf);
-			buf = 0;
-			fill = 0;
-		}
-	}
-}
-
-size_t DeepTwineHash::Stream::finish() {
-	h.hash64(buf);
+static size_t mix_content_hash(uint64_t hash) {
+	Hasher h;
+	h.hash64(hash);
 	return h.yield();
 }
 
-void DeepTwineHash::combine(Stream& s, IdString t) const {
-	if (t == IdString::Null)
-		return;
-	const TwineNode& n = (*pool)[t];
-	switch (n.kind()) {
-	case TwineNode::Kind::Dead:
-		break;
-	case TwineNode::Kind::Suffix:
-		combine(s, n.prefix());
-		[[fallthrough]];
-	case TwineNode::Kind::Leaf:
-		s.push(n.text());
-		break;
-	}
-}
-
 size_t DeepTwineHash::operator()(std::string_view sv) const {
-	Stream s;
-	s.push(sv);
-	return s.finish();
+	return mix_content_hash(TwineNode::extend_hash(0, sv));
 }
 
 size_t DeepTwineHash::operator()(IdString t) const {
-	Stream s;
-	combine(s, t);
-	return s.finish();
+	return mix_content_hash(t == IdString::Null ? 0 : (*pool)[t].hash());
 }
 
 bool DeepTwineEq::consume(IdString t, std::string_view& sv) const noexcept {
@@ -640,22 +604,6 @@ bool DeepTwineEq::operator()(std::string_view sv, IdString t) const noexcept {
 
 bool DeepTwineEq::operator()(IdString a, IdString b) const {
 	return pool->content_equal(a, b);
-}
-
-TwineSearch::TwineSearch(const TwinePool* pool) : index(0, DeepTwineHash{pool}, DeepTwineEq{pool}) {
-	for (IdString ref : pool->refs())
-		index.insert(ref);
-}
-
-void TwineSearch::insert(IdString ref) {
-	index.insert(ref.untag());
-}
-
-IdString TwineSearch::find(std::string_view sv) const {
-	auto [content, is_public] = unescape_name(sv);
-	if (auto it = index.find(content); it != index.end())
-		return (*it).tag(is_public);
-	return IdString::Null;
 }
 
 YOSYS_NAMESPACE_END

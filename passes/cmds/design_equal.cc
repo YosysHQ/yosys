@@ -26,18 +26,13 @@ class PoolBridge
 {
 	const TwinePool *pool_a;
 	const TwinePool *pool_b;
-	TwineSearch search_a;
-	TwineSearch search_b;
 
 public:
 	PoolBridge(RTLIL::Design *design_a, RTLIL::Design *design_b) :
-			pool_a(&design_a->twines), pool_b(&design_b->twines),
-			search_a(&design_a->twines), search_b(&design_b->twines) {}
+			pool_a(&design_a->twines), pool_b(&design_b->twines) {}
 
-	IdString a_to_b(IdString ref) const { return search_b.find(pool_a->str(ref)); }
-	IdString b_to_a(IdString ref) const { return search_a.find(pool_b->str(ref)); }
-	LeafIdString a_to_b(LeafIdString ref) const { return pool_b->find_from(*pool_a, ref); }
-	LeafIdString b_to_a(LeafIdString ref) const { return pool_a->find_from(*pool_b, ref); }
+	IdString a_to_b(IdString ref) const { return pool_b->find_from(*pool_a, ref); }
+	IdString b_to_a(IdString ref) const { return pool_a->find_from(*pool_b, ref); }
 
 	bool same(IdString a, IdString b) const { return pool_a->str(a) == pool_b->str(b); }
 };

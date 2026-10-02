@@ -86,14 +86,11 @@ TEST(TwinePublicityTest, SearchUnifies)
 	IdString head = pool.add(TwineSpec::Leaf{"$a"});
 	IdString split = pool.add(TwineSpec::Suffix{head, "bc"});
 
-	ASSERT_NE(flat, split);
-	ASSERT_EQ(pool.str(flat), pool.str(split));
+	ASSERT_EQ(flat, split);
+	EXPECT_TRUE(pool[split].is_leaf());
 
 	TwineSearch search(&pool);
-	EXPECT_EQ(search.index.count(flat), 1u);
-	EXPECT_EQ(search.index.count(split), 1u);
-	EXPECT_EQ(search.index.count(head), 1u);
-	EXPECT_NE(search.find("$abc"), IdString::Null);
+	EXPECT_EQ(search.find("$abc"), flat);
 	EXPECT_EQ(search.find("$a"), head);
 }
 

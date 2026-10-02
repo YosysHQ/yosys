@@ -510,7 +510,7 @@ struct RTLILFrontendWorker {
 
 	void parse_attribute()
 	{
-		LeafIdString id = parse_leaf_twine();
+		LeafIdString id = parse_twine();
 		RTLIL::Const c = parse_const();
 		attrbuf.insert({std::move(id), std::move(c)});
 		expect_eol();
@@ -598,15 +598,6 @@ struct RTLILFrontendWorker {
 		return *t;
 	}
 
-	LeafIdString parse_leaf_twine()
-	{
-		IdString ref = parse_twine();
-		if (!design->twines[ref].is_leaf())
-			error("Expected leaf twine for attribute or parameter name, got suffix twine `%s'.",
-					design->twines.str(ref));
-		return design->twines.flatten(ref);
-	}
-
 	void parse_twines()
 	{
 		expect_eol();
@@ -657,7 +648,7 @@ struct RTLILFrontendWorker {
 
 	void parse_parameter()
 	{
-		LeafIdString id = parse_leaf_twine();
+		LeafIdString id = parse_twine();
 		current_module->avail_parameters(id);
 		if (try_parse_eol())
 			return;
@@ -838,7 +829,7 @@ struct RTLILFrontendWorker {
 				} else if (try_parse_keyword("unsized")) {
 					is_unsized = true;
 				}
-				LeafIdString param_name = parse_leaf_twine();
+				LeafIdString param_name = parse_twine();
 				RTLIL::Const val = parse_const();
 				if (is_signed)
 					val.flags |= RTLIL::CONST_FLAG_SIGNED;

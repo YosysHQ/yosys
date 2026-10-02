@@ -4,89 +4,40 @@
 #include "kernel/yosys_common.h"
 
 #include <algorithm>
+#include <bit>
 #include <deque>
-#include <unordered_set>
 #include <vector>
 
 /**
- * Implements shallow deduplicating backing storage
+ * Implements deduplicating backing storage indexed by content hash
  */
 
 YOSYS_NAMESPACE_BEGIN
 
 template<typename Derived, typename Node, typename Ref>
-struct HashConsNodeHash {
-	using is_transparent = void;
-
-	const Derived* pool = nullptr;
-
-	size_t operator()(const Node& n) const noexcept { return Derived::hash_node(n); }
-	size_t operator()(const typename Node::Key& k) const noexcept { return Derived::hash_key(k); }
-	size_t operator()(Ref ref) const noexcept { return Derived::hash_node((*pool)[ref]); }
-};
-
-YOSYS_NAMESPACE_END
-
-// Turn on caching in the standard library for performance
-#ifdef __GLIBCXX__
-namespace std {
-	template<typename Derived, typename Node, typename Ref>
-	struct __is_fast_hash<YOSYS_NAMESPACE::HashConsNodeHash<Derived, Node, Ref>>
-		: std::false_type {};
-}
-#endif
-
-YOSYS_NAMESPACE_BEGIN
-
-template<typename Derived, typename Node, typename Ref>
 struct HashConsPool {
-	using NodeHash = HashConsNodeHash<Derived, Node, Ref>;
-
-	struct NodeEq {
-		using is_transparent = void;
-		const Derived* pool = nullptr;
-		bool operator()(Ref a, Ref b) const noexcept { return (*pool)[a] == (*pool)[b]; }
-		bool operator()(Ref a, const Node& b) const noexcept { return (*pool)[a] == b; }
-		bool operator()(const Node& a, Ref b) const noexcept { return a == (*pool)[b]; }
-		bool operator()(Ref a, const typename Node::Key& b) const noexcept { return (*pool)[a] == b; }
-		bool operator()(const typename Node::Key& a, Ref b) const noexcept { return (*pool)[b] == a; }
-	};
-
-	using Index = std::unordered_set<Ref, NodeHash, NodeEq>;
-
 protected:
 	std::deque<Node> backing;
-	Index index;
+	std::vector<Ref> table;
 	std::vector<size_t> free_list;
 
 public:
 	Derived* self() { return static_cast<Derived*>(this); }
 	const Derived* self() const { return static_cast<const Derived*>(this); }
 
-	Index fresh_index() { return Index(0, NodeHash{self()}, NodeEq{self()}); }
-
-	HashConsPool() : index(fresh_index()) { rebuild_index(); }
-	HashConsPool(const HashConsPool& other) : backing(other.backing), index(fresh_index()) {
-		rebuild_index();
-	}
-	HashConsPool(HashConsPool&& other) : backing(std::move(other.backing)), index(fresh_index()) {
+	HashConsPool() { rebuild_index(); }
+	HashConsPool(const HashConsPool& other) = default;
+	HashConsPool(HashConsPool&& other)
+		: backing(std::move(other.backing)), table(std::move(other.table)), free_list(std::move(other.free_list)) {
 		other.reset();
-		rebuild_index();
 	}
-	HashConsPool& operator=(const HashConsPool& other) {
-		if (this != &other) {
-			backing = other.backing;
-			index = fresh_index();
-			rebuild_index();
-		}
-		return *this;
-	}
+	HashConsPool& operator=(const HashConsPool& other) = default;
 	HashConsPool& operator=(HashConsPool&& other) {
 		if (this != &other) {
 			backing = std::move(other.backing);
+			table = std::move(other.table);
+			free_list = std::move(other.free_list);
 			other.reset();
-			index = fresh_index();
-			rebuild_index();
 		}
 		return *this;
 	}
@@ -94,7 +45,6 @@ public:
 	void reset() {
 		backing.clear();
 		free_list.clear();
-		index = fresh_index();
 		rebuild_index();
 	}
 
@@ -167,44 +117,64 @@ public:
 
 	void rebuild_index() {
 		Derived::check_ready();
-		for (size_t idx = 0; idx < Derived::STATIC_COUNT; idx++)
-			index.insert(Ref(idx));
 		free_list.clear();
-		for (size_t idx = 0; idx < backing.size(); ++idx) {
+		for (size_t idx = 0; idx < backing.size(); ++idx)
 			if (backing[idx].is_dead())
 				free_list.push_back(idx);
-			else
-				index.insert(Ref(Derived::STATIC_COUNT + idx));
-		}
 		std::sort(free_list.begin(), free_list.end(), std::greater<size_t>());
+		table.assign(std::bit_ceil((Derived::STATIC_COUNT + size()) * 2 + 2), Ref());
+		for (Ref ref : refs())
+			index_insert(ref);
 	}
 
-	Ref find(Node t) const {
-		Derived::canonicalize(t);
-		if (auto it = index.find(t); it != index.end())
-			return *it;
+	size_t home_slot(uint64_t hash) const {
+		// Knuth's Fibonacci hashing saves us from how bad DJB2 is
+		return (hash * 0x9e3779b97f4a7c15ull) >> (64 - std::countr_zero(table.size()));
+	}
+
+	size_t next_slot(size_t slot) const { return (slot + 1) & (table.size() - 1); }
+
+	template<typename Eq>
+	Ref find_hashed(uint64_t hash, Eq&& eq) const {
+		for (size_t slot = home_slot(hash); table[slot] != Ref(); slot = next_slot(slot)) {
+			Ref ref = table[slot];
+			if (Derived::hash_node((*this)[ref]) == hash && eq(ref))
+				return ref;
+		}
 		return Ref();
 	}
 
-	Ref find_key(const typename Node::Key& k) const {
-		if (auto it = index.find(k); it != index.end())
-			return *it;
-		return Ref();
+	void index_insert(Ref ref) {
+		size_t slot = home_slot(Derived::hash_node((*this)[ref]));
+		while (table[slot] != Ref())
+			slot = next_slot(slot);
+		table[slot] = ref;
+	}
+
+	void index_erase(Ref ref) {
+		size_t hole = home_slot(Derived::hash_node((*this)[ref]));
+		while (table[hole] != ref)
+			hole = next_slot(hole);
+		size_t mask = table.size() - 1;
+		for (size_t slot = next_slot(hole); table[slot] != Ref(); slot = next_slot(slot)) {
+			size_t home = home_slot(Derived::hash_node((*this)[table[slot]]));
+			if (((slot - home) & mask) >= ((slot - hole) & mask)) {
+				table[hole] = table[slot];
+				hole = slot;
+			}
+		}
+		table[hole] = Ref();
+	}
+
+	void grow_index() {
+		std::vector<Ref> old(table.size() * 2, Ref());
+		std::swap(old, table);
+		for (Ref ref : old)
+			if (ref != Ref())
+				index_insert(ref);
 	}
 
 	Ref add_inner(Node t) {
-		Derived::canonicalize(t);
-
-		if (auto it = index.find(t); it != index.end()) {
-			if (yosys_xtrace) {
-				std::cout << "#X# add_inner found ";
-				self()->dump(*it);
-				std::cout << "\n";
-				std::cout << "#X# as integer " << it->raw() << "\n";
-			}
-			return *it;
-		}
-
 		Ref ref;
 		if (!free_list.empty()) {
 			size_t idx = free_list.back();
@@ -215,7 +185,9 @@ public:
 			ref = Ref(Derived::STATIC_COUNT + backing.size());
 			backing.push_back(std::move(t));
 		}
-		index.insert(ref);
+		if ((Derived::STATIC_COUNT + size()) * 3 > table.size() * 2)
+			grow_index();
+		index_insert(ref);
 		if (yosys_xtrace) {
 			std::cout << "#X# add_inner added ";
 			self()->dump(ref);
@@ -243,7 +215,7 @@ public:
 			if (backing[idx].is_dead())
 				continue;
 			if (!live.count(Ref(Derived::STATIC_COUNT + idx))) {
-				index.erase(Ref(Derived::STATIC_COUNT + idx));
+				index_erase(Ref(Derived::STATIC_COUNT + idx));
 				free_list.push_back(idx);
 				backing[idx] = Node{};
 				erased++;
