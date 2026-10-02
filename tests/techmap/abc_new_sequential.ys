@@ -1,0 +1,15 @@
+read_verilog <<EOT
+module top(input clk, input a, input b, output reg y);
+	always @(posedge clk) y <= a & b;
+endmodule
+EOT
+hierarchy -check -top top
+proc; opt -fast
+dfflibmap -liberty ../../examples/cmos/cmos_cells.lib
+logger -expect log "ABC: .*i/o = +4/ +3" 2
+logger -expect log "ABC: Warning: The network is combinational\." 1
+logger -expect log "ABC: Networks are equivalent\." 1
+abc_new -script "+&scorr;&sweep;&dc2;&dch,-f;&nf,{D}" -liberty ../../examples/cmos/cmos_cells.lib
+logger -expect error "Found 1 problems in 'check -assert'" 1
+check -assert
+
