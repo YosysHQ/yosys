@@ -553,9 +553,11 @@ void log_dump_val_worker(RTLIL::IdString v) {
 	if (v == IdString::Null)
 		log("(null)");
 	else if (ID::is_static(v))
-		log("%s", ID::str(v));
+		log("%s", ID::unescaped_str(v));
+	else if (yosys_design && yosys_design->twines.is_live(v))
+		log("%s", yosys_design->twines.unescaped_str(v));
 	else
-		log("%s", v.handle_token().c_str());
+		log("%s", v.handle_token());
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {
