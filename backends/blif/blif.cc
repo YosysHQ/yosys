@@ -69,13 +69,13 @@ static IdString match_port(RTLIL::Cell *cell, const std::string &escaped_name)
 
 void BlifDumperConfig::resolve(RTLIL::Design *design)
 {
-	if (RTLIL::Module *module = RTLIL::module_by_name(design, buf_type))
+	if (RTLIL::Module *module = design->module(RTLIL::escape_id(buf_type)))
 		buf_module = module;
-	if (RTLIL::Module *module = RTLIL::module_by_name(design, true_type))
+	if (RTLIL::Module *module = design->module(RTLIL::escape_id(true_type)))
 		true_module = module;
-	if (RTLIL::Module *module = RTLIL::module_by_name(design, false_type))
+	if (RTLIL::Module *module = design->module(RTLIL::escape_id(false_type)))
 		false_module = module;
-	if (RTLIL::Module *module = RTLIL::module_by_name(design, undef_type))
+	if (RTLIL::Module *module = design->module(RTLIL::escape_id(undef_type)))
 		undef_module = module;
 
 	std::vector<std::array<std::string, 3>> escaped_unbuf;

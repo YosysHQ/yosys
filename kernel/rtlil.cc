@@ -1050,17 +1050,6 @@ RTLIL::Module *RTLIL::Design::module(IdString id) {
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
 
-RTLIL::Module *RTLIL::module_by_name(RTLIL::Design *design, const std::string &name)
-{
-	if (name.empty())
-		return nullptr;
-	std::string escaped = escape_id(name);
-	for (auto module : design->modules())
-		if (design->twines.name_equal(module->name, escaped))
-			return module;
-	return nullptr;
-}
-
 RTLIL::Module *RTLIL::Design::top_module() const
 {
 	RTLIL::Module *module = nullptr;
@@ -1452,21 +1441,6 @@ size_t RTLIL::Module::count_id(RTLIL::IdString id)
 	return wires_.count(id) + cells_.count(id) + memories.count(id) + processes.count(id);
 }
 
-pool<std::string> RTLIL::object_names(const RTLIL::Module *module)
-{
-	const TwinePool &twines = module->twines();
-	pool<std::string> names;
-	for (auto &it : module->wires_)
-		names.insert(twines.str(it.first));
-	for (auto &it : module->cells_)
-		names.insert(twines.str(it.first));
-	for (auto &it : module->memories)
-		names.insert(twines.str(it.first));
-	for (auto &it : module->processes)
-		names.insert(twines.str(it.first));
-	return names;
-}
-
 #ifndef NDEBUG
 namespace {
 	struct InternalCellChecker
@@ -1571,10 +1545,8 @@ namespace {
 
 		void check()
 		{
-			std::string type_str = cell->type.str();
-			std::string_view type_sv = type_str;
-			if (!type_sv.starts_with("$") || type_sv.starts_with("$__") || type_sv.starts_with("$paramod") || type_sv.starts_with("$fmcombine") ||
-					type_sv.starts_with("$verific$") || type_sv.starts_with("$array:") || type_sv.starts_with("$extern:"))
+			if (cell->type.isPublic() || cell->type.begins_with("$__") || cell->type.begins_with("$paramod") || cell->type.begins_with("$fmcombine") ||
+					cell->type.begins_with("$verific$") || cell->type.begins_with("$array:") || cell->type.begins_with("$extern:"))
 				return;
 
 			if (cell->type.in(ID($buf), ID($barrier))) {
@@ -3095,17 +3067,6 @@ void RTLIL::copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
 	}
 }
 
-RTLIL::Wire *RTLIL::wire_by_name(RTLIL::Module *module, const std::string &name)
-{
-	if (name.empty())
-		return nullptr;
-	std::string escaped = escape_id(name);
-	for (auto wire : module->wires())
-		if (module->twines().name_equal(wire->name, escaped))
-			return wire;
-	return nullptr;
-}
-
 RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
 	log_assert(design);
@@ -4431,10 +4392,8 @@ void RTLIL::Cell::check()
 
 void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 {
-	std::string type_str = type.str();
-	std::string_view type_sv = type_str;
-	if (!type_sv.starts_with("$") || type_sv.starts_with("$_") || type_sv.starts_with("$paramod") || type_sv.starts_with("$fmcombine") ||
-			type_sv.starts_with("$verific$") || type_sv.starts_with("$array:") || type_sv.starts_with("$extern:"))
+	if (type.isPublic() || type.begins_with("$_") || type.begins_with("$paramod") || type.begins_with("$fmcombine") ||
+			type.begins_with("$verific$") || type.begins_with("$array:") || type.begins_with("$extern:"))
 		return;
 
 	if (type == ID($buf) || type == ID($barrier) || type == ID($mux) || type == ID($pmux) || type == ID($bmux) || type == ID($bwmux) || type == ID($bweqx)) {

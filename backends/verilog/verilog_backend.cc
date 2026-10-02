@@ -103,7 +103,6 @@ std::set<RTLIL::IdString> reg_wires;
 std::string auto_prefix, extmem_prefix;
 
 RTLIL::Module *active_module;
-pool<std::string> active_object_names;
 dict<RTLIL::SigBit, RTLIL::State> active_initdata;
 SigMap active_sigmap;
 std::string initial_id;
@@ -143,7 +142,6 @@ void reset_auto_counter(RTLIL::Module *module)
 	auto_name_map.clear();
 	auto_name_counter = 0;
 	auto_name_offset = 0;
-	active_object_names = RTLIL::object_names(module);
 
 	reset_auto_counter_id(module->name, false);
 
@@ -1087,7 +1085,7 @@ std::string cellname(RTLIL::Cell *cell)
 		if (wire->width != 1)
 			cell_name += stringf("[%d]", wire->start_offset + sig[0].offset);
 
-		if (active_module && active_object_names.count(cell_name))
+		if (active_module && active_module->count_id(active_module->twines().find(cell_name)) > 0)
 				goto no_special_reg_name;
 
 		return id(cell_name);
@@ -2550,7 +2548,6 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 
 	f << stringf("%s" "endmodule\n", indent);
 	active_module = NULL;
-	active_object_names.clear();
 	active_sigmap.clear();
 	active_initdata.clear();
 }

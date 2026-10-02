@@ -79,7 +79,6 @@ struct BtorWorker
 	dict<SigBit, bool> initbits;
 	pool<Wire*> statewires;
 	pool<string> srcsymbols;
-	std::optional<pool<string>> module_names;
 	vector<Mem> memories;
 	dict<Cell*, Mem*> mem_cells;
 
@@ -119,11 +118,7 @@ struct BtorWorker
 
 	bool srcsym_taken(const string &sym)
 	{
-		if (srcsymbols.count(sym))
-			return true;
-		if (!module_names)
-			module_names = RTLIL::object_names(module);
-		return module_names->count("\\" + sym) != 0;
+		return srcsymbols.count(sym) || module->count_id(module->twines().find("\\" + sym));
 	}
 
 	string uniquify_srcsym(string src)

@@ -791,7 +791,7 @@ struct SmvBackend : public Backend {
 
 					if (GetSize(stmt) == 2 && stmt[0] == "%module")
 					{
-						Module *module = RTLIL::module_by_name(design, stmt[1]);
+						Module *module = design->module(RTLIL::escape_id(stmt[1]));
 						modules.erase(module);
 
 						if (module == nullptr)
