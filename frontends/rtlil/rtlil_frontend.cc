@@ -46,7 +46,7 @@ struct RTLILFrontendWorker {
 	std::string_view line;
 
 	RTLIL::Module *current_module;
-	dict<RTLIL::LeafIdString, RTLIL::Const> attrbuf;
+	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
@@ -510,7 +510,7 @@ struct RTLILFrontendWorker {
 
 	void parse_attribute()
 	{
-		LeafIdString id = parse_twine();
+		IdString id = parse_twine();
 		RTLIL::Const c = parse_const();
 		attrbuf.insert({std::move(id), std::move(c)});
 		expect_eol();
@@ -648,7 +648,7 @@ struct RTLILFrontendWorker {
 
 	void parse_parameter()
 	{
-		LeafIdString id = parse_twine();
+		IdString id = parse_twine();
 		current_module->avail_parameters(id);
 		if (try_parse_eol())
 			return;
@@ -784,7 +784,7 @@ struct RTLILFrontendWorker {
 
 	void legalize_width_parameter(RTLIL::Cell *cell, RTLIL::IdString port_name)
 	{
-		LeafIdString width_param = design->twines.find(design->twines.str(port_name) + "_WIDTH");
+		IdString width_param = design->twines.find(design->twines.str(port_name) + "_WIDTH");
 		if (width_param == IdString::Null || cell->parameters.count(width_param) == 0)
 			return;
 		RTLIL::Const &param = cell->parameters.at(width_param);
@@ -829,7 +829,7 @@ struct RTLILFrontendWorker {
 				} else if (try_parse_keyword("unsized")) {
 					is_unsized = true;
 				}
-				LeafIdString param_name = parse_twine();
+				IdString param_name = parse_twine();
 				RTLIL::Const val = parse_const();
 				if (is_signed)
 					val.flags |= RTLIL::CONST_FLAG_SIGNED;

@@ -118,7 +118,7 @@ struct MemoryMapWorker
 
 		// check if attributes allow us to infer FFRAM for this memory
 		for (const auto &attr : attributes) {
-			LeafIdString attr_ref = design->twines.find(attr.first);
+			IdString attr_ref = design->twines.find(attr.first);
 			if (attr_ref != IdString::Null && mem.attributes.count(attr_ref)) {
 				const auto &cell_attr = mem.attributes[attr_ref];
 				if (attr.second.empty()) {

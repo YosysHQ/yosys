@@ -303,7 +303,7 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 	return true;
 }
 
-void handle_polarity_inv(Cell *cell, IdString port, LeafIdString param, const SigMap &assign_map, const dict<RTLIL::SigSpec, RTLIL::SigSpec> &invert_map)
+void handle_polarity_inv(Cell *cell, IdString port, IdString param, const SigMap &assign_map, const dict<RTLIL::SigSpec, RTLIL::SigSpec> &invert_map)
 {
 	SigSpec sig = assign_map(cell->getPort(port));
 	if (invert_map.count(sig)) {

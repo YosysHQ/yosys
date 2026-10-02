@@ -42,7 +42,7 @@ struct EstimateSta {
 	std::optional<SigBit> clk;
 	bool top_port_endpoints = false;
 
-	dict<std::pair<RTLIL::IdString, dict<RTLIL::LeafIdString, RTLIL::Const>>, Aig> aigs;
+	dict<std::pair<RTLIL::IdString, dict<RTLIL::IdString, RTLIL::Const>>, Aig> aigs;
 	dict<Cell *, Aig *> cell_aigs;
 
 	std::vector<std::pair<Cell *, SigBit>> launchers;

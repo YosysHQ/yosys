@@ -141,8 +141,6 @@ private:
 constexpr NullIdString::operator IdString() const { return IdString(); }
 constexpr bool NullIdString::operator==(IdString ref) const { return ref.empty(); }
 
-using LeafIdString = IdString;
-
 namespace hashlib {
 	template<>
 	struct hash_ops<IdString> {
@@ -173,7 +171,7 @@ enum : short {
 struct ID {
 // Static ids are name handles: non-'$' constids were '\'-escaped publics,
 // so their handles carry the publicity bit baked in at compile time.
-#define X(N) static constexpr LeafIdString N = LeafIdString(IdString(IDX_##N)).tag((#N)[0] != '$');
+#define X(N) static constexpr IdString N = IdString(IDX_##N).tag((#N)[0] != '$');
 #include "kernel/constids.inc"
 #undef X
 
@@ -183,7 +181,7 @@ struct ID {
 #undef X
 	};
 
-	static constexpr LeafIdString lookup(std::string_view name)
+	static constexpr IdString lookup(std::string_view name)
 	{
 		int low = 0, high = STATIC_TWINE_END;
 		while (high - low >= 2) {
@@ -197,18 +195,17 @@ struct ID {
 		if (name != static_names[low])
 			throw "unknown twine id";
 
-		return LeafIdString(IdString(low)).tag(name[0] != '$');
+		return IdString(low).tag(name[0] != '$');
 	}
 
 	static constexpr bool is_static(IdString ref) {
 		return ref.untag().raw() < STATIC_TWINE_END;
 	}
 
-	// All static twines are leaves
-	static constexpr LeafIdString static_leaf(size_t raw) {
+	static constexpr IdString static_ref(size_t raw) {
 		if (!is_static(IdString(raw)))
 			throw "not a static twine id";
-		return LeafIdString(IdString(raw));
+		return IdString(raw);
 	}
 
 	// Static IdString can be constructed without a design pointer
@@ -216,7 +213,7 @@ struct ID {
 	static std::string unescaped_str(IdString ref);
 };
 
-template<size_t Raw> inline constexpr LeafIdString constid = ID::static_leaf(Raw);
+template<size_t Raw> inline constexpr IdString constid = ID::static_ref(Raw);
 
 #define ID(id) (YOSYS_NAMESPACE_PREFIX constid<YOSYS_NAMESPACE_PREFIX ID::lookup(#id).raw()>)
 

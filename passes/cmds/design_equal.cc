@@ -84,7 +84,7 @@ public:
 	std::string compare_attributes(const RTLIL::AttrObject *a, const RTLIL::AttrObject *b)
 	{
 		for (const auto &it : a->attributes) {
-			LeafIdString in_b = bridge.a_to_b(it.first);
+			IdString in_b = bridge.a_to_b(it.first);
 			if (b->attributes.count(in_b) == 0)
 				return "missing attribute " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->attributes.at(in_b))
@@ -159,7 +159,7 @@ public:
 			return mismatch;
 
 		for (const auto &it : a->parameters) {
-			LeafIdString in_b = bridge.a_to_b(it.first);
+			IdString in_b = bridge.a_to_b(it.first);
 			if (b->parameters.count(in_b) == 0)
 				return "parameter mismatch: missing parameter " + std::string(mod_a->twines().unescaped_str(it.first)) + " in second design";
 			if (it.second != b->parameters.at(in_b))

@@ -2125,7 +2125,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					continue;
 				}
 				if (child->type == AST_PARASET) {
-					LeafIdString paraname = current_module->twines().add(child->str.empty() ? stringf("$%d", ++para_counter) : child->str);
+					IdString paraname = current_module->twines().add(child->str.empty() ? stringf("$%d", ++para_counter) : child->str);
 					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
 						log_file_warning(location.to_loc(), "Replacing floating point parameter %s.%s = %f with string.\n",

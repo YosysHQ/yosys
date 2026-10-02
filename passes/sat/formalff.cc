@@ -53,7 +53,7 @@ struct InitValWorker
 	}
 
 	// Sign/Zero-extended indexing of individual port bits
-	static SigBit bit_in_port(RTLIL::Cell *cell, RTLIL::IdString port, RTLIL::LeafIdString sign, int index)
+	static SigBit bit_in_port(RTLIL::Cell *cell, RTLIL::IdString port, RTLIL::IdString sign, int index)
 	{
 		auto sig_port = cell->getPort(port);
 		if (index < GetSize(sig_port))

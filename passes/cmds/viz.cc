@@ -703,7 +703,7 @@ struct VizWorker
 
 	void update_attrs()
 	{
-		LeafIdString vg_id = module->twines().add(std::string("\\vg"));
+		IdString vg_id = module->twines().add(std::string("\\vg"));
 		for (auto c : module->cells())
 			c->attributes.erase(vg_id);
 		for (auto g : graph.nodes) {

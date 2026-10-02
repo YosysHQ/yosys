@@ -417,9 +417,9 @@ with open(outfile, "w") as f:
 
     for v, n in sorted(ids.items()):
         if n[0] == "\\":
-            print("  LeafIdString {}{{ID::{}}};".format(v, n[1:]), file=f)
+            print("  IdString {}{{ID::{}}};".format(v, n[1:]), file=f)
         else:
-            print("  LeafIdString {}{{ID::{}}};".format(v, n), file=f)
+            print("  IdString {}{{ID::{}}};".format(v, n), file=f)
     print("", file=f)
 
     print("  void add_siguser(const SigSpec &sig, Cell *cell) {", file=f)
@@ -462,13 +462,13 @@ with open(outfile, "w") as f:
     print("  }", file=f)
     print("", file=f)
 
-    print("  Const param(Cell *cell, LeafIdString paramname) {", file=f)
+    print("  Const param(Cell *cell, IdString paramname) {", file=f)
     print("    try {", file=f)
     print("      return cell->getParam(paramname);", file=f)
     print("    } catch(std::out_of_range&) { log_error(\"Accessing non existing parameter %s\\n\", PooledName(module, paramname).unescape()); }", file=f)
     print("  }", file=f)
     print("", file=f)
-    print("  Const param(Cell *cell, LeafIdString paramname, const Const& defval) {", file=f)
+    print("  Const param(Cell *cell, IdString paramname, const Const& defval) {", file=f)
     print("    return cell->parameters.at(paramname, defval);", file=f)
     print("  }", file=f)
     print("", file=f)

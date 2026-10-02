@@ -32,7 +32,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct QlBramMergeWorker {
 
 	// can be used to record parameter values that have to match on both sides
-	typedef dict<RTLIL::LeafIdString, RTLIL::Const> MergeableGroupKeyType;
+	typedef dict<RTLIL::IdString, RTLIL::Const> MergeableGroupKeyType;
 
 	RTLIL::Module *module;
 	dict<MergeableGroupKeyType, pool<RTLIL::Cell*>> mergeable_groups;
@@ -58,16 +58,16 @@ struct QlBramMergeWorker {
 		return key;
 	}
 
-	const dict<RTLIL::LeafIdString, RTLIL::LeafIdString>& param_map(bool second)
+	const dict<RTLIL::IdString, RTLIL::IdString>& param_map(bool second)
 	{
-		static const dict<RTLIL::LeafIdString, RTLIL::LeafIdString> bram1_map = {
+		static const dict<RTLIL::IdString, RTLIL::IdString> bram1_map = {
 			{ ID(INIT),                     ID(INIT1) },
 			{ ID(PORT_A_WIDTH),             ID(PORT_A1_WIDTH) },
 			{ ID(PORT_B_WIDTH),             ID(PORT_B1_WIDTH) },
 			{ ID(PORT_A_WR_BE_WIDTH),       ID(PORT_A1_WR_BE_WIDTH) },
 			{ ID(PORT_B_WR_BE_WIDTH),       ID(PORT_B1_WR_BE_WIDTH) }
 		};
-		static const dict<RTLIL::LeafIdString, RTLIL::LeafIdString> bram2_map = {
+		static const dict<RTLIL::IdString, RTLIL::IdString> bram2_map = {
 			{ ID(INIT),                     ID(INIT2) },
 			{ ID(PORT_A_WIDTH),             ID(PORT_A2_WIDTH) },
 			{ ID(PORT_B_WIDTH),             ID(PORT_B2_WIDTH) },
@@ -81,9 +81,9 @@ struct QlBramMergeWorker {
 			return bram1_map;
 	}
 
-	const dict<RTLIL::LeafIdString, RTLIL::LeafIdString>& port_map(bool second)
+	const dict<RTLIL::IdString, RTLIL::IdString>& port_map(bool second)
 	{
-		static const dict<RTLIL::LeafIdString, RTLIL::LeafIdString> bram1_map = {
+		static const dict<RTLIL::IdString, RTLIL::IdString> bram1_map = {
 			{ ID(PORT_A_CLK),       ID(PORT_A1_CLK) },
 			{ ID(PORT_B_CLK),       ID(PORT_B1_CLK) },
 			{ ID(PORT_A_CLK_EN),    ID(PORT_A1_CLK_EN) },
@@ -99,7 +99,7 @@ struct QlBramMergeWorker {
 			{ ID(PORT_A_RD_DATA),   ID(PORT_A1_RD_DATA) },
 			{ ID(PORT_B_RD_DATA),   ID(PORT_B1_RD_DATA) }
 		};
-		static const dict<RTLIL::LeafIdString, RTLIL::LeafIdString> bram2_map = {
+		static const dict<RTLIL::IdString, RTLIL::IdString> bram2_map = {
 			{ ID(PORT_A_CLK),       ID(PORT_A2_CLK) },
 			{ ID(PORT_B_CLK),       ID(PORT_B2_CLK) },
 			{ ID(PORT_A_CLK_EN),    ID(PORT_A2_CLK_EN) },
