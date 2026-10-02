@@ -3786,6 +3786,7 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		if (GetSize(args) > argidx && args[argidx] == "-target") {
 			argidx++;
+			log_experimental("verific -target");
 
 			if (argidx >= GetSize(args))
 				log_cmd_error("Missing target for `-target'.\n");
@@ -3795,6 +3796,7 @@ struct VerificPass : public Pass {
 
 			if (argidx < GetSize(args) && args[argidx] == "-family") {
 				argidx++;
+				log_experimental("verific -family");
 
 				if (argidx >= GetSize(args))
 					log_cmd_error("Missing family for `-family'.\n");
