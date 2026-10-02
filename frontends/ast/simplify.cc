@@ -334,6 +334,25 @@ static std::vector<int> array_indices_from_position(AstNode *mem, const std::vec
 	return indices;
 }
 
+// Convert per-dimension element positions to a flattened, 1D array position.
+// This reproduces all the quirks of array flattening wrt. indexing. Oh well...
+static int flattened_array_index_from_position(AstNode *mem, const std::vector<int> &position)
+{
+	int num_dims = mem->unpacked_dimensions;
+	log_assert(GetSize(position) == num_dims);
+
+	int index = 0;
+	for (int d = 0; d < num_dims; d++) {
+		if (d > 0)
+			index *= mem->dimensions[d-1].range_width;
+		int width = mem->dimensions[d].range_width;
+		bool swap = mem->dimensions[d].range_swapped || num_dims > 1;
+		index += swap ? position[d] : width - position[d] - 1;
+	}
+
+	return index;
+}
+
 // Generate all element positions for a multi-dimensional unpacked array and
 // call callback once for each combination.
 static void foreach_array_position(AstNode *mem, std::function<void(const std::vector<int>&)> callback)
@@ -3453,15 +3472,16 @@ skip_dynamic_range_lvalue_expansion:;
 
 			// Build a single AST_MEMINIT if all elements have folded to constants before this point
 			bool use_meminit = is_pattern_assign && this->is_in_unconditional_init() && rhs->is_simple_const_expr();
-			vector<State> meminit_bits;
+			vector<State> meminit_bits(total_elements * element_width);
 
 			if (use_meminit) {
-				int idx = 0;
+				int iter_idx = 0;
+
 				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
 					if (!use_meminit)
 						return;
 
-					auto elem = pattern_element_at_position(position, idx++);
+					auto elem = pattern_element_at_position(position, iter_idx++);
 					vector<State> bits;
 
 					switch (elem->type) {
@@ -3477,7 +3497,10 @@ skip_dynamic_range_lvalue_expansion:;
 							return;
 					}
 
-					meminit_bits.insert(meminit_bits.end(), bits.begin(), bits.end());
+					int linear_idx = element_width * flattened_array_index_from_position(lhs_mem, position);
+
+					for (int b = 0; b < element_width; b++)
+						meminit_bits[linear_idx + b] = bits[b];
 				});
 			}
 
