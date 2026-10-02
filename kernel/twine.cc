@@ -1,7 +1,10 @@
 #include "kernel/twine.h"
+#include "kernel/hashcons_impl.h"
 #include "kernel/log.h"
 
 YOSYS_NAMESPACE_BEGIN
+
+template struct HashConsPool<TwinePool, TwineNode, IdString>;
 
 std::vector<TwineNode> StaticTwines::nodes_;
 
@@ -183,6 +186,12 @@ void TwinePool::check_owned(IdString ref) const {
 const TwineNode& TwinePool::operator[](IdString ref) const {
 	check_owned(ref);
 	return HashConsPool::operator[](ref);
+}
+
+size_t TwinePool::gc(pool<IdString>& roots) {
+	for (auto &it : auto_prefixes)
+		roots.insert(it.second);
+	return HashConsPool::gc(roots);
 }
 
 const TwineNode& TwinePool::static_node(size_t idx) { return StaticTwines::node(idx); }

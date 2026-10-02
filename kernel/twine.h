@@ -359,12 +359,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 			f(t.prefix());
 	}
 
-	template<typename Roots>
-	size_t gc(Roots& roots) {
-		for (auto &it : auto_prefixes)
-			roots.insert(it.second);
-		return HashConsPool::gc(roots);
-	}
+	size_t gc(pool<IdString>& roots);
 
 	void dump(IdString ref, std::ostream& os = std::cout) const;
 

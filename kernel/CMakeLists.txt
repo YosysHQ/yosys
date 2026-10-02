@@ -43,6 +43,7 @@ yosys_core(kernel
 	gzip.cc
 	gzip.h
 	hashcons.h
+	hashcons_impl.h
 	hashlib.h
 	io.cc
 	io.h
@@ -133,6 +134,7 @@ yosys_core(kernel
 		fmt.h
 		gzip.h
 		hashcons.h
+		hashcons_impl.h
 		hashlib.h
 		io.h
 		json.h
