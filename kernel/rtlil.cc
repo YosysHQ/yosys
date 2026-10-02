@@ -2655,17 +2655,20 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	struct RewriteSigSpecWorker
 	{
 		const dict<RTLIL::Wire*, RTLIL::Wire*> &wire_map;
+		const RTLIL::Module *new_mod;
 		void operator()(RTLIL::SigSpec &sig)
 		{
 			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
 				auto it = wire_map.find(wire);
 				if (it != wire_map.end())
 					wire = it->second;
+				else
+					log_assert(wire->module == new_mod);
 			});
 		}
 	};
 
-	RewriteSigSpecWorker rewriteSigSpecWorker{wire_map};
+	RewriteSigSpecWorker rewriteSigSpecWorker{wire_map, new_mod};
 	new_mod->rewrite_sigspecs(rewriteSigSpecWorker);
 	new_mod->fixup_ports();
 }
