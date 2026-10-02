@@ -684,7 +684,7 @@ struct McmPass : public Pass {
 		log("        largest shift considered in an A-operation (default: 12).\n");
 		log("\n");
 		log("    -max_nodes <n>\n");
-		log("        maximum nember of nodes (default: 64).\n");
+		log("        maximum number of nodes (default: 64).\n");
 		log("\n");
 		log("    -min_const <n>\n");
 		log("        skip constants whose magnitude is below <n> (default: 3).\n");
