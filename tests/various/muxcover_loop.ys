@@ -1,0 +1,35 @@
+read_verilog <<EOT
+module top(input s, d, output a);
+	assign a = s ? a : d;
+endmodule
+EOT
+simplemap
+muxcover -mux4 -mux8
+select -assert-count 1 t:$_MUX_
+
+design -reset
+read_verilog <<EOT
+module top(input [3:0] s, input [3:0] d, output a);
+	wire b = s[1] ? a : d[1];
+	wire c = s[2] ? d[2] : d[3];
+	wire e = s[3] ? b : c;
+	assign a = s[0] ? e : d[0];
+endmodule
+EOT
+simplemap
+muxcover -mux4 -mux8
+select -assert-count 4 t:$_MUX_
+select -assert-none t:$_MUX4_ t:$_MUX8_
+
+design -reset
+read_verilog <<EOT
+module top(input s, a, b, c, output y);
+	wire m = y ? b : a;
+	assign y = s ? c : m;
+endmodule
+EOT
+simplemap
+muxcover -mux4=1 -dmux=0
+select -assert-count 1 t:$_MUX4_
+select -assert-count 1 t:$_MUX4_ %co:+[Y] t:$_MUX4_ %ci:+[S] %i w:* %i
+select -assert-none t:$_MUX_
