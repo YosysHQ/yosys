@@ -10,4 +10,7 @@ build-backend = "local_backend"
 
 [tool.ruff]
 target-version = "py310"
-lint.ignore = ["F541"]
+lint.ignore = [
+	"F541", # f-string missing placeholders
+	"W191" , # tab indentation
+]
