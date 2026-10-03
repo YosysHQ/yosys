@@ -1601,21 +1601,28 @@ namespace {
 
 		InternalCellChecker(const RTLIL::Module *module, RTLIL::Cell *cell) : module(module), cell(cell) { }
 
-		void error(int linenr)
+		void error(int linenr, std::optional<std::string> error_msg = std::nullopt)
 		{
 			std::stringstream buf;
 			RTLIL_BACKEND::dump_cell(buf, "  ", cell);
 
-			log_error("Found error in internal cell %s%s%s (%s) at %s:%d:\n%s",
-					module ? module->name.c_str() : "", module ? "." : "",
-					cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
+			std::string cell_loc = stringf("%s%s%s (%s) at %s:%d:\n%s", module ? module->name.c_str() : "", module ? "." : "",
+							   cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
+
+			if (error_msg) {
+				log_error("%s in internal cell %s", error_msg->c_str(), cell_loc);
+			} else {
+				log_error("Found error in internal cell %s", cell_loc);
+			}
 		}
 
 		int param(RTLIL::IdString name)
 		{
 			auto it = cell->parameters.find(name);
-			if (it == cell->parameters.end())
-				error(__LINE__);
+			if (it == cell->parameters.end()) {
+				std::string err = stringf("Expected to find parameter %s", name.c_str());
+				error(__LINE__, err);
+			}
 			expected_params.insert(name);
 			return it->second.as_int();
 		}
@@ -1654,10 +1661,14 @@ namespace {
 		void port(RTLIL::IdString name, int width)
 		{
 			auto it = cell->connections_.find(name);
-			if (it == cell->connections_.end())
-				error(__LINE__);
-			if (GetSize(it->second) != width)
-				error(__LINE__);
+			if (it == cell->connections_.end()) {
+				std::string err = stringf("Expected to find port %s", name.c_str());
+				error(__LINE__, err);
+			}
+			if (GetSize(it->second) != width) {
+				std::string err = stringf("Expected port to have width %d", width);
+				error(__LINE__, err);
+			}
 			expected_ports.insert(name);
 		}
 
