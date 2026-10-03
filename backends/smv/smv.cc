@@ -308,16 +308,16 @@ struct SmvWorker
 				continue;
 			}
 
-			if (cell->type.in(ID($not), ID($pos), ID($neg)))
+			if (cell->type.in(ID($not), ID($pos), ID($neg), ID($barrier)))
 			{
 				int width = GetSize(cell->getPort(ID::Y));
 				string expr_a, op;
 
 				if (cell->type == ID($not))  op = "!";
-				if (cell->type == ID($pos))  op = "";
+				if (cell->type.in(ID($pos), ID($barrier)))  op = "";
 				if (cell->type == ID($neg))  op = "-";
 
-				if (cell->getParam(ID::A_SIGNED).as_bool())
+				if (cell->hasParam(ID::A_SIGNED) && cell->getParam(ID::A_SIGNED).as_bool())
 				{
 					definitions.push_back(stringf("%s := unsigned(%s%s);", lvalue(cell->getPort(ID::Y)),
 							op.c_str(), rvalue_s(cell->getPort(ID::A), width)));
