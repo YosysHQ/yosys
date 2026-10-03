@@ -1216,6 +1216,7 @@ struct FirrtlBackend : public Backend {
 		extra_args(f, filename, args, argidx);
 
 		log_header(design, "Executing FIRRTL backend.\n");
+		log_deprecated("write_firrtl", "0.72");
 		log_push();
 
 		Pass::call(design, "pmuxtree");
