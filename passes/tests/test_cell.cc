@@ -1071,6 +1071,7 @@ struct TestCellPass : public Pass {
 		// cell_types[ID($_MUX4_)] = "*";
 		// cell_types[ID($_MUX8_)] = "*";
 		// cell_types[ID($_MUX16_)] = "*";
+		// cell_types[ID($_MUX32_)] = "*";
 		cell_types[ID($_AOI3_)] = "ABCYb";
 		cell_types[ID($_OAI3_)] = "ABCYb";
 		cell_types[ID($_AOI4_)] = "ABCDYb";

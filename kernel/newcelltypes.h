@@ -15,8 +15,8 @@ namespace StaticCellTypes {
 
 // Given by last internal cell type IdString constids.inc, compilation error if too low
 constexpr int MAX_CELLS = 300;
-// Currently given by _MUX16_, compilation error if too low
-constexpr int MAX_PORTS = 20;
+// Currently given by _MUX32_, compilation error if too low
+constexpr int MAX_PORTS = 37;
 struct CellTableBuilder {
 	struct PortList {
 		std::array<RTLIL::IdString, MAX_PORTS> ports{};
@@ -200,7 +200,12 @@ struct CellTableBuilder {
 		setup_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, features);
 		setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, features);
 		setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, features);
-		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, features);
+		setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+		                          ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, features);
+		setup_type(ID($_MUX32_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+		                          ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P,
+		                          ID::QA, ID::QB, ID::QC, ID::QD, ID::QE, ID::QF, ID::QG, ID::QH,
+		                          ID::QI, ID::QJ, ID::QK, ID::QL, ID::QM, ID::QN, ID::QO, ID::QP, ID::S, ID::T, ID::U, ID::V, ID::W}, {ID::Y}, features);
 		setup_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, features);
 		setup_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, features);
 		setup_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, features);

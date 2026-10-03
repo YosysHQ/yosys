@@ -1530,13 +1530,14 @@ skip_identity:
 			}
 		}
 
-		if (mux_undef && cell->type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_))) {
+		if (mux_undef && cell->type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_), ID($_MUX32_))) {
 			int num_inputs = 4;
 			if (cell->type == ID($_MUX8_)) num_inputs = 8;
 			if (cell->type == ID($_MUX16_)) num_inputs = 16;
+			if (cell->type == ID($_MUX32_)) num_inputs = 32;
 			int undef_inputs = 0;
 			for (auto &conn : cell->connections())
-				if (!conn.first.in(ID::S, ID::T, ID::U, ID::V, ID::Y))
+				if (!conn.first.in(ID::S, ID::T, ID::U, ID::V, ID::W, ID::Y))
 					undef_inputs += conn.second.is_fully_undef();
 			if (undef_inputs == num_inputs) {
 				replace_cell(assign_map, module, cell, "mux_undef", ID::Y, cell->getPort(ID::A));

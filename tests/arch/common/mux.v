@@ -58,3 +58,11 @@ module mux16 (D, S, Y);
 
     assign Y = D[S];
 endmodule
+
+module mux32 (D, S, Y);
+ 	input  [31:0] D;
+ 	input  [4:0] S;
+ 	output Y;
+
+    assign Y = D[S];
+endmodule

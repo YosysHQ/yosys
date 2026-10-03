@@ -136,6 +136,7 @@ struct AbcConfig
 	bool map_mux4 = false;
 	bool map_mux8 = false;
 	bool map_mux16 = false;
+	bool map_mux32 = false;
 	bool markgroups = false;
 	pool<std::string> enabled_gates;
 	bool cmos_cost = false;
@@ -1508,9 +1509,22 @@ void emit_global_input_files(const AbcConfig &config)
 		if (config.map_mux4)
 			fprintf(f, "GATE MUX4   %d Y=(!S*!T*A)+(S*!T*B)+(!S*T*C)+(S*T*D); PIN * UNKNOWN 1 999 1 0 1 0\n", 2*cell_cost.at(ID($_MUX_)));
 		if (config.map_mux8)
-			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
+			fprintf(f, "GATE MUX8   %d Y=(!S*!T*!U*A)+(S*!T*!U*B)+(!S*T*!U*C)+(S*T*!U*D)"
+			                           "+(!S*!T*U*E)+(S*!T*U*F)+(!S*T*U*G)+(S*T*U*H); PIN * UNKNOWN 1 999 1 0 1 0\n", 4*cell_cost.at(ID($_MUX_)));
 		if (config.map_mux16)
-			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
+			fprintf(f, "GATE MUX16  %d Y=(!S*!T*!U*!V*A)+(S*!T*!U*!V*B)+(!S*T*!U*!V*C)+(S*T*!U*!V*D)"
+			                           "+(!S*!T*U*!V*E)+(S*!T*U*!V*F)+(!S*T*U*!V*G)+(S*T*U*!V*H)"
+									   "+(!S*!T*!U*V*I)+(S*!T*!U*V*J)+(!S*T*!U*V*K)+(S*T*!U*V*L)"
+									   "+(!S*!T*U*V*M)+(S*!T*U*V*N)+(!S*T*U*V*O)+(S*T*U*V*P); PIN * UNKNOWN 1 999 1 0 1 0\n", 8*cell_cost.at(ID($_MUX_)));
+		if (config.map_mux32)
+			fprintf(f, "GATE MUX32  %d Y=(!S*!T*!U*!V*!W*A)+(S*!T*!U*!V*!W*B)+(!S*T*!U*!V*!W*C)+(S*T*!U*!V*!W*D)"
+			                           "+(!S*!T*U*!V*!W*E)+(S*!T*U*!V*!W*F)+(!S*T*U*!V*!W*G)+(S*T*U*!V*!W*H)"
+									   "+(!S*!T*!U*V*!W*I)+(S*!T*!U*V*!W*J)+(!S*T*!U*V*!W*K)+(S*T*!U*V*!W*L)"
+									   "+(!S*!T*U*V*!W*M)+(S*!T*U*V*!W*N)+(!S*T*U*V*!W*O)+(S*T*U*V*!W*P)"
+			                           "+(!S*!T*!U*!V*W*QA)+(S*!T*!U*!V*W*QB)+(!S*T*!U*!V*W*QC)+(S*T*!U*!V*W*QD)"
+			                           "+(!S*!T*U*!V*W*QE)+(S*!T*U*!V*W*QF)+(!S*T*U*!V*W*QG)+(S*T*U*!V*W*QH)"
+									   "+(!S*!T*!U*V*W*QI)+(S*!T*!U*V*W*QJ)+(!S*T*!U*V*W*QK)+(S*T*!U*V*W*QL)"
+									   "+(!S*!T*U*V*W*QM)+(S*!T*U*V*W*QN)+(!S*T*U*V*W*QO)+(S*T*U*V*W*QP); PIN * UNKNOWN 1 999 1 0 1 0\n", 16*cell_cost.at(ID($_MUX_)));
 		fclose(f);
 	}
 }
@@ -1634,8 +1648,21 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			if (c->type == ID(MUX16)) {
 				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX16_));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
-						ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+					              ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
+					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
+					cell->setPort(name, module->wire(remapped_name));
+				}
+				design->select(module, cell);
+				continue;
+			}
+			if (c->type == ID(MUX32)) {
+				RTLIL::Cell *cell = module->addCell(remap_name(c->name), ID($_MUX32_));
+				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
+				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+				                  ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P,
+				                  ID::QA, ID::QB, ID::QC, ID::QD, ID::QE, ID::QF, ID::QG, ID::QH,
+				                  ID::QI, ID::QJ, ID::QK, ID::QL, ID::QM, ID::QN, ID::QO, ID::QP, ID::S, ID::T, ID::U, ID::V, ID::W, ID::Y}) {
 					RTLIL::IdString remapped_name = remap_name(c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
@@ -1951,8 +1978,8 @@ struct AbcPass : public Pass {
 		log("        generate netlist using luts. Use the specified costs for luts with 1,\n");
 		log("        2, 3, .. inputs.\n");
 		log("\n");
-		// log("    -mux4, -mux8, -mux16\n");
-		// log("        try to extract 4-input, 8-input, and/or 16-input muxes\n");
+		// log("    -mux4, -mux8, -mux16, -mx32\n");
+		// log("        try to extract 4-input, 8-input, 16-input and/or 32-input muxes\n");
 		// log("        (ignored when used with -liberty/-genlib or -lut)\n");
 		// log("\n");
 		log("    -g type1,type2,...\n");
@@ -2048,6 +2075,7 @@ struct AbcPass : public Pass {
 		config.map_mux4 = design->scratchpad_get_bool("abc.mux4", false);
 		config.map_mux8 = design->scratchpad_get_bool("abc.mux8", false);
 		config.map_mux16 = design->scratchpad_get_bool("abc.mux16", false);
+		config.map_mux32 = design->scratchpad_get_bool("abc.mux32", false);
 		config.abc_dress = design->scratchpad_get_bool("abc.dress", false);
 		g_arg = design->scratchpad_get_string("abc.g", g_arg);
 
@@ -2133,6 +2161,10 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-mux16") {
 				config.map_mux16 = true;
+				continue;
+			}
+			if (arg == "-mux32") {
+				config.map_mux32 = true;
 				continue;
 			}
 			if (arg == "-dress") {
