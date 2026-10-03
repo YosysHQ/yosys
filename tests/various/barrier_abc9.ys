@@ -13,6 +13,20 @@ logger -check-expected
 
 design -reset
 
+# barrier driving only a keep wire
+read_verilog -icells <<EOT
+module top(input d, output y);
+	(* keep *) wire a;
+	\$barrier #(.WIDTH(1)) b (.A(d), .Y(a));
+	assign y = ~d;
+endmodule
+EOT
+abc9 -lut 4
+opt_clean
+select -assert-count 1 t:$barrier
+select -assert-count 1 w:a %ci1 t:$barrier %i
+design -reset
+
 # ABC must not optimize through $barrier
 read_verilog -icells <<EOT
 module top(input [3:0] a, b, output [3:0] y);

@@ -156,3 +156,32 @@ EOT
 logger -expect warning "found logic loop" 1
 check
 logger -check-expected
+design -reset
+
+# share barrier driving only a keep wire
+read_verilog -icells <<EOT
+module top(input [3:0] a, b, c, d, input s, output [7:0] y);
+	wire [7:0] p = a * b;
+	(* keep *) wire [7:0] k;
+	\$barrier #(.WIDTH(8)) bar (.A(p), .Y(k));
+	assign y = s ? a * c : b * d;
+endmodule
+EOT
+proc
+share -aggressive
+select -assert-count 1 t:$barrier
+select -assert-count 2 t:$mul
+design -reset
+
+# share no sharing through a barrier
+read_verilog -icells <<EOT
+module top(input [3:0] a, b, c, d, input s, output [7:0] y);
+	wire [7:0] p = a * b;
+	wire [7:0] t;
+	\$barrier #(.WIDTH(8)) bar (.A(p), .Y(t));
+	assign y = s ? t : c * d;
+endmodule
+EOT
+proc
+share -aggressive
+select -assert-count 2 t:$mul
