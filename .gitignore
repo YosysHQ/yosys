@@ -61,9 +61,11 @@
 /kernel/python_wrappers.cc
 /ffi
 /bison
+/flex
 /venv
 /*.whl
 /*.egg-info
+/wheelhouse
 
 # yosysjs dependency
 /viz.js
