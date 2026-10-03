@@ -1,0 +1,25 @@
+design -reset
+
+read_verilog -sv <<EOT
+module signed_fma_wide(
+	input signed [3:0] a, b,
+	input signed [19:0] c,
+	output signed [19:0] y_add, y_sub
+);
+	wire signed [19:0] sa = {{16{a[3]}}, a};
+	wire signed [19:0] sb = {{16{b[3]}}, b};
+	wire signed [19:0] p0 = sa * 24'sd3;
+	wire signed [19:0] p1 = sb * -24'sd2;
+	assign y_add = p0 + p1;
+	assign y_sub = c - a * b;
+endmodule
+EOT
+
+hierarchy -top signed_fma_wide
+design -save gold
+synth -top signed_fma_wide -arith_tree
+design -stash gate
+design -copy-from gold -as gold signed_fma_wide
+design -copy-from gate -as gate signed_fma_wide
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -show-ports miter
