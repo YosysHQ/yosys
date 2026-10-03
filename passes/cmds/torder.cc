@@ -59,8 +59,8 @@ struct TorderPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-stop" && argidx+2 < args.size()) {
-				IdString cell_type = RTLIL::escape_id(args[++argidx]);
-				IdString cell_port = RTLIL::escape_id(args[++argidx]);
+				IdString cell_type = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				IdString cell_port = design->twines.add(RTLIL::escape_id(args[++argidx]));
 				stop_db[cell_type].insert(cell_port);
 				continue;
 			}
@@ -78,12 +78,12 @@ struct TorderPass : public Pass {
 
 			SigMap sigmap(module);
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-			TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+			TopoSort<IdString> toposort;
 
 			for (auto cell : module->selected_cells())
 			for (auto conn : cell->connections())
 			{
-				if (stop_db.count(cell->type) && stop_db.at(cell->type).count(conn.first))
+				if (stop_db.count(IdString(cell->type)) && stop_db.at(IdString(cell->type)).count(conn.first))
 					continue;
 
 				if (!noautostop && yosys_celltypes.cell_known(cell->type)) {
@@ -116,12 +116,12 @@ struct TorderPass : public Pass {
 			for (auto &it : toposort.loops) {
 				log("  loop");
 				for (auto cell : it)
-					log(" %s", cell);
+					log(" %s", design->twines.str(cell));
 				log("\n");
 			}
 
 			for (auto cell : toposort.sorted)
-					log("  cell %s\n", cell);
+					log("  cell %s\n", design->twines.str(cell));
 		}
 	}
 } TorderPass;

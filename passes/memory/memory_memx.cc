@@ -42,7 +42,7 @@ struct MemoryMemxPass : public Pass {
 
 		addr.extend_u0(32);
 
-		SigSpec res = mem.module->Nex(NEW_ID, mem.module->ReduceXor(NEW_ID, addr), mem.module->ReduceXor(NEW_ID, {addr, State::S1}));
+		SigSpec res = mem.module->Nex(NEW_ID, mem.module->ReduceXor(NEW_ID, addr), mem.module->ReduceXor(NEW_ID, SigSpec{addr, State::S1}));
 		if (start_addr != 0)
 			res = mem.module->LogicAnd(NEW_ID, res, mem.module->Ge(NEW_ID, addr, start_addr));
 		res = mem.module->LogicAnd(NEW_ID, res, mem.module->Lt(NEW_ID, addr, end_addr));

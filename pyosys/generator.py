@@ -154,18 +154,6 @@ pyosys_headers = [
                 "IdString",
                 string_expr="s.str()",
                 hash_expr="s.str()",
-                denylist=frozenset(
-                    # shouldn't be messed with from python in general
-                    {
-                        "global_id_storage_",
-                        "global_id_index_",
-                        "global_autoidx_id_storage_",
-                        "global_refcount_storage_",
-                        "global_free_idx_list_",
-                        "builtin_ff_cell_types",
-                        "substrings",
-                    }
-                ),
             ),
             PyosysClass(
                 "Const",
@@ -182,7 +170,7 @@ pyosys_headers = [
             PyosysClass(
                 "Process",
                 ref_only=True,
-                string_expr="s.name.c_str()",
+                string_expr="s.name.str()",
                 hash_expr="s.name",
             ),
             PyosysClass("SigChunk"),
@@ -191,25 +179,25 @@ pyosys_headers = [
             PyosysClass(
                 "Cell",
                 ref_only=True,
-                string_expr="s.name.c_str()",
+                string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Wire",
                 ref_only=True,
-                string_expr="s.name.c_str()",
+                string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Memory",
                 ref_only=True,
-                string_expr="s.name.c_str()",
+                string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Module",
                 ref_only=True,
-                string_expr="s.name.c_str()",
+                string_expr="s.name.str()",
                 hash_expr="s",
                 denylist=frozenset({"Pow"}),  # has no implementation
             ),
@@ -575,6 +563,13 @@ class PyosysWrapperGenerator(object):
             file=self.f,
         )
 
+    @staticmethod
+    def is_name_masq(type_info: Any) -> bool:
+        if not isinstance(type_info, Type):
+            return False
+        name = type_info.typename.segments[-1].name
+        return name == "IdFieldMasq" or name.endswith("NameMasq")
+
     def process_field(self, metadata: PyosysClass, field: Field):
         if field.access != "public":
             return
@@ -597,7 +592,8 @@ class PyosysWrapperGenerator(object):
         if isinstance(field.type, Pointer):
             rvp = "py::return_value_policy::reference_internal"
 
-        definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
+        read_only = field.type.const or self.is_name_masq(field.type)
+        definition_fn = f"def_{'readonly' if read_only else 'readwrite'}"
         if field.static:
             definition_fn += "_static"
 
@@ -614,7 +610,7 @@ class PyosysWrapperGenerator(object):
         )
 
     def process_variable(self, variable: Variable):
-        if isinstance(variable.type, Array):
+        if isinstance(variable.type, Array) or variable.template:
             return
 
         variable_basename = variable.name.segments[-1].format()

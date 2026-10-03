@@ -1208,7 +1208,7 @@ struct ShareWorker
 		if (!sat_warned)
 			log_warning("share: solver effort budget for module %s is exhausted, leaving the "
 					"remaining cells un-shared. Raise or clear the limit with the scratchpad "
-					"option 'share.sat_effort' (0 disables it).\n", log_id(module));
+					"option 'share.sat_effort' (0 disables it).\n", module);
 		sat_warned = true;
 		return true;
 	}

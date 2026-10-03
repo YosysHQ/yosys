@@ -55,7 +55,9 @@ struct EquivMakeWorker
 					token = next_token(line);
 					if (token.empty())
 						break;
-					blacklist_names.insert(RTLIL::escape_id(token));
+					IdString name = gold_mod->twines().find(RTLIL::escape_id(token));
+					if (name != IdString::Null)
+						blacklist_names.insert(name);
 				}
 			}
 		}
@@ -78,11 +80,11 @@ struct EquivMakeWorker
 					continue;
 
 				if (token == ".fsm") {
-					IdString modname = RTLIL::escape_id(next_token(line));
+					IdString modname = gold_mod->twines().find(RTLIL::escape_id(next_token(line)));
 					(void)modname;
-					IdString signame = RTLIL::escape_id(next_token(line));
+					IdString signame = gold_mod->twines().find(RTLIL::escape_id(next_token(line)));
 					if (encdata.count(signame))
-						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", signame, fn);
+						log_cmd_error("Re-definition of signal '%s' in encfile '%s'!\n", PooledName(gold_mod->design, signame).unescape(), fn);
 					encdata[signame] = dict<Const, Const>();
 					ed = &encdata[signame];
 					continue;
@@ -152,18 +154,18 @@ struct EquivMakeWorker
 
 		for (auto id : wire_names)
 		{
-			IdString gold_id = id.str() + "_gold";
-			IdString gate_id = id.str() + "_gate";
+			IdString gold_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gate");
 
 			Wire *gold_wire = equiv_mod->wire(gold_id);
 			Wire *gate_wire = equiv_mod->wire(gate_id);
 
 			if (encdata.count(id))
 			{
-				log("Creating encoder/decoder for signal %s.\n", id.unescape());
+				log("Creating encoder/decoder for signal %s.\n", PooledName(equiv_mod->design, id).unescape());
 
-				Wire *dec_wire = equiv_mod->addWire(id.str() + "_decoded", gold_wire->width);
-				Wire *enc_wire = equiv_mod->addWire(id.str() + "_encoded", gate_wire->width);
+				Wire *dec_wire = equiv_mod->addWire(equiv_mod->twines().str(id) + "_decoded", gold_wire->width);
+				Wire *enc_wire = equiv_mod->addWire(equiv_mod->twines().str(id) + "_encoded", gate_wire->width);
 
 				SigSpec dec_a, dec_b, dec_s;
 				SigSpec enc_a, enc_b, enc_s;
@@ -235,7 +237,7 @@ struct EquivMakeWorker
 
 			log("Presumably equivalent wires: %s (%s), %s (%s) -> %s\n",
 					gold_wire, log_signal(assign_map(gold_wire)),
-					gate_wire, log_signal(assign_map(gate_wire)), id.unescape());
+					gate_wire, log_signal(assign_map(gate_wire)), PooledName(equiv_mod->design, id).unescape());
 
 			if (gold_wire->port_output || gate_wire->port_output)
 			{
@@ -314,7 +316,7 @@ struct EquivMakeWorker
 						new_sig[i] = old_sig[i];
 				if (old_sig != new_sig) {
 					log("Changing input %s of cell %s (%s): %s -> %s\n",
-							conn.first.unescape(), c, c->type.unescape(),
+							PooledName(equiv_mod, conn.first).unescape(), c, c->type.unescape(),
 							log_signal(old_sig), log_signal(new_sig));
 					c->setPort(conn.first, new_sig);
 				}
@@ -329,8 +331,8 @@ struct EquivMakeWorker
 
 		for (auto id : cell_names)
 		{
-			IdString gold_id = id.str() + "_gold";
-			IdString gate_id = id.str() + "_gate";
+			IdString gold_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gold");
+			IdString gate_id = equiv_mod->twines().find(equiv_mod->twines().str(id) + "_gate");
 
 			Cell *gold_cell = equiv_mod->cell(gold_id);
 			Cell *gate_cell = equiv_mod->cell(gate_id);
@@ -345,7 +347,7 @@ struct EquivMakeWorker
 					goto try_next_cell_name;
 
 			log("Presumably equivalent cells: %s %s (%s) -> %s\n",
-					gold_cell, gate_cell, gold_cell->type.unescape(), id.unescape());
+					gold_cell, gate_cell, gold_cell->type.unescape(), PooledName(equiv_mod->design, id).unescape());
 
 			for (auto gold_conn : gold_cell->connections())
 			{
@@ -488,9 +490,9 @@ struct EquivMakePass : public Pass {
 		if (argidx+3 != args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		worker.gold_mod = design->module(RTLIL::escape_id(args[argidx]));
-		worker.gate_mod = design->module(RTLIL::escape_id(args[argidx+1]));
-		worker.equiv_mod = design->module(RTLIL::escape_id(args[argidx+2]));
+		worker.gold_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx])));
+		worker.gate_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+1])));
+		worker.equiv_mod = design->module(design->twines.find(RTLIL::escape_id(args[argidx+2])));
 
 		if (worker.gold_mod == nullptr)
 			log_cmd_error("Can't find gold module %s.\n", args[argidx]);

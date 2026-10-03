@@ -59,7 +59,7 @@ struct ExtSigSpec {
 
 	ExtSigSpec() {}
 
-	ExtSigSpec(RTLIL::SigSpec s, RTLIL::SigSpec sign = RTLIL::Const(0, 1), bool is_signed = false, RTLIL::IdString semantics = RTLIL::IdString()) : sig(s), sign(sign), is_signed(is_signed), semantics(semantics) {}
+	ExtSigSpec(RTLIL::SigSpec s, RTLIL::SigSpec sign = RTLIL::Const(0, 1), bool is_signed = false, RTLIL::IdString semantics = RTLIL::IdString::Null) : sig(s), sign(sign), is_signed(is_signed), semantics(semantics) {}
 
 	bool empty() const { return sig.empty(); }
 
@@ -115,11 +115,11 @@ bool mergeable(RTLIL::Cell *a, RTLIL::Cell *b)
 	if (mergeable_type_map.empty()) {
 		mergeable_type_map.insert({ID($sub), ID($add)});
 	}
-	auto a_type = a->type;
+	IdString a_type = a->type;
 	if (mergeable_type_map.count(a_type))
 		a_type = mergeable_type_map.at(a_type);
 
-	auto b_type = b->type;
+	IdString b_type = b->type;
 	if (mergeable_type_map.count(b_type))
 		b_type = mergeable_type_map.at(b_type);
 
@@ -134,7 +134,7 @@ RTLIL::IdString decode_port_semantics(RTLIL::Cell *cell, RTLIL::IdString port_na
 	if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
 		return port_name;
 
-	return "";
+	return RTLIL::IdString::Null;
 }
 
 RTLIL::SigSpec decode_port_sign(RTLIL::Cell *cell, RTLIL::IdString port_name) {
@@ -152,8 +152,9 @@ bool decode_port_signed(RTLIL::Cell *cell, RTLIL::IdString port_name)
 	if (cell->type.in(BITWISE_OPS, LOGICAL_OPS))
 		return false;
 
-	if (cell->hasParam(port_name.str() + "_SIGNED"))
-		return cell->getParam(port_name.str() + "_SIGNED").as_bool();
+	RTLIL::IdString param_name = port_name == ID::A ? ID::A_SIGNED : ID::B_SIGNED;
+	if (cell->hasParam(param_name))
+		return cell->getParam(param_name).as_bool();
 
 	return false;
 }

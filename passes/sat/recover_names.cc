@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
 
 // Similar to a SigBit; but module-independent
 struct IdBit {
-    IdBit() : name(), bit(0) {};
+    IdBit() : name(IdString::Null), bit(0) {};
     IdBit(IdString name, int bit = 0) : name(name), bit(bit) {};
 
     bool operator==(const IdBit &other) const { return name == other.name && bit == other.bit; };
@@ -207,7 +207,7 @@ struct RecoverModuleWorker {
     void compute_depths(const dict<IdBit, IdBit> &anchor_bits)
     {
         dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-        TopoSort<IdString, RTLIL::sort_by_id_str> toposort;
+        TopoSort<IdString> toposort;
 
         for (auto cell : flat->cells())
         for (auto conn : cell->connections())
@@ -380,11 +380,11 @@ struct RecoverModuleWorker {
             if (root2buffered.count(gate_bit)) {
                 int buf_idx = 0;
                 for (auto buf_bit : root2buffered.at(gate_bit)) {
-                    std::string buf_name_str = stringf("%s_buf_%d", pair.second.bit.name, ++buf_idx);
+                    std::string buf_name_str = stringf("%s_buf_%d", design->twines.str(pair.second.bit.name).c_str(), ++buf_idx);
                     if (buf_name_str[0] == '\\')
                         buf_name_str[0] = '$';
                     rename_map[buf_bit] = std::make_pair(
-                        InvBit(IdBit(IdString(buf_name_str), pair.second.bit.bit), pair.second.inverted), gold_wire);
+                        InvBit(IdBit(design->twines.add(std::string{buf_name_str}), pair.second.bit.bit), pair.second.inverted), gold_wire);
                 }
             }
         }
@@ -396,11 +396,11 @@ struct RecoverModuleWorker {
             bool must_invert_name = rule.second.first.inverted;
             while (must_invert_name ||
                     (mod->wire(new_name.name) && !unused_bits.count(SigBit(mod->wire(new_name.name), new_name.bit)))) {
-                std::string new_name_str = stringf("%s_%s_%d", rule.second.first.bit.name,
+                std::string new_name_str = stringf("%s_%s_%d", design->twines.str(rule.second.first.bit.name).c_str(),
                     rule.second.first.inverted ? "inv" : "dup", ++dup_idx);
                 if (new_name_str[0] == '\\')
                     new_name_str[0] = '$';
-                new_name.name = IdString(new_name_str);
+                new_name.name = design->twines.add(std::string{new_name_str});
                 must_invert_name = false;
             }
             // Create the wire if needed
@@ -641,8 +641,8 @@ struct RecoverNamesWorker {
                 for (auto gate_bit : gate_bits) {
                     if (solved_gate.count(gate_bit.bit))
                         continue;
-                    log_debug("   attempting to prove %s[%d] == %s%s[%d]\n", gold_bit.name.unescape(), gold_bit.bit,
-                        gate_bit.inverted ? "" : "!", gate_bit.bit.name.unescape(), gate_bit.bit.bit);
+                    log_debug("   attempting to prove %s[%d] == %s%s[%d]\n", PooledName(design, gold_bit.name).unescape(), gold_bit.bit,
+                        gate_bit.inverted ? "" : "!", PooledName(design, gate_bit.bit.name).unescape(), gate_bit.bit.bit);
                     if (!prove_equiv(gold_worker, gate_worker, gold_anchors, gate_anchors, gold_bit, gate_bit.bit, gate_bit.inverted))
                         continue;
                     log_debug("       success!\n");

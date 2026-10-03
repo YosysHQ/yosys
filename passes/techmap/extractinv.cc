@@ -80,6 +80,10 @@ struct ExtractinvPass : public Pass {
 		if (inv_celltype.empty())
 			log_error("The -inv option is required.\n");
 
+		IdString inv_celltype_ref = design->twines.add(RTLIL::escape_id(inv_celltype));
+		IdString inv_portname_ref = design->twines.add(RTLIL::escape_id(inv_portname));
+		IdString inv_portname2_ref = design->twines.add(RTLIL::escape_id(inv_portname2));
+
 		for (auto module : design->selected_modules())
 		{
 			for (auto cell : module->selected_cells())
@@ -93,14 +97,14 @@ struct ExtractinvPass : public Pass {
 				auto it = cell_wire->attributes.find(ID::invertible_pin);
 				if (it == cell_wire->attributes.end())
 					continue;
-				IdString param_name = RTLIL::escape_id(it->second.decode_string());
+				IdString param_name = design->twines.find(RTLIL::escape_id(it->second.decode_string()));
 				auto it2 = cell->parameters.find(param_name);
 				// Inversion not used -- skip.
 				if (it2 == cell->parameters.end())
 					continue;
 				SigSpec sig = port.second;
 				if (it2->second.size() != sig.size())
-					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", module->name.unescape(), cell->type.unescape(), port.first.unescape(), param_name.unescape());
+					log_error("The inversion parameter needs to be the same width as the port (%s.%s port %s parameter %s)", module->name.unescape(), cell->type.unescape(), PooledName(design, port.first).unescape(), PooledName(design, param_name).unescape());
 				RTLIL::Const invmask = it2->second;
 				cell->parameters.erase(param_name);
 				if (invmask.is_fully_zero())
@@ -108,10 +112,10 @@ struct ExtractinvPass : public Pass {
 				Wire *iwire = module->addWire(NEW_ID, sig.size());
 				for (int i = 0; i < sig.size(); i++)
 					if (invmask[i] == State::S1) {
-						RTLIL::Cell *icell = module->addCell(NEW_ID, RTLIL::escape_id(inv_celltype));
-						icell->setPort(RTLIL::escape_id(inv_portname), SigSpec(iwire, i));
-						icell->setPort(RTLIL::escape_id(inv_portname2), sig[i]);
-						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, module, cell->type.unescape(), port.first.unescape(), i);
+						RTLIL::Cell *icell = module->addCell(NEW_ID, inv_celltype_ref);
+						icell->setPort(inv_portname_ref, SigSpec(iwire, i));
+						icell->setPort(inv_portname2_ref, sig[i]);
+						log("Inserting %s on %s.%s.%s[%d].\n", inv_celltype, module, cell->type.unescape(), PooledName(design, port.first).unescape(), i);
 						sig[i] = SigBit(iwire, i);
 					}
 				cell->setPort(port.first, sig);

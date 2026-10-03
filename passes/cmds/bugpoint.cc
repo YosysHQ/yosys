@@ -183,7 +183,7 @@ struct BugpointPass : public Pass {
 
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
-			design_copy->add(module->clone());
+			module->clone(design_copy);
 		Pass::call(design_copy, "proc_clean -quiet");
 		Pass::call(design_copy, "clean -purge");
 
@@ -196,7 +196,7 @@ struct BugpointPass : public Pass {
 	{
 		RTLIL::Design *design_copy = new RTLIL::Design;
 		for (auto module : design->modules())
-			design_copy->add(module->clone());
+			module->clone(design_copy);
 
 		int index = 0;
 		if (modules)
@@ -296,7 +296,7 @@ struct BugpointPass : public Pass {
 
 						if (index++ == seed)
 						{
-							log_header(design, "Trying to remove cell port %s.%s.%s.\n", mod, cell, it.first.unescape());
+							log_header(design, "Trying to remove cell port %s.%s.%s.\n", mod, cell, PooledName(design_copy, it.first).unescape());
 							RTLIL::SigSpec port_x(State::Sx, port.size());
 							cell->unsetPort(it.first);
 							cell->setPort(it.first, port_x);
@@ -305,7 +305,7 @@ struct BugpointPass : public Pass {
 
 						if (!stage2 && (cell->input(it.first) || cell->output(it.first)) && index++ == seed)
 						{
-							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", mod, cell, it.first.unescape());
+							log_header(design, "Trying to expose cell port %s.%s.%s as module port.\n", mod, cell, PooledName(design_copy, it.first).unescape());
 							RTLIL::Wire *wire = mod->addWire(NEW_ID, port.size());
 							wire->set_bool_attribute(ID($bugpoint));
 							wire->port_input = cell->input(it.first);
@@ -334,7 +334,7 @@ struct BugpointPass : public Pass {
 
 					if (index++ == seed)
 					{
-						log_header(design, "Trying to remove process %s.%s.\n", mod, process.first.unescape());
+						log_header(design, "Trying to remove process %s.%s.\n", mod, PooledName(design_copy, process.first).unescape());
 						removed_process = process.second;
 						break;
 					}
@@ -363,7 +363,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), mod, pr.first.unescape());
+								log_header(design, "Trying to remove assign %s %s in %s.%s.\n", log_signal(it->first), log_signal(it->second), mod, PooledName(design_copy, pr.first).unescape());
 								cs->actions.erase(it);
 								return design_copy;
 							}
@@ -389,7 +389,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), mod, pr.first.unescape());
+								log_header(design, "Trying to remove sync %s update %s %s in %s.%s.\n", log_signal(sy->signal), log_signal(it->first), log_signal(it->second), mod, PooledName(design_copy, pr.first).unescape());
 								sy->actions.erase(it);
 								return design_copy;
 							}
@@ -399,7 +399,7 @@ struct BugpointPass : public Pass {
 						{
 							if (index++ == seed)
 							{
-								log_header(design, "Trying to remove sync %s memwr %s %s %s %s in %s.%s.\n", log_signal(sy->signal), it->memid.unescape(), log_signal(it->address), log_signal(it->data), log_signal(it->enable), mod, pr.first.unescape());
+								log_header(design, "Trying to remove sync %s memwr %s %s %s %s in %s.%s.\n", log_signal(sy->signal), PooledName(design_copy, it->memid).unescape(), log_signal(it->address), log_signal(it->data), log_signal(it->enable), mod, PooledName(design_copy, pr.first).unescape());
 								sy->mem_write_actions.erase(it);
 								// Remove the bit for removed action from other actions' priority masks.
 								for (auto it2 = sy->mem_write_actions.begin(); it2 != sy->mem_write_actions.end(); ++it2) {
@@ -678,7 +678,7 @@ struct BugpointPass : public Pass {
 			Pass::call(design, "design -reset");
 			crashing_design = clean_design(crashing_design, clean, /*do_delete=*/true);
 			for (auto module : crashing_design->modules())
-				design->add(module->clone());
+				module->clone(design);
 			delete crashing_design;
 		}
 
