@@ -1218,7 +1218,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 		}
 
 		for (auto w : top->wires()) {
-			if (w->port_output) {
+			if (w->port_output || (!w->port_input && w->get_bool_attribute(ID::keep))) {
 				for (auto bit : SigSpec(w))
 					(void) eval_po(bit);
 			}

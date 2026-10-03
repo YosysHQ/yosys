@@ -1,0 +1,12 @@
+# cell driving only a keep wire is always active
+read_verilog <<EOT
+module top(input [3:0] a, b, c, d, input s, output [7:0] y);
+	(* keep *) wire [7:0] k = a * b;
+	assign y = s ? a * c : b * d;
+endmodule
+EOT
+proc
+share -aggressive
+opt_clean
+select -assert-count 2 t:$mul
+select -assert-count 1 w:k %ci1 t:$mul %i
