@@ -1,0 +1,160 @@
+# port connections that drive a public wire get a barrier
+# port connections that drive a private wire get a plain connection
+
+read_rtlil <<EOT
+module \sub
+  wire width 2 input 1 \a
+  wire width 2 output 2 \y
+  connect \y \a
+end
+module \top
+  wire width 2 input 1 \a
+  wire width 2 output 2 \y
+  wire width 2 $priv
+  wire width 2 output 3 \z
+  wire output 4 \w
+  wire $p
+  wire width 2 output 5 \v
+  cell \sub \u1
+    connect \a \a
+    connect \y \y
+  end
+  cell \sub \u2
+    connect \a \a
+    connect \y $priv
+  end
+  cell \sub \u3
+    connect \a \a
+    connect \y { \w $p }
+  end
+  connect \z $priv
+  connect \v { $p \w }
+end
+EOT
+
+flatten -barriers
+select -assert-count 5 t:$barrier
+select -assert-count 4 t:$barrier r:WIDTH=2 %i
+select -assert-count 1 t:$barrier r:WIDTH=1 %i
+select -assert-count 1 w:y %ci1 t:$barrier %i
+select -assert-count 1 w:w %ci1 t:$barrier %i
+select -assert-none w:$priv %ci1 t:$barrier %i
+select -assert-none w:$p %ci1 t:$barrier %i
+select -assert-count 3 w:u*.a %ci1 t:$barrier %i
+
+optbarriers -remove
+select -assert-none t:$barrier
+
+design -reset
+
+# init moves to the barrier input (the FF output), inout ports get a plain connection
+
+read_rtlil <<EOT
+module \sub
+  wire input 1 \clk
+  wire input 2 \d
+  wire output 3 \q
+  wire inout 4 \io
+  cell $dff $ff
+    parameter \WIDTH 1
+    parameter \CLK_POLARITY 1'1
+    connect \CLK \clk
+    connect \D \d
+    connect \Q \q
+  end
+  cell $tribuf $t
+    parameter \WIDTH 1
+    connect \A \d
+    connect \EN \d
+    connect \Y \io
+  end
+end
+module \top
+  wire input 1 \clk
+  wire input 2 \d
+  attribute \init 1'1
+  wire output 3 \q
+  wire inout 4 \io
+  cell \sub \u
+    connect \clk \clk
+    connect \d \d
+    connect \q \q
+    connect \io \io
+  end
+end
+EOT
+
+flatten -barriers
+select -assert-count 1 w:q %ci1 t:$barrier %i
+select -assert-none w:q a:init %i
+select -assert-count 1 w:u.q a:init=1'1 %i
+select -assert-none w:io %ci1 t:$barrier %i
+select -assert-none w:io %co1 t:$barrier %i
+select -assert-count 3 t:$barrier
+
+design -reset
+
+# async reset process with an empty reset branch still infers a plain FFs
+
+read_verilog <<EOT
+module top(input wire clk, input wire rst, input wire [7:0] a, output reg [7:0] b);
+
+always @(posedge clk or posedge rst) begin
+	if (rst)
+		;
+	else
+		b <= a;
+end
+
+endmodule
+EOT
+
+prep -barriers
+select -assert-any t:$barrier
+select -assert-none t:$aldff t:$aldffe %u
+select -assert-count 1 t:$dff
+
+design -reset
+
+# the constant on the submodule input is not folded into the submodule logic
+
+read_verilog <<EOT
+module sub(input wire [7:0] a, output wire [7:0] y);
+assign y = a + 8'd1;
+endmodule
+
+module top(output wire [7:0] o);
+sub u(.a(8'd5), .y(o));
+endmodule
+EOT
+
+design -save hier
+
+prep -barriers -flatten -top top
+select -assert-none t:sub
+select -assert-count 1 t:$add
+select -assert-count 1 w:u.a %ci1 t:$barrier %i
+
+optbarriers -remove
+select -assert-none t:$barrier
+
+design -load hier
+prep -flatten -top top
+select -assert-none t:$add
+
+design -reset
+
+# a submodule output on a parent inout port gets a plain connection
+read_verilog <<EOT
+module sub(input en, input d, output q);
+assign q = en ? d : 1'bz;
+endmodule
+module top(input en, input d, inout io);
+sub u(.en(en), .d(d), .q(io));
+endmodule
+EOT
+hierarchy -top top
+proc
+flatten -barriers
+tribuf
+select -assert-none w:io %ci1:+[Y] t:$barrier %i

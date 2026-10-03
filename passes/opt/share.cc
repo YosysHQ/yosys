@@ -77,8 +77,14 @@ struct ShareWorker
 
 		queue_bits.insert(modwalker.signal_outputs.begin(), modwalker.signal_outputs.end());
 
+		for (auto wire : module->wires())
+			if (wire->get_bool_attribute(ID::keep))
+				for (auto bit : modwalker.sigmap(wire))
+					queue_bits.insert(bit);
+
+		// never share through a barrier
 		for (auto &it : module->cells_)
-			if (!StaticCellTypes::Compat::internals_nomem_noff(it.second->type)) {
+			if (!StaticCellTypes::Compat::internals_nomem_noff(it.second->type) || it.second->type == ID($barrier)) {
 				pool<RTLIL::SigBit> &bits = modwalker.cell_inputs[it.second];
 				queue_bits.insert(bits.begin(), bits.end());
 			}

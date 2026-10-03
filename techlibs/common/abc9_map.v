@@ -25,3 +25,14 @@ module $_DFF_x_(input C, D, output Q);
   endgenerate
 endmodule
 `endif
+
+(* techmap_celltype = "$barrier" *)
+module $__ABC9_BARRIER_MAP (A, Y);
+  parameter WIDTH = 0;
+  input [WIDTH-1:0] A;
+  output [WIDTH-1:0] Y;
+  genvar i;
+  generate for (i = 0; i < WIDTH; i = i + 1) begin : bit
+    $__ABC9_BARRIER b (.I(A[i]), .O(Y[i]));
+  end endgenerate
+endmodule
