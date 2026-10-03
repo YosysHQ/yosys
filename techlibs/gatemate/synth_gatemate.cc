@@ -29,6 +29,19 @@ struct SynthGateMatePass : public ScriptPass
 {
 	SynthGateMatePass() : ScriptPass("synth_gatemate", "synthesis for Cologne Chip GateMate FPGAs") { }
 
+	void on_register() override
+	{
+		target_register.emplace("gatemate", Target{
+			"Cologne Chip GateMate",
+			{
+				{"", { // default
+					"",
+					{"+/gatemate/cells_sim.v", "+/gatemate/cells_bb.v"}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

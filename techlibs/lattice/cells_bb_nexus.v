@@ -2230,52 +2230,6 @@ module MULTADDSUB18X18WIDE(A0, B0, A1, B1, C, CLK, CEA0, CEA1, RSTA0, RSTA1, CEB
     input [1:0] ADDSUB;
 endmodule
 
-module MULTADDSUB9X9WIDE(A0, B0, A1, B1, A2, B2, A3, B3, C, CLK, CEA0A1, CEA2A3, RSTA0A1, RSTA2A3, CEB0B1, CEB2B3, RSTB0B1, RSTB2B3, CEC, RSTC, RSTCTRL
-, CECTRL, SIGNED, RSTPIPE, CEPIPE, RSTOUT, CEOUT, LOADC, ADDSUB, Z);
-    parameter REGINPUTAB0 = "REGISTER";
-    parameter REGINPUTAB1 = "REGISTER";
-    parameter REGINPUTAB2 = "REGISTER";
-    parameter REGINPUTAB3 = "REGISTER";
-    parameter REGINPUTC = "REGISTER";
-    parameter REGADDSUB = "REGISTER";
-    parameter REGLOADC = "REGISTER";
-    parameter REGLOADC2 = "REGISTER";
-    parameter REGPIPELINE = "REGISTER";
-    parameter REGOUTPUT = "REGISTER";
-    parameter GSR = "ENABLED";
-    parameter RESETMODE = "SYNC";
-    input [8:0] A0;
-    input [8:0] B0;
-    input [8:0] A1;
-    input [8:0] B1;
-    input [8:0] A2;
-    input [8:0] B2;
-    input [8:0] A3;
-    input [8:0] B3;
-    input [53:0] C;
-    input CLK;
-    input CEA0A1;
-    input CEA2A3;
-    input RSTA0A1;
-    input RSTA2A3;
-    input CEB0B1;
-    input CEB2B3;
-    input RSTB0B1;
-    input RSTB2B3;
-    input CEC;
-    input RSTC;
-    input RSTCTRL;
-    input CECTRL;
-    input SIGNED;
-    input RSTPIPE;
-    input CEPIPE;
-    input RSTOUT;
-    input CEOUT;
-    input LOADC;
-    input [3:0] ADDSUB;
-    output [53:0] Z;
-endmodule
-
 (* keep *)
 module MULTIBOOT(AUTOREBOOT, MSPIMADDR);
     parameter MSPIADDR = "0b00000000000000000000000000000000";
