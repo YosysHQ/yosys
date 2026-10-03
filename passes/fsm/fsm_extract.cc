@@ -453,7 +453,7 @@ struct FsmExtractPass : public Pass {
 						assign_map.apply(sig);
 						sig2driver.insert(sig, sig2driver_entry_t(cell->name, conn_it.first));
 					}
-					if (ct.cell_input(cell->type, conn_it.first) && cell->hasPort(ID::Y) &&
+					if (cell->type != ID($barrier) && ct.cell_input(cell->type, conn_it.first) && cell->hasPort(ID::Y) &&
 							cell->getPort(ID::Y).size() == 1 && (conn_it.first == ID::A || conn_it.first == ID::B)) {
 						RTLIL::SigSpec sig = conn_it.second;
 						assign_map.apply(sig);

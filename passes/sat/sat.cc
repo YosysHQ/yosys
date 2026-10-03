@@ -82,6 +82,7 @@ struct SatHelper
 		this->enable_undef = enable_undef;
 		satgen.model_undef = enable_undef;
 		satgen.def_formal = set_def_formal;
+		satgen.model_barriers = true;
 		set_init_def = false;
 		set_init_undef = false;
 		set_init_zero = false;

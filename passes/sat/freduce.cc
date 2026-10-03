@@ -607,6 +607,7 @@ struct FreduceWorker
 		CellTypes ct;
 		ct.setup_internals();
 		ct.setup_stdcells();
+		ct.cell_types.erase(ID($barrier));
 
 		int bits_full_total = 0;
 		std::vector<std::set<RTLIL::SigBit>> batches;

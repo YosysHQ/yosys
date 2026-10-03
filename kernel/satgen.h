@@ -75,6 +75,7 @@ struct SatGen
 	bool ignore_div_by_zero;
 	bool model_undef;
 	bool def_formal = false;
+	bool model_barriers = false;
 
 	SatGen(ezSAT *ez, const SigMap *sigmap, std::string prefix = std::string()) :
 			ez(ez), sigmap(sigmap), prefix(prefix), ignore_div_by_zero(false), model_undef(false)
