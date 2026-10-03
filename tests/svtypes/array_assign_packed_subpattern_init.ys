@@ -1,0 +1,8 @@
+logger -expect error "Assignment pattern is only supported for whole unpacked array assignments" 1
+
+read_verilog -sv <<EOT
+module top;
+    logic [1:0][3:0] a [2];
+    initial a = '{'{4'h1, 4'h2}, '{4'h3, 4'h4}};
+endmodule
+EOT
