@@ -37,6 +37,8 @@ OptDffWorker::OptDffWorker(const OptDffOptions &opt, Module *mod)
 
 void OptDffWorker::remove_ff_bits(Cell *cell, const pool<int> &drop)
 {
+	modwalker_ptr.reset();
+
 	FfData ff(&initvals, cell);
 	std::vector<int> keep;
 	for (int i = 0; i < ff.width; i++)
