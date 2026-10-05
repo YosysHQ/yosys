@@ -1830,7 +1830,7 @@ skip_identity:
 							cell->setPort(ID::Y, flooring);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, std::min(exp, GetSize(sig_a))));
 							SigSpec should_add = module->And(NEW_ID, a_sign, rem_nonzero);
 							module->addAdd(NEW_ID, flooring, should_add, sig_y);
 						}
@@ -1849,10 +1849,10 @@ skip_identity:
 						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0)
 						{
 							module->remove(cell);
-							SigSpec truncating = sig_a.extract(0, exp);
+							SigSpec truncating = sig_a.extract(0, std::min(exp, GetSize(sig_a)));
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, exp));
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, truncating);
 							SigSpec extend_bit = module->And(NEW_ID, a_sign, rem_nonzero);
 
 							truncating.append(extend_bit);
