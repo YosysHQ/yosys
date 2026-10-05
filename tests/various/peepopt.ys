@@ -365,3 +365,45 @@ end
 EOT
 
 equiv_opt -assert peepopt
+
+####################
+
+#6255
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_c_0(input signed [3:0] a, output [8:0] y);
+wire signed [8:0] p = a * 5'sd9;
+assign y = $unsigned(p) / 9'd3;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$div
+
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_c_1(input [5:0] a, output [7:0] y);
+wire [7:0] p = a * 2'd3;
+assign y = $signed(p) / 3'sd3;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 1 t:$div
+
+design -reset
+read_verilog <<EOT
+module peepopt_muldiv_c_2(input signed [3:0] a, output signed [8:0] y);
+wire signed [8:0] p = a * 5'sd9;
+assign y = p / 9'sd3;
+endmodule
+EOT
+
+prep -nokeepdc
+equiv_opt -assert peepopt
+design -load postopt
+select -assert-count 0 t:$div
