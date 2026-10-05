@@ -1,0 +1,11 @@
+# write_xaiger2 used to leave behind a $buf with 'z bits on the unused bits of c
+read_verilog <<EOT
+module top(input clk, output [1:0] o);
+	reg [7:0] c = 8'd0;
+	always @(posedge clk) c <= c + 1'b1;
+	assign o = c[1:0];
+endmodule
+EOT
+synth_gowin -top top
+select -assert-none t:$buf
+check -assert
