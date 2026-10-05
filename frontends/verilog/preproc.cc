@@ -41,7 +41,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-#include <regex>
 
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
@@ -83,56 +82,18 @@ static char next_char()
 	return ch == '\r' ? next_char() : ch;
 }
 
-static std::optional<std::string> match_re(const std::regex& re)
-{
-	if (input_buffer.empty())
-		return std::nullopt;
-
-	log_assert(input_buffer_charp <= input_buffer.front().size());
-	if (input_buffer_charp == input_buffer.front().size()) {
-		input_buffer_charp = 0;
-		input_buffer.pop_front();
-		return match_re(re);
-	}
-
-	std::smatch match;
-	const auto &remaining = input_buffer.front().cbegin() + input_buffer_charp;
-	if (!std::regex_search(remaining, input_buffer.front().cend(), match, re))
-		return std::nullopt;
-
-	std::string result = match[0];
-	input_buffer_charp += result.size();
-	return result;
-}
-
-static const std::regex comment_single_regex (R"(^//[^\r\n]*)");
-static const std::regex comment_multi_regex (R"(^/\*[\s\S]*?\*/)");
-
-static std::string skip_spaces(bool skip_nl = false)
+static std::string skip_spaces()
 {
 	std::string spaces;
 	while (1) {
 		char ch = next_char();
 		if (ch == 0)
 			break;
-		if (ch != ' ' && ch != '\t' && ch != '\v' && ch != '\f' && ch != '\r' && (!skip_nl || ch != '\n')) {
-            return_char(ch);
-		} else {
-			spaces += ch;
-			continue;
+		if (ch != ' ' && ch != '\t') {
+			return_char(ch);
+			break;
 		}
-
-		std::optional<std::string> comment_single_match = match_re(comment_single_regex);
-		if (comment_single_match) {
-			spaces += *comment_single_match;
-			continue;
-		}
-		std::optional<std::string> comment_multi_match = match_re(comment_multi_regex);
-		if (comment_multi_match) {
-			spaces += *comment_multi_match;
-			continue;
-		}
-		break;
+		spaces += ch;
 	}
 	return spaces;
 }
@@ -154,10 +115,10 @@ static std::string next_token(bool pass_newline = false)
 		return token;
 	}
 
-	if (ch == ' ' || ch == '\t' || ch == '\v' || ch == '\f' || ch == '\r')
+	if (ch == ' ' || ch == '\t')
 	{
 		while ((ch = next_char()) != 0) {
-			if (ch != ' ' && ch != '\t' && ch != '\v' && ch != '\f' && ch != '\r') {
+			if (ch != ' ' && ch != '\t') {
 				return_char(ch);
 				break;
 			}
@@ -441,25 +402,31 @@ static void input_file(std::istream &f, std::string filename)
 	input_buffer.insert(it, "\n`file_pop\n");
 }
 
+static bool is_blank_token(const std::string &tok)
+{
+	return tok.empty() || tok[0] == ' ' || tok[0] == '\t' || tok.compare(0, 2, "/*") == 0;
+}
+
 // Read tokens to get one argument (either a macro argument at a callsite or a default argument in a
 // macro definition). Writes the argument to dest. Returns true if we finished with ')' (the end of
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
-	skip_spaces(true);
 	std::vector<char> openers;
+	bool pending_space = false;
 	for (;;) {
-		std::string skipped = skip_spaces(true);
-		if (skipped != "") {
-			dest += " ";
-		}
 		std::string tok = next_token(true);
+		if (is_blank_token(tok)) {
+			pending_space = !dest.empty();
+			continue;
+		}
+		if (openers.empty() && (tok == ")" || tok == ","))
+			return tok == ")";
+		if (pending_space)
+			dest += ' ';
+		pending_space = false;
+
 		if (tok == ")") {
-			if (openers.empty()) {
-				while (dest.size() && (dest.back() == ' ' || dest.back() == '\t'))
-					dest = dest.substr(0, dest.size() - 1);
-				return true;
-			}
 			if (openers.back() != '(')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
 				          openers.back(), tok[0]);
@@ -487,10 +454,6 @@ static bool read_argument(std::string &dest)
 			openers.pop_back();
 			dest += tok;
 			continue;
-		}
-
-		if (tok == "," && openers.empty()) {
-			return false;
 		}
 
 		if (tok == "(" || tok == "[" || tok == "{")
