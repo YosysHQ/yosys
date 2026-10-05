@@ -475,7 +475,7 @@ struct AlumaccWorker
 
 		for (auto cell : lge_cells)
 		{
-			log("  creating $alu model for %s (%s):", cell, cell->type.unescape());
+			std::string message = stringf("  creating $alu model for %s (%s):", cell, cell->type.unescape());
 
 			bool cmp_less = cell->type.in(ID($lt), ID($le));
 			bool cmp_equal = cell->type.in(ID($le), ID($ge));
@@ -513,10 +513,11 @@ struct AlumaccWorker
 				n->invert_b = true;
 				n->oversized = false;
 				sig_alu[RTLIL::SigSig(A, B)].insert(n);
-				log(" new $alu\n");
+				message += " new $alu";
 			} else {
-				log(" merged with %s.\n", n->cells.front());
+				message += stringf(" merged with %s.", n->cells.front());
 			}
+			log("%s\n", message);
 
 			n->cells.push_back(cell);
 			n->cmp.push_back(std::make_tuple(cmp_less, !cmp_less, cmp_equal, false, is_signed, Y));
@@ -558,6 +559,7 @@ struct AlumaccWorker
 	void replace_alu()
 	{
 		std::string src("");
+		std::string message;
 		for (auto &it1 : sig_alu)
 		for (auto n : it1.second)
 		{
@@ -565,10 +567,10 @@ struct AlumaccWorker
 			{
 				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
 
-				log("  creating $pos cell for ");
+				message = "  creating $pos cell for ";
 				for (int i = 0; i < GetSize(n->cells); i++)
-					log("%s%s", i ? ", ": "", n->cells[i]);
-				log(": %s\n", n->alu_cell);
+					message += stringf("%s%s", i ? ", ": "", n->cells[i]);
+				log("%s: %s\n", message, n->alu_cell);
 
 				goto delete_node;
 			}
@@ -576,10 +578,10 @@ struct AlumaccWorker
 			n->alu_cell = module->addCell(NEW_ID, ID($alu));
 			alu_counter++;
 
-			log("  creating $alu cell for ");
+			message = "  creating $alu cell for ";
 			for (int i = 0; i < GetSize(n->cells); i++)
-				log("%s%s", i ? ", ": "", n->cells[i]);
-			log(": %s\n", n->alu_cell);
+				message += stringf("%s%s", i ? ", ": "", n->cells[i]);
+			log("%s: %s\n", message, n->alu_cell);
 
 			if (n->cells.size() > 0)
 				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());

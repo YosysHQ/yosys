@@ -1291,10 +1291,10 @@ struct ShareWorker
 				continue;
 			}
 
-			log("    Found %d candidates:", GetSize(candidates));
+			std::string message = stringf("    Found %d candidates:", GetSize(candidates));
 			for (auto c : candidates)
-				log(" %s", c);
-			log("\n");
+				message += stringf(" %s", c);
+			log("%s\n", message);
 
 			for (auto other_cell : candidates)
 			{
@@ -1429,10 +1429,10 @@ struct ShareWorker
 
 					if (res == SatEffortBudget::Result::Sat) {
 						log("      According to the SAT solver this pair of cells can not be shared.\n");
-						log("      Model from SAT solver: %s = %d'", log_signal(all_ctrl_signals), GetSize(sat_model_values));
+						std::string value;
 						for (int i = GetSize(sat_model_values)-1; i >= 0; i--)
-							log("%c", sat_model_values[i] ? '1' : '0');
-						log("\n");
+							value += sat_model_values[i] ? '1' : '0';
+						log("      Model from SAT solver: %s = %d'%s\n", log_signal(all_ctrl_signals), GetSize(sat_model_values), value);
 						continue;
 					}
 

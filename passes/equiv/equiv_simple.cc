@@ -308,7 +308,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 			log("  Trying to prove $equiv cell %s:\n", cell);
 			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(cell->getPort(ID::Y)));
 		} else {
-			log("  Trying to prove $equiv for %s:", log_signal(cell->getPort(ID::Y)));
+			log("  Trying to prove $equiv for %s:\n", log_signal(cell->getPort(ID::Y)));
 		}
 
 		int step = cfg.max_seq;

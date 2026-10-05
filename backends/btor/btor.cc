@@ -746,7 +746,7 @@ struct BtorWorker
 		}
 
 		if (cell->type.in(ID($allconst), ID($allseq)))
-			log_error("Unsupported cell type %s for cell %s.%s",
+			log_error("Unsupported cell type %s for cell %s.%s\n",
 					cell->type.unescape(), module, cell);
 
 
@@ -1276,7 +1276,7 @@ struct BtorWorker
 						cell->type.unescape(), module, cell);
 
 			if (cell->type.in(ID($live), ID($fair), ID($equiv)))
-				log_error("Unsupported cell type %s for cell %s.%s",
+				log_error("Unsupported cell type %s for cell %s.%s\n",
 						cell->type.unescape(), module, cell);
 
 			if (cell->type == ID($assume))

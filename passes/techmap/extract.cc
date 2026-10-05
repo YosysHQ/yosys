@@ -667,10 +667,10 @@ struct ExtractPass : public Pass {
 					auto &result = results[i];
 					log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId, result.haystackGraphId);
 					for (const auto &it : result.mappings) {
-						log("  %s -> %s", it.first, it.second.haystackNodeId);
+						std::string message = stringf("  %s -> %s", it.first, it.second.haystackNodeId);
 						for (const auto & it2 : it.second.portMapping)
-							log(" %s:%s", it2.first, it2.second);
-						log("\n");
+							message += stringf(" %s:%s", it2.first, it2.second);
+						log("%s\n", message);
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);

@@ -1117,14 +1117,14 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
 		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			std::string message = stringf("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
 			if (en_sig.size() != 0)
-				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
+				message += stringf(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
 			if (arst_sig.size() != 0)
-				log(", asynchronously reset by %s%s", arst_polarity ? "" : "!", log_signal(arst_sig));
+				message += stringf(", asynchronously reset by %s%s", arst_polarity ? "" : "!", log_signal(arst_sig));
 			if (srst_sig.size() != 0)
-				log(", synchronously reset by %s%s", srst_polarity ? "" : "!", log_signal(srst_sig));
-			log("\n");
+				message += stringf(", synchronously reset by %s%s", srst_polarity ? "" : "!", log_signal(srst_sig));
+			log("%s\n", message);
 		}
 	}
 

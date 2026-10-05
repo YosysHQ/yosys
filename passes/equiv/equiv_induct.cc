@@ -141,7 +141,7 @@ struct EquivInductWorker : public EquivWorker<>
 			SigBit bit_a = sigmap(cell->getPort(ID::A)).as_bit();
 			SigBit bit_b = sigmap(cell->getPort(ID::B)).as_bit();
 
-			log("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(ID::Y))));
+			std::string message = stringf("  Trying to prove $equiv for %s:", log_signal(sigmap(cell->getPort(ID::Y))));
 
 			int ez_a = satgen.importSigBit(bit_a, cfg.max_seq+1);
 			int ez_b = satgen.importSigBit(bit_b, cfg.max_seq+1);
@@ -151,11 +151,11 @@ struct EquivInductWorker : public EquivWorker<>
 				cond = ez->AND(cond, ez->NOT(satgen.importUndefSigBit(bit_a, cfg.max_seq+1)));
 
 			if (!ez->solve(cond)) {
-				log(" success!\n");
+				log("%s success!\n", message);
 				cell->setPort(ID::B, cell->getPort(ID::A));
 				success_counter++;
 			} else {
-				log(" failed.\n");
+				log("%s failed.\n", message);
 			}
 		}
 	}

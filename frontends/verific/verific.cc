@@ -3230,7 +3230,7 @@ struct VerificPass : public Pass {
 		log("\n");
 		log("Load the specified Liberty files into Verific.\n");
 		log("Default library when -work is not present is one specified in liberty file.\n");
-		log("To use from SystemVerilog or VHDL use -L to specify liberty library.");
+		log("To use from SystemVerilog or VHDL use -L to specify liberty library.\n");
 		log("\n");
 		log("    -lib\n");
 		log("        only create empty blackbox modules\n");

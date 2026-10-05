@@ -1807,7 +1807,7 @@ struct Aiger2Backend : Backend {
 		log("\n");
 		log("This command is able to ingest all combinational cells except for:\n");
 		log("\n");
-		log("    ");
+		std::string message;
 		int col = 0;
 		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
 			auto &cell = StaticCellTypes::builder.cells[i];
@@ -1819,17 +1819,19 @@ struct Aiger2Backend : Backend {
 				continue;
 			std::string name = cell.type.unescape();
 			if (col + name.size() + 2 > 72) {
-				log("\n    ");
+				log("    %s\n", message);
+				message = "";
 				col = 0;
 			}
 			col += name.size() + 2;
-			log("%s, ", name.c_str());
+			message += stringf("%s, ", name.c_str());
 		}
-		log("\n");
+		if (!message.empty())
+			log("    %s\n", message);		
 		log("\n");
 		log("And all combinational gates except for:\n");
 		log("\n");
-		log("    ");
+		message = "";
 		col = 0;
 		for (size_t i = 0; i < StaticCellTypes::builder.count; i++) {
 			auto &cell = StaticCellTypes::builder.cells[i];
@@ -1841,12 +1843,15 @@ struct Aiger2Backend : Backend {
 				continue;
 			std::string name = cell.type.unescape();
 			if (col + name.size() + 2 > 72) {
-				log("\n    ");
+				log("    %s\n", message);
+				message = "";
 				col = 0;
 			}
 			col += name.size() + 2;
-			log("%s, ", name.c_str());
+			message += stringf("%s, ", name.c_str());
 		}
+		if (!message.empty())
+			log("    %s\n", message);		
 		log("\n");
 	}
 

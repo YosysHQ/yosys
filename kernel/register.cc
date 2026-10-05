@@ -279,10 +279,10 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		return;
 
 	if (echo_mode) {
-		log("%s", create_prompt(design, 0));
+		std::string message = stringf("%s", create_prompt(design, 0));
 		for (size_t i = 0; i < args.size(); i++)
-			log("%s%s", i ? " " : "", args[i]);
-		log("\n");
+			message += stringf("%s%s", i ? " " : "", args[i]);
+		log("%s\n", message);
 	}
 
 	if (pass_register.count(args[0]) == 0)
@@ -1080,9 +1080,10 @@ struct HelpPass : public Pass {
 				for (auto &it : pass_register) {
 					log("\n\n");
 					log("%s  --  %s\n", it.first, it.second->short_help);
+					std::string msg;
 					for (size_t i = 0; i < it.first.size() + it.second->short_help.size() + 6; i++)
-						log("=");
-					log("\n");
+						msg += '=';
+					log("%s\n", msg);
 					it.second->help();
 					log_warning_flags(it.second);
 				}

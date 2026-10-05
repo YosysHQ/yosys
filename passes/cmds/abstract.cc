@@ -328,7 +328,7 @@ struct AbstractPass : public Pass {
 		log("during formal verification. The mode and options control when a signal should\n");
 		log("be abstracted and how it should affect FFs present in the design.\n");
 		log("\n");
-		log("Modes:");
+		log("Modes:\n");
 		log("\n");
 		log("    -state\n");
 		log("        The selected FFs will be modified to load a new abstract value on every\n");

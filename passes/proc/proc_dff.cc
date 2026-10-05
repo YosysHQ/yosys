@@ -135,13 +135,14 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	if (!clk.empty())
 		cell->setPort(ID::CLK, clk);
 
+	std::string message;
 	if (!clk.empty())
-		log("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");
+		message = stringf("  created %s cell `%s' with %s edge clock", cell->type, cell->name, clk_polarity ? "positive" : "negative");
 	else
-		log("  created %s cell `%s' with global clock", cell->type, cell->name);
+		message = stringf("  created %s cell `%s' with global clock", cell->type, cell->name);
 	if (arst)
-		log(" and %s level reset", arst_polarity ? "positive" : "negative");
-	log(".\n");
+		message += stringf(" and %s level reset", arst_polarity ? "positive" : "negative");
+	log("%s.\n", message);
 }
 
 void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)

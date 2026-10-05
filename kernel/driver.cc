@@ -790,16 +790,17 @@ int main(int argc, char **argv)
 		else
 		{
 			int out_count = 0;
-			log("Time spent:");
+			std::string message = "Time spent:";
 			for (auto it = timedat.rbegin(); it != timedat.rend() && out_count < 4; it++, out_count++) {
 				if (out_count >= 2 && (std::get<0>(*it) < 1000000000 || int(100*std::get<0>(*it) / total_ns) < 20)) {
-					log(", ...");
+					message += ", ...";
 					break;
 				}
-				log("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
+				message += stringf("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
 						std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
 			}
-			log("%s\n", out_count ? "" : " no commands executed");
+			message += out_count ? "" : " no commands executed";
+			log("%s\n", message);
 		}
 		if(!perffile.empty())
 		{

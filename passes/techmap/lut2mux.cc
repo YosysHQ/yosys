@@ -78,7 +78,7 @@ struct Lut2muxPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		log_header(design, "Executing LUT2MUX pass (convert $lut to $mux/$_MUX_).\n");
-			log("ARGS:"); for (auto &a: args) log(" [%s]", a.c_str()); log("\n");
+		std::string message = "ARGS:"; for (auto &a: args) message += stringf(" [%s]", a.c_str()); log("%s\n", message);
 
 		size_t argidx;
 		bool word_mode = false;
