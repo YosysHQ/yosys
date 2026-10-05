@@ -49,7 +49,7 @@ struct SynthPass : public ScriptPass {
 		log("\n");
 		log("    -hieropt\n");
 		log("        enable hierarchical optimization. this option is useful when `-flatten'\n");
-		log("        is not used, or when selected modules are marked with 'keep_hierarchy'\n.");
+		log("        is not used, or when selected modules are marked with 'keep_hierarchy'\n");
 		log("        to prevent their dissolution.\n");
 		log("\n");
 		log("    -encfile <file>\n");
