@@ -460,10 +460,10 @@ bool replace_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals, const 
 				shuffle_map.push_back(-1);
 		}
 
-		log("      Results of bit order shuffling:");
+		std::string message = "      Results of bit order shuffling:";
 		for (int v : shuffle_map)
-			log(" %d", v);
-		log("\n");
+			message += stringf(" %d", v);
+		log("%s\n", message);
 
 		// update mem_*, wr_*, and rd_* variables
 	} else {
@@ -1018,10 +1018,10 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 	match_properties["bits"]   = match_properties["words"] * match_properties["dbits"];
 	match_properties["ports"]  = match_properties["wports"] + match_properties["rports"];
 
-	log("  Properties:");
+	std::string message = "  Properties:";
 	for (auto &it : match_properties)
-		log(" %s=%d", it.first, it.second);
-	log("\n");
+		message += stringf(" %s=%d", it.first, it.second);
+	log("%s\n", message);
 
 	pool<pair<IdString, int>> failed_brams;
 	dict<pair<int, int>, tuple<int, int, int>> best_rule_cache;

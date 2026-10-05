@@ -1625,10 +1625,10 @@ struct SimWorker : SimShared
 
 		bool initial = true;
 		int cycle = 0;
-		log("Co-simulation from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
+		std::string message = stringf("Co-simulation from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
 		if (cycles_set)
-			log(" for %d clock cycle(s)",numcycles);
-		log("\n");
+			message += stringf(" for %d clock cycle(s)",numcycles);
+		log("%s\n", message);
 		bool all_samples = fst_clock.empty();
 		unsigned int end_cycle = cycles_set ? numcycles*2 : INT_MAX;
 

@@ -266,27 +266,27 @@ struct PortarcsPass : Pass {
 					max_delay = 1;
 
 				log("Delay legend:\n\n");
-				log("    ");
+				std::string message = "    ";
 				for (int i = 0; i < 24; i++)
-					log("\033[48;5;%dm ", 232+i);
-				log("\033[0m\n");
-				log("    |%22s|\n", "");
-				log("    0%22s%d\n", "", max_delay);
-				log("\n");
+					message += stringf("\033[48;5;%dm ", 232+i);
+				message += "\033[0m\n";
+				message += stringf("    |%22s|\n", "");
+				message += stringf("    0%22s%d\n", "", max_delay);
+				log("%s\n", message);
 				for (int k = top_length - 1; k >= 0; k--) {
-					log("  %10s  ", "");
+					message = stringf("  %10s  ", "");
 					for (auto &h : headings)
-						log("%c", (k < (int) h.size()) ? h[k] : ' ');
-					log("\n");
+						message += (k < (int) h.size()) ? h[k] : ' ';
+					log("%s\n", message);
 				}
 				log("\n");
 
 				for (auto bit : outputs) {
-					log("  %10s  ", bit_str(bit));
+					message = stringf("  %10s  ", bit_str(bit));
 					int *p = annotations.at(canonical_bit(bit));
 					for (auto i = 0; i < inputs.size(); i++)
-						log("\033[48;5;%dm ", 232 + ((std::max(p[i], 0) * 24) - 1) / max_delay);
-					log("\033[0m\n");
+						message += stringf("\033[48;5;%dm ", 232 + ((std::max(p[i], 0) * 24) - 1) / max_delay);
+					log("%s\033[0m\n", message);
 				}
 			}
 

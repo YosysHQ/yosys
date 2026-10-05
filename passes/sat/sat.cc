@@ -651,27 +651,27 @@ struct SatHelper
 						    "---------------------------------------------------------------------------------------------------"
 						    "---------------------------------------------------------------------------------------------------";
 				if (last_timestep == -2) {
-					log("%s", max_timestep > 0 ? "  Time " : "  ");
-					log("%-*s %11s %9s %*s\n", maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
+					log("%s%-*s %11s %9s %*s\n",  max_timestep > 0 ? "  Time " : "  ",
+						maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
-				log("%s", max_timestep > 0 ? "  ---- " : "  ");
-				log("%*.*s %11.11s %9.9s %*.*s\n", maxModelName+5, maxModelName+5,
+				log("%s%*.*s %11.11s %9.9s %*.*s\n", max_timestep > 0 ? "  ---- " : "  ", 
+						maxModelName+5, maxModelName+5,
 						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
 			}
 
+			std::string message = "  ";
 			if (max_timestep > 0) {
 				if (info.timestep > 0)
-					log("  %4d ", info.timestep);
+					message = stringf("  %4d ", info.timestep);
 				else
-					log("  init ");
-			} else
-				log("  ");
+					message = "  init ";
+			}
 
 			if (info.width <= 32 && !found_undef)
-				log("%-*s %11d %9x %*s\n", maxModelName+5, info.description, value.as_int(), value.as_int(), maxModelWidth+3, value.as_string());
+				log("%s%-*s %11d %9x %*s\n", message, maxModelName+5, info.description, value.as_int(), value.as_int(), maxModelWidth+3, value.as_string());
 			else
-				log("%-*s %11s %9s %*s\n", maxModelName+5, info.description, "--", "--", maxModelWidth+3, value.as_string());
+				log("%s%-*s %11s %9s %*s\n", message, maxModelName+5, info.description, "--", "--", maxModelWidth+3, value.as_string());
 		}
 
 		if (last_timestep == -2)

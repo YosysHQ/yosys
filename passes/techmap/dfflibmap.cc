@@ -39,7 +39,7 @@ static void logmap(IdString dff)
 	if (cell_mappings.count(dff) == 0) {
 		log("    unmapped dff/dlatch cell: %s\n", dff);
 	} else {
-		log("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
+		std::string message = stringf("    %s %s (", cell_mappings[dff].cell_name, dff.substr(1));
 		bool first = true;
 		for (auto &port : cell_mappings[dff].ports) {
 			char arg[3] = { port.second, 0, 0 };
@@ -47,10 +47,10 @@ static void logmap(IdString dff)
 				arg[1] = arg[0] - ('a' - 'A'), arg[0] = '~';
 			else
 				arg[1] = arg[0], arg[0] = ' ';
-			log("%s.%s(%s)", first ? "" : ", ", port.first, arg);
+			message += stringf("%s.%s(%s)", first ? "" : ", ", port.first, arg);
 			first = false;
 		}
-		log(");\n");
+		log("%s);\n", message);
 	}
 }
 
