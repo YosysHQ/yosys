@@ -1,0 +1,14 @@
+#6253
+
+read_verilog <<EOT
+module test(input signed a, input signed [1:0] b, output signed [3:0] y1, y2, output signed [7:0] y3);
+	assign y1 = a % 4'sd4;
+	assign y2 = a / 4'sd4;
+	assign y3 = b % 8;
+endmodule
+EOT
+
+equiv_opt -assert opt_expr
+
+design -load postopt
+select -assert-none t:$div t:$mod
