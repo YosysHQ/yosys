@@ -622,7 +622,7 @@ void AigerReader::parse_xaiger()
 				}
 
 				// TODO: the naming of these attributes needs workshopping.
-				cell->set_intvec_attribute(ID::abc9_equiv, std::vector<int>{entry});
+				cell->attributes[ID::abc9_equiv] = entry;
 			}
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {

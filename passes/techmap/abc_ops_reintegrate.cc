@@ -68,6 +68,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
+	dict<int, std::pair<RTLIL::IdString, int>> names;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -200,6 +201,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					log_debug("Box %d (%s) no longer exists.\n", variable, escaped_s.unescape());
 				else
 					mapped_mod->rename(cell, escaped_s);
+			}
+			else if (type == "name") {
+				names.insert({variable, std::make_pair(escaped_s, index)});
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -405,6 +409,22 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
+
+			auto equiv = mapped_cell->attributes.find(ID::abc9_equiv);
+			if (equiv != mapped_cell->attributes.end()) {
+				uint32_t equiv_literal = equiv->second.as_int();
+				uint32_t equiv_node = equiv_literal >> 1;
+				bool equiv_inverted = equiv_literal & 1;
+				log("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
+				auto name = names.find(equiv_node);
+				if (name != names.end()) {
+					log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+					auto equiv_wire = module->wire(name->second.first);
+					if (equiv_wire) {
+						log("        which exists in module\n");
+					}
+				}
+			}
 
 			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
