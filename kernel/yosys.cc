@@ -363,10 +363,10 @@ RTLIL::Design *yosys_get_design()
 	return yosys_design;
 }
 
-const char *create_prompt(RTLIL::Design *design, int recursion_counter)
+const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool newline)
 {
 	static char buffer[100];
-	std::string str = "\n";
+	std::string str = newline ? "\n" : "";
 	if (recursion_counter > 1)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";

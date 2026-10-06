@@ -265,14 +265,14 @@ struct PortarcsPass : Pass {
 				if (max_delay == 0)
 					max_delay = 1;
 
-				log("Delay legend:\n\n");
+				log("Delay legend:\n");
+				log("\n");
 				std::string message = "    ";
 				for (int i = 0; i < 24; i++)
 					message += stringf("\033[48;5;%dm ", 232+i);
-				message += "\033[0m\n";
-				message += stringf("    |%22s|\n", "");
-				message += stringf("    0%22s%d\n", "", max_delay);
-				log("%s\n", message);
+				log("%s\033[0m\n", message);
+				log("    |%22s|\n", "");
+				log("    0%22s%d\n", "", max_delay);
 				for (int k = top_length - 1; k >= 0; k--) {
 					message = stringf("  %10s  ", "");
 					for (auto &h : headings)

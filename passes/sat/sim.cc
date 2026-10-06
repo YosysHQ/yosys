@@ -1418,20 +1418,26 @@ struct SimWorker : SimShared
 
 		while (1)
 		{
-			if (debug)
-				log("\n-- ph1 --\n");
+			if (debug) {
+				log("\n");
+				log("-- ph1 --\n");
+			}
 
 			top->update_ph1();
 
-			if (debug)
-				log("\n-- ph2 --\n");
+			if (debug) {
+				log("\n");
+				log("-- ph2 --\n");
+			}
 
 			if (!top->update_ph2(gclk))
 				break;
 		}
 
-		if (debug)
-			log("\n-- ph3 --\n");
+		if (debug) {
+			log("\n");
+			log("-- ph3 --\n");
+		}
 
 		top->update_ph3(gclk);
 	}
@@ -1441,20 +1447,25 @@ struct SimWorker : SimShared
 
 		while (1)
 		{
-			if (debug)
-				log("\n-- ph1 (initialize) --\n");
+			if (debug) {
+				log("\n");
+				log("-- ph1 (initialize) --\n");
+			}
 
 			top->update_ph1();
 
-			if (debug)
-				log("\n-- ph2 (initialize) --\n");
+			if (debug) {
+				log("\n");
+				log("-- ph2 (initialize) --\n");
+			}
 
 			if (!top->update_ph2(false, true))
 				break;
 		}
 
-		if (debug)
-			log("\n-- ph3 (initialize) --\n");
+		if (debug) {
+			log("-- ph3 (initialize) --\n");
+		}
 		top->update_ph3(true);
 	}
 
@@ -1477,8 +1488,10 @@ struct SimWorker : SimShared
 		top = new SimInstance(this, scope, topmod);
 		register_signals();
 
-		if (debug)
-			log("\n===== 0 =====\n");
+		if (debug) {
+			log("\n");
+			log("===== 0 =====\n");
+		}
 		else if (verbose)
 			log("Simulating cycle 0.\n");
 
@@ -1496,8 +1509,10 @@ struct SimWorker : SimShared
 
 		for (int cycle = 0; cycle < numcycles; cycle++)
 		{
-			if (debug)
-				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width/2));
+			if (debug) {
+				log("\n");
+				log("===== %d =====\n", int(cycle_width*cycle + cycle_width/2));
+			}
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+1);
 			set_inports(clock, State::S0);
@@ -1509,8 +1524,10 @@ struct SimWorker : SimShared
 			if (cycle == 0)
 				top->set_initstate_outputs(State::S0);
 
-			if (debug)
-				log("\n===== %d =====\n", int(cycle_width*cycle + cycle_width));
+			if (debug) {
+				log("\n");
+				log("===== %d =====\n", int(cycle_width*cycle + cycle_width));
+			}
 			else if (verbose)
 				log("Simulating cycle %d.\n", (cycle*2)+2);
 

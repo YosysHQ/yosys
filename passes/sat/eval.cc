@@ -597,7 +597,8 @@ struct EvalPass : public Pass {
 			log("\n");
 			if (undef.size() > 0) {
 				undef.sort_and_unify();
-				log("Assumed undef (x) value for the following signals: %s\n\n", log_signal(undef));
+				log("Assumed undef (x) value for the following signals: %s\n", log_signal(undef));
+				log("\n");
 			}
 		}
 	}

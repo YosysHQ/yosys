@@ -614,7 +614,8 @@ struct statdata_t {
 					      .c_str());
 					first_line = false;
 				}
-			log("\n      },\n");
+			log("\n");
+			log("      },\n");
 			log("         \"num_submodules_by_type\": {\n");
 			first_line = true;
 			for (auto &it : num_submodules_by_type)
@@ -627,7 +628,8 @@ struct statdata_t {
 					      .c_str());
 					first_line = false;
 				}
-			log("\n      }\n");
+			log("\n");
+			log("      }\n");
 			if (tech == "xilinx" || tech == "analogdevices") {
 				log("         \"estimated_num_lc\": %u,\n", estimate_xilinx_lc());
 			}

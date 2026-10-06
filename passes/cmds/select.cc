@@ -1774,7 +1774,8 @@ static void log_matches(const char *title, Module *module, const T &list)
 			matches.push_back(it.first);
 
 	if (!matches.empty()) {
-		log("\n%d %s:\n", int(matches.size()), title);
+		log("\n");
+		log("%d %s:\n", int(matches.size()), title);
 		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 		for (auto id : matches)
 			log("  %s\n", id.unescape());
@@ -1812,7 +1813,8 @@ struct LsPass : public Pass {
 				matches.push_back(mod->name);
 
 			if (!matches.empty()) {
-				log("\n%d %s:\n", int(matches.size()), "modules");
+				log("\n");
+				log("%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 				for (auto id : matches)
 					log("  %s%s\n", id.unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");

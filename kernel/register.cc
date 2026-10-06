@@ -182,7 +182,8 @@ void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::s
 		command_text = command_text + (command_text.empty() ? "" : " ") + args[i];
 	}
 
-	log("\nSyntax error in command `%s':\n", command_text);
+	log("\n");
+	log("Syntax error in command `%s':\n", command_text);
 	help();
 
 	log_cmd_error("Command syntax error: %s\n> %s\n> %*s^\n",
@@ -279,7 +280,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		return;
 
 	if (echo_mode) {
-		std::string message = stringf("%s", create_prompt(design, 0));
+		std::string message = stringf("%s", create_prompt(design, 0, false));
 		for (size_t i = 0; i < args.size(); i++)
 			message += stringf("%s%s", i ? " " : "", args[i]);
 		log("%s\n", message);
@@ -1078,7 +1079,8 @@ struct HelpPass : public Pass {
 		if (args.size() == 2) {
 			if (args[1] == "-all") {
 				for (auto &it : pass_register) {
-					log("\n\n");
+					log("\n");
+					log("\n");
 					log("%s  --  %s\n", it.first, it.second->short_help);
 					std::string msg;
 					for (size_t i = 0; i < it.first.size() + it.second->short_help.size() + 6; i++)
@@ -1109,7 +1111,9 @@ struct HelpPass : public Pass {
 						log("\n");
 						log("%s\n", help_cell.code);
 				} else {
-					log("\n    %s %s\n\n", help_cell.name, help_cell.ports);
+					log("\n");
+					log("    %s %s\n", help_cell.name, help_cell.ports);
+					log("\n");
 					if (help_cell.ver == "2" || help_cell.ver == "2a") {
 						if (help_cell.title != "") log("%s:\n", help_cell.title);
 						std::stringstream ss;
@@ -1122,7 +1126,8 @@ struct HelpPass : public Pass {
 					} else {
 						log("No help message for this cell type found.\n");
 					}
-					log("\nRun 'help %s+' to display the Verilog model for this cell type.\n", args[1]);
+					log("\n");
+					log("Run 'help %s+' to display the Verilog model for this cell type.\n", args[1]);
 					log("\n");
 				}
 			}
