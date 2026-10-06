@@ -35,8 +35,7 @@ runTest "too many logs" \
 	-p "logger -expect log \"statistics\" 1" -p stat -p stat
 
 runTest "too many warnings" \
-	"Warning: Found log message matching -W regex:
-Printing statistics.
+	"Warning: Found log message matching -W regex: Printing statistics.
 ERROR: Expected warning pattern 'statistics' found 2 time(s), instead of 1 time(s) !" \
 	-p "logger -warn \"Printing statistics\"" \
 	-p "logger -expect warning \"statistics\" 1" -p stat -p stat

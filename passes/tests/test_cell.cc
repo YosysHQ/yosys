@@ -526,8 +526,10 @@ static void run_edges_test(RTLIL::Design *design, bool verbose)
 				output_db.emplace_back(bits[i], xbits[i], ybits[i]);
 	}
 
-	if (verbose)
-		log("\nSAT solving for all edges:\n");
+	if (verbose) {
+		log("\n");
+		log("SAT solving for all edges:\n");
+	}
 
 	for (int i = 0; i < GetSize(input_db); i++)
 	{

@@ -104,10 +104,11 @@ struct SatHelper
 
 	void setup(int timestep = -1, bool initstate = false)
 	{
+		log("\n");
 		if (timestep > 0)
-			log ("\nSetting up time step %d:\n", timestep);
+			log ("Setting up time step %d:\n", timestep);
 		else
-			log ("\nSetting up SAT problem:\n");
+			log ("Setting up SAT problem:\n");
 
 		if (initstate)
 			satgen.setInitState(timestep);
@@ -350,7 +351,8 @@ struct SatHelper
 			}
 
 			if (big_lhs.size() == 0) {
-				log("No constraints for initial state found.\n\n");
+				log("No constraints for initial state found.\n");
+				log("\n");
 				return;
 			}
 
@@ -1489,7 +1491,8 @@ struct SatPass : public Pass {
 
 			for (int inductlen = 1; inductlen <= maxsteps || maxsteps == 0; inductlen++)
 			{
-				log("\n** Trying induction with length %d **\n", inductlen);
+				log("\n");
+				log("** Trying induction with length %d **\n", inductlen);
 
 				// phase 1: proving base case
 
@@ -1504,7 +1507,8 @@ struct SatPass : public Pass {
 
 					if (tempinduct_skip < inductlen)
 					{
-						log("\n[base case %d] Solving problem with %d variables and %d clauses..\n",
+						log("\n");
+						log("[base case %d] Solving problem with %d variables and %d clauses..\n",
 								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
 						log_flush();
 
@@ -1526,9 +1530,10 @@ struct SatPass : public Pass {
 					}
 					else
 					{
-						log("\n[base case %d] Skipping prove for this step (-tempinduct-skip %d).",
+						log("\n");
+						log("[base case %d] Skipping prove for this step (-tempinduct-skip %d).\n",
 								inductlen, tempinduct_skip);
-						log("\n[base case %d] Problem size so far: %d variables and %d clauses.\n",
+						log("[base case %d] Problem size so far: %d variables and %d clauses.\n",
 								inductlen, basecase.ez->numCnfVariables(), basecase.ez->numCnfClauses());
 					}
 					basecase.ez->assume(property);
@@ -1547,16 +1552,17 @@ struct SatPass : public Pass {
 
 					if (inductlen <= tempinduct_skip || inductlen <= initsteps || inductlen % stepsize != 0)
 					{
+						log("\n");
 						if (inductlen < tempinduct_skip)
-							log("\n[induction step %d] Skipping prove for this step (-tempinduct-skip %d).",
+							log("[induction step %d] Skipping prove for this step (-tempinduct-skip %d).\n",
 									inductlen, tempinduct_skip);
 						if (inductlen < initsteps)
-							log("\n[induction step %d] Skipping prove for this step (-initsteps %d).",
+							log("[induction step %d] Skipping prove for this step (-initsteps %d).\n",
 									inductlen, tempinduct_skip);
 						if (inductlen % stepsize != 0)
-							log("\n[induction step %d] Skipping prove for this step (-stepsize %d).",
+							log("[induction step %d] Skipping prove for this step (-stepsize %d).\n",
 									inductlen, stepsize);
-						log("\n[induction step %d] Problem size so far: %d variables and %d clauses.\n",
+						log("[induction step %d] Problem size so far: %d variables and %d clauses.\n",
 								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
 						inductstep.ez->assume(property);
 					}
@@ -1576,7 +1582,8 @@ struct SatPass : public Pass {
 							fclose(f);
 						}
 
-						log("\n[induction step %d] Solving problem with %d variables and %d clauses..\n",
+						log("\n");
+						log("[induction step %d] Solving problem with %d variables and %d clauses..\n",
 								inductlen, inductstep.ez->numCnfVariables(), inductstep.ez->numCnfClauses());
 						log_flush();
 
@@ -1596,11 +1603,13 @@ struct SatPass : public Pass {
 			}
 
 			if (tempinduct_baseonly) {
-				log("\nReached maximum number of time steps -> proved base case for %d steps: SUCCESS!\n", maxsteps);
+				log("\n");
+				log("Reached maximum number of time steps -> proved base case for %d steps: SUCCESS!\n", maxsteps);
 				goto tip_success;
 			}
 
-			log("\nReached maximum number of time steps -> proof failed.\n");
+			log("\n");
+			log("Reached maximum number of time steps -> proof failed.\n");
 			if(!vcd_file_name.empty())
 				inductstep.dump_model_to_vcd(vcd_file_name);
 			if(!json_file_name.empty())
@@ -1683,7 +1692,8 @@ struct SatPass : public Pass {
 			int rerun_counter = 0;
 
 		rerun_solver:
-			log("\nSolving problem with %d variables and %d clauses..\n",
+			log("\n");
+			log("Solving problem with %d variables and %d clauses..\n",
 					sathelper.ez->numCnfVariables(), sathelper.ez->numCnfClauses());
 			log_flush();
 

@@ -83,7 +83,8 @@ struct EstimateSta {
 
 	void run()
 	{
-		log("\nModule %s\n", m);
+		log("\n");
+		log("Module %s\n", m);
 		if (clk.has_value())
 			log("Domain %s\n", log_signal(*clk));
 
@@ -266,7 +267,8 @@ struct EstimateSta {
 			return;
 		}
 
-		log("Critical path is %ld nodes long:\n\n", crit);
+		log("Critical path is %ld nodes long:\n", crit);
+		log("\n");
 
 		// we use dict instead of pool because dict gives us
 		// some compile-time errors related to hashing

@@ -534,7 +534,9 @@ struct DumpPass : public Pass {
 		if (!empty) {
 			delete f;
 		} else {
-			log("%s", buf.str());
+			std::string line;
+			while (std::getline(buf, line))
+				log("%s\n", line.c_str());
 		}
 	}
 } DumpPass;

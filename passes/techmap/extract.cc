@@ -665,7 +665,8 @@ struct ExtractPass : public Pass {
 
 				for (int i = 0; i < int(results.size()); i++) {
 					auto &result = results[i];
-					log("\nMatch #%d: (%s in %s)\n", i, result.needleGraphId, result.haystackGraphId);
+					log("\n");
+					log("Match #%d: (%s in %s)\n", i, result.needleGraphId, result.haystackGraphId);
 					for (const auto &it : result.mappings) {
 						std::string message = stringf("  %s -> %s", it.first, it.second.haystackNodeId);
 						for (const auto & it2 : it.second.portMapping)
@@ -690,11 +691,12 @@ struct ExtractPass : public Pass {
 			int needleCounter = 0;
 			for (auto &result: results)
 			{
-				log("\nFrequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				log("  primary match in %s:", haystack_map.at(result.graphId)->name.unescape());
-				for (auto &node : result.nodes)
-					log(" %s", RTLIL::unescape_id(node.nodeId));
 				log("\n");
+				log("Frequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
+				std::string message = stringf("  primary match in %s:", haystack_map.at(result.graphId)->name.unescape());
+				for (auto &node : result.nodes)
+					message += stringf(" %s", RTLIL::unescape_id(node.nodeId));
+				log("%s\n", message);
 				for (auto &it : result.matchesPerGraph)
 					log("  matches in %s: %d\n", haystack_map.at(it.first)->name.unescape(), it.second);
 
