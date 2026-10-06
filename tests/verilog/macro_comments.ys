@@ -1,0 +1,29 @@
+read_verilog <<EOT
+
+`define MACRO(dummy, x) IDENT_``x``_
+`define MACRO_FIRST(x, dummy) IDENT_``x``_
+module top(
+	IDENT_Q1_,
+	IDENT_Q2_,
+	IDENT_Q3_,
+	IDENT_Q4_,
+	IDENT_Q5_,
+	IDENT_Q6_,
+	IDENT_Q7_
+);
+	output wire `MACRO(_, /* comment */ Q1);
+	output wire `MACRO(_, /*
+		*
+		*/ Q2);
+	output wire `MACRO(_, 	Q3 );
+	output wire `MACRO(_,
+		Q4);
+	output wire `MACRO(_, // comment
+		Q5);
+	output wire `MACRO(_, 	Q6 /* comment */ );
+	output wire `MACRO_FIRST(Q7 /* comment */ , _);
+	wire after;
+endmodule
+
+EOT
+select -assert-count 1 w:after a:src=*:24.* %i

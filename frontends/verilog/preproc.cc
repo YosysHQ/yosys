@@ -402,21 +402,31 @@ static void input_file(std::istream &f, std::string filename)
 	input_buffer.insert(it, "\n`file_pop\n");
 }
 
+static bool is_blank_token(const std::string &tok)
+{
+	return tok.empty() || tok[0] == ' ' || tok[0] == '\t' || tok.compare(0, 2, "/*") == 0;
+}
+
 // Read tokens to get one argument (either a macro argument at a callsite or a default argument in a
 // macro definition). Writes the argument to dest. Returns true if we finished with ')' (the end of
 // the argument list); false if we finished with ','.
 static bool read_argument(std::string &dest)
 {
-	skip_spaces();
 	std::vector<char> openers;
+	bool pending_space = false;
 	for (;;) {
 		std::string tok = next_token(true);
+		if (is_blank_token(tok)) {
+			pending_space = !dest.empty();
+			continue;
+		}
+		if (openers.empty() && (tok == ")" || tok == ","))
+			return tok == ")";
+		if (pending_space)
+			dest += ' ';
+		pending_space = false;
+
 		if (tok == ")") {
-			if (openers.empty()) {
-				while (dest.size() && (dest.back() == ' ' || dest.back() == '\t'))
-					dest = dest.substr(0, dest.size() - 1);
-				return true;
-			}
 			if (openers.back() != '(')
 				log_error("Mismatched brackets in macro argument: %c and %c.\n",
 				          openers.back(), tok[0]);
@@ -444,10 +454,6 @@ static bool read_argument(std::string &dest)
 			openers.pop_back();
 			dest += tok;
 			continue;
-		}
-
-		if (tok == "," && openers.empty()) {
-			return false;
 		}
 
 		if (tok == "(" || tok == "[" || tok == "{")
