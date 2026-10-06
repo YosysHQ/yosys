@@ -378,19 +378,17 @@ struct CheckPass : public Pass {
 
 			for (auto state : {State::S0, State::S1, State::Sx})
 				if (wire_drivers.count(state)) {
-					string message = stringf("Drivers conflicting with a constant %s driver:\n", log_signal(state));
+					log_warning("Drivers conflicting with a constant %s driver:\n", log_signal(state));
 					for (auto str : wire_drivers[state])
-						message += stringf("    %s\n", str);
-					log_warning("%s", message);
+						log("    %s\n", str);
 					counter++;
 				}
 
 			for (auto it : wire_drivers)
 				if (wire_drivers_count[it.first] > 1) {
-					string message = stringf("multiple conflicting drivers for %s.%s:\n", module, log_signal(it.first));
+					log_warning("multiple conflicting drivers for %s.%s:\n", module, log_signal(it.first));
 					for (auto str : it.second)
-						message += stringf("    %s\n", str);
-					log_warning("%s", message);
+						log("    %s\n", str);
 					counter++;
 				}
 
@@ -402,7 +400,7 @@ struct CheckPass : public Pass {
 
 			topo.sort();
 			for (auto &loop : topo.loops) {
-				string message = stringf("found logic loop in module %s:\n", module);
+				log_warning("found logic loop in module %s:\n", module);
 
 				// `loop` only contains wire bits, or an occasional special helper node for cells for
 				// which we have done the edges fallback. The cell and its ports that led to an edge are
@@ -421,14 +419,13 @@ struct CheckPass : public Pass {
 						continue; // helper node for edges fallback, we can ignore it
 
 					struct MatchingEdgePrinter : AbstractCellEdgesDatabase {
-						std::string &message;
 						SigMap &sigmap;
 						SigBit from, to;
 						int nhits;
 						const int HITS_LIMIT = 3;
 
-						MatchingEdgePrinter(std::string &message, SigMap &sigmap, SigBit from, SigBit to)
-							: message(message), sigmap(sigmap), from(from), to(to), nhits(0) {}
+						MatchingEdgePrinter(SigMap &sigmap, SigBit from, SigBit to)
+							: sigmap(sigmap), from(from), to(to), nhits(0) {}
 
 						void add_edge(RTLIL::Cell *cell, RTLIL::IdString from_port, int from_bit,
 									  RTLIL::IdString to_port, int to_bit, int) override {
@@ -436,10 +433,10 @@ struct CheckPass : public Pass {
 							SigBit edge_to = sigmap(cell->getPort(to_port))[to_bit];
 
 							if (edge_from == from && edge_to == to && nhits++ < HITS_LIMIT)
-								message += stringf("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
+								log("      %s[%d] --> %s[%d]\n", from_port.unescape(), from_bit,
 												   to_port.unescape(), to_bit);
 							if (nhits == HITS_LIMIT)
-								message += "      ...\n";
+								log("      ...\n");
 						}
 					};
 
@@ -455,13 +452,13 @@ struct CheckPass : public Pass {
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
-					message += stringf("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
+					log("    cell %s (%s)%s\n", driver, driver->type.unescape(), driver_src);
 
 					if (!coarsened_cells.count(driver)) {
-						MatchingEdgePrinter printer(message, sigmap, prev, bit);
+						MatchingEdgePrinter printer(sigmap, prev, bit);
 						printer.add_edges_from_cell(driver);
 					} else {
-						message += "      (cell's internal connectivity overapproximated; loop may be a false positive)\n";
+						log("      (cell's internal connectivity overapproximated; loop may be a false positive)\n");
 						suggest_detail = true;
 					}
 
@@ -471,12 +468,11 @@ struct CheckPass : public Pass {
 							std::string src_attr = wire->get_src_attribute();
 							wire_src = stringf(" source: %s", src_attr);
 						}
-						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);
+						log("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);
 					}
 
 					prev = bit;
 				}
-				log_warning("%s", message);
 				counter++;
 			}
 

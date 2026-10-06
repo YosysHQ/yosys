@@ -880,7 +880,12 @@ void run_pass(std::string command, RTLIL::Design *design)
 	if (design == nullptr)
 		design = yosys_design;
 
-	log_comment("\n-- Running command `%s' --\n", command);
+	log("\n");
+	std::string log_command = command;
+	std::replace_if(log_command.begin(), log_command.end(), [](char c) {
+		return c == '\n' || c == '\r' || c == '\t';
+	}, ' ');
+	log_comment("-- Running command `%s' --\n", log_command);
 
 	Pass::call(design, command);
 }

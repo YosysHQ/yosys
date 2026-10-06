@@ -1012,20 +1012,19 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 	}
 }
 
-static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel, bool whole_modules = false)
+static void describe_selection_for_assert(RTLIL::Design *design, RTLIL::Selection *sel, bool whole_modules = false)
 {
 	bool push_selection = &design->selection() != sel;
 	if (push_selection) design->push_selection(*sel);
-	std::string desc = "Selection contains:\n";
+	log("Selection contains:\n");
 	for (auto mod : design->all_selected_modules())
 	{
 		if (whole_modules && sel->selected_whole_module(mod->name))
-			desc += stringf("%s\n", mod);
+			log("%s\n", mod);
 		for (auto it : mod->selected_members())
-			desc += stringf("%s/%s\n", mod, it);
+			log("%s/%s\n", mod, it);
 	}
 	if (push_selection) design->pop_selection();
-	return desc;
 }
 
 PRIVATE_NAMESPACE_END
@@ -1570,8 +1569,8 @@ struct SelectPass : public Pass {
 			{
 				RTLIL::Selection *sel = &work_stack.back();
 				sel->optimize(design);
-				std::string desc = describe_selection_for_assert(design, sel, true);
-				log_error("Assertion failed: selection is not empty:%s\n%s", sel_str, desc);
+				describe_selection_for_assert(design, sel, true);
+				log_error("Assertion failed: selection is not empty:%s\n", sel_str);
 			}
 			return;
 		}
@@ -1585,8 +1584,8 @@ struct SelectPass : public Pass {
 			{
 				RTLIL::Selection *sel = &work_stack.back();
 				sel->optimize(design);
-				std::string desc = describe_selection_for_assert(design, sel, true);
-				log_error("Assertion failed: selection is empty:%s\n%s", sel_str, desc);
+				describe_selection_for_assert(design, sel, true);
+				log_error("Assertion failed: selection is empty:%s\n", sel_str);
 			}
 			return;
 		}
@@ -1611,21 +1610,21 @@ struct SelectPass : public Pass {
 			}
 			if (assert_count >= 0 && assert_count != total_count)
 			{
-				std::string desc = describe_selection_for_assert(design, sel);
-				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n%s",
-						total_count, assert_count, sel_str.c_str(), desc.c_str());
+				describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n",
+						total_count, assert_count, sel_str.c_str());
 			}
 			if (assert_max >= 0 && assert_max < total_count)
 			{
-				std::string desc = describe_selection_for_assert(design, sel);
-				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n%s",
-						total_count, assert_max, sel_str.c_str(), desc.c_str());
+				describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n",
+						total_count, assert_max, sel_str.c_str());
 			}
 			if (assert_min >= 0 && assert_min > total_count)
 			{
-				std::string desc = describe_selection_for_assert(design, sel);
-				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
-						total_count, assert_min, sel_str.c_str(), desc.c_str());
+				describe_selection_for_assert(design, sel);
+				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n",
+						total_count, assert_min, sel_str.c_str());
 			}
 			design->pop_selection();
 			return;

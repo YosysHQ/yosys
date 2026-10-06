@@ -230,9 +230,9 @@ static void detect_fsm(RTLIL::Wire *wire, bool ignore_self_reset=false)
 			warnings.push_back("FSM seems to be self-resetting. Possible simulation-synthesis mismatch!\n");
 
 		if (!warnings.empty()) {
-			string warnmsg = stringf("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", wire->module, wire);
-			for (auto w : warnings) warnmsg += "    " + w;
-			log_warning("%s", warnmsg);
+			log_warning("Regarding the user-specified fsm_encoding attribute on %s.%s:\n", wire->module, wire);
+			for (auto w : warnings)
+				log_warning("    %s", w);
 		} else {
 			log("FSM state register %s.%s already has fsm_encoding attribute.\n", wire->module, wire);
 		}

@@ -2081,10 +2081,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						new_left.append(left[i]);
 						new_right.append(right[i]);
 					}
-				log_file_warning(location.to_loc(), "Ignoring assignment to constant bits:\n"
-						"    old assignment: %s = %s\n    new assignment: %s = %s.\n",
-						log_signal(left), log_signal(right),
-						log_signal(new_left), log_signal(new_right));
+				log_file_warning(location.to_loc(), "Ignoring assignment to constant bits:\n");
+				log("    old assignment: %s = %s\n", log_signal(left), log_signal(right));
+				log("    new assignment: %s = %s.\n", log_signal(new_left), log_signal(new_right));
 				left = new_left;
 				right = new_right;
 			}
