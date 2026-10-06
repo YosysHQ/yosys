@@ -34,6 +34,7 @@ match div
 	// Check that b_const and c_const is constant
 	filter b_const.is_fully_const()
 	filter port(div, \B).is_fully_const()
+	filter param(div, \A_SIGNED).as_bool() == param(mul, \A_SIGNED).as_bool()
 	index <SigSpec> remove_bottom_padding(port(div, \A)) === mul_y
 endmatch
 
