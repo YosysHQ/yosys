@@ -1,9 +1,8 @@
 # https://github.com/YosysHQ/yosys/issues/4977
 
-# abc names the duplicated cell before it asserts, which used to be lost in a
-# stdio buffer that the abort never flushed
+# abc rejects the duplicated cell and aborts the script without writing output
 logger -expect log "There are two standard cells with the same name" 1
-logger -expect error "ABC" 1
+logger -expect error "output\.aig' not found" 1
 read_verilog <<EOT
 module top(input a, b, output y);
 	assign y = ~(a & b);
