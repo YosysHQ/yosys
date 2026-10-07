@@ -1,4 +1,5 @@
 #include "kernel/netview.h"
+#include "kernel/newcelltypes.h"
 #include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -11,6 +12,97 @@ bool NetView::built() const
 NetView::Instance *NetView::top() const
 {
 	return top_;
+}
+
+// A host-internal cell type (no library model)
+bool detail::internalType(RTLIL::IdString type)
+{
+	return StaticCellTypes::categories.is_known(type);
+}
+
+Netlist::Dir detail::portDir(bool input, bool output)
+{
+	if (input && output)
+		return Netlist::Dir::Inout;
+	if (input)
+		return Netlist::Dir::Input;
+	if (output)
+		return Netlist::Dir::Output;
+	return Netlist::Dir::Unknown;
+}
+
+Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
+{
+	Netlist::PortShape shape;
+	shape.name = RTLIL::unescape_id(wire->name);
+	shape.width = wire->width;
+	shape.from = wire->to_hdl_index(wire->width - 1);
+	shape.to = wire->to_hdl_index(0);
+	shape.dir = detail::portDir(wire->port_input, wire->port_output);
+	return shape;
+}
+
+void detail::moduleShapes(RTLIL::Module *module, std::vector<Netlist::PortShape> &out)
+{
+	for (RTLIL::IdString port_name : module->ports)
+		out.push_back(detail::wireShape(module->wire(port_name)));
+}
+
+bool detail::libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out)
+{
+	bool internal = StaticCellTypes::categories.is_known(cell->type);
+	if (!internal && !yosys_celltypes.cell_known(cell->type))
+		return false;
+
+	// Connected ports carry their width
+	std::vector<std::pair<RTLIL::IdString, int>> ports;
+	for (const auto &[port, sig] : cell->connections())
+		ports.emplace_back(port, sig.size());
+
+	// A fresh internal cell gets width 1
+	if (ports.empty() && internal) {
+		for (RTLIL::IdString port : StaticCellTypes::port_info.inputs(cell->type))
+			ports.emplace_back(port, 1);
+		for (RTLIL::IdString port : StaticCellTypes::port_info.outputs(cell->type))
+			ports.emplace_back(port, 1);
+	}
+
+	for (const auto &[port, width] : ports) {
+		Netlist::PortShape shape;
+		shape.name = RTLIL::unescape_id(port);
+		shape.width = width;
+		shape.from = width - 1;
+		shape.to = 0;
+		shape.dir = detail::libraryPortDir(cell, port, internal);
+		out.push_back(shape);
+	}
+	return !ports.empty();
+}
+
+Netlist::Dir detail::libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool internal)
+{
+	if (internal) {
+		bool input = StaticCellTypes::port_info.inputs(cell->type).contains(port);
+		bool output = StaticCellTypes::port_info.outputs(cell->type).contains(port);
+		return detail::portDir(input, output);
+	}
+	bool input = yosys_celltypes.cell_input(cell->type, port);
+	bool output = yosys_celltypes.cell_output(cell->type, port);
+	return detail::portDir(input, output);
+}
+
+bool NetView::hostPorts(const Instance *inst, std::vector<PortShape> &out) const
+{
+	RTLIL::Module *mod;
+	if (isTop(inst))
+		mod = module(inst);
+	else
+		mod = design_->module(cell(inst)->type);
+	if (mod != nullptr) {
+		detail::moduleShapes(mod, out);
+		return true;
+	}
+	return detail::libraryPorts(cell(inst), out);
 }
 
 RTLIL::Module *NetView::topModule(RTLIL::Design *design)
@@ -115,6 +207,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	// Leaves open no scope (module is nullptr)
 	inst->leaf = module == nullptr;
+	inst->internal = inst->leaf && detail::internalType(type);
 	inst->ports = nullptr;
 
 	inst_cell_[inst->id] = cell;

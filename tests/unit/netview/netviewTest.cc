@@ -90,6 +90,7 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	ASSERT_NE(isub, nullptr);
 	EXPECT_FALSE(isub->leaf);
 	EXPECT_TRUE(iinv0->leaf);
+	EXPECT_FALSE(iinv0->internal);
 	EXPECT_EQ(isub->parent, t);
 	EXPECT_EQ(view.module(isub), sub);
 	EXPECT_EQ(view.scope(sub), isub);
