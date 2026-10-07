@@ -61,7 +61,7 @@ struct SynthEfinixPass : public ScriptPass
 		log("    -nobram\n");
 		log("        do not use EFX_RAM_5K cells in output netlist\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
+		SynthLatchesConfig::help();
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");

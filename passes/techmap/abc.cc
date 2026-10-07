@@ -824,7 +824,7 @@ std::string add_echos_to_abc_cmd(std::string str)
 	return new_str;
 }
 
-std::string fold_abc_cmd(std::string str)
+void fold_abc_cmd(std::string str)
 {
 	std::string token, new_str = "          ";
 	int char_counter = 10;
@@ -833,14 +833,15 @@ std::string fold_abc_cmd(std::string str)
 		if (i < str.size())
 			token += str[i];
 		if (i == str.size() || str[i] == ';') {
-			if (char_counter + token.size() > 75)
-				new_str += "\n              ", char_counter = 14;
+			if (char_counter + token.size() > 75) {
+				log("%s\n", new_str);
+				new_str = "              ", char_counter = 14;
+			}
 			new_str += token, char_counter += token.size();
 			token.clear();
 		}
 	}
-
-	return new_str;
+	log("%s\n", new_str);
 }
 
 std::string replace_tempdir(std::string text, std::string_view global_tempdir_name, std::string_view per_run_tempdir_name, bool show_tempdir)
@@ -1892,19 +1893,19 @@ struct AbcPass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -liberty/-genlib without -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LIB));
+		fold_abc_cmd(ABC_COMMAND_LIB);
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
+		fold_abc_cmd(ABC_COMMAND_CTR);
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1"));
+		fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1");
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
+		fold_abc_cmd(ABC_COMMAND_LUT);
 		log("\n");
 		log("        otherwise:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL));
+		fold_abc_cmd(ABC_COMMAND_DFL);
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");

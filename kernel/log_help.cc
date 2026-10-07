@@ -125,7 +125,8 @@ void log_body_str(const std::string &pass_str, std::string indent_str, bool lead
 					word = word.substr(1, word.length()-2);
 				if (curr_len + word.length() >= MAX_LINE_LEN-1) {
 					curr_len = 0;
-					message += "\n" + indent_str;
+					log("%s\n", message);
+					message = indent_str;
 				}
 				if (word.length()) {
 					message += word + " ";
