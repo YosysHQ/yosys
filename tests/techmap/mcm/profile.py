@@ -24,11 +24,14 @@ class ProfileResult:
 	negations: int
 	depth: int | None
 	shifts: int | None = None
+	mul: int = 0
 
-	def __str__(self) -> str:
+	def time(self) -> str:
+		return f"{self.seconds:.3f}s"
+
+	def stats(self) -> str:
 		depth = self.depth if self.depth is not None else "unknown"
-		shifts = f", {self.shifts} shifts" if self.shifts is not None else ""
-		return f"{self.seconds:.3f}s, {self.adds_subs} adds/subtracts, {self.negations} negations{shifts}, depth {depth}"
+		return f"add+sub={self.adds_subs}, mul={self.mul}, depth={depth}"
 
 def parse_yosys(stdout: str, seconds: float) -> ProfileResult:
 	if not re.search(r"^=== .+ ===$", stdout, re.MULTILINE):
@@ -37,7 +40,7 @@ def parse_yosys(stdout: str, seconds: float) -> ProfileResult:
 	for count, cell in STAT_RE.findall(stdout):
 		cells[cell] = cells.get(cell, 0) + int(count)
 	depths = [int(depth) for depth in DEPTH_RE.findall(stdout)]
-	return ProfileResult(seconds, cells.get("add", 0) + cells.get("sub", 0), cells.get("neg", 0), max(depths, default=None))
+	return ProfileResult(seconds, cells.get("add", 0) + cells.get("sub", 0), cells.get("neg", 0), max(depths, default=None), mul=cells.get("mul", 0))
 
 def parse_acm(stdout: str, seconds: float) -> ProfileResult:
 	cost = ACM_COST_RE.search(stdout)
@@ -45,7 +48,8 @@ def parse_acm(stdout: str, seconds: float) -> ProfileResult:
 	if cost is None or depth is None:
 		raise ValueError("Missing ACM cost or depth")
 	adds_subs, shifts, negations = map(int, cost.groups())
-	return ProfileResult(seconds, adds_subs, negations, int(depth.group(1)), shifts)
+	mul = len(re.findall(r"^\s*t\d+\s*=\s*cmul\(", stdout, re.MULTILINE))
+	return ProfileResult(seconds, adds_subs, negations, int(depth.group(1)), shifts, mul)
 
 def run_profile(args: list[str], log_path: Path) -> tuple[str, float]:
 	log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -93,9 +97,11 @@ class TestFile:
 		coeffs = self.coeffs
 		ratio = yosys.seconds / acm.seconds
 		items = [
-			("yosys", yosys),
-			("hcub_paper", acm),
-			("ratio", f"{ratio:.2f}"),
+			("yosys runtime", yosys.time()),
+			("hcub_paper runtime", acm.time()),
+			("yosys stats", yosys.stats()),
+			("hcub_paper stats", acm.stats()),
+			("runtime ratio", f"{ratio:.2f}"),
 			("coeffs", ", ".join(coeffs)),
 		]
 		print_table(self.path.stem, items)
@@ -108,6 +114,7 @@ def print_table(title: str, items: list[tuple[str, str]]) -> None:
 		longest_name = max(longest_name, len(name))
 	for name, value in items:
 		num_spaces = longest_name - len(name)
+		value = str(value).replace("\n", "\n\t" + " " * (longest_name + 2))
 		print(f"\t{name}:{' ' * num_spaces} {value}")
 	print()
 
