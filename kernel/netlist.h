@@ -113,6 +113,13 @@ struct Netlist
 	virtual bool valid() const = 0;
 
 	virtual Instance *top() const = 0;
+	bool isTop(const Instance *inst) const;
+
+	const PortShape &shape(const Pin *pin) const;
+	Dir dir(const Pin *pin) const;
+	bool scalar(const Pin *pin) const;
+	int hdlIndex(const Pin *pin) const;
+	bool isDriver(const Pin *pin) const;
 };
 
 YOSYS_NAMESPACE_END
