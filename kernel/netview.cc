@@ -34,14 +34,42 @@ RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cel
 	return sub;
 }
 
+// Every non-top module may be instantiated once, more needs uniquify
+bool detail::checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason)
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		RTLIL::Module *sub = detail::childModule(design, cell);
+		if (sub == nullptr)
+			continue;
+		if (sub == top || !seen.insert(sub).second) {
+			reason = stringf("module %s instantiated more than once (run uniquify)", log_id(sub));
+			return false;
+		}
+		if (!detail::checkUniquified(design, top, sub, seen, reason))
+			return false;
+	}
+	return true;
+}
+
+bool NetView::buildable(RTLIL::Design *design, std::string &reason)
+{
+	RTLIL::Module *top = topModule(design);
+	if (top == nullptr) {
+		reason = "no top module (run hierarchy -top)";
+		return false;
+	}
+	pool<RTLIL::Module *> seen;
+	return detail::checkUniquified(design, top, top, seen, reason);
+}
+
 void NetView::build(RTLIL::Design *design)
 {
 	log_assert(!built());
-	RTLIL::Module *top = topModule(design);
-	if (top == nullptr)
-		log_cmd_error("NetView: no top module (run hierarchy -top).\n");
+	std::string reason;
+	if (!buildable(design, reason))
+		log_cmd_error("NetView: %s.\n", reason);
 	design_ = design;
-	buildTop(top);
+	buildTop(topModule(design));
 }
 
 void NetView::buildTop(RTLIL::Module *top)

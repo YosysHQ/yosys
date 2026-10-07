@@ -1,4 +1,4 @@
-// NetView: a Netlist built from an RTLIL design
+// NetView: a Netlist built from a uniquified RTLIL design
 // - Instances  one per cell, depth first
 
 #ifndef NETVIEW_H
@@ -15,6 +15,7 @@ namespace detail {
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
+bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
 
 } // namespace detail
 
@@ -25,6 +26,7 @@ struct NetView final : public Netlist
 	NetView &operator=(const NetView &) = delete;
 
 	void build(RTLIL::Design *design);
+	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
 	bool built() const;
 	static RTLIL::Module *topModule(RTLIL::Design *design);
