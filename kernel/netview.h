@@ -9,6 +9,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 
+#include <array>
 #include <deque>
 #include <map>
 #include <unordered_map>
@@ -54,6 +55,7 @@ struct NetView final : public Netlist
 	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const override;
 
 	const std::vector<Net *> &nets(const Instance *scope) const override;
+	Net *constNet(const Instance *scope, bool one) const override;
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
@@ -63,6 +65,7 @@ struct NetView final : public Netlist
 private:
 	using PortShapes = std::vector<PortShape>;
 	using Nets = std::vector<Net *>;
+	using ConstNets = std::array<Net *, 2>; // tie-low, tie-high
 
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
@@ -71,10 +74,10 @@ private:
 	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
-	Net *newNet(Instance *scope);
+	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
 	SigMap &sigmapFor(RTLIL::Module *module) const;
 	Net *knownNet(const RTLIL::SigBit &bit) const;
-	Net *findOrMakeNet(const RTLIL::SigBit &bit);
+	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
 private:
 	RTLIL::Design *design_ = nullptr;
 	PortModel *ports_ = nullptr;
@@ -96,6 +99,7 @@ private:
 
 	// Scope contents
 	std::unordered_map<const Instance *, Nets> scope_nets_;
+	std::unordered_map<const Instance *, ConstNets> const_nets_;
 
 	// RTLIL to records
 	dict<uint32_t, Instance *> cell_inst_; // by cell hashidx_

@@ -79,8 +79,15 @@ struct Netlist
 	};
 
 	struct Net {
+		enum class Const : uint8_t {
+			None,
+			Zero,
+			One
+		};
+
 		Instance *scope;
 		uint32_t id;
+		Const constant;
 		std::vector<Pin *> pins;   // pins inside the scope on this net
 		std::vector<Term *> terms; // boundary terms whose inner net is this
 	};
@@ -119,6 +126,7 @@ struct Netlist
 	virtual bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const = 0;
 
 	virtual const std::vector<Net *> &nets(const Instance *scope) const = 0;
+	virtual Net *constNet(const Instance *scope, bool one) const = 0;
 
 	const PortShape &shape(const Pin *pin) const;
 	Dir dir(const Pin *pin) const;
