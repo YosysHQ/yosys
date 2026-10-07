@@ -4,6 +4,7 @@ import re
 import subprocess
 import time
 import statistics
+from enum import Enum
 
 from pathlib import Path
 from dataclasses import dataclass
@@ -15,7 +16,7 @@ ACM_COST_RE = re.compile(r"^// Cost: (\d+) adds/subtracts (\d+) shifts (\d+) neg
 ACM_DEPTH_RE = re.compile(r"^// Depth: (\d+)$", re.MULTILINE)
 
 # Can also use MAX_TESTS = None for no limit
-MAX_TESTS = 10
+MAX_TESTS = 50
 
 @dataclass
 class ProfileResult:
@@ -118,6 +119,24 @@ def print_table(title: str, items: list[tuple[str, str]]) -> None:
 		print(f"\t{name}:{' ' * num_spaces} {value}")
 	print()
 
+class Cmp(Enum):
+		Better = 1
+		Same = 2
+		Worse = 3
+
+def cmp(yosys: ProfileResult, acm: ProfileResult) -> Cmp:
+	if yosys.mul > acm.mul:
+		return Cmp.Worse
+	elif yosys.mul < acm.mul:
+		return Cmp.Better
+
+	if yosys.adds_subs > acm.adds_subs:
+		return Cmp.Worse
+	elif yosys.adds_subs < acm.adds_subs:
+		return Cmp.Better
+
+	return Cmp.Same
+
 def main():
 	if not "YOSYS" in os.environ:
 		raise Exception("Set YOSYS environment variable to absolute path of yosys binary")
@@ -146,12 +165,21 @@ def main():
 
 	avg_runtime_ratio = avg_yosys_runtime / avg_acm_runtime
 
+	compared_results = [cmp(yosys_res, acm_res) for (yosys_res, acm_res) in results]
+
+	num_better = len([i for i in compared_results if i == Cmp.Better])
+	num_same   = len([i for i in compared_results if i == Cmp.Same])
+	num_worse  = len([i for i in compared_results if i == Cmp.Worse])
+
 	items = [
 		("Avg Yosys runtime (ms)", f"{avg_yosys_runtime:.2f}"),
 		("Avg hcub_paper runtime (ms)", f"{avg_acm_runtime:.2f}"),
 		("Stdev Yosys runtime (ms)", f"{stdev_yosys_runtime:.2f}"),
 		("Stdev hcub_paper runtime (ms)", f"{stdev_acm_runtime:.2f}"),
-		("Average hcub_paper Speed Up", f"{avg_runtime_ratio:.2f}")
+		("Average hcub_paper Speed Up", f"{avg_runtime_ratio:.2f}"),
+		("Number of Times Yosys Results Smaller", str(num_better)),
+		("Number of Times Yosys Results Same", str(num_same)),
+		("Number of Times Yosys Results Larger", str(num_worse)),
 	]
 	print_table("Results", items)
 
