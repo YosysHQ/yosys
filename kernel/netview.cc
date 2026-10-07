@@ -200,7 +200,7 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 void NetView::buildTop(RTLIL::Module *top)
 {
 	top_ = newInstance(nullptr, top, nullptr);
-	top_->ports = portsFor(top_, top);
+	makePins(top_);
 	buildScope(top, top_);
 }
 
@@ -211,13 +211,22 @@ void NetView::reset()
 	ports_ = nullptr;
 
 	instances_.clear();
+	pins_.clear();
+	nets_.clear();
+	terms_.clear();
 	shape_store_.clear();
 	shape_cache_.clear();
+	sigmaps_.clear();
+	bit_net_.clear();
+	scope_nets_.clear();
 	cell_inst_.clear();
 	module_scope_.clear();
 	inst_cell_.clear();
 	inst_module_.clear();
 	next_inst_id_ = 1;
+	next_pin_id_ = 1;
+	next_net_id_ = 1;
+	next_term_id_ = 1;
 }
 
 NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent)
@@ -262,10 +271,96 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : module->cells()) {
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
-		inst->ports = portsFor(inst, this->module(inst));
+		makePins(inst);
 		if (!inst->leaf)
 			buildScope(this->module(inst), inst);
 	}
+}
+
+void NetView::makePins(Instance *inst)
+{
+	RTLIL::Cell *c = cell(inst);
+	RTLIL::Module *sub = module(inst);
+	inst->ports = portsFor(inst, sub);
+	for (uint32_t p = 0; p < inst->ports->size(); p++) {
+		const PortShape &shape = (*inst->ports)[p];
+		RTLIL::IdString port_id = RTLIL::escape_id(shape.name);
+		RTLIL::SigSpec sig;
+		if (c != nullptr && c->hasPort(port_id))
+			sig = c->getPort(port_id);
+		RTLIL::Wire *inner_wire = nullptr;
+		if (sub != nullptr)
+			inner_wire = sub->wire(port_id);
+		for (int b = 0; b < shape.width; b++) {
+			// Outer net
+			Net *net = nullptr;
+			if (b < sig.size())
+				net = findOrMakeNet(sig[b]);
+			Pin *pin = makePin(inst, p, b, net);
+
+			// Term into the instance's scope
+			if (inner_wire == nullptr || b >= inner_wire->width)
+				continue;
+			Net *inner_net = findOrMakeNet(RTLIL::SigBit(inner_wire, b));
+			if (inner_net != nullptr)
+				makeTerm(pin, inner_net);
+		}
+	}
+}
+
+NetView::Pin *NetView::makePin(Instance *inst, uint32_t port, int bit, Net *net)
+{
+	Pin *pin = &pins_.emplace_back();
+	pin->inst = inst;
+	pin->net = net;
+	pin->term = nullptr;
+	pin->id = next_pin_id_++;
+	pin->port = port;
+	pin->bit = bit;
+	inst->pins.push_back(pin);
+	if (net != nullptr)
+		net->pins.push_back(pin);
+	return pin;
+}
+
+void NetView::makeTerm(Pin *pin, Net *inner_net)
+{
+	Term *term = &terms_.emplace_back();
+	term->pin = pin;
+	term->net = inner_net;
+	term->id = next_term_id_++;
+	pin->term = term;
+	inner_net->terms.push_back(term);
+}
+
+NetView::Net *NetView::newNet(Instance *scope)
+{
+	Net *net = &nets_.emplace_back();
+	net->scope = scope;
+	net->id = next_net_id_++;
+	scope_nets_[scope].push_back(net);
+	return net;
+}
+
+SigMap &NetView::sigmapFor(RTLIL::Module *module) const
+{
+	auto it = sigmaps_.find(module);
+	if (it != sigmaps_.end())
+		return it->second;
+	return sigmaps_.try_emplace(module, module).first->second;
+}
+
+uint64_t detail::bitKey(const RTLIL::SigBit &bit)
+{
+	return uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset);
+}
+
+NetView::Net *NetView::knownNet(const RTLIL::SigBit &bit) const
+{
+	auto it = bit_net_.find(detail::bitKey(bit));
+	if (it == bit_net_.end())
+		return nullptr;
+	return it->second;
 }
 
 RTLIL::Cell *NetView::cell(const Instance *inst) const
@@ -292,6 +387,35 @@ NetView::Instance *NetView::scope(const RTLIL::Module *module) const
 	if (it == module_scope_.end())
 		return nullptr;
 	return it->second;
+}
+
+const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const
+{
+	static const std::vector<Net *> none;
+	auto it = scope_nets_.find(scope);
+	if (it == scope_nets_.end())
+		return none;
+	return it->second;
+}
+
+NetView::Net *NetView::findOrMakeNet(const RTLIL::SigBit &bit)
+{
+	// Constants are left unconnected
+	if (bit.wire == nullptr)
+		return nullptr;
+	if (Net *net = knownNet(bit))
+		return net;
+	RTLIL::SigBit canon = sigmapFor(bit.wire->module)(bit);
+	if (canon.wire == nullptr)
+		return nullptr;
+	Net *net = knownNet(canon);
+	if (net == nullptr) {
+		net = newNet(scope(canon.wire->module));
+		bit_net_[detail::bitKey(canon)] = net;
+	}
+	if (bit != canon)
+		bit_net_[detail::bitKey(bit)] = net;
+	return net;
 }
 
 bool NetView::valid() const
