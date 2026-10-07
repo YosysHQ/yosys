@@ -154,6 +154,8 @@ struct FfInitVals
 			for (int i = 0; i < GetSize(sig_y); i++)
 				next[sig_y[i]] = sig_a[i];
 		}
+		if (next.empty() || initbits.empty())
+			return;
 		pool<RTLIL::SigBit> inputs = input_nets(module), moved;
 		for (auto [from, to] : next) {
 			RTLIL::State val = (*this)(from);
@@ -172,7 +174,8 @@ struct FfInitVals
 				log_error("Conflicting init values for signal %s (%s = %s != %s).\n",
 						log_signal(to), log_signal(from), log_signal(val), log_signal(to_val));
 		}
-		remove_net_inits(module, moved);
+		if (!moved.empty())
+			remove_net_inits(module, moved);
 	}
 
 	pool<RTLIL::SigBit> input_nets(RTLIL::Module *module) const

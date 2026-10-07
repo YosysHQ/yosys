@@ -79,6 +79,7 @@ struct FlattenWorker
 	bool create_scopename = false;
 	std::string separator = ".";
 	bool barriers = false;
+	bool added_barriers = false;
 
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
@@ -281,8 +282,10 @@ struct FlattenWorker
 				if (!skip_conn.first.empty())
 					module->connect(skip_conn);
 
-				if (!barrier_conn.first.empty())
+				if (!barrier_conn.first.empty()) {
 					module->addBarrier(NEW_ID, barrier_conn.second, barrier_conn.first);
+					added_barriers = true;
+				}
 			} else {
 				module->connect(new_conn);
 			}
@@ -326,6 +329,7 @@ struct FlattenWorker
 
 		SigMap sigmap(module);
 		std::vector<RTLIL::Cell*> worklist = module->selected_cells();
+		added_barriers = false;
 		while (!worklist.empty())
 		{
 			RTLIL::Cell *cell = worklist.back();
@@ -351,7 +355,7 @@ struct FlattenWorker
 			flatten_cell(design, module, cell, tpl, sigmap, worklist, separator);
 		}
 
-		if (barriers) {
+		if (added_barriers) {
 			SigMap init_sigmap(module);
 			FfInitVals initvals(&init_sigmap, module);
 			initvals.move_barrier_inits(module);

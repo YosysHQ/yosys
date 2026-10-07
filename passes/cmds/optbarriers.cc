@@ -118,11 +118,7 @@ private:
 
 struct ResetPathWorker {
 	ResetPathWorker(RTLIL::Module* module) {
-		for (auto* cell : module->cells())
-			if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not), ID($not), ID($eq), ID($eqx), ID($ne), ID($nex)))
-				if (GetSize(cell->getPort(ID::Y)) == 1)
-					drivers[cell->getPort(ID::Y)[0]] = cell;
-
+		std::vector<std::pair<const RTLIL::Process*, pool<SigBit>>> edge_procs;
 		for (const auto& [_, proc] : module->processes) {
 			pool<SigBit> edges;
 			for (const auto* sync : proc->syncs)
@@ -130,8 +126,20 @@ struct ResetPathWorker {
 					for (const auto& bit : sync->signal)
 						edges.insert(bit);
 			if (!edges.empty())
-				visit(proc->root_case, edges);
+				edge_procs.emplace_back(proc, std::move(edges));
 		}
+
+		// Without edge triggered processes there are no reset paths
+		if (edge_procs.empty())
+			return;
+
+		for (auto* cell : module->cells())
+			if (cell->type.in(ID($reduce_or), ID($reduce_bool), ID($logic_not), ID($not), ID($eq), ID($eqx), ID($ne), ID($nex)))
+				if (GetSize(cell->getPort(ID::Y)) == 1)
+					drivers[cell->getPort(ID::Y)[0]] = cell;
+
+		for (const auto& [proc, edges] : edge_procs)
+			visit(proc->root_case, edges);
 	}
 
 	void visit(const RTLIL::CaseRule& caserule, const pool<SigBit>& edges) {
@@ -195,8 +203,7 @@ struct OptBarriersPass : public Pass {
 		log("\n");
 		log("    -private\n");
 		log("        also add optimization barriers to private wires driven by cells and\n");
-		log("        connections. Private wires driven by processes are frontend\n");
-		log("        temporaries and never get barriers.\n");
+		log("        connections, excluding private wires driven by processes\n");
 		log("\n");
 		log("    -remove\n");
 		log("        replace selected optimization barriers with connections\n");
@@ -259,13 +266,17 @@ struct OptBarriersPass : public Pass {
 			// Y to A
 			dict<RTLIL::SigBit, RTLIL::SigBit> new_barriers;
 
-			// Nets that already drive a barrier input which must not get a second barrier
-			const SigMap sigmap(module);
+			// Nets that already drive a barrier input which must not get a second barrier.
+			// Only private wires check this, so only needed in private mode
+			SigMap sigmap;
 			pool<SigBit> barrier_inputs;
-			for (auto* cell : module->cells())
-				if (cell->type == ID($barrier))
-					for (const auto& bit : sigmap(cell->getPort(ID::A)))
-						barrier_inputs.insert(bit);
+			if (private_mode) {
+				sigmap.set(module);
+				for (auto* cell : module->cells())
+					if (cell->type == ID($barrier))
+						for (const auto& bit : sigmap(cell->getPort(ID::A)))
+							barrier_inputs.insert(bit);
+			}
 			const ResetPathWorker reset_path(module);
 
 			// Skip constants, unselected wires, private wires when not in
@@ -470,6 +481,7 @@ struct OptBarriersPass : public Pass {
 				barrier_y.append(y_bit);
 			barrier_y.sort_and_unify();
 
+			bool added_barriers = !barrier_y.empty();
 			for (const auto& sig_y : barrier_y.chunks()) {
 				log_assert(sig_y.is_wire());
 				SigSpec sig_a;
@@ -496,16 +508,20 @@ struct OptBarriersPass : public Pass {
 					if (!skip_conn.first.empty())
 						new_connections.emplace_back(std::move(skip_conn));
 
-					if (!barrier_conn.first.empty())
+					if (!barrier_conn.first.empty()) {
 						module->addBarrier(NEW_ID, barrier_conn.second, barrier_conn.first);
+						added_barriers = true;
+					}
 				}
 				module->new_connections(new_connections);
 			}
 
 			// Init values belong to the driver side of the barriers
-			SigMap init_sigmap(module);
-			FfInitVals initvals(&init_sigmap, module);
-			initvals.move_barrier_inits(module);
+			if (added_barriers) {
+				SigMap init_sigmap(module);
+				FfInitVals initvals(&init_sigmap, module);
+				initvals.move_barrier_inits(module);
+			}
 		}
 	}
 
