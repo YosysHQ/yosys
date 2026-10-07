@@ -20,6 +20,12 @@ bool detail::internalType(RTLIL::IdString type)
 	return StaticCellTypes::categories.is_known(type);
 }
 
+Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
+{
+	RTLIL::Wire *wire = bit.wire;
+	return {RTLIL::unescape_id(wire->name), wire->to_hdl_index(bit.offset), wire->width == 1};
+}
+
 Netlist::Dir detail::portDir(bool input, bool output)
 {
 	if (input && output)
@@ -220,6 +226,7 @@ void NetView::reset()
 	bit_net_.clear();
 	const_nets_.clear();
 	scope_nets_.clear();
+	scope_aliases_.clear();
 	cell_inst_.clear();
 	module_scope_.clear();
 	inst_cell_.clear();
@@ -276,6 +283,7 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 		if (!inst->leaf)
 			buildScope(this->module(inst), inst);
 	}
+	registerAliases(module, scope);
 }
 
 void NetView::makePins(Instance *inst)
@@ -348,6 +356,30 @@ NetView::Net *NetView::newNet(Instance *scope, const RTLIL::SigBit &bit)
 	return net;
 }
 
+void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
+{
+	SigMap &sigmap = sigmapFor(module);
+	for (RTLIL::Wire *wire : module->wires()) {
+		if (!wire->name.isPublic())
+			continue;
+		for (int b = 0; b < wire->width; b++) {
+			RTLIL::SigBit bit(wire, b);
+			RTLIL::SigBit canon = sigmap(bit);
+			Net *net;
+			if (canon.wire == nullptr)
+				net = findOrMakeNet(module, canon);
+			else
+				net = knownNet(canon);
+			if (net == nullptr)
+				continue;
+
+			// Public wires collapsed into another wire's net (assign aliases)
+			// stay reachable under their own names
+			scope_aliases_[scope].push_back({detail::netName(bit), net});
+		}
+	}
+}
+
 SigMap &NetView::sigmapFor(RTLIL::Module *module) const
 {
 	auto it = sigmaps_.find(module);
@@ -400,6 +432,15 @@ const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const
 	static const std::vector<Net *> none;
 	auto it = scope_nets_.find(scope);
 	if (it == scope_nets_.end())
+		return none;
+	return it->second;
+}
+
+const std::vector<NetView::Alias> &NetView::aliases(const Instance *scope) const
+{
+	static const std::vector<Alias> none;
+	auto it = scope_aliases_.find(scope);
+	if (it == scope_aliases_.end())
 		return none;
 	return it->second;
 }

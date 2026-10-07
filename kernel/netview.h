@@ -33,6 +33,7 @@ bool libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out)
 Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool internal);
 
 // Names
+Netlist::NetName netName(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
 } // namespace detail
@@ -56,6 +57,7 @@ struct NetView final : public Netlist
 
 	const std::vector<Net *> &nets(const Instance *scope) const override;
 	Net *constNet(const Instance *scope, bool one) const override;
+	const std::vector<Alias> &aliases(const Instance *scope) const override;
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
@@ -65,6 +67,7 @@ struct NetView final : public Netlist
 private:
 	using PortShapes = std::vector<PortShape>;
 	using Nets = std::vector<Net *>;
+	using Aliases = std::vector<Alias>;
 	using ConstNets = std::array<Net *, 2>; // tie-low, tie-high
 
 	void buildTop(RTLIL::Module *top);
@@ -75,6 +78,7 @@ private:
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
 	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
+	void registerAliases(RTLIL::Module *module, Instance *scope);
 	SigMap &sigmapFor(RTLIL::Module *module) const;
 	Net *knownNet(const RTLIL::SigBit &bit) const;
 	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
@@ -99,6 +103,7 @@ private:
 
 	// Scope contents
 	std::unordered_map<const Instance *, Nets> scope_nets_;
+	std::unordered_map<const Instance *, Aliases> scope_aliases_;
 	std::unordered_map<const Instance *, ConstNets> const_nets_;
 
 	// RTLIL to records
