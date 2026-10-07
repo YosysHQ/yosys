@@ -69,7 +69,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		log("        write the design to the specified verilog file. writing of an output\n");
 		log("        file is omitted if this parameter is not specified.\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
+		SynthLatchesConfig::help();
 		log("        (only applies to the pp3 family)\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");

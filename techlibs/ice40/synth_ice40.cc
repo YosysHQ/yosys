@@ -106,7 +106,7 @@ struct SynthIce40Pass : public ScriptPass
 		log("        read/write collision\" (same result as setting the no_rw_check\n");
 		log("        attribute on all memories).\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
+		SynthLatchesConfig::help();
 		log("\n");
 		log("\n");
 		log("The following commands are executed by this synthesis command:\n");
