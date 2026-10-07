@@ -1,0 +1,46 @@
+#ifndef YOSYS_HCUB_H
+#define YOSYS_HCUB_H
+
+#include "mcm.h"
+
+namespace Yosys::Mcm::Hcub {
+
+class HcubSearch : public Search {
+public:
+	explicit HcubSearch(const SearchParams &params);
+
+	bool a_op_valid(const AOp &op) const override;
+	AOpMap vertex_fundamental_set(int64_t u, int64_t v) const;
+	AOpMap vertex_fundamental_set(const IntSet &u, const IntSet &v) const override;
+	AOpMap vertex_fundamental_set(const AOpMap &u, const AOpMap &v) const;
+	SearchResult search() override;
+
+private:
+	struct ExactDistance {
+		int value = -1; // No distance <= 3 found.
+		IntSet reducing_successors;
+	};
+
+	void add_target(const AOp &target);
+	bool heuristic(AOp &selected);
+	ExactDistance exact_dist(int64_t target) const;
+	int estimate_after(int64_t successor, int64_t target, int previous);
+	bool finishes_in_one(const IntSet &ready, int64_t successor, int64_t target) const;
+	bool finishes_in_two(int64_t successor, int64_t target) const;
+	AOpMap enumerate_pair(int64_t u, int64_t v, int shift_limit) const;
+	IntSet inverse_set(const IntSet &u, const IntSet &v) const;
+
+	McmConfig config;
+	IntSet target_set_remaining;
+	AOpMap ready_set;
+	AOpMap work_list;
+	AOpMap successor_set;
+	IntSet c1, c2;
+	std::map<int64_t, int> distance_cache;
+	std::map<std::pair<int64_t, int64_t>, int> estimate_cache;
+	int max_bit_width;
+};
+
+} // namespace Yosys::Mcm::Hcub
+
+#endif // YOSYS_HCUB_H
