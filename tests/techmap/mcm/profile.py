@@ -14,6 +14,7 @@ DEPTH_RE = re.compile(r"^\s*mcm: .* -> \d+ adder\(s\), depth (\d+),", re.MULTILI
 ACM_COST_RE = re.compile(r"^// Cost: (\d+) adds/subtracts (\d+) shifts (\d+) negations$", re.MULTILINE)
 ACM_DEPTH_RE = re.compile(r"^// Depth: (\d+)$", re.MULTILINE)
 
+# Can also use MAX_TESTS = None for no limit
 MAX_TESTS = 10
 
 @dataclass
