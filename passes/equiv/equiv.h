@@ -61,6 +61,7 @@ struct EquivWorker {
 
 	EquivWorker(RTLIL::Module *module, const SigMap *sigmap, Config cfg) : module(module), satgen(ez.get(), sigmap), cfg(cfg) {
 		satgen.model_undef = cfg.model_undef;
+		satgen.model_barriers = true;
 	}
 };
 

@@ -302,6 +302,8 @@ public:
 			return factory.bitwise_not(a);
 		}else if(cellType == ID($pos)){
 			return factory.extend(inputs.at(ID(A)), y_width, a_signed);
+		}else if(cellType == ID($barrier)){
+			return inputs.at(ID(A));
 		}else if(cellType == ID($neg)){
 			Node a = factory.extend(inputs.at(ID(A)), y_width, a_signed);
 			return factory.unary_minus(a);

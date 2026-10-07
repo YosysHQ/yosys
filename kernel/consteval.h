@@ -42,6 +42,7 @@ struct ConstEval
 	std::set<RTLIL::Cell*> busy;
 	std::vector<SigMap> stack;
 	RTLIL::State defaultval;
+	bool model_barriers = false; // Model $barrier as a buffer
 
 	ConstEval(RTLIL::Module *module, RTLIL::State defaultval = RTLIL::State::Sm) : module(module), assign_map(module), defaultval(defaultval)
 	{
@@ -136,6 +137,19 @@ struct ConstEval
 		sig_y = values_map(assign_map(cell->getPort(ID::Y)));
 		if (sig_y.is_fully_const())
 			return true;
+
+		if (cell->type == ID($barrier))
+		{
+			if (!model_barriers) {
+				undef.append(sig_y);
+				return false;
+			}
+			sig_a = cell->getPort(ID::A);
+			if (!eval(sig_a, undef, cell))
+				return false;
+			set(sig_y, sig_a.as_const());
+			return true;
+		}
 
 		if (cell->hasPort(ID::S)) {
 			sig_s = cell->getPort(ID::S);

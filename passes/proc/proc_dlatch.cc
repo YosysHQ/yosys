@@ -399,6 +399,7 @@ struct proc_dlatch_db_t
 
 		CellTypes ct;
 		ct.setup_internals();
+		ct.cell_types.erase(ID($barrier));
 
 		for (auto cell : module->cells())
 		for (auto conn : cell->connections()) {

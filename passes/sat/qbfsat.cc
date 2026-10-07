@@ -331,6 +331,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				RTLIL::SigSpec::parse_sel(wire, design, module, wire_to_optimize_name.str());
 
 				ConstEval ce(module);
+				ce.model_barriers = true;
 				value = wire;
 				if (!ce.eval(value, undef))
 					log_cmd_error("Failed to evaluate signal %s: Missing value for %s.\n", log_signal(wire), log_signal(undef));

@@ -1,0 +1,158 @@
+# Opaque to optimizers, buffer to verification
+
+# opt -share_all
+read_verilog -icells <<EOT
+module top(input a, output y1, y2);
+	\$barrier #(.WIDTH(1)) b1 (.A(a), .Y(y1));
+	\$barrier #(.WIDTH(1)) b2 (.A(a), .Y(y2));
+endmodule
+EOT
+opt -share_all
+select -assert-count 2 t:$barrier
+design -reset
+
+# freduce
+read_verilog -icells <<EOT
+module top(output y);
+	wire k;
+	\$barrier #(.WIDTH(1)) bar (.A(1'b1), .Y(k));
+	assign y = ~k;
+endmodule
+EOT
+freduce
+select -assert-count 1 t:$barrier
+select -assert-count 1 t:$not
+design -reset
+
+# opt_dff -sat
+read_verilog -icells <<EOT
+module top(input clk, a, output reg q);
+	initial q = 1'b0;
+	wire w;
+	\$barrier #(.WIDTH(1)) b (.A(1'b0), .Y(w));
+	always @(posedge clk) q <= a & w;
+endmodule
+EOT
+proc
+opt_dff -sat
+select -assert-count 1 t:$dff
+design -reset
+
+# sat, equiv_*, sim, eval
+read_verilog -icells <<EOT
+module top(input [3:0] a, output [3:0] y);
+	\$barrier #(.WIDTH(4)) b (.A(a), .Y(y));
+endmodule
+EOT
+sat -verify -prove y a
+sat -verify -enable_undef -set-def-inputs -prove y a
+logger -expect log "Eval result: \\y = 4'0101\." 1
+eval -set a 4'b0101 -show y
+logger -check-expected
+design -reset
+
+read_verilog -icells <<EOT
+module top(output [3:0] y);
+	\$barrier #(.WIDTH(4)) b (.A(4'b0101), .Y(y));
+	\$assert chk (.A(y == 4'b0101), .EN(1'b1));
+endmodule
+EOT
+sim -n 1 -assert
+design -reset
+
+read_verilog -icells <<EOT
+module gold(input a, b, output y);
+	wire w;
+	\$barrier #(.WIDTH(1)) gbar (.A(a), .Y(w));
+	assign y = w & b;
+endmodule
+module gate(input a, b, output y);
+	\$barrier #(.WIDTH(1)) tbar (.A(a & b), .Y(y));
+endmodule
+EOT
+design -save gg
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
+design -load gg
+equiv_make gold gate equiv
+equiv_induct
+equiv_status -assert
+design -load gg
+hierarchy -top gold
+equiv_opt -assert opt -full
+design -reset
+
+# fsm -expand
+read_verilog -icells <<EOT
+module top(input clk, rst, i, output o);
+	reg [1:0] st;
+	always @(posedge clk)
+		if (rst) st <= 0;
+		else case (st)
+			0: st <= i ? 1 : 0;
+			1: st <= i ? 2 : 0;
+			2: st <= i ? 2 : 3;
+			3: st <= 0;
+		endcase
+	wire inner = (st == 2);
+	wire [1:0] b;
+	\$barrier #(.WIDTH(2)) bar (.A({inner, i}), .Y(b));
+	assign o = b[1] & b[0];
+endmodule
+EOT
+proc
+opt -nodffe -nosdff
+fsm -expand
+select -assert-count 1 t:$barrier
+design -reset
+
+# fsm_extract
+read_verilog -icells <<EOT
+module top(input clk, rst, i, output o);
+	(* fsm_encoding = "auto" *) reg [1:0] st;
+	always @(posedge clk)
+		if (rst) st <= 0;
+		else case (st)
+			0: st <= i ? 1 : 0;
+			1: st <= i ? 2 : 0;
+			2: st <= i ? 2 : 3;
+			3: st <= 0;
+		endcase
+	\$barrier #(.WIDTH(1)) bar (.A(st[1]), .Y(o));
+endmodule
+EOT
+proc
+opt -nodffe -nosdff
+fsm_detect
+fsm_extract
+select -assert-count 1 t:$fsm
+select -assert-count 1 w:o %ci1:+[Y] t:$barrier %i
+select -assert-count 1 t:$barrier %ci1:+[A] w:$fsm$oldstate* %i
+design -reset
+
+# proc_dlatch
+read_verilog -icells <<EOT
+module top(input s, d, en, output reg q);
+	wire m = s ? d : 1'bx;
+	wire bb;
+	\$barrier #(.WIDTH(1)) bar (.A(m), .Y(bb));
+	always @* if (en) q = bb;
+endmodule
+EOT
+proc
+select -assert-count 1 t:$mux
+select -assert-count 0 w:d %co1:+[A] t:$mux %i
+design -reset
+
+# check loop
+read_verilog -icells <<EOT
+module top(output w);
+	wire n;
+	\$barrier #(.WIDTH(1)) bar (.A(n), .Y(w));
+	assign n = ~w;
+endmodule
+EOT
+logger -expect warning "found logic loop" 1
+check
+logger -check-expected
