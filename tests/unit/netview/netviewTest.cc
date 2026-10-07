@@ -82,6 +82,20 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(t->id, 0u);
 	EXPECT_EQ(t->name, "top");
 	EXPECT_FALSE(t->leaf);
+	EXPECT_EQ(view.module(t), top);
+	EXPECT_EQ(t->children.size(), 3u);
+
+	Netlist::Instance *isub = view.instance(u_sub);
+	Netlist::Instance *iinv0 = view.instance(u_inv0);
+	ASSERT_NE(isub, nullptr);
+	EXPECT_FALSE(isub->leaf);
+	EXPECT_TRUE(iinv0->leaf);
+	EXPECT_EQ(isub->parent, t);
+	EXPECT_EQ(view.module(isub), sub);
+	EXPECT_EQ(view.scope(sub), isub);
+	EXPECT_EQ(view.cell(iinv0), u_inv0);
+	EXPECT_EQ(iinv0->type, "INV");
+	EXPECT_EQ(isub->children.size(), 2u);
 }
 
 TEST_F(NetViewTest, resetRestartsIds)
@@ -93,6 +107,7 @@ TEST_F(NetViewTest, resetRestartsIds)
 	EXPECT_FALSE(view.valid());
 	view.build(d);
 	EXPECT_TRUE(view.valid());
+	EXPECT_EQ(view.top()->children[0]->id, 1u);
 }
 
 YOSYS_NAMESPACE_END
