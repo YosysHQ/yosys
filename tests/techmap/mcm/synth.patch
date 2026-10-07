@@ -1,0 +1,39 @@
+--- a/synth.cpp
++++ b/synth.cpp
+@@ -1,5 +1,6 @@
+ #include "synth.h"
+ #include "ac1.h"
++#include <algorithm>
+ #include <string>
+ #include <vector>
+ #include <climits>
+@@ -102,8 +103,8 @@
+ void synthesize(coeff_t c, adder ad);
+ adder *get_adder(coeff_t c);
+ void ac1_decompose_cheapest();
+-void print_set(char *nam, full_addmap_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
+-void print_set(char *nam, cfset_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
++void print_set(const char *nam, full_addmap_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
++void print_set(const char *nam, cfset_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
+ 
+ int MAX_TARGET_DEPTH(coeff_t t) {
+     if(DEPTH_LIMITS.find(t)==DEPTH_LIMITS.end()) return MAX_DEPTH;
+--- a/bhm.cpp
++++ b/bhm.cpp
+@@ -1,6 +1,6 @@
+ 
+ /****************************************************************************/
+-void print_set(char *nam, cfset_t &s, int max_nprint, ostream &ostr) {
++void print_set(const char *nam, cfset_t &s, int max_nprint, ostream &ostr) {
+     int nprinted = 0;
+     ostr << nam << " ";
+     FORALL(s, i) {
+@@ -10,7 +10,7 @@
+     }
+ }
+ 
+-void print_set(char *nam, full_addmap_t &s, int max_nprint, ostream &ostr) {
++void print_set(const char *nam, full_addmap_t &s, int max_nprint, ostream &ostr) {
+     int nprinted = 0;
+     ostr << nam << " ";
+     FORALL_FAM(s, i) {
