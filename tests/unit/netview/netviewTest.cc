@@ -154,7 +154,16 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	NetView view;
 	view.build(d);
 	Netlist::Instance *t = view.top();
+	Netlist::Net *zero = view.constNet(t, false);
+	ASSERT_NE(zero, nullptr);
+	EXPECT_EQ(zero->constant, Netlist::Net::Const::Zero);
 	EXPECT_EQ(view.constNet(t, true), nullptr);
+	bool found = false;
+	for (const Netlist::Alias &alias : view.aliases(t)) {
+		if (alias.name.wire == "tie")
+			found = alias.net == zero;
+	}
+	EXPECT_TRUE(found);
 	EXPECT_EQ(view.instance(u_x)->pins[0]->net, nullptr);
 	Netlist::Net *d0_net = view.instance(u_inv0)->pins[1]->net;
 	EXPECT_EQ(d0_net, view.instance(u_sub)->pins[0]->net);

@@ -127,6 +127,7 @@ struct Netlist
 
 	virtual const std::vector<Net *> &nets(const Instance *scope) const = 0;
 	virtual Net *constNet(const Instance *scope, bool one) const = 0;
+	virtual const std::vector<Alias> &aliases(const Instance *scope) const = 0;
 
 	const PortShape &shape(const Pin *pin) const;
 	Dir dir(const Pin *pin) const;
