@@ -218,6 +218,7 @@ void NetView::reset()
 	shape_cache_.clear();
 	sigmaps_.clear();
 	bit_net_.clear();
+	const_nets_.clear();
 	scope_nets_.clear();
 	cell_inst_.clear();
 	module_scope_.clear();
@@ -295,13 +296,13 @@ void NetView::makePins(Instance *inst)
 			// Outer net
 			Net *net = nullptr;
 			if (b < sig.size())
-				net = findOrMakeNet(sig[b]);
+				net = findOrMakeNet(c->module, sig[b]);
 			Pin *pin = makePin(inst, p, b, net);
 
 			// Term into the instance's scope
 			if (inner_wire == nullptr || b >= inner_wire->width)
 				continue;
-			Net *inner_net = findOrMakeNet(RTLIL::SigBit(inner_wire, b));
+			Net *inner_net = findOrMakeNet(sub, RTLIL::SigBit(inner_wire, b));
 			if (inner_net != nullptr)
 				makeTerm(pin, inner_net);
 		}
@@ -333,11 +334,16 @@ void NetView::makeTerm(Pin *pin, Net *inner_net)
 	inner_net->terms.push_back(term);
 }
 
-NetView::Net *NetView::newNet(Instance *scope)
+NetView::Net *NetView::newNet(Instance *scope, const RTLIL::SigBit &bit)
 {
 	Net *net = &nets_.emplace_back();
 	net->scope = scope;
 	net->id = next_net_id_++;
+	net->constant = Net::Const::None;
+	if (bit.wire == nullptr && bit.data == RTLIL::State::S1)
+		net->constant = Net::Const::One;
+	else if (bit.wire == nullptr)
+		net->constant = Net::Const::Zero;
 	scope_nets_[scope].push_back(net);
 	return net;
 }
@@ -398,22 +404,40 @@ const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const
 	return it->second;
 }
 
-NetView::Net *NetView::findOrMakeNet(const RTLIL::SigBit &bit)
+NetView::Net *NetView::constNet(const Instance *scope, bool one) const
 {
-	// Constants are left unconnected
-	if (bit.wire == nullptr)
+	auto it = const_nets_.find(scope);
+	if (it == const_nets_.end())
 		return nullptr;
-	if (Net *net = knownNet(bit))
-		return net;
-	RTLIL::SigBit canon = sigmapFor(bit.wire->module)(bit);
-	if (canon.wire == nullptr)
-		return nullptr;
-	Net *net = knownNet(canon);
-	if (net == nullptr) {
-		net = newNet(scope(canon.wire->module));
-		bit_net_[detail::bitKey(canon)] = net;
+	return it->second[one];
+}
+
+NetView::Net *NetView::findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit)
+{
+	if (bit.wire != nullptr) {
+		if (Net *net = knownNet(bit))
+			return net;
 	}
-	if (bit != canon)
+	RTLIL::SigBit canon = bit;
+	if (bit.wire != nullptr)
+		canon = sigmapFor(bit.wire->module)(bit);
+	Net *net;
+	if (canon.wire == nullptr) {
+		if (canon.data != RTLIL::State::S0 && canon.data != RTLIL::State::S1)
+			return nullptr; // x/z: unconnected
+		Instance *s = scope(module);
+		Net *&slot = const_nets_[s][canon.data == RTLIL::State::S1];
+		if (slot == nullptr)
+			slot = newNet(s, canon);
+		net = slot;
+	} else {
+		net = knownNet(canon);
+		if (net == nullptr) {
+			net = newNet(scope(canon.wire->module), canon);
+			bit_net_[detail::bitKey(canon)] = net;
+		}
+	}
+	if (bit.wire != nullptr && bit != canon)
 		bit_net_[detail::bitKey(bit)] = net;
 	return net;
 }

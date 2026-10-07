@@ -147,6 +147,22 @@ TEST_F(NetViewTest, hdlIndexDirAndScalar)
 	EXPECT_EQ(view.dir(isub->pins[1]), Netlist::Dir::Output);
 }
 
+TEST_F(NetViewTest, namesAliasesAndConstants)
+{
+	Cell *u_x = top->addCell(ID(u_x), ID(INV));
+	u_x->setPort(ID(A), State::Sx);
+	NetView view;
+	view.build(d);
+	Netlist::Instance *t = view.top();
+	EXPECT_EQ(view.constNet(t, true), nullptr);
+	EXPECT_EQ(view.instance(u_x)->pins[0]->net, nullptr);
+	Netlist::Net *d0_net = view.instance(u_inv0)->pins[1]->net;
+	EXPECT_EQ(d0_net, view.instance(u_sub)->pins[0]->net);
+	EXPECT_EQ(d0_net->pins.size(), 2u);
+	EXPECT_FALSE(view.nets(t).empty());
+	EXPECT_EQ(view.nets(view.instance(u_inv0)).size(), 0u); // leaves own none
+}
+
 TEST_F(NetViewTest, driversAreTopInputsAndLeafOutputs)
 {
 	NetView view;
