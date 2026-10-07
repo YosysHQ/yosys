@@ -26,7 +26,7 @@ bool is_signed(RTLIL::Cell* cell) {
 	return cell->type == ID($pos) && cell->getParam(ID::A_SIGNED).as_bool();
 }
 
-bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, const ParallelDispatchThreadPool::RunCtx &ctx) {
+void trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, const ParallelDispatchThreadPool::RunCtx &ctx) {
 	RTLIL::SigSpec a = cell->getPort(ID::A);
 	RTLIL::SigSpec y = cell->getPort(ID::Y);
 	a.extend_u0(GetSize(y), is_signed(cell));
@@ -37,7 +37,7 @@ bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, 
 		for (int i = 0; i < GetSize(a); ++i) {
 			RTLIL::SigBit b = a[i];
 			if (b == State::Sz)
-				return false;
+				continue;
 			new_a.append(b);
 			new_y.append(y[i]);
 		}
@@ -46,7 +46,6 @@ bool trim_buf(RTLIL::Cell* cell, ShardedVector<RTLIL::SigSig>& new_connections, 
 	}
 	if (!y.empty())
 		new_connections.insert(ctx, {y, a});
-	return true;
 }
 
 bool remove(ShardedVector<RTLIL::Cell*>& cells, RTLIL::Module* mod, bool verbose) {
@@ -80,8 +79,8 @@ void remove_temporary_cells(RTLIL::Module *module, ParallelDispatchThreadPool::S
 		for (int i : ctx.item_range(const_module->cells_size())) {
 			RTLIL::Cell *cell = const_module->cell_at(i);
 			if (cell->type.in(ID($pos), ID($_BUF_), ID($buf)) && !cell->has_keep_attr()) {
-				if (trim_buf(cell, new_connections, ctx))
-					delcells.insert(ctx, cell);
+				trim_buf(cell, new_connections, ctx);
+				delcells.insert(ctx, cell);
 			} else if (cell->type.in(ID($connect)) && !cell->has_keep_attr()) {
 				RTLIL::SigSpec a = cell->getPort(ID::A);
 				RTLIL::SigSpec b = cell->getPort(ID::B);

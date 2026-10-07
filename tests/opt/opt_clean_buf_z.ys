@@ -1,0 +1,16 @@
+# opt_clean removes a $buf with 'z bits on its input, leaving those bits undriven
+read_rtlil << EOT
+module \top
+  wire width 2 input 1 \a
+  wire width 3 output 2 \y
+  cell $buf \b
+    parameter \WIDTH 3
+    connect \A { 1'z \a }
+    connect \Y \y
+  end
+end
+EOT
+
+opt_clean
+select -assert-none t:$buf
+sat -verify -prove y[1:0] a -show-public
