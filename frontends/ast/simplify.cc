@@ -3494,21 +3494,13 @@ skip_dynamic_range_lvalue_expansion:;
 						return;
 
 					auto elem = pattern_element_at_position(position, iter_idx++);
-					vector<State> bits;
 
-					switch (elem->type) {
-						case AST_CONSTANT:
-							bits = elem->bitsAsConst(element_width, elem->is_signed).to_bits();
-							break;
-						case AST_REALVALUE:
-							bits = elem->realAsConst(element_width).to_bits();
-							break;
-						default:
-							// Probably a packed sub-pattern, which will error out neatly in genrtlil
-							use_meminit = false;
-							return;
+					if (!elem->isConst()) {
+						use_meminit = false;
+						return;
 					}
 
+					vector<State> bits = elem->valueAsConst(element_width).to_bits();
 					int linear_idx = element_width * flattened_array_index_from_position(lhs_mem, position);
 
 					for (int b = 0; b < element_width; b++)
