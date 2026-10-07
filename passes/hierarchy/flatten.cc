@@ -404,7 +404,7 @@ struct FlattenPass : public Pass {
 		log("\n");
 		log("    -barriers\n");
 		log("        Introduce an optimization barrier (a $barrier cell) when a flattened\n");
-		log("        module drives a public wire.\n");
+		log("        module drives a public wire (experimental).\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -443,6 +443,7 @@ struct FlattenPass : public Pass {
 			}
 			if (args[argidx] == "-barriers") {
 				worker.barriers = true;
+				log_experimental("flatten -barriers");
 				continue;
 			}
 			break;

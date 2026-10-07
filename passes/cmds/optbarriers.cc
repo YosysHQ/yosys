@@ -182,7 +182,10 @@ struct ResetPathWorker {
 };
 
 struct OptBarriersPass : public Pass {
-	OptBarriersPass() : Pass("optbarriers", "insert optimization barriers") {}
+	OptBarriersPass() : Pass("optbarriers", "(experimental) insert optimization barriers")
+	{
+		experimental();
+	}
 
 	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
