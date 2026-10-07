@@ -1,0 +1,102 @@
+// Netlist: a read-only, bit-level, unfolded netlist interface for external consumers
+// Objects:
+// - Instance  one occurrence of a cell or module, the top is an instance
+//             with no parent, hierarchical instances own a scope of nets
+// - Pin       one bit of one port of one instance
+// - Net       one electrical node in one scope
+// - Term      where a net meets its scope's boundary
+
+#ifndef NETLIST_H
+#define NETLIST_H
+
+#include "kernel/yosys_common.h"
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+YOSYS_NAMESPACE_BEGIN
+
+struct Netlist
+{
+	struct Instance;
+	struct Pin;
+	struct Net;
+	struct Term;
+
+	enum class Dir : uint8_t {
+		Unknown,
+		Input,
+		Output,
+		Inout
+	};
+
+	struct PortShape {
+		std::string name; // unescaped
+		int width;
+		int from;
+		int to;
+		Dir dir;
+	};
+
+	struct Instance {
+		std::string name; // local name, unescaped
+		std::string type; // cell type or module name, unescaped
+		Instance *parent;
+		uint32_t id;
+		bool leaf;
+		const std::vector<PortShape> *ports;
+		std::vector<Pin *> pins;
+		std::vector<Instance *> children;
+	};
+
+	struct Pin {
+		Instance *inst;
+		Net *net;   // net on the instance's outer side
+		Term *term; // boundary into the instance's scope
+		uint32_t id;
+		uint32_t port;
+		int bit;
+	};
+
+	struct Net {
+		Instance *scope;
+		uint32_t id;
+		std::vector<Pin *> pins;   // pins inside the scope on this net
+		std::vector<Term *> terms; // boundary terms whose inner net is this
+	};
+
+	struct Term {
+		Pin *pin;
+		Net *net;
+		uint32_t id;
+	};
+
+	struct NetName {
+		std::string wire;
+		int index;
+		bool scalar;
+		bool operator==(const NetName &) const = default;
+	};
+
+	struct Alias {
+		NetName name;
+		Net *net;
+	};
+
+	// Leaf port shapes from a consumer with a richer library (liberty)
+	struct PortModel {
+		virtual ~PortModel();
+		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
+	};
+
+	virtual ~Netlist();
+
+	virtual bool valid() const = 0;
+
+	virtual Instance *top() const = 0;
+};
+
+YOSYS_NAMESPACE_END
+
+#endif
