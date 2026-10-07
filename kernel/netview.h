@@ -17,6 +17,16 @@ namespace detail {
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
 
+// Cells
+bool internalType(RTLIL::IdString type);
+
+// Port shapes
+Netlist::Dir portDir(bool input, bool output);
+Netlist::PortShape wireShape(RTLIL::Wire *wire);
+void moduleShapes(RTLIL::Module *module, std::vector<Netlist::PortShape> &out);
+bool libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out);
+Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool internal);
+
 } // namespace detail
 
 struct NetView final : public Netlist
@@ -34,6 +44,7 @@ struct NetView final : public Netlist
 	bool valid() const override;
 
 	Instance *top() const override;
+	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const override;
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
