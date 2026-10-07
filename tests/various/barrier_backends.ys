@@ -1,0 +1,34 @@
+# export of $barrier cells by backends (as a buffer), or as a cut for ABC
+! mkdir -p temp
+read_verilog -icells <<EOT
+module top(input [3:0] a, b, output [3:0] y);
+	wire [3:0] t;
+	\$barrier #(.WIDTH(4)) bar (.A(a & b), .Y(t));
+	assign y = t & a;
+endmodule
+EOT
+hierarchy -top top
+select -assert-count 1 t:$barrier
+
+write_functional_smt2 temp/barrier_f.smt2
+write_functional_cxx temp/barrier_f.cc
+
+write_smt2 temp/barrier.smt2
+! grep -qF ' state)) ; \t' temp/barrier.smt2
+
+write_firrtl temp/barrier.fir
+! grep -qF 'wire bar: UInt<4>' temp/barrier.fir
+
+write_smv temp/barrier.smv
+! grep -qF '_t := resize(_$and$' temp/barrier.smv
+
+write_cxxrtl temp/barrier.cc
+! grep -qF '\bar ' temp/barrier.cc
+
+write_btor temp/barrier.btor
+write_aiger2 temp/barrier.aig
+
+# write_xaiger2 cuts at barriers so the cell is kept by -mapping_prep
+write_xaiger2 -mapping_prep -map2 temp/barrier.map2 temp/barrier.xaig
+select -assert-count 1 t:$barrier
+select -assert-count 0 t:$and
