@@ -296,7 +296,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 	string temp_stdouterr_name = stringf("%s/stdouterr.txt", tempdir_name);
 	FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 	if (temp_stdouterr_w == NULL)
-		log_error("ABC: cannot open a temporary file for output redirection");
+		log_error("ABC: cannot open a temporary file for output redirection\n");
 	fflush(stdout);
 	fflush(stderr);
 	FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering

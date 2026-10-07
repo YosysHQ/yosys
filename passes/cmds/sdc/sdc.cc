@@ -164,12 +164,12 @@ struct SdcObjects {
 	SdcObjects(Design* design) : design(design) {
 		Module* top = design->top_module();
 		if (!top)
-			log_error("Top module couldn't be determined. Check 'top' attribute usage");
+			log_error("Top module couldn't be determined. Check 'top' attribute usage\n");
 		for (auto port : top->ports) {
 			RTLIL::Wire *wire = top->wire(port);
 			if (!wire) {
 				// This should not be possible. See https://github.com/YosysHQ/yosys/pull/5594#issue-3791198573
-				log_error("Port %s doesn't exist", port.unescape());
+				log_error("Port %s doesn't exist\n", port.unescape());
 			}
 			design_ports.push_back(std::make_pair(port.str().substr(1), wire));
 		}
@@ -617,7 +617,7 @@ struct GetterOpts : TclOpts {
 	}
 	void check_simple_sep() {
 		if (separator != "/")
-			log_error("Only '/' accepted as separator");
+			log_error("Only '/' accepted as separator\n");
 	}
 };
 

@@ -64,7 +64,7 @@ const char *fn_to_string(Fn fn) {
 	case Fn::memory_read: return "memory_read";
 	case Fn::memory_write: return "memory_write";
 	}
-	log_error("fn_to_string: unknown Functional::Fn value %d", (int)fn);
+	log_error("fn_to_string: unknown Functional::Fn value %d\n", (int)fn);
 }
 
 vector<IRInput const*> IR::inputs(IdString kind) const {

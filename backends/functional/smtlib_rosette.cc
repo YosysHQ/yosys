@@ -62,7 +62,7 @@ struct SmtrSort {
 		} else if(sort.is_signal()) {
 			return list("bitvector", sort.width());
 		} else {
-			log_error("unknown sort");
+			log_error("unknown sort\n");
 		}
 	}
 };

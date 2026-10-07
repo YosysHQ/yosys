@@ -1381,7 +1381,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		string temp_stdouterr_name = stringf("%s/stdouterr.txt", per_run_tempdir_name);
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
-			logs.log_error("ABC: cannot open a temporary file for output redirection");
+			logs.log_error("ABC: cannot open a temporary file for output redirection\n");
 		fflush(stdout);
 		fflush(stderr);
 		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
@@ -1435,7 +1435,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 					"source %s\n", tmp_script_name);
 			ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
 			if (ret != static_cast<int>(cmd.size())) {
-				logs.log_error("write failed");
+				logs.log_error("write failed\n");
 				return;
 			}
 			ret = read_until_abc_done(filt, process.from_child_pipe, logs) ? 0 : 1;
@@ -2141,7 +2141,7 @@ struct AbcPass : public Pass {
 			}
 			if (arg == "-g" && argidx+1 < args.size()) {
 				if (g_arg_from_cmd)
-					log_cmd_error("Can only use -g once. Please combine.");
+					log_cmd_error("Can only use -g once. Please combine.\n");
 				g_arg = args[++argidx];
 				g_argidx = argidx;
 				g_arg_from_cmd = true;
@@ -2350,7 +2350,7 @@ struct AbcPass : public Pass {
 				if (g_arg_from_cmd)
 					cmd_error(args, g_argidx, stringf("Unsupported gate type: %s", g));
 				else
-					log_cmd_error("Unsupported gate type: %s", g);
+					log_cmd_error("Unsupported gate type: %s\n", g);
 			ok_gate:
 				gate_list.push_back(g);
 			ok_alias:

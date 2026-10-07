@@ -807,7 +807,7 @@ struct SmvBackend : public Backend {
 						continue;
 					}
 
-					log_error("Unknown template statement: '%s'", line.c_str() + indent);
+					log_error("Unknown template statement: '%s'\n", line.c_str() + indent);
 				}
 
 				*f << line << std::endl;

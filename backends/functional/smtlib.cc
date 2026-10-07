@@ -62,7 +62,7 @@ struct SmtSort {
 		} else if(sort.is_signal()) {
 			return list("_", "BitVec", sort.width());
 		} else {
-			log_error("unknown sort");
+			log_error("unknown sort\n");
 		}
 	}
 };

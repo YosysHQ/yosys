@@ -65,7 +65,7 @@ struct QlBramTypesPass : public Pass {
 		case 6:
 			return 2;
 		default:
-			log_error("Invalid mode: %x", mode);
+			log_error("Invalid mode: %x\n", mode);
 		}
 	}
 

@@ -120,7 +120,7 @@ struct EstimateSta {
 				if (!aigs.count(fingerprint)) {
 					aigs.emplace(fingerprint, Aig(cell));
 					if (aigs.at(fingerprint).name.empty()) {
-						log_error("Unsupported cell '%s' in module '%s'",
+						log_error("Unsupported cell '%s' in module '%s'\n",
 								  cell->type.unescape(), m);
 					}
 				}
@@ -216,7 +216,7 @@ struct EstimateSta {
 		}
 
 		if (!topo.sort())
-			log_error("Module '%s' contains combinational loops", m);
+			log_error("Module '%s' contains combinational loops\n", m);
 
 		// now we determine how long it takes for signals to stabilize
 

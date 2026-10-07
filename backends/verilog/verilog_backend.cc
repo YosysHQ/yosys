@@ -259,7 +259,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::Sx: bin_digits.push_back('x'); break;
 				case RTLIL::Sz: bin_digits.push_back('z'); break;
 				case RTLIL::Sa: bin_digits.push_back('?'); break;
-				case RTLIL::Sm: log_error("Found marker state in final netlist.");
+				case RTLIL::Sm: log_error("Found marker state in final netlist.\n");
 				}
 			}
 			if (GetSize(bin_digits) == 0)
@@ -313,7 +313,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				case RTLIL::Sx: f << stringf("x"); break;
 				case RTLIL::Sz: f << stringf("z"); break;
 				case RTLIL::Sa: f << stringf("?"); break;
-				case RTLIL::Sm: log_error("Found marker state in final netlist.");
+				case RTLIL::Sm: log_error("Found marker state in final netlist.\n");
 				}
 			}
 		}
@@ -537,7 +537,7 @@ void dump_memory(std::ostream &f, std::string indent, Mem &mem)
 							case State::Sx: extmem_f << 'x'; break;
 							case State::Sz: extmem_f << 'z'; break;
 							case State::Sa: extmem_f << '_'; break;
-							case State::Sm: log_error("Found marker state in final netlist.");
+							case State::Sm: log_error("Found marker state in final netlist.\n");
 						}
 					}
 					extmem_f << '\n';
