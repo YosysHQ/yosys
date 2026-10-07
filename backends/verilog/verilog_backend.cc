@@ -1175,7 +1175,7 @@ bool dump_cell_expr(std::ostream &f, std::string indent, RTLIL::Cell *cell)
 		return true;
 	}
 
-	if (cell->type.in(ID($_BUF_), ID($buf))) {
+	if (cell->type.in(ID($_BUF_), ID($buf), ID($barrier))) {
 		if (cell->type == ID($buf) && cell->getPort(ID::A).has_const(State::Sz)) {
 			RTLIL::SigSpec a = cell->getPort(ID::A);
 			RTLIL::SigSpec y = cell->getPort(ID::Y);
