@@ -711,7 +711,7 @@ static void parse_file_list(const std::string &file_list_path, RTLIL::Design *de
 {
 	std::ifstream flist(file_list_path);
 	if (!flist.is_open()) {
-		log_error("Verilog file list file does not exist");
+		log_error("Verilog file list file does not exist\n");
 		exit(1);
 	}
 

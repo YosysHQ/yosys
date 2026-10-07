@@ -130,7 +130,7 @@ struct Smt2Worker
 		for (auto &mem : memories)
 		{
 			if (is_smtlib2_module)
-				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute", get_id(module), mem.memid);
+				log_error("Memory %s.%s not allowed in module with smtlib2_module attribute\n", get_id(module), mem.memid);
 
 			mem.narrow();
 			mem_dict[mem.memid] = &mem;
@@ -991,7 +991,7 @@ struct Smt2Worker
 			}
 			bool is_smtlib2_comb_expr = wire->has_attribute(ID::smtlib2_comb_expr);
 			if (is_smtlib2_comb_expr && !is_smtlib2_module)
-				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s", module,
+				log_error("smtlib2_comb_expr is only valid in a module with the smtlib2_module attribute: wire %s.%s\n", module,
 					  wire);
 			if (wire->port_id || is_register || contains_clock || wire->get_bool_attribute(ID::keep) || (wiresmode && wire->name.isPublic())) {
 				RTLIL::SigSpec sig = sigmap(wire);
@@ -1023,9 +1023,9 @@ struct Smt2Worker
 					smtlib2_comb_expr =
 					  "(let (\n" + smtlib2_inputs + ")\n" + wire->get_string_attribute(ID::smtlib2_comb_expr) + "\n)";
 					if (wire->port_input || !wire->port_output)
-						log_error("smtlib2_comb_expr is only valid on output: wire %s.%s", module, wire);
+						log_error("smtlib2_comb_expr is only valid on output: wire %s.%s\n", module, wire);
 					if (!bvmode && GetSize(sig) > 1)
-						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s",
+						log_error("smtlib2_comb_expr is unsupported on multi-bit wires when -nobv is specified: wire %s.%s\n",
 							  module, wire);
 
 					comments.push_back(witness_signal("blackbox", wire->width, 0, get_id(wire), -1, wire));
@@ -1074,7 +1074,7 @@ struct Smt2Worker
 		for (auto wire : module->wires())
 			if (wire->attributes.count(ID::init)) {
 				if (is_smtlib2_module)
-					log_error("init attribute not allowed on wires in module with smtlib2_module attribute: wire %s.%s",
+					log_error("init attribute not allowed on wires in module with smtlib2_module attribute: wire %s.%s\n",
 						  module, wire);
 
 				RTLIL::SigSpec sig = sigmap(wire);
@@ -1111,7 +1111,7 @@ struct Smt2Worker
 				log_error("Unsupported cell type %s for cell %s.%s -- please run `async2sync` or `clk2fflogic` before `write_smt2`.\n",
 						cell->type.unescape(), module, cell);
 			if (cell->type.in(ID($live), ID($fair), ID($equiv)))
-				log_error("Unsupported cell type %s for cell %s.%s",
+				log_error("Unsupported cell type %s for cell %s.%s\n",
 						cell->type.unescape(), module, cell);
 
 			if (cell->type.in(ID($assert), ID($assume), ID($cover)))

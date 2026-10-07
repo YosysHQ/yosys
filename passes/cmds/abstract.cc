@@ -53,7 +53,7 @@ struct Slice {
 	}
 
 	static void syntax_error(const std::string &slice) {
-		log_cmd_error("Invalid slice '%s', expected '<first>:<last>' or '<single>'", slice);
+		log_cmd_error("Invalid slice '%s', expected '<first>:<last>' or '<single>'\n", slice);
 	}
 
 	std::string to_string() const {
@@ -67,7 +67,7 @@ struct Slice {
 	int wire_offset(RTLIL::Wire *wire, int index) const {
 		int rtl_offset = indices == RtlilSlice ? index : wire->from_hdl_index(index);
 		if (rtl_offset < 0 || rtl_offset >= wire->width) {
-			log_error("Slice %s is out of bounds for wire %s in module %s", to_string(), wire, wire->module);
+			log_error("Slice %s is out of bounds for wire %s in module %s\n", to_string(), wire, wire->module);
 		}
 		return rtl_offset;
 	}

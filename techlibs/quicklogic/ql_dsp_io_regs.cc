@@ -89,7 +89,7 @@ struct QlDspIORegs : public Pass {
 
 			// Get the feedback port
 			if (!cell->hasPort(ID(feedback)))
-				log_error("Missing 'feedback' port on %s", cell);
+				log_error("Missing 'feedback' port on %s\n", cell);
 			SigSpec feedback = sigmap(cell->getPort(ID(feedback)));
 
 			// Check the top two bits on 'feedback' to be constant zero.

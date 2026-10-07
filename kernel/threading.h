@@ -436,10 +436,10 @@ public:
 		AccumulatedValue(AccumulatedValue &&) = default;
 #if defined(_MSC_VER)
 		AccumulatedValue(const AccumulatedValue &) {
-			log_error("Copy constructor called on AccumulatedValue");
+			log_error("Copy constructor called on AccumulatedValue\n");
 		}
 		AccumulatedValue &operator=(const AccumulatedValue &) {
-			log_error("Copy assignment called on AccumulatedValue");
+			log_error("Copy assignment called on AccumulatedValue\n");
 			return *this;
 		}
 #else

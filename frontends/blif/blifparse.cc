@@ -268,7 +268,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 			    !strcmp(cmd, ".max_input_load") || !strcmp(cmd, ".default_max_input_load") || !strcmp(cmd, ".output_load") ||
 			    !strcmp(cmd, ".default_output_load"))
 			{
-				log_warning("Blif delay constraints (%s) are not supported.", cmd);
+				log_warning("Blif delay constraints (%s) are not supported.\n", cmd);
 				continue;
 			}
 

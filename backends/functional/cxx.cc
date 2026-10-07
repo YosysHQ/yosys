@@ -62,7 +62,7 @@ struct CxxType {
 		} else if(sort.is_signal()) {
 			return stringf("Signal<%d>", sort.width());
 		} else {
-			log_error("unknown sort");
+			log_error("unknown sort\n");
 		}
 	}
 };

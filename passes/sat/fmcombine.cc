@@ -322,7 +322,7 @@ struct FmcombinePass : public Pass {
 		{
 			string gold_name = args[argidx++];
 			string gate_name = args[argidx++];
-			log_cmd_error("fmcombine @gold_cell @gate_cell call style is not implemented yet.");
+			log_cmd_error("fmcombine @gold_cell @gate_cell call style is not implemented yet.\n");
 		}
 		else if (argidx+3 == args.size())
 		{

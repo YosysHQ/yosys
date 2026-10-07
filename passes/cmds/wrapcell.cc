@@ -184,7 +184,7 @@ struct WrapcellPass : Pass {
 		extra_args(args, argidx, d);
 
 		if (name_fmt.empty())
-			log_cmd_error("Argument -name required");
+			log_cmd_error("Argument -name required\n");
 
 		CellTypes ct;
 		ct.setup();

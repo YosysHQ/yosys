@@ -47,22 +47,22 @@ using namespace VERILOG_FRONTEND;
 
 void ConstParser::log_maybe_loc_error(std::string msg) {
 	if (loc.begin.filename)
-		log_file_error(loc.to_loc(), "%s", msg);
+		log_file_error(loc.to_loc(), "%s\n", msg);
 	else if (!Frontend::current_script_filename.empty())
 		log_file_error(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
-			"Failed to parse constant `%s': %s", code_str, msg);
+			"Failed to parse constant `%s': %s\n", code_str, msg);
 	else
-		log_error("Failed to parse constant `%s': %s", code_str, msg);
+		log_error("Failed to parse constant `%s': %s\n", code_str, msg);
 }
 
 void ConstParser::log_maybe_loc_warn(std::string msg) {
 	if (loc.begin.filename)
-		log_file_warning(loc.to_loc(), "%s", msg);
+		log_file_warning(loc.to_loc(), "%s\n", msg);
 	else if (!Frontend::current_script_filename.empty())
 		log_file_warning(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
-			"While parsing constant `%s': %s", code_str, msg);
+			"While parsing constant `%s': %s\n", code_str, msg);
 	else
-		log_warning("While parsing constant `%s': %s", code_str, msg);
+		log_warning("While parsing constant `%s': %s\n", code_str, msg);
 }
 
 // divide an arbitrary length decimal number by two and return the rest
@@ -71,7 +71,7 @@ int ConstParser::my_decimal_div_by_two(std::vector<uint8_t> &digits)
 	int carry = 0;
 	for (size_t i = 0; i < digits.size(); i++) {
 		if (digits[i] >= 10)
-			log_maybe_loc_error("Invalid use of [a-fxz?] in decimal constant.\n");
+			log_maybe_loc_error("Invalid use of [a-fxz?] in decimal constant.");
 		digits[i] += carry * 10;
 		carry = digits[i] % 2;
 		digits[i] /= 2;
@@ -124,7 +124,7 @@ void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, 
 		int bits_per_digit = my_ilog2(base-1);
 		for (auto it = digits.rbegin(), e = digits.rend(); it != e; it++) {
 			if (*it > (base-1) && *it < 0xf0)
-				log_maybe_loc_error(stringf("Digit larger than %d used in in base-%d constant.\n",
+				log_maybe_loc_error(stringf("Digit larger than %d used in in base-%d constant.",
 							base-1, base));
 			for (int i = 0; i < bits_per_digit; i++) {
 				int bitmask = 1 << i;
@@ -148,7 +148,7 @@ void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, 
 	}
 
 	if (is_unsized && (len > len_in_bits))
-		log_maybe_loc_error(stringf("Unsized constant must have width of 1 bit, but have %d bits!\n", len));
+		log_maybe_loc_error(stringf("Unsized constant must have width of 1 bit, but have %d bits!", len));
 
 	for (len = len - 1; len >= 0; len--)
 		if (data[len] == State::S1)
@@ -162,10 +162,10 @@ void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, 
 	}
 
 	if (len_in_bits == 0)
-		log_maybe_loc_error("Illegal integer constant size of zero (IEEE 1800-2012, 5.7).\n");
+		log_maybe_loc_error("Illegal integer constant size of zero (IEEE 1800-2012, 5.7).");
 
 	if (len > len_in_bits)
-		log_maybe_loc_warn(stringf("Literal has a width of %d bit, but value requires %d bit.\n",
+		log_maybe_loc_warn(stringf("Literal has a width of %d bit, but value requires %d bit.",
 			len_in_bits, len));
 }
 // convert the Verilog code for a constant to an AST node
@@ -176,7 +176,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 	if (warn_z) {
 		auto ret = const2ast(code, case_type);
 		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
-			log_maybe_loc_warn("Yosys has only limited support for tri-state logic at the moment.\n");
+			log_maybe_loc_warn("Yosys has only limited support for tri-state logic at the moment.");
 		return ret;
 	}
 

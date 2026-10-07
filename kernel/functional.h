@@ -324,7 +324,7 @@ namespace Functional {
 		{
 			// currently templated but could be switched to AbstractVisitor &
 			switch(_ref.function().fn()) {
-			case Fn::invalid: log_error("invalid node in visit"); break;
+			case Fn::invalid: log_error("invalid node in visit\n"); break;
 			case Fn::buf: return v.buf(*this, arg(0)); break;
 			case Fn::slice: return v.slice(*this, arg(0), _ref.function().as_int(), sort().width()); break;
 			case Fn::zero_extend: return v.zero_extend(*this, arg(0), width()); break;
@@ -552,17 +552,17 @@ namespace Functional {
 		}
 		IRInput &add_input(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._inputs.emplace({name, kind}, IRInput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("input `%s` was re-defined", name);
+			if (!inserted) log_error("input `%s` was re-defined\n", name);
 			return it->second;
 		}
 		IROutput &add_output(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._outputs.emplace({name, kind}, IROutput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("output `%s` was re-defined", name);
+			if (!inserted) log_error("output `%s` was re-defined\n", name);
 			return it->second;
 		}
 		IRState &add_state(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._states.emplace({name, kind}, IRState(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("state `%s` was re-defined", name);
+			if (!inserted) log_error("state `%s` was re-defined\n", name);
 			return it->second;
 		}
 		Node value(IRInput const& input) {

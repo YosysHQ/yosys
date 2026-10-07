@@ -1040,7 +1040,7 @@ void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t arg
 			if (pass != nullptr)
 				pass->cmd_error(args, argidx, "Unexpected option in selection arguments.");
 			else
-				log_cmd_error("Unexpected option in selection arguments.");
+				log_cmd_error("Unexpected option in selection arguments.\n");
 		}
 		select_stmt(design, args[argidx]);
 	}

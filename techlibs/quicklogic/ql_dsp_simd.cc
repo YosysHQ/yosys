@@ -156,7 +156,7 @@ struct QlDspSimdPass : public Pass {
 					// Check if the target cell is known (important to know
 					// its port widths)
 					if (!simd->known())
-						log_error(" The target cell type '%s' is not known!", simd);
+						log_error(" The target cell type '%s' is not known!\n", simd);
 
 					// Connect common ports
 					for (const auto &it : m_DspCfgPorts)

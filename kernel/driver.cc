@@ -655,7 +655,7 @@ int main(int argc, char **argv)
 			if (PyRun_SimpleFile(scriptfp, scriptfile.c_str()) != 0) {
 				log_flush();
 				PyErr_Print();
-				log_error("Python interpreter encountered an exception.");
+				log_error("Python interpreter encountered an exception.\n");
 			}
 #else
 			log_error("Can't execute Python script: this version of yosys is not built with Python support enabled.\n");

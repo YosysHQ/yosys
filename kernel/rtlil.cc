@@ -1026,9 +1026,9 @@ vector<int> RTLIL::AttrObject::get_intvec_attribute(RTLIL::IdString id) const
 			errno = 0;
 			long value = strtol(s.c_str(), &end, 10);
 			if (end != s.c_str() + s.size())
-				log_cmd_error("Literal for intvec attribute has invalid format");
+				log_cmd_error("Literal for intvec attribute has invalid format\n");
 			if (errno == ERANGE || value < INT_MIN || value > INT_MAX)
-				log_cmd_error("Literal for intvec attribute is out of range");
+				log_cmd_error("Literal for intvec attribute is out of range\n");
 			data.push_back(value);
 		}
 	return data;
@@ -1610,9 +1610,9 @@ namespace {
 							   cell->name.c_str(), cell->type.c_str(), __FILE__, linenr, buf.str().c_str());
 
 			if (error_msg) {
-				log_error("%s in internal cell %s", error_msg->c_str(), cell_loc);
+				log_error("%s in internal cell %s\n", error_msg->c_str(), cell_loc);
 			} else {
-				log_error("Found error in internal cell %s", cell_loc);
+				log_error("Found error in internal cell %s\n", cell_loc);
 			}
 		}
 
