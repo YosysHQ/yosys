@@ -35,7 +35,7 @@ struct NetView final : public Netlist
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
-	void build(RTLIL::Design *design);
+	void build(RTLIL::Design *design, PortModel *ports = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
 	bool built() const;
@@ -52,16 +52,24 @@ struct NetView final : public Netlist
 	RTLIL::Module *module(const Instance *scope) const;
 	Instance *scope(const RTLIL::Module *module) const;
 private:
+	using PortShapes = std::vector<PortShape>;
+
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
+	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
 private:
 	RTLIL::Design *design_ = nullptr;
+	PortModel *ports_ = nullptr;
 	Instance *top_ = nullptr;
 
 	// Records
 	std::deque<Instance> instances_;
 	uint32_t next_inst_id_ = 1; // 0 is the top
+
+	// Port shapes
+	std::deque<PortShapes> shape_store_;
+	dict<std::string, const PortShapes *> shape_cache_; // library leaf types
 
 	// RTLIL to records
 	dict<uint32_t, Instance *> cell_inst_; // by cell hashidx_

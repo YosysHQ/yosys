@@ -97,6 +97,9 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(view.cell(iinv0), u_inv0);
 	EXPECT_EQ(iinv0->type, "INV");
 	EXPECT_EQ(isub->children.size(), 2u);
+
+	// shapes shared per library type
+	EXPECT_EQ(iinv0->ports, view.instance(u_inv2)->ports);
 }
 
 TEST_F(NetViewTest, resetRestartsIds)
@@ -123,6 +126,18 @@ TEST_F(NetViewTest, buildableReasons)
 	Design empty;
 	EXPECT_FALSE(NetView::buildable(&empty, reason));
 	EXPECT_NE(reason.find("no top"), std::string::npos);
+}
+
+TEST_F(NetViewTest, unknownCellTypeIsACommandError)
+{
+	top->addCell(ID(u_unknown), ID(UNKNOWN));
+	auto scope = logger().error_throw_scope();
+	NetView view;
+	EXPECT_THROW(view.build(d), log_cmd_error_exception);
+	EXPECT_FALSE(view.built());
+	top->remove(top->cell(ID(u_unknown)));
+	view.build(d);
+	EXPECT_TRUE(view.valid());
 }
 
 YOSYS_NAMESPACE_END
