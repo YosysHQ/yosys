@@ -68,7 +68,8 @@ struct PrepPass : public ScriptPass
 		log("        do not call opt_* with -keepdc\n");
 		log("\n");
 		log("    -barriers\n");
-		log("        add optimization barriers to all public wires to preserve their structure.\n");
+		log("        add optimization barriers to all public wires to preserve their structure\n");
+		log("        (experimental).\n");
 		log("        this limits the optimizations that can be applied to the design to only\n");
 		log("        those involving private wires.\n");
 		log("\n");
