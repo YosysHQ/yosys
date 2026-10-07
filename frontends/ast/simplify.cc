@@ -3292,6 +3292,8 @@ skip_dynamic_range_lvalue_expansion:;
 		for (auto& child : children[0]->children) {
 			if (child->type == AST_IDENTIFIER && child->id2ast != nullptr && child->id2ast->type == AST_MEMORY)
 				found_nontrivial_member = true;
+			if (child->type == AST_IDENTIFIER && child->children.size() != 0 && !child->children[0]->range_valid)
+				found_nontrivial_member = true;
 		}
 
 		if (found_nontrivial_member)

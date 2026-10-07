@@ -1,0 +1,24 @@
+read_verilog -sv <<EOT
+module gold(input [1:0] i, input [15:0] x, output reg [31:0] a, b, output reg [3:0] c, d);
+	always @* begin
+		a = 0; b = 0; c = 0; d = 0;
+		a[i*8 +: 8] = x[15:8];
+		b[i*8+7 -: 8] = x[7:0];
+		c[i] = x[1];
+		d[i] = x[0];
+	end
+endmodule
+
+module gate(input [1:0] i, input [15:0] x, output reg [31:0] a, b, output reg [3:0] c, d);
+	always @* begin
+		a = 0; b = 0; c = 0; d = 0;
+		{a[i*8 +: 8], b[i*8+7 -: 8]} = x;
+		{c[i], d[i]} = x[1:0];
+	end
+endmodule
+EOT
+proc
+check -assert
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
