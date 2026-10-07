@@ -17,6 +17,24 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+template <typename T> struct IdMap {
+	T &operator[](uint32_t id)
+	{
+		if (data.size() <= id)
+			data.resize(id + 1, T());
+		return data[id];
+	}
+	const T &get(uint32_t id) const
+	{
+		if (id < data.size())
+			return data[id];
+		return fallback;
+	}
+	void clear() { data.clear(); }
+	std::vector<T> data;
+	T fallback = T();
+};
+
 struct Netlist
 {
 	struct Instance;
