@@ -56,6 +56,8 @@ yosys_core(kernel
 	mem.cc
 	mem.h
 	modtools.h
+	netlist.cc
+	netlist.h
 	newcelltypes.h
 	pattern.h
 	qcsat.cc
@@ -133,6 +135,7 @@ yosys_core(kernel
 		log.h
 		macc.h
 		modtools.h
+		netlist.h
 		mem.h
 		qcsat.h
 		register.h
