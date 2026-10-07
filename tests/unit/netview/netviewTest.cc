@@ -110,4 +110,18 @@ TEST_F(NetViewTest, resetRestartsIds)
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
 }
 
+TEST_F(NetViewTest, buildableReasons)
+{
+	std::string reason;
+	EXPECT_TRUE(NetView::buildable(d, reason));
+
+	top->addCell(ID(u_sub2), ID(sub));
+	EXPECT_FALSE(NetView::buildable(d, reason));
+	EXPECT_NE(reason.find("uniquify"), std::string::npos);
+
+	Design empty;
+	EXPECT_FALSE(NetView::buildable(&empty, reason));
+	EXPECT_NE(reason.find("no top"), std::string::npos);
+}
+
 YOSYS_NAMESPACE_END
