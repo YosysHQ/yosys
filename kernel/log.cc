@@ -351,7 +351,7 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 	if (severity == LogSeverity::Error)
 		suppressed();
 
-	formatted_string(severity, src, prefix, format, message);
+	logv_string(severity, src, prefix, format, message);
 	flush();
 
 	make_debug = bak_make_debug;
