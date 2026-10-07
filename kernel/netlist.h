@@ -118,6 +118,8 @@ struct Netlist
 	// Ports of an instance's master as the host knows them, ignoring PortModel
 	virtual bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const = 0;
 
+	virtual const std::vector<Net *> &nets(const Instance *scope) const = 0;
+
 	const PortShape &shape(const Pin *pin) const;
 	Dir dir(const Pin *pin) const;
 	bool scalar(const Pin *pin) const;

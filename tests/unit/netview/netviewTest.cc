@@ -98,8 +98,66 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(iinv0->type, "INV");
 	EXPECT_EQ(isub->children.size(), 2u);
 
+	// top ports: in, out, q[3:0], s
+	EXPECT_EQ(t->pins.size(), 7u);
+	for (Netlist::Pin *pin : t->pins) {
+		EXPECT_EQ(pin->net, nullptr);
+		ASSERT_NE(pin->term, nullptr);
+		EXPECT_EQ(pin->term->net->scope, t);
+	}
 	// shapes shared per library type
+	ASSERT_EQ(iinv0->pins.size(), 2u);
+	EXPECT_EQ(view.shape(iinv0->pins[0]).name, "A");
+	EXPECT_EQ(view.shape(iinv0->pins[1]).name, "Y");
 	EXPECT_EQ(iinv0->ports, view.instance(u_inv2)->ports);
+	ASSERT_EQ(isub->pins.size(), 5u);
+	Netlist::Pin *y0 = isub->pins[1];
+	EXPECT_EQ(view.shape(y0).name, "y");
+	EXPECT_EQ(y0->bit, 0);
+	ASSERT_NE(y0->term, nullptr);
+	EXPECT_EQ(y0->term->net->scope, isub);
+	EXPECT_EQ(y0->term->net, view.instance(i1)->pins[1]->net);
+	EXPECT_EQ(isub->pins[2]->net, nullptr); // y[1] unconnected
+	ASSERT_NE(isub->pins[2]->term, nullptr);
+}
+
+TEST_F(NetViewTest, hdlIndexDirAndScalar)
+{
+	NetView view;
+	view.build(d);
+	std::vector<Netlist::Pin *> qpins;
+	Netlist::Pin *spin = nullptr;
+	for (Netlist::Pin *pin : view.top()->pins) {
+		if (view.shape(pin).name == "q")
+			qpins.push_back(pin);
+		if (view.shape(pin).name == "s")
+			spin = pin;
+	}
+	ASSERT_EQ(qpins.size(), 4u);
+	EXPECT_EQ(view.hdlIndex(qpins[0]), 0);
+	EXPECT_EQ(view.hdlIndex(qpins[3]), 3);
+	EXPECT_FALSE(view.scalar(qpins[0]));
+	ASSERT_NE(spin, nullptr);
+	EXPECT_EQ(view.hdlIndex(spin), 5);
+	Netlist::Instance *isub = view.instance(u_sub);
+	EXPECT_EQ(view.hdlIndex(isub->pins[1]), 3); // y[0:3]: bit 0 is y[3]
+	EXPECT_EQ(view.hdlIndex(isub->pins[4]), 0);
+	EXPECT_EQ(view.dir(view.instance(u_inv0)->pins[0]), Netlist::Dir::Input);
+	EXPECT_EQ(view.dir(view.instance(u_inv0)->pins[1]), Netlist::Dir::Output);
+	EXPECT_EQ(view.dir(isub->pins[1]), Netlist::Dir::Output);
+}
+
+TEST_F(NetViewTest, driversAreTopInputsAndLeafOutputs)
+{
+	NetView view;
+	view.build(d);
+	for (Netlist::Pin *pin : view.top()->pins)
+		EXPECT_EQ(view.isDriver(pin), view.shape(pin).name != "out") << view.shape(pin).name;
+	Netlist::Instance *iinv0 = view.instance(u_inv0);
+	EXPECT_FALSE(view.isDriver(iinv0->pins[0]));
+	EXPECT_TRUE(view.isDriver(iinv0->pins[1]));
+	for (Netlist::Pin *pin : view.instance(u_sub)->pins)
+		EXPECT_FALSE(view.isDriver(pin));
 }
 
 TEST_F(NetViewTest, resetRestartsIds)
@@ -111,7 +169,9 @@ TEST_F(NetViewTest, resetRestartsIds)
 	EXPECT_FALSE(view.valid());
 	view.build(d);
 	EXPECT_TRUE(view.valid());
+	EXPECT_EQ(view.top()->pins[0]->id, 1u);
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
+	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }
 
 TEST_F(NetViewTest, buildableReasons)
