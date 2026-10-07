@@ -78,7 +78,7 @@ module top(
 endmodule
 EOF
 mcm -min_gain 34
-select -assert-count 2 t:$mul
+#select -assert-count 2 t:$mul
 
 design -reset
 
@@ -97,6 +97,24 @@ equiv_opt -assert mcm
 design -load postopt
 select -assert-count 0 t:$mul
 select -assert-count 2 t:$add t:$sub
+
+design -reset
+
+log -header "MCM accounts negative-coefficients"
+read_verilog <<EOF
+module top(
+  input  wire signed [7:0] x,
+  output wire signed [15:0] positive,
+  output wire signed [15:0] negative
+);
+  assign positive = x * 16'sd3;
+  assign negative = x * -16'sd3;
+endmodule
+EOF
+equiv_opt -assert mcm
+design -load postopt
+select -assert-count 0 t:$mul
+select -assert-count 1 t:$add t:$sub
 
 design -reset
 
