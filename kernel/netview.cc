@@ -105,6 +105,32 @@ bool NetView::hostPorts(const Instance *inst, std::vector<PortShape> &out) const
 	return detail::libraryPorts(cell(inst), out);
 }
 
+const NetView::PortShapes *NetView::portsFor(Instance *inst, RTLIL::Module *sub)
+{
+	// Library leaf shapes are shared per type, internal cells differ in width
+	bool shared = inst->leaf && !inst->internal;
+	if (shared) {
+		auto it = shape_cache_.find(inst->type);
+		if (it != shape_cache_.end())
+			return it->second;
+	}
+
+	PortShapes &shapes = shape_store_.emplace_back();
+	bool ok = true;
+	if (sub != nullptr)
+		detail::moduleShapes(sub, shapes);
+	else if (ports_ != nullptr)
+		ok = ports_->ports(*inst, shapes);
+	else
+		ok = hostPorts(inst, shapes);
+	if (!ok)
+		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
+
+	if (shared)
+		shape_cache_[inst->type] = &shapes;
+	return &shapes;
+}
+
 RTLIL::Module *NetView::topModule(RTLIL::Design *design)
 {
 	RTLIL::Module *top = nullptr;
@@ -154,19 +180,27 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	return detail::checkUniquified(design, top, top, seen, reason);
 }
 
-void NetView::build(RTLIL::Design *design)
+void NetView::build(RTLIL::Design *design, PortModel *ports)
 {
 	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
 	design_ = design;
-	buildTop(topModule(design));
+	ports_ = ports;
+	// A leaf type without a port model errors out halfway, drop the partial view
+	try {
+		buildTop(topModule(design));
+	} catch (...) {
+		reset();
+		throw;
+	}
 }
 
 void NetView::buildTop(RTLIL::Module *top)
 {
 	top_ = newInstance(nullptr, top, nullptr);
+	top_->ports = portsFor(top_, top);
 	buildScope(top, top_);
 }
 
@@ -174,8 +208,11 @@ void NetView::reset()
 {
 	design_ = nullptr;
 	top_ = nullptr;
+	ports_ = nullptr;
 
 	instances_.clear();
+	shape_store_.clear();
+	shape_cache_.clear();
 	cell_inst_.clear();
 	module_scope_.clear();
 	inst_cell_.clear();
@@ -225,6 +262,7 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : module->cells()) {
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
+		inst->ports = portsFor(inst, this->module(inst));
 		if (!inst->leaf)
 			buildScope(this->module(inst), inst);
 	}
