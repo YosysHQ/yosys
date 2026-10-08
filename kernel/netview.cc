@@ -4,6 +4,11 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+NetView::~NetView()
+{
+	unregisterMonitor();
+}
+
 bool NetView::built() const
 {
 	return top_ != nullptr;
@@ -21,6 +26,12 @@ bool NetView::designAlive() const
 			return true;
 	}
 	return false;
+}
+
+void NetView::unregisterMonitor()
+{
+	if (design_ != nullptr && designAlive())
+		design_->monitors.erase(this);
 }
 
 // A host-internal cell type (no library model)
@@ -299,6 +310,7 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 	for (const auto &[module, scope] : module_scope_)
 		tracked_.push_back(module->name);
 	fingerprint_ = fingerprint();
+	design_->monitors.insert(this);
 }
 
 void NetView::buildTop(RTLIL::Module *top)
@@ -310,6 +322,7 @@ void NetView::buildTop(RTLIL::Module *top)
 
 void NetView::reset()
 {
+	unregisterMonitor();
 	design_ = nullptr;
 	top_ = nullptr;
 	ports_ = nullptr;
@@ -762,6 +775,36 @@ void NetView::invalidateCheck() const
 bool NetView::valid() const
 {
 	return !changed();
+}
+
+void NetView::notify_module_add(RTLIL::Module *)
+{
+	dirty_ = true;
+}
+
+void NetView::notify_module_del(RTLIL::Module *)
+{
+	dirty_ = true;
+}
+
+void NetView::notify_connect(RTLIL::Cell *, RTLIL::IdString, const RTLIL::SigSpec &, const RTLIL::SigSpec &)
+{
+	dirty_ = true;
+}
+
+void NetView::notify_connect(RTLIL::Module *, const RTLIL::SigSig &)
+{
+	dirty_ = true;
+}
+
+void NetView::notify_connect(RTLIL::Module *, const std::vector<RTLIL::SigSig> &)
+{
+	dirty_ = true;
+}
+
+void NetView::notify_blackout(RTLIL::Module *)
+{
+	dirty_ = true;
 }
 
 YOSYS_NAMESPACE_END

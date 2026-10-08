@@ -224,6 +224,7 @@ TEST_F(NetViewTest, resetRestartsIds)
 	view.reset();
 	EXPECT_FALSE(view.built());
 	EXPECT_FALSE(view.valid());
+	EXPECT_EQ(d->monitors.count(&view), 0u);
 	view.build(d);
 	EXPECT_TRUE(view.valid());
 	EXPECT_EQ(view.top()->pins[0]->id, 1u);
@@ -369,6 +370,24 @@ TEST_F(NetViewTest, staleViewKeepsNames)
 	view.invalidateCheck();
 	EXPECT_FALSE(view.valid());
 	EXPECT_EQ(view.wireName(d0_net), (Netlist::NetName{"d0", 0, true}));
+}
+
+TEST_F(NetViewTest, monitorEventsMakeTheViewStale)
+{
+	NetView view;
+	view.build(d);
+	u_inv2->setPort(ID(A), in);
+	EXPECT_FALSE(view.valid());
+
+	NetView other;
+	other.build(d);
+	top->connect(p, d0);
+	EXPECT_FALSE(other.valid());
+
+	NetView third;
+	third.build(d);
+	d->addModule(ID(extra));
+	EXPECT_FALSE(third.valid());
 }
 
 TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
@@ -563,6 +582,7 @@ TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 	NetView view;
 	EXPECT_THROW(view.build(d), log_cmd_error_exception);
 	EXPECT_FALSE(view.built());
+	EXPECT_EQ(d->monitors.count(&view), 0u);
 	top->remove(top->cell(ID(u_unknown)));
 	view.build(d);
 	EXPECT_TRUE(view.valid());
