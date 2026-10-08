@@ -17,7 +17,7 @@ NetView::Instance *NetView::top() const
 // A host-internal cell type (no library model)
 bool detail::internalType(RTLIL::IdString type)
 {
-	return StaticCellTypes::categories.is_known(type);
+	return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo);
 }
 
 std::vector<std::string> detail::hdlPath(const RTLIL::AttrObject *object)
@@ -327,6 +327,8 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : module->cells()) {
+		if (cell->type == ID($scopeinfo))
+			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
 		makePins(inst);
 		if (!inst->leaf)
