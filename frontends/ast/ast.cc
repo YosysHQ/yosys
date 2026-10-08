@@ -1080,6 +1080,14 @@ double AstNode::asReal(bool is_signed)
 	log_abort();
 }
 
+RTLIL::Const AstNode::valueAsConst(int width)
+{
+	if (type == AST_REALVALUE)
+		return realAsConst(width);
+	log_assert(type == AST_CONSTANT);
+	return bitsAsConst(width);
+}
+
 RTLIL::Const AstNode::realAsConst(int width)
 {
 	double v = round(realvalue);

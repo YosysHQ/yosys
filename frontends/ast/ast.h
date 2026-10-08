@@ -281,6 +281,8 @@ namespace AST
 			bool is_signed;
 			AstNode *arg = nullptr;
 			bool explicitly_sized;
+			// A real variable has no width, so its value lives here and val is unused.
+			std::optional<double> realval;
 		};
 		bool has_const_only_constructs();
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
@@ -337,6 +339,7 @@ namespace AST
 		int isConst() const; // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
 		double asReal(bool is_signed);
 		RTLIL::Const realAsConst(int width);
+		RTLIL::Const valueAsConst(int width);
 
 		// helpers for enum
 		void allocateDefaultEnumValues();
