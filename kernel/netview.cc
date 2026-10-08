@@ -327,7 +327,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : module->cells()) {
-		if (cell->type == ID($scopeinfo))
+		if (cell->type.in(ID($barrier), ID($scopeinfo)))
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
 		makePins(inst);
@@ -453,7 +453,23 @@ SigMap &NetView::sigmapFor(RTLIL::Module *module) const
 	auto it = sigmaps_.find(module);
 	if (it != sigmaps_.end())
 		return it->second;
-	return sigmaps_.try_emplace(module, module).first->second;
+	SigMap &sigmap = sigmaps_.try_emplace(module, module).first->second;
+	detail::addBarrierAliases(module, sigmap);
+	return sigmap;
+}
+
+void detail::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap)
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		if (cell->type != ID($barrier))
+			continue;
+		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
+		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
+			// Cell order doesn't matter here
+			if (sigmap(a[b]).wire != nullptr && sigmap(y[b]).wire != nullptr)
+				sigmap.add(y[b], a[b]);
+		}
+	}
 }
 
 uint64_t detail::bitKey(const RTLIL::SigBit &bit)
