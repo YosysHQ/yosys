@@ -80,9 +80,9 @@ struct ExtractinvPass : public Pass {
 		if (inv_celltype.empty())
 			log_error("The -inv option is required.\n");
 
-		IdString inv_celltype_ref = design->twines.add(RTLIL::escape_id(inv_celltype));
-		IdString inv_portname_ref = design->twines.add(RTLIL::escape_id(inv_portname));
-		IdString inv_portname2_ref = design->twines.add(RTLIL::escape_id(inv_portname2));
+		IdString inv_celltype_ref = design->twines().add(RTLIL::escape_id(inv_celltype));
+		IdString inv_portname_ref = design->twines().add(RTLIL::escape_id(inv_portname));
+		IdString inv_portname2_ref = design->twines().add(RTLIL::escape_id(inv_portname2));
 
 		for (auto module : design->selected_modules())
 		{
@@ -97,7 +97,7 @@ struct ExtractinvPass : public Pass {
 				auto it = cell_wire->attributes.find(ID::invertible_pin);
 				if (it == cell_wire->attributes.end())
 					continue;
-				IdString param_name = design->twines.find(RTLIL::escape_id(it->second.decode_string()));
+				IdString param_name = design->twines().find(RTLIL::escape_id(it->second.decode_string()));
 				auto it2 = cell->parameters.find(param_name);
 				// Inversion not used -- skip.
 				if (it2 == cell->parameters.end())

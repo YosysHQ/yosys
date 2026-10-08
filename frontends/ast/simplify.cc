@@ -714,7 +714,7 @@ static const RTLIL::Module* lookup_module(const std::string &name)
 	if (simplify_design_modules_size != design->modules_.size()) {
 		simplify_design_modules.clear();
 		for (const auto &it : design->modules_)
-			simplify_design_modules[design->twines.str(it.first)] = it.first;
+			simplify_design_modules[design->twines().str(it.first)] = it.first;
 		simplify_design_modules_size = design->modules_.size();
 	}
 	auto it = simplify_design_modules.find(name);

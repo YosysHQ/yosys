@@ -159,7 +159,7 @@ struct CutpointPass : public Pass {
 						if (attr.first == ID::hdlname)
 							scopeinfo->attributes.insert(attr);
 						else
-							scopeinfo->attributes.emplace(design->twines.add(stringf("\\cell_%s", design->twines.unescaped_str(attr.first))), attr.second);
+							scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
 					}
 				}
 

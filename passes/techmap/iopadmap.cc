@@ -164,7 +164,7 @@ struct IopadmapPass : public Pass {
 				std::string ignore_portname2;
 				while (!ignore_portname.empty()) {
 					split_portname_pair(ignore_portname, ignore_portname2);
-					ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(ignore_celltype)), design->twines.add(RTLIL::escape_id(ignore_portname))));
+					ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(ignore_celltype)), design->twines().add(RTLIL::escape_id(ignore_portname))));
 
 					ignore_portname = ignore_portname2;
 				}
@@ -187,15 +187,15 @@ struct IopadmapPass : public Pass {
 		extra_args(args, argidx, design);
 
 		if (!inpad_portname_pad.empty())
-			ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(inpad_celltype)), design->twines.add(RTLIL::escape_id(inpad_portname_pad))));
+			ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(inpad_celltype)), design->twines().add(RTLIL::escape_id(inpad_portname_pad))));
 		if (!outpad_portname_pad.empty())
-			ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(outpad_celltype)), design->twines.add(RTLIL::escape_id(outpad_portname_pad))));
+			ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(outpad_celltype)), design->twines().add(RTLIL::escape_id(outpad_portname_pad))));
 		if (!inoutpad_portname_pad.empty())
-			ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(inoutpad_celltype)), design->twines.add(RTLIL::escape_id(inoutpad_portname_pad))));
+			ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(inoutpad_celltype)), design->twines().add(RTLIL::escape_id(inoutpad_portname_pad))));
 		if (!toutpad_portname_pad.empty())
-			ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(toutpad_celltype)), design->twines.add(RTLIL::escape_id(toutpad_portname_pad))));
+			ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(toutpad_celltype)), design->twines().add(RTLIL::escape_id(toutpad_portname_pad))));
 		if (!tinoutpad_portname_pad.empty())
-			ignore.insert(make_pair(design->twines.add(RTLIL::escape_id(tinoutpad_celltype)), design->twines.add(RTLIL::escape_id(tinoutpad_portname_pad))));
+			ignore.insert(make_pair(design->twines().add(RTLIL::escape_id(tinoutpad_celltype)), design->twines().add(RTLIL::escape_id(tinoutpad_portname_pad))));
 
 		// Recursively collect list of (module, port, bit) triples that already have buffers.
 

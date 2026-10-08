@@ -2861,19 +2861,19 @@ struct SimPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-clock" && argidx+1 < args.size()) {
-				worker.clock.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.clock.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-clockn" && argidx+1 < args.size()) {
-				worker.clockn.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.clockn.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-reset" && argidx+1 < args.size()) {
-				worker.reset.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.reset.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
-				worker.resetn.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.resetn.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-timescale" && argidx+1 < args.size()) {
@@ -3088,11 +3088,11 @@ struct Fst2TbPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-clock" && argidx+1 < args.size()) {
-				worker.clock.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.clock.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-clockn" && argidx+1 < args.size()) {
-				worker.clockn.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				worker.clockn.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-r" && argidx+1 < args.size()) {

@@ -74,11 +74,11 @@ struct TestKoggeStonePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-gold" && argidx + 1 < args.size()) {
-				gold_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				gold_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-gate" && argidx + 1 < args.size()) {
-				gate_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				gate_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			break;

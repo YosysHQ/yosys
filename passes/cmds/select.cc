@@ -524,7 +524,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 			}
 		}
 
-		auto &twines = design->twines;
+		auto &twines = design->twines();
 		for (auto cell : mod->cells())
 		for (auto &conn : cell->connections())
 		{
@@ -618,7 +618,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 				std::string str = arg.substr(pos, endpos-pos);
 				if (str[0] == '@') {
 					str = RTLIL::escape_id(str.substr(1));
-					IdString sel_name = design->twines.find(str);
+					IdString sel_name = design->twines().find(str);
 					if (sel_name != IdString::Null && design->selection_vars.count(sel_name) > 0) {
 						for (auto i1 : design->selection_vars.at(sel_name).selected_members)
 						for (auto i2 : i1.second)
@@ -626,7 +626,7 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 					} else
 						log_cmd_error("Selection %s is not defined!\n", RTLIL::unescape_id(str));
 				} else
-					limits.insert(design->twines.add(RTLIL::escape_id(str)));
+					limits.insert(design->twines().add(RTLIL::escape_id(str)));
 			}
 			pos = endpos;
 		}
@@ -819,7 +819,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 
 	if (arg[0] == '@') {
 		std::string set_name = RTLIL::escape_id(arg.substr(1));
-		IdString set_twine = design->twines.find(set_name);
+		IdString set_twine = design->twines().find(set_name);
 		if (set_twine != IdString::Null && design->selection_vars.count(set_twine) > 0)
 			work_stack.push_back(design->selection_vars[set_twine]);
 		else
@@ -835,7 +835,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 	}
 
 	if (!design->selected_active_module.empty()) {
-		arg_mod = design->twines.str(design->selected_active_module);
+		arg_mod = design->twines().str(design->selected_active_module);
 		arg_memb = arg;
 		if (!isprefixed(arg_memb))
 			arg_memb_found[arg_memb] = false;
@@ -874,7 +874,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			continue;
 
 		if (arg_mod.compare(0, 2, "A:") == 0) {
-			if (!match_attr(design->twines, mod->attributes, arg_mod.substr(2)))
+			if (!match_attr(design->twines(), mod->attributes, arg_mod.substr(2)))
 				continue;
 		} else
 		if (arg_mod.compare(0, 2, "N:") == 0) {
@@ -930,7 +930,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		} else
 		if (arg_memb.compare(0, 2, "m:") == 0) {
 			for (auto &it : mod->memories)
-				if (match_ids(design->twines.str(it.first), arg_memb.substr(2)))
+				if (match_ids(design->twines().str(it.first), arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "c:") == 0) {
@@ -941,7 +941,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		if (arg_memb.compare(0, 2, "t:") == 0) {
 			if (arg_memb.compare(2, 1, "@") == 0) {
 				std::string set_name = RTLIL::escape_id(arg_memb.substr(3));
-				IdString set_twine = design->twines.find(set_name);
+				IdString set_twine = design->twines().find(set_name);
 				if (set_twine == IdString::Null || !design->selection_vars.count(set_twine))
 					log_cmd_error("Selection @%s is not defined!\n", RTLIL::unescape_id(set_name));
 
@@ -957,26 +957,26 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
-				if (match_ids(design->twines.str(it.first), arg_memb.substr(2)))
+				if (match_ids(design->twines().str(it.first), arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto wire : mod->wires())
-				if (match_attr(design->twines, wire->attributes, arg_memb.substr(2)))
+				if (match_attr(design->twines(), wire->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
-				if (match_attr(design->twines, it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines, cell->attributes, arg_memb.substr(2)))
+				if (match_attr(design->twines(), cell->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
-				if (match_attr(design->twines, it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines, cell->parameters, arg_memb.substr(2)))
+				if (match_attr(design->twines(), cell->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 		} else {
 			std::string orig_arg_memb = arg_memb;
@@ -988,7 +988,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					arg_memb_found[orig_arg_memb] = true;
 				}
 			for (auto &it : mod->memories)
-				if (match_ids(design->twines.str(it.first), arg_memb)) {
+				if (match_ids(design->twines().str(it.first), arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
 					arg_memb_found[orig_arg_memb] = true;
 				}
@@ -998,7 +998,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 					arg_memb_found[orig_arg_memb] = true;
 				}
 			for (auto &it : mod->processes)
-				if (match_ids(design->twines.str(it.first), arg_memb)) {
+				if (match_ids(design->twines().str(it.first), arg_memb)) {
 					sel.selected_members[mod->name].insert(it.first);
 					arg_memb_found[orig_arg_memb] = true;
 				}
@@ -1422,7 +1422,7 @@ struct SelectPass : public Pass {
 			}
 			if (arg == "-module" && argidx+1 < args.size()) {
 				std::string mod_name = RTLIL::escape_id(args[++argidx]);
-				IdString t = design->twines.find(mod_name);
+				IdString t = design->twines().find(mod_name);
 				if (t == IdString::Null || design->module(t) == nullptr)
 					log_cmd_error("No such module: %s\n", RTLIL::unescape_id(mod_name));
 				design->selected_active_module = t;
@@ -1466,8 +1466,8 @@ struct SelectPass : public Pass {
 				}
 				std::string mod_name = RTLIL::escape_id(line.substr(0, slash_pos));
 				std::string obj_name = RTLIL::escape_id(line.substr(slash_pos+1));
-				IdString mod_ref = design->twines.find(mod_name);
-				IdString obj_ref = design->twines.find(obj_name);
+				IdString mod_ref = design->twines().find(mod_name);
+				IdString obj_ref = design->twines().find(obj_name);
 				if (mod_ref == IdString::Null || obj_ref == IdString::Null)
 					continue;
 				sel.selected_members[mod_ref].insert(obj_ref);
@@ -1649,7 +1649,7 @@ struct SelectPass : public Pass {
 
 		if (!set_name.empty())
 		{
-			IdString set_twine = design->twines.add(std::string(set_name));
+			IdString set_twine = design->twines().add(std::string(set_name));
 			if (work_stack.size() == 0)
 				design->selection_vars[set_twine] = RTLIL::Selection::EmptySelection(design);
 			else
@@ -1659,7 +1659,7 @@ struct SelectPass : public Pass {
 
 		if (!unset_name.empty())
 		{
-			IdString unset_twine = design->twines.find(unset_name);
+			IdString unset_twine = design->twines().find(unset_name);
 			if (unset_twine == IdString::Null || !design->selection_vars.erase(unset_twine))
 				log_error("Selection '%s' does not exist!\n", unset_name);
 			return;
@@ -1731,7 +1731,7 @@ struct CdPass : public Pass {
 
 		if (args[1] == "..")
 		{
-			string modname = design->twines.str(design->selected_active_module);
+			string modname = design->twines().str(design->selected_active_module);
 
 			design->pop_selection();
 			design->push_full_selection();
@@ -1745,7 +1745,7 @@ struct CdPass : public Pass {
 					break;
 
 				modname = modname.substr(0, pos);
-				IdString mod_ref = design->twines.find(modname);
+				IdString mod_ref = design->twines().find(modname);
 				Module *mod = design->module(mod_ref);
 
 				if (mod == nullptr)
@@ -1762,7 +1762,7 @@ struct CdPass : public Pass {
 			return;
 		}
 
-		IdString modname = design->twines.find(RTLIL::escape_id(args[1]));
+		IdString modname = design->twines().find(RTLIL::escape_id(args[1]));
 
 		if (design->module(modname) == nullptr && !design->selected_active_module.empty()) {
 			RTLIL::Module *module = design->module(design->selected_active_module);
@@ -1838,7 +1838,7 @@ struct LsPass : public Pass {
 			if (!matches.empty()) {
 				log("\n");
 				log("%d %s:\n", int(matches.size()), "modules");
-				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str(design->twines));
+				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str(design->twines()));
 				for (auto id : matches)
 					log("  %s%s\n", PooledName(design, id).unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");
 			}

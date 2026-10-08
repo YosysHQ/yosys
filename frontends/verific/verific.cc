@@ -1553,7 +1553,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	netlist = nl;
 
-	IdString module_id = design->twines.add(module_name);
+	IdString module_id = design->twines().add(module_name);
 	if (design->has(module_id)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
 			log_cmd_error("Re-definition of module `%s'.\n", netlist_name);
@@ -1586,7 +1586,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	const char *param_value ;
 	MapIter mi;
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
-		IdString param_id = design->twines.add(RTLIL::escape_id(param_name));
+		IdString param_id = design->twines().add(RTLIL::escape_id(param_name));
 		module->avail_parameters(param_id);
 		const TypeRange *tr = nl->GetTypeRange(param_name) ;
 		const char* type_name = (tr) ? tr->GetTypeName() : nullptr;
@@ -1698,7 +1698,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	{
 		if (net->IsRamNet())
 		{
-			IdString memory_name = design->twines.add(RTLIL::escape_id(net->Name()));
+			IdString memory_name = design->twines().add(RTLIL::escape_id(net->Name()));
 			log_assert(module->count_id(memory_name) == 0);
 			RTLIL::Memory *memory = module->addMemory(memory_name);
 			import_attributes(memory->attributes, net, nl);
@@ -1811,7 +1811,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (net->Bus())
 			continue;
 
-		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? design->twines.add(RTLIL::escape_id(net->Name())) : new_verific_id(net));
+		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(net->Name())) : new_verific_id(net));
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
 
@@ -1835,7 +1835,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		if (found_new_net)
 		{
-			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? design->twines.add(RTLIL::escape_id(netbus->Name())) : new_verific_id(netbus));
+			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(netbus->Name())) : new_verific_id(netbus));
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 
@@ -1968,7 +1968,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
-		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? design->twines.add(RTLIL::escape_id(inst->Name())) : new_verific_id(inst));
+		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(inst->Name())) : new_verific_id(inst));
 
 		if (verific_verbose)
 			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), PooledName(design, inst_name).unescape());

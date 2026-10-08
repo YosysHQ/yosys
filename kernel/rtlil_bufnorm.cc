@@ -148,7 +148,7 @@ void RTLIL::Module::bufNormalize()
 		// already enqueued or becomes reachable when denormalizing $buf or
 		// $connect cells.
 		auto enqueue_cell_port = [&](Cell *cell, IdString port) {
-			xlog("processing cell port %s.%s\n", cell, design->twines.unescaped_str(port));
+			xlog("processing cell port %s.%s\n", cell, design->twines().unescaped_str(port));
 
 			// An empty cell type means the cell got removed
 			if (cell->type.empty())

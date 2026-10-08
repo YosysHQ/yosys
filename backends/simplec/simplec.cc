@@ -38,7 +38,7 @@ struct CIdentifiers
 	{
 		if (id2cid.count(id) == 0)
 		{
-			string s = design->twines.str(id);
+			string s = design->twines().str(id);
 			if (GetSize(s) < 2) log_abort();
 
 			if (s[0] == '\\')

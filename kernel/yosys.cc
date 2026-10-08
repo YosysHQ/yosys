@@ -352,7 +352,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool new
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
 	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->twines.str(design->selected_active_module)).c_str());
+		str += stringf(" [%s]", RTLIL::unescape_id(design->twines().str(design->selected_active_module)).c_str());
 	if (!design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";
@@ -960,7 +960,7 @@ static char *readline_obj_generator(const char *text, int state)
 					obj_names.push_back(strdup(w->name.unescape().c_str()));
 
 			for (auto &it : module->memories) {
-				std::string mem_name = design->twines.unescaped_str(it.first);
+				std::string mem_name = design->twines().unescaped_str(it.first);
 				if (mem_name.compare(0, len, text) == 0)
 					obj_names.push_back(strdup(mem_name.c_str()));
 			}
@@ -970,7 +970,7 @@ static char *readline_obj_generator(const char *text, int state)
 					obj_names.push_back(strdup(cell->name.unescape().c_str()));
 
 			for (auto &it : module->processes) {
-				std::string proc_name = design->twines.unescaped_str(it.first);
+				std::string proc_name = design->twines().unescaped_str(it.first);
 				if (proc_name.compare(0, len, text) == 0)
 					obj_names.push_back(strdup(proc_name.c_str()));
 			}

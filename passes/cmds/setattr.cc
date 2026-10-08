@@ -50,11 +50,11 @@ static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &att
 {
 	for (auto &item : list)
 		if (item.unset) {
-			IdString name = design->twines.find(item.name);
+			IdString name = design->twines().find(item.name);
 			if (name != IdString::Null)
 				attrs.erase(name);
 		} else
-			attrs[design->twines.add(std::string(item.name))] = item.value;
+			attrs[design->twines().add(std::string(item.name))] = item.value;
 }
 
 struct SetattrPass : public Pass {

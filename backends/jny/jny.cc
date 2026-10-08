@@ -217,7 +217,7 @@ struct JnyWriter
     void write_cell_conn(const std::pair<RTLIL::IdString, RTLIL::SigSpec>& sig, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
         f << _indent << "  {\n";
-        f << _indent << "    \"name\": \"" << escape_string(_design->twines.unescaped_str(sig.first)) << "\",\n";
+        f << _indent << "    \"name\": \"" << escape_string(_design->twines().unescaped_str(sig.first)) << "\",\n";
         f << _indent << "    \"signals\": [\n";
 
         write_sigspec(sig.second, indent_level + 2);
@@ -283,7 +283,7 @@ struct JnyWriter
                 f << ",\n";
 
             f << _indent << "  {\n";
-            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(_design->twines.unescaped_str(con.first)));
+            f << stringf("    %s\"name\": \"%s\",\n", _indent, escape_string(_design->twines().unescaped_str(con.first)));
             f << _indent << "    \"direction\": \"";
             if (port_cell->input(con.first))
                 f << "i";
@@ -354,10 +354,10 @@ struct JnyWriter
                 f << stringf(",\n");
             const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent, escape_string(_design->twines.unescaped_str(param.first)));
+                f << stringf("  %s\"%s\": ", _indent, escape_string(_design->twines().unescaped_str(param.first)));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent, escape_string(_design->twines.unescaped_str(param.first)));
+                f << stringf("  %s\"%s\": true", _indent, escape_string(_design->twines().unescaped_str(param.first)));
             }
 
             first_param = false;

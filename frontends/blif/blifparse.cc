@@ -121,7 +121,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 			}
 		}
 
-		IdString wire_ref = design->twines.add(RTLIL::escape_id(wire_name));
+		IdString wire_ref = design->twines().add(RTLIL::escape_id(wire_name));
 		Wire *wire = module->wire(wire_ref);
 
 		if (wire == nullptr)
@@ -178,7 +178,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				char *name = strtok(NULL, " \t\r\n");
 				if (name == nullptr)
 					goto error;
-				module->name = design->twines.add(RTLIL::escape_id(name));
+				module->name = design->twines().add(RTLIL::escape_id(name));
 				obj_attributes = &module->attributes;
 				obj_parameters = nullptr;
 				if (design->module(module->name))
@@ -209,8 +209,8 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					wire->port_output = !isinput;
 
 					for (int i = 0; i < width; i++) {
-						std::string other_name = design->twines.str(name) + stringf("[%d]", i);
-						IdString other_ref = design->twines.find(other_name);
+						std::string other_name = design->twines().str(name) + stringf("[%d]", i);
+						IdString other_ref = design->twines().find(other_name);
 						RTLIL::Wire *other_wire = module->wire(other_ref);
 						if (other_wire) {
 							other_wire->port_input = false;
@@ -280,7 +280,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				while ((p = strtok(NULL, " \t\r\n")) != NULL)
 				{
 					std::string wire_name_str = stringf("\\%s", p);
-					IdString wire_ref = design->twines.add(std::string{wire_name_str});
+					IdString wire_ref = design->twines().add(std::string{wire_name_str});
 					RTLIL::Wire *wire = module->wire(wire_ref);
 					if (wire == nullptr)
 						wire = module->addWire(wire_ref);
@@ -292,7 +292,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					if (wideports) {
 						std::pair<std::string, int> wp = wideports_split(p);
 						if (!wp.first.empty() && wp.second >= 0) {
-							IdString wp_ref = design->twines.add(std::string(wp.first));
+							IdString wp_ref = design->twines().add(std::string(wp.first));
 							wideports_cache[wp_ref].first = std::max(wideports_cache[wp_ref].first, wp.second + 1);
 							wideports_cache[wp_ref].second = !strcmp(cmd, ".inputs");
 						}
@@ -322,7 +322,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 			if (!strcmp(cmd, ".attr") || !strcmp(cmd, ".param")) {
 				char *n = strtok(NULL, " \t\r\n");
 				char *v = strtok(NULL, "\r\n");
-				IdString id_n = design->twines.add(RTLIL::escape_id(n));
+				IdString id_n = design->twines().add(RTLIL::escape_id(n));
 				Const const_v;
 				if (v[0] == '"') {
 					std::string str(v+1);
@@ -403,7 +403,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				if (p == NULL)
 					goto error;
 
-				IdString celltype = design->twines.add(RTLIL::escape_id(p));
+				IdString celltype = design->twines().add(RTLIL::escape_id(p));
 				RTLIL::Cell *cell = module->addCell(blif_new_id(autoidx_base, local_autoidx), celltype);
 				RTLIL::Module *cell_mod = design->module(cell->type);
 
@@ -419,14 +419,14 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					if (wideports) {
 						std::pair<std::string, int> wp = wideports_split(p);
 						if (wp.first.empty()) {
-							IdString port_ref = design->twines.add(RTLIL::escape_id(p));
+							IdString port_ref = design->twines().add(RTLIL::escape_id(p));
 							cell->setPort(port_ref, *q ? blif_wire(q) : SigSpec());
 						} else {
-							IdString wp_ref = design->twines.add(std::string(wp.first));
+							IdString wp_ref = design->twines().add(std::string(wp.first));
 							cell_wideports_cache[wp_ref][wp.second] = blif_wire(q);
 						}
 					} else {
-						IdString port_ref = design->twines.add(RTLIL::escape_id(p));
+						IdString port_ref = design->twines().add(RTLIL::escape_id(p));
 						cell->setPort(port_ref, *q ? blif_wire(q) : SigSpec());
 					}
 				}

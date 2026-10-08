@@ -85,7 +85,7 @@ void BlifDumperConfig::resolve(RTLIL::Design *design)
 	for (auto module : design->modules()) {
 		for (auto cell : module->cells())
 			for (auto &names : escaped_unbuf) {
-				if (unbuf_types.count(cell->type) || !design->twines.name_equal(cell->type, names[0]))
+				if (unbuf_types.count(cell->type) || !design->twines().name_equal(cell->type, names[0]))
 					continue;
 				IdString in_port = match_port(cell, names[1]);
 				IdString out_port = match_port(cell, names[2]);
@@ -131,7 +131,7 @@ struct BlifDumper
 
 	const std::string str(RTLIL::IdString id)
 	{
-		std::string str = design->twines.unescaped_str(id);
+		std::string str = design->twines().unescaped_str(id);
 		for (size_t i = 0; i < str.size(); i++)
 			if (str[i] == '#' || str[i] == '=' || str[i] == '<' || str[i] == '>')
 				str[i] = '?';
@@ -190,7 +190,7 @@ struct BlifDumper
 	void dump_params(const char *command, dict<IdString, Const> &params)
 	{
 		for (auto &param : params) {
-			f << stringf("%s %s ", command, design->twines.unescaped_str(param.first));
+			f << stringf("%s %s ", command, design->twines().unescaped_str(param.first));
 			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
 				std::string str = param.second.decode_string();
 				f << stringf("\"");
@@ -722,7 +722,7 @@ struct BlifBackend : public Backend {
 			if (module->memories.size() != 0)
 				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", module->name.unescape());
 
-			if (design->twines.name_equal(module->name, escaped_top_name)) {
+			if (design->twines().name_equal(module->name, escaped_top_name)) {
 				BlifDumper::dump(*f, module, design, config);
 				top_module_name.clear();
 				continue;

@@ -59,8 +59,8 @@ struct TorderPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-stop" && argidx+2 < args.size()) {
-				IdString cell_type = design->twines.add(RTLIL::escape_id(args[++argidx]));
-				IdString cell_port = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				IdString cell_type = design->twines().add(RTLIL::escape_id(args[++argidx]));
+				IdString cell_port = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				stop_db[cell_type].insert(cell_port);
 				continue;
 			}
@@ -116,12 +116,12 @@ struct TorderPass : public Pass {
 			for (auto &it : toposort.loops) {
 				std::string message = "  loop";
 				for (auto cell : it)
-					message += stringf(" %s", design->twines.str(cell));
+					message += stringf(" %s", design->twines().str(cell));
 				log("%s\n", message);
 			}
 
 			for (auto cell : toposort.sorted)
-					log("  cell %s\n", design->twines.str(cell));
+					log("  cell %s\n", design->twines().str(cell));
 		}
 	}
 } TorderPass;

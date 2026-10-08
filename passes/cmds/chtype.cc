@@ -36,11 +36,11 @@ static void publish_design(RTLIL::Design* design) {
 	auto saved_modules = design->modules_;
 	design->modules_.clear();
 	for (auto& [_, mod] : saved_modules) {
-		IdString new_name = publish(design->twines, mod->name);
+		IdString new_name = publish(design->twines(), mod->name);
 		mod->name = new_name;
 		design->modules_[new_name] = mod;
 		for (auto* cell : mod->cells())
-			cell->type = publish(design->twines, cell->type);
+			cell->type = publish(design->twines(), cell->type);
 	}
 }
 
@@ -76,12 +76,12 @@ struct ChtypePass : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (set_type == IdString() && args[argidx] == "-set" && argidx+1 < args.size()) {
-				set_type = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				set_type = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+2 < args.size()) {
-				IdString old_type = design->twines.add(RTLIL::escape_id(args[++argidx]));
-				IdString new_type = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				IdString old_type = design->twines().add(RTLIL::escape_id(args[++argidx]));
+				IdString new_type = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				map_types[old_type] = new_type;
 				continue;
 			}

@@ -224,7 +224,7 @@ public:
 			for (const auto &item : path()) {
 				if (!result.empty())
 					result.push_back(' ');
-				result += design->twines.unescaped_str(item);
+				result += design->twines().unescaped_str(item);
 			}
 			return result;
 		}
@@ -336,7 +336,7 @@ static inline void log_dump_val_worker(const typename std::unique_ptr<T> &cursor
 template<typename O>
 std::vector<IdString> parse_hdlname(const O* object)
 {
-	TwinePool &twines = object->design()->twines;
+	TwinePool &twines = object->design()->twines();
 	IdString name = object->name;
 	std::vector<IdString> path;
 	for (auto const &item : object->get_hdlname_attribute())
@@ -355,7 +355,7 @@ std::vector<IdString> parse_hdlname(const O* object)
 template<typename O>
 std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 {
-	TwinePool &twines = object->design()->twines;
+	TwinePool &twines = object->design()->twines();
 	std::vector<IdString> path;
 	IdString trailing = object->name;
 	if (trailing.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")) {

@@ -59,13 +59,13 @@ struct PrefixApplier
 	PrefixApplier(RTLIL::Design *dst, IdString prefix, RTLIL::Design *src)
 		: dst(dst), src(src), cell_name(prefix)
 	{
-		pub_prefix = dst->twines.add(TwineSpec::Suffix{prefix, "."});
+		pub_prefix = dst->twines().add(TwineSpec::Suffix{prefix, "."});
 	}
 
 	IdString techmap_prefix()
 	{
 		if (priv_prefix == IdString::Null)
-			priv_prefix = dst->twines.add("$techmap" + dst->twines.str(cell_name) + ".");
+			priv_prefix = dst->twines().add("$techmap" + dst->twines().str(cell_name) + ".");
 		return priv_prefix;
 	}
 
@@ -74,15 +74,15 @@ struct PrefixApplier
 		if (auto it = memo.find(obj_ref); it != memo.end())
 			return it->second;
 
-		const TwineNode &node = src->twines[obj_ref];
-		IdString parent = src->twines.prefix_of(obj_ref);
+		const TwineNode &node = src->twines()[obj_ref];
+		IdString parent = src->twines().prefix_of(obj_ref);
 		IdString result;
 		if (parent != IdString::Null) {
 			IdString prefix = name(parent);
-			result = dst->twines.add(prefix, node.text());
+			result = dst->twines().add(prefix, node.text());
 		} else {
 			IdString prefix = obj_ref.isPublic() ? pub_prefix : techmap_prefix();
-			result = dst->twines.add(prefix, node.text());
+			result = dst->twines().add(prefix, node.text());
 		}
 		memo[obj_ref] = result;
 		return result;
@@ -103,7 +103,7 @@ struct PrefixApplier
 
 static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString name)
 {
-	return tpl->wire(tpl->twines().find_from(src->twines, name));
+	return tpl->wire(tpl->twines().find_from(src->twines(), name));
 }
 
 struct TechmapWorker
@@ -533,7 +533,7 @@ struct TechmapWorker
 				RTLIL::Module *tpl = map->module(derived_name);
 				dict<IdString, RTLIL::Const> parameters;
 				for (auto &p : cell->parameters)
-					parameters[map->twines.copy_from(design->twines, p.first)] = p.second;
+					parameters[map->twines().copy_from(design->twines(), p.first)] = p.second;
 
 				if (tpl->get_blackbox_attribute(ignore_wb))
 					continue;
@@ -562,7 +562,7 @@ struct TechmapWorker
 							m_name += ":" + sha1(tpl->attributes.at(ID::techmap_wrap).decode_string());
 
 						RTLIL::Design *extmapper_design = extern_mode && !in_recursion ? design : tpl->design;
-						RTLIL::Module *extmapper_module = extmapper_design->module(extmapper_design->twines.add(std::string{m_name}));
+						RTLIL::Module *extmapper_module = extmapper_design->module(extmapper_design->twines().add(std::string{m_name}));
 
 						if (extmapper_module == nullptr)
 						{
@@ -662,7 +662,7 @@ struct TechmapWorker
 					if (tpl_port != nullptr && tpl_port->port_id > 0)
 						continue;
 					// Constant ports are passed as the template parameter of the same name
-					IdString conn_id = map->twines.copy_from(design->twines, conn.first);
+					IdString conn_id = map->twines().copy_from(design->twines(), conn.first);
 					if (!conn.second.is_fully_const() || parameters.count(conn_id) > 0 || tpl->avail_parameters.count(conn_id) == 0)
 						goto next_tpl;
 					parameters[conn_id] = conn.second.as_const();
@@ -679,21 +679,21 @@ struct TechmapWorker
 					parameters.emplace(ID::_TECHMAP_CELLNAME_, cell->name.unescape());
 
 				for (auto &conn : cell->connections()) {
-					if (tpl->avail_parameters.count(map->twines.add(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines.unescaped_str(conn.first)))) != 0) {
+					if (tpl->avail_parameters.count(map->twines().add(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines().unescaped_str(conn.first)))) != 0) {
 						std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 						for (auto &bit : v)
 							bit = RTLIL::SigBit(bit.wire == nullptr ? RTLIL::State::S1 : RTLIL::State::S0);
-						parameters.emplace(map->twines.add(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines.unescaped_str(conn.first))), RTLIL::SigSpec(v).as_const());
+						parameters.emplace(map->twines().add(stringf("\\_TECHMAP_CONSTMSK_%s_", design->twines().unescaped_str(conn.first))), RTLIL::SigSpec(v).as_const());
 					}
-					if (tpl->avail_parameters.count(map->twines.add(stringf("\\_TECHMAP_CONSTVAL_%s_", design->twines.unescaped_str(conn.first)))) != 0) {
+					if (tpl->avail_parameters.count(map->twines().add(stringf("\\_TECHMAP_CONSTVAL_%s_", design->twines().unescaped_str(conn.first)))) != 0) {
 						std::vector<RTLIL::SigBit> v = sigmap(conn.second).to_sigbit_vector();
 						for (auto &bit : v)
 							if (bit.wire != nullptr)
 								bit = RTLIL::SigBit(RTLIL::State::Sx);
-						parameters.emplace(map->twines.add(stringf("\\_TECHMAP_CONSTVAL_%s_", design->twines.unescaped_str(conn.first))), RTLIL::SigSpec(v).as_const());
+						parameters.emplace(map->twines().add(stringf("\\_TECHMAP_CONSTVAL_%s_", design->twines().unescaped_str(conn.first))), RTLIL::SigSpec(v).as_const());
 					}
-					if (tpl->avail_parameters.count(map->twines.add(stringf("\\_TECHMAP_WIREINIT_%s_", design->twines.unescaped_str(conn.first)))) != 0) {
-						parameters.emplace(map->twines.add(stringf("\\_TECHMAP_WIREINIT_%s_", design->twines.unescaped_str(conn.first))), initvals(conn.second));
+					if (tpl->avail_parameters.count(map->twines().add(stringf("\\_TECHMAP_WIREINIT_%s_", design->twines().unescaped_str(conn.first)))) != 0) {
+						parameters.emplace(map->twines().add(stringf("\\_TECHMAP_WIREINIT_%s_", design->twines().unescaped_str(conn.first))), initvals(conn.second));
 					}
 				}
 
@@ -706,7 +706,7 @@ struct TechmapWorker
 					unique_bit_id[RTLIL::State::Sz] = unique_bit_id_counter++;
 
 					for (auto &conn : cell->connections())
-						if (tpl->avail_parameters.count(map->twines.add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines.unescaped_str(conn.first)))) != 0) {
+						if (tpl->avail_parameters.count(map->twines().add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines().unescaped_str(conn.first)))) != 0) {
 							for (auto &bit : sigmap(conn.second))
 								if (unique_bit_id.count(bit) == 0)
 									unique_bit_id[bit] = unique_bit_id_counter++;
@@ -723,7 +723,7 @@ struct TechmapWorker
 						parameters[ID::_TECHMAP_BITS_CONNMAP_] = bits;
 
 					for (auto &conn : cell->connections())
-						if (tpl->avail_parameters.count(map->twines.add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines.unescaped_str(conn.first)))) != 0) {
+						if (tpl->avail_parameters.count(map->twines().add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines().unescaped_str(conn.first)))) != 0) {
 							SigSpec sm = sigmap(conn.second);
 							RTLIL::Const::Builder builder(GetSize(sm) * bits);
 							for (auto &bit : sm) {
@@ -733,7 +733,7 @@ struct TechmapWorker
 									val = val >> 1;
 								}
 							}
-							parameters.emplace(map->twines.add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines.unescaped_str(conn.first))), builder.build());
+							parameters.emplace(map->twines().add(stringf("\\_TECHMAP_CONNMAP_%s_", design->twines().unescaped_str(conn.first))), builder.build());
 						}
 				}
 
@@ -756,7 +756,7 @@ struct TechmapWorker
 					}
 				}
 
-				RTLIL::Module *constmapped_tpl = map->module(map->twines.add(std::string{constmap_tpl_name(sigmap, tpl, cell, false)}));
+				RTLIL::Module *constmapped_tpl = map->module(map->twines().add(std::string{constmap_tpl_name(sigmap, tpl, cell, false)}));
 				if (constmapped_tpl != nullptr)
 					tpl = constmapped_tpl;
 
@@ -815,7 +815,7 @@ struct TechmapWorker
 								cmd_string = cmd_string.substr(strlen("CONSTMAP; "));
 
 								log("Analyzing pattern of constant bits for this cell:\n");
-								IdString new_tpl_name = map->twines.add(constmap_tpl_name(sigmap, tpl, cell, true));
+								IdString new_tpl_name = map->twines().add(constmap_tpl_name(sigmap, tpl, cell, true));
 								log("Creating constmapped module `%s'.\n", PooledName(map, new_tpl_name).unescape());
 								log_assert(map->module(new_tpl_name) == nullptr);
 
@@ -977,7 +977,7 @@ struct TechmapWorker
 				{
 					std::string m_name = stringf("$extern:%s", tpl->name.unescape());
 
-					if (!design->module(design->twines.add(std::string{m_name})))
+					if (!design->module(design->twines().add(std::string{m_name})))
 					{
 						RTLIL::Module *m = design->addModule(m_name);
 						tpl->cloneInto(m);
@@ -1257,7 +1257,7 @@ struct TechmapPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-dont_map" && argidx+1 < args.size()) {
-				dont_map.push_back(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				dont_map.push_back(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			break;
@@ -1276,7 +1276,7 @@ struct TechmapPass : public Pass {
 					}
 					auto saved = saved_designs.at(fn.substr(1));
 					for (auto mod : saved->modules())
-						if (!map->module(map->twines.copy_from(saved->twines, mod->name)))
+						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
 							mod->clone(map);
 				} else {
 					Frontend::frontend_call(map, nullptr, fn, (fn.size() > 3 && fn.compare(fn.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : verilog_frontend));
@@ -1298,7 +1298,7 @@ struct TechmapPass : public Pass {
 						auto pos = name.find('[');
 						if (pos == std::string::npos) {
 							// No further expansion.
-							celltypeMap[design->twines.add(RTLIL::escape_id(name))].insert(module->name);
+							celltypeMap[design->twines().add(RTLIL::escape_id(name))].insert(module->name);
 						} else {
 							// Expand [] in this name.
 							auto epos = name.find(']', pos);
@@ -1314,7 +1314,7 @@ struct TechmapPass : public Pass {
 			} else {
 				std::string module_name = module->name.begins_with("\\$") ?
 						module->name.substr(1) : module->name.str();
-				celltypeMap[design->twines.add(std::move(module_name))].insert(module->name);
+				celltypeMap[design->twines().add(std::move(module_name))].insert(module->name);
 			}
 		}
 
@@ -1324,7 +1324,7 @@ struct TechmapPass : public Pass {
 
 		log_debug("Cell type mappings to use:\n");
 		for (auto &i : celltypeMap) {
-			i.second.sort(RTLIL::sort_by_id_str(map->twines));
+			i.second.sort(RTLIL::sort_by_id_str(map->twines()));
 			std::string maps = "";
 			for (auto &m : i.second)
 				maps += stringf(" %s", PooledName(map, m).unescape());

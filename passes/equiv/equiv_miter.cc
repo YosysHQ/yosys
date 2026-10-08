@@ -315,7 +315,7 @@ struct EquivMiterPass : public Pass {
 		if (argidx >= args.size())
 			log_cmd_error("Invalid number of arguments.\n");
 
-		worker.miter_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+		worker.miter_name = design->twines().add(RTLIL::escape_id(args[argidx++]));
 		extra_args(args, argidx, design);
 
 		if (design->module(worker.miter_name))

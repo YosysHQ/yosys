@@ -80,7 +80,7 @@ struct UniquifyPass : public Pass {
 					if (tmod->get_blackbox_attribute())
 						continue;
 
-					IdString newname_ref = design->twines.add(std::string(newname));
+					IdString newname_ref = design->twines().add(std::string(newname));
 					if (tmod->get_bool_attribute(ID::unique) && newname_ref == tmod->name)
 						continue;
 

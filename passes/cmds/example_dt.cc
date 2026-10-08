@@ -43,7 +43,7 @@ struct ExampleDtPass : public Pass
 			ExampleWorker worker(module);
 			DriverMap dm;
 
-			TwinePool &twines = design->twines;
+			TwinePool &twines = design->twines();
 			const IdString fn_concat = twines.add(std::string("$$concat"));
 			const IdString fn_input = twines.add(std::string("$$input"));
 			const IdString fn_buf = twines.add(std::string("$$buf"));

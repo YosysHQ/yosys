@@ -81,10 +81,10 @@ namespace pyosys {
 	{
 		return name_str(lhs) < name_str(rhs);
 	}
-	static const TwinePool *pool_of(const RTLIL::Design &design) { return &design.twines; }
+	static const TwinePool *pool_of(const RTLIL::Design &design) { return &design.twines(); }
 	static const TwinePool *pool_of(const RTLIL::Module &module)
 	{
-		return module.design ? &module.design->twines : nullptr;
+		return module.design ? &module.design->twines() : nullptr;
 	}
 
 	template<typename Owner, typename Map>
@@ -104,22 +104,22 @@ namespace pyosys {
 
 	static RTLIL::PooledName design_id_add(RTLIL::Design &self, const std::string &name)
 	{
-		return RTLIL::PooledName(&self.twines, self.twines.add(name));
+		return RTLIL::PooledName(&self.twines(), self.twines().add(name));
 	}
 
 	static py::object design_id_find(RTLIL::Design &self, const std::string &name)
 	{
-		RTLIL::IdString ref = self.twines.find(name);
+		RTLIL::IdString ref = self.twines().find(name);
 		if (ref.empty())
 			return py::none();
-		return py::cast(RTLIL::PooledName(&self.twines, ref));
+		return py::cast(RTLIL::PooledName(&self.twines(), ref));
 	}
 
 	static std::string design_str(RTLIL::Design &self, const RTLIL::PooledName &name)
 	{
 		if (name_renderable(name))
 			return name.str();
-		return self.twines.str(name.ref());
+		return self.twines().str(name.ref());
 	}
 
 	static py::list module_ports(RTLIL::Module &self)

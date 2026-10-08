@@ -75,11 +75,11 @@ struct BoxDerivePass : Pass {
 		}
 		extra_args(args, argidx, d);
 
-		IdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines.find(naming_attr);
+		IdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines().find(naming_attr);
 
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {
-			IdString base_ref = d->twines.find(base_name);
+			IdString base_ref = d->twines().find(base_name);
 			base_override = base_ref == IdString::Null ? nullptr : d->module(base_ref);
 			if (!base_override)
 				log_cmd_error("Base module %s not found.\n", RTLIL::unescape_id(base_name));
@@ -106,7 +106,7 @@ struct BoxDerivePass : Pass {
 					IdString derived_type = base->derive(d, cell->parameters);
 					Module *derived = d->module(derived_type);
 					log_assert(derived && "Failed to derive module\n");
-					log("derived %s\n", d->twines.str(derived_type).c_str());
+					log("derived %s\n", d->twines().str(derived_type).c_str());
 
 					if (naming_attr_ref != IdString::Null && derived->has_attribute(naming_attr_ref)) {
 						std::string new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr_ref));

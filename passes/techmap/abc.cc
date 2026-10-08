@@ -1766,7 +1766,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design->twines, c->type));
+		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design->twines(), c->type));
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 		RTLIL::copy_attr_dict(cell->parameters, c->parameters, c->module->design, module->design);
 		for (auto &conn : c->connections()) {

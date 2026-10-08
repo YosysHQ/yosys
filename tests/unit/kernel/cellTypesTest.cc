@@ -15,8 +15,8 @@ TEST(CellTypesTest, basic)
 	older.setup(nullptr);
 	newer.setup(nullptr);
 	RTLIL::Design design;
-	IdString bleh = design.twines.add(std::string("\\bleh"));
-	IdString aaaaa = design.twines.add(std::string("\\aaaaa"));
+	IdString bleh = design.twines().add(std::string("\\bleh"));
+	IdString aaaaa = design.twines().add(std::string("\\aaaaa"));
 	older.setup_type(bleh, {ID::G}, {ID::H, ID::I}, false, true);
 	newer.setup_type(bleh, {ID::G}, {ID::H, ID::I}, false, true);
 	EXPECT_EQ(older.cell_known(aaaaa), newer.cell_known(aaaaa));

@@ -47,7 +47,7 @@ namespace RTLIL {
 	TEST(RtlilStrTest, CellToString) {
 		Design design;
 		Module *mod = design.addModule("\\m");
-		Cell *cell = mod->addCell("\\u1", design.twines.add(std::string{"\\my_cell_type"}));
+		Cell *cell = mod->addCell("\\u1", design.twines().add(std::string{"\\my_cell_type"}));
 
 		std::string cell_str = cell->to_rtlil_str();
 

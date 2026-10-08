@@ -78,7 +78,7 @@ struct ScopeinfoExamplePass : public Pass {
 					}
 
 					log("%s %s\n", wire_scope.first.path_str(design).c_str(),
-							design->twines.unescaped_str(wire_scope.second).c_str());
+							design->twines().unescaped_str(wire_scope.second).c_str());
 					for (auto src : index.sources(wire))
 						log(" - %s\n", src);
 				}
@@ -129,9 +129,9 @@ struct ScopeinfoExamplePass : public Pass {
 
 						log("common_ancestor(%s %s%s%s, %s %s%s%s) = %s %s\n",
 							module, scope_i.first.path_str(design).c_str(), scope_i.first.is_root() ? "" : " ",
-							design->twines.unescaped_str(scope_i.second).c_str(),
+							design->twines().unescaped_str(scope_i.second).c_str(),
 							module, scope_j.first.path_str(design).c_str(), scope_j.first.is_root() ? "" : " ",
-							design->twines.unescaped_str(scope_j.second).c_str(),
+							design->twines().unescaped_str(scope_j.second).c_str(),
 							module, common.path_str(design).c_str()
 						);
 

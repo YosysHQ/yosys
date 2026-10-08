@@ -61,13 +61,13 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 		std::set<std::string> portnames;
 		std::set<RTLIL::IdString> parameters;
 		std::map<std::string, int> portwidths;
-		log("Generate module for cell type %s:\n", design->twines.str(celltype));
+		log("Generate module for cell type %s:\n", design->twines().str(celltype));
 
 		for (auto mod : design->modules())
 		for (auto cell : mod->cells())
 			if (cell->type == celltype) {
 				for (auto &conn : cell->connections()) {
-					std::string port_name = design->twines.str(conn.first);
+					std::string port_name = design->twines().str(conn.first);
 					if (!port_name.empty() && port_name[0] != '$')
 						portnames.insert(std::string(port_name));
 					portwidths[std::string(port_name)] = max(portwidths[std::string(port_name)], conn.second.size());
@@ -164,7 +164,7 @@ bool read_id_num(RTLIL::Design &design, IdString ref, int *dst)
 {
 	log_assert(dst);
 
-	std::string sv = design.twines.str(ref);
+	std::string sv = design.twines().str(ref);
 	if (sv.empty() || sv[0] != '$' || !('0' <= sv[1] && sv[1] <= '9'))
 		return false;
 
@@ -240,7 +240,7 @@ struct IFExpander
 		// Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 		interface_name_str.replace(0,23,"");
 		interface_name_str = "\\" + interface_name_str;
-		IdString interface_name = design.twines.add(std::string(interface_name_str));
+		IdString interface_name = design.twines().add(std::string(interface_name_str));
 
 		// If 'interfaces' in the cell have not be been handled yet, we aren't
 		// ready to derive the sub-module either
@@ -254,7 +254,7 @@ struct IFExpander
 		// '_inst_from_top_dummy'. Check for both of them here
 		int nexactmatch = interfaces_in_module.count(interface_name) > 0;
 		std::string interface_name_str2 =  interface_name_str + "_inst_from_top_dummy";
-		IdString interface_name2 = design.twines.add(std::string(interface_name_str2));
+		IdString interface_name2 = design.twines().add(std::string(interface_name_str2));
 		int nmatch2 = interfaces_in_module.count(interface_name2) > 0;
 
 		// If we can't find either name, this is a missing interface.
@@ -269,7 +269,7 @@ struct IFExpander
 		RTLIL::Module *mod_replace_ports = interfaces_in_module.at(interface_name2);
 
 		// Go over all wires in interface, and add replacements to lists.
-		std::string conn_name_str(design.twines.str(conn_name));
+		std::string conn_name_str(design.twines().str(conn_name));
 		for (auto mod_wire : mod_replace_ports->wires()) {
 			std::string member = mod_wire->name.unescape();
 			std::string signal_name1 = conn_name_str + "." + member;
@@ -293,7 +293,7 @@ struct IFExpander
 		// AstModule::derive
 		string modport_name = submodule.wire(conn_name)->get_string_attribute(ID::interface_modport);
 		if (!modport_name.empty()) {
-			modports_used_in_submodule[conn_name] = design.twines.add("\\" + modport_name);
+			modports_used_in_submodule[conn_name] = design.twines().add("\\" + modport_name);
 		}
 	}
 
@@ -1018,8 +1018,8 @@ struct HierarchyPass : public Pass {
 
 		if (!load_top_mod.empty())
 		{
-			IdString top_name = design->twines.add(RTLIL::escape_id(load_top_mod));
-			IdString abstract_id = design->twines.add("$abstract" + RTLIL::escape_id(load_top_mod));
+			IdString top_name = design->twines().add(RTLIL::escape_id(load_top_mod));
+			IdString abstract_id = design->twines().add("$abstract" + RTLIL::escape_id(load_top_mod));
 			top_mod = design->module(top_name);
 			RTLIL::Module *abstract_mod = design->module(abstract_id);
 
@@ -1031,7 +1031,7 @@ struct HierarchyPass : public Pass {
 						log_cmd_error("Can't decode value '%s'!\n", para.second);
 					RTLIL::Const c = sig_value.as_const();
 					c.tag_bare_integer_const(para.second);
-					top_parameters[design->twines.add(RTLIL::escape_id(para.first))] = c;
+					top_parameters[design->twines().add(RTLIL::escape_id(para.first))] = c;
 				}
 			}
 
@@ -1113,7 +1113,7 @@ struct HierarchyPass : public Pass {
 		}
 
 		if (top_mod != nullptr && top_mod->name.begins_with("$abstract")) {
-			IdString top_name = design->twines.add(top_mod->name.str().substr(strlen("$abstract")));
+			IdString top_name = design->twines().add(top_mod->name.str().substr(strlen("$abstract")));
 
 			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
 			for (auto &para : parameters) {
@@ -1122,7 +1122,7 @@ struct HierarchyPass : public Pass {
 					log_cmd_error("Can't decode value '%s'!\n", para.second);
 				RTLIL::Const c = sig_value.as_const();
 				c.tag_bare_integer_const(para.second);
-				top_parameters[design->twines.add(RTLIL::escape_id(para.first))] = c;
+				top_parameters[design->twines().add(RTLIL::escape_id(para.first))] = c;
 			}
 
 			top_mod = design->module(top_mod->derive(design, top_parameters));
@@ -1257,7 +1257,7 @@ struct HierarchyPass : public Pass {
 				if (cell_mod == nullptr)
 					continue;
 				for (auto &conn : cell->connections()) {
-					std::string conn_name = design->twines.str(conn.first);
+					std::string conn_name = design->twines().str(conn.first);
 					if (!conn_name.empty() && conn_name[0] == '$' && '0' <= conn_name[1] && conn_name[1] <= '9') {
 						pos_mods.insert(design->module(cell->type));
 						pos_work.push_back(std::pair<RTLIL::Module*,RTLIL::Cell*>(mod, cell));
@@ -1385,7 +1385,7 @@ struct HierarchyPass : public Pass {
 					if (keep_positionals) {
 						bool found_positionals = false;
 						for (auto &conn : cell->connections()) {
-							std::string conn_name = design->twines.str(conn.first);
+							std::string conn_name = design->twines().str(conn.first);
 							if (!conn_name.empty() && conn_name[0] == '$' && '0' <= conn_name[1] && conn_name[1] <= '9')
 								found_positionals = true;
 						}

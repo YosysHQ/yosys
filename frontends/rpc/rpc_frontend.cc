@@ -130,7 +130,7 @@ struct RpcServer {
 				value = param.second.as_string();
 			} else
 				log_cmd_error("Unserializable constant flags 0x%x\n", param.second.flags);
-			json_parameters[design->twines.str(param.first)] = Json::object {
+			json_parameters[design->twines().str(param.first)] = Json::object {
 				{ "type", type },
 				{ "value", value },
 			};
@@ -179,7 +179,7 @@ struct RpcModule : RTLIL::Module {
 		else
 			derived_name = "$paramod" + stripped_name + parameter_info;
 
-		IdString derived_ref = design->twines.find(derived_name);
+		IdString derived_ref = design->twines().find(derived_name);
 		if (design->has(derived_ref)) {
 			log("Found cached RTLIL representation for module `%s'.\n", derived_name);
 		} else {
@@ -211,21 +211,21 @@ struct RpcModule : RTLIL::Module {
 						cell->type = cell->twines().add(name_mangling[cell->type.str()]);
 
 			for (auto module : derived_design->modules_) {
-				std::string mangled_name = name_mangling[derived_design->twines.str(module.first)];
+				std::string mangled_name = name_mangling[derived_design->twines().str(module.first)];
 
 				log("Importing `%s' as `%s'.\n", PooledName(derived_design, module.first).unescape(), mangled_name);
 
 				IdString original_name = module.first;
-				RTLIL::Module *t = module.second->clone(design, design->twines.add(mangled_name));
+				RTLIL::Module *t = module.second->clone(design, design->twines().add(mangled_name));
 				t->attributes.erase(ID::top);
 				if (!t->has_attribute(ID::hdlname))
-					t->set_string_attribute(ID::hdlname, derived_design->twines.str(original_name));
+					t->set_string_attribute(ID::hdlname, derived_design->twines().str(original_name));
 			}
 
 			delete derived_design;
 		}
 
-		return design->twines.add(derived_name);
+		return design->twines().add(derived_name);
 	}
 
 	RTLIL::Module *clone() const override {
@@ -588,7 +588,7 @@ cleanup_path:
 			log("Linking module `%s'.\n", module_name);
 			RpcModule *module = new RpcModule;
 			module->design = design;
-			module->name = design->twines.add("$abstract\\" + module_name);
+			module->name = design->twines().add("$abstract\\" + module_name);
 			module->server = server;
 			design->add(module);
 		}

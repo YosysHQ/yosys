@@ -154,7 +154,7 @@ TEST(TwinePublicityTest, WireMasquerade)
 	// uniquify keeps publicity.
 	IdString uniq = mod->uniquify(pub->name);
 	EXPECT_TRUE(uniq.isPublic());
-	EXPECT_EQ(design.twines.str(uniq), "\\sig_1");
+	EXPECT_EQ(design.twines().str(uniq), "\\sig_1");
 }
 
 YOSYS_NAMESPACE_END

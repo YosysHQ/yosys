@@ -456,9 +456,9 @@ struct ShregmapPass : public Pass {
 					match_args.push_back("D");
 				if (GetSize(match_args) < 3)
 					match_args.push_back("Q");
-				IdString id_cell_type = design->twines.add(std::string{RTLIL::escape_id(match_args[0])});
-				IdString id_d_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[1])});
-				IdString id_q_port_name = design->twines.add(std::string{RTLIL::escape_id(match_args[2])});
+				IdString id_cell_type = design->twines().add(std::string{RTLIL::escape_id(match_args[0])});
+				IdString id_d_port_name = design->twines().add(std::string{RTLIL::escape_id(match_args[1])});
+				IdString id_q_port_name = design->twines().add(std::string{RTLIL::escape_id(match_args[2])});
 				opts.ffcells[id_cell_type] = make_pair(id_d_port_name, id_q_port_name);
 				continue;
 			}

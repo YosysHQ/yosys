@@ -76,9 +76,9 @@ struct ConstmapPass : public Pass {
 		if (celltype.empty())
 			log_cmd_error("Missing required option -cell.\n");
 
-		celltype_ref = design->twines.add(std::string{celltype});
-		cell_portname_ref = design->twines.add(std::string{cell_portname});
-		cell_paramname_ref = design->twines.add(std::string{cell_paramname});
+		celltype_ref = design->twines().add(std::string{celltype});
+		cell_portname_ref = design->twines().add(std::string{cell_portname});
+		cell_paramname_ref = design->twines().add(std::string{cell_paramname});
 
 		if (design->has(celltype_ref)) {
 			Module *existing = design->module(celltype_ref);

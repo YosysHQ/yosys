@@ -36,12 +36,12 @@ inline std::string remap_name(const std::string &abc9_name)
 
 inline IdString remap_ref(RTLIL::Design *design, IdString n)
 {
-	return design->twines.add(remap_name(design->twines.str(n)));
+	return design->twines().add(remap_name(design->twines().str(n)));
 }
 
 inline IdString ref_from_token(RTLIL::Design *design, const std::string &tok)
 {
-	IdString ref = design->twines.ref_from_token(tok);
+	IdString ref = design->twines().ref_from_token(tok);
 	if (ref == IdString::Null)
 		log_error("Bad map file: '%s' is not a live name reference of this yosys run.\n", tok.c_str());
 	return ref;
@@ -49,7 +49,7 @@ inline IdString ref_from_token(RTLIL::Design *design, const std::string &tok)
 
 inline IdString indexed_name(RTLIL::Design *design, IdString base, int index)
 {
-	return design->twines.add(TwineSpec::Suffix{base, stringf("[%d]", index)});
+	return design->twines().add(TwineSpec::Suffix{base, stringf("[%d]", index)});
 }
 
 struct PseudoPo {
@@ -115,7 +115,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						wire->port_input = false;
 						mapped_mod->connect(wire, existing);
 					}
-					log_debug("%s -> %s\n", message, design->twines.unescaped_str(escaped_ref));
+					log_debug("%s -> %s\n", message, design->twines().unescaped_str(escaped_ref));
 				}
 				else {
 					name_ref = indexed_name(design, escaped_ref, index);
@@ -126,7 +126,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						mapped_mod->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug("%s -> %s\n", message, design->twines.unescaped_str(name_ref));
+					log_debug("%s -> %s\n", message, design->twines().unescaped_str(name_ref));
 				}
 
 				if (!existing) {
@@ -164,7 +164,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						mapped_mod->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug("%s -> %s\n", message, design->twines.unescaped_str(escaped_ref));
+					log_debug("%s -> %s\n", message, design->twines().unescaped_str(escaped_ref));
 				}
 				else {
 					name_ref = indexed_name(design, escaped_ref, index);
@@ -176,7 +176,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						existing->port_output = true;
 						mapped_mod->connect(wire, existing);
 					}
-					log_debug("%s -> %s\n", message, design->twines.unescaped_str(name_ref));
+					log_debug("%s -> %s\n", message, design->twines().unescaped_str(name_ref));
 				}
 
 				if (!existing) {
@@ -197,17 +197,17 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				IdString escaped_p = ref_from_token(design, port);
 
 				log_assert(variable + co_count < output_count);
-				IdString wire_name = design->twines.find(stringf("$aiger$o%d", variable + co_count));
+				IdString wire_name = design->twines().find(stringf("$aiger$o%d", variable + co_count));
 				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
 				log_assert(wire);
 				log_assert(wire->port_output);
 
 				pseudopos.insert({wire_name, PseudoPo{escaped_ref, escaped_p, index}});
-				log_debug("Mapping pseudo output %s -> %s.%s[%d]\n", wire, design->twines.unescaped_str(escaped_ref), design->twines.unescaped_str(escaped_p), index);
+				log_debug("Mapping pseudo output %s -> %s.%s[%d]\n", wire, design->twines().unescaped_str(escaped_ref), design->twines().unescaped_str(escaped_p), index);
 			}
 			else if (type == "keepwire") {
 				log_assert(variable + co_count < output_count);
-				RTLIL::IdString wire_name = design->twines.add(stringf("$aiger$o%d", variable + co_count));
+				RTLIL::IdString wire_name = design->twines().add(stringf("$aiger$o%d", variable + co_count));
 				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
 				log_assert(wire);
 				log_assert(wire->port_output);
@@ -218,7 +218,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			else if (type == "box") {
 				RTLIL::Cell* cell = mapped_mod->cell(stringf("$box%d", variable));
 				if (!cell)
-					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines.unescaped_str(escaped_ref));
+					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines().unescaped_str(escaped_ref));
 				else
 					mapped_mod->rename(cell, escaped_ref);
 			}
@@ -400,7 +400,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						driver_name = stringf("$lut%s", a_bit.wire->name);
 					else
 						driver_name = stringf("$lut%s[%d]", a_bit.wire->name, a_bit.offset);
-					IdString driver_ref = design->twines.find(driver_name);
+					IdString driver_ref = design->twines().find(driver_name);
 					driver_lut = driver_ref.empty() ? nullptr : mapped_mod->cell(driver_ref);
 				}
 
@@ -575,7 +575,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	}
 
 	for (auto &it : cell_stats)
-		log("ABC RESULTS:   %15s cells: %8d\n", design->twines.str(it.first), it.second);
+		log("ABC RESULTS:   %15s cells: %8d\n", design->twines().str(it.first), it.second);
 	int in_wires = 0, out_wires = 0;
 
 	for (auto pseudopo : pseudopos) {

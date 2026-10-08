@@ -174,9 +174,9 @@ struct WrapcellPass : Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-setattr" && argidx+1 < args.size()) {
-				attributes.emplace_back(d->twines.add(RTLIL::escape_id(args[++argidx])), "");
+				attributes.emplace_back(d->twines().add(RTLIL::escape_id(args[++argidx])), "");
 			} else if (args[argidx] == "-formatattr" && argidx+2 < args.size()) {
-				IdString id = d->twines.add(RTLIL::escape_id(args[++argidx]));
+				IdString id = d->twines().add(RTLIL::escape_id(args[++argidx]));
 				attributes.emplace_back(id, args[++argidx]);
 			} else if (args[argidx] == "-name" && argidx+1 < args.size()) {
 				name_fmt = args[++argidx];
@@ -226,12 +226,12 @@ struct WrapcellPass : Pass {
 						context.unused_outputs += "_" + module->twines().unescaped_str(chunk.format(cell));
 				}
 
-				std::optional<std::string> unescaped_name = format_with_params(d->twines, name_fmt, cell->parameters, context);
+				std::optional<std::string> unescaped_name = format_with_params(d->twines(), name_fmt, cell->parameters, context);
 				if (!unescaped_name)
 					log_error("Formatting error when processing cell '%s' in module '%s'\n",
 							  cell, module);
 
-				name_ref = d->twines.add(RTLIL::escape_id(unescaped_name.value()));
+				name_ref = d->twines().add(RTLIL::escape_id(unescaped_name.value()));
 				if (d->module(name_ref))
 					goto replace_cell;
 
@@ -266,7 +266,7 @@ struct WrapcellPass : Pass {
 					if (rule.value_fmt.empty()) {
 						subm->set_bool_attribute(rule.name);
 					} else {
-						std::optional<std::string> value = format_with_params(d->twines, rule.value_fmt, cell->parameters, context);
+						std::optional<std::string> value = format_with_params(d->twines(), rule.value_fmt, cell->parameters, context);
 
 						if (!value)
 							log_error("Formatting error when processing cell '%s' in module '%s'\n",
