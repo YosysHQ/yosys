@@ -324,9 +324,17 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 	return inst;
 }
 
+std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
+{
+	std::vector<RTLIL::Cell *> cells = module->cells();
+	if (!std::is_sorted(cells.begin(), cells.end(), RTLIL::sort_by_name_str<RTLIL::Cell>()))
+		std::reverse(cells.begin(), cells.end());
+	return cells;
+}
+
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
-	for (RTLIL::Cell *cell : module->cells()) {
+	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
 		if (cell->type.in(ID($barrier), ID($scopeinfo)))
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);

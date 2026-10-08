@@ -199,6 +199,24 @@ TEST_F(NetViewTest, driversAreTopInputsAndLeafOutputs)
 		EXPECT_FALSE(view.isDriver(pin));
 }
 
+TEST_F(NetViewTest, instancesFollowCreationOrderDepthFirst)
+{
+	NetView view;
+	view.build(d);
+	std::vector<Cell *> order = {u_inv0, u_sub, i1, i2, u_inv2};
+	for (size_t i = 0; i < order.size(); i++)
+		EXPECT_EQ(view.instance(order[i])->id, i + 1) << log_id(order[i]);
+	std::vector<Netlist::Instance *> children = {view.instance(u_inv0), view.instance(u_sub), view.instance(u_inv2)};
+	EXPECT_EQ(view.top()->children, children);
+
+	// write_verilog sorts in place
+	top->sort();
+	view.reset();
+	view.build(d);
+	children = {view.instance(u_inv0), view.instance(u_inv2), view.instance(u_sub)};
+	EXPECT_EQ(view.top()->children, children);
+}
+
 TEST_F(NetViewTest, resetRestartsIds)
 {
 	NetView view;
