@@ -269,6 +269,41 @@ TEST_F(NetViewTest, buildableReasons)
 	EXPECT_NE(reason.find("no top"), std::string::npos);
 }
 
+TEST(NetViewNameTest, publicNamesAreUnescaped)
+{
+	Design design;
+	Module *bb = design.addModule(ID(BB));
+	bb->addWire(RTLIL::IdString("\\$a"))->port_input = true;
+	bb->addWire(RTLIL::IdString("$p"))->port_input = true; // private
+	bb->addWire(ID(Y))->port_output = true;
+	bb->fixup_ports();
+	bb->set_bool_attribute(ID::blackbox);
+	Module *m = design.addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	Wire *i = m->addWire(RTLIL::IdString("\\1in"));
+	i->port_input = true;
+	Wire *o = m->addWire(ID(o));
+	o->port_output = true;
+	m->fixup_ports();
+	Cell *u = m->addCell(RTLIL::IdString("\\$u"), ID(BB));
+	u->setPort(RTLIL::IdString("\\$a"), i);
+	u->setPort(RTLIL::IdString("$p"), i);
+	u->setPort(ID(Y), o);
+	NetView view;
+	view.build(&design);
+	Netlist::Instance *iu = view.instance(u);
+	EXPECT_EQ(iu->name, "$u");
+	ASSERT_EQ(view.top()->ports->size(), 2u);
+	EXPECT_TRUE((*view.top()->ports)[0].name == "1in" || (*view.top()->ports)[1].name == "1in");
+	ASSERT_EQ(iu->pins.size(), 3u);
+	for (Netlist::Pin *pin : iu->pins) {
+		const std::string &port = view.shape(pin).name;
+		EXPECT_TRUE(port == "$a" || port == "$p" || port == "Y") << port;
+		ASSERT_NE(pin->net, nullptr) << port;
+		EXPECT_EQ(view.wireName(pin->net).wire, port == "Y" ? "o" : "1in") << port;
+	}
+}
+
 TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 {
 	top->addCell(ID(u_unknown), ID(UNKNOWN));
