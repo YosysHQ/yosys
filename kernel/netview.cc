@@ -231,6 +231,9 @@ void NetView::reset()
 	module_scope_.clear();
 	inst_cell_.clear();
 	inst_module_.clear();
+	net_bit_.clear();
+	net_name_bit_.clear();
+	net_names_.clear();
 	next_inst_id_ = 1;
 	next_pin_id_ = 1;
 	next_net_id_ = 1;
@@ -352,8 +355,20 @@ NetView::Net *NetView::newNet(Instance *scope, const RTLIL::SigBit &bit)
 		net->constant = Net::Const::One;
 	else if (bit.wire == nullptr)
 		net->constant = Net::Const::Zero;
+	net_bit_[net->id] = bit;
+	if (bit.wire != nullptr)
+		setNameBit(net, bit);
 	scope_nets_[scope].push_back(net);
 	return net;
+}
+
+detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
+{
+	const RTLIL::Wire *wire = bit.wire;
+	bool port = wire->port_id != 0;
+	bool keep = wire->get_bool_attribute(ID::keep);
+	bool pub = wire->name.isPublic();
+	return {!port, !keep, !pub, wire->name.c_str(), bit.offset};
 }
 
 void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
@@ -376,6 +391,10 @@ void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
 			// Public wires collapsed into another wire's net (assign aliases)
 			// stay reachable under their own names
 			scope_aliases_[scope].push_back({detail::netName(bit), net});
+
+			// A net is named after its best wire bit
+			if (net->constant == Net::Const::None && detail::nameRank(bit) < detail::nameRank(nameBit(net)))
+				setNameBit(net, bit);
 		}
 	}
 }
@@ -425,6 +444,27 @@ NetView::Instance *NetView::scope(const RTLIL::Module *module) const
 	if (it == module_scope_.end())
 		return nullptr;
 	return it->second;
+}
+
+RTLIL::SigBit NetView::nameBit(const Net *net) const
+{
+	RTLIL::SigBit b = net_name_bit_.get(net->id);
+	if (b.wire != nullptr)
+		return b;
+	return net_bit_.get(net->id);
+}
+
+NetView::NetName NetView::wireName(const Net *net) const
+{
+	log_assert(net->constant == Net::Const::None);
+	return net_names_.get(net->id);
+}
+
+// The name is copied out of RTLIL: reads must work on a stale view.
+void NetView::setNameBit(Net *net, const RTLIL::SigBit &bit)
+{
+	net_name_bit_[net->id] = bit;
+	net_names_[net->id] = detail::netName(bit);
 }
 
 const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const

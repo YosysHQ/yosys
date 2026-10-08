@@ -168,6 +168,7 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	Netlist::Net *d0_net = view.instance(u_inv0)->pins[1]->net;
 	EXPECT_EQ(d0_net, view.instance(u_sub)->pins[0]->net);
 	EXPECT_EQ(d0_net->pins.size(), 2u);
+	EXPECT_EQ(view.wireName(d0_net), (Netlist::NetName{"d0", 0, true}));
 	EXPECT_FALSE(view.nets(t).empty());
 	EXPECT_EQ(view.nets(view.instance(u_inv0)).size(), 0u); // leaves own none
 }
@@ -197,6 +198,61 @@ TEST_F(NetViewTest, resetRestartsIds)
 	EXPECT_EQ(view.top()->pins[0]->id, 1u);
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
+}
+
+TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
+{
+	Wire *d1 = top->addWire(ID(d1));
+	top->connect(d1, d0);
+	NetView view;
+	view.build(d);
+	ASSERT_EQ(view.wireName(view.instance(u_inv0)->pins[1]->net).wire, "d0");
+
+	d1->set_bool_attribute(ID::keep);
+	view.reset();
+	view.build(d);
+	EXPECT_EQ(view.wireName(view.instance(u_inv0)->pins[1]->net).wire, "d1");
+}
+
+// i -> u1 -> $n (pa, pb) -> u2 -> o
+static Design *aliasDesign(const std::vector<IdString> &order)
+{
+	Design *design = new Design;
+	addInv(design, ID(INV));
+	Module *m = design->addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	for (IdString name : order)
+		m->addWire(name);
+	m->wire(ID(i))->port_input = true;
+	m->wire(ID(o))->port_output = true;
+	m->fixup_ports();
+	Cell *u1 = m->addCell(ID(u1), ID(INV));
+	u1->setPort(ID::A, m->wire(ID(i)));
+	u1->setPort(ID::Y, m->wire(ID($n)));
+	Cell *u2 = m->addCell(ID(u2), ID(INV));
+	u2->setPort(ID::A, m->wire(ID($n)));
+	u2->setPort(ID::Y, m->wire(ID(o)));
+	m->connect(m->wire(ID(pb)), m->wire(ID($n)));
+	m->connect(m->wire(ID(pa)), m->wire(ID($n)));
+	return design;
+}
+
+TEST(NetViewNamingTest, namingIsIndependentOfWireOrder)
+{
+	std::vector<std::vector<IdString>> orders = {
+		{ID(i), ID(o), ID(zz), ID(pa), ID($n), ID(pb)},
+		{ID(pb), ID($n), ID(o), ID(pa), ID(i), ID(zz)},
+	};
+	for (const std::vector<IdString> &order : orders) {
+		Design *design = aliasDesign(order);
+		NetView view;
+		view.build(design);
+		Cell *u1 = design->module(ID(top))->cell(ID(u1));
+		EXPECT_EQ(view.wireName(view.instance(u1)->pins[1]->net), (Netlist::NetName{"pa", 0, true}));
+		EXPECT_EQ(view.aliases(view.top()).size(), 4u); // zz has no net
+		view.reset();
+		delete design;
+	}
 }
 
 TEST_F(NetViewTest, buildableReasons)
