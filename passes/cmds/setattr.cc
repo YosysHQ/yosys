@@ -108,7 +108,7 @@ struct SetattrPass : public Pass {
 			}
 
 			for (auto memb : module->selected_members())
-				do_setunset(design, memb->attributes, setunset_list);
+				do_setunset(design, memb.obj->attributes, setunset_list);
 		}
 	}
 } SetattrPass;

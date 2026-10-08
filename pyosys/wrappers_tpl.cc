@@ -177,8 +177,8 @@ template <typename Masq> struct masq_caster {
 	}
 };
 
-template <typename Owner, auto Field>
-struct type_caster<Yosys::RTLIL::IdFieldMasq<Owner, Field>> : masq_caster<Yosys::RTLIL::IdFieldMasq<Owner, Field>> {};
+template <typename Owner, typename Slot>
+struct type_caster<Yosys::RTLIL::OwnedId<Owner, Slot>> : masq_caster<Yosys::RTLIL::OwnedId<Owner, Slot>> {};
 
 }
 }

@@ -47,16 +47,19 @@ struct RaiseErrorPass : public Pass {
 
 		extra_args(args, argidx, design, true);
 
-		RTLIL::NamedObject *err_obj = nullptr;
+		RTLIL::AttrObject *err_obj = nullptr;
+		RTLIL::PooledName err_name;
 
 		for (auto mod : design->all_selected_modules()) {
 			if (mod->has_attribute(ID::raise_error)) {
 				err_obj = mod->clone();
+				err_name = RTLIL::PooledName(design, mod->name.ref());
 				break;
 			}
 			for (auto memb : mod->selected_members()) {
-				if (memb->has_attribute(ID::raise_error)) {
-					err_obj = memb;
+				if (memb.obj->has_attribute(ID::raise_error)) {
+					err_obj = memb.obj;
+					err_name = memb.name;
 					break;
 				}
 			}
@@ -72,7 +75,7 @@ struct RaiseErrorPass : public Pass {
 		int err_no = 1;
 		string err_msg = "";
 		if (err_obj != nullptr) {
-			log("Raising error from '%s'.\n", design->obj_name(err_obj).c_str());
+			log("Raising error from '%s'.\n", err_name.str());
 			err_no = err_obj->attributes[ID::raise_error].as_int();
 			if (err_no > 256) {
 				err_msg = err_obj->get_string_attribute(ID::raise_error);

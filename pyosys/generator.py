@@ -161,7 +161,7 @@ pyosys_headers = [
                 denylist=frozenset({"bits", "bitvectorize"}),
             ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("NamedObject"),
+            PyosysClass("SelectedMember"),
             PyosysClass("Selection"),
             # PyosysClass("Monitor"), # Virtual methods, manually bridged
             PyosysClass("CaseRule"),
@@ -568,7 +568,7 @@ class PyosysWrapperGenerator(object):
         if not isinstance(type_info, Type):
             return False
         name = type_info.typename.segments[-1].name
-        return name == "IdFieldMasq" or name.endswith("NameMasq")
+        return name in ("OwnedId", "ModuleNameId", "WireNameId", "CellNameId", "MemoryNameId", "ProcessNameId", "CellTypeId")
 
     def process_field(self, metadata: PyosysClass, field: Field):
         if field.access != "public":

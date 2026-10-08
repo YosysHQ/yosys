@@ -7,13 +7,13 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace {
 
-struct MasqFixture {
+struct OwnedIdFixture {
 	Design design;
 	Module *mod;
 	Wire *wire;
 	Cell *cell;
 
-	MasqFixture()
+	OwnedIdFixture()
 	{
 		mod = design.addModule(std::string("\\zz_top"));
 		wire = mod->addWire(std::string("\\zz_alu_result"), 4);
@@ -23,10 +23,10 @@ struct MasqFixture {
 
 }
 
-TEST(NameMasqTest, StringQueries)
+TEST(OwnedIdTest, StringQueries)
 {
-	MasqFixture f;
-	const RTLIL::WireNameMasq &name = f.wire->name;
+	OwnedIdFixture f;
+	const RTLIL::WireNameId &name = f.wire->name;
 
 	EXPECT_TRUE(name.begins_with("\\zz_alu"));
 	EXPECT_FALSE(name.begins_with("\\zz_alv"));
@@ -41,7 +41,7 @@ TEST(NameMasqTest, StringQueries)
 	EXPECT_FALSE(name.empty());
 }
 
-TEST(NameMasqTest, SuffixQueries)
+TEST(OwnedIdTest, SuffixQueries)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
@@ -61,7 +61,7 @@ TEST(NameMasqTest, SuffixQueries)
 	EXPECT_EQ(w->name.substr(4), "bus_hi");
 }
 
-TEST(NameMasqTest, PoollessMatchesPooled)
+TEST(OwnedIdTest, PoollessMatchesPooled)
 {
 	Design design;
 	IdString id = design.twines.add(std::string("\\zz_shared"));
@@ -83,7 +83,7 @@ TEST(NameMasqTest, PoollessMatchesPooled)
 	EXPECT_EQ(same_content.begins_with("\\A"), poolless.begins_with("\\A"));
 }
 
-TEST(NameMasqTest, PoollessOrdering)
+TEST(OwnedIdTest, PoollessOrdering)
 {
 	PooledName a(ID::A);
 	PooledName b(ID::B);
@@ -94,7 +94,7 @@ TEST(NameMasqTest, PoollessOrdering)
 	EXPECT_FALSE(a.lt_by_name(a));
 }
 
-TEST(NameMasqTest, PooledOrdering)
+TEST(OwnedIdTest, PooledOrdering)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
@@ -109,9 +109,9 @@ TEST(NameMasqTest, PooledOrdering)
 	EXPECT_FALSE(first->name < first->name);
 }
 
-TEST(NameMasqTest, Membership)
+TEST(OwnedIdTest, Membership)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 
 	EXPECT_TRUE(f.cell->type.in(ID($and)));
 	EXPECT_FALSE(f.cell->type.in(ID($or)));
@@ -120,9 +120,9 @@ TEST(NameMasqTest, Membership)
 	EXPECT_TRUE(f.wire->name.in(IdString(f.wire->name)));
 }
 
-TEST(NameMasqTest, Equality)
+TEST(OwnedIdTest, Equality)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 	IdString id = f.wire->name;
 
 	EXPECT_TRUE(f.wire->name == id);
@@ -146,7 +146,7 @@ TEST(NameMasqTest, Equality)
 	EXPECT_TRUE(f.wire->name != IdString::Null);
 }
 
-TEST(NameMasqTest, CrossMasqEquality)
+TEST(OwnedIdTest, CrossIdEquality)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
@@ -160,9 +160,9 @@ TEST(NameMasqTest, CrossMasqEquality)
 	EXPECT_TRUE(recursive->name != other->name);
 }
 
-TEST(NameMasqTest, Conversions)
+TEST(OwnedIdTest, Conversions)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 
 	std::string as_string = f.wire->name;
 	IdString as_id = f.wire->name;
@@ -175,9 +175,9 @@ TEST(NameMasqTest, Conversions)
 	EXPECT_EQ(f.mod->name.pool(), &f.design.twines);
 }
 
-TEST(NameMasqTest, Hashing)
+TEST(OwnedIdTest, Hashing)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 
 	EXPECT_EQ(run_hash(f.wire->name), run_hash(f.wire->name.ref()));
 	EXPECT_EQ(run_hash(f.cell->type), run_hash(f.cell->type.ref()));
@@ -185,7 +185,7 @@ TEST(NameMasqTest, Hashing)
 	EXPECT_NE(run_hash(f.wire->name), run_hash(f.cell->name.ref()));
 }
 
-TEST(NameMasqTest, WireAssignment)
+TEST(OwnedIdTest, WireAssignment)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
@@ -205,9 +205,9 @@ TEST(NameMasqTest, WireAssignment)
 	EXPECT_EQ(c->name.str(), "\\zz_renamed");
 }
 
-TEST(NameMasqTest, TypeAssignment)
+TEST(OwnedIdTest, TypeAssignment)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 	Cell *other = f.mod->addCell(std::string("\\zz_other"), ID($or));
 
 	f.cell->type = ID($xor);
@@ -222,7 +222,7 @@ TEST(NameMasqTest, TypeAssignment)
 	EXPECT_TRUE(third->type == ID($xor));
 }
 
-TEST(NameMasqTest, ModuleAssignment)
+TEST(OwnedIdTest, ModuleAssignment)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
@@ -239,9 +239,9 @@ TEST(NameMasqTest, ModuleAssignment)
 	EXPECT_EQ(PooledName(mod->name).str(), "\\zz_renamed");
 }
 
-TEST(NameMasqTest, MakePair)
+TEST(OwnedIdTest, MakePair)
 {
-	MasqFixture f;
+	OwnedIdFixture f;
 
 	auto left = make_pair(f.wire->name, 7);
 	auto right = make_pair(7, f.wire->name);

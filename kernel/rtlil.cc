@@ -2748,17 +2748,17 @@ std::vector<RTLIL::Process*> RTLIL::Module::selected_processes() const
 	return result;
 }
 
-std::vector<RTLIL::NamedObject*> RTLIL::Module::selected_members() const
+std::vector<RTLIL::SelectedMember> RTLIL::Module::selected_members() const
 {
-	std::vector<RTLIL::NamedObject*> result;
-	auto cells = selected_cells();
-	auto memories = selected_memories();
-	auto wires = selected_wires();
-	auto processes = selected_processes();
-	result.insert(result.end(), cells.begin(), cells.end());
-	result.insert(result.end(), memories.begin(), memories.end());
-	result.insert(result.end(), wires.begin(), wires.end());
-	result.insert(result.end(), processes.begin(), processes.end());
+	std::vector<RTLIL::SelectedMember> result;
+	for (auto cell : selected_cells())
+		result.push_back({cell, cell->name});
+	for (auto memory : selected_memories())
+		result.push_back({memory, memory->name});
+	for (auto wire : selected_wires())
+		result.push_back({wire, wire->name});
+	for (auto process : selected_processes())
+		result.push_back({process, process->name});
 	return result;
 }
 
@@ -2846,7 +2846,7 @@ void RTLIL::Module::remove(RTLIL::Cell *cell)
 	log_assert(refcount_cells_ == 0);
 	cells_.erase(cell->name);
 	if (design && design->flagBufferedNormalized && buf_norm_cell_queue.count(cell)) {
-		cell->type_impl = IdString::Null;
+		cell->type = IdString::Null;
 		cell->name = IdString::Null;
 		pending_deleted_cells.insert(cell);
 	} else {
@@ -2913,7 +2913,7 @@ void RTLIL::Module::swap_names(RTLIL::Wire *w1, RTLIL::Wire *w2)
 
 	wires_[id1] = w2;
 	wires_[id2] = w1;
-	std::swap(w1->name_, w2->name_);
+	swap(w1->name, w2->name);
 }
 
 void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
@@ -2928,7 +2928,7 @@ void RTLIL::Module::swap_names(RTLIL::Cell *c1, RTLIL::Cell *c2)
 
 	cells_[id1] = c2;
 	cells_[id2] = c1;
-	std::swap(c1->name_, c2->name_);
+	swap(c1->name, c2->name);
 }
 
 RTLIL::IdString RTLIL::Module::uniquify(RTLIL::IdString name)
@@ -3099,7 +3099,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, IdString type)
 {
 	log_assert(design);
 	RTLIL::Cell *cell = new RTLIL::Cell;
-	cell->type_impl = type;
+	cell->type = type;
 	cell->name = name;
 	add(cell);
 	return cell;
@@ -3110,9 +3110,9 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 	const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
 	bool cross_pool = src_design && this->design && src_design != this->design;
 
-	IdString type = other->type_impl;
+	IdString type = other->type.ref();
 	if (cross_pool)
-		type = twines().copy_from(src_design->twines, other->type_impl);
+		type = twines().copy_from(src_design->twines, other->type.ref());
 
 	RTLIL::Cell *cell = addCell(name, type);
 	RTLIL::copy_attr_dict(cell->parameters, other->parameters, src_design, this->design);
@@ -4245,7 +4245,7 @@ std::string RTLIL::Process::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Cell::Cell() : module(nullptr), type_impl(IdString::Null)
+RTLIL::Cell::Cell() : module(nullptr)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -4310,9 +4310,9 @@ bool RTLIL::Cell::known() const
 bool RTLIL::Cell::input(IdString portname) const
 {
 	if (yosys_celltypes.cell_known(type))
-		return yosys_celltypes.cell_input(type_impl, portname);
+		return yosys_celltypes.cell_input(type.ref(), portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
+		RTLIL::Module *m = module->design->module(type.ref());
 		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
 		return w && w->port_input;
 	}
@@ -4324,7 +4324,7 @@ bool RTLIL::Cell::output(RTLIL::IdString portname) const
 	if (yosys_celltypes.cell_known(type))
 		return yosys_celltypes.cell_output(type, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
+		RTLIL::Module *m = module->design->module(type.ref());
 		RTLIL::Wire *w = m ? m->wire(portname) : nullptr;
 		return w && w->port_output;
 	}
@@ -4333,10 +4333,10 @@ bool RTLIL::Cell::output(RTLIL::IdString portname) const
 
 RTLIL::PortDir RTLIL::Cell::port_dir(RTLIL::IdString portname) const
 {
-	if (yosys_celltypes.cell_known(type_impl))
+	if (yosys_celltypes.cell_known(type.ref()))
 		return yosys_celltypes.cell_port_dir(type, portname);
 	if (module && module->design) {
-		RTLIL::Module *m = module->design->module(type_impl);
+		RTLIL::Module *m = module->design->module(type.ref());
 		if (m == nullptr)
 			return PortDir::PD_UNKNOWN;
 		RTLIL::Wire *w = m->wire(portname);
@@ -4463,8 +4463,8 @@ void RTLIL::Cell::fixup_parameters(bool set_a_signed, bool set_b_signed)
 }
 
 bool RTLIL::Cell::has_keep_attr() const {
-	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type_impl) &&
-			module->design->module(type_impl)->get_bool_attribute(ID::keep));
+	return get_bool_attribute(ID::keep) || (module && module->design && module->design->module(type.ref()) &&
+			module->design->module(type.ref())->get_bool_attribute(ID::keep));
 }
 
 bool RTLIL::Cell::has_memid() const
