@@ -22,6 +22,8 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace detail {
 
+struct Fingerprint;
+
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
@@ -53,6 +55,12 @@ using NameRank = std::tuple<bool, bool, bool, size_t, std::string_view, int>;
 NameRank nameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
+// Fingerprint
+void hashDesign(Fingerprint &fp, RTLIL::Design *design);
+void hashModule(Fingerprint &fp, RTLIL::Module *module);
+void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
+void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
+
 } // namespace detail
 
 struct NetView final : public Netlist
@@ -67,7 +75,10 @@ struct NetView final : public Netlist
 	bool built() const;
 	static RTLIL::Module *topModule(RTLIL::Design *design);
 
+	// Call invalidateCheck() when the design may have changed
 	bool valid() const override;
+	bool changed() const;
+	void invalidateCheck() const;
 
 	Instance *top() const override;
 	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const override;
@@ -102,6 +113,9 @@ private:
 	SigMap &sigmapFor(RTLIL::Module *module) const;
 	Net *knownNet(const RTLIL::SigBit &bit) const;
 	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
+
+	bool designAlive() const;
+	uint64_t fingerprint() const;
 private:
 	RTLIL::Design *design_ = nullptr;
 	PortModel *ports_ = nullptr;
@@ -138,6 +152,12 @@ private:
 	IdMap<RTLIL::SigBit> net_bit_;
 	IdMap<RTLIL::SigBit> net_name_bit_; // naming bit when it differs
 	IdMap<NetName> net_names_;
+
+	// Staleness
+	uint64_t fingerprint_ = 0;
+	std::vector<RTLIL::OwningIdString> tracked_; // modules with a scope
+	mutable bool dirty_ = false;
+	mutable bool changed_ = false;
 };
 
 YOSYS_NAMESPACE_END
