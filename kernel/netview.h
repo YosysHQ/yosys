@@ -1,6 +1,7 @@
 // NetView: a Netlist built from a uniquified RTLIL design
 // - Instances  one per cell, depth first
-// - Nets       one per SigMap bit
+// - Nets       one per SigMap bit a barrier's A and Y are one net unless
+//              either is constant
 // - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
 
 #ifndef NETVIEW_H
@@ -27,6 +28,7 @@ bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *m
 
 // Cells
 bool internalType(RTLIL::IdString type);
+void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap);
 
 // Port shapes
 Netlist::Dir portDir(bool input, bool output);

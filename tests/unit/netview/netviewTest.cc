@@ -455,4 +455,47 @@ TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 	EXPECT_TRUE(view.valid());
 }
 
+// $pre -> $barrier -> d0
+TEST_F(NetViewTest, barriersAreTransparent)
+{
+	Wire *pre = top->addWire(ID($pre));
+	u_inv0->setPort(ID(Y), pre);
+	Cell *barrier = top->addBarrier(ID($b), pre, d0);
+	NetView view;
+	view.build(d);
+	EXPECT_EQ(view.instance(barrier), nullptr);
+	EXPECT_EQ(view.top()->children.size(), 3u);
+	Netlist::Net *driven = view.instance(u_inv0)->pins[1]->net;
+	EXPECT_EQ(driven, view.instance(u_sub)->pins[0]->net);
+	EXPECT_EQ(view.wireName(driven), (Netlist::NetName{"d0", 0, true}));
+	EXPECT_EQ(driven->pins.size(), 2u);
+}
+
+TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
+{
+	Wire *c = top->addWire(ID(c));
+	top->connect(c, State::S1);
+	Cell *barrier = top->addBarrier(ID($b), c, p);
+	NetView view;
+	view.build(d);
+	EXPECT_EQ(view.instance(barrier), nullptr);
+	Netlist::Net *net = view.instance(u_inv2)->pins[0]->net;
+	ASSERT_NE(net, nullptr);
+	EXPECT_EQ(net->constant, Netlist::Net::Const::None);
+	EXPECT_EQ(view.wireName(net).wire, "p");
+	EXPECT_EQ(net->pins.size(), 2u);
+}
+
+TEST_F(NetViewTest, barrierOntoAConstantKeepsTheDrivenNet)
+{
+	Wire *k = top->addWire(ID(k));
+	top->connect(k, State::S0);
+	top->addBarrier(ID($b), d0, k);
+	NetView view;
+	view.build(d);
+	Netlist::Net *net = view.instance(u_inv0)->pins[1]->net;
+	EXPECT_EQ(net->constant, Netlist::Net::Const::None);
+	EXPECT_EQ(view.wireName(net).wire, "d0");
+}
+
 YOSYS_NAMESPACE_END
