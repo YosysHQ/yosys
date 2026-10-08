@@ -628,23 +628,23 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 	for (auto &rule : rules) {
 		log("  rule (%c):\n", rule.mode);
 		if (rule.cell_types.size() > 0) {
-			log("    cell types:");
+			std::string message = "    cell types:";
 			for (auto &it : rule.cell_types)
-				log(" %s", it);
-			log("\n");
+				message += stringf(" %s", it);
+			log("%s\n", message);
 		}
 		if (rule.port_names.size() > 0) {
-			log("    port names:");
+			std::string message = "    port names:";
 			for (auto &it : rule.port_names)
-				log(" %s", it);
-			log("\n");
+				message += stringf(" %s", it);
+			log("%s\n", message);
 		}
 	}
 	if (limits.size() > 0) {
-		log("  limits:");
+		std::string message = "  limits:";
 		for (auto &it : limits)
-			log(" %s", it);
-		log("\n");
+			message += stringf(" %s", it);
+		log("%s\n", message);
 	}
 #endif
 
@@ -1774,7 +1774,8 @@ static void log_matches(const char *title, Module *module, const T &list)
 			matches.push_back(it.first);
 
 	if (!matches.empty()) {
-		log("\n%d %s:\n", int(matches.size()), title);
+		log("\n");
+		log("%d %s:\n", int(matches.size()), title);
 		std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 		for (auto id : matches)
 			log("  %s\n", id.unescape());
@@ -1812,7 +1813,8 @@ struct LsPass : public Pass {
 				matches.push_back(mod->name);
 
 			if (!matches.empty()) {
-				log("\n%d %s:\n", int(matches.size()), "modules");
+				log("\n");
+				log("%d %s:\n", int(matches.size()), "modules");
 				std::sort(matches.begin(), matches.end(), RTLIL::sort_by_id_str());
 				for (auto id : matches)
 					log("  %s%s\n", id.unescape(), design->selected_whole_module(design->module(id)) ? "" : "*");

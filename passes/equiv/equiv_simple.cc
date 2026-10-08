@@ -45,18 +45,18 @@ struct EquivSimpleConfig : EquivBasicConfig {
 		}
 		return false;
 	}
-	static std::string help(const char* default_seq) {
-		return EquivBasicConfig::help(default_seq) +
-		"    -v\n"
-		"        verbose output\n"
-		"\n"
-		"    -short\n"
-		"        create shorter input cones that stop at shared nodes. This yields\n"
-		"        simpler SAT problems but sometimes fails to prove equivalence.\n"
-		"\n"
-		"    -nogroup\n"
-		"        disabling grouping of $equiv cells by output wire\n"
-		"\n";
+	static void help(const char* default_seq) {
+		EquivBasicConfig::help(default_seq);
+		log("    -v\n");
+		log("        verbose output\n");
+		log("\n");
+		log("    -short\n");
+		log("        create shorter input cones that stop at shared nodes. This yields\n");
+		log("        simpler SAT problems but sometimes fails to prove equivalence.\n");
+		log("\n");
+		log("    -nogroup\n");
+		log("        disabling grouping of $equiv cells by output wire\n");
+		log("\n");
 	}
 };
 
@@ -308,7 +308,7 @@ struct EquivSimpleWorker : public EquivWorker<EquivSimpleConfig>
 			log("  Trying to prove $equiv cell %s:\n", cell);
 			log("    A = %s, B = %s, Y = %s\n", log_signal(bit_a), log_signal(bit_b), log_signal(cell->getPort(ID::Y)));
 		} else {
-			log("  Trying to prove $equiv for %s:", log_signal(cell->getPort(ID::Y)));
+			log("  Trying to prove $equiv for %s:\n", log_signal(cell->getPort(ID::Y)));
 		}
 
 		int step = cfg.max_seq;
@@ -428,7 +428,7 @@ struct EquivSimplePass : public Pass {
 		log("\n");
 		log("This command tries to prove $equiv cells using a simple direct SAT approach.\n");
 		log("\n");
-		log("%s", EquivSimpleConfig::help("1"));
+		EquivSimpleConfig::help("1");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, Design *design) override

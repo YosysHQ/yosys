@@ -526,8 +526,10 @@ static void run_edges_test(RTLIL::Design *design, bool verbose)
 				output_db.emplace_back(bits[i], xbits[i], ybits[i]);
 	}
 
-	if (verbose)
-		log("\nSAT solving for all edges:\n");
+	if (verbose) {
+		log("\n");
+		log("SAT solving for all edges:\n");
+	}
 
 	for (int i = 0; i < GetSize(input_db); i++)
 	{
@@ -571,7 +573,9 @@ static void run_edges_test(RTLIL::Design *design, bool verbose)
 
 static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::string uut_name, std::ofstream &vlog_file)
 {
-	log("Eval testing:%c", verbose ? '\n' : ' ');
+	std::string msg = "Eval testing:";
+	if (verbose)
+		log("%s\n", msg);
 
 	RTLIL::Module *gold_mod = design->module(ID(gold));
 	RTLIL::Module *gate_mod = design->module(ID(gate));
@@ -620,7 +624,6 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 	for (int i = 0; i < 64; i++)
 	{
-		log("%s", verbose ? "\n" : ".");
 		gold_ce.clear();
 		gate_ce.clear();
 
@@ -737,10 +740,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 				log_error("Evaluating sat model 1 (no undef modeling) failed!\n");
 
 			if (verbose) {
-				log("SAT 1: ");
+				std::string message = "SAT 1: ";
 				for (int i = GetSize(out_sig)-1; i >= 0; i--)
-					log("%c", sat1_model_value.at(i) ? '1' : '0');
-				log("\n");
+					message += sat1_model_value.at(i) ? '1' : '0';
+				log("%s\n", message);
 			}
 
 			for (int i = 0; i < GetSize(out_sig); i++) {
@@ -772,10 +775,10 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 				log_error("Evaluating sat model 2 (undef modeling) failed!\n");
 
 			if (verbose) {
-				log("SAT 2: ");
+				std::string message = "SAT 2: ";
 				for (int i = GetSize(out_sig)-1; i >= 0; i--)
-					log("%c", sat2_model_value.at(GetSize(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0');
-				log("\n");
+					message += sat2_model_value.at(GetSize(out_sig) + i) ? 'x' : sat2_model_value.at(i) ? '1' : '0';
+				log("%s\n", message);
 			}
 
 			for (int i = 0; i < GetSize(out_sig); i++) {
@@ -800,7 +803,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 	}
 
 	if (!verbose)
-		log(" ok.\n");
+		log("%s ok.\n", msg);
 }
 
 struct TestCellPass : public Pass {

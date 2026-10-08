@@ -132,25 +132,25 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 		cell->setPort(ID(CE), State::S1);
 		cell->setParam(ID(NEG_TRIGGER), st.clock_pol ? State::S0 : State::S1);
 
-		log("  clock: %s (%s)", log_signal(st.clock), st.clock_pol ? "posedge" : "negedge");
+		log("  clock: %s (%s)\n", log_signal(st.clock), st.clock_pol ? "posedge" : "negedge");
 
 		if (st.ffA)
-			log(" ffA:%s", st.ffA);
+			log(" ffA:%s\n", st.ffA);
 
 		if (st.ffB)
-			log(" ffB:%s", st.ffB);
+			log(" ffB:%s\n", st.ffB);
 
 		if (st.ffCD)
-			log(" ffCD:%s", st.ffCD);
+			log(" ffCD:%s\n", st.ffCD);
 
 		if (st.ffFJKG)
-			log(" ffFJKG:%s", st.ffFJKG);
+			log(" ffFJKG:%s\n", st.ffFJKG);
 
 		if (st.ffH)
-			log(" ffH:%s", st.ffH);
+			log(" ffH:%s\n", st.ffH);
 
 		if (st.ffO)
-			log(" ffO:%s", st.ffO);
+			log(" ffO:%s\n", st.ffO);
 
 		log("\n");
 	}

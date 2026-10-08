@@ -67,7 +67,7 @@ RTLIL::Design *yosys_get_design();
 std::string proc_self_dirname();
 std::string proc_share_dirname();
 std::string proc_program_prefix();
-const char *create_prompt(RTLIL::Design *design, int recursion_counter);
+const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool newline = true);
 std::vector<std::string> glob_filename(const std::string &filename_pattern);
 void rewrite_filename(std::string &filename);
 

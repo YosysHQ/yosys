@@ -223,10 +223,10 @@ struct Graph {
 	bool update()
 	{
 		if (!dirty) {
-			log("    Largest non-term group sizes: ");
+			std::string message = "    Largest non-term group sizes: ";
 			for (int i = 0; i < config.large_group_count; i++)
-				log("%d%s", max_group_sizes[i], i+1 == config.large_group_count ? ".\n" : " ");
-
+				message += stringf("%d%s", max_group_sizes[i], i+1 == config.large_group_count ? "." : " ");
+			log("%s\n", message);
 			// log("    Mean and Root-Mean-Square group sizes: %.1f and %.1f\n", mean_group_size, rms_group_size);
 
 			return false;

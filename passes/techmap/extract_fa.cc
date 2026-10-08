@@ -328,10 +328,10 @@ struct ExtractFaWorker
 				if (it.first != xor3_func && it.first != xnor3_func)
 					continue;
 
-				log("      %08d ->", bindec(it.first));
+				std::string message = stringf("      %08d ->", bindec(it.first));
 				for (auto bit : it.second)
-					log(" %s", log_signal(bit));
-				log("\n");
+					message += stringf(" %s", log_signal(bit));
+				log("%s\n", message);
 			}
 
 			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
@@ -354,18 +354,18 @@ struct ExtractFaWorker
 				if (!f3i.inv_a && !f3i.inv_b && !f3i.inv_c && !f3i.inv_y) {
 					log("    Majority without inversions:\n");
 				} else {
-					log("    Majority with inverted");
-					if (f3i.inv_a) log(" A");
-					if (f3i.inv_b) log(" B");
-					if (f3i.inv_c) log(" C");
-					if (f3i.inv_y) log(" Y");
-					log(":\n");
+					std::string message = "    Majority with inverted";
+					if (f3i.inv_a) message += " A";
+					if (f3i.inv_b) message += " B";
+					if (f3i.inv_c) message += " C";
+					if (f3i.inv_y) message += " Y";
+					log("%s:\n", message);
 				}
 
-				log("      %08d ->", bindec(func));
+				std::string message = stringf("      %08d ->", bindec(func));
 				for (auto bit : func3.at(key).at(func))
-					log(" %s", log_signal(bit));
-				log("\n");
+					message += stringf(" %s", log_signal(bit));
+				log("%s\n", message);
 
 				int fakey = 0;
 				if (f3i.inv_a) fakey |= 1;
@@ -444,10 +444,10 @@ struct ExtractFaWorker
 				if (it.first != xor2_func && it.first != xnor2_func)
 					continue;
 
-				log("    %04d ->", bindec(it.first));
+				std::string message = stringf("    %04d ->", bindec(it.first));
 				for (auto bit : it.second)
-					log(" %s", log_signal(bit));
-				log("\n");
+					message += stringf(" %s", log_signal(bit));
+				log("%s\n", message);
 			}
 
 			dict<int, tuple<SigBit, SigBit, Cell*>> facache;
@@ -463,17 +463,17 @@ struct ExtractFaWorker
 				if (!f2i.inv_a && !f2i.inv_b && !f2i.inv_y) {
 					log("    AND without inversions:\n");
 				} else {
-					log("    AND with inverted");
-					if (f2i.inv_a) log(" A");
-					if (f2i.inv_b) log(" B");
-					if (f2i.inv_y) log(" Y");
-					log(":\n");
+					std::string message = "    AND with inverted";
+					if (f2i.inv_a) message += " A";
+					if (f2i.inv_b) message += " B";
+					if (f2i.inv_y) message += " Y";
+					log("%s:\n", message);
 				}
 
-				log("      %04d ->", bindec(func));
+				std::string message = stringf("      %04d ->", bindec(func));
 				for (auto bit : func2.at(key).at(func))
-					log(" %s", log_signal(bit));
-				log("\n");
+					message += stringf(" %s", log_signal(bit));
+				log("%s\n", message);
 
 				int fakey = 0;
 				if (f2i.inv_a) fakey |= 1;

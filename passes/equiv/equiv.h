@@ -34,20 +34,18 @@ struct EquivBasicConfig {
 		}
 		return false;
 	}
-	static std::string help(const char* default_seq) {
-		return stringf(
-		"    -undef\n"
-		"        enable modelling of undef states\n"
-		"\n"
-		"    -seq <N>\n"
-		"        the max. number of time steps to be considered (default = %s)\n"
-		"\n"
-		"    -set-assumes\n"
-		"        set all assumptions provided via $assume cells\n"
-		"\n"
-		"    -ignore-unknown-cells\n"
-		"        ignore all cells that can not be matched to a SAT model\n"
-		, default_seq);
+	static void help(const char* default_seq) {
+		log("    -undef\n");
+		log("        enable modelling of undef states\n");
+		log("\n");
+		log("    -seq <N>\n");
+		log("        the max. number of time steps to be considered (default = %s)\n", default_seq);
+		log("\n");
+		log("    -set-assumes\n");
+		log("        set all assumptions provided via $assume cells\n");
+		log("\n");
+		log("    -ignore-unknown-cells\n");
+		log("        ignore all cells that can not be matched to a SAT model\n");
 	}
 };
 

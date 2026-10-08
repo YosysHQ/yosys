@@ -292,10 +292,10 @@ bool group_cell_inputs(RTLIL::Module *module, RTLIL::Cell *cell, bool commutativ
 
 		module->connect(new_conn);
 
-		log_debug("  New cell `%s': A=%s", c, log_signal(new_a));
+		std::string message = stringf("  New cell `%s': A=%s", c, log_signal(new_a));
 		if (b_name == ID::B)
-			log_debug(", B=%s", log_signal(new_b));
-		log_debug("\n");
+			message += stringf(", B=%s", log_signal(new_b));
+		log_debug("%s\n", message);
 	}
 
 	module->remove(cell);

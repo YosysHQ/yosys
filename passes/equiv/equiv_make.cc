@@ -449,7 +449,7 @@ struct EquivMakePass : public Pass {
 		log("\n");
 		log("    -make_assert\n");
 		log("        Check equivalence with $assert cells instead of $equiv.\n");
-		log("        $eqx (===) is used to compare signals.");
+		log("        $eqx (===) is used to compare signals.\n");
 		log("\n");
 		log("Note: The circuit created by this command is not a miter (with something like\n");
 		log("a trigger output), but instead uses $equiv cells to encode the equivalence\n");

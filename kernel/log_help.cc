@@ -114,9 +114,9 @@ void log_body_str(const std::string &pass_str, std::string indent_str, bool lead
 	if (leading_newline)
 		log("\n");
 	for (std::string line; std::getline(iss, line);) {
-		log("%s", indent_str);
+		std::string message = indent_str;
 		if (is_formatted) {
-			log("%s", line);
+			message += line;
 		} else {
 			auto curr_len = indent_str.length();
 			std::istringstream lss(line);
@@ -125,15 +125,16 @@ void log_body_str(const std::string &pass_str, std::string indent_str, bool lead
 					word = word.substr(1, word.length()-2);
 				if (curr_len + word.length() >= MAX_LINE_LEN-1) {
 					curr_len = 0;
-					log("\n%s", indent_str);
+					log("%s\n", message);
+					message = indent_str;
 				}
 				if (word.length()) {
-					log("%s ", word);
+					message += word + " ";
 					curr_len += word.length() + 1;
 				}
 			}
 		}
-		log("\n");
+		log("%s\n", message);
 	}
 }
 void log_body(const ContentListing &content, int indent=0, bool leading_newline=false) {

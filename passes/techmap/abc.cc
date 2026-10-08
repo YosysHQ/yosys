@@ -824,7 +824,7 @@ std::string add_echos_to_abc_cmd(std::string str)
 	return new_str;
 }
 
-std::string fold_abc_cmd(std::string str)
+static void log_abc_cmd(std::string str)
 {
 	std::string token, new_str = "          ";
 	int char_counter = 10;
@@ -833,14 +833,15 @@ std::string fold_abc_cmd(std::string str)
 		if (i < str.size())
 			token += str[i];
 		if (i == str.size() || str[i] == ';') {
-			if (char_counter + token.size() > 75)
-				new_str += "\n              ", char_counter = 14;
+			if (char_counter + token.size() > 75) {
+				log("%s\n", new_str);
+				new_str = "              ", char_counter = 14;
+			}
 			new_str += token, char_counter += token.size();
 			token.clear();
 		}
 	}
-
-	return new_str;
+	log("%s\n", new_str);
 }
 
 std::string replace_tempdir(std::string text, std::string_view global_tempdir_name, std::string_view per_run_tempdir_name, bool show_tempdir)
@@ -1117,14 +1118,14 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (clk_sig.size() == 0)
 			log("No%s clock domain found. Not extracting any FF cells.\n", clk_str.empty() ? "" : " matching");
 		else {
-			log("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
+			std::string message = stringf("Found%s %s clock domain: %s", clk_str.empty() ? "" : " matching", clk_polarity ? "posedge" : "negedge", log_signal(clk_sig));
 			if (en_sig.size() != 0)
-				log(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
+				message += stringf(", enabled by %s%s", en_polarity ? "" : "!", log_signal(en_sig));
 			if (arst_sig.size() != 0)
-				log(", asynchronously reset by %s%s", arst_polarity ? "" : "!", log_signal(arst_sig));
+				message += stringf(", asynchronously reset by %s%s", arst_polarity ? "" : "!", log_signal(arst_sig));
 			if (srst_sig.size() != 0)
-				log(", synchronously reset by %s%s", srst_polarity ? "" : "!", log_signal(srst_sig));
-			log("\n");
+				message += stringf(", synchronously reset by %s%s", srst_polarity ? "" : "!", log_signal(srst_sig));
+			log("%s\n", message);
 		}
 	}
 
@@ -1892,19 +1893,19 @@ struct AbcPass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -liberty/-genlib without -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LIB));
+		log_abc_cmd(ABC_COMMAND_LIB);
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_CTR));
+		log_abc_cmd(ABC_COMMAND_CTR);
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1"));
+		log_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1");
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_LUT));
+		log_abc_cmd(ABC_COMMAND_LUT);
 		log("\n");
 		log("        otherwise:\n");
-		log("%s\n", fold_abc_cmd(ABC_COMMAND_DFL));
+		log_abc_cmd(ABC_COMMAND_DFL);
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");

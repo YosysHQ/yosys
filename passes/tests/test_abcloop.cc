@@ -223,19 +223,19 @@ static void test_abcloop()
 	}
 
 	for (int i = 0; i < 16; i++) {
-		log("%3d ", i);
+		std::string message = stringf("%3d ", i);
 		for (int j = 0; j < 4; j++)
-			log("%c", truthtab[i][j] ? '1' : '0');
-		log(" ");
+			message += truthtab[i][j] ? '1' : '0';
+		message += " ";
 		for (int j = 0; j < 4; j++)
-			log("%c", truthtab2[i][j] ? '1' : '0');
+			message += truthtab2[i][j] ? '1' : '0';
 		for (int j = 0; j < 4; j++)
 			if (truthtab[i][j] != truthtab2[i][j]) {
 				found_error = true;
-				log(" !");
+				message += " !";
 				break;
 			}
-		log("\n");
+		log("%s\n", message);
 	}
 
 	log_assert(found_error == false);

@@ -886,6 +886,7 @@ struct HierarchyPass : public Pass {
 			if (args[argidx] == "-generate" && !flag_check && !flag_simcheck && !flag_smtcheck && !top_mod) {
 				generate_mode = true;
 				log("Entering generate mode.\n");
+				std::string message;
 				while (++argidx < args.size()) {
 					const char *p = args[argidx].c_str();
 					generate_port_decl_t decl;
@@ -910,10 +911,10 @@ struct HierarchyPass : public Pass {
 					if (*p == 0)
 						goto is_celltype;
 					decl.portname = p;
-					log("Port declaration: %s", decl.input ? decl.output ? "inout" : "input" : "output");
+					message = stringf("Port declaration: %s", decl.input ? decl.output ? "inout" : "input" : "output");
 					if (decl.index >= 1)
-						log(" [at position %d]", decl.index);
-					log(" %s\n", decl.portname);
+						message += stringf(" [at position %d]", decl.index);
+					log("%s %s\n", message, decl.portname);
 					generate_ports.push_back(decl);
 					continue;
 				is_celltype:

@@ -50,15 +50,14 @@ struct SynthLatchesConfig {
 
 	const char *str() const { return latch_policy_str(policy); }
 
-	static const char *help()
+	static void help()
 	{
-		return
-		"    -latches <info|warn|error>\n"
-		"        select the behaviour for latches that cannot be mapped to a\n"
-		"        dedicated hardware primitive and are implemented using LUTs\n"
-		"        instead. 'error' (the default) aborts synthesis, 'warn' only\n"
-		"        prints a warning, and 'info' permits them with an info-level message.\n"
-		"        Latches explicitly requested with 'always_latch' are always permitted.\n";
+		log("    -latches <info|warn|error>\n");
+		log("        select the behaviour for latches that cannot be mapped to a\n");
+		log("        dedicated hardware primitive and are implemented using LUTs\n");
+		log("        instead. 'error' (the default) aborts synthesis, 'warn' only\n");
+		log("        prints a warning, and 'info' permits them with an info-level message.\n");
+		log("        Latches explicitly requested with 'always_latch' are always permitted.\n");
 	}
 };
 

@@ -193,10 +193,10 @@ struct ExampleDtPass : public Pass
 				perm.insert(perm.end(), begin, end);
 				if (end > begin + 1)
 				{
-					log_warning("SCC:");
+					std::string message = "SCC:";
 					for (int *i = begin; i != end; ++i)
-						log(" %d", *i);
-					log("\n");
+						message += stringf(" %d", *i);
+					log_warning("%s\n", message);
 				}
 			}).process_sources().process_all();
 			compute_graph.permute(perm);
@@ -225,24 +225,24 @@ struct ExampleDtPass : public Pass
 			for (int i = 0; i < compute_graph.size(); ++i)
 			{
 				auto ref = compute_graph[i];
-				log("n%d ", i);
-				log("%s", ref.function().name.unescape());
+				std::string message = stringf("n%d ", i);
+				message += ref.function().name.unescape();
 				for (auto const &param : ref.function().parameters)
 				{
 					if (param.second.empty())
-						log("[%s]", param.first.unescape());
+						message += stringf("[%s]", param.first.unescape());
 					else
-						log("[%s=%s]", param.first.unescape(), log_const(param.second));
+						message += stringf("[%s=%s]", param.first.unescape(), log_const(param.second));
 				}
-				log("(");
+				message += "(";
 
 				for (int i = 0, end = ref.size(); i != end; ++i)
 				{
 					if (i > 0)
-						log(", ");
-					log("n%d", ref.arg(i).index());
+						message += ", ";
+					message += stringf("n%d", ref.arg(i).index());
 				}
-				log(")\n");
+				log("%s)\n", message);
 				if (ref.has_sparse_attr())
 					log("// wire %s\n", ref.sparse_attr().unescape());
 				log("// was #%d %s\n", ref.attr(), log_signal(queue[ref.attr()]));

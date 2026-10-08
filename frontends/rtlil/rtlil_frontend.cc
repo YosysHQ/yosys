@@ -683,7 +683,7 @@ struct RTLILFrontendWorker {
 				RTLIL::IdString port_name = parse_id();
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
-						log("Legalizing redefinition of cell port %s.", port_name);
+						log("Legalizing redefinition of cell port %s.\n", port_name);
 					else
 						error("RTLIL error: redefinition of cell port %s.", port_name);
 				}

@@ -182,10 +182,10 @@ void assume_miter_outputs(RTLIL::Module *module, bool assume_neg) {
 	if (wires_to_assume.size() == 0)
 		return;
 	else {
-		log("Adding $assume cell for output(s): ");
+		std::string message = "Adding $assume cell for output(s): ";
 		for (auto w : wires_to_assume)
-			log("\"%s\" ", w->name);
-		log("\n");
+			message += stringf("\"%s\" ", w->name);
+		log("%s\n", message);
 	}
 
 	if (assume_neg) {

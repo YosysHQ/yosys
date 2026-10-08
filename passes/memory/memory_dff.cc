@@ -334,27 +334,27 @@ struct MemoryDffWorker
 	void handle_rd_port(Mem &mem, QuickConeSat &qcsat, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
+		log("Checking read port `%s'[%d] in module `%s':\n", mem.memid, idx, module->name);
 
 		std::vector<MuxData> muxdata;
 		SigSpec data = walk_muxes(port.data, muxdata);
 		FfData ff;
 		pool<std::pair<Cell *, int>> bits;
 		if (!merger.find_output_ff(data, ff, bits)) {
-			log("no output FF found.\n");
+			log("    no output FF found.\n");
 			return;
 		}
 		if (!ff.has_clk) {
-			log("output latches are not supported.\n");
+			log(    "output latches are not supported.\n");
 			return;
 		}
 		if (ff.has_aload) {
-			log("output FF has async load, not supported.\n");
+			log("    output FF has async load, not supported.\n");
 			return;
 		}
 		if (ff.has_sr) {
 			// Latches and FFs with SR are not supported.
-			log("output FF has both set and reset, not supported.\n");
+			log("    output FF has both set and reset, not supported.\n");
 			return;
 		}
 
@@ -446,7 +446,7 @@ struct MemoryDffWorker
 										continue;
 									if (!cache.can_collide_together(pi, k, bitidx))
 										continue;
-									log("FF found, but transparency logic priority doesn't match write priority.\n");
+									log("    FF found, but transparency logic priority doesn't match write priority.\n");
 									return;
 								}
 							}
@@ -454,7 +454,7 @@ struct MemoryDffWorker
 							trans_queue.push_back({pd, bitidx});
 							break;
 						} else {
-							log("FF found, but with a mux data input that doesn't seem to correspond to transparency logic.\n");
+							log("    FF found, but with a mux data input that doesn't seem to correspond to transparency logic.\n");
 							return;
 						}
 					}
@@ -467,7 +467,7 @@ struct MemoryDffWorker
 							continue;
 						if (cache.impossible_with_ren(sbit, md.is_b))
 							continue;
-						log("FF found, but with a mux select that doesn't seem to correspond to transparency logic.\n");
+						log("    FF found, but with a mux select that doesn't seem to correspond to transparency logic.\n");
 						return;
 					}
 				}
@@ -495,7 +495,7 @@ struct MemoryDffWorker
 					non_trans = true;
 			}
 			if (trans && non_trans) {
-				log("FF found, but soft transparency logic is inconsistent for port %d.\n", pi);
+				log("    FF found, but soft transparency logic is inconsistent for port %d.\n", pi);
 				return;
 			}
 			pd.final_transparency = trans;
@@ -503,7 +503,7 @@ struct MemoryDffWorker
 		}
 
 		// OK, it worked.
-		log("merging output FF to cell.\n");
+		log("    merging output FF to cell.\n");
 
 		merger.remove_output_ff(bits);
 		if (ff.has_ce && !ff.pol_ce)
@@ -554,24 +554,24 @@ struct MemoryDffWorker
 	void handle_rd_port_addr(Mem &mem, int idx)
 	{
 		auto &port = mem.rd_ports[idx];
-		log("Checking read port address `%s'[%d] in module `%s': ", mem.memid, idx, module->name);
+		log("Checking read port address `%s'[%d] in module `%s':\n", mem.memid, idx, module->name);
 
 		FfData ff;
 		pool<std::pair<Cell *, int>> bits;
 		if (!merger.find_input_ff(port.addr, ff, bits)) {
-			log("no address FF found.\n");
+			log("    no address FF found.\n");
 			return;
 		}
 		if (!ff.has_clk) {
-			log("address latches are not supported.\n");
+			log("    address latches are not supported.\n");
 			return;
 		}
 		if (ff.has_aload) {
-			log("address FF has async load, not supported.\n");
+			log("    address FF has async load, not supported.\n");
 			return;
 		}
 		if (ff.has_sr || ff.has_arst) {
-			log("address FF has async set and/or reset, not supported.\n");
+			log("    address FF has async set and/or reset, not supported.\n");
 			return;
 		}
 		// Trick part: this transform is invalid if the initial
@@ -579,13 +579,13 @@ struct MemoryDffWorker
 		// cannot simply reject FFs with any defined init bit,
 		// as this is often the result of merging a const bit.
 		if (ff.val_init.is_fully_def()) {
-			log("address FF has fully-defined init value, not supported.\n");
+			log("    address FF has fully-defined init value, not supported.\n");
 			return;
 		}
 		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 			auto &wport = mem.wr_ports[i];
 			if (!wport.clk_enable || wport.clk != ff.sig_clk || wport.clk_polarity != ff.pol_clk) {
-				log("address FF clock is not compatible with write clock.\n");
+				log("    address FF clock is not compatible with write clock.\n");
 				return;
 			}
 		}
@@ -601,7 +601,7 @@ struct MemoryDffWorker
 		for (int i = 0; i < GetSize(mem.wr_ports); i++)
 			port.transparency_mask[i] = true;
 		mem.emit();
-		log("merged address FF to cell.\n");
+		log("    merged address FF to cell.\n");
 	}
 
 	void run()

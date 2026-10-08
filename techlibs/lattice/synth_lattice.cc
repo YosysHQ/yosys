@@ -148,7 +148,7 @@ struct SynthLatticePass : public ScriptPass
 		log("        implement constant comparisons in soft logic, do not involve\n");
 		log("        hard carry chains\n");
 		log("\n");
-		log("%s", SynthLatchesConfig::help());
+		SynthLatchesConfig::help();
 		log("        (ignored with -asyncprld, which has a latch primitive)\n");
 		log("\n");
 		log("\n");

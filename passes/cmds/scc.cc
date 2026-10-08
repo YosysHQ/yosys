@@ -81,18 +81,18 @@ struct SccWorker
 			}
 			else
 			{
-				log("Found an SCC:");
+				std::string message = "Found an SCC:";
 				pool<RTLIL::Cell*> scc;
 				while (cellsOnStack.count(cell) > 0) {
 					RTLIL::Cell *c = cellStack.back();
 					cellStack.pop_back();
 					cellsOnStack.erase(c);
-					log(" %s", c);
+					message += stringf(" %s", c);
 					cell2scc[c] = sccList.size();
 					scc.insert(c);
 				}
 				sccList.push_back(scc);
-				log("\n");
+				log("%s\n", message);
 			}
 		}
 	}
@@ -199,13 +199,13 @@ struct SccWorker
 			sigToNextCells.find(cellToNextSig[cell], cellToNextCell[cell]);
 
 			if (!nofeedbackMode && cellToNextCell[cell].count(cell)) {
-				log("Found an SCC:");
+				std::string message = "Found an SCC:";
 				pool<RTLIL::Cell*> scc;
-				log(" %s", cell);
+				message += stringf(" %s", cell);
 				cell2scc[cell] = sccList.size();
 				scc.insert(cell);
 				sccList.push_back(scc);
-				log("\n");
+				log("%s\n", message);
 			}
 		}
 

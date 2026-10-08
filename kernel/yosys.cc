@@ -363,10 +363,10 @@ RTLIL::Design *yosys_get_design()
 	return yosys_design;
 }
 
-const char *create_prompt(RTLIL::Design *design, int recursion_counter)
+const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool newline)
 {
 	static char buffer[100];
-	std::string str = "\n";
+	std::string str = newline ? "\n" : "";
 	if (recursion_counter > 1)
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
@@ -591,7 +591,7 @@ std::string proc_self_dirname(void)
 		}
 	}
 	free(path);
-	log_error("Can't determine yosys executable path\n.");
+	log_error("Can't determine yosys executable path.\n");
 	return NULL;
 }
 #else
@@ -789,7 +789,8 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			from_to_active = run_from.empty();
 		}
 
-		log_comment("\n-- Executing script file `%s' --\n", filename);
+		log("\n");
+		log_comment("-- Executing script file `%s' --\n", filename);
 
 		FILE *f = stdin;
 
@@ -858,10 +859,11 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		return true;
 	}
 
+	log("\n");
 	if (filename == "-") {
-		log_comment("\n-- Parsing stdin using frontend `%s' --\n", command);
+		log_comment("-- Parsing stdin using frontend `%s' --\n", command);
 	} else {
-		log_comment("\n-- Parsing `%s' using frontend `%s' --\n", filename, command);
+		log_comment("-- Parsing `%s' using frontend `%s' --\n", filename, command);
 	}
 
 	if (command[0] == ' ') {
@@ -880,7 +882,8 @@ void run_pass(std::string command, RTLIL::Design *design)
 	if (design == nullptr)
 		design = yosys_design;
 
-	log_comment("\n-- Running command `%s' --\n", command);
+	log("\n");
+	log_comment("-- Running command `%s' --\n", command);
 
 	Pass::call(design, command);
 }
@@ -918,10 +921,11 @@ void run_backend(std::string filename, std::string command, RTLIL::Design *desig
 	if (filename.empty())
 		filename = "-";
 
+	log("\n");
 	if (filename == "-") {
-		log_comment("\n-- Writing to stdout using backend `%s' --\n", command);
+		log_comment("-- Writing to stdout using backend `%s' --\n", command);
 	} else {
-		log_comment("\n-- Writing to `%s' using backend `%s' --\n", filename, command);
+		log_comment("-- Writing to `%s' using backend `%s' --\n", filename, command);
 	}
 
 	Backend::backend_call(design, NULL, filename, command);
