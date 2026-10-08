@@ -17,13 +17,22 @@ template<typename Map> IntSet keys(const Map &map)
 	return result;
 }
 
-IntSet quotients(const IntSet &values, const IntSet &divisors)
+void HcubSearch::consume_work() const
+{
+	if (work_remaining == 0)
+		throw BudgetExhausted{};
+	work_remaining--;
+}
+
+IntSet HcubSearch::quotients(const IntSet &values, const IntSet &divisors) const
 {
 	IntSet result;
 	for (int64_t value : values)
-		for (int64_t divisor : divisors)
+		for (int64_t divisor : divisors) {
+			consume_work();
 			if (value % divisor == 0)
 				result.insert(value / divisor);
+		}
 	return result;
 }
 
@@ -40,7 +49,7 @@ int auxiliary_cost(const IntSet &values)
 	return cost;
 }
 
-HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(params.config) {
+HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(params.config), work_remaining(config.work_budget) {
 	std::vector<int64_t> odd_targets;
 	odd_targets.reserve(params.target_set.size());
 	for (int64_t target : params.target_set) {
@@ -52,21 +61,14 @@ HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(para
 	target_set_remaining = IntSet(odd_targets.begin(), odd_targets.end());
 	ready_set.emplace(1, ONE);
 	work_list.emplace(1, ONE);
+	depths.emplace(1, 0);
 
 	max_bit_width = Yosys::Mcm::max_bit_width(params.target_set);
-	if (config.max_shift < 0 || config.max_nodes < 0)
-		log_error("MCM shift and node limits must be nonnegative.\n");
+	if (config.min_shift < 0 || config.max_shift < config.min_shift || config.max_nodes < 0 ||
+			config.work_budget < 1 || (config.max_depth && *config.max_depth < 1))
+		log_error("Invalid MCM search limits.\n");
 	for (int64_t target : target_set_remaining)
 		distance_cache[target] = max_bit_width + 3;
-
-	c1 = keys(vertex_fundamental_set(1, 1));
-	for (int64_t c : c1) {
-		IntSet constants{1, c};
-		unite(c2, keys(vertex_fundamental_set(constants, constants)));
-	}
-	c2.erase(1);
-	for (int64_t c : c1)
-		c2.erase(c);
 }
 
 bool HcubSearch::a_op_valid(const AOp &op) const {
@@ -76,7 +78,7 @@ bool HcubSearch::a_op_valid(const AOp &op) const {
 
 // debug assert that all returned values here are oddified
 AOpMap HcubSearch::vertex_fundamental_set(int64_t u, int64_t v) const {
-	return enumerate_pair(u, v, std::min(config.max_shift, max_bit_width + 1));
+	return enumerate_pair(u, v, config.min_shift, std::min(config.max_shift, max_bit_width + 1));
 }
 
 AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_set) const {
@@ -84,6 +86,7 @@ AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_s
 	std::set<std::pair<int64_t, int64_t>> seen{};
 	for (int64_t u : u_set)
 		for (int64_t v : v_set) {
+			consume_work();
 			std::pair<int64_t, int64_t> key;
 			if (u > v) {
 				key = std::pair(u, v);
@@ -107,6 +110,9 @@ AOpMap HcubSearch::vertex_fundamental_set(const AOpMap &u_set, const AOpMap &v_s
 	std::set<std::pair<int64_t, int64_t>> seen{};
 	for (const auto &u : u_set)
 		for (const auto &v : v_set) {
+			consume_work();
+			if (config.max_depth && 1 + std::max(depths.at(u.first), depths.at(v.first)) > *config.max_depth)
+				continue;
 			std::pair<int64_t, int64_t> key;
 			if (u.first > v.first) {
 				key = std::pair(u.first, v.first);
@@ -126,18 +132,33 @@ AOpMap HcubSearch::vertex_fundamental_set(const AOpMap &u_set, const AOpMap &v_s
 }
 
 SearchResult HcubSearch::search() {
+	try {
+		return run_search();
+	} catch (const BudgetExhausted &) {
+		SearchResult result;
+		result.status = AdderGraphStatus::BudgetExhausted;
+		return result;
+	}
+}
+
+SearchResult HcubSearch::run_search() {
 	SearchResult result;
+	bool distances_initialized = false;
 	for (const auto &entry : ready_set)
 		result.add(entry.second);
 	while (!target_set_remaining.empty() || !work_list.empty()) {
+		consume_work();
 		// optimal part
 		while (!work_list.empty()) {
+			consume_work();
 			// update successor_set & ready_set
 			AOpMap current_work = work_list;
 			for (const auto &entry : current_work)
 				result.add(entry.second);
 			ready_set.merge(work_list);
 			work_list.clear();
+			if (target_set_remaining.empty())
+				break;
 			for (const auto &entry : vertex_fundamental_set(ready_set, current_work))
 				if (!ready_set.count(entry.first))
 					successor_set.emplace(entry);
@@ -146,6 +167,7 @@ SearchResult HcubSearch::search() {
 
 			// if successor_set contains remaining targets, add them
 			for (int64_t target : IntSet(target_set_remaining)) {
+				consume_work();
 				auto successor = successor_set.find(target);
 				if (successor != successor_set.end()) {
 					if (ready_set.size() + work_list.size() - 1 >= size_t(config.max_nodes)) {
@@ -163,6 +185,19 @@ SearchResult HcubSearch::search() {
 				result.status = AdderGraphStatus::NodeLimit;
 				return result;
 			}
+			if (successor_set.empty())
+				return result;
+			if (!distances_initialized) {
+				c1 = keys(vertex_fundamental_set(1, 1));
+				for (int64_t c : c1) {
+					IntSet constants{1, c};
+					unite(c2, keys(vertex_fundamental_set(constants, constants)));
+				}
+				c2.erase(1);
+				for (int64_t c : c1)
+					c2.erase(c);
+				distances_initialized = true;
+			}
 			AOp candidate;
 			if (!heuristic(candidate))
 				return result;
@@ -174,6 +209,7 @@ SearchResult HcubSearch::search() {
 }
 
 void HcubSearch::add_target(const AOp &target) {
+	depths[target.res] = 1 + std::max(depths.at(target.u), depths.at(target.v));
 	work_list.emplace(target.res, target);
 	target_set_remaining.erase(target.res);
 }
@@ -193,10 +229,12 @@ HcubSearch::ExactDistance HcubSearch::exact_dist(int64_t target) const {
 
 	ExactDistance result;
 	auto collect = [&](int distance) {
-		for (int64_t s : candidates)
+		for (int64_t s : candidates) {
+			consume_work();
 			if (successor_set.count(s) &&
 				(distance == 2 ? finishes_in_one(ready, s, target) : finishes_in_two(s, target)))
 				result.reducing_successors.insert(s);
+		}
 		if (!result.reducing_successors.empty())
 			result.value = distance;
 	};
@@ -221,12 +259,14 @@ int HcubSearch::estimate_after(int64_t successor, int64_t target, int previous) 
 		int estimate = 1 + auxiliary_cost(inverse_set(IntSet{successor}, IntSet{target}));
 		estimate = std::min(estimate, 2 + auxiliary_cost(inverse_set(IntSet{successor}, quotients(IntSet{target}, c1))));
 		IntSet scaled;
-		for (int64_t c : c1)
+		for (int64_t c : c1) {
+			consume_work();
 			if (successor <= std::numeric_limits<int64_t>::max() / c) {
 				int64_t value = successor * c;
 				if (a_op_valid(AOp{value, 0, 0, {0, 0, 0, false}}))
 					scaled.insert(value);
 			}
+		}
 		estimate = std::min(estimate, 2 + auxiliary_cost(inverse_set(scaled, IntSet{target})));
 		found = estimate_cache.emplace(key, estimate).first;
 	}
@@ -236,6 +276,7 @@ int HcubSearch::estimate_after(int64_t successor, int64_t target, int previous) 
 bool HcubSearch::heuristic(AOp &selected) {
 	std::map<int64_t, ExactDistance> distances;
 	for (int64_t target : target_set_remaining) {
+		consume_work();
 		auto exact = exact_dist(target);
 		if (exact.value >= 0)
 			distance_cache[target] = exact.value;
@@ -254,6 +295,7 @@ bool HcubSearch::heuristic(AOp &selected) {
 	for (auto& s : successor_set) {
 		double score = 0.0;
 		for (auto& t : target_set_remaining) {
+			consume_work();
 			int after = distance_after(s.first, t);
 			score += std::pow(10.0, -after) * (distance_cache.at(t) - after);
 		}
@@ -270,13 +312,14 @@ bool HcubSearch::heuristic(AOp &selected) {
 	return true;
 }
 
-AOpMap HcubSearch::enumerate_pair(int64_t u, int64_t v, int shift_limit) const {
+AOpMap HcubSearch::enumerate_pair(int64_t u, int64_t v, int min_shift, int max_shift) const {
 	if (u <= 0 || v <= 0 || !(u & 1) || !(v & 1))
 		log_error("MCM A-operation inputs must be positive odd constants.\n");
 
 	using Wide = unsigned __int128;
 	AOpMap results;
 	auto emit = [&](int su, int sv, bool sub) {
+		consume_work();
 		Wide lhs = Wide(u) << su, rhs = Wide(v) << sv;
 		Wide raw = sub ? (lhs >= rhs ? lhs - rhs : rhs - lhs) : lhs + rhs;
 		if (!raw)
@@ -294,7 +337,7 @@ AOpMap HcubSearch::enumerate_pair(int64_t u, int64_t v, int shift_limit) const {
 	};
 
 	// A common input shift cancels during normalization.
-	for (int shift = 0; shift <= std::min(shift_limit, 63); shift++) {
+	for (int shift = min_shift; shift <= std::min(max_shift, 63); shift++) {
 		emit(shift, 0, false);
 		emit(shift, 0, true);
 		if (shift) {
@@ -308,8 +351,9 @@ AOpMap HcubSearch::enumerate_pair(int64_t u, int64_t v, int shift_limit) const {
 IntSet HcubSearch::inverse_set(const IntSet &u, const IntSet &v) const {
 	IntSet result;
 	for (int64_t lhs : u)
-		for (int64_t rhs : v)
-			unite(result, keys(enumerate_pair(lhs, rhs, 63)));
+		for (int64_t rhs : v) {
+			unite(result, keys(enumerate_pair(lhs, rhs, 0, 63)));
+		}
 	return result;
 }
 

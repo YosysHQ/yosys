@@ -16,6 +16,10 @@ public:
 	SearchResult search() override;
 
 private:
+	struct BudgetExhausted {};
+	void consume_work() const;
+	SearchResult run_search();
+	IntSet quotients(const IntSet &values, const IntSet &divisors) const;
 	struct ExactDistance {
 		int value = -1; // No distance <= 3 found.
 		IntSet reducing_successors;
@@ -27,10 +31,12 @@ private:
 	int estimate_after(int64_t successor, int64_t target, int previous);
 	bool finishes_in_one(const IntSet &ready, int64_t successor, int64_t target) const;
 	bool finishes_in_two(int64_t successor, int64_t target) const;
-	AOpMap enumerate_pair(int64_t u, int64_t v, int shift_limit) const;
+	AOpMap enumerate_pair(int64_t u, int64_t v, int min_shift, int max_shift) const;
 	IntSet inverse_set(const IntSet &u, const IntSet &v) const;
 
 	McmConfig config;
+	mutable long long work_remaining;
+	std::map<int64_t, int> depths;
 	IntSet target_set_remaining;
 	AOpMap ready_set;
 	AOpMap work_list;
