@@ -297,6 +297,11 @@ TEST_F(NetViewTest, buildableReasons)
 	std::string reason;
 	EXPECT_TRUE(NetView::buildable(d, reason));
 
+	sub->addProcess(ID(proc));
+	EXPECT_FALSE(NetView::buildable(d, reason));
+	EXPECT_NE(reason.find("(run proc)"), std::string::npos) << reason;
+	sub->remove(sub->processes.at(ID(proc)));
+
 	top->addCell(ID(u_sub2), ID(sub));
 	EXPECT_FALSE(NetView::buildable(d, reason));
 	EXPECT_NE(reason.find("uniquify"), std::string::npos);
@@ -380,6 +385,23 @@ TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
 	EXPECT_EQ(view.wireName(a), (Netlist::NetName{"a", 0, true}));
 	EXPECT_EQ(view.wireName(mid), (Netlist::NetName{"u1.mid", 0, true, {"u1", "mid"}})); // also u1.u2.a
 	delete design;
+}
+
+TEST_F(NetViewTest, buildableRefusesRangeOverflow)
+{
+	std::string reason;
+	top->addWire(ID(huge), 2)->start_offset = INT_MAX - 1; // fits: [INT_MAX:INT_MAX-1]
+	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
+	top->wire(ID(huge))->start_offset = INT_MAX;
+	EXPECT_FALSE(NetView::buildable(d, reason));
+	EXPECT_NE(reason.find("huge"), std::string::npos) << reason;
+	top->remove(pool<Wire *>{top->wire(ID(huge))});
+	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
+	inv->addWire(ID(B), 2)->start_offset = INT_MAX; // [INT_MAX+1:INT_MAX]
+	inv->wire(ID(B))->port_input = true;
+	inv->fixup_ports();
+	EXPECT_FALSE(NetView::buildable(d, reason));
+	EXPECT_NE(reason.find("INV"), std::string::npos) << reason;
 }
 
 TEST(NetViewNameTest, publicNamesAreUnescaped)

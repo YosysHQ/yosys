@@ -222,7 +222,54 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 		return false;
 	}
 	pool<RTLIL::Module *> seen;
-	return detail::checkUniquified(design, top, top, seen, reason);
+	if (!detail::checkUniquified(design, top, top, seen, reason))
+		return false;
+	seen.insert(top);
+	pool<RTLIL::Module *> blackboxes;
+	for (RTLIL::Module *module : seen) {
+		if (!detail::checkModule(module, reason))
+			return false;
+		detail::addUsedBlackboxes(design, module, blackboxes);
+	}
+	for (RTLIL::Module *blackbox : blackboxes) {
+		if (!detail::checkIndices(blackbox, reason))
+			return false;
+	}
+	return true;
+}
+
+bool detail::checkModule(RTLIL::Module *module, std::string &reason)
+{
+	if (!module->processes.empty()) {
+		reason = stringf("module %s has processes (run proc)", log_id(module));
+		return false;
+	}
+	return detail::checkIndices(module, reason);
+}
+
+bool detail::indicesFitInt(const RTLIL::Wire *wire)
+{
+	return wire->width <= 0 || int64_t(wire->start_offset) + wire->width - 1 <= INT_MAX;
+}
+
+bool detail::checkIndices(RTLIL::Module *module, std::string &reason)
+{
+	for (RTLIL::Wire *wire : module->wires()) {
+		if (!detail::indicesFitInt(wire)) {
+			reason = stringf("range of wire %s in module %s overflows", log_id(wire->name), log_id(module->name));
+			return false;
+		}
+	}
+	return true;
+}
+
+void detail::addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes)
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		RTLIL::Module *type = design->module(cell->type);
+		if (type != nullptr && type->get_blackbox_attribute())
+			blackboxes.insert(type);
+	}
 }
 
 void NetView::build(RTLIL::Design *design, PortModel *ports)

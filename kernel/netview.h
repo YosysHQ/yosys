@@ -25,6 +25,10 @@ namespace detail {
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
+bool checkModule(RTLIL::Module *module, std::string &reason);
+bool indicesFitInt(const RTLIL::Wire *wire);
+bool checkIndices(RTLIL::Module *module, std::string &reason);
+void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes);
 
 // Cells
 bool internalType(RTLIL::IdString type);
