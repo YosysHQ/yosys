@@ -824,7 +824,7 @@ std::string add_echos_to_abc_cmd(std::string str)
 	return new_str;
 }
 
-void fold_abc_cmd(std::string str)
+static void log_abc_cmd(std::string str)
 {
 	std::string token, new_str = "          ";
 	int char_counter = 10;
@@ -1893,19 +1893,19 @@ struct AbcPass : public Pass {
 		log("        if no -script parameter is given, the following scripts are used:\n");
 		log("\n");
 		log("        for -liberty/-genlib without -constr:\n");
-		fold_abc_cmd(ABC_COMMAND_LIB);
+		log_abc_cmd(ABC_COMMAND_LIB);
 		log("\n");
 		log("        for -liberty/-genlib with -constr:\n");
-		fold_abc_cmd(ABC_COMMAND_CTR);
+		log_abc_cmd(ABC_COMMAND_CTR);
 		log("\n");
 		log("        for -lut/-luts (only one LUT size):\n");
-		fold_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1");
+		log_abc_cmd(ABC_COMMAND_LUT "; lutpack -S 1");
 		log("\n");
 		log("        for -lut/-luts (different LUT sizes):\n");
-		fold_abc_cmd(ABC_COMMAND_LUT);
+		log_abc_cmd(ABC_COMMAND_LUT);
 		log("\n");
 		log("        otherwise:\n");
-		fold_abc_cmd(ABC_COMMAND_DFL);
+		log_abc_cmd(ABC_COMMAND_DFL);
 		log("\n");
 		log("    -liberty <file>\n");
 		log("        generate netlists for the specified cell library (using the liberty\n");
