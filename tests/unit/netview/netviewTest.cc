@@ -212,6 +212,12 @@ TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
 	view.reset();
 	view.build(d);
 	EXPECT_EQ(view.wireName(view.instance(u_inv0)->pins[1]->net).wire, "d1");
+
+	d1->attributes.erase(ID::keep);
+	d0->set_hdlname_attribute({"u", "d0"});
+	view.reset();
+	view.build(d);
+	EXPECT_EQ(view.wireName(view.instance(u_inv0)->pins[1]->net).wire, "d1");
 }
 
 // i -> u1 -> $n (pa, pb) -> u2 -> o

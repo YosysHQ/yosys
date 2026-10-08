@@ -20,6 +20,13 @@ bool detail::internalType(RTLIL::IdString type)
 	return StaticCellTypes::categories.is_known(type);
 }
 
+std::vector<std::string> detail::hdlPath(const RTLIL::AttrObject *object)
+{
+	if (!object->has_attribute(ID::hdlname))
+		return {};
+	return object->get_hdlname_attribute();
+}
+
 // Unescaped
 std::string detail::plainName(RTLIL::IdString id)
 {
@@ -48,7 +55,7 @@ bool detail::isVector(const RTLIL::Wire *wire)
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire)};
+	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::hdlPath(wire)};
 }
 
 Netlist::Dir detail::portDir(bool input, bool output)
@@ -288,6 +295,11 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 	inst->name = detail::plainName(name);
 	inst->type = detail::plainName(type);
 
+	// A uniquified module keeps its original name in hdlname
+	inst->master = inst->type;
+	if (module != nullptr && module->has_attribute(ID::hdlname))
+		inst->master = module->get_string_attribute(ID::hdlname);
+
 	// The top is 0
 	inst->parent = parent;
 	inst->id = 0;
@@ -301,8 +313,10 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	inst_cell_[inst->id] = cell;
 	inst_module_[inst->id] = module;
-	if (cell != nullptr)
+	if (cell != nullptr) {
+		inst->hdlpath = detail::hdlPath(cell);
 		cell_inst_[cell->hashidx_] = inst;
+	}
 	if (module != nullptr)
 		module_scope_[module] = inst;
 	if (parent != nullptr)
@@ -400,7 +414,8 @@ detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
 	bool port = wire->port_id != 0;
 	bool keep = wire->get_bool_attribute(ID::keep);
 	bool pub = wire->name.isPublic();
-	return {!port, !keep, !pub, wire->name.c_str(), bit.offset};
+	size_t depth = detail::hdlPath(wire).size();
+	return {!port, !keep, !pub, depth, wire->name.c_str(), bit.offset};
 }
 
 void NetView::registerAliases(RTLIL::Module *module, Instance *scope)

@@ -1,7 +1,7 @@
 // NetView: a Netlist built from a uniquified RTLIL design
 // - Instances  one per cell, depth first
 // - Nets       one per SigMap bit
-// - Names      port, then 'keep', then public wire
+// - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -39,9 +39,10 @@ Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool 
 std::string plainName(RTLIL::IdString id);
 RTLIL::IdString escapedPortId(const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
+std::vector<std::string> hdlPath(const RTLIL::AttrObject *object);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
-using NameRank = std::tuple<bool, bool, bool, std::string_view, int>;
+using NameRank = std::tuple<bool, bool, bool, size_t, std::string_view, int>;
 NameRank nameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
