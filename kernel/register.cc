@@ -165,10 +165,10 @@ void Pass::cmd_log_args(const std::vector<std::string> &args)
 {
 	if (args.size() <= 1)
 		return;
-	log("Full command line:");
+	std::string message = "Full command line:";
 	for (size_t i = 0; i < args.size(); i++)
-		log(" %s", args[i]);
-	log("\n");
+		message += stringf(" %s", args[i]);
+	log("%s\n", message);
 }
 
 void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::string msg)

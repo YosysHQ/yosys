@@ -370,14 +370,15 @@ struct OptLutWorker
 					}
 
 					int lutM_arity = lutA_arity + lutB_arity - 1 - common_inputs.size();
+					std::string message;
 					if (lutA_dlogic_inputs.size())
-						log_debug("  Cell A is a %d-LUT with %d dedicated connections. ", lutA_arity, GetSize(lutA_dlogic_inputs));
+						message = stringf("  Cell A is a %d-LUT with %d dedicated connections. ", lutA_arity, GetSize(lutA_dlogic_inputs));
 					else
-						log_debug("  Cell A is a %d-LUT. ", lutA_arity);
+						message = stringf("  Cell A is a %d-LUT. ", lutA_arity);
 					if (lutB_dlogic_inputs.size())
-						log_debug("Cell B is a %d-LUT with %d dedicated connections.\n", lutB_arity, GetSize(lutB_dlogic_inputs));
+						log_debug("%sCell B is a %d-LUT with %d dedicated connections.\n", message, lutB_arity, GetSize(lutB_dlogic_inputs));
 					else
-						log_debug("Cell B is a %d-LUT.\n", lutB_arity);
+						log_debug("%sCell B is a %d-LUT.\n", message, lutB_arity);
 					log_debug("  Cells share %d input(s) and can be merged into one %d-LUT.\n", GetSize(common_inputs), lutM_arity);
 
 					const int COMBINE_A = 1, COMBINE_B = 2, COMBINE_EITHER = COMBINE_A | COMBINE_B;

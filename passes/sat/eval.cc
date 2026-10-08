@@ -577,19 +577,21 @@ struct EvalPass : public Pass {
 			log("\n");
 			bool first = true;
 			for (auto &row : tab) {
+				std::string message;
 				for (size_t i = 0; i < row.size(); i++) {
 					int k = int(i) < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
-					log(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k]);
+					message += stringf(" %s%*s", k == tab_sep_colidx ? "| " : "", tab_column_width[k], row[k]);
 				}
-				log("\n");
+				log("%s\n", message);
 				if (first) {
+					message = "";
 					for (size_t i = 0; i < row.size(); i++) {
 						int k = int(i) < tab_sep_colidx ? tab_sep_colidx - i - 1 : i;
-						log(" %s", k == tab_sep_colidx ? "| " : "");
+						message += stringf(" %s", k == tab_sep_colidx ? "| " : "");
 						for (int j = 0; j < tab_column_width[k]; j++)
-							log("-");
+							message += "-";
 					}
-					log("\n");
+					log("%s\n", message);
 					first = false;
 				}
 			}

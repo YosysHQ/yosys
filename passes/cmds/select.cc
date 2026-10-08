@@ -628,23 +628,23 @@ static void select_op_expand(RTLIL::Design *design, const std::string &arg, char
 	for (auto &rule : rules) {
 		log("  rule (%c):\n", rule.mode);
 		if (rule.cell_types.size() > 0) {
-			log("    cell types:");
+			std::string message = "    cell types:";
 			for (auto &it : rule.cell_types)
-				log(" %s", it);
-			log("\n");
+				message += stringf(" %s", it);
+			log("%s\n", message);
 		}
 		if (rule.port_names.size() > 0) {
-			log("    port names:");
+			std::string message = "    port names:";
 			for (auto &it : rule.port_names)
-				log(" %s", it);
-			log("\n");
+				message += stringf(" %s", it);
+			log("%s\n", message);
 		}
 	}
 	if (limits.size() > 0) {
-		log("  limits:");
+		std::string message = "  limits:";
 		for (auto &it : limits)
-			log(" %s", it);
-		log("\n");
+			message += stringf(" %s", it);
+		log("%s\n", message);
 	}
 #endif
 

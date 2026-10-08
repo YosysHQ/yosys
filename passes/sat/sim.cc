@@ -2301,10 +2301,10 @@ struct SimWorker : SimShared
 		}
 
 		int cycle = 0;
-		log("Generate testbench data from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
+		std::string message = stringf("Generate testbench data from %lu%s to %lu%s", (unsigned long)startCount, fst->getTimescaleString(), (unsigned long)stopCount, fst->getTimescaleString());
 		if (cycles_set)
-			log(" for %d clock cycle(s)",numcycles);
-		log("\n");
+			message += stringf(" for %d clock cycle(s)",numcycles);
+		log("%s\n", message);
 
 		std::stringstream f;
 		f << stringf("`timescale 1%s/1%s\n", fst->getTimescaleString(),fst->getTimescaleString());

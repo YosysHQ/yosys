@@ -80,7 +80,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				RTLIL::Wire* wire = mapped_mod->wire(stringf("$aiger$i%d", variable + 1));
 				log_assert(wire);
 				log_assert(wire->port_input);
-				log_debug("Renaming input %s", wire);
+				std::string message = stringf("Renaming input %s", wire);
 
 				RTLIL::Wire *existing = nullptr;
 				if (index == 0) {
@@ -94,7 +94,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						wire->port_input = false;
 						mapped_mod->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", escaped_s);
+					log_debug("%s -> %s\n", message, escaped_s);
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -105,7 +105,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						mapped_mod->connect(wire, existing);
 						wire->port_input = false;
 					}
-					log_debug(" -> %s\n", indexed_name);
+					log_debug("%s -> %s\n", message, indexed_name);
 				}
 
 				if (!existing) {
@@ -125,7 +125,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				RTLIL::Wire* wire = mapped_mod->wire(stringf("$aiger$o%d", variable + co_count));
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Renaming output %s", wire);
+				std::string message = stringf("Renaming output %s", wire);
 
 				RTLIL::Wire *existing;
 				if (index == 0) {
@@ -141,7 +141,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						mapped_mod->connect(wire, existing);
 						wire = existing;
 					}
-					log_debug(" -> %s\n", escaped_s);
+					log_debug("%s -> %s\n", message, escaped_s);
 				}
 				else {
 					RTLIL::IdString indexed_name = stringf("%s[%d]", escaped_s, index);
@@ -153,7 +153,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						existing->port_output = true;
 						mapped_mod->connect(wire, existing);
 					}
-					log_debug(" -> %s\n", indexed_name);
+					log_debug("%s -> %s\n", message, indexed_name);
 				}
 
 				if (!existing) {
@@ -178,10 +178,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Mapping pseudo output %s", wire);
 
 				pseudopos.insert({wire_name, PseudoPo{escaped_s, escaped_p, index}});
-				log_debug(" -> %s.%s[%d]\n", escaped_s, escaped_p, index);
+				log_debug("Mapping pseudo output %s -> %s.%s[%d]\n", wire, escaped_s, escaped_p, index);
 			}
 			else if (type == "keepwire") {
 				log_assert(variable + co_count < output_count);
@@ -189,10 +188,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				RTLIL::Wire* wire = mapped_mod->wire(wire_name);
 				log_assert(wire);
 				log_assert(wire->port_output);
-				log_debug("Mapping kept wire %s", wire);
 
 				keptwires.insert({wire_name, KeptWire{escaped_s, index}});
-				log_debug(" -> %s[%d]\n", escaped_s, index);
+				log_debug("Mapping kept wire %s -> %s[%d]\n", wire, escaped_s, index);
 			}
 			else if (type == "box") {
 				RTLIL::Cell* cell = mapped_mod->cell(stringf("$box%d", variable));

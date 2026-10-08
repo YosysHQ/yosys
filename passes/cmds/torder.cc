@@ -114,10 +114,10 @@ struct TorderPass : public Pass {
 			toposort.sort();
 
 			for (auto &it : toposort.loops) {
-				log("  loop");
+				std::string message = "  loop";
 				for (auto cell : it)
-					log(" %s", cell);
-				log("\n");
+					message += stringf(" %s", cell);
+				log("%s\n", message);
 			}
 
 			for (auto cell : toposort.sorted)
