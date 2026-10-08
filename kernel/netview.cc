@@ -14,6 +14,15 @@ NetView::Instance *NetView::top() const
 	return top_;
 }
 
+bool NetView::designAlive() const
+{
+	for (const auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
+		if (design == design_)
+			return true;
+	}
+	return false;
+}
+
 // A host-internal cell type (no library model)
 bool detail::internalType(RTLIL::IdString type)
 {
@@ -287,6 +296,9 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 		reset();
 		throw;
 	}
+	for (const auto &[module, scope] : module_scope_)
+		tracked_.push_back(module->name);
+	fingerprint_ = fingerprint();
 }
 
 void NetView::buildTop(RTLIL::Module *top)
@@ -301,6 +313,10 @@ void NetView::reset()
 	design_ = nullptr;
 	top_ = nullptr;
 	ports_ = nullptr;
+	fingerprint_ = 0;
+	tracked_.clear();
+	dirty_ = false;
+	changed_ = false;
 
 	instances_.clear();
 	pins_.clear();
@@ -643,9 +659,109 @@ NetView::Net *NetView::findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit 
 	return net;
 }
 
+struct detail::Fingerprint {
+	Hasher lo, hi;
+	Fingerprint() { hi.force(0x9e3779b9); }
+	template <typename T> void eat(const T &value)
+	{
+		lo.eat(value);
+		hi.eat(value);
+	}
+	uint64_t yield() const { return uint64_t(hi.yield()) << 32 | lo.yield(); }
+};
+
+uint64_t NetView::fingerprint() const
+{
+	detail::Fingerprint fp;
+	detail::hashDesign(fp, design_);
+
+	for (RTLIL::IdString name : tracked_) {
+		RTLIL::Module *module = design_->module(name);
+		fp.eat(module != nullptr);
+		if (module != nullptr)
+			detail::hashModule(fp, module);
+	}
+	return fp.yield();
+}
+
+void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
+{
+	for (RTLIL::Module *module : design->modules()) {
+		fp.eat(module->name);
+		fp.eat(module->hashidx_);
+		bool blackbox = module->get_blackbox_attribute();
+		fp.eat(blackbox);
+		if (!blackbox)
+			continue;
+		for (RTLIL::IdString port : module->ports)
+			detail::hashWire(fp, module->wire(port));
+	}
+	RTLIL::Module *top = NetView::topModule(design);
+	Hasher::hash_t top_idx = 0;
+	if (top != nullptr)
+		top_idx = top->hashidx_;
+	fp.eat(top_idx);
+}
+
+void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
+{
+	fp.eat(module->hashidx_);
+	fp.eat(module->get_string_attribute(ID::hdlname));
+	fp.eat(GetSize(module->processes));
+	for (const RTLIL::SigSig &conn : module->connections())
+		fp.eat(conn);
+	for (RTLIL::Wire *wire : module->wires())
+		detail::hashWire(fp, wire);
+	for (RTLIL::Cell *cell : module->cells())
+		detail::hashCell(fp, cell);
+}
+
+void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
+{
+	fp.eat(wire->name);
+	fp.eat(wire->hashidx_);
+	fp.eat(wire->width);
+	fp.eat(wire->start_offset);
+	fp.eat(wire->upto);
+	fp.eat(wire->port_id);
+	fp.eat(wire->port_input);
+	fp.eat(wire->port_output);
+	fp.eat(wire->get_bool_attribute(ID::keep));
+	fp.eat(wire->get_string_attribute(ID::hdlname));
+	fp.eat(wire->has_attribute(ID::single_bit_vector));
+}
+
+void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
+{
+	fp.eat(cell->name);
+	fp.eat(cell->hashidx_);
+	fp.eat(cell->type);
+	fp.eat(cell->get_string_attribute(ID::hdlname));
+	for (const auto &[port, sig] : cell->connections()) {
+		fp.eat(port);
+		fp.eat(sig);
+	}
+}
+
+bool NetView::changed() const
+{
+	if (!built() || changed_)
+		return true;
+	if (!dirty_)
+		return false;
+	dirty_ = false;
+	changed_ = !designAlive() || fingerprint() != fingerprint_;
+	return changed_;
+}
+
+void NetView::invalidateCheck() const
+{
+	dirty_ = true;
+}
+
 bool NetView::valid() const
 {
-	return built();
+	return !changed();
 }
 
 YOSYS_NAMESPACE_END

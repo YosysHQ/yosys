@@ -311,6 +311,79 @@ TEST_F(NetViewTest, buildableReasons)
 	EXPECT_NE(reason.find("no top"), std::string::npos);
 }
 
+TEST_F(NetViewTest, selectionDoesNotMatter)
+{
+	NetView view;
+	view.build(d);
+	d->selection().select(sub);
+	view.invalidateCheck();
+	EXPECT_TRUE(view.valid());
+}
+
+// Stale after an edit, then rebuilt for the next
+static void expectStale(NetView &view, Design *d)
+{
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+	view.reset();
+	view.build(d);
+	EXPECT_TRUE(view.valid());
+}
+
+TEST_F(NetViewTest, fingerprintSeesEdits)
+{
+	NetView view;
+	view.build(d);
+
+	top->attributes.erase(ID::top);
+	sub->set_bool_attribute(ID::top);
+	expectStale(view, d);
+	sub->attributes.erase(ID::top);
+	top->set_bool_attribute(ID::top);
+	expectStale(view, d);
+
+	inv2->hashidx_++; // a clone: same pointer, new hashidx_
+	expectStale(view, d);
+	inv->wire(ID(A))->port_output = true; // blackbox port
+	expectStale(view, d);
+	u_inv2->set_hdlname_attribute({"blk", "u_inv2"});
+	expectStale(view, d);
+	d0->set_bool_attribute(ID::keep);
+	expectStale(view, d);
+
+	Wire *b_out = top->addWire(ID(b_out));
+	expectStale(view, d);
+	Cell *barrier = top->addBarrier(ID($b), in, b_out);
+	expectStale(view, d);
+	top->remove(barrier);
+	expectStale(view, d);
+}
+
+TEST_F(NetViewTest, staleViewKeepsNames)
+{
+	NetView view;
+	view.build(d);
+	Netlist::Net *d0_net = view.instance(u_inv0)->pins[1]->net;
+	top->rename(d0, ID(renamed));
+	top->remove(pool<Wire *>{d0});
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+	EXPECT_EQ(view.wireName(d0_net), (Netlist::NetName{"d0", 0, true}));
+}
+
+TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
+{
+	Design *other = new Design;
+	Module *m = other->addModule(ID(top));
+	m->addWire(ID(a))->port_input = true;
+	m->fixup_ports();
+	NetView view;
+	view.build(other);
+	delete other;
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+}
+
 static Module *addWrapper(Design *design, IdString name, IdString child, IdString type, bool mid_inv)
 {
 	Module *module = design->addModule(name);
@@ -493,6 +566,34 @@ TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 	top->remove(top->cell(ID(u_unknown)));
 	view.build(d);
 	EXPECT_TRUE(view.valid());
+}
+
+TEST_F(NetViewTest, directEditsNeedInvalidateCheck)
+{
+	Cell *u_spare = top->addCell(ID(u_spare), ID(INV)); // no connections
+	NetView view;
+	view.build(d);
+	u_inv2->type = ID(INV2);
+	EXPECT_TRUE(view.valid());
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+	u_inv2->type = ID(INV);
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+
+	view.reset();
+	view.build(d);
+	top->remove(u_spare);
+	EXPECT_TRUE(view.valid());
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+
+	view.reset();
+	view.build(d);
+	top->rename(d0, ID(renamed));
+	EXPECT_TRUE(view.valid());
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
 }
 
 // $pre -> $barrier -> d0
