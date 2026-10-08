@@ -63,9 +63,10 @@ void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
 
 } // namespace detail
 
-struct NetView final : public Netlist
+struct NetView final : public Netlist, public RTLIL::Monitor
 {
 	NetView() = default;
+	~NetView() override;
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
@@ -75,7 +76,8 @@ struct NetView final : public Netlist
 	bool built() const;
 	static RTLIL::Module *topModule(RTLIL::Design *design);
 
-	// Call invalidateCheck() when the design may have changed
+	// Call invalidateCheck() when the design may have changed: edits without a
+	// Monitor event (e.g. opt_clean) are not seen otherwise
 	bool valid() const override;
 	bool changed() const;
 	void invalidateCheck() const;
@@ -93,6 +95,14 @@ struct NetView final : public Netlist
 	Instance *instance(const RTLIL::Cell *cell) const;
 	RTLIL::Module *module(const Instance *scope) const;
 	Instance *scope(const RTLIL::Module *module) const;
+
+	// RTLIL::Monitor: every event marks the view for a re-check
+	void notify_module_add(RTLIL::Module *module) override;
+	void notify_module_del(RTLIL::Module *module) override;
+	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &new_sig) override;
+	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &conn) override;
+	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &conns) override;
+	void notify_blackout(RTLIL::Module *module) override;
 private:
 	using PortShapes = std::vector<PortShape>;
 	using Nets = std::vector<Net *>;
@@ -115,6 +125,7 @@ private:
 	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
 
 	bool designAlive() const;
+	void unregisterMonitor();
 	uint64_t fingerprint() const;
 private:
 	RTLIL::Design *design_ = nullptr;
