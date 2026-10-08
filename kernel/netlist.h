@@ -55,6 +55,7 @@ struct Netlist
 		int from;
 		int to;
 		Dir dir;
+		bool vector = false; // declared with a range
 	};
 
 	struct Instance {

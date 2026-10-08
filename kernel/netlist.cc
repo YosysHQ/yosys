@@ -23,7 +23,7 @@ Netlist::Dir Netlist::dir(const Pin *pin) const
 
 bool Netlist::scalar(const Pin *pin) const
 {
-	return shape(pin).width == 1;
+	return shape(pin).width == 1 && !shape(pin).vector;
 }
 
 int Netlist::hdlIndex(const Pin *pin) const

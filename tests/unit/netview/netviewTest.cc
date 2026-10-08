@@ -304,6 +304,29 @@ TEST(NetViewNameTest, publicNamesAreUnescaped)
 	}
 }
 
+TEST_F(NetViewTest, oneBitBusesKeepTheirIndex)
+{
+	Wire *z = top->addWire(ID(z));
+	z->port_input = true;
+	z->set_bool_attribute(ID::single_bit_vector);
+	top->fixup_ports();
+	NetView view;
+	view.build(d);
+	int buses = 0;
+	for (Netlist::Pin *pin : view.top()->pins) {
+		const std::string &port = view.shape(pin).name;
+		if (port != "s" && port != "z")
+			continue;
+		buses++;
+		EXPECT_FALSE(view.scalar(pin)) << port;
+		EXPECT_FALSE(view.wireName(pin->term->net).scalar) << port;
+		EXPECT_EQ(view.wireName(pin->term->net).index, port == "s" ? 5 : 0);
+	}
+	EXPECT_EQ(buses, 2);
+	EXPECT_TRUE(view.scalar(view.instance(u_inv0)->pins[0]));
+	EXPECT_TRUE(view.wireName(view.instance(u_inv0)->pins[1]->net).scalar);
+}
+
 TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 {
 	top->addCell(ID(u_unknown), ID(UNKNOWN));

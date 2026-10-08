@@ -38,6 +38,7 @@ Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool 
 // Names
 std::string plainName(RTLIL::IdString id);
 RTLIL::IdString escapedPortId(const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
+bool isVector(const RTLIL::Wire *wire);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
 using NameRank = std::tuple<bool, bool, bool, std::string_view, int>;

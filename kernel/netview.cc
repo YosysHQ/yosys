@@ -39,10 +39,16 @@ RTLIL::IdString detail::escapedPortId(const RTLIL::Cell *cell, const RTLIL::Modu
 	return RTLIL::IdString(name);
 }
 
+// Declared with a range - wider than one bit, offset, or [0:0]
+bool detail::isVector(const RTLIL::Wire *wire)
+{
+	return wire->width > 1 || wire->start_offset != 0 || wire->has_attribute(ID::single_bit_vector);
+}
+
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), wire->width == 1};
+	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire)};
 }
 
 Netlist::Dir detail::portDir(bool input, bool output)
@@ -61,6 +67,7 @@ Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
 	Netlist::PortShape shape;
 	shape.name = detail::plainName(wire->name);
 	shape.width = wire->width;
+	shape.vector = detail::isVector(wire);
 	shape.from = wire->to_hdl_index(wire->width - 1);
 	shape.to = wire->to_hdl_index(0);
 	shape.dir = detail::portDir(wire->port_input, wire->port_output);
