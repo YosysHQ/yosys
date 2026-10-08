@@ -59,8 +59,10 @@ struct Netlist
 	};
 
 	struct Instance {
-		std::string name; // local name, unescaped
-		std::string type; // cell type or module name, unescaped
+		std::string name;                 // local name, unescaped
+		std::vector<std::string> hdlpath; // source path when flattened
+		std::string type;                 // cell type or module name, unescaped
+		std::string master;               // display name of the master (e.g. the pre-uniquify module)
 		Instance *parent;
 		uint32_t id;
 		bool leaf;
@@ -103,6 +105,7 @@ struct Netlist
 		std::string wire;
 		int index;
 		bool scalar;
+		std::vector<std::string> hdlpath = {}; // source path of a flattened wire
 		bool operator==(const NetName &) const = default;
 	};
 
