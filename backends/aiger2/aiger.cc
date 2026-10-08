@@ -1877,7 +1877,7 @@ struct Aiger2Backend : Backend {
 			else
 				break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, true);
 
 		Module *top = design->top_module();
 
@@ -1953,7 +1953,7 @@ struct XAiger2Backend : Backend {
 			else
 				break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, true);
 
 		Module *top = design->top_module();
 
