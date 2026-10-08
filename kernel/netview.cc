@@ -20,10 +20,29 @@ bool detail::internalType(RTLIL::IdString type)
 	return StaticCellTypes::categories.is_known(type);
 }
 
+// Unescaped
+std::string detail::plainName(RTLIL::IdString id)
+{
+	if (id.isPublic())
+		return id.str().substr(1);
+	return id.str();
+}
+
+RTLIL::IdString detail::escapedPortId(const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name)
+{
+	RTLIL::IdString pub = "\\" + name;
+	if (name.empty() || name[0] != '$')
+		return pub;
+	bool known = (cell != nullptr && cell->hasPort(pub)) || (sub != nullptr && sub->wire(pub) != nullptr);
+	if (known)
+		return pub;
+	return RTLIL::IdString(name);
+}
+
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {RTLIL::unescape_id(wire->name), wire->to_hdl_index(bit.offset), wire->width == 1};
+	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), wire->width == 1};
 }
 
 Netlist::Dir detail::portDir(bool input, bool output)
@@ -40,7 +59,7 @@ Netlist::Dir detail::portDir(bool input, bool output)
 Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
 {
 	Netlist::PortShape shape;
-	shape.name = RTLIL::unescape_id(wire->name);
+	shape.name = detail::plainName(wire->name);
 	shape.width = wire->width;
 	shape.from = wire->to_hdl_index(wire->width - 1);
 	shape.to = wire->to_hdl_index(0);
@@ -75,7 +94,7 @@ bool detail::libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShap
 
 	for (const auto &[port, width] : ports) {
 		Netlist::PortShape shape;
-		shape.name = RTLIL::unescape_id(port);
+		shape.name = detail::plainName(port);
 		shape.width = width;
 		shape.from = width - 1;
 		shape.to = 0;
@@ -253,8 +272,8 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 		name = module->name;
 		type = module->name;
 	}
-	inst->name = RTLIL::unescape_id(name);
-	inst->type = RTLIL::unescape_id(type);
+	inst->name = detail::plainName(name);
+	inst->type = detail::plainName(type);
 
 	// The top is 0
 	inst->parent = parent;
@@ -296,7 +315,7 @@ void NetView::makePins(Instance *inst)
 	inst->ports = portsFor(inst, sub);
 	for (uint32_t p = 0; p < inst->ports->size(); p++) {
 		const PortShape &shape = (*inst->ports)[p];
-		RTLIL::IdString port_id = RTLIL::escape_id(shape.name);
+		RTLIL::IdString port_id = detail::escapedPortId(c, sub, shape.name);
 		RTLIL::SigSpec sig;
 		if (c != nullptr && c->hasPort(port_id))
 			sig = c->getPort(port_id);
