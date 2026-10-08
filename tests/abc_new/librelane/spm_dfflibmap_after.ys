@@ -8,13 +8,13 @@ opt
 design -save gold
 
 synth -run fine:
-select -assert-count 16 t:$_DFF_PN0_
+select -assert-count 15 t:$_DFF_PN0_
 abc_new -liberty ../openroad/cm_test_cells.lib
-select -assert-count 16 t:$_DFF_PN0_
+select -assert-count 15 t:$_DFF_PN0_
 select -assert-none t:$_*_ t:$_DFF_PN0_ %d
 dfflibmap -liberty ../openroad/sm_test_cells.lib
 opt_clean
-select -assert-count 16 t:DFFR
+select -assert-count 15 t:DFFR
 select -assert-none t:$_*_
 check -assert
 
