@@ -1,6 +1,7 @@
 // NetView: a Netlist built from a uniquified RTLIL design
 // - Instances  one per cell, depth first
 // - Nets       one per SigMap bit
+// - Names      port, then 'keep', then public wire
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -12,6 +13,8 @@
 #include <array>
 #include <deque>
 #include <map>
+#include <string_view>
+#include <tuple>
 #include <unordered_map>
 
 YOSYS_NAMESPACE_BEGIN
@@ -34,6 +37,9 @@ Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool 
 
 // Names
 Netlist::NetName netName(const RTLIL::SigBit &bit);
+// Net name preference, smaller is better
+using NameRank = std::tuple<bool, bool, bool, std::string_view, int>;
+NameRank nameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
 } // namespace detail
@@ -57,6 +63,7 @@ struct NetView final : public Netlist
 
 	const std::vector<Net *> &nets(const Instance *scope) const override;
 	Net *constNet(const Instance *scope, bool one) const override;
+	NetName wireName(const Net *net) const override;
 	const std::vector<Alias> &aliases(const Instance *scope) const override;
 
 	// RTLIL correspondence
@@ -79,6 +86,8 @@ private:
 	void makeTerm(Pin *pin, Net *inner_net);
 	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
 	void registerAliases(RTLIL::Module *module, Instance *scope);
+	void setNameBit(Net *net, const RTLIL::SigBit &bit);
+	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module) const;
 	Net *knownNet(const RTLIL::SigBit &bit) const;
 	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
@@ -115,6 +124,9 @@ private:
 	// Nets by bit
 	mutable std::map<RTLIL::Module *, SigMap> sigmaps_;
 	dict<uint64_t, Net *> bit_net_;
+	IdMap<RTLIL::SigBit> net_bit_;
+	IdMap<RTLIL::SigBit> net_name_bit_; // naming bit when it differs
+	IdMap<NetName> net_names_;
 };
 
 YOSYS_NAMESPACE_END
