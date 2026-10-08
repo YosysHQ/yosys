@@ -27,16 +27,16 @@ template<typename Owner, typename Slot>
 inline const TwinePool *OwnedId<Owner, Slot>::pool() const {
 	const Owner *o = owner();
 	if constexpr (std::is_same_v<Owner, Module>) {
-		return o->design ? &o->design->twines : nullptr;
+		return o->design ? &o->design->twines() : nullptr;
 	} else {
 		static_assert(std::is_same_v<Owner, Wire> || std::is_same_v<Owner, Cell>
 				|| std::is_same_v<Owner, Memory> || std::is_same_v<Owner, Process>);
-		return o->module && o->module->design ? &o->module->design->twines : nullptr;
+		return o->module && o->module->design ? &o->module->design->twines() : nullptr;
 	}
 }
 
 inline PooledName::PooledName(const Design *design, IdString id)
-	: pool_(design ? &design->twines : nullptr), id_(id) { }
+	: pool_(design ? &design->twines() : nullptr), id_(id) { }
 
 inline PooledName::PooledName(const Module *module, IdString id)
 	: PooledName(module ? module->design : nullptr, id) { }

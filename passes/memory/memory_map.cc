@@ -66,7 +66,7 @@ struct MemoryMapWorker
 	std::string genid(RTLIL::IdString name, std::string token1 = "", int i = -1, std::string token2 = "", int j = -1, std::string token3 = "", int k = -1, std::string token4 = "")
 	{
 		std::stringstream sstr;
-		sstr << "$memory" << design->twines.str(name) << token1;
+		sstr << "$memory" << design->twines().str(name) << token1;
 
 		if (i >= 0)
 			sstr << "[" << i << "]";
@@ -118,7 +118,7 @@ struct MemoryMapWorker
 
 		// check if attributes allow us to infer FFRAM for this memory
 		for (const auto &attr : attributes) {
-			IdString attr_ref = design->twines.find(attr.first);
+			IdString attr_ref = design->twines().find(attr.first);
 			if (attr_ref != IdString::Null && mem.attributes.count(attr_ref)) {
 				const auto &cell_attr = mem.attributes[attr_ref];
 				if (attr.second.empty()) {

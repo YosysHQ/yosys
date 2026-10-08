@@ -299,7 +299,7 @@ end_of_header:
 				wire = bad_properties[l1];
 			} else log_abort();
 
-			module->rename(wire, design->twines.add(std::string{escaped_s}));
+			module->rename(wire, design->twines().add(std::string{escaped_s}));
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -499,14 +499,14 @@ void AigerReader::parse_xaiger()
 				std::getline(f, outPinName, '\0');
 				uint32_t inPinNum = parse_xaiger_literal(f);
 				log_debug2("M: cellID=%u cellName=%s outPinName=%s inPinNum=%u\n", i, cellName, outPinName, inPinNum);
-				mapping_cell.type = design->twines.add(std::string{RTLIL::escape_id(cellName)});
-				mapping_cell.out = design->twines.add(std::string{RTLIL::escape_id(outPinName)});
+				mapping_cell.type = design->twines().add(std::string{RTLIL::escape_id(cellName)});
+				mapping_cell.out = design->twines().add(std::string{RTLIL::escape_id(outPinName)});
 
 				for (unsigned j = 0; j < inPinNum; ++j) {
 					auto inPinName = std::string{};
 					std::getline(f, inPinName, '\0');
 					log_debug2("M:    inPinName=%s\n", inPinName);
-					mapping_cell.ins.push_back(design->twines.add(std::string{RTLIL::escape_id(inPinName)}));
+					mapping_cell.ins.push_back(design->twines().add(std::string{RTLIL::escape_id(inPinName)}));
 				}
 
 				if (!design->module(mapping_cell.type)) {
@@ -529,7 +529,7 @@ void AigerReader::parse_xaiger()
 				log_assert(cellID < cellNum);
 				MappingCell &mapping_cell = mapping_cells.at(cellID);
 
-				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, design->twines.unescaped_str(mapping_cell.out).c_str(), rootNodeID);
+				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, design->twines().unescaped_str(mapping_cell.out).c_str(), rootNodeID);
 
 				RTLIL::Wire *output_sig = createWireIfNotExists(module, rootNodeID);
 				log_assert(output_sig);
@@ -552,7 +552,7 @@ void AigerReader::parse_xaiger()
 
 				for (unsigned j = 0; j < mapping_cell.ins.size(); ++j) {
 					auto nodeID = parse_xaiger_literal(f);
-					log_debug("M:    inPort=%s nodeID=%u\n", design->twines.unescaped_str(mapping_cell.ins.at(j)).c_str(), nodeID);
+					log_debug("M:    inPort=%s nodeID=%u\n", design->twines().unescaped_str(mapping_cell.ins.at(j)).c_str(), nodeID);
 					RTLIL::Wire *input_sig = createWireIfNotExists(module, nodeID);
 					cell->setPort(mapping_cell.ins.at(j), input_sig);
 				}
@@ -956,11 +956,11 @@ struct AigerFrontend : public Frontend {
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			std::string arg = args[argidx];
 			if (arg == "-module_name" && argidx+1 < args.size()) {
-				module_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				module_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (arg == "-clk_name" && argidx+1 < args.size()) {
-				clk_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				clk_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (map_filename.empty() && arg == "-map" && argidx+1 < args.size()) {
@@ -984,7 +984,7 @@ struct AigerFrontend : public Frontend {
 			free(bn);
 #else
 			char* bn = strdup(filename.c_str());
-			module_name = design->twines.add(RTLIL::escape_id(bn));
+			module_name = design->twines().add(RTLIL::escape_id(bn));
 			free(bn);
 #endif
 		}

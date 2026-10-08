@@ -644,7 +644,7 @@ struct XAigerWriter
 			else
 				holes_design = nullptr;
 			RTLIL::Module *holes_module = holes_design ?
-					holes_design->module(holes_design->twines.find_from(module->twines(), module->name)) : nullptr;
+					holes_design->module(holes_design->twines().find_from(module->twines(), module->name)) : nullptr;
 			if (holes_module) {
 				std::stringstream a_buffer;
 				XAigerWriter writer(holes_module, false /* dff_mode */);
@@ -687,7 +687,7 @@ struct XAigerWriter
 
 		for (auto wire : module->wires())
 		{
-			std::string sym = name_mode ? wire->name.unescape() : design->twines.ref_token(wire->name);
+			std::string sym = name_mode ? wire->name.unescape() : design->twines().ref_token(wire->name);
 			for (int i = 0; i < GetSize(wire); i++)
 			{
 				RTLIL::SigBit b(wire, i);
@@ -712,7 +712,7 @@ struct XAigerWriter
 		int box_count = 0;
 		for (auto cell : box_list)
 			f << stringf("box %d %d %s\n", box_count++, 0,
-					name_mode ? cell->name.unescape() : design->twines.ref_token(cell->name));
+					name_mode ? cell->name.unescape() : design->twines().ref_token(cell->name));
 
 		output_lines.sort();
 		for (auto &it : output_lines)

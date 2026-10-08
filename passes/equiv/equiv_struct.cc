@@ -332,7 +332,7 @@ struct EquivStructPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-fwonly" && argidx+1 < args.size()) {
-				fwonly_cells.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				fwonly_cells.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-maxiter" && argidx+1 < args.size()) {

@@ -214,7 +214,7 @@ struct rules_t
 
 	void parse_bram()
 	{
-		PooledName bram_name(design, design->twines.add(RTLIL::escape_id(tokens[1])));
+		PooledName bram_name(design, design->twines().add(RTLIL::escape_id(tokens[1])));
 
 		if (GetSize(tokens) != 2)
 			syntax_error();
@@ -299,7 +299,7 @@ struct rules_t
 			syntax_error();
 
 		match_t data;
-		data.name = PooledName(design, design->twines.add(RTLIL::escape_id(tokens[1])));
+		data.name = PooledName(design, design->twines().add(RTLIL::escape_id(tokens[1])));
 		data.or_next_if_better = false;
 		data.make_transp = false;
 		data.make_outreg = false;
@@ -352,7 +352,7 @@ struct rules_t
 					size_t c1 = tokens[idx][0] == '!' ? 1 : 0;
 					size_t c2 = tokens[idx].find("=");
 					bool exists = (c1 == 0);
-					IdString key = design->twines.add(RTLIL::escape_id(tokens[idx].substr(c1, c2)));
+					IdString key = design->twines().add(RTLIL::escape_id(tokens[idx].substr(c1, c2)));
 					Const val = c2 != std::string::npos ? tokens[idx].substr(c2+1) : RTLIL::Const(1);
 
 					data.attributes.back().emplace_back(exists, key, map_case(val));

@@ -565,7 +565,7 @@ struct LibertyFrontend : public Frontend {
 			RTLIL::Module *module = new RTLIL::Module;
 			module->design = design;
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
-			IdString cell_name_ref = design->twines.add(std::string{cell_name});
+			IdString cell_name_ref = design->twines().add(std::string{cell_name});
 			module->name = cell_name_ref;
 
 			if (flag_lib)
@@ -579,7 +579,7 @@ struct LibertyFrontend : public Frontend {
 				module->attributes[ID::area] = area->value;
 
 			for (auto &attr : attributes)
-				module->attributes[design->twines.add(std::string(attr))] = 1;
+				module->attributes[design->twines().add(std::string(attr))] = 1;
 
 			bool simple_comb_cell = true, has_inputs = false, has_outputs = false;
 

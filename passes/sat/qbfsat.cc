@@ -303,7 +303,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 		log_assert(wire_to_optimize_name != IdString::Null);
 		log_assert(module->wire(wire_to_optimize_name) != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), design->twines.str(wire_to_optimize_name));
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), design->twines().str(wire_to_optimize_name));
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -315,8 +315,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				RTLIL::SigSpec comparator = maximize? module->Ge(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
 				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
-				module->addAssume(design->twines.str(wire_to_optimize_name) + "__threshold", comparator, RTLIL::Const(1, 1));
-				log("Trying to solve with %s %s %d.\n", design->twines.str(wire_to_optimize_name), (maximize? ">=" : "<="), cur_thresh);
+				module->addAssume(design->twines().str(wire_to_optimize_name) + "__threshold", comparator, RTLIL::Const(1, 1));
+				log("Trying to solve with %s %s %d.\n", design->twines().str(wire_to_optimize_name), (maximize? ">=" : "<="), cur_thresh);
 			}
 
 			ret = call_qbf_solver(module, opt, tempdir_name, false, iter_num);
@@ -328,7 +328,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				specialize(module, ret, true);
 
 				RTLIL::SigSpec wire, value, undef;
-				RTLIL::SigSpec::parse_sel(wire, design, module, design->twines.str(wire_to_optimize_name));
+				RTLIL::SigSpec::parse_sel(wire, design, module, design->twines().str(wire_to_optimize_name));
 
 				ConstEval ce(module);
 				ce.model_barriers = true;
@@ -338,7 +338,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				log_assert(value.is_fully_const());
 				success = value.as_const().as_int();
 				best_soln = ret;
-				log("Problem is satisfiable with %s = %d.\n", design->twines.str(wire_to_optimize_name), success);
+				log("Problem is satisfiable with %s = %d.\n", design->twines().str(wire_to_optimize_name), success);
 				Pass::call(design, "design -pop");
 				module = design->module(module_name);
 
@@ -356,7 +356,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 					break;
 				}
 				else
-					log("Problem is NOT satisfiable with %s %s %d.\n", design->twines.str(wire_to_optimize_name), (maximize? ">=" : "<="), failure);
+					log("Problem is NOT satisfiable with %s %s %d.\n", design->twines().str(wire_to_optimize_name), (maximize? ">=" : "<="), failure);
 			}
 
 			iter_num++;
@@ -368,7 +368,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
-			log("Wire %s is %s at %d.\n", design->twines.str(wire_to_optimize_name), (maximize? "maximized" : "minimized"), success);
+			log("Wire %s is %s at %d.\n", design->twines().str(wire_to_optimize_name), (maximize? "maximized" : "minimized"), success);
 			ret = best_soln;
 		}
 	}

@@ -1299,8 +1299,8 @@ inline constexpr bool is_name_string_v =
 	decltype(auto) _func(T &&first, N name) \
 		{ return _func(std::forward<T>(first), _pool.add(std::move(name))); }
 
-#define YS_NAME_FWD(_func) YS_NAME_FWD_POOL(_func, design->twines)
-#define YS_NAME_FWD_2ND(_func) YS_NAME_FWD_2ND_POOL(_func, design->twines)
+#define YS_NAME_FWD(_func) YS_NAME_FWD_POOL(_func, design->twines())
+#define YS_NAME_FWD_2ND(_func) YS_NAME_FWD_2ND_POOL(_func, design->twines())
 
 struct RTLIL::Design
 {
@@ -1316,7 +1316,12 @@ struct RTLIL::Design
 	int refcount_modules_;
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 
-	TwinePool twines;
+private:
+	TwinePool twines_;
+
+public:
+	TwinePool &twines() { return twines_; }
+	const TwinePool &twines() const { return twines_; }
 
 	void absorb_attrs(RTLIL::AttrObject *obj, dict<IdString, RTLIL::Const> &&buf);
 
@@ -1336,24 +1341,24 @@ struct RTLIL::Design
 	RTLIL::Module *module(RTLIL::IdString name);
 	const RTLIL::Module *module(RTLIL::IdString name) const;
 	template<typename N, YS_NAME_STRING(N)> RTLIL::Module *module(N name)
-		{ return module(twines.find(std::string_view(name))); }
+		{ return module(twines().find(std::string_view(name))); }
 	template<typename N, YS_NAME_STRING(N)> const RTLIL::Module *module(N name) const
-		{ return module(twines.find(std::string_view(name))); }
+		{ return module(twines().find(std::string_view(name))); }
 	RTLIL::Module *top_module() const;
 
 	bool has(RTLIL::IdString id) const {
 		return modules_.count(id) != 0;
 	}
 	template<typename N, YS_NAME_STRING(N)> bool has(N name) const
-		{ return has(twines.find(std::string_view(name))); }
+		{ return has(twines().find(std::string_view(name))); }
 
 	void add(RTLIL::Module *module);
 
 	RTLIL::Module *addModule(RTLIL::IdString name);
-	YS_NAME_FWD_POOL(addModule, twines)
+	YS_NAME_FWD_POOL(addModule, twines())
 	void remove(RTLIL::Module *module);
 	void rename(RTLIL::Module *module, RTLIL::IdString new_name);
-	YS_NAME_FWD_2ND_POOL(rename, twines)
+	YS_NAME_FWD_2ND_POOL(rename, twines())
 
 	void scratchpad_unset(const std::string &varname);
 
@@ -1503,7 +1508,7 @@ public:
 	RTLIL::Design *design;
 	pool<RTLIL::Monitor*> monitors;
 
-	TwinePool &twines() const { return design->twines; }
+	TwinePool &twines() const { return design->twines(); }
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -1636,7 +1641,7 @@ public:
 	RTLIL::Cell *addCell(RTLIL::IdString name, const RTLIL::Cell *other);
 	YS_NAME_FWD(addCell)
 	template<typename T, YS_UNPOOLED_NAME(T)>
-	RTLIL::Cell *addCell(RTLIL::IdString name, T type) { return addCell(name, design->twines.add(std::move(type))); }
+	RTLIL::Cell *addCell(RTLIL::IdString name, T type) { return addCell(name, design->twines().add(std::move(type))); }
 
 	RTLIL::Memory *addMemory(RTLIL::IdString name);
 	YS_NAME_FWD(addMemory)

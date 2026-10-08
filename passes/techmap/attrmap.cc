@@ -124,7 +124,7 @@ void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr
 
 	for (auto attr : attributes)
 	{
-		string old_name = design->twines.str(attr.first);
+		string old_name = design->twines().str(attr.first);
 		string new_name = old_name;
 		Const new_value = attr.second;
 		for (auto &action : actions)
@@ -136,7 +136,7 @@ void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr
 					RTLIL::unescape_id(old_name), log_const(attr.second),
 					RTLIL::unescape_id(new_name), log_const(new_value));
 
-		new_attributes[design->twines.add(std::move(new_name))] = new_value;
+		new_attributes[design->twines().add(std::move(new_name))] = new_value;
 
 		if (0)
 	delete_this_attr:

@@ -455,7 +455,7 @@ struct RenamePass : public Pass {
 						std::string buf;
 						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
 						while (module->wire(buf) != nullptr);
-						new_wire_names[wire] = design->twines.add(std::move(buf));
+						new_wire_names[wire] = design->twines().add(std::move(buf));
 					}
 
 				for (auto cell : module->selected_cells())
@@ -463,7 +463,7 @@ struct RenamePass : public Pass {
 						std::string buf;
 						do buf = stringf("\\%s%d%s", pattern_prefix, counter++, pattern_suffix);
 						while (module->cell(buf) != nullptr);
-						new_cell_names[cell] = design->twines.add(std::move(buf));
+						new_cell_names[cell] = design->twines().add(std::move(buf));
 					}
 
 				for (auto &it : new_wire_names)
@@ -517,7 +517,7 @@ struct RenamePass : public Pass {
 			if (argidx+1 != args.size())
 				log_cmd_error("Invalid number of arguments!\n");
 
-			IdString new_name = design->twines.add(std::string{RTLIL::escape_id(args[argidx])});
+			IdString new_name = design->twines().add(std::string{RTLIL::escape_id(args[argidx])});
 			RTLIL::Module *module = design->top_module();
 
 			if (module == nullptr)

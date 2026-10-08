@@ -29,7 +29,7 @@ class PoolBridge
 
 public:
 	PoolBridge(RTLIL::Design *design_a, RTLIL::Design *design_b) :
-			pool_a(&design_a->twines), pool_b(&design_b->twines) {}
+			pool_a(&design_a->twines()), pool_b(&design_b->twines()) {}
 
 	IdString a_to_b(IdString ref) const { return pool_b->find_from(*pool_a, ref); }
 	IdString b_to_a(IdString ref) const { return pool_a->find_from(*pool_b, ref); }

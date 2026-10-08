@@ -177,7 +177,7 @@ struct ShowWorker
 	{
 		bool is_id = (member_name.starts_with('$') || member_name.starts_with('\\')) &&
 				std::none_of(member_name.begin(), member_name.end(), [](char ch) { return (unsigned char)ch <= ' '; });
-		IdString member_ref = is_id ? design->twines.find(member_name) : IdString::Null;
+		IdString member_ref = is_id ? design->twines().find(member_name) : IdString::Null;
 		for (auto &s : label_selections)
 			if (member_ref != IdString::Null && s.second.selected_member(module->name, member_ref))
 				return escape(s.first);
@@ -482,12 +482,12 @@ struct ShowWorker
 					out_ports.push_back(conn.first);
 			}
 
-			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str(design->twines));
-			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str(design->twines));
+			std::sort(in_ports.begin(), in_ports.end(), RTLIL::sort_by_id_str(design->twines()));
+			std::sort(out_ports.begin(), out_ports.end(), RTLIL::sort_by_id_str(design->twines()));
 
 			for (auto &p : in_ports) {
-				std::string p_str = design->twines.str(p);
-				IdString signed_param = design->twines.find(p_str + "_SIGNED");
+				std::string p_str = design->twines().str(p);
+				IdString signed_param = design->twines().find(p_str + "_SIGNED");
 				bool signed_suffix = genSignedLabels && signed_param != IdString::Null
 									 && cell->hasParam(signed_param)
 									 && cell->getParam(signed_param).as_bool();
@@ -497,7 +497,7 @@ struct ShowWorker
 			}
 
 			for (auto &p : out_ports)
-				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(design->twines.str(p))));
+				out_label_pieces.push_back(stringf("<p%d> %s", id2num(p), escape(design->twines().str(p))));
 
 			std::string in_label = join_label_pieces(in_label_pieces);
 			std::string out_label = join_label_pieces(out_label_pieces);
@@ -843,7 +843,7 @@ struct ShowPass : public Pass {
 				continue;
 			}
 			if (arg == "-colorattr" && argidx+1 < args.size()) {
-				colorattr = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				colorattr = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (arg == "-format" && argidx+1 < args.size()) {

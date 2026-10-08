@@ -79,7 +79,7 @@ struct AttrmvcpPass : public Pass {
 				continue;
 			}
 			if (arg == "-attr" && argidx+1 < args.size()) {
-				attrnames.insert(design->twines.find(RTLIL::escape_id(args[++argidx])));
+				attrnames.insert(design->twines().find(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			break;

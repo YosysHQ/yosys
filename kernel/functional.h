@@ -310,7 +310,7 @@ namespace Functional {
 			if(_ref.has_sparse_attr())
 				return {design, _ref.sparse_attr()};
 			else
-				return {design, design->twines.add(std::string("\\n") + std::to_string(id()))};
+				return {design, design->twines().add(std::string("\\n") + std::to_string(id()))};
 		}
 		Fn fn() const { return _ref.function().fn(); }
 		Sort sort() const { return _ref.attr().sort; }
@@ -557,17 +557,17 @@ namespace Functional {
 		}
 		IRInput &add_input(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._inputs.emplace({name, kind}, IRInput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("input `%s` was re-defined\n", _ir.design->twines.str(name).c_str());
+			if (!inserted) log_error("input `%s` was re-defined\n", _ir.design->twines().str(name).c_str());
 			return it->second;
 		}
 		IROutput &add_output(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._outputs.emplace({name, kind}, IROutput(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("output `%s` was re-defined\n", _ir.design->twines.str(name).c_str());
+			if (!inserted) log_error("output `%s` was re-defined\n", _ir.design->twines().str(name).c_str());
 			return it->second;
 		}
 		IRState &add_state(IdString name, IdString kind, Sort sort) {
 			auto [it, inserted] = _ir._states.emplace({name, kind}, IRState(_ir, name, kind, std::move(sort)));
-			if (!inserted) log_error("state `%s` was re-defined\n", _ir.design->twines.str(name).c_str());
+			if (!inserted) log_error("state `%s` was re-defined\n", _ir.design->twines().str(name).c_str());
 			return it->second;
 		}
 		Node value(IRInput const& input) {
@@ -579,7 +579,7 @@ namespace Functional {
 		void suggest_name(Node node, IdString name) {
 			_ir.mutate(node).sparse_attr() = name;
 		}
-		YS_NAME_FWD_2ND_POOL(suggest_name, _ir.design->twines)
+		YS_NAME_FWD_2ND_POOL(suggest_name, _ir.design->twines())
 	};
 	inline Factory IR::factory() { return Factory(*this); }
 	template<class Id> class Scope {

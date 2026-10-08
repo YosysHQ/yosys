@@ -578,7 +578,7 @@ struct WreducePass : public Pass {
 
 			dict<std::string, RTLIL::Memory*> memory_by_name;
 			for (auto &it : module->memories)
-				memory_by_name[design->twines.str(it.first)] = it.second;
+				memory_by_name[design->twines().str(it.first)] = it.second;
 
 			for (auto c : module->selected_cells())
 			{

@@ -260,7 +260,7 @@ struct statdata_t {
 							} else if (it == "S") {
 								port_name = ID::S;
 							} else {
-								port_name = design->twines.add(std::string{it});
+								port_name = design->twines().add(std::string{it});
 							}
 							if (cell->hasPort(port_name)) {
 								int width = GetSize(cell->getPort(port_name));
@@ -962,7 +962,7 @@ struct StatPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-top" && argidx + 1 < args.size()) {
-				IdString top_ref = design->twines.find(RTLIL::escape_id(args[argidx + 1]));
+				IdString top_ref = design->twines().find(RTLIL::escape_id(args[argidx + 1]));
 				if (design->module(top_ref) == nullptr)
 					log_cmd_error("Can't find module %s.\n", args[argidx + 1]);
 				top_mod = design->module(top_ref);
@@ -1047,7 +1047,7 @@ struct StatPass : public Pass {
 								       mod_stat[top_mod->name].area, 0, has_area, hierarchy_mode, true);
 			}
 
-			statdata_t data = hierarchy_worker(design->twines, mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
+			statdata_t data = hierarchy_worker(design->twines(), mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
 
 			if (json_mode)
 				data.log_data_json("design", true, hierarchy_mode, true);

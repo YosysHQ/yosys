@@ -52,9 +52,9 @@ struct InsbufPass : public Pass {
 		{
 			std::string arg = args[argidx];
 			if (arg == "-buf" && argidx+3 < args.size()) {
-				celltype = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
-				in_portname = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
-				out_portname = design->twines.add(std::string{RTLIL::escape_id(args[++argidx])});
+				celltype = design->twines().add(std::string{RTLIL::escape_id(args[++argidx])});
+				in_portname = design->twines().add(std::string{RTLIL::escape_id(args[++argidx])});
+				out_portname = design->twines().add(std::string{RTLIL::escape_id(args[++argidx])});
 				continue;
 			}
 			if (arg == "-chain") {

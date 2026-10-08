@@ -544,11 +544,11 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-cell_attr" && argidx+1 < args.size()) {
-				solver.cell_attr.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				solver.cell_attr.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-wire_attr" && argidx+1 < args.size()) {
-				solver.wire_attr.insert(design->twines.add(RTLIL::escape_id(args[++argidx])));
+				solver.wire_attr.insert(design->twines().add(RTLIL::escape_id(args[++argidx])));
 				continue;
 			}
 			if (args[argidx] == "-ignore_parameters") {
@@ -556,7 +556,7 @@ struct ExtractPass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ignore_param" && argidx+2 < args.size()) {
-				solver.ignored_parameters.insert(std::pair<IdString, IdString>(design->twines.add(RTLIL::escape_id(args[argidx+1])), design->twines.add(RTLIL::escape_id(args[argidx+2]))));
+				solver.ignored_parameters.insert(std::pair<IdString, IdString>(design->twines().add(RTLIL::escape_id(args[argidx+1])), design->twines().add(RTLIL::escape_id(args[argidx+2]))));
 				argidx += 2;
 				continue;
 			}
@@ -724,7 +724,7 @@ struct ExtractPass : public Pass {
 				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits));
 
 				for (auto wire : wires) {
-					RTLIL::Wire *newWire = newMod->addWire(map->twines.copy_from(design->twines, wire->name), wire->width);
+					RTLIL::Wire *newWire = newMod->addWire(map->twines().copy_from(design->twines(), wire->name), wire->width);
 					newWire->port_input = true;
 					newWire->port_output = true;
 				}
@@ -732,13 +732,13 @@ struct ExtractPass : public Pass {
 				newMod->fixup_ports();
 
 				for (auto cell : cells) {
-					RTLIL::Cell *newCell = newMod->addCell(map->twines.copy_from(design->twines, cell->name), cell->type.str());
+					RTLIL::Cell *newCell = newMod->addCell(map->twines().copy_from(design->twines(), cell->name), cell->type.str());
 					newCell->parameters = cell->parameters;
 					for (auto &conn : cell->connections()) {
 						std::vector<SigChunk> chunks = sigmap(conn.second);
 						for (auto &chunk : chunks)
 							if (chunk.wire != nullptr)
-								chunk.wire = newMod->wire(map->twines.find_from(design->twines, chunk.wire->name));
+								chunk.wire = newMod->wire(map->twines().find_from(design->twines(), chunk.wire->name));
 						newCell->setPort(conn.first, chunks);
 					}
 				}

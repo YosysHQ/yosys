@@ -62,7 +62,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 {
 	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
-	IdString name_ref = design->twines.find(name);
+	IdString name_ref = design->twines().find(name);
 
 	if (module->count_id(name_ref) != 0)
 	{
@@ -98,7 +98,7 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
-	IdString port_id = design->twines.add(name);
+	IdString port_id = design->twines().add(name);
 
 	for (auto cell : module->cells())
 	{

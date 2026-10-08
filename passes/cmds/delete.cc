@@ -98,7 +98,7 @@ struct DeletePass : public Pass {
 
 			for (auto &it : module->memories)
 				if (design->selected(module, it.second))
-					delete_mems[design->twines.str(it.first)] = it.first;
+					delete_mems[design->twines().str(it.first)] = it.first;
 
 			for (auto cell : module->cells()) {
 				if (design->selected(module, cell))

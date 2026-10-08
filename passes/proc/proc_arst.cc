@@ -289,7 +289,7 @@ struct ProcArstPass : public Pass {
 		pool<Wire*> delete_initattr_wires;
 
 		IdString global_arst_ref = global_arst.empty() ? IdString::Null
-				: design->twines.find(global_arst);
+				: design->twines().find(global_arst);
 
 		for (auto mod : design->all_selected_modules()) {
 			SigMap assign_map(mod);

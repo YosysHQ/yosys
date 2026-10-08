@@ -31,7 +31,7 @@ PRIVATE_NAMESPACE_BEGIN
 // Bring a name handle from `src`'s twine pool into `dst`'s.
 IdString translate(RTLIL::Design *dst, RTLIL::Design *src, IdString name)
 {
-	return dst->twines.copy_from(src->twines, name);
+	return dst->twines().copy_from(src->twines(), name);
 }
 
 void check(RTLIL::Design *design, bool dff_mode)
@@ -46,10 +46,10 @@ void check(RTLIL::Design *design, bool dff_mode)
 				continue;
 			if (it != m->attributes.end()) {
 				auto id = it->second.as_int();
-				auto r = box_lookup.insert(std::make_pair(design->twines.add(stringf("$__boxid%d", id)), IdString(m->name)));
+				auto r = box_lookup.insert(std::make_pair(design->twines().add(stringf("$__boxid%d", id)), IdString(m->name)));
 				if (!r.second)
 					log_error("Module '%s' has the same abc9_box_id = %d value as '%s'.\n",
-							m, id, design->twines.unescaped_str(r.first->second));
+							m, id, design->twines().unescaped_str(r.first->second));
 			}
 		}
 
@@ -136,7 +136,7 @@ void check(RTLIL::Design *design, bool dff_mode)
 				if (!derived_module->get_bool_attribute(ID::abc9_flop))
 					continue;
 				if (derived_module->get_blackbox_attribute(true /* ignore_wb */))
-					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", design->twines.unescaped_str(derived_type));
+					log_error("Module '%s' with (* abc9_flop *) is a blackbox.\n", design->twines().unescaped_str(derived_type));
 
 				if (derived_module->has_processes())
 					Pass::call_on_module(design, derived_module, "proc -noopt");
@@ -360,7 +360,7 @@ void prep_bypass(RTLIL::Design *design)
 				if (!port->port_output)
 					continue;
 				auto dst = bypass_module->addWire(port_name, port);
-				auto src = bypass_module->addWire("$abc9byp$" + design->twines.str(port_name), GetSize(port));
+				auto src = bypass_module->addWire("$abc9byp$" + design->twines().str(port_name), GetSize(port));
 				src->port_input = true;
 				// For these new input ports driven by the replaced
 				//   cell, then create a new simple-path specify entry:
@@ -446,7 +446,7 @@ void prep_bypass(RTLIL::Design *design)
 				}
 				if (cell->output(conn.first)) {
 					bypass_cell->setPort(translate(map_design, design, conn.first), port);
-					auto n = "$abc9byp$" + design->twines.str(conn.first);
+					auto n = "$abc9byp$" + design->twines().str(conn.first);
 					auto w = map_module->addWire(n, GetSize(conn.second));
 					replace_cell->setPort(translate(map_design, design, conn.first), w);
 					bypass_cell->setPort(n, w);
@@ -462,7 +462,7 @@ void prep_bypass(RTLIL::Design *design)
 				auto w = unmap_module->addWire(translate(unmap_design, design, port_name), inst_module->wire(port_name));
 				if (w->port_output) {
 					w->attributes.erase(ID::init);
-					auto w2 = unmap_module->addWire("$abc9byp$" + design->twines.str(port_name), GetSize(w));
+					auto w2 = unmap_module->addWire("$abc9byp$" + design->twines().str(port_name), GetSize(w));
 					w2->port_input = true;
 					unmap_module->connect(w, w2);
 				}
@@ -691,7 +691,7 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			auto port_wire = inst_module->wire(i.first.name);
 			if (!port_wire)
 				log_error("Port %s in cell %s (type %s) from module %s does not actually exist\n",
-						design->twines.unescaped_str(i.first.name), cell, cell->type.unescape(), module);
+						design->twines().unescaped_str(i.first.name), cell, cell->type.unescape(), module);
 			log_assert(port_wire->port_input);
 
 			auto d = i.second.first;
@@ -710,13 +710,13 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 			if (ys_debug(1)) {
 				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 				if (seen.emplace(cell->type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
-						cell->type.unescape(), design->twines.unescaped_str(i.first.name), offset, d);
+						cell->type.unescape(), design->twines().unescaped_str(i.first.name), offset, d);
 			}
 #endif
 			auto r = box_cache.insert(d);
 			if (r.second) {
 				r.first->second = delay_module->derive(design, {{ID::DELAY, d}});
-				log_assert(design->twines.str(r.first->second).starts_with("$paramod$__ABC9_DELAY\\DELAY="));
+				log_assert(design->twines().str(r.first->second).starts_with("$paramod$__ABC9_DELAY\\DELAY="));
 			}
 			auto box = module->addCell(NEW_ID, r.first->second);
 			box->setPort(ID::I, rhs[offset]);
@@ -904,7 +904,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			// be instantiating the derived module which will have had any parameters constant-propagated.
 			// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 			// Please file a bug report!
-			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", design->twines.unescaped_str(cell_name), cell->type.unescape());
+			log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_box *)\n", design->twines().unescaped_str(cell_name), cell->type.unescape());
 		}
 		log_assert(box_module->get_blackbox_attribute());
 
@@ -939,7 +939,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 						}
 					}
 					else if (w->port_output)
-						conn = holes_module->addWire(stringf("%s.%s", cell->type, design->twines.unescaped_str(port_name)), GetSize(w));
+						conn = holes_module->addWire(stringf("%s.%s", cell->type, design->twines().unescaped_str(port_name)), GetSize(w));
 				}
 			}
 			else // box_module is a blackbox
@@ -951,7 +951,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			log_assert(w);
 			if (!w->port_output)
 				continue;
-			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, design->twines.unescaped_str(port_name)), GetSize(w));
+			Wire *holes_wire = holes_module->addWire(stringf("$abc%s.%s", cell->name, design->twines().unescaped_str(port_name)), GetSize(w));
 			holes_wire->port_output = true;
 			holes_wire->port_id = port_id++;
 			holes_module->ports.push_back(holes_wire->name);
@@ -1003,9 +1003,9 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		auto r = table.emplace(K, entry);
 		if (!r.second) {
 			if (r.first->second.area != entry.area)
-				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", module, design->twines.unescaped_str(r.first->second.name));
+				log_error("Modules '%s' and '%s' have conflicting (* abc9_lut *) values.\n", module, design->twines().unescaped_str(r.first->second.name));
 			if (r.first->second.delays != entry.delays)
-				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", module, design->twines.unescaped_str(r.first->second.name));
+				log_error("Modules '%s' and '%s' have conflicting specify entries.\n", module, design->twines().unescaped_str(r.first->second.name));
 		}
 	}
 
@@ -1024,7 +1024,7 @@ void prep_lut(RTLIL::Design *design, int maxlut)
 		ss << std::endl;
 	}
 	for (const auto &i : table) {
-		ss << "# " << design->twines.unescaped_str(i.second.name) << std::endl;
+		ss << "# " << design->twines().unescaped_str(i.second.name) << std::endl;
 		ss << i.first << " " << i.second.area;
 		for (const auto &j : i.second.delays)
 			ss << " " << j;
@@ -1112,7 +1112,7 @@ void prep_box(RTLIL::Design *design)
 					if (ys_debug(1)) {
 						static std::set<std::pair<IdString,IdString>> seen;
 						if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", module,
-								design->twines.unescaped_str(port_name), it->second.first);
+								design->twines().unescaped_str(port_name), it->second.first);
 					}
 #endif
 				}

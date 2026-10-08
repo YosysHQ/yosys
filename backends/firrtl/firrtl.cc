@@ -87,7 +87,7 @@ struct FirrtlNames
 		if (namecache.count(id) != 0)
 			return namecache.at(id);
 
-		string new_id = design->twines.unescaped_str(id);
+		string new_id = design->twines().unescaped_str(id);
 
 		for (int i = 0; i < GetSize(new_id); i++)
 		{

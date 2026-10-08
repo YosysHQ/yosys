@@ -49,7 +49,7 @@ static std::string twine_handle(IdString ref)
 static std::string twine_ref(const RTLIL::Design *design, IdString ref, DumpMode mode)
 {
 	if (mode == DumpMode::Readable || ID::is_static(ref))
-		return design->twines.str(ref);
+		return design->twines().str(ref);
 	return twine_handle(ref);
 }
 
@@ -57,7 +57,7 @@ static std::string twine_cmt(const RTLIL::Design *design, IdString ref, DumpMode
 {
 	if (mode != DumpMode::Replayable || ID::is_static(ref))
 		return "";
-	return stringf("  # %s", design->twines.str(ref).c_str());
+	return stringf("  # %s", design->twines().str(ref).c_str());
 }
 
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
@@ -141,14 +141,14 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 	for (IdString used_id : used)
 		for (IdString id = used_id; id != IdString::Null && closed.insert(id).second; ) {
 			ids.push_back(id);
-			const TwineNode &n = design->twines[id];
+			const TwineNode &n = design->twines()[id];
 			id = n.is_suffix() ? n.prefix() : IdString();
 		}
 	std::sort(ids.begin(), ids.end());
 
 	f << stringf("twines\n");
 	for (IdString id : ids) {
-		const TwineNode &n = design->twines[id];
+		const TwineNode &n = design->twines()[id];
 		switch (n.kind()) {
 		case TwineNode::Kind::Leaf:
 			f << stringf("  leaf %zu ", id.raw());
@@ -218,7 +218,7 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 	dump_attributes(f, indent, wire, design, mode);
 	if (wire->known_driver()) {
 		f << stringf("%s" "# driver %s %s\n", indent,
-				wire->driverCell()->name, design->twines.str(wire->driverPort()).c_str());
+				wire->driverCell()->name, design->twines().str(wire->driverPort()).c_str());
 	}
 	f << stringf("%s" "wire ", indent);
 	if (wire->width != 1)

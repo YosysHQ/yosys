@@ -50,7 +50,7 @@ struct SynthPropWorker
 	bool reset_pol;
 
 	// basic contrcutor
-	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(design->twines.add(std::string("\\assertions"))) {}
+	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(design->twines().add(std::string("\\assertions"))) {}
 
 	void tracing(RTLIL::Module *mod, int depth, TrackingData &tracing_data, std::string hier_path);
 	void run();
@@ -224,7 +224,7 @@ struct SyntProperties : public Pass {
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-name" && argidx+1 < args.size()) {
-				worker.port_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				worker.port_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-map" && argidx+1 < args.size()) {
@@ -232,12 +232,12 @@ struct SyntProperties : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-reset" && argidx+1 < args.size()) {
-				worker.reset_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				worker.reset_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				worker.reset_pol = true;
 				continue;
 			}
 			if (args[argidx] == "-resetn" && argidx+1 < args.size()) {
-				worker.reset_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				worker.reset_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				worker.reset_pol = false;
 				continue;
 			}

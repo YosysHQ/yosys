@@ -309,11 +309,11 @@ struct VlogHammerReporter
 	VlogHammerReporter(RTLIL::Design *design, std::string module_prefix, std::string module_list, std::string input_list, std::string pattern_list) : design(design)
 	{
 		for (auto name : split(module_list, ",")) {
-			IdString esc_name = design->twines.add(RTLIL::escape_id(module_prefix + name));
+			IdString esc_name = design->twines().add(RTLIL::escape_id(module_prefix + name));
 			RTLIL::Module *mod = design->module(esc_name);
 			if (mod == nullptr)
 				log_error("Can't find module %s in current design!\n", name);
-			log("Using module %s (%s).\n", design->twines.str(esc_name), name);
+			log("Using module %s (%s).\n", design->twines().str(esc_name), name);
 			modules.push_back(mod);
 			module_names.push_back(name);
 		}
@@ -321,7 +321,7 @@ struct VlogHammerReporter
 		total_input_width = 0;
 		for (auto name : split(input_list, ",")) {
 			int width = -1;
-			IdString esc_name = design->twines.add(RTLIL::escape_id(name));
+			IdString esc_name = design->twines().add(RTLIL::escape_id(name));
 			for (auto mod : modules) {
 				RTLIL::Wire *port = mod->wire(esc_name);
 				if (port == nullptr)
@@ -332,7 +332,7 @@ struct VlogHammerReporter
 					log_error("Port %s has different sizes in the different modules!\n", name);
 				width = port->width;
 			}
-			log("Using input port %s with width %d.\n", design->twines.str(esc_name), width);
+			log("Using input port %s with width %d.\n", design->twines().str(esc_name), width);
 			inputs.push_back(esc_name);
 			input_widths.push_back(width);
 			total_input_width += width;

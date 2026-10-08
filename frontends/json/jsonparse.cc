@@ -281,7 +281,7 @@ void json_parse_attr_param(RTLIL::Design *design, dict<IdString, Const> &results
 
 	for (auto it : node->data_dict)
 	{
-		IdString key = design->twines.add(RTLIL::escape_id(it.first.c_str()));
+		IdString key = design->twines().add(RTLIL::escape_id(it.first.c_str()));
 		Const value = json_parse_attr_param_value(it.second);
 		results[key] = value;
 	}
@@ -293,7 +293,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 	Module *module = new RTLIL::Module;
 	module->design = design;
-	module->name = design->twines.add(RTLIL::escape_id(modname));
+	module->name = design->twines().add(RTLIL::escape_id(modname));
 
 	if (design->module(module->name))
 		log_error("Re-definition of module %s.\n", module->name.unescape());
@@ -317,7 +317,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 		for (int port_id = 1; port_id <= GetSize(ports_node->data_dict_keys); port_id++)
 		{
-			IdString port_ref = design->twines.add(RTLIL::escape_id(ports_node->data_dict_keys[port_id-1]));
+			IdString port_ref = design->twines().add(RTLIL::escape_id(ports_node->data_dict_keys[port_id-1]));
 			JsonNode *port_node = ports_node->data_dict.at(ports_node->data_dict_keys[port_id-1]);
 
 			if (port_node->type != 'D')
@@ -422,7 +422,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 		for (auto &net : netnames_node->data_dict)
 		{
-			IdString net_ref = design->twines.add(RTLIL::escape_id(net.first));
+			IdString net_ref = design->twines().add(RTLIL::escape_id(net.first));
 			JsonNode *net_node = net.second;
 
 			if (net_node->type != 'D')
@@ -503,7 +503,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 		for (auto &cell_node_it : cells_node->data_dict)
 		{
-			IdString cell_ref = design->twines.add(RTLIL::escape_id(cell_node_it.first));
+			IdString cell_ref = design->twines().add(RTLIL::escape_id(cell_node_it.first));
 			JsonNode *cell_node = cell_node_it.second;
 
 			if (cell_node->type != 'D')
@@ -517,7 +517,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			if (type_node->type != 'S')
 				log_error("JSON cells node '%s' has a non-string type.\n", PooledName(design, cell_ref).unescape());
 
-			IdString cell_type = design->twines.add(RTLIL::escape_id(type_node->data_string));
+			IdString cell_type = design->twines().add(RTLIL::escape_id(type_node->data_string));
 
 			Cell *cell = module->addCell(cell_ref, cell_type);
 
@@ -531,7 +531,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 
 			for (auto &conn_it : connections_node->data_dict)
 			{
-				IdString conn_ref = design->twines.add(RTLIL::escape_id(conn_it.first));
+				IdString conn_ref = design->twines().add(RTLIL::escape_id(conn_it.first));
 				JsonNode *conn_node = conn_it.second;
 
 				if (conn_node->type != 'A')
@@ -590,7 +590,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			JsonNode *memory_node = memory_node_it.second;
 
 			RTLIL::Memory *mem = new RTLIL::Memory;
-			mem->name = design->twines.add(RTLIL::escape_id(memory_node_it.first));
+			mem->name = design->twines().add(RTLIL::escape_id(memory_node_it.first));
 			mem->module = module;
 
 			if (memory_node->type != 'D')

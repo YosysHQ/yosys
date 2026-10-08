@@ -817,13 +817,13 @@ struct ExtractCounterPass : public Pass {
 				{
 					if(pouts[i] == ',')
 					{
-						settings.parallel_cells.insert(design->twines.add(RTLIL::escape_id(tmp)));
+						settings.parallel_cells.insert(design->twines().add(RTLIL::escape_id(tmp)));
 						tmp = "";
 					}
 					else
 						tmp += pouts[i];
 				}
-				settings.parallel_cells.insert(design->twines.add(RTLIL::escape_id(tmp)));
+				settings.parallel_cells.insert(design->twines().add(RTLIL::escape_id(tmp)));
 				continue;
 			}
 

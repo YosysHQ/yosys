@@ -929,7 +929,7 @@ struct CxxrtlWorker {
 	void dump_attrs(const RTLIL::AttrObject *object)
 	{
 		for (auto attr : object->attributes) {
-			f << indent << "// " << design->twines.str(attr.first) << ": ";
+			f << indent << "// " << design->twines().str(attr.first) << ": ";
 			if (attr.second.flags & RTLIL::CONST_FLAG_STRING) {
 				f << attr.second.decode_string();
 			} else {
@@ -2301,10 +2301,10 @@ struct CxxrtlWorker {
 			if (!metadata_item.first.isPublic())
 				continue;
 			if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-				f << indent << "/* attribute " << design->twines.str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
+				f << indent << "/* attribute " << design->twines().str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
 				continue;
 			}
-			data += design->twines.str(metadata_item.first).substr(1) + '\0';
+			data += design->twines().str(metadata_item.first).substr(1) + '\0';
 			// In Yosys, a real is a type of string.
 			if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
 				double dvalue = std::stod(metadata_item.second.decode_string());
@@ -2338,10 +2338,10 @@ struct CxxrtlWorker {
 					if (!metadata_item.first.isPublic())
 						continue;
 					if (metadata_item.second.size() > 64 && (metadata_item.second.flags & RTLIL::CONST_FLAG_STRING) == 0) {
-						f << indent << "/* attribute " << design->twines.str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
+						f << indent << "/* attribute " << design->twines().str(metadata_item.first).substr(1) << " is over 64 bits wide */\n";
 						continue;
 					}
-					f << indent << "{ " << escape_cxx_string(design->twines.str(metadata_item.first).substr(1)) << ", ";
+					f << indent << "{ " << escape_cxx_string(design->twines().str(metadata_item.first).substr(1)) << ", ";
 					// In Yosys, a real is a type of string.
 					if (metadata_item.second.flags & RTLIL::CONST_FLAG_REAL) {
 						f << std::showpoint << std::stod(metadata_item.second.decode_string()) << std::noshowpoint;

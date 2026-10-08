@@ -71,16 +71,16 @@ void create_miter_equiv(struct Pass *that, std::vector<std::string> args, RTLIL:
 	if (argidx+3 != args.size() || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
-	IdString gold_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
-	IdString gate_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
-	IdString miter_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
+	IdString gold_name = design->twines().add(RTLIL::escape_id(args[argidx++]));
+	IdString gate_name = design->twines().add(RTLIL::escape_id(args[argidx++]));
+	IdString miter_name = design->twines().add(RTLIL::escape_id(args[argidx++]));
 
 	if (design->module(gold_name) == nullptr)
-		log_cmd_error("Can't find gold module %s!\n", design->twines.str(gold_name));
+		log_cmd_error("Can't find gold module %s!\n", design->twines().str(gold_name));
 	if (design->module(gate_name) == nullptr)
-		log_cmd_error("Can't find gate module %s!\n", design->twines.str(gate_name));
+		log_cmd_error("Can't find gate module %s!\n", design->twines().str(gate_name));
 	if (design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", design->twines.str(miter_name));
+		log_cmd_error("There is already a module %s!\n", design->twines().str(miter_name));
 
 	RTLIL::Module *gold_module = design->module(gold_name);
 	RTLIL::Module *gate_module = design->module(gate_name);
@@ -319,13 +319,13 @@ void create_miter_assert(struct Pass *that, std::vector<std::string> args, RTLIL
 	if ((argidx+1 != args.size() && argidx+2 != args.size()) || args[argidx].compare(0, 1, "-") == 0)
 		that->cmd_error(args, argidx, "command argument error");
 
-	IdString module_name = design->twines.add(RTLIL::escape_id(args[argidx++]));
-	IdString miter_name = argidx < args.size() ? design->twines.add(RTLIL::escape_id(args[argidx++])) : IdString::Null;
+	IdString module_name = design->twines().add(RTLIL::escape_id(args[argidx++]));
+	IdString miter_name = argidx < args.size() ? design->twines().add(RTLIL::escape_id(args[argidx++])) : IdString::Null;
 
 	if (design->module(module_name) == nullptr)
-		log_cmd_error("Can't find module %s!\n", design->twines.str(module_name));
+		log_cmd_error("Can't find module %s!\n", design->twines().str(module_name));
 	if (!miter_name.empty() && design->module(miter_name) != nullptr)
-		log_cmd_error("There is already a module %s!\n", design->twines.str(miter_name));
+		log_cmd_error("There is already a module %s!\n", design->twines().str(miter_name));
 
 	Module *module = design->module(module_name);
 

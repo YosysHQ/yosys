@@ -558,7 +558,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	if (opts.none) {
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
-			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
+			str += stringf(" -ctrl %s %d %d", design->twines().unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += " -mode none";
 		if (filename.empty())
 			log("%s\n", str);
@@ -569,20 +569,20 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 	for (auto &entry : database) {
 		string str = "mutate";
 		if (!opts.ctrl_name.empty())
-			str += stringf(" -ctrl %s %d %d", design->twines.unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
+			str += stringf(" -ctrl %s %d %d", design->twines().unescaped_str(opts.ctrl_name), opts.ctrl_width, ctrl_value++);
 		str += stringf(" -mode %s", entry.mode);
 		if (!entry.module.empty())
-			str += stringf(" -module %s", design->twines.unescaped_str(entry.module));
+			str += stringf(" -module %s", design->twines().unescaped_str(entry.module));
 		if (!entry.cell.empty())
-			str += stringf(" -cell %s", design->twines.unescaped_str(entry.cell));
+			str += stringf(" -cell %s", design->twines().unescaped_str(entry.cell));
 		if (!entry.port.empty())
-			str += stringf(" -port %s", design->twines.unescaped_str(entry.port));
+			str += stringf(" -port %s", design->twines().unescaped_str(entry.port));
 		if (entry.portbit >= 0)
 			str += stringf(" -portbit %d", entry.portbit);
 		if (entry.ctrlbit >= 0)
 			str += stringf(" -ctrlbit %d", entry.ctrlbit);
 		if (!entry.wire.empty())
-			str += stringf(" -wire %s", design->twines.unescaped_str(entry.wire));
+			str += stringf(" -wire %s", design->twines().unescaped_str(entry.wire));
 		if (entry.wirebit >= 0)
 			str += stringf(" -wirebit %d", entry.wirebit);
 		for (auto &s : entry.src)
@@ -835,21 +835,21 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-ctrl" && argidx+3 < args.size()) {
-				opts.ctrl_name = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				opts.ctrl_name = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				opts.ctrl_width = atoi(args[++argidx].c_str());
 				opts.ctrl_value = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-module" && argidx+1 < args.size()) {
-				opts.module = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				opts.module = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-cell" && argidx+1 < args.size()) {
-				opts.cell = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				opts.cell = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-port" && argidx+1 < args.size()) {
-				opts.port = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				opts.port = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-portbit" && argidx+1 < args.size()) {
@@ -861,7 +861,7 @@ struct MutatePass : public Pass {
 				continue;
 			}
 			if (args[argidx] == "-wire" && argidx+1 < args.size()) {
-				opts.wire = design->twines.add(RTLIL::escape_id(args[++argidx]));
+				opts.wire = design->twines().add(RTLIL::escape_id(args[++argidx]));
 				continue;
 			}
 			if (args[argidx] == "-wirebit" && argidx+1 < args.size()) {

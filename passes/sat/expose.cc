@@ -660,7 +660,7 @@ struct ExposePass : public Pass {
 					{
 						for (auto &it : cell->connections())
 						{
-							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + design->twines.unescaped_str(it.first), it.second.size());
+							RTLIL::Wire *w = add_new_wire(module, cell->name.str() + sep + design->twines().unescaped_str(it.first), it.second.size());
 							if (ct.cell_input(cell->type, it.first))
 								w->port_output = true;
 							if (ct.cell_output(cell->type, it.first))

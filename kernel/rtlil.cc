@@ -812,7 +812,7 @@ size_t RTLIL::Design::gc_twines()
 	for (auto &sel : selection_stack)
 		root_selection(sel);
 
-	size_t erased = twines.gc(live);
+	size_t erased = twines_.gc(live);
 
 	int64_t time_ns = PerformanceTimer::query() - start;
 	Pass::subtract_from_current_runtime_ns(time_ns);
@@ -1068,7 +1068,7 @@ RTLIL::Module *RTLIL::Design::top_module() const
 RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 {
 	if (modules_.count(name) != 0)
-		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", twines.str(name));
+		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", twines_.str(name));
 	log_assert(refcount_modules_ == 0);
 
 	RTLIL::Module *module = new RTLIL::Module;
@@ -1080,7 +1080,7 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 		mon->notify_module_add(module);
 
 	if (yosys_xtrace) {
-		log("#X# New Module: %s\n", twines.str(name));
+		log("#X# New Module: %s\n", twines_.str(name));
 		log_backtrace("-X- ", yosys_xtrace-1);
 	}
 
@@ -1178,7 +1178,7 @@ void RTLIL::Design::rename(RTLIL::Module *module, RTLIL::IdString new_name)
 void RTLIL::Design::sort()
 {
 	scratchpad.sort();
-	modules_.sort(sort_by_id_str(twines));
+	modules_.sort(sort_by_id_str(twines_));
 	for (auto &it : modules_)
 		it.second->sort();
 }
@@ -1186,7 +1186,7 @@ void RTLIL::Design::sort()
 void RTLIL::Design::sort_modules()
 {
 	scratchpad.sort();
-	modules_.sort(sort_by_id_str(twines));
+	modules_.sort(sort_by_id_str(twines_));
 }
 
 void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool);
@@ -1220,7 +1220,7 @@ void RTLIL::Design::optimize()
 void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 {
 	log_assert(dst->modules_.empty());
-	dst->twines = twines;
+	dst->twines_ = twines_;
 	for (auto it = modules_.rbegin(); it != modules_.rend(); ++it)
 		it->second->clone(dst);
 }
@@ -1473,7 +1473,7 @@ namespace {
 		{
 			auto it = cell->parameters.find(name);
 			if (it == cell->parameters.end()) {
-				std::string err = stringf("Expected to find parameter %s", cell->module->design->twines.str(name));
+				std::string err = stringf("Expected to find parameter %s", cell->module->design->twines().str(name));
 				error(__LINE__, err);
 			}
 			expected_params.insert(name);
@@ -1515,7 +1515,7 @@ namespace {
 		{
 			auto it = cell->connections_.find(name);
 			if (it == cell->connections_.end()) {
-				std::string err = stringf("Expected to find port %s", cell->module->design->twines.str(name));
+				std::string err = stringf("Expected to find port %s", cell->module->design->twines().str(name));
 				error(__LINE__, err);
 			}
 			if (GetSize(it->second) != width) {
@@ -2426,17 +2426,17 @@ namespace {
 
 void RTLIL::Module::sort()
 {
-	wires_.sort(sort_by_id_str(design->twines));
-	cells_.sort(sort_by_id_str(design->twines));
-	parameter_default_values.sort(sort_by_id_str(design->twines));
-	memories.sort(sort_by_id_str(design->twines));
-	processes.sort(sort_by_id_str(design->twines));
+	wires_.sort(sort_by_id_str(design->twines()));
+	cells_.sort(sort_by_id_str(design->twines()));
+	parameter_default_values.sort(sort_by_id_str(design->twines()));
+	memories.sort(sort_by_id_str(design->twines()));
+	processes.sort(sort_by_id_str(design->twines()));
 	for (auto &it : cells_)
 		it.second->sort();
 	for (auto &it : wires_)
-		it.second->attributes.sort(sort_by_id_str(design->twines));
+		it.second->attributes.sort(sort_by_id_str(design->twines()));
 	for (auto &it : memories)
-		it.second->attributes.sort(sort_by_id_str(design->twines));
+		it.second->attributes.sort(sort_by_id_str(design->twines()));
 }
 
 #ifndef NDEBUG
@@ -2592,10 +2592,10 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 
 	new_mod->avail_parameters.clear();
 	for (IdString param : avail_parameters)
-		new_mod->avail_parameters(dst_twines.copy_from(design->twines, param));
+		new_mod->avail_parameters(dst_twines.copy_from(design->twines(), param));
 	new_mod->parameter_default_values.clear();
 	for (auto &it : parameter_default_values)
-		new_mod->parameter_default_values[dst_twines.copy_from(design->twines, it.first)] = it.second;
+		new_mod->parameter_default_values[dst_twines.copy_from(design->twines(), it.first)] = it.second;
 
 	for (auto &conn : connections())
 		new_mod->connect(conn);
@@ -2605,22 +2605,22 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 	dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
 
 	for (auto it = wires_.rbegin(); it != wires_.rend(); ++it) {
-		IdString dst_id = dst_twines.copy_from(design->twines, it->first);
+		IdString dst_id = dst_twines.copy_from(design->twines(), it->first);
 		wire_map[it->second] = new_mod->addWire(dst_id, it->second);
 	}
 
 	for (auto it = memories.rbegin(); it != memories.rend(); ++it) {
-		IdString dst_id = dst_twines.copy_from(design->twines, it->first);
+		IdString dst_id = dst_twines.copy_from(design->twines(), it->first);
 		new_mod->addMemory(dst_id, it->second);
 	}
 
 	for (auto it = cells_.rbegin(); it != cells_.rend(); ++it) {
-		IdString dst_id = dst_twines.copy_from(design->twines, it->first);
+		IdString dst_id = dst_twines.copy_from(design->twines(), it->first);
 		new_mod->addCell(dst_id, it->second);
 	}
 
 	for (auto it = processes.rbegin(); it != processes.rend(); ++it) {
-		IdString dst_id = dst_twines.copy_from(design->twines, it->first);
+		IdString dst_id = dst_twines.copy_from(design->twines(), it->first);
 		new_mod->addProcess(dst_id, it->second);
 	}
 
@@ -2658,7 +2658,7 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst) const
 {
 	RTLIL::Module *new_mod = new RTLIL::Module;
 	new_mod->design = dst;
-	new_mod->name = dst->twines.copy_from(design->twines, name);
+	new_mod->name = dst->twines().copy_from(design->twines(), name);
 	cloneInto(new_mod);
 	dst->add(new_mod);
 	return new_mod;
@@ -2946,7 +2946,7 @@ IdString RTLIL::Module::uniquify(IdString name, int &index)
 	}
 
 	while (1) {
-		IdString new_name = design->twines.add(TwineSpec::Suffix{name, stringf("_%d", index)});
+		IdString new_name = design->twines().add(TwineSpec::Suffix{name, stringf("_%d", index)});
 		if (count_id(new_name) == 0)
 			return new_name;
 		index++;
@@ -3063,7 +3063,7 @@ void RTLIL::copy_attr_dict(dict<IdString, RTLIL::Const> &dst,
 	dst.clear();
 	for (int i = GetSize(src) - 1; i >= 0; i--) {
 		auto &it = *src.element(i);
-		dst[dst_design->twines.copy_from(src_design->twines, it.first)] = it.second;
+		dst[dst_design->twines().copy_from(src_design->twines(), it.first)] = it.second;
 	}
 }
 
@@ -3112,7 +3112,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 
 	IdString type = other->type.ref();
 	if (cross_pool)
-		type = twines().copy_from(src_design->twines, other->type.ref());
+		type = twines().copy_from(src_design->twines(), other->type.ref());
 
 	RTLIL::Cell *cell = addCell(name, type);
 	RTLIL::copy_attr_dict(cell->parameters, other->parameters, src_design, this->design);
@@ -3123,7 +3123,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 	else
 		for (int i = GetSize(other->connections_) - 1; i >= 0; i--) {
 			auto &c = *other->connections_.element(i);
-			cell->connections_[twines().copy_from(src_design->twines, c.first)] = c.second;
+			cell->connections_[twines().copy_from(src_design->twines(), c.first)] = c.second;
 		}
 	return cell;
 }
@@ -3176,7 +3176,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 		});
 		for (auto *sync : proc->syncs)
 			for (auto &mwa : sync->mem_write_actions)
-				mwa.memid = design->twines.copy_from(src_design->twines, mwa.memid);
+				mwa.memid = design->twines().copy_from(src_design->twines(), mwa.memid);
 	}
 	add(proc);
 	return proc;
@@ -5812,7 +5812,7 @@ bool RTLIL::SigSpec::parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL
 	if (str.empty() || str[0] != '@')
 		return parse(sig, module, str);
 
-	IdString sel_name = design->twines.find(RTLIL::escape_id(str.substr(1)));
+	IdString sel_name = design->twines().find(RTLIL::escape_id(str.substr(1)));
 	if (sel_name == IdString::Null || design->selection_vars.count(sel_name) == 0)
 		return false;
 

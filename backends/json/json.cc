@@ -76,7 +76,7 @@ struct JsonWriter
 
 	string get_name(IdString name)
 	{
-		return get_string(design->twines.unescaped_str(name));
+		return get_string(design->twines().unescaped_str(name));
 	}
 
 	string get_bits(SigSpec sig)
@@ -316,13 +316,13 @@ struct JsonWriter
 					f << stringf("      /* %3d */ [ ", node_idx);
 					if (node.portbit >= 0)
 						f << stringf("\"%sport\", \"%s\", %d", node.inverter ? "n" : "",
-								design->twines.unescaped_str(node.portname), node.portbit);
+								design->twines().unescaped_str(node.portname), node.portbit);
 					else if (node.left_parent < 0 && node.right_parent < 0)
 						f << stringf("\"%s\"", node.inverter ? "true" : "false");
 					else
 						f << stringf("\"%s\", %d, %d", node.inverter ? "nand" : "and", node.left_parent, node.right_parent);
 					for (auto &op : node.outports)
-						f << stringf(", \"%s\", %d", design->twines.unescaped_str(op.first), op.second);
+						f << stringf(", \"%s\", %d", design->twines().unescaped_str(op.first), op.second);
 					f << stringf(" ]");
 					node_idx++;
 				}
