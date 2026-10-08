@@ -60,14 +60,9 @@ const static AOp ONE = AOp{1, 0, 0, AOpCfg{0, 0, 0, false}};
 struct McmConfig {
 	std::optional<int> max_depth = std::nullopt;
 	int max_shift = 32;
-	int max_nodes = 64;
-
-	// ### Not Yet Used
-	int min_cost = 0;
 	int min_shift = 0;
-	long long work_budget = 20000000;
-
-	// Pass settings; these do not affect the graph search.
+	int max_nodes = 64;
+	long long work_budget = 20000000;	// Pass settings; these do not affect the graph search.
 	int min_const = 3;
 	int min_gain = 0;
 	bool force = false;
