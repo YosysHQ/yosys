@@ -98,7 +98,7 @@ namespace RTLIL
 
 	struct Const;
 	struct AttrObject;
-	struct NamedObject;
+	struct SelectedMember;
 	struct Selection;
 	struct Monitor;
 	struct Design;
@@ -665,12 +665,13 @@ struct RTLIL::AttrObject
 	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 };
 
-struct RTLIL::NamedObject : public RTLIL::AttrObject
-{
-	IdString name_ = IdString::Null;
-};
-
 #include "kernel/rtlil_twine_compat.h"
+
+struct RTLIL::SelectedMember
+{
+	RTLIL::AttrObject *obj;
+	RTLIL::PooledName name;
+};
 
 struct RTLIL::SigChunk
 {
@@ -1216,8 +1217,12 @@ struct RTLIL::Selection
 
 	// add member of module to this selection
 	template<typename T1, typename T2> void select(T1 *module, T2 *member) {
-		if (!selects_all() && selected_modules.count(module->name_) == 0) {
-			selected_members[module->name_].insert(member->name_);
+		select(module, member->name.ref());
+	}
+
+	template<typename T1> void select(T1 *module, RTLIL::IdString member) {
+		if (!selects_all() && selected_modules.count(module->name.ref()) == 0) {
+			selected_members[module->name.ref()].insert(member);
 			if (module->get_blackbox_attribute())
 				selects_boxes = true;
 		}
@@ -1312,10 +1317,6 @@ struct RTLIL::Design
 	dict<RTLIL::IdString, RTLIL::Module*> modules_;
 
 	TwinePool twines;
-
-	std::string obj_name(const RTLIL::NamedObject *obj) const {
-		return twines.str(obj->name_);
-	}
 
 	void absorb_attrs(RTLIL::AttrObject *obj, dict<IdString, RTLIL::Const> &&buf);
 
@@ -1483,12 +1484,12 @@ struct RTLIL::Design
 	std::string to_rtlil_str(bool only_selected = true) const;
 };
 
-struct RTLIL::Module : public RTLIL::NamedObject
+struct RTLIL::Module : public RTLIL::AttrObject
 {
 	friend struct RTLIL::Cell;
 	friend struct RTLIL::Design;
 
-	YS_NO_UNIQUE_ADDRESS RTLIL::ModuleNameMasq name;
+	RTLIL::ModuleNameId name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1569,10 +1570,10 @@ public:
 	std::vector<RTLIL::Cell*> selected_cells() const;
 	std::vector<RTLIL::Memory*> selected_memories() const;
 	std::vector<RTLIL::Process*> selected_processes() const;
-	std::vector<RTLIL::NamedObject*> selected_members() const;
+	std::vector<RTLIL::SelectedMember> selected_members() const;
 
 	template<typename T> bool selected(T *member) const {
-		return design->selected_member(name_, member->name_);
+		return design->selected_member(name.ref(), member->name.ref());
 	}
 
 	RTLIL::Wire* wire(RTLIL::IdString id) {
@@ -1921,9 +1922,9 @@ public:
 #endif
 };
 
-struct RTLIL::Wire : public RTLIL::NamedObject
+struct RTLIL::Wire : public RTLIL::AttrObject
 {
-	YS_NO_UNIQUE_ADDRESS RTLIL::WireNameMasq name;
+	RTLIL::WireNameId name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1980,7 +1981,7 @@ inline int GetSize(RTLIL::Wire *wire) {
 	return wire->width;
 }
 
-struct RTLIL::Memory : public RTLIL::NamedObject
+struct RTLIL::Memory : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -1993,7 +1994,7 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 	TwinePool &twines() const { return module->twines(); }
 
-	YS_NO_UNIQUE_ADDRESS RTLIL::MemoryNameMasq name;
+	RTLIL::MemoryNameId name;
 
 	int width, start_offset, size;
 #ifdef YOSYS_ENABLE_PYTHON
@@ -2003,14 +2004,14 @@ struct RTLIL::Memory : public RTLIL::NamedObject
 	std::string to_rtlil_str() const;
 };
 
-struct RTLIL::Cell : public RTLIL::NamedObject
+struct RTLIL::Cell : public RTLIL::AttrObject
 {
 private:
 	void initIndex();
 
 	bool bufnorm_handle_setPort(IdString portname, RTLIL::SigSpec &signal, dict<IdString, RTLIL::SigSpec>::iterator conn_it);
 public:
-	YS_NO_UNIQUE_ADDRESS RTLIL::CellNameMasq name;
+	RTLIL::CellNameId name;
 
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
@@ -2031,8 +2032,7 @@ public:
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 	TwinePool &twines() const { return module->twines(); }
 
-	IdString type_impl;
-	YS_NO_UNIQUE_ADDRESS RTLIL::IdFieldMasq<Cell, &Cell::type_impl> type;
+	RTLIL::CellTypeId type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
 	dict<RTLIL::IdString, RTLIL::Const> parameters;
 
@@ -2134,9 +2134,10 @@ struct RTLIL::SyncRule
 	RTLIL::SyncRule *clone() const;
 };
 
-struct RTLIL::Process : public RTLIL::NamedObject
+struct RTLIL::Process : public RTLIL::AttrObject
 {
 	Hasher::hash_t hashidx_;
+	RTLIL::ProcessNameId name;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
 protected:
@@ -2152,8 +2153,6 @@ public:
 
 	RTLIL::Design *design() const { return module ? module->design : nullptr; }
 	TwinePool &twines() const { return module->twines(); }
-
-	YS_NO_UNIQUE_ADDRESS RTLIL::ProcessNameMasq name;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);

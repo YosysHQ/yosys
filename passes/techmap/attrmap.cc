@@ -274,7 +274,7 @@ struct AttrmapPass : public Pass {
 			for (auto module : design->all_selected_modules())
 			{
 				for (auto memb : module->selected_members())
-					attrmap_apply(design, stringf("%s.%s", module, design->obj_name(memb).c_str()), actions, memb->attributes);
+					attrmap_apply(design, stringf("%s.%s", module, memb.name.str()), actions, memb.obj->attributes);
 
 				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())

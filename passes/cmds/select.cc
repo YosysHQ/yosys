@@ -1033,7 +1033,7 @@ static std::string describe_selection_for_assert(RTLIL::Design *design, RTLIL::S
 		if (whole_modules && sel->selected_whole_module(mod->name))
 			desc += stringf("%s\n", mod);
 		for (auto it : mod->selected_members())
-			desc += stringf("%s/%s\n", mod, design->obj_name(it).c_str());
+			desc += stringf("%s/%s\n", mod, it.name.str());
 	}
 	if (push_selection) design->pop_selection();
 	return desc;
@@ -1544,7 +1544,7 @@ struct SelectPass : public Pass {
 					log("%s\n", mod);
 				if (!list_mod_mode)
 					for (auto it : mod->selected_members())
-						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), mod->twines().unescaped_str(it->name_).c_str())
+						LOG_OBJECT("%s/%s\n", mod->name.unescape().c_str(), it.name.unescape().c_str())
 			}
 			if (count_mode)
 			{

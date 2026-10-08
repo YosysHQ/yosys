@@ -3,17 +3,20 @@
 
 namespace RTLIL {
 
-template<typename Derived> struct IdMasqBase;
-template<typename Owner, auto Field = &NamedObject::name_> struct IdFieldMasq;
+template<typename Derived> struct WrappedIdBase;
+struct NameSlot;
+struct CellTypeSlot;
+template<typename Owner, typename Slot = NameSlot> struct OwnedId;
 struct PooledName;
 
-using ModuleNameMasq = IdFieldMasq<Module>;
-using WireNameMasq = IdFieldMasq<Wire>;
-using CellNameMasq = IdFieldMasq<Cell>;
-using MemoryNameMasq = IdFieldMasq<Memory>;
-using ProcessNameMasq = IdFieldMasq<Process>;
+using ModuleNameId = OwnedId<Module>;
+using WireNameId = OwnedId<Wire>;
+using CellNameId = OwnedId<Cell>;
+using MemoryNameId = OwnedId<Memory>;
+using ProcessNameId = OwnedId<Process>;
+using CellTypeId = OwnedId<Cell, CellTypeSlot>;
 
-namespace masq_detail {
+namespace wrapped_idstring_detail {
 
 inline std::string render_escaped(const TwinePool *pool, IdString id) {
 	if (id == IdString::Null)
@@ -30,11 +33,11 @@ inline std::string render_unescaped(const TwinePool *pool, IdString id) {
 }
 
 template<typename Derived>
-struct IdMasqBase {
+struct WrappedIdBase {
 	operator IdString() const { return self().ref(); }
 	operator std::string() const { return self().escaped(); }
-	std::string escaped() const { return masq_detail::render_escaped(self().pool(), self().ref()); }
-	std::string unescape() const { return masq_detail::render_unescaped(self().pool(), self().ref()); }
+	std::string escaped() const { return wrapped_idstring_detail::render_escaped(self().pool(), self().ref()); }
+	std::string unescape() const { return wrapped_idstring_detail::render_unescaped(self().pool(), self().ref()); }
 	bool isPublic() const { return self().ref().isPublic(); }
 	bool empty() const { return self().ref() == IdString::Null; }
 	std::string str() const { return self().escaped(); }
@@ -75,45 +78,46 @@ private:
 };
 
 template<typename T>
-concept IsIdMasq = std::is_base_of_v<IdMasqBase<std::decay_t<T>>, std::decay_t<T>>;
+concept IsWrappedId = std::is_base_of_v<WrappedIdBase<std::decay_t<T>>, std::decay_t<T>>;
 
-// Two masq can be compared for equality by comparing .ref()
-template<IsIdMasq A, IsIdMasq B>
+// Two wrapped IdStrings can be compared for equality by comparing .ref()
+template<IsWrappedId A, IsWrappedId B>
 requires (!std::is_same_v<A, B>)
 inline bool operator==(const A &lhs, const B &rhs) { return lhs.ref() == rhs.ref(); }
 
-// A pair can be created from two masqs
-// otherwise, you'd try to construct masqs in the arguments of std::make_pair
-// which would error out as the constructor is deleted
-template<IsIdMasq A, typename B>
+// A pair can be created from wrapped IdStrings by unwrapping them to IdString
+// otherwise, you'd try to copy an OwnedId into the arguments of std::make_pair
+// which would error out as its copy constructor is deleted
+template<IsWrappedId A, typename B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(a.ref(), std::forward<B>(b)); }
-template<typename A, IsIdMasq B>
+template<typename A, IsWrappedId B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(std::forward<A>(a), b.ref()); }
-template<IsIdMasq A, IsIdMasq B>
+template<IsWrappedId A, IsWrappedId B>
 auto make_pair(A &&a, B &&b) { return std::make_pair(a.ref(), b.ref()); }
 
-template<typename Owner, auto Field>
-struct IdFieldMasq : IdMasqBase<IdFieldMasq<Owner, Field>> {
-	IdFieldMasq() = default;
-	IdFieldMasq(const IdFieldMasq &) = delete;
-	IdFieldMasq(IdFieldMasq &&) = delete;
-	IdString ref() const { return owner()->*Field; }
+template<typename Owner, typename Slot>
+struct OwnedId : WrappedIdBase<OwnedId<Owner, Slot>> {
+	OwnedId() = default;
+	OwnedId(const OwnedId &) = delete;
+	OwnedId(OwnedId &&) = delete;
+	IdString ref() const { return id_; }
 	const TwinePool *pool() const;
-	IdFieldMasq &operator=(IdString id) { owner()->*Field = id; return *this; }
-	IdFieldMasq &operator=(const IdFieldMasq &other) { return *this = other.ref(); }
-	IdFieldMasq &operator=(IdFieldMasq &&other) { return *this = other.ref(); }
+	OwnedId &operator=(IdString id) { id_ = id; return *this; }
+	OwnedId &operator=(const OwnedId &other) { return *this = other.ref(); }
+	OwnedId &operator=(OwnedId &&other) { return *this = other.ref(); }
+	friend void swap(OwnedId &a, OwnedId &b) { std::swap(a.id_, b.id_); }
 private:
 	const Owner *owner() const;
-	Owner *owner() { return const_cast<Owner *>(static_cast<const IdFieldMasq *>(this)->owner()); }
+	IdString id_;
 };
 
-struct PooledName : IdMasqBase<PooledName> {
+struct PooledName : WrappedIdBase<PooledName> {
 	PooledName() = default;
 	explicit PooledName(IdString id) : id_(id) {}
 	PooledName(const TwinePool *pool, IdString id) : pool_(pool), id_(id) {}
 	PooledName(const Design *design, IdString id);
 	PooledName(const Module *module, IdString id);
-	template<typename D> PooledName(const IdMasqBase<D> &masq)
+	template<typename D> PooledName(const WrappedIdBase<D> &masq)
 		: pool_(static_cast<const D &>(masq).pool()),
 		  id_(static_cast<const D &>(masq).ref()) {}
 	IdString ref() const { return id_; }
@@ -137,8 +141,8 @@ namespace hashlib {
 		}
 	};
 
-	template<typename Owner, auto Field>
-	struct hash_ops<RTLIL::IdFieldMasq<Owner, Field>> : masq_hash_ops<RTLIL::IdFieldMasq<Owner, Field>> {};
+	template<typename Owner, typename Slot>
+	struct hash_ops<RTLIL::OwnedId<Owner, Slot>> : masq_hash_ops<RTLIL::OwnedId<Owner, Slot>> {};
 	template<> struct hash_ops<RTLIL::PooledName> : masq_hash_ops<RTLIL::PooledName> {};
 }
 

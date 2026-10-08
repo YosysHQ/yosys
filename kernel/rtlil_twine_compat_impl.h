@@ -8,23 +8,23 @@
 
 namespace RTLIL {
 
-template<typename Owner, auto Field>
-inline const Owner *IdFieldMasq<Owner, Field>::owner() const {
+struct NameSlot {};
+struct CellTypeSlot {};
+
+template<typename Owner, typename Slot>
+inline const Owner *OwnedId<Owner, Slot>::owner() const {
 	size_t offset;
-	if constexpr (std::is_same_v<decltype(Field), IdString NamedObject::*>) {
-		static_assert(Field == &NamedObject::name_);
+	if constexpr (std::is_same_v<Slot, NameSlot>) {
 		offset = offsetof(Owner, name);
 	} else {
-		static_assert(std::is_same_v<Owner, Cell> && std::is_same_v<decltype(Field), IdString Cell::*>);
-		if constexpr (std::is_same_v<decltype(Field), IdString Cell::*>)
-			static_assert(Field == &Cell::type_impl);
+		static_assert(std::is_same_v<Owner, Cell> && std::is_same_v<Slot, CellTypeSlot>);
 		offset = offsetof(Cell, type);
 	}
 	return reinterpret_cast<const Owner *>(reinterpret_cast<const char *>(this) - offset);
 }
 
-template<typename Owner, auto Field>
-inline const TwinePool *IdFieldMasq<Owner, Field>::pool() const {
+template<typename Owner, typename Slot>
+inline const TwinePool *OwnedId<Owner, Slot>::pool() const {
 	const Owner *o = owner();
 	if constexpr (std::is_same_v<Owner, Module>) {
 		return o->design ? &o->design->twines : nullptr;
@@ -48,7 +48,7 @@ inline PooledName::PooledName(const Module *module, IdString id)
 #endif
 
 template<typename Derived>
-inline void log_dump_val_worker(const RTLIL::IdMasqBase<Derived> &name) {
+inline void log_dump_val_worker(const RTLIL::WrappedIdBase<Derived> &name) {
 	log("%s", static_cast<const Derived &>(name).unescape());
 }
 
