@@ -327,6 +327,27 @@ TEST_F(NetViewTest, oneBitBusesKeepTheirIndex)
 	EXPECT_TRUE(view.wireName(view.instance(u_inv0)->pins[1]->net).scalar);
 }
 
+TEST_F(NetViewTest, zeroWidthPortsHaveNoShape)
+{
+	Wire *z = top->addWire(ID(z), 0);
+	z->port_input = true;
+	top->fixup_ports();
+	Module *zb = d->addModule(ID(ZB));
+	zb->addWire(ID(A), 0)->port_input = true;
+	zb->addWire(ID(Y))->port_output = true;
+	zb->fixup_ports();
+	zb->set_bool_attribute(ID::blackbox);
+	Cell *u_z = top->addCell(ID(u_z), ID(ZB));
+	u_z->setPort(ID(Y), p);
+	NetView view;
+	view.build(d);
+	for (const Netlist::PortShape &shape : *view.top()->ports)
+		EXPECT_NE(shape.width, 0) << shape.name;
+	EXPECT_EQ(view.top()->ports->size(), 4u); // in, out, q, s
+	ASSERT_EQ(view.instance(u_z)->ports->size(), 1u);
+	EXPECT_EQ((*view.instance(u_z)->ports)[0].name, "Y");
+}
+
 TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 {
 	top->addCell(ID(u_unknown), ID(UNKNOWN));

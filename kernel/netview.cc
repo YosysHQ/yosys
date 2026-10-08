@@ -76,8 +76,11 @@ Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
 
 void detail::moduleShapes(RTLIL::Module *module, std::vector<Netlist::PortShape> &out)
 {
-	for (RTLIL::IdString port_name : module->ports)
-		out.push_back(detail::wireShape(module->wire(port_name)));
+	for (RTLIL::IdString port_name : module->ports) {
+		RTLIL::Wire *wire = module->wire(port_name);
+		if (wire->width > 0)
+			out.push_back(detail::wireShape(wire));
+	}
 }
 
 bool detail::libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out)
@@ -100,6 +103,9 @@ bool detail::libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShap
 	}
 
 	for (const auto &[port, width] : ports) {
+		// Width-0 ports have no pins
+		if (width == 0)
+			continue;
 		Netlist::PortShape shape;
 		shape.name = detail::plainName(port);
 		shape.width = width;
