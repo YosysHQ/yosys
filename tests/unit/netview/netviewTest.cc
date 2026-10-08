@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "kernel/netview.h"
+#include "kernel/newcelltypes.h"
+#include "kernel/register.h"
 #include "kernel/rtlil.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -71,6 +73,17 @@ protected:
 
 	void TearDown() override { delete d; }
 };
+
+static void ensurePasses()
+{
+	static bool registered = false;
+	if (!registered) {
+		// as yosys_setup
+		Pass::init_register();
+		yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
+		registered = true;
+	}
+}
 
 TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 {
@@ -273,6 +286,82 @@ TEST_F(NetViewTest, buildableReasons)
 	Design empty;
 	EXPECT_FALSE(NetView::buildable(&empty, reason));
 	EXPECT_NE(reason.find("no top"), std::string::npos);
+}
+
+static Module *addWrapper(Design *design, IdString name, IdString child, IdString type, bool mid_inv)
+{
+	Module *module = design->addModule(name);
+	Wire *a = module->addWire(ID(a));
+	a->port_input = true;
+	Wire *y = module->addWire(ID(y));
+	y->port_output = true;
+	module->fixup_ports();
+	Wire *in = a;
+	if (mid_inv) {
+		in = module->addWire(ID(mid));
+		Cell *i0 = module->addCell(ID(i0), ID(INV));
+		i0->setPort(ID(A), a);
+		i0->setPort(ID(Y), in);
+	}
+	Cell *cell = module->addCell(child, type);
+	cell->setPort(type == ID(INV) ? ID(A) : ID(a), in);
+	cell->setPort(type == ID(INV) ? ID(Y) : ID(y), y);
+	return module;
+}
+
+// top: a -> u1 (sub: a -> i0 -> mid -> u2 (inner: j)) -> y
+static Design *flatDesign()
+{
+	ensurePasses();
+	Design *design = new Design;
+	addInv(design, ID(INV));
+	addWrapper(design, ID(inner), ID(j), ID(INV), false);
+	addWrapper(design, ID(sub), ID(u2), ID(inner), true);
+	addWrapper(design, ID(top), ID(u1), ID(sub), false)->set_bool_attribute(ID::top);
+	Pass::call(design, "flatten");
+	return design;
+}
+
+TEST(NetViewFlatTest, scopeinfoIsTransparent)
+{
+	Design *design = flatDesign();
+	Module *top = design->module(ID(top));
+	ASSERT_NE(top->cell(ID(u1)), nullptr);
+	EXPECT_EQ(top->cell(ID(u1))->type, ID($scopeinfo));
+	NetView view;
+	view.build(design);
+	EXPECT_EQ(view.instance(top->cell(ID(u1))), nullptr);
+	EXPECT_EQ(view.top()->children.size(), 2u); // u1.i0, u1.u2.j
+	delete design;
+}
+
+TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
+{
+	Design *design = flatDesign();
+	Module *top = design->module(ID(top));
+	NetView view;
+	view.build(design);
+	Netlist::Instance *i0 = view.instance(top->cell(ID(u1.i0)));
+	Netlist::Instance *j = view.instance(top->cell(ID(u1.u2.j)));
+	ASSERT_NE(i0, nullptr);
+	ASSERT_NE(j, nullptr);
+	EXPECT_EQ(i0->name, "u1.i0");
+	EXPECT_EQ(i0->hdlpath, (std::vector<std::string>{"u1", "i0"}));
+	EXPECT_EQ(j->hdlpath, (std::vector<std::string>{"u1", "u2", "j"}));
+	Netlist::Net *mid = i0->pins[1]->net;
+	bool found = false;
+	for (const Netlist::Alias &alias : view.aliases(view.top())) {
+		if (alias.name.wire == "u1.mid")
+			found = alias.net == mid && alias.name.hdlpath == std::vector<std::string>{"u1", "mid"};
+	}
+	EXPECT_TRUE(found);
+
+	Netlist::Net *y = j->pins[1]->net;
+	EXPECT_EQ(view.wireName(y), (Netlist::NetName{"y", 0, true}));
+	Netlist::Net *a = i0->pins[0]->net;
+	EXPECT_EQ(view.wireName(a), (Netlist::NetName{"a", 0, true}));
+	EXPECT_EQ(view.wireName(mid), (Netlist::NetName{"u1.mid", 0, true, {"u1", "mid"}})); // also u1.u2.a
+	delete design;
 }
 
 TEST(NetViewNameTest, publicNamesAreUnescaped)
