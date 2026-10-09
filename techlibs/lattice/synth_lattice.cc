@@ -34,6 +34,83 @@ struct SynthLatticePass : public ScriptPass
 	void on_register() override
 	{
 		RTLIL::constpad["synth_lattice.abc9.W"] = "300";
+		target_register.emplace("ecp5", Target{
+			"Lattice ECP5",
+			{
+				{"", { // default
+					"",
+					{"+/ecp5/cells_sim.v", "+/ecp5/cells_bb.v"}
+				}}
+			}
+		});
+
+		target_register.emplace("lattice", Target{
+			"Lattice",
+			{
+				{"ecp5", {
+					"ECP5",
+					{
+						"+/lattice/cells_sim_ecp5.v",
+						"+/lattice/cells_bb_ecp5.v"
+					}
+				}},
+				{"xo2", {
+					"MachXO2",
+					{
+						"+/lattice/cells_sim_xo2.v",
+						"+/lattice/cells_bb_xo2.v"
+					}
+				}},
+				{"xo3", {
+					"MachXO3L/LF",
+					{
+						"+/lattice/cells_sim_xo3.v",
+						"+/lattice/cells_bb_xo3.v"
+					}
+				}},
+				{"xo3d", {
+					"MachXO3D",
+					{
+						"+/lattice/cells_sim_xo3d.v",
+						"+/lattice/cells_bb_xo3d.v"
+					}
+				}},
+				{"lifcl", {
+					"CrossLink-NX",
+					{
+						"+/lattice/cells_sim_nexus.v",
+						"+/lattice/cells_bb_nexus.v"
+					}
+				}},
+				{"lfd2nx", {
+					"Certus-NX",
+					{
+						"+/lattice/cells_sim_nexus.v",
+						"+/lattice/cells_bb_nexus.v"
+					}
+				}}
+			}
+		});
+
+		target_register.emplace("nexus", Target{
+			"Lattice Nexus",
+			{
+				{"lifcl", {
+					"CrossLink-NX",
+					{
+						"+/lattice/cells_sim_nexus.v",
+						"+/lattice/cells_bb_nexus.v"
+					}
+				}},
+				{"lfd2nx", {
+					"Certus-NX",
+					{
+						"+/lattice/cells_sim_nexus.v",
+						"+/lattice/cells_bb_nexus.v"
+					}
+				}}
+			}
+		});
 	}
 
 	struct DSPRule {

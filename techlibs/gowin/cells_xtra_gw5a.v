@@ -1030,12 +1030,12 @@ output  Q0, Q1;
 endmodule
 
 
-module IDES4_MEM(PCLK, D, ICLK, FCLK, RESET, CALIB, WADDR, RADDR, Q0, Q1, Q2, Q3);
-input PCLK, D, ICLK, FCLK, RESET, CALIB;
-input [2:0] WADDR;
-input [2:0] RADDR;
-output Q0,Q1,Q2,Q3;
-endmodule
+//module IDES4_MEM(PCLK, D, ICLK, FCLK, RESET, CALIB, WADDR, RADDR, Q0, Q1, Q2, Q3);
+//input PCLK, D, ICLK, FCLK, RESET, CALIB;
+//input [2:0] WADDR;
+//input [2:0] RADDR;
+//output Q0,Q1,Q2,Q3;
+//endmodule
 
 
 module IDES8_MEM(PCLK, D, ICLK, FCLK, RESET, CALIB, WADDR, RADDR, Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7);
@@ -1059,15 +1059,15 @@ output Q0, Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16
 endmodule
 
 
-module OSER4_MEM(D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET, Q0, Q1);
-parameter HWL = "false";
-parameter TCLK_SOURCE = "DQSW";
-parameter TXCLK_POL = 1'b0;
-input D0, D1, D2, D3;
-input TX0, TX1;
-input PCLK, FCLK, TCLK, RESET;
-output  Q0,  Q1;
-endmodule
+//module OSER4_MEM(D0, D1, D2, D3, TX0, TX1, PCLK, FCLK, TCLK, RESET, Q0, Q1);
+//parameter HWL = "false";
+//parameter TCLK_SOURCE = "DQSW";
+//parameter TXCLK_POL = 1'b0;
+//input D0, D1, D2, D3;
+//input TX0, TX1;
+//input PCLK, FCLK, TCLK, RESET;
+//output  Q0,  Q1;
+//endmodule
 
 
 module OSER8_MEM(D0, D1, D2, D3, D4, D5, D6, D7, TX0, TX1, TX2, TX3, PCLK, FCLK, TCLK, RESET, Q0, Q1);
@@ -2509,22 +2509,22 @@ endmodule
 module GTR12_QUADB();
 endmodule
 
-module DQS(DQSIN, PCLK, FCLK, RESET, READ, RCLKSEL, DLLSTEP, WSTEP, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD, DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID
-, RBURST, RFLAG, WFLAG);
-input DQSIN,PCLK,FCLK,RESET;
-input [3:0] READ;
-input [2:0] RCLKSEL;
-input [7:0] DLLSTEP;
-input [7:0] WSTEP;
-input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
-output DQSR90, DQSW0, DQSW270;
-output [2:0] RPOINT, WPOINT;
-output RVALID,RBURST, RFLAG, WFLAG;
-parameter FIFO_MODE_SEL = 1'b0;
-parameter RD_PNTR = 3'b000;
-parameter DQS_MODE = "X1";
-parameter HWL = "false";
-endmodule
+//module DQS(DQSIN, PCLK, FCLK, RESET, READ, RCLKSEL, DLLSTEP, WSTEP, RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD, DQSR90, DQSW0, DQSW270, RPOINT, WPOINT, RVALID
+//, RBURST, RFLAG, WFLAG);
+//input DQSIN,PCLK,FCLK,RESET;
+//input [3:0] READ;
+//input [2:0] RCLKSEL;
+//input [7:0] DLLSTEP;
+//input [7:0] WSTEP;
+//input RLOADN, RMOVE, RDIR, WLOADN, WMOVE, WDIR, HOLD;
+//output DQSR90, DQSW0, DQSW270;
+//output [2:0] RPOINT, WPOINT;
+//output RVALID,RBURST, RFLAG, WFLAG;
+//parameter FIFO_MODE_SEL = 1'b0;
+//parameter RD_PNTR = 3'b000;
+//parameter DQS_MODE = "X1";
+//parameter HWL = "false";
+//endmodule
 
 // Added form adc.v
 

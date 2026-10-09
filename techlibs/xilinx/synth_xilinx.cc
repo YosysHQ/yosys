@@ -34,6 +34,15 @@ struct SynthXilinxPass : public ScriptPass
 	{
 		RTLIL::constpad["synth_xilinx.abc9.xc7.W"] = "300"; // Number with which ABC will map a 6-input gate
 								    // to one LUT6 (instead of a LUT5 + LUT2)
+		target_register.emplace("xilinx", Target{
+			"Xilinx",
+			{
+				{"", { // default
+					"",
+					{"+/xilinx/cells_sim.v", "+/xilinx/cells_xtra.v"}
+				}}
+			}
+		});
 	}
 
 	void help() override

@@ -28,6 +28,19 @@ PRIVATE_NAMESPACE_BEGIN
 struct SynthAchronixPass : public ScriptPass {
   SynthAchronixPass() : ScriptPass("synth_achronix", "synthesis for Achronix Speedster22i FPGAs.") { }
 
+	void on_register() override
+	{
+		target_register.emplace("achronix", Target{
+			"Achronix Speedster22i",
+			{
+				{"", { // default
+					"",
+					{"+/achronix/speedster22i/cells_sim.v"}
+				}}
+			}
+		});
+	}
+
   void help() override
   {
     //   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
