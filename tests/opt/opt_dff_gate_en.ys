@@ -1,0 +1,72 @@
+# AND/OR feedback gates merged into EN
+
+read_verilog -icells <<EOT
+module top(input clk, srst, ce, x, input [1:0] y, output [9:0] q);
+	wire [9:0] d;
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g0 (.A(q[0]), .B(x), .Y(d[0]));
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g1 (.A(x), .B(q[1]), .Y(d[1]));
+	$or #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g2 (.A(q[2]), .B(x), .Y(d[2]));
+	$or #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g3 (.A(x), .B(q[3]), .Y(d[3]));
+	$_AND_ g4 (.A(q[4]), .B(x), .Y(d[4]));
+	$_OR_ g5 (.A(x), .B(q[5]), .Y(d[5]));
+	// multi-bit gate, one bit per FF
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(2), .B_WIDTH(2), .Y_WIDTH(2)) g6 (.A(q[7:6]), .B(y), .Y(d[7:6]));
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g8 (.A(q[8]), .B(x), .Y(d[8]));
+	$or #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g9 (.A(q[9]), .B(x), .Y(d[9]));
+	$dff #(.CLK_POLARITY(1'b1), .WIDTH(8)) ff0 (.CLK(clk), .D(d[7:0]), .Q(q[7:0]));
+	$sdffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b0), .SRST_POLARITY(1'b1), .SRST_VALUE(1'b1), .WIDTH(1)) ff1 (.CLK(clk), .SRST(srst), .EN(ce), .D(d[8]), .Q(q[8]));
+	$dffe #(.CLK_POLARITY(1'b1), .EN_POLARITY(1'b1), .WIDTH(1)) ff2 (.CLK(clk), .EN(ce), .D(d[9]), .Q(q[9]));
+endmodule
+EOT
+setattr -set init 10'b1010101010 w:q
+
+equiv_opt -assert -multiclock opt_dff
+design -load postopt
+opt_clean
+select -assert-none t:$and t:$or t:$_AND_ t:$_OR_
+
+# not merged
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, x, output q, output o);
+	wire d;
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(1), .B_WIDTH(1), .Y_WIDTH(1)) g0 (.A(q), .B(x), .Y(d));
+	assign o = d;
+	$dff #(.CLK_POLARITY(1'b1), .WIDTH(1)) ff0 (.CLK(clk), .D(d), .Q(q));
+endmodule
+EOT
+
+opt_dff
+select -assert-count 1 t:$dff
+
+# mixed widths
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, x, output [1:0] q);
+	wire [1:0] d;
+	$and #(.A_SIGNED(0), .B_SIGNED(0), .A_WIDTH(2), .B_WIDTH(1), .Y_WIDTH(2)) g0 (.A(q), .B(x), .Y(d));
+	$dff #(.CLK_POLARITY(1'b1), .WIDTH(2)) ff0 (.CLK(clk), .D(d), .Q(q));
+endmodule
+EOT
+setattr -set init 2'b11 w:q
+
+equiv_opt -assert opt_dff
+design -load postopt
+select -assert-count 1 t:$dff
+select -assert-count 1 t:$dffe
+
+# uninitialized FF with D = Q & ~en folds to constant
+
+design -reset
+read_verilog <<EOT
+module top(input clk, input en, output reg q);
+	always @(posedge clk)
+		q <= q & ~en;
+endmodule
+EOT
+proc
+opt_dff
+opt_clean
+select -assert-none t:*

@@ -12,9 +12,9 @@ module test_case (
 	initial q1 = 1'b1;
 	initial q2 = 1'b0;
 	always @(posedge clk) begin
-		q0 <= q0 & en;
-		q1 <= q1 | en;
-		q2 <= q2 | en;
+		q0 <= ~(~q0 | ~en);
+		q1 <= ~(~q1 & ~en);
+		q2 <= ~(~q2 & ~en);
 	end
 endmodule
 EOT
@@ -52,7 +52,7 @@ module test_case (
 );
 	initial q = 4'b0000;
 	always @(posedge clk)
-		q <= {q[3] & a[0], a[1], q[1] & a[2], a[3]};
+		q <= {~(~q[3] | ~a[0]), a[1], ~(~q[1] | ~a[2]), a[3]};
 endmodule
 EOT
 
@@ -98,7 +98,7 @@ module test_case (
 			q0 <= 1'b0;
 			q1 <= 1'b0;
 		end else begin
-			q0 <= q0 & en;
+			q0 <= ~(~q0 | ~en);
 			q1 <= (a > 4'd10) & (a < 4'd3);
 		end
 	end
@@ -142,10 +142,10 @@ module test_case (
 	initial q1 = 1'b0;
 	always @(posedge clk or posedge load)
 		if (load) q0 <= (a > 4'd10) & (a < 4'd3);
-		else q0 <= q0 & en;
+		else q0 <= ~(~q0 | ~en);
 	always @(posedge clk or posedge load)
 		if (load) q1 <= a[0];
-		else q1 <= q1 & en;
+		else q1 <= ~(~q1 | ~en);
 endmodule
 EOT
 
@@ -186,10 +186,10 @@ module test_case (
 	initial q1 = 1'b0;
 	always @(posedge clk or posedge rst)
 		if (rst) q0 <= 1'b0;
-		else q0 <= q0 & en;
+		else q0 <= ~(~q0 | ~en);
 	always @(posedge clk or posedge rst)
 		if (rst) q1 <= 1'b0;
-		else q1 <= q1 | en;
+		else q1 <= ~(~q1 & ~en);
 endmodule
 EOT
 
@@ -226,14 +226,30 @@ module \test_case
   wire input 4 \en
   wire width 2 output 5 \q
   wire width 2 \d
-  cell $and \mask
+  wire width 2 \nq
+  wire width 2 \nd
+  cell $not \inv_q
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A \q
+    connect \Y \nq
+  end
+  cell $or \mask
     parameter \A_SIGNED 0
     parameter \A_WIDTH 2
     parameter \B_SIGNED 0
     parameter \B_WIDTH 2
     parameter \Y_WIDTH 2
-    connect \A \q
+    connect \A \nq
     connect \B { \en \en }
+    connect \Y \nd
+  end
+  cell $not \inv_d
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 2
+    parameter \Y_WIDTH 2
+    connect \A \nd
     connect \Y \d
   end
   cell $dffsr \ff
@@ -287,8 +303,8 @@ module test_case (
 	initial q1 = 1'b0;
 	always @(posedge clk)
 		if (ce) begin
-			q0 <= q0 & en;
-			q1 <= q1 | en;
+			q0 <= ~(~q0 | ~en);
+			q1 <= ~(~q1 & ~en);
 		end
 endmodule
 EOT
