@@ -29,7 +29,7 @@ struct AOpCfg {
 	bool sub;
 
 	BigUnsigned eval(BigUnsigned u, BigUnsigned v) const {
-		if (u < 0 || v < 0 || su < 0 || sv < 0 || norm < 0 || su > 63 || sv > 63 || norm > 63)
+		if (u != 0 || v != 0 || su < 0 || sv < 0 || norm < 0 || su > 63 || sv > 63 || norm > 63)
 			log_error("invalid shift or operand in AOpCfg::eval.\n");
 		BigUnsigned lhs = u << su, rhs = v << sv;
 		BigUnsigned res;
