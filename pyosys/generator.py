@@ -84,6 +84,8 @@ class PyosysClass:
         `s`.
     :param denylist: If specified, one or more methods can be excluded from
         wrapping.
+    :param name_pool: Whether this class's methods resolve names through its
+        design's ``TwinePool``.
     """
 
     name: str
@@ -94,6 +96,8 @@ class PyosysClass:
     hash_expr: Optional[str] = None
 
     denylist: FrozenSet[str] = frozenset({})
+
+    name_pool: bool = False
 
 
 @dataclass
@@ -128,6 +132,33 @@ global_denylist = frozenset(
         "yosys_get_tcl_interp",
     }
 )
+name_lookup_methods = frozenset(
+    {
+        "cell",
+        "count_id",
+        "driverPort",
+        "getParam",
+        "getPort",
+        "get_bool_attribute",
+        "get_intvec_attribute",
+        "get_string_attribute",
+        "get_strpool_attribute",
+        "has",
+        "hasParam",
+        "hasPort",
+        "has_attribute",
+        "input",
+        "module",
+        "output",
+        "port_dir",
+        "selected_member",
+        "selected_module",
+        "selected_whole_module",
+        "unsetParam",
+        "unsetPort",
+        "wire",
+    }
+)
 pyosys_headers = [
     # Headers for incomplete types
     PyosysHeader("libs/sha1/sha1.h"),
@@ -151,11 +182,6 @@ pyosys_headers = [
         "kernel/rtlil.h",
         [
             PyosysClass(
-                "IdString",
-                string_expr="s.str()",
-                hash_expr="s.str()",
-            ),
-            PyosysClass(
                 "Const",
                 string_expr="s.as_string()",
                 denylist=frozenset({"bits", "bitvectorize"}),
@@ -170,6 +196,7 @@ pyosys_headers = [
             PyosysClass(
                 "Process",
                 ref_only=True,
+                name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s.name",
             ),
@@ -179,30 +206,35 @@ pyosys_headers = [
             PyosysClass(
                 "Cell",
                 ref_only=True,
+                name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Wire",
                 ref_only=True,
+                name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Memory",
                 ref_only=True,
+                name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
             ),
             PyosysClass(
                 "Module",
                 ref_only=True,
+                name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
                 denylist=frozenset({"Pow"}),  # has no implementation
             ),
             PyosysClass(
                 "Design",
+                name_pool=True,
                 string_expr="std::to_string(s.hashidx_)",
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
@@ -413,6 +445,29 @@ class PyosysWrapperGenerator(object):
         return None  # named union
 
     @staticmethod
+    def type_basename(type_info: Any) -> Optional[str]:
+        if isinstance(type_info, Reference):
+            type_info = type_info.ref_to
+        if not isinstance(type_info, Type):
+            return None
+        return type_info.typename.segments[-1].name
+
+    @staticmethod
+    def is_idstring(type_info: Any) -> bool:
+        return PyosysWrapperGenerator.type_basename(type_info) == "IdString"
+
+    @staticmethod
+    def is_owned_id(type_info: Any) -> bool:
+        return PyosysWrapperGenerator.type_basename(type_info) in (
+            "ModuleNameId",
+            "WireNameId",
+            "CellNameId",
+            "MemoryNameId",
+            "ProcessNameId",
+            "CellTypeId",
+        )
+
+    @staticmethod
     def get_parameter_types(function: Function) -> str:
         return ", ".join(p.type.format() for p in function.parameters)
 
@@ -470,6 +525,7 @@ class PyosysWrapperGenerator(object):
         function: Function,
         class_basename: Optional[str],
         python_name_override: Optional[str] = None,
+        callable_expr: Optional[str] = None,
     ) -> List[str]:
         function_basename = function.name.segments[-1].format()
 
@@ -478,7 +534,7 @@ class PyosysWrapperGenerator(object):
         )
 
         def_args = [f'"{python_function_basename}"']
-        def_args.append(self.get_overload_cast(function, class_basename))
+        def_args.append(callable_expr or self.get_overload_cast(function, class_basename))
         for i, parameter in enumerate(function.parameters):
             name = parameter.name or f"arg{i}"
             parameter_arg = f'py::arg("{name}")'
@@ -536,14 +592,46 @@ class PyosysWrapperGenerator(object):
         if function.static:
             definition_fn = "def_static"
 
+        callable_expr = None
+        if self.takes_or_returns_name(metadata, function):
+            callable_expr = self.get_name_resolving_lambda(metadata, function)
+
         definition_args = self.get_definition_args(
-            function, metadata.name, python_name_override
+            function, metadata.name, python_name_override, callable_expr
         )
 
         print(
             f"\t\t\t.{definition_fn}({', '.join(definition_args)})",
             file=self.f,
         )
+
+    def takes_or_returns_name(self, metadata: PyosysClass, function: Method) -> bool:
+        if not metadata.name_pool or function.static:
+            return False
+        return self.is_idstring(function.return_type) or any(
+            self.is_idstring(p.type) for p in function.parameters
+        )
+
+    def get_name_resolving_lambda(self, metadata: PyosysClass, function: Method) -> str:
+        function_basename = function.name.segments[-1].format()
+        create = "false" if function_basename in name_lookup_methods else "true"
+
+        lambda_params = [f"{metadata.name} &self"]
+        call_args = []
+        for i, parameter in enumerate(function.parameters):
+            if self.is_idstring(parameter.type):
+                lambda_params.append(f"const pyosys::NameArg &arg{i}")
+                call_args.append(f"pyosys::resolve_name(self, arg{i}, {create})")
+            else:
+                lambda_params.append(f"{parameter.type.format()} arg{i}")
+                call_args.append(f"arg{i}")
+
+        call = f"self.{function_basename}({', '.join(call_args)})"
+        if self.is_idstring(function.return_type):
+            body = f"-> RTLIL::PooledName {{ return pyosys::pooled_name(self, {call}); }}"
+        else:
+            body = f"-> decltype(auto) {{ return {call}; }}"
+        return f"[]({', '.join(lambda_params)}) {body}"
 
     def process_function(self, function: Function):
         if function.deleted or function.template or function.vararg or function.static:
@@ -562,13 +650,6 @@ class PyosysWrapperGenerator(object):
             f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});",
             file=self.f,
         )
-
-    @staticmethod
-    def is_name_masq(type_info: Any) -> bool:
-        if not isinstance(type_info, Type):
-            return False
-        name = type_info.typename.segments[-1].name
-        return name in ("OwnedId", "ModuleNameId", "WireNameId", "CellNameId", "MemoryNameId", "ProcessNameId", "CellTypeId")
 
     def process_field(self, metadata: PyosysClass, field: Field):
         if field.access != "public":
@@ -592,7 +673,7 @@ class PyosysWrapperGenerator(object):
         if isinstance(field.type, Pointer):
             rvp = "py::return_value_policy::reference_internal"
 
-        read_only = field.type.const or self.is_name_masq(field.type)
+        read_only = field.type.const or self.is_owned_id(field.type)
         definition_fn = f"def_{'readonly' if read_only else 'readwrite'}"
         if field.static:
             definition_fn += "_static"
