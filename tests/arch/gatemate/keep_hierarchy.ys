@@ -1,0 +1,41 @@
+# Test that `keep_hierarchy` works in submodules.
+
+read_verilog <<EOF
+(* keep_hierarchy *)
+module kept_submodule(input a, output b);
+	assign b = a;
+endmodule
+
+module normal_submodule(input a, output b);
+	assign b = a;
+endmodule
+
+
+module my_top(input a, input b, output c, output d);
+	wire w,x;
+	kept_submodule kept_submodule(.a(a), .b(w));
+	assign c = w;
+	normal_submodule normal_submodule(.a(b), .b(x));
+	assign d = x;
+endmodule
+EOF
+
+synth_gatemate -top my_top
+
+log Assert that the keep_hierarchy survives the flow
+select -assert-mod-count 1 A:keep_hierarchy
+
+log Assert that my_top instantiates submodule
+select -assert-count 1 t:kept_submodule
+
+log Assert that kept_submodule has not IOBUFs
+cd kept_submodule
+select -assert-none t:CC_IBUF t:CC_OBUF t:CC_TOBUF t:CC_IOBUF
+cd my_top
+
+log Assert that my_top has its IOBUFs
+select -assert-count 2 t:CC_IBUF
+select -assert-count 2 t:CC_OBUF
+
+log Assert that normal submodules are flattened by default
+select -assert-none 1 t:normal_submodule
