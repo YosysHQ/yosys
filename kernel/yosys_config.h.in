@@ -3,7 +3,7 @@
 
 // Installation parameters
 #define YOSYS_PROGRAM_PREFIX "@YOSYS_PROGRAM_PREFIX@"
-#define YOSYS_DATDIR "@YOSYS_INSTALL_DATADIR@"
+#define YOSYS_DATDIR "@YOSYS_INSTALL_FULL_DATADIR@"
 
 // Feature toggles
 #cmakedefine YOSYS_ENABLE_GLOB
