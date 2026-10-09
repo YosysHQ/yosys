@@ -17,6 +17,8 @@ assert c.getPort("\\custom") == ys.SigSpec(w)
 
 c.type = "\\other_child"
 assert c.type == "\\other_child"
+c.name = d.id_add("\\u_renamed")
+assert c.name == "\\u_renamed"
 
 w.attributes["\\note"] = ys.Const("hello")
 assert w.get_string_attribute("\\note") == "hello"
