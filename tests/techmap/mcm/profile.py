@@ -169,11 +169,27 @@ def generate_coeffs(rng: random.Random, number_tests: int, length_range: tuple[i
 	coeffs = [sample_coeff(rng, length_range, value_range) for idx in range(number_tests)]
 	return coeffs
 
-def sample_coeff(rng: random.Random, length_range: tuple[int, int], value_range: tuple[int, int]) -> list[Coeff]:
-	length = rng.randint(length_range[0], length_range[1])
-	coeff_vals = [rng.randint(value_range[0], value_range[1]) for idx in range(length)]
-	coeffs = [Coeff(val, bit_width(val)) for val in coeff_vals]
-	return coeffs
+def sample_coeff(
+    rng: random.Random,
+    length_range: tuple[int, int],
+    value_range: tuple[int, int],
+    a: float = 1.5,
+    scale: float = 1024,
+) -> list[Coeff]:
+    if a <= 1 or scale <= 0:
+        raise ValueError("Require a > 1 and scale > 0")
+
+    length = rng.randint(*length_range)
+    low, high = value_range
+    coeffs = []
+
+    while len(coeffs) < length:
+        magnitude = int(scale * (rng.paretovariate(a - 1) - 1))
+        val = rng.choice((-1, 1)) * magnitude
+        if low <= val <= high:
+            coeffs.append(Coeff(val, bit_width(val)))
+
+    return coeffs
 
 def main():
 	if not "YOSYS" in os.environ:
@@ -184,13 +200,12 @@ def main():
 	acm_path = root_dir / "synth" / "acm"
 	output_dir = root_dir / "results"
 
-	number_tests = 100
+	number_tests = 20
 	seed = 42
 	rng = random.Random()
 
 	input_bit_width = 32
-	length_range = (1, 20)
-	# value_range = (-2_147_483_648, 2_147_483_647)
+	length_range = (1, 6)
 	value_range = (-2_147_483_648, 2_147_483_647)
 
 	coeffs = generate_coeffs(rng, number_tests, length_range, value_range, seed)
