@@ -38,7 +38,8 @@ UnsignedContainer::UnsignedContainer(const BigUnsigned &integer) : value(uint64_
 BigUnsigned UnsignedContainer::to_big_unsigned() const
 {
 	if (auto small = get_uint64_t())
-		return BigUnsigned(*small);
+		// static cast needed for MacOS
+		return BigUnsigned(static_cast<unsigned long>(*small));
 	return get<BigUnsigned>();
 }
 
