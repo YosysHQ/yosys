@@ -47,6 +47,8 @@ private:
 	std::map<UnsignedContainer, int> distance_cache;
 	std::map<std::pair<UnsignedContainer, UnsignedContainer>, int> estimate_cache;
 	int max_bit_width;
+
+	SearchResult result;
 };
 
 } // namespace Yosys::Mcm::Hcub
