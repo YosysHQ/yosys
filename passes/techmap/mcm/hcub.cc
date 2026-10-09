@@ -149,7 +149,7 @@ SearchResult HcubSearch::search() {
 
 SearchResult HcubSearch::run_search() {
 	SearchResult result;
-	bool distances_initialized = false;
+	bool c1_initialized = false;
 	for (const auto &entry : ready_set)
 		result.add(entry.second);
 	while (!target_set_remaining.empty() || !work_list.empty()) {
@@ -193,16 +193,9 @@ SearchResult HcubSearch::run_search() {
 			}
 			if (successor_set.empty())
 				return result;
-			if (!distances_initialized) {
+			if (!c1_initialized) {
 				c1 = keys(vertex_fundamental_set(1, 1));
-				for (const auto &c : c1) {
-					IntSet constants{1, c};
-					unite(c2, keys(vertex_fundamental_set(constants, constants)));
-				}
-				c2.erase(1);
-				for (const auto &c : c1)
-					c2.erase(c);
-				distances_initialized = true;
+				c1_initialized = true;
 			}
 			AOp candidate;
 			if (!heuristic(candidate))
@@ -220,7 +213,7 @@ void HcubSearch::add_target(const AOp &target) {
 	target_set_remaining.erase(target.res);
 }
 
-HcubSearch::ExactDistance HcubSearch::exact_dist(const UnsignedContainer &target) const {
+HcubSearch::ExactDistance HcubSearch::exact_dist(const UnsignedContainer &target) {
 	if (ready_set.count(target))
 		return {0, {}};
 	if (successor_set.count(target))
@@ -249,6 +242,16 @@ HcubSearch::ExactDistance HcubSearch::exact_dist(const UnsignedContainer &target
 		return result;
 
 	// Distance 3: the five topologies in Figure 9(c).
+	if (!c2_initialized) {
+		for (const auto &c : c1) {
+			IntSet constants{1, c};
+			unite(c2, keys(vertex_fundamental_set(constants, constants)));
+		}
+		c2.erase(1);
+		for (const auto &c : c1)
+			c2.erase(c);
+		c2_initialized = true;
+	}
 	candidates = quotients(IntSet{target}, c2);
 	unite(candidates, inverse_set(divided, ready));
 	unite(candidates, quotients(inverse, c1));
@@ -325,7 +328,10 @@ AOpMap HcubSearch::enumerate_pair(const UnsignedContainer &u, const UnsignedCont
 	if (u == 0u || v == 0u || shift_of(u) != 0 || shift_of(v) != 0)
 		log_error("MCM A-operation inputs must be positive odd constants.\n");
 	auto small_u = u.get_uint64_t(), small_v = v.get_uint64_t();
-	if (small_u && small_v)
+	// Overflow check
+	if (small_u && small_v && max_shift < 64 &&
+			*small_u <= ((UINT64_MAX - *small_v) >> max_shift) &&
+			*small_v <= ((UINT64_MAX - *small_u) >> max_shift))
 		return enumerate_pair<uint64_t>(*small_u, *small_v, min_shift, max_shift);
 	return enumerate_pair<BigUnsigned>(u.to_big_unsigned(), v.to_big_unsigned(), min_shift, max_shift);
 }
