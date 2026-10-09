@@ -141,14 +141,12 @@ SearchResult HcubSearch::search() {
 	try {
 		return run_search();
 	} catch (const BudgetExhausted &) {
-		SearchResult result;
 		result.status = AdderGraphStatus::BudgetExhausted;
 		return result;
 	}
 }
 
 SearchResult HcubSearch::run_search() {
-	SearchResult result;
 	bool c1_initialized = false;
 	for (const auto &entry : ready_set)
 		result.add(entry.second);

@@ -9,6 +9,7 @@
 #include <set>
 #include <variant>
 #include <vector>
+#include <bit>
 
 #include "libs/bigint/BigUnsigned.hh"
 
