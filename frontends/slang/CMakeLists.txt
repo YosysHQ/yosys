@@ -13,6 +13,7 @@ yosys_frontend(slang
     lib/src/yosys_plugin/driver.cc
     lib/src/yosys_plugin/ir.cc
     lib/src/yosys_plugin/ir.h
+    lib/src/yosys_plugin/sva.cc
     lib/src/addressing.cc
     lib/src/async_pattern.cc
     lib/src/async_pattern.h
@@ -27,7 +28,6 @@ yosys_frontend(slang
     lib/src/slang_frontend.cc
     lib/src/slang_frontend.h
     lib/src/statements.h
-    lib/src/sva.cc
     lib/src/variables.cc
     lib/src/variables.h
 	${CMAKE_CURRENT_BINARY_DIR}/version.h
