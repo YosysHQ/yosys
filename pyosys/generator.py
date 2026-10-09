@@ -669,16 +669,24 @@ class PyosysWrapperGenerator(object):
             return
 
         self.register_containers(field)
+        field_python_basename = keyword_aliases.get(field.name, field.name)
+
+        if self.is_owned_id(field.type):
+            getter = f"[]({metadata.name} &self) {{ return pyosys::pooled_name(self, self.{field.name}); }}"
+            setter = f"[]({metadata.name} &self, const pyosys::NameArg &name) {{ self.{field.name} = pyosys::resolve_name(self, name, true); }}"
+            print(
+                f'\t\t\t.def_property("{field_python_basename}", {getter}, {setter})',
+                file=self.f,
+            )
+            return
+
         rvp = "py::return_value_policy::copy"
         if isinstance(field.type, Pointer):
             rvp = "py::return_value_policy::reference_internal"
 
-        read_only = field.type.const or self.is_owned_id(field.type)
-        definition_fn = f"def_{'readonly' if read_only else 'readwrite'}"
+        definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
         if field.static:
             definition_fn += "_static"
-
-        field_python_basename = keyword_aliases.get(field.name, field.name)
 
         def_args = [
             f'"{field_python_basename}"',

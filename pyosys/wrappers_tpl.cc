@@ -616,9 +616,6 @@ namespace pyosys {
 		def_name_dict<RTLIL::Cell>(cell_cls, "attributes", &RTLIL::Cell::attributes, true);
 		def_name_dict<RTLIL::Cell>(cell_cls, "parameters", &RTLIL::Cell::parameters, true);
 		def_name_dict<RTLIL::Cell>(cell_cls, "connections_", &RTLIL::Cell::connections_, false);
-		cell_cls.def_property("type",
-			[](RTLIL::Cell &self) { return pooled_name(self, self.type.ref()); },
-			[](RTLIL::Cell &self, const NameArg &type) { self.type = resolve_name(self, type, true); });
 
 		def_name_dict<RTLIL::Wire>(py::reinterpret_borrow<py::class_<RTLIL::Wire>>(m.attr("Wire")), "attributes", &RTLIL::Wire::attributes, true);
 		def_name_dict<RTLIL::Memory>(py::reinterpret_borrow<py::class_<RTLIL::Memory>>(m.attr("Memory")), "attributes", &RTLIL::Memory::attributes, true);
