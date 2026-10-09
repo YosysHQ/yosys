@@ -18,6 +18,9 @@
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
 
+#include "libs/bigint/BigUnsigned.hh"
+#include "libs/bigint/BigIntegerLibrary.hh"
+
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -30,7 +33,8 @@ namespace Yosys {
 
 struct McmItem {
 	Cell *cell;
-	int coefficient;
+	BigUnsigned magnitude;
+	bool is_signed;
 };
 
 struct McmGroup {
@@ -44,12 +48,39 @@ using McmGroupMap = std::map<std::pair<SigSpec, bool>, McmGroup>;
 struct McmPlan {
 	std::vector<int> active_items;
 	std::vector<AOp> ops;
-	dict<int64_t, int> demand;
-	dict<int64_t, int> raw_width;
+	std::map<BigUnsigned, int> demand;
+	std::map<BigUnsigned, int> raw_width;
 	int realized_depth = 0;
 	long long shared_cost = 0;
 	long long independent_cost = 0;
 };
+
+// grabbed from kernel/calc.cc, can we just export it instead
+static BigInteger const2big(const RTLIL::Const &val, bool as_signed, int &undef_bit_pos)
+{
+	BigUnsigned mag;
+
+	BigInteger::Sign sign = BigInteger::positive;
+	State inv_sign_bit = RTLIL::State::S1;
+	auto num_bits = val.size();
+
+	if (as_signed && num_bits && val[num_bits-1] == RTLIL::State::S1) {
+		inv_sign_bit = RTLIL::State::S0;
+		sign = BigInteger::negative;
+		num_bits--;
+	}
+
+	for (auto i = 0; i < num_bits; i++)
+		if (val[i] == RTLIL::State::S0 || val[i] == RTLIL::State::S1)
+			mag.setBit(i, val[i] == inv_sign_bit);
+		else if (undef_bit_pos < 0)
+			undef_bit_pos = i;
+
+	if (sign == BigInteger::negative)
+		mag += 1;
+
+	return BigInteger(mag, sign);
+}
 
 struct McmWorker {
 	Module *module;
@@ -71,7 +102,7 @@ struct McmWorker {
 		return result;
 	}
 
-	bool decode_multiplier(Cell *cell, SigSpec &input, int &coefficient, bool &is_signed)
+	bool decode_multiplier(Cell *cell, SigSpec &input, BigUnsigned &magnitude, bool &is_signed)
 	{
 		if (cell->type != ID($mul) || cell->has_keep_attr())
 			return false;
@@ -97,18 +128,22 @@ struct McmWorker {
 		if (!constant.is_fully_def())
 			return false;
 
-		auto value = constant.try_as_int(is_signed);
-		if (!value || *value == std::numeric_limits<int>::min()) {
-			log_debug("Skipping constant multiplier %s: coefficient %s is outside the supported range.\n",
-					log_id(cell), log_const(constant));
+		int undef_bit_pos_a = -1;
+		BigInteger coefficient  = const2big(constant, is_signed, undef_bit_pos_a);
+		if (undef_bit_pos_a != -1) {
+			log_debug("Skipping constant multiplier %s: has undefined in pos %d.\n",
+				log_id(cell), undef_bit_pos_a);
 			return false;
 		}
 
-		coefficient = *value;
-		int magnitude = coefficient < 0 ? -coefficient : coefficient;
+		magnitude = coefficient.getMagnitude();
 		if (magnitude == 0 || magnitude == 1)
 			return false;
-		if ((magnitude & (magnitude - 1)) == 0)
+		// checks if power of 2
+		size_t popcnt = 0;
+		for (BigUnsigned::Index i = 0; i < magnitude.getLength(); ++i)
+			popcnt += std::popcount(magnitude.getBlock(i));
+		if (popcnt == 1)
 			return false;
 		return magnitude >= config.min_const;
 	}
@@ -118,9 +153,9 @@ struct McmWorker {
 		McmGroupMap groups;
 		for (auto cell : module->selected_cells()) {
 			SigSpec input;
-			int coefficient;
+			BigUnsigned magnitude;
 			bool is_signed;
-			if (!decode_multiplier(cell, input, coefficient, is_signed))
+			if (!decode_multiplier(cell, input, magnitude, is_signed))
 				continue;
 
 			auto key = std::make_pair(input, is_signed);
@@ -129,24 +164,24 @@ struct McmWorker {
 				group.input = input;
 				group.is_signed = is_signed;
 			}
-			group.items.push_back(McmItem{cell, coefficient});
+			group.items.push_back(McmItem{cell, magnitude, is_signed});
 		}
 		return groups;
 	}
 
 	bool select_active_items(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
 	{
-		dict<int64_t, int> depths;
+		std::map<BigUnsigned, int> depths;
 		depths[1] = 0;
-		std::function<int(int64_t)> depth_of = [&](int64_t value) {
+		std::function<int(BigUnsigned)> depth_of = [&](BigUnsigned value) {
 			if (depths.count(value))
 				return depths.at(value);
 			const auto &op = graph.operations().at(value);
 			return depths[value] = 1 + std::max(depth_of(op.u), depth_of(op.v));
 		};
 		for (int i = 0; i < GetSize(group.items); i++) {
-			int64_t odd = oddify(group.items[i].coefficient);
-			int depth = depth_of(odd) + (group.items[i].coefficient < 0 ? 1 : 0);
+			BigUnsigned odd = oddify(group.items[i].magnitude);
+			int depth = depth_of(odd) + (group.items[i].magnitude < 0 ? 1 : 0);
 			if (config.max_depth.has_value() && depth > config.max_depth) {
 				log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
 					log_id(group.items[i].cell), config.max_depth.value());
@@ -160,8 +195,8 @@ struct McmWorker {
 
 	void prune_graph(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
 	{
-		pool<int64_t> live_values;
-		std::function<void(int64_t)> mark_live = [&](int64_t value) {
+		std::set<BigUnsigned> live_values;
+		std::function<void(BigUnsigned)> mark_live = [&](BigUnsigned value) {
 			if (value == 1 || live_values.count(value))
 				return;
 			live_values.insert(value);
@@ -172,14 +207,14 @@ struct McmWorker {
 			plan.ops.push_back(op);
 		};
 		for (int i : plan.active_items)
-			mark_live(oddify(group.items[i].coefficient));
+			mark_live(oddify(group.items[i].magnitude));
 	}
 
 	void propagate_widths(const McmGroup &group, McmPlan &plan)
 	{
 		for (int i : plan.active_items) {
-			int64_t odd = oddify(group.items[i].coefficient);
-			int shift = shift_of(group.items[i].coefficient);
+			BigUnsigned odd = oddify(group.items[i].magnitude);
+			int shift = shift_of(group.items[i].magnitude);
 			int need = std::max(1, GetSize(group.items[i].cell->getPort(ID::Y)) - shift);
 			plan.demand[odd] = std::max(plan.demand[odd], need);
 		}
@@ -200,10 +235,10 @@ struct McmWorker {
 		for (int i : plan.active_items) {
 			auto &item = group.items[i];
 			int width = GetSize(item.cell->getPort(ID::Y));
-			int multiply_width = std::max(1, width - shift_of(item.coefficient));
+			int multiply_width = std::max(1, width - shift_of(item.magnitude));
 			plan.independent_cost +=
-					(long long)std::max(0, naf_weight(item.coefficient) - 1) * multiply_width;
-			if (item.coefficient < 0) {
+					(long long)std::max(0, naf_weight(item.magnitude) - 1) * multiply_width;
+			if (item.magnitude < 0) {
 				plan.shared_cost += width;
 				plan.independent_cost += width;
 			}
@@ -237,7 +272,7 @@ struct McmWorker {
 
 	void emit_plan(McmGroup &group, const McmPlan &plan)
 	{
-		dict<int64_t, SigSpec> nodes;
+		std::map<BigUnsigned, SigSpec> nodes;
 		log_assert(plan.demand.count(1));
 		SigSpec input = group.input;
 		input.extend_u0(plan.demand.at(1), group.is_signed);
@@ -248,8 +283,7 @@ struct McmWorker {
 			SigSpec a = shl(nodes.at(op.u), op.cfg.su, width, group.is_signed);
 			SigSpec b = shl(nodes.at(op.v), op.cfg.sv, width, group.is_signed);
 
-			using Wide = unsigned __int128;
-			if (op.cfg.sub && (Wide(op.u) << op.cfg.su) < (Wide(op.v) << op.cfg.sv))
+			if (op.cfg.sub && (op.u << op.cfg.su) < (op.v << op.cfg.sv))
 				std::swap(a, b);
 			SigSpec y = module->addWire(NEW_ID, width);
 			if (!op.cfg.sub)
@@ -266,13 +300,12 @@ struct McmWorker {
 
 		for (int i : plan.active_items) {
 			auto &item = group.items[i];
-			int coefficient = item.coefficient;
-			int64_t odd = oddify(coefficient);
-			int shift = shift_of(coefficient);
+			BigUnsigned odd = oddify(item.magnitude);
+			int shift = shift_of(item.magnitude);
 			log_assert(nodes.count(odd));
 			SigSpec output = item.cell->getPort(ID::Y);
 			SigSpec value = shl(nodes.at(odd), shift, GetSize(output), group.is_signed);
-			if (coefficient < 0) {
+			if (item.magnitude < 0) {
 				SigSpec negated = module->addWire(NEW_ID, GetSize(output));
 				module->addNeg(NEW_ID, value, negated, group.is_signed);
 				value = negated;
@@ -286,12 +319,13 @@ struct McmWorker {
 
 	void process_group(McmGroup &group)
 	{
-		std::vector<int> targets;
-		for (auto &item : group.items)
-			targets.push_back(item.coefficient);
+		IntSet targets;
+		for (auto &item : group.items) {
+			targets.insert(item.magnitude);
+		}
 
 		SearchResult result;
-		SearchParams params{config, IntSet(targets.begin(), targets.end())};
+		SearchParams params{config, targets};
 		HcubSearch search(params);
 		result = search.search();
 		AdderGraphStatus status = result.status;
@@ -318,7 +352,7 @@ struct McmWorker {
 		n_groups++;
 
 		int negations = std::count_if(plan.active_items.begin(), plan.active_items.end(),
-				[&](int i) { return group.items[i].coefficient < 0; });
+				[&](int i) { return group.items[i].magnitude < 0; });
 		log("  mcm: %d constant multiplier(s) sharing one operand -> %d adder(s), depth %d, "
 				"estimated bit cost %lld (independent %lld).\n", GetSize(plan.active_items),
 				GetSize(plan.ops) + negations, plan.realized_depth, plan.shared_cost, plan.independent_cost);

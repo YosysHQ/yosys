@@ -9,38 +9,41 @@
 #include <set>
 #include <vector>
 
+#include "libs/bigint/BigUnsigned.hh"
+#include "libs/bigint/BigIntegerLibrary.hh"
+
 namespace Yosys::Mcm {
 
-int64_t oddify(int64_t n);
+BigUnsigned oddify(BigUnsigned n);
 
-int shift_of(int64_t n);
+int shift_of(BigUnsigned n);
 
-int bit_width(int64_t n);
+int bit_width(BigUnsigned n);
 
 // Number of non-zero digits in the non-adjacent signed-digit form.
-int naf_weight(int64_t n);
+int naf_weight(BigUnsigned n);
 
 
 struct AOpCfg {
 	int su, sv, norm;
 	bool sub;
 
-	int64_t eval(int64_t u, int64_t v) const {
+	BigUnsigned eval(BigUnsigned u, BigUnsigned v) const {
 		if (u < 0 || v < 0 || su < 0 || sv < 0 || norm < 0 || su > 63 || sv > 63 || norm > 63)
 			log_error("invalid shift or operand in AOpCfg::eval.\n");
-		int64_t lhs = u << su, rhs = v << sv;
-		int64_t res;
+		BigUnsigned lhs = u << su, rhs = v << sv;
+		BigUnsigned res;
 		if (sub) {
 			if (lhs < rhs)
 				std::swap(lhs, rhs);
 			res = lhs - rhs;
 		} else {
-			if (lhs > std::numeric_limits<int64_t>::max() - rhs)
+			if (lhs > std::numeric_limits<BigUnsigned>::max() - rhs)
 				log_error("overflow in AOpCfg::eval.\n");
 			res = lhs + rhs;
 		}
 
-		if ((res & ((int64_t(1) << norm) - 1)) != 0)
+		if ((res & ((BigUnsigned(1) << norm) - 1)) != 0)
 			log_error("inexact right shift in AOpCfg::eval.\n");
 		res >>= norm;
 		return res;
@@ -50,8 +53,8 @@ struct AOpCfg {
 
 // One A-operation: res == |(u << su) +/- (v << sv)| >> norm
 struct AOp {
-	int64_t res;
-	int64_t u, v;
+	BigUnsigned res;
+	BigUnsigned u, v;
 	AOpCfg cfg;
 };
 
@@ -74,10 +77,10 @@ class AdderGraph {
 public:
 	AdderGraph();
 	void add(const AOp &op) { ops[op.res] = op; }
-	const dict<int64_t, AOp> &operations() const { return ops; }
+	const std::map<BigUnsigned, AOp> &operations() const { return ops; }
 
 private:
-	dict<int64_t, AOp> ops;
+	std::map<BigUnsigned, AOp> ops;
 };
 
 enum class AdderGraphStatus {
@@ -89,8 +92,8 @@ enum class AdderGraphStatus {
 
 // ######################
 
-using IntSet = std::set<int64_t>;
-using AOpMap = std::map<int64_t, AOp>;
+using IntSet = std::set<BigUnsigned>;
+using AOpMap = std::map<BigUnsigned, AOp>;
 
 struct SearchResult {
 	AdderGraph graph;
