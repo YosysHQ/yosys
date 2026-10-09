@@ -339,6 +339,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	std::map<IdString, int> cell_stats;
 	for (auto mapped_cell : mapped_mod->cells())
 	{
+		if (ys_debug(1))
+			log_cell(mapped_cell, "mapped_cell: ");
 		// Short out $_FF_ cells since the flop box already has
 		//   all the information we need to reconstruct cell
 		if (dff_mode && mapped_cell->type == ID($_FF_)) {
@@ -409,6 +411,26 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::Cell *cell = module->addCell(remap_name(mapped_cell->name), mapped_cell->type);
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
+
+			if (mapped_cell->hasPort(ID::Y)) {
+				for (auto bit: mapped_cell->getPort(ID::Y)) {
+					log_wire(bit.wire, "");
+					if (bit.is_wire() && bit.wire->has_attribute(ID::abc9_equiv)) {
+						uint32_t equiv_literal = bit.wire->attributes[ID::abc9_equiv].as_int();
+						uint32_t equiv_node = equiv_literal >> 1;
+						bool equiv_inverted = equiv_literal & 1;
+						log_debug("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
+						auto name = names.find(equiv_node);
+						if (name != names.end()) {
+							log_debug("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+							auto equiv_wire = module->wire(name->second.first);
+							if (equiv_wire) {
+								log_debug("        which exists in module\n");
+							}
+						}
+					}
+				}
+			}
 
 			auto equiv = mapped_cell->attributes.find(ID::abc9_equiv);
 			if (equiv != mapped_cell->attributes.end()) {

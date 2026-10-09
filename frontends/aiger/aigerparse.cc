@@ -620,9 +620,18 @@ void AigerReader::parse_xaiger()
 				} else {
 					log("%s === ~in(%u)\n", cell->name, entry >> 1);
 				}
+				// TODO sc
+				if (cell->hasPort(ID::Y)) {
+					auto y = cell->getPort(ID::Y);
+					log_assert(y.size() == 1);
+					log_assert(y.is_wire());
+					auto wire = y.as_wire();
+					log_wire(wire, "w ");
+					wire->attributes[ID::abc9_equiv] = entry;
+				}
 
-				// TODO: the naming of these attributes needs workshopping.
-				cell->attributes[ID::abc9_equiv] = entry;
+				// // TODO: the naming of these attributes needs workshopping.
+				// cell->attributes[ID::abc9_equiv] = entry;
 			}
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
