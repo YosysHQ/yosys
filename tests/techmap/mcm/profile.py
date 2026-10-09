@@ -105,7 +105,7 @@ class Test:
 	def profile_yosys(self, yosys_path: Path) -> ProfileResult:
 		verilog_path = self.results_dir / "yosys.v"
 		stdout, seconds = run_profile(
-			[str(yosys_path), "-p", f'read_verilog "{self.verilog_file}"; mcm; stat; write_verilog "{verilog_path}"'],
+			[str(yosys_path), "-p", f'read_verilog "{self.verilog_file}"; mcm -depth 16 -search_budget 200000000; stat; write_verilog "{verilog_path}"'],
 			self.results_dir / "yosys.log",
 		)
 		return parse_yosys(stdout, seconds)

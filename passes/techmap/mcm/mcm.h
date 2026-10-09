@@ -62,7 +62,7 @@ struct McmConfig {
 	int max_shift = 32;
 	int min_shift = 0;
 	int max_nodes = 64;
-	long long work_budget = 20000000;	// Pass settings; these do not affect the graph search.
+	long long work_budget = 200000000;
 	int min_const = 3;
 	int min_gain = 0;
 	bool force = false;

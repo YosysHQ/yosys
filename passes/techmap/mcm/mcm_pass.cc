@@ -366,7 +366,7 @@ struct McmPass : public Pass {
 		// log("        signed-digit implementations (default: 0).\n");
 		// log("\n");
 		log("    -search_budget <n>\n");
-		log("        maximum search work per operand group (default: 20000000).\n");
+		log("        maximum search work per operand group (default: 200000000).\n");
 		log("        Counts candidate operations and heuristic checks, including\n");
 		log("        precomputation. Exhausted groups are left unchanged.\n");
 		log("\n");
