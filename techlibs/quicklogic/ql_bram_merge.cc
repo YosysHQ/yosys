@@ -18,6 +18,7 @@
  */
 
 #include "kernel/log.h"
+#include "kernel/mem.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
@@ -141,17 +142,21 @@ struct QlBramMergeWorker {
 				merged->setParam(it.second, bram2->getParam(it.first));
 		}
 
+		auto is_rd_data = [](RTLIL::IdString port) {
+			return port.in(ID(PORT_A_RD_DATA), ID(PORT_B_RD_DATA));
+		};
+
 		for (auto &it : port_map(false))
 		{
 			if (bram1->hasPort(it.first))
-				merged->setPort(it.second, bram1->getPort(it.first));
+				set_ram_cell_port(merged, it.second, bram1->getPort(it.first), is_rd_data(it.first));
 			else
 				log_error("Can't find port %s on cell %s!\n", it.first.unescape(), bram1->name.unescape());
 		}
 		for (auto &it : port_map(true))
 		{
 			if (bram2->hasPort(it.first))
-				merged->setPort(it.second, bram2->getPort(it.first));
+				set_ram_cell_port(merged, it.second, bram2->getPort(it.first), is_rd_data(it.first));
 			else
 				log_error("Can't find port %s on cell %s!\n", it.first.unescape(), bram2->name.unescape());
 		}
