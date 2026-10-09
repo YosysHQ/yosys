@@ -4,7 +4,10 @@ import re
 import subprocess
 import time
 import statistics
+import random
+
 from enum import Enum
+from textwrap import dedent
 
 from pathlib import Path
 from dataclasses import dataclass
@@ -14,9 +17,6 @@ STAT_RE = re.compile(r"^\s*(\d+)\s+\$(\w+)\s*$", re.MULTILINE)
 DEPTH_RE = re.compile(r"^\s*mcm: .* -> \d+ adder\(s\), depth (\d+),", re.MULTILINE)
 ACM_COST_RE = re.compile(r"^// Cost: (\d+) adds/subtracts (\d+) shifts (\d+) negations$", re.MULTILINE)
 ACM_DEPTH_RE = re.compile(r"^// Depth: (\d+)$", re.MULTILINE)
-
-# Can also use MAX_TESTS = None for no limit
-MAX_TESTS = 50
 
 @dataclass
 class ProfileResult:
@@ -61,41 +61,61 @@ def run_profile(args: list[str], log_path: Path) -> tuple[str, float]:
 	res.check_returncode()
 	return res.stdout, seconds
 
-class TestFile:
-	def __init__(self, path: Path):
-		self.path = path
-		self.coeffs = self.parse_coeffs()
-		self.results_dir = path.parent.parent / "results" / path.stem
 
-	def parse_coeffs(self) -> list[str]:
-		coeffs = []
-		with open(self.path, "r") as f:
-			lines = f.readlines()
-			for line in lines:
-				m = COEFF_RE.search(line)
-				if m:
-					sign = -1 if m.group(1) == "-" else 1
-					num = str(int(m.group(2)) * sign)
-					coeffs.append(num)
-		return coeffs
+class Coeff:
+	def __init__(self, number: int, bit_width: int):
+		self.number = number
+		self.bit_width = bit_width
+
+	def __str__(self):
+		return f"{self.number}"
+
+class Test:
+	def __init__(self, input_width: int, coeffs: list[Coeff], idx: int, output_dir: Path):
+		self.coeffs = coeffs
+		self.input_width = input_width
+		self.results_dir = output_dir / f"test_{idx}"
+		self.verilog_file = self.results_dir / f"unoptimized.v"
+
+		self.generate_v_file()
+
+	def generate_v_file(self) -> None:
+		self.results_dir.mkdir(parents=True, exist_ok=True)
+
+		file = dedent(f"""
+			module unoptimized(
+				input  wire signed [{self.input_width-1}:0] x,
+				output wire signed [31:0] y0,
+				output wire signed [31:0] y1,
+				output wire signed [31:0] y2
+			);
+				assign y0 = x * (32'sd17810);
+				assign y1 = x * (32'sd67108994);
+				assign y2 = x * (32'sd1873855423);
+			endmodule
+		""")
+
+		with open(self.verilog_file, "w") as f:
+			f.write(file)
 
 	def profile_yosys(self, yosys_path: Path) -> ProfileResult:
 		verilog_path = self.results_dir / "yosys.v"
 		stdout, seconds = run_profile(
-			[str(yosys_path), "-p", f'read_verilog "{self.path}"; mcm; stat; write_verilog "{verilog_path}"'],
+			[str(yosys_path), "-p", f'read_verilog "{self.verilog_file}"; mcm; stat; write_verilog "{verilog_path}"'],
 			self.results_dir / "yosys.log",
 		)
 		return parse_yosys(stdout, seconds)
 
 	def profile_acm(self, acm_path: Path) -> ProfileResult:
-		args = [str(acm_path), "-b", "30", *self.coeffs, "-gc", "-seed", "1"]
+		coeffs = [str(coeff) for coeff in self.coeffs]
+		args = [str(acm_path), "-b", "30", *coeffs, "-gc", "-seed", "1"]
 		stdout, seconds = run_profile(args, self.results_dir / "acm.log")
 		return parse_acm(stdout, seconds)
 
 	def profile(self, yosys_path: Path, acm_path: Path):
 		yosys = self.profile_yosys(yosys_path)
 		acm = self.profile_acm(acm_path)
-		coeffs = self.coeffs
+		coeffs = [str(coeff) for coeff in self.coeffs]
 		ratio = yosys.seconds / acm.seconds
 		items = [
 			("yosys runtime", yosys.time()),
@@ -105,7 +125,7 @@ class TestFile:
 			("runtime ratio", f"{ratio:.2f}"),
 			("coeffs", ", ".join(coeffs)),
 		]
-		print_table(self.path.stem, items)
+		print_table(self.verilog_file.stem, items)
 		return yosys, acm
 
 def print_table(title: str, items: list[tuple[str, str]]) -> None:
@@ -137,21 +157,43 @@ def cmp(yosys: ProfileResult, acm: ProfileResult) -> Cmp:
 
 	return Cmp.Same
 
+def bit_width(val: int):
+	return len(bin(val)) - 2
+
+
+def generate_coeffs(rng: random.Random, number_tests: int, length_range: tuple[int, int], value_range: tuple[int, int], seed=42) -> list[list[Coeff]]:
+	rng.seed(seed)
+	coeffs = [sample_coeff(rng, length_range, value_range) for idx in range(number_tests)]
+	return coeffs
+
+def sample_coeff(rng: random.Random, length_range: tuple[int, int], value_range: tuple[int, int]) -> list[Coeff]:
+	length = rng.randint(length_range[0], length_range[1])
+	coeff_vals = [rng.randint(length_range[0], length_range[1]) for idx in range(length)]
+	coeffs = [Coeff(val, bit_width(val)) for val in coeff_vals]
+	return coeffs
+
 def main():
 	if not "YOSYS" in os.environ:
 		raise Exception("Set YOSYS environment variable to absolute path of yosys binary")
 
 	yosys_bin = Path(os.environ["YOSYS"])
 	root_dir = Path(sys.argv[0]).parent
-	test_files = [TestFile(root_dir / "verilog" / Path(f)) for f in os.listdir(root_dir / "verilog")]
 	acm_path = root_dir / "synth" / "acm"
+	output_dir = root_dir / "results"
 
+	number_tests = 100
+	seed = 42
+	rng = random.Random()
+
+	input_bit_width = 32
+	length_range = (1, 20)
+	value_range = (-2_147_483_648, 2_147_483_647)
+
+	coeffs = generate_coeffs(rng, number_tests, length_range, value_range, seed)
 	results = []
 
-	for idx, test_file in enumerate(test_files):
-		if MAX_TESTS is not None and idx >= MAX_TESTS:
-			break
-
+	for idx, coeff in enumerate(coeffs):
+		test_file = Test(input_bit_width, coeff, idx, output_dir)
 		yosys_res, acm_res = test_file.profile(yosys_bin, acm_path)
 		results.append((yosys_res, acm_res))
 
