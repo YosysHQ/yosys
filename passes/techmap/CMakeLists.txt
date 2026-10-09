@@ -1,3 +1,5 @@
+add_subdirectory(mcm)
+
 yosys_core(libparse
 	libparse.cc
 	libparse.h
@@ -31,9 +33,6 @@ yosys_pass(maccmap
 )
 yosys_pass(booth
 	booth.cc
-)
-yosys_pass(mcm
-	mcm.cc
 )
 yosys_pass(libcache
 	libcache.cc
