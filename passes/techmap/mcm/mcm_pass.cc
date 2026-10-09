@@ -35,11 +35,13 @@ struct McmItem {
 	Cell *cell;
 	BigUnsigned magnitude;
 	bool is_signed;
+	bool is_negative;
 };
 
 struct McmGroup {
 	SigSpec input;
 	bool is_signed = false;
+	bool is_negative = false;
 	std::vector<McmItem> items;
 };
 
@@ -102,7 +104,7 @@ struct McmWorker {
 		return result;
 	}
 
-	bool decode_multiplier(Cell *cell, SigSpec &input, BigUnsigned &magnitude, bool &is_signed)
+	bool decode_multiplier(Cell *cell, SigSpec &input, BigUnsigned &magnitude, bool &is_signed, bool &is_negative)
 	{
 		if (cell->type != ID($mul) || cell->has_keep_attr())
 			return false;
@@ -135,7 +137,7 @@ struct McmWorker {
 				log_id(cell), undef_bit_pos_a);
 			return false;
 		}
-
+		is_negative = coefficient.getSign() == BigInteger::negative;
 		magnitude = coefficient.getMagnitude();
 		if (magnitude == 0 || magnitude == 1)
 			return false;
@@ -155,7 +157,8 @@ struct McmWorker {
 			SigSpec input;
 			BigUnsigned magnitude;
 			bool is_signed;
-			if (!decode_multiplier(cell, input, magnitude, is_signed))
+			bool is_negative;
+			if (!decode_multiplier(cell, input, magnitude, is_signed, is_negative))
 				continue;
 
 			auto key = std::make_pair(input, is_signed);
@@ -163,8 +166,9 @@ struct McmWorker {
 			if (group.items.empty()) {
 				group.input = input;
 				group.is_signed = is_signed;
+				group.is_negative = is_negative;
 			}
-			group.items.push_back(McmItem{cell, magnitude, is_signed});
+			group.items.push_back(McmItem{cell, magnitude, is_signed, is_negative});
 		}
 		return groups;
 	}
@@ -181,7 +185,7 @@ struct McmWorker {
 		};
 		for (int i = 0; i < GetSize(group.items); i++) {
 			BigUnsigned odd = oddify(group.items[i].magnitude);
-			int depth = depth_of(odd) + (group.items[i].magnitude < 0 ? 1 : 0);
+			int depth = depth_of(odd) + (group.items[i].is_negative ? 1 : 0);
 			if (config.max_depth.has_value() && depth > config.max_depth) {
 				log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
 					log_id(group.items[i].cell), config.max_depth.value());
@@ -238,7 +242,7 @@ struct McmWorker {
 			int multiply_width = std::max(1, width - shift_of(item.magnitude));
 			plan.independent_cost +=
 					(long long)std::max(0, naf_weight(item.magnitude) - 1) * multiply_width;
-			if (item.magnitude < 0) {
+			if (item.is_negative && item.magnitude != 0) {
 				plan.shared_cost += width;
 				plan.independent_cost += width;
 			}
@@ -305,7 +309,7 @@ struct McmWorker {
 			log_assert(nodes.count(odd));
 			SigSpec output = item.cell->getPort(ID::Y);
 			SigSpec value = shl(nodes.at(odd), shift, GetSize(output), group.is_signed);
-			if (item.magnitude < 0) {
+			if (item.is_negative && item.magnitude != 0) {
 				SigSpec negated = module->addWire(NEW_ID, GetSize(output));
 				module->addNeg(NEW_ID, value, negated, group.is_signed);
 				value = negated;
@@ -352,7 +356,7 @@ struct McmWorker {
 		n_groups++;
 
 		int negations = std::count_if(plan.active_items.begin(), plan.active_items.end(),
-				[&](int i) { return group.items[i].magnitude < 0; });
+				[&](int i) { return group.items[i].is_negative; });
 		log("  mcm: %d constant multiplier(s) sharing one operand -> %d adder(s), depth %d, "
 				"estimated bit cost %lld (independent %lld).\n", GetSize(plan.active_items),
 				GetSize(plan.ops) + negations, plan.realized_depth, plan.shared_cost, plan.independent_cost);
