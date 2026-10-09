@@ -82,18 +82,22 @@ class Test:
 	def generate_v_file(self) -> None:
 		self.results_dir.mkdir(parents=True, exist_ok=True)
 
-		file = dedent(f"""
-			module unoptimized(
-				input  wire signed [{self.input_width-1}:0] x,
-				output wire signed [31:0] y0,
-				output wire signed [31:0] y1,
-				output wire signed [31:0] y2
-			);
-				assign y0 = x * (32'sd17810);
-				assign y1 = x * (32'sd67108994);
-				assign y2 = x * (32'sd1873855423);
-			endmodule
-		""")
+
+		file = "\n".join([
+		    "module unoptimized(",
+		    f"    input wire signed [{self.input_width - 1}:0] x,",
+		    ",\n".join(
+		        f"    output wire signed [{c.bit_width+self.input_width-1}:0] y{i}"
+		        for i, c in enumerate(self.coeffs)
+		    ),
+		    ");",
+		    "\n".join(
+				f"    assign y{i} = x * ({'-' if c.number < 0 else ''}{self.input_width-1}'sd{abs(c.number)});"
+		        for i, c in enumerate(self.coeffs)
+		    ),
+		    "endmodule",
+		    "",
+		])
 
 		with open(self.verilog_file, "w") as f:
 			f.write(file)
@@ -160,7 +164,6 @@ def cmp(yosys: ProfileResult, acm: ProfileResult) -> Cmp:
 def bit_width(val: int):
 	return len(bin(val)) - 2
 
-
 def generate_coeffs(rng: random.Random, number_tests: int, length_range: tuple[int, int], value_range: tuple[int, int], seed=42) -> list[list[Coeff]]:
 	rng.seed(seed)
 	coeffs = [sample_coeff(rng, length_range, value_range) for idx in range(number_tests)]
@@ -168,7 +171,7 @@ def generate_coeffs(rng: random.Random, number_tests: int, length_range: tuple[i
 
 def sample_coeff(rng: random.Random, length_range: tuple[int, int], value_range: tuple[int, int]) -> list[Coeff]:
 	length = rng.randint(length_range[0], length_range[1])
-	coeff_vals = [rng.randint(length_range[0], length_range[1]) for idx in range(length)]
+	coeff_vals = [rng.randint(value_range[0], value_range[1]) for idx in range(length)]
 	coeffs = [Coeff(val, bit_width(val)) for val in coeff_vals]
 	return coeffs
 
@@ -187,6 +190,7 @@ def main():
 
 	input_bit_width = 32
 	length_range = (1, 20)
+	# value_range = (-2_147_483_648, 2_147_483_647)
 	value_range = (-2_147_483_648, 2_147_483_647)
 
 	coeffs = generate_coeffs(rng, number_tests, length_range, value_range, seed)
