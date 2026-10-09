@@ -207,7 +207,7 @@ struct RecoverModuleWorker {
     void compute_depths(const dict<IdBit, IdBit> &anchor_bits)
     {
         dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-        TopoSort<IdString> toposort;
+        TopoSort<IdString, RTLIL::sort_by_id_str> toposort(RTLIL::sort_by_id_str(flat->twines()));
 
         for (auto cell : flat->cells())
         for (auto conn : cell->connections())
