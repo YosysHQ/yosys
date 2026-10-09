@@ -397,7 +397,7 @@ public:
 					Node y = neg_if(y_flipped, sign(b));
 					return factory.extend(y, y_width, true);
 				} else
-					log_error("unhandled cell in CellSimplifier %s\n", factory.ir().design->twines().str(cellType).c_str());
+					log_error("unhandled cell in CellSimplifier %s\n", factory.ir().design->twines().str(cellType));
 			} else {
 				if(cellType.in(ID($mod), ID($modfloor)))
 					return factory.extend(factory.unsigned_mod(a, b), y_width, false);
@@ -460,9 +460,9 @@ public:
 				return factory.value(state);
 			}
 		} else if(cellType == ID($check)) {
-			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", factory.ir().design->twines().str(cellName).c_str());
+			log_error("The design contains a $check cell `%s'. This is not supported by the functional backend. Call `chformal -lower' to avoid this error.\n", factory.ir().design->twines().str(cellName));
 		} else {
-			log_error("`%s' cells are not supported by the functional backend\n", factory.ir().design->twines().str(cellType).c_str());
+			log_error("`%s' cells are not supported by the functional backend\n", factory.ir().design->twines().str(cellType));
 		}
 	}
 };
