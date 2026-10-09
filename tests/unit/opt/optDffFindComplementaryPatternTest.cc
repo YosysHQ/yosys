@@ -14,11 +14,11 @@ protected:
 
 	void SetUp() override {
 		design = new RTLIL::Design;
-		module = design->addModule(ID(test_module));
-		wire_a = module->addWire(ID(a));
-		wire_b = module->addWire(ID(b));
-		wire_c = module->addWire(ID(c));
-		bus = module->addWire(ID(bus), 4);
+		module = design->addModule("\\test_module");
+		wire_a = module->addWire("\\a");
+		wire_b = module->addWire("\\b");
+		wire_c = module->addWire("\\c");
+		bus = module->addWire("\\bus", 4);
 	}
 
 	void TearDown() override {

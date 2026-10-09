@@ -23,15 +23,6 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#include <version>
-#if __cpp_lib_source_location >= 201907L
-	#include <source_location>
-	using std::source_location;
-#else
-	#include <experimental/source_location>
-	using std::experimental::source_location;
-#endif
-
 YOSYS_NAMESPACE_BEGIN
 
 // Track whether garbage collection is enabled. Garbage collection must be disabled
@@ -55,7 +46,7 @@ public:
 // Call from anywhere to request GC at the next safe point.
 void request_garbage_collection();
 
-// GC if GarbageCollectionGuard::is_enabled() and GC was requested.
+// GC the active design if GarbageCollectionGuard::is_enabled() and GC was requested.
 void try_collect_garbage();
 
 struct Pass

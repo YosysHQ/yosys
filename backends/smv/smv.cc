@@ -59,7 +59,7 @@ struct SmvWorker
 	{
 		if (!idcache.count(id))
 		{
-			string name = stringf("_%s", id);
+			string name = "_" + module->twines().str(id);
 
 			if (name.compare(0, 2, "_\\") == 0)
 				name = "_" + name.substr(2);
@@ -576,7 +576,7 @@ struct SmvWorker
 			if (cell->type == ID($scopeinfo))
 				continue;
 
-			if (cell->type[0] == '$') {
+			if (!cell->type.isPublic()) {
 				if (cell->type.in(ID($dffe), ID($sdff), ID($sdffe), ID($sdffce)) || cell->type.str().substr(0, 6) == "$_SDFF" || (cell->type.str().substr(0, 6) == "$_DFFE" && cell->type.str().size() == 10)) {
 					log_error("Unsupported cell type %s for cell %s.%s -- please run `dffunmap` before `write_smv`.\n",
 							cell->type.unescape(), module, cell);

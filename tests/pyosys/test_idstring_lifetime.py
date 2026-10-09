@@ -18,11 +18,15 @@ def get_top_module_idstring():
 	ys.run_pass("hierarchy -top spm", d)
 	external_idstring_holder_0 = d.top_module().name
 	for cell in d.top_module().cells_:
-		print(f"TARGETED: {cell}", flush=True)
 		external_idstring_holder_1 = cell
 		break
 	# d deallocates
 
 get_top_module_idstring()
-print(external_idstring_holder_0, flush=True)
-print(external_idstring_holder_1, flush=True)
+for holder in (external_idstring_holder_0, external_idstring_holder_1):
+	try:
+		str(holder)
+		assert False, "expected RuntimeError"
+	except RuntimeError:
+		pass
+assert str(d.top_module().name) == "\\spm"

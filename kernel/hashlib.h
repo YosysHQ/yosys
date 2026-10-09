@@ -95,13 +95,9 @@ public:
 		// traditionally 5381 is used as starting value for the djb2 hash
 		state = 5381;
 	}
-	static void set_fudge(hash_t f) {
-		fudge = f;
-	}
 
 private:
 	uint32_t state;
-	static uint32_t fudge;
 	// The XOR version of DJB2
 	[[nodiscard]]
 	static uint32_t djb2_xor(uint32_t a, uint32_t b) {
@@ -111,13 +107,13 @@ private:
 public:
 	void hash32(uint32_t i) {
 		state = djb2_xor(i, state);
-		state = mkhash_xorshift(fudge ^ state);
+		state = mkhash_xorshift(state);
 		return;
 	}
 	void hash64(uint64_t i) {
 		state = djb2_xor((uint32_t)(i & 0xFFFFFFFFULL), state);
 		state = djb2_xor((uint32_t)(i >> 32ULL), state);
-		state = mkhash_xorshift(fudge ^ state);
+		state = mkhash_xorshift(state);
 		return;
 	}
 	[[nodiscard]]
@@ -174,7 +170,7 @@ struct hash_ops {
 			return hash_ops<u_type>::hash_into((u_type) a, h);
 		} else if constexpr (std::is_pointer_v<T>) {
 			return hash_ops<uintptr_t>::hash_into((uintptr_t) a, h);
-		} else if constexpr (std::is_same_v<T, std::string>) {
+		} else if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, std::string_view>) {
 			int size = a.size();
 			int i = 0;
 			while (i + 8 < size) {

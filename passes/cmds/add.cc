@@ -62,10 +62,11 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 {
 	RTLIL::Wire *wire = nullptr;
 	name = RTLIL::escape_id(name);
+	IdString name_ref = design->twines().find(name);
 
-	if (module->count_id(name) != 0)
+	if (module->count_id(name_ref) != 0)
 	{
-		wire = module->wire(name);
+		wire = module->wire(name_ref);
 
 		if (wire != nullptr && wire->width != width)
 			wire = nullptr;
@@ -97,6 +98,8 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 	if (!flag_global)
 		return;
 
+	IdString port_id = design->twines().add(name);
+
 	for (auto cell : module->cells())
 	{
 		RTLIL::Module *mod = design->module(cell->type);
@@ -106,10 +109,10 @@ static void add_wire(RTLIL::Design *design, RTLIL::Module *module, std::string n
 			continue;
 		if (mod->get_blackbox_attribute())
 			continue;
-		if (cell->hasPort(name))
+		if (cell->hasPort(port_id))
 			continue;
 
-		cell->setPort(name, wire);
+		cell->setPort(port_id, wire);
 		log("Added connection %s to cell %s.%s (%s).\n", name, module->name, cell->name, cell->type);
 	}
 }

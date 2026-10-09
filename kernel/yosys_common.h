@@ -45,6 +45,15 @@
 #include <ostream>
 #include <iostream>
 
+#include <version>
+#if __cpp_lib_source_location >= 201907L
+	#include <source_location>
+	using std::source_location;
+#else
+	#include <experimental/source_location>
+	using std::experimental::source_location;
+#endif
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -123,6 +132,12 @@
 #  define YS_MAYBE_UNUSED
 #endif
 
+#if defined(_MSC_VER)
+#  define YS_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#  define YS_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
 #if __cplusplus >= 202002L
 #  define YS_FALLTHROUGH [[fallthrough]];
 #else
@@ -147,6 +162,17 @@
 // This has to precede including "kernel/io.h"
 YOSYS_NAMESPACE_BEGIN
 [[noreturn]] void log_yosys_abort_message(std::string_view file, int line, std::string_view func, std::string_view message);
+
+[[noreturn]]
+void log_assert_failure(const char *expr, source_location location);
+#ifndef NDEBUG
+static inline void log_assert_worker(bool cond, const char *expr, source_location location = source_location::current()) {
+	if (!cond) log_assert_failure(expr, location);
+}
+#  define log_assert(_assert_expr_) YOSYS_NAMESPACE_PREFIX log_assert_worker(_assert_expr_, #_assert_expr_)
+#else
+#  define log_assert(_assert_expr_) do { if (0) { (void)(_assert_expr_); } } while(0)
+#endif
 YOSYS_NAMESPACE_END
 
 #include "kernel/io.h"
@@ -200,7 +226,6 @@ struct shared_str {
 };
 
 namespace RTLIL {
-	struct IdString;
 	struct Const;
 	struct SigBit;
 	struct SigSpec;
@@ -213,18 +238,16 @@ namespace RTLIL {
 	struct Monitor;
 	struct Selection;
 	struct SigChunk;
+	struct PooledName;
 	enum State : unsigned char;
 
 	typedef std::pair<SigSpec, SigSpec> SigSig;
-
-	namespace ID {}
 }
 
 namespace AST {
 	struct AstNode;
 }
 
-using RTLIL::IdString;
 using RTLIL::Const;
 using RTLIL::SigBit;
 using RTLIL::SigSpec;
@@ -236,6 +259,7 @@ using RTLIL::Design;
 using RTLIL::State;
 using RTLIL::SigChunk;
 using RTLIL::SigSig;
+using RTLIL::PooledName;
 
 namespace hashlib {
 	template<> struct hash_ops<RTLIL::Wire*> : hash_obj_ops {};
@@ -298,18 +322,17 @@ extern int yosys_xtrace;
 extern bool yosys_write_versions;
 
 const std::string *create_id_prefix(std::string_view file, int line, std::string_view func);
-RTLIL::IdString new_id_suffix(std::string_view file, int line, std::string_view func, std::string_view suffix);
 
 #define NEW_ID \
-	YOSYS_NAMESPACE_PREFIX RTLIL::IdString::new_autoidx_with_prefix([](std::string_view func) -> const std::string * { \
-		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(__FILE__, __LINE__, func)); \
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](source_location location, std::string_view func) -> const std::string * { \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(location.file_name(), location.line(), func)); \
 		return prefix.get(); \
-	}(__FUNCTION__))
+	}(source_location::current(), __FUNCTION__), std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 #define NEW_ID_SUFFIX(suffix) \
-	YOSYS_NAMESPACE_PREFIX new_id_suffix(__FILE__, __LINE__, __FUNCTION__, suffix)
-
-namespace ID = RTLIL::ID;
-
+	YOSYS_NAMESPACE_PREFIX TwineSpec{YOSYS_NAMESPACE_PREFIX TwineSpec::AutoSuffix{[](source_location location, std::string_view func) -> const std::string * { \
+		static std::unique_ptr<const std::string> prefix(YOSYS_NAMESPACE_PREFIX create_id_prefix(location.file_name(), location.line(), func)); \
+		return prefix.get(); \
+	}(source_location::current(), __FUNCTION__), std::string(suffix) + "$" + std::to_string(YOSYS_NAMESPACE_PREFIX autoidx++)}}
 
 YOSYS_NAMESPACE_END
 

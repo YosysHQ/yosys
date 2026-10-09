@@ -342,10 +342,8 @@ int main(int argc, char **argv)
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
 		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
-		("autoidx", "start counting autoidx up from <seed>, similar effect to --hash-seed",
+		("autoidx", "start counting autoidx up from <seed>",
 			cxxopts::value<uint64_t>(), "<idx>")
-		("hash-seed", "mix up hashing values with <seed>, for extreme optimization and testing",
-			cxxopts::value<uint64_t>(), "<seed>")
 		("A,abort", "will call abort() at the end of the script. for debugging")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
@@ -505,10 +503,6 @@ int main(int argc, char **argv)
 		if (result.count("autoidx")) {
 			int idx = result["autoidx"].as<uint64_t>();
 			autoidx = idx;
-		}
-		if (result.count("hash-seed")) {
-			int seed = result["hash-seed"].as<uint64_t>();
-			Hasher::set_fudge((Hasher::hash_t)seed);
 		}
 
 		if (!is_colored(stdout) || !is_colored(stderr)) {
@@ -775,11 +769,9 @@ int main(int argc, char **argv)
 				total_ns += pass_ns;
 				timedat.insert(make_tuple(pass_ns, it.second->call_counter, it.first));
 			}
-		{
-			auto gc_ns = RTLIL::OwningIdString::garbage_collection_ns() + 1;
-			total_ns += gc_ns;
-			timedat.insert(make_tuple(gc_ns,
-					RTLIL::OwningIdString::garbage_collection_count(), "id_gc"));
+		if (twine_gc_count) {
+			total_ns += twine_gc_ns;
+			timedat.insert(make_tuple(twine_gc_ns, twine_gc_count, "twine_gc"));
 		}
 
 		if (timing_details)

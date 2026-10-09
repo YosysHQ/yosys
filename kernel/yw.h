@@ -25,10 +25,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct IdPath : public std::vector<RTLIL::IdString>
+struct IdPath : public std::vector<std::string>
 {
 	template<typename... T>
-	IdPath(T&&... args) : std::vector<RTLIL::IdString>(std::forward<T>(args)...) { }
+	IdPath(T&&... args) : std::vector<std::string>(std::forward<T>(args)...) { }
 	IdPath prefix() const { return {begin(), end() - !empty()}; }
 	std::string str() const;
 
@@ -36,7 +36,7 @@ struct IdPath : public std::vector<RTLIL::IdString>
 	bool get_address(int &addr) const;
 
 	[[nodiscard]] Hasher hash_into(Hasher h) const {
-		h.eat(static_cast<const std::vector<RTLIL::IdString>&&>(*this));
+		h.eat(static_cast<const std::vector<std::string>&&>(*this));
 		return h;
 	}
 };
@@ -109,7 +109,7 @@ void witness_hierarchy_recursion(IdPath &path, int hdlname_mode, RTLIL::Module *
 		auto hdlname = hdlname_mode < 0 ? std::vector<std::string>() : wire->get_hdlname_attribute();
 		for (auto item : hdlname)
 			path.push_back("\\" + item);
-		if (hdlname.size() == 1 && path.back() == wire->name)
+		if (hdlname.size() == 1 && wire->name == path.back())
 			hdlname.clear();
 		if (!hdlname.empty())
 			callback(const_path, WitnessHierarchyItem(module, wire), data);
@@ -130,7 +130,7 @@ void witness_hierarchy_recursion(IdPath &path, int hdlname_mode, RTLIL::Module *
 		auto hdlname = hdlname_mode < 0 ? std::vector<std::string>() : cell->get_hdlname_attribute();
 		for (auto item : hdlname)
 			path.push_back("\\" + item);
-		if (hdlname.size() == 1 && path.back() == cell->name)
+		if (hdlname.size() == 1 && cell->name == path.back())
 			hdlname.clear();
 		if (!hdlname.empty()) {
 			D child_data = callback(const_path, WitnessHierarchyItem(module, cell), data);
@@ -152,7 +152,7 @@ void witness_hierarchy_recursion(IdPath &path, int hdlname_mode, RTLIL::Module *
 			hdlname = mem.cell->get_hdlname_attribute();
 		for (auto item : hdlname)
 			path.push_back("\\" + item);
-		if (hdlname.size() == 1 && path.back() == mem.cell->name)
+		if (hdlname.size() == 1 && mem.cell->name == path.back())
 			hdlname.clear();
 		if (!hdlname.empty()) {
 			callback(const_path, WitnessHierarchyItem(module, &mem), data);
@@ -160,7 +160,7 @@ void witness_hierarchy_recursion(IdPath &path, int hdlname_mode, RTLIL::Module *
 		path.resize(path_size);
 
 		if (hdlname.empty() || hdlname_mode <= 0) {
-			path.push_back(mem.memid);
+			path.push_back(mem.memid.str());
 			callback(const_path, WitnessHierarchyItem(module, &mem), data);
 			path.pop_back();
 

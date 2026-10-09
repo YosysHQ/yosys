@@ -47,11 +47,11 @@ pool<std::string> validate_design_and_get_inputs(RTLIL::Module *module, bool ass
 			found_1bit_output = true;
 	}
 	for (auto cell : module->cells()) {
-		if (cell->type == "$allconst")
+		if (cell->type == ID($allconst))
 			found_input = true;
-		if (cell->type == "$anyconst")
+		if (cell->type == ID($anyconst))
 			found_hole = true;
-		if (cell->type.in("$assert", "$assume"))
+		if (cell->type.in(ID($assert), ID($assume)))
 			found_assert_assume = true;
 	}
 	if (!found_input)
@@ -163,7 +163,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 		RTLIL::Wire *input = module->wire(n);
 		log_assert(input != nullptr);
 
-		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, "$allconst");
+		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, ID($allconst));
 		allconst->setParam(ID(WIDTH), input->width);
 		allconst->setPort(ID::Y, input);
 		allconst->set_src_attribute(input->get_src_attribute());
@@ -255,8 +255,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 	const std::string tempdir_name = make_temp_dir(get_base_tmpdir() + "/yosys-qbfsat-XXXXXX");
 	RTLIL::Module *module = mod;
 	RTLIL::Design *design = module->design;
-	std::string module_name = module->name.str();
-	RTLIL::IdString wire_to_optimize_name = "";
+	IdString module_name = module->name;
+	RTLIL::IdString wire_to_optimize_name;
 	bool maximize = false;
 	log_assert(module->design != nullptr);
 
@@ -270,14 +270,14 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 
 	//Find the wire to be optimized, if any:
 	for (auto wire : module->wires()) {
-		if (wire->get_bool_attribute("\\maximize") || wire->get_bool_attribute("\\minimize")) {
+		if (wire->get_bool_attribute(ID::maximize) || wire->get_bool_attribute(ID::minimize)) {
 			wire_to_optimize_name = wire->name;
-			maximize = wire->get_bool_attribute("\\maximize");
+			maximize = wire->get_bool_attribute(ID::maximize);
 			if (opt.nooptimize) {
 				if (maximize)
-					wire->set_bool_attribute("\\maximize", false);
+					wire->set_bool_attribute(ID::maximize, false);
 				else
-					wire->set_bool_attribute("\\minimize", false);
+					wire->set_bool_attribute(ID::minimize, false);
 			}
 		}
 	}
@@ -292,7 +292,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		Pass::call(module->design, "opt");
 	}
 
-	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == "") {
+	if (opt.nobisection || opt.nooptimize || wire_to_optimize_name == IdString::Null) {
 		ret = call_qbf_solver(module, opt, tempdir_name, false, 0);
 	} else {
 		//Do the iterated bisection method:
@@ -301,9 +301,9 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 		unsigned int failure = 0;
 		unsigned int cur_thresh = 0;
 
-		log_assert(wire_to_optimize_name != "");
+		log_assert(wire_to_optimize_name != IdString::Null);
 		log_assert(module->wire(wire_to_optimize_name) != nullptr);
-		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), wire_to_optimize_name);
+		log("%s wire \"%s\".\n", (maximize? "Maximizing" : "Minimizing"), design->twines().str(wire_to_optimize_name));
 
 		//If maximizing, grow until we get a failure.  Then bisect success and failure.
 		while (failure == 0 || difference(success, failure) > 1) {
@@ -315,8 +315,8 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				RTLIL::SigSpec comparator = maximize? module->Ge(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false)
 				                                    : module->Le(NEW_ID, module->wire(wire_to_optimize_name), RTLIL::Const(cur_thresh), false);
 
-				module->addAssume(wire_to_optimize_name.str() + "__threshold", comparator, RTLIL::Const(1, 1));
-				log("Trying to solve with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), cur_thresh);
+				module->addAssume(design->twines().str(wire_to_optimize_name) + "__threshold", comparator, RTLIL::Const(1, 1));
+				log("Trying to solve with %s %s %d.\n", design->twines().str(wire_to_optimize_name), (maximize? ">=" : "<="), cur_thresh);
 			}
 
 			ret = call_qbf_solver(module, opt, tempdir_name, false, iter_num);
@@ -328,7 +328,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				specialize(module, ret, true);
 
 				RTLIL::SigSpec wire, value, undef;
-				RTLIL::SigSpec::parse_sel(wire, design, module, wire_to_optimize_name.str());
+				RTLIL::SigSpec::parse_sel(wire, design, module, design->twines().str(wire_to_optimize_name));
 
 				ConstEval ce(module);
 				ce.model_barriers = true;
@@ -338,7 +338,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				log_assert(value.is_fully_const());
 				success = value.as_const().as_int();
 				best_soln = ret;
-				log("Problem is satisfiable with %s = %d.\n", wire_to_optimize_name, success);
+				log("Problem is satisfiable with %s = %d.\n", design->twines().str(wire_to_optimize_name), success);
 				Pass::call(design, "design -pop");
 				module = design->module(module_name);
 
@@ -356,7 +356,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 					break;
 				}
 				else
-					log("Problem is NOT satisfiable with %s %s %d.\n", wire_to_optimize_name, (maximize? ">=" : "<="), failure);
+					log("Problem is NOT satisfiable with %s %s %d.\n", design->twines().str(wire_to_optimize_name), (maximize? ">=" : "<="), failure);
 			}
 
 			iter_num++;
@@ -368,7 +368,7 @@ QbfSolutionType qbf_solve(RTLIL::Module *mod, const QbfSolveOptions &opt) {
 				cur_thresh = (success + failure) / 2; //bisection
 		}
 		if (success != 0 || failure != 0) {
-			log("Wire %s is %s at %d.\n", wire_to_optimize_name, (maximize? "maximized" : "minimized"), success);
+			log("Wire %s is %s at %d.\n", design->twines().str(wire_to_optimize_name), (maximize? "maximized" : "minimized"), success);
 			ret = best_soln;
 		}
 	}
@@ -607,7 +607,7 @@ struct QbfSatPass : public Pass {
 		log_push();
 		if (!opt.specialize_from_file) {
 			//Save the design to restore after modiyfing the current module.
-			std::string module_name = module->name.str();
+			IdString module_name = module->name;
 
 			QbfSolutionType ret = qbf_solve(module, opt);
 			module = design->module(module_name);

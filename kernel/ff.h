@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/ffinit.h"
+#include "kernel/twine.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -180,6 +181,9 @@ struct FfData : FfTypeData {
 		pol_clr = false;
 		pol_set = false;
 	}
+
+	FfData(Module *module, FfInitVals *initvals, TwineSpec &&name)
+			: FfData(module, initvals, module->twines().add(std::move(name))) {}
 
 	FfData(FfInitVals *initvals, Cell *cell_);
 

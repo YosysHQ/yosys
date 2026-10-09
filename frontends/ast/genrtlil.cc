@@ -27,6 +27,7 @@
  */
 
 #include "kernel/log.h"
+#include "kernel/twine.h"
 #include "kernel/utils.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
@@ -43,19 +44,20 @@ using namespace AST_INTERNAL;
 // helper function for creating RTLIL code for unary operations
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
-	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location,
+			current_module->twines().str(type), autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
+	RTLIL::Wire *wire = current_module->addWire(TwineSpec::Suffix{cell->name, "_Y"}, result_width);
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	if (gen_attributes)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-			cell->attributes[attr.first] = attr.second->asAttrConst();
+				that->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+			cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 		}
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(that->children[0]->is_signed);
@@ -75,7 +77,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-	IdString name = stringf("$extend$%s:%d$%d", RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location, "$extend", autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
 	set_src_attr(cell, that);
 
@@ -86,8 +88,8 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 	if (that != nullptr)
 		for (auto &attr : that->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-			cell->attributes[attr.first] = attr.second->asAttrConst();
+				that->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+			cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 		}
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(is_signed);
@@ -102,18 +104,19 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 // helper function for creating RTLIL code for binary operations
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
-	IdString name = stringf("%s$%s:%d$%d", type, RTLIL::encode_filename(*that->location.begin.filename), that->location.begin.line, autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location,
+			current_module->twines().str(type), autoidx++);
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
-	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", result_width);
+	RTLIL::Wire *wire = current_module->addWire(TwineSpec::Suffix{cell->name, "_Y"}, result_width);
 	set_src_attr(wire, that);
 	wire->is_signed = that->is_signed;
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-		cell->attributes[attr.first] = attr.second->asAttrConst();
+			that->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+		cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 	}
 
 	cell->parameters[ID::A_SIGNED] = RTLIL::Const(that->children[0]->is_signed);
@@ -135,10 +138,9 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 {
 	log_assert(cond.size() == 1);
 
-	std::stringstream sstr;
-	sstr << "$ternary$" << RTLIL::encode_filename(*that->location.begin.filename) << ":" << that->location.begin.line << "$" << (autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location, "$ternary", autoidx++);
 
-	RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($mux));
+	RTLIL::Cell *cell = current_module->addCell(name, ID($mux));
 	set_src_attr(cell, that);
 
 	RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_Y", left.size());
@@ -147,8 +149,8 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 
 	for (auto &attr : that->attributes) {
 		if (attr.second->type != AST_CONSTANT)
-			that->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-		cell->attributes[attr.first] = attr.second->asAttrConst();
+			that->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+		cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 	}
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(left.size());
@@ -161,7 +163,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 	return wire;
 }
 
-static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
+static void check_unique_id(RTLIL::Module *module, IdString id,
 		const AstNode *node, const char *to_add_kind)
 {
 	auto already_exists = [&](const RTLIL::AttrObject *existing, const char *existing_kind) {
@@ -170,7 +172,7 @@ static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
 		if (!src.empty())
 			location_str = "at " + src;
 		node->input_error("Cannot add %s `%s' because a %s with the same name was already created %s!\n",
-						  to_add_kind, id.c_str(), existing_kind, location_str.c_str());
+						  to_add_kind, module->twines().str(id), existing_kind, location_str.c_str());
 	};
 
 	if (const RTLIL::Wire *wire = module->wire(id))
@@ -183,10 +185,16 @@ static void check_unique_id(RTLIL::Module *module, RTLIL::IdString id,
 		already_exists(module->memories.at(id), "memory");
 }
 
+static void check_unique_id(RTLIL::Module *module, const std::string &id,
+		const AstNode *node, const char *to_add_kind)
+{
+	check_unique_id(module, intern_hier_name(module->design, id), node, to_add_kind);
+}
+
 // helper class for rewriting simple lookahead references in AST always blocks
 struct AST_INTERNAL::LookaheadRewriter
 {
-	dict<IdString, pair<AstNode*, AstNode*>> lookaheadids;
+	dict<std::string, pair<AstNode*, AstNode*>> lookaheadids;
 
 	void collect_lookaheadids(AstNode *node)
 	{
@@ -349,12 +357,12 @@ struct AST_INTERNAL::ProcessGenerator
 		LookaheadRewriter la_rewriter(always.get());
 
 		// generate process and simple root case
-		proc = current_module->addProcess(stringf("$proc$%s:%d$%d", RTLIL::encode_filename(*always->location.begin.filename), always->location.begin.line, autoidx++));
+		proc = current_module->addProcess(intern_src_name(current_module->design, always->location, "$proc", autoidx++));
 		set_src_attr(proc, always.get());
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
-				always->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-			proc->attributes[attr.first] = attr.second->asAttrConst();
+				always->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+			proc->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 		}
 		current_case = &proc->root_case;
 
@@ -446,7 +454,7 @@ struct AST_INTERNAL::ProcessGenerator
 				RTLIL::SigSpec lhs = init_lvalue_c;
 				RTLIL::SigSpec rhs = init_rvalue.extract(offset, init_lvalue_c.width);
 				remove_unwanted_lvalue_bits(lhs, rhs);
-				sync->actions.push_back(RTLIL::SigSig(lhs, rhs));
+				sync->actions.push_back({lhs, rhs});
 				offset += lhs.size();
 			}
 		}
@@ -484,10 +492,10 @@ struct AST_INTERNAL::ProcessGenerator
 			std::string wire_name;
 			do {
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
-						chunk.wire->name.c_str(), chunk.width+chunk.offset-1, chunk.offset);;
+						chunk.wire->name, chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
 					wire_name += stringf("$%d", autoidx++);
-			} while (current_module->wires_.count(wire_name) > 0);
+			} while (current_module->wire(wire_name) != nullptr);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
 			set_src_attr(wire, always.get());
@@ -662,7 +670,7 @@ struct AST_INTERNAL::ProcessGenerator
 						current_case_assigned_bits.insert(bit);
 
 				remove_unwanted_lvalue_bits(lvalue, rvalue);
-				current_case->actions.push_back(RTLIL::SigSig(lvalue, rvalue));
+				current_case->actions.push_back({lvalue, rvalue});
 			}
 			break;
 
@@ -679,8 +687,8 @@ struct AST_INTERNAL::ProcessGenerator
 
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						ast->input_error("Attribute `%s' with non-constant value!\n", attr.first);
-					sw->attributes[attr.first] = attr.second->asAttrConst();
+						ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+					sw->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 				}
 
 				RTLIL::SigSpec this_case_eq_lvalue;
@@ -795,13 +803,12 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_TCALL:
 			if (ast->str == "$display" || ast->str == "$displayb" || ast->str == "$displayh" || ast->str == "$displayo" ||
 		  ast->str == "$write"   || ast->str == "$writeb"   || ast->str == "$writeh"   || ast->str == "$writeo") {
-				std::stringstream sstr;
-				sstr << ast->str << "$" << ast->location.begin.filename << ":" << ast->location.begin.line << "$" << (autoidx++);
+				IdString name = intern_src_name(current_module->design, ast->location, ast->str, autoidx++);
 
-				Wire *en = current_module->addWire(sstr.str() + "_EN", 1);
+				Wire *en = current_module->addWire(TwineSpec::Suffix{name, "_EN"}, 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back(SigSig(en, false));
-				current_case->actions.push_back(SigSig(en, true));
+				proc->root_case.actions.push_back({en, SigSpec(false)});
+				current_case->actions.push_back({en, SigSpec(true)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;
@@ -816,7 +823,7 @@ struct AST_INTERNAL::ProcessGenerator
 				}
 				RTLIL::Const polarity = polarity_builder.build();
 
-				RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($print));
+				RTLIL::Cell *cell = current_module->addCell(name, ID($print));
 				set_src_attr(cell, ast);
 				cell->setParam(ID::TRG_WIDTH, triggers.size());
 				cell->setParam(ID::TRG_ENABLE, (always->type == AST_INITIAL) || !triggers.empty());
@@ -886,19 +893,20 @@ struct AST_INTERNAL::ProcessGenerator
 
 				IdString cellname;
 				if (ast->str.empty())
-					cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*ast->location.begin.filename), ast->location.begin.line, autoidx++);
+					cellname = intern_src_name(current_module->design, ast->location,
+							stringf("$%s", flavor), autoidx++);
 				else
-					cellname = ast->str;
+					cellname = current_module->twines().add(std::string{ast->str});
 				check_unique_id(current_module, cellname, ast, "procedural assertion");
 
 				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
 				if (GetSize(check) != 1)
 					check = current_module->ReduceBool(NEW_ID, check);
 
-				Wire *en = current_module->addWire(cellname.str() + "_EN", 1);
+				Wire *en = current_module->addWire(TwineSpec::Suffix{cellname, "_EN"}, 1);
 				set_src_attr(en, ast);
-				proc->root_case.actions.push_back(SigSig(en, false));
-				current_case->actions.push_back(SigSig(en, true));
+				proc->root_case.actions.push_back({en, SigSpec(false)});
+				current_case->actions.push_back({en, SigSpec(true)});
 
 				RTLIL::SigSpec triggers;
 				RTLIL::Const::Builder polarity_builder;
@@ -918,7 +926,7 @@ struct AST_INTERNAL::ProcessGenerator
 				cell->set_bool_attribute(ID(keep));
 				for (auto &attr : ast->attributes) {
 					if (attr.second->type != AST_CONSTANT)
-						log_file_error(ast->location.to_loc(), "Attribute `%s' with non-constant value!\n", attr.first);
+						log_file_error(ast->location.to_loc(), "Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
 					cell->attributes[attr.first] = attr.second->asAttrConst();
 				}
 				cell->setParam(ID::FLAVOR, flavor);
@@ -954,24 +962,24 @@ struct AST_INTERNAL::ProcessGenerator
 		for (auto& child : always->children)
 			if (child->type == AST_MEMWR)
 			{
-				std::string memid = child->str;
+				std::string memid_str = child->str;
 				int portid = child->children[3]->asInt(false);
 				int cur_idx = GetSize(sync->mem_write_actions);
 				RTLIL::MemWriteAction action;
 				set_src_attr(&action, child.get());
-				action.memid = memid;
+				action.memid = current_module->twines().add(memid_str);
 				action.address = child->children[0]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
-				action.data = child->children[1]->genWidthRTLIL(current_module->memories[memid]->width, true, &subst_rvalue_map.stdmap());
+				action.data = child->children[1]->genWidthRTLIL(current_module->memories[action.memid]->width, true, &subst_rvalue_map.stdmap());
 				action.enable = child->children[2]->genWidthRTLIL(-1, true, &subst_rvalue_map.stdmap());
 				RTLIL::Const orig_priority_mask = child->children[4]->bitsAsConst();
 				RTLIL::Const priority_mask = RTLIL::Const(0, cur_idx);
 				for (int i = 0; i < portid; i++) {
-					int new_bit = port_map[std::make_pair(memid, i)];
+					int new_bit = port_map[std::make_pair(memid_str, i)];
 					priority_mask.set(new_bit, orig_priority_mask[i]);
 				}
 				action.priority_mask = priority_mask;
 				sync->mem_write_actions.push_back(action);
-				port_map[std::make_pair(memid, portid)] = cur_idx;
+				port_map[std::make_pair(memid_str, portid)] = cur_idx;
 			}
 	}
 };
@@ -1392,9 +1400,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		// If a port in a module with unknown type is found, mark it with the attribute 'is_interface'
 		// This is used by the hierarchy pass to know when it can replace interface connection with the individual
 		// signals.
-		RTLIL::IdString id = str;
+		const std::string &id = str;
 		check_unique_id(current_module, id, this, "interface port");
-		RTLIL::Wire *wire = current_module->addWire(id, 1);
+		RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id), 1);
 		set_src_attr(wire, this);
 		wire->start_offset = 0;
 		wire->port_id = port_id;
@@ -1420,9 +1428,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
-		current_module->avail_parameters(str);
+		current_module->avail_parameters(current_module->twines().add(std::string(str)));
 		if (GetSize(children) >= 1 && children[0]->type == AST_CONSTANT) {
-			current_module->parameter_default_values[str] = children[0]->asParaConst();
+			current_module->parameter_default_values[current_module->twines().add(std::string(str))] = children[0]->asParaConst();
 		}
 		YS_FALLTHROUGH
 	case AST_LOCALPARAM:
@@ -1432,9 +1440,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				input_error("Parameter `%s' with non-constant value!\n", str);
 
 			RTLIL::Const val = children[0]->bitsAsConst();
-			RTLIL::IdString id = str;
+			const std::string &id = str;
 			check_unique_id(current_module, id, this, "pwire");
-			RTLIL::Wire *wire = current_module->addWire(id, GetSize(val));
+			RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id), GetSize(val));
 			current_module->connect(wire, val);
 			wire->is_signed = children[0]->is_signed;
 
@@ -1443,8 +1451,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first);
-				wire->attributes[attr.first] = attr.second->asAttrConst();
+					input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+				wire->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 			}
 		}
 		break;
@@ -1457,9 +1465,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (!(range_left + 1 >= range_right))
 				input_error("Signal `%s' with invalid width range %d!\n", str, range_left - range_right + 1);
 
-			RTLIL::IdString id = str;
+			const std::string &id = str;
 			check_unique_id(current_module, id, this, "signal");
-			RTLIL::Wire *wire = current_module->addWire(id, range_left - range_right + 1);
+			RTLIL::Wire *wire = current_module->addWire(intern_hier_name(current_module->design, id), range_left - range_right + 1);
 			set_src_attr(wire, this);
 			wire->start_offset = range_right;
 			wire->port_id = port_id;
@@ -1471,8 +1479,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first);
-				wire->attributes[attr.first] = attr.second->asAttrConst();
+					input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+				wire->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 			}
 
 			if (is_wand) wire->set_bool_attribute(ID::wand);
@@ -1489,9 +1497,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			if (!children[0]->range_valid || !children[1]->range_valid)
 				input_error("Memory `%s' with non-constant width or size!\n", str);
 
-			RTLIL::Memory *memory = new RTLIL::Memory;
+			check_unique_id(current_module, str, this, "memory");
+			RTLIL::Memory *memory = current_module->addMemory(intern_hier_name(current_module->design, str));
 			set_src_attr(memory, this);
-			memory->name = str;
 			memory->width = children[0]->range_left - children[0]->range_right + 1;
 			if (children[1]->range_right < children[1]->range_left) {
 				memory->start_offset = children[1]->range_right;
@@ -1500,13 +1508,11 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				memory->start_offset = children[1]->range_left;
 				memory->size = children[1]->range_right - children[1]->range_left + 1;
 			}
-			check_unique_id(current_module, memory->name, this, "memory");
-			current_module->memories[memory->name] = memory;
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first);
-				memory->attributes[attr.first] = attr.second->asAttrConst();
+					input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+				memory->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 			}
 		}
 		break;
@@ -1547,10 +1553,12 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			log_assert(id2ast != nullptr);
 
-			if (id2ast->type == AST_AUTOWIRE && current_module->wires_.count(str) == 0) {
-				RTLIL::Wire *wire = current_module->addWire(str);
+			IdString str_ref = intern_hier_name(current_module->design, str);
+
+			if (id2ast->type == AST_AUTOWIRE && current_module->wire(str_ref) == nullptr) {
+				RTLIL::Wire *wire = current_module->addWire(str_ref);
+				str_ref = wire->name;
 				set_src_attr(wire, this);
-				wire->name = str;
 
 				if (flag_autowire)
 					log_file_warning(location.to_loc(), "Identifier `%s' is implicitly declared.\n", str);
@@ -1563,8 +1571,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				chunk = RTLIL::Const(id2ast->children[0]->bits);
 				goto use_const_chunk;
 			}
-			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wires_.count(str) != 0) {
-				RTLIL::Wire *current_wire = current_module->wire(str);
+			else if ((id2ast->type == AST_WIRE || id2ast->type == AST_AUTOWIRE || id2ast->type == AST_MEMORY) && current_module->wire(str_ref) != nullptr) {
+				RTLIL::Wire *current_wire = current_module->wire(str_ref);
 				if (current_wire->get_bool_attribute(ID::is_interface))
 					is_interface = true;
 				// Ignore
@@ -1584,7 +1592,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			// This makes it possible for the hierarchy pass to see what are interface connections and then replace them
 			// with the individual signals:
 			if (is_interface) {
-				IdString dummy_wire_name = stringf("$dummywireforinterface%s", str);
+				IdString dummy_wire_name = current_module->twines().add(stringf("$dummywireforinterface%s", str));
 				RTLIL::Wire *dummy_wire = current_module->wire(dummy_wire_name);
 				if (!dummy_wire) {
 					dummy_wire = current_module->addWire(dummy_wire_name);
@@ -1593,7 +1601,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				return dummy_wire;
 			}
 
-			wire = current_module->wires_[str];
+			wire = current_module->wire(str_ref);
 			chunk.wire = wire;
 			chunk.width = wire->width;
 			chunk.offset = 0;
@@ -1954,13 +1962,15 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $memrd cells for memory read ports
 	case AST_MEMRD:
 		{
-			std::stringstream sstr;
-			sstr << "$memrd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+			IdString name = current_module->twines().add(TwineSpec::Suffix{
+					intern_src_name(current_module->design, location, "$memrd", autoidx++),
+					stringf("$%s", str)});
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($memrd));
+			RTLIL::Cell *cell = current_module->addCell(name, ID($memrd));
 			set_src_attr(cell, this);
 
-			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[str]->width);
+			IdString mem_tw = current_module->twines().find(str);
+			RTLIL::Wire *wire = current_module->addWire(cell->name.str() + "_DATA", current_module->memories[mem_tw]->width);
 			set_src_attr(wire, this);
 
 			int mem_width, mem_size, addr_bits;
@@ -1992,12 +2002,13 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	// generate $meminit cells
 	case AST_MEMINIT:
 		{
-			std::stringstream sstr;
-			sstr << "$meminit$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+			IdString name = current_module->twines().add(TwineSpec::Suffix{
+					intern_src_name(current_module->design, location, "$meminit", autoidx++),
+					stringf("$%s", str)});
 
 			SigSpec en_sig = children[2]->genRTLIL();
 
-			RTLIL::Cell *cell = current_module->addCell(sstr.str(), ID($meminit_v2));
+			RTLIL::Cell *cell = current_module->addCell(name, ID($meminit_v2));
 			set_src_attr(cell, this);
 
 			int mem_width, mem_size, addr_bits;
@@ -2010,13 +2021,14 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			SigSpec addr_sig = children[0]->genRTLIL();
 
+			IdString mem_tw = current_module->twines().find(str);
 			cell->setPort(ID::ADDR, addr_sig);
-			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[str]->width * num_words, true));
+			cell->setPort(ID::DATA, children[1]->genWidthRTLIL(current_module->memories[mem_tw]->width * num_words, true));
 			cell->setPort(ID::EN, en_sig);
 
 			cell->parameters[ID::MEMID] = RTLIL::Const(str);
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
-			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[str]->width);
+			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[mem_tw]->width);
 
 			cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
 		}
@@ -2038,9 +2050,10 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			IdString cellname;
 			if (str.empty())
-				cellname = stringf("$%s$%s:%d$%d", flavor, RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+				cellname = intern_src_name(current_module->design, location,
+						stringf("$%s", flavor), autoidx++);
 			else
-				cellname = str;
+				cellname = current_module->twines().add(std::string{str});
 			check_unique_id(current_module, cellname, this, "procedural assertion");
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
@@ -2051,8 +2064,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			set_src_attr(cell, this);
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value!\n", attr.first);
-				cell->attributes[attr.first] = attr.second->asAttrConst();
+					input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
+				cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 			}
 			cell->setParam(ID(FLAVOR), flavor);
 			cell->parameters[ID::TRG_WIDTH] = 0;
@@ -2097,28 +2110,29 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 		{
 			int port_counter = 0, para_counter = 0;
 
-			RTLIL::IdString id = str;
+			const std::string &id = str;
 			check_unique_id(current_module, id, this, "cell");
-			RTLIL::Cell *cell = current_module->addCell(id, "");
+			RTLIL::Cell *cell = current_module->addCell(intern_hier_name(current_module->design, id), IdString::Null);
 			set_src_attr(cell, this);
 
 			for (auto it = children.begin(); it != children.end(); it++) {
 				auto* child = it->get();
 				if (child->type == AST_CELLTYPE) {
-					cell->type = child->str;
-					if (flag_icells && cell->type.begins_with("\\$"))
-						cell->type = cell->type.substr(1);
+					std::string type_str = child->str;
+					if (flag_icells && type_str.size() >= 2 && type_str[0] == '\\' && type_str[1] == '$')
+						type_str = type_str.substr(1);
+					cell->type = current_module->twines().add(std::string{type_str});
 					continue;
 				}
 				if (child->type == AST_PARASET) {
-					IdString paraname = child->str.empty() ? stringf("$%d", ++para_counter) : child->str;
+					IdString paraname = current_module->twines().add(child->str.empty() ? stringf("$%d", ++para_counter) : child->str);
 					const auto* value = child->children[0].get();
 					if (value->type == AST_REALVALUE)
 						log_file_warning(location.to_loc(), "Replacing floating point parameter %s.%s = %f with string.\n",
-								cell, paraname.unescape(), value->realvalue);
+								cell, PooledName(current_module->design, paraname).unescape(), value->realvalue);
 					else if (value->type != AST_CONSTANT)
 						input_error("Parameter %s.%s with non-constant value!\n",
-								cell, paraname.unescape());
+								cell, PooledName(current_module->design, paraname).unescape());
 					cell->parameters[paraname] = value->asParaConst();
 					continue;
 				}
@@ -2145,7 +2159,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 						} else if (arg->is_signed) {
 							// non-trivial signed nodes are indirected through
 							// signed wires to enable sign extension
-							RTLIL::IdString wire_name = NEW_ID;
+							IdString wire_name = current_module->twines().add(NEW_ID);
 							RTLIL::Wire *wire = current_module->addWire(wire_name, GetSize(sig));
 							wire->is_signed = true;
 							current_module->connect(wire, sig);
@@ -2155,9 +2169,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->setPort(buf, sig);
+						cell->setPort(current_module->twines().add(std::string{std::string(buf)}), sig);
 					} else {
-						cell->setPort(child->str, sig);
+						cell->setPort(current_module->twines().add(std::string{child->str}), sig);
 					}
 					continue;
 				}
@@ -2170,8 +2184,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 			for (auto &attr : attributes) {
 				if (attr.second->type != AST_CONSTANT)
-					input_error("Attribute `%s' with non-constant value.\n", attr.first);
-				cell->attributes[attr.first] = attr.second->asAttrConst();
+					input_error("Attribute `%s' with non-constant value.\n", attr_name_str(attr.first));
+				cell->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 			}
 			if (cell->type == ID($specify2)) {
 				int src_width = GetSize(cell->getPort(ID::SRC));
@@ -2262,7 +2276,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (width <= 0)
 					input_error("Failed to detect width of %s!\n", RTLIL::unescape_id(str));
 
-				Cell *cell = current_module->addCell(myid, str.substr(1));
+				IdString _type = current_module->twines().add(std::string{str.substr(1)});
+				Cell *cell = current_module->addCell(myid, _type);
 				set_src_attr(cell, this);
 				cell->parameters[ID::WIDTH] = width;
 

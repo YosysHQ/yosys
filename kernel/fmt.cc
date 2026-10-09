@@ -350,7 +350,7 @@ void Fmt::apply_verilog_automatic_sizing_and_add(FmtPart &part)
 	}
 }
 
-void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_like, int default_base, RTLIL::IdString task_name, RTLIL::IdString module_name)
+void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_like, int default_base, const std::string &task_name, const std::string &module_name)
 {
 	parts.clear();
 
@@ -390,10 +390,10 @@ void Fmt::parse_verilog(const std::vector<VerilogFmtArg> &args, bool sformat_lik
 							part.str += '%';
 						} else if (fmt.substr(i, 2) == "%l" || fmt.substr(i, 2) == "%L") {
 							i++;
-							part.str += module_name.str();
+							part.str += module_name;
 						} else if (fmt.substr(i, 2) == "%m" || fmt.substr(i, 2) == "%M") {
 							i++;
-							part.str += module_name.str();
+							part.str += module_name;
 						} else {
 							if (!part.str.empty()) {
 								part.type = FmtPart::LITERAL;

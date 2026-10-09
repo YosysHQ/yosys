@@ -201,12 +201,6 @@ Use ``log_signal()`` to create a C-string for a SigSpec object:
 The pointer returned by ``log_signal()`` is automatically freed by the log
 framework at a later time.
 
-Use ``log_id()`` to create a C-string for an ``RTLIL::IdString``:
-
-.. code:: C++
-
-    log("Name of this module: %s\n", log_id(module->name));
-
 Use ``log_header()`` and ``log_push()``/\ ``log_pop()`` to structure log
 messages:
 

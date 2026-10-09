@@ -68,7 +68,7 @@ struct QbfSolutionType {
 		for (auto cell : module->cells()) {
 			pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
 			auto pos = hole_to_value.find(cell_src);
-			if (pos != hole_to_value.end() && cell->type.in("$anyconst", "$anyseq")) {
+			if (pos != hole_to_value.end() && cell->type.in(ID($anyconst), ID($anyseq))) {
 				RTLIL::SigSpec port_y = cell->getPort(ID::Y);
 				for (int i = GetSize(port_y) - 1; i >= 0; --i) {
 					hole_loc_idx_to_sigbit[std::make_pair(pos->first, i)] = port_y[i];

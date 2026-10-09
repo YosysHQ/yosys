@@ -69,8 +69,8 @@ void write_kiss2(struct RTLIL::Module *module, struct RTLIL::Cell *cell, std::st
 
 	log("\n");
 	log("Exporting FSM `%s' from module `%s' to file `%s'.\n",
-			cell->name.c_str(),
-			module->name.c_str(),
+			cell->name,
+			module->name,
 			kiss_name.c_str());
 
 	kiss_file.open(kiss_name, std::ios::out | std::ios::trunc);

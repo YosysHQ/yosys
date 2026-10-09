@@ -20,7 +20,7 @@ struct FunctionalDummyBackend : public Backend {
 
 			// convert module to FunctionalIR
 			auto ir = Functional::IR::from_module(module);
-			*f << "module " << module->name.c_str() << "\n";
+			*f << "module " << module->name.str() << "\n";
 
 			// write node functions
 			for (auto node : ir)
