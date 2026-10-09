@@ -349,7 +349,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	}
 
 	dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-	TopoSort<IdString> toposort;
+	TopoSort<IdString, RTLIL::sort_by_id_str> toposort(RTLIL::sort_by_id_str(module->twines()));
 	dict<RTLIL::Cell*,RTLIL::Cell*> not2drivers;
 	dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
 

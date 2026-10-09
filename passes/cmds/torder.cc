@@ -78,7 +78,7 @@ struct TorderPass : public Pass {
 
 			SigMap sigmap(module);
 			dict<SigBit, pool<IdString>> bit_drivers, bit_users;
-			TopoSort<IdString> toposort;
+			TopoSort<IdString, RTLIL::sort_by_id_str> toposort(RTLIL::sort_by_id_str(module->twines()));
 
 			for (auto cell : module->selected_cells())
 			for (auto conn : cell->connections())

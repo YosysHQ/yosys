@@ -778,7 +778,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 		return;
 
 	// Build the same topo graph for the initial pass and the optional retry.
-	auto build_toposort = [&](TopoSort<IdString> &toposort) {
+	auto build_toposort = [&](TopoSort<IdString, RTLIL::sort_by_id_str> &toposort) {
 		dict<SigBit, pool<IdString>> bit_drivers, bit_users;
 
 		for (auto cell : module->cells()) {
@@ -819,8 +819,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 	};
 
 	// Build TopoSort in a container, as we may need to conditionally rebuild it on retry.
-	std::optional<TopoSort<IdString>> toposort;
-	toposort.emplace();
+	std::optional<TopoSort<IdString, RTLIL::sort_by_id_str>> toposort;
+	toposort.emplace(RTLIL::sort_by_id_str(module->twines()));
 	bool no_loops = build_toposort(toposort.value());
 
 	// Fallback for residual loops after SCC cutting: insert additional
@@ -858,7 +858,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			cell->setPort(ID::O, std::move(O));
 
 			// Rebuild topo ordering after inserting the additional breakers.
-			toposort.emplace();
+			toposort.emplace(RTLIL::sort_by_id_str(module->twines()));
 			no_loops = build_toposort(toposort.value());
 		}
 	}
