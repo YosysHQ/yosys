@@ -334,6 +334,25 @@ static std::vector<int> array_indices_from_position(AstNode *mem, const std::vec
 	return indices;
 }
 
+// Convert per-dimension element positions to a flattened, 1D array position.
+// This reproduces all the quirks of array flattening wrt. indexing. Oh well...
+static int flattened_array_index_from_position(AstNode *mem, const std::vector<int> &position)
+{
+	int num_dims = mem->unpacked_dimensions;
+	log_assert(GetSize(position) == num_dims);
+
+	int index = 0;
+	for (int d = 0; d < num_dims; d++) {
+		if (d > 0)
+			index *= mem->dimensions[d].range_width;
+		int width = mem->dimensions[d].range_width;
+		bool swap = mem->dimensions[d].range_swapped || num_dims > 1;
+		index += swap ? position[d] : width - position[d] - 1;
+	}
+
+	return index;
+}
+
 // Generate all element positions for a multi-dimensional unpacked array and
 // call callback once for each combination.
 static void foreach_array_position(AstNode *mem, std::function<void(const std::vector<int>&)> callback)
@@ -3463,80 +3482,129 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 			}
 
-			// Warn if array assignment expansion is large.
-			if (total_elements > 10000)
-				log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
-					total_elements, location.to_string().c_str());
+			// Build a single AST_MEMINIT if all elements have folded to constants before this point
+			bool use_meminit = is_pattern_assign && this->is_in_unconditional_init() && rhs->is_simple_const_expr();
+			vector<State> meminit_bits(total_elements * element_width);
 
-			// Collect all assignments
-			std::vector<std::unique_ptr<AstNode>> assignments;
-			std::vector<std::unique_ptr<AstNode>> pattern_temp_assignments;
+			if (use_meminit) {
+				int iter_idx = 0;
 
-			foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
-				auto lhs_idx = add_position_to_id(lhs->clone(), lhs_mem, position);
+				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+					if (!use_meminit)
+						return;
 
-				std::unique_ptr<AstNode> rhs_expr;
-				if (is_direct_assign) {
-					rhs_expr = add_position_to_id(rhs->clone(), direct_rhs_mem, position);
-				} else if (is_ternary_assign) {
-					// Ternary case
-					AstNode *cond = rhs->children[0].get();
-					AstNode *true_val = rhs->children[1].get();
-					AstNode *false_val = rhs->children[2].get();
+					auto elem = pattern_element_at_position(position, iter_idx++);
 
-					auto true_idx = add_position_to_id(true_val->clone(), true_mem, position);
-					auto false_idx = add_position_to_id(false_val->clone(), false_mem, position);
-
-					rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
-						cond->clone(), std::move(true_idx), std::move(false_idx));
-				} else {
-					auto pattern_rhs = pattern_element_at_position(position, GetSize(assignments));
-
-					if (type == AST_ASSIGN_EQ) {
-						auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE,
-							std::make_unique<AstNode>(location, AST_RANGE,
-								mkconst_int(location, element_width - 1, true),
-								mkconst_int(location, 0, true)));
-						auto wire_tmp = wire_tmp_owned.get();
-						wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
-							RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
-						current_scope[wire_tmp->str] = wire_tmp;
-						current_ast_mod->children.push_back(std::move(wire_tmp_owned));
-						wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
-						while (wire_tmp->simplify(true, 1, -1, false)) { }
-						wire_tmp->is_logic = true;
-						wire_tmp->is_signed = lhs_mem->is_signed;
-
-						auto tmp_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
-						tmp_id->str = wire_tmp->str;
-						pattern_temp_assignments.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ,
-							tmp_id->clone(), std::move(pattern_rhs)));
-						rhs_expr = std::move(tmp_id);
-					} else {
-						rhs_expr = std::move(pattern_rhs);
+					if (!elem->isConst()) {
+						use_meminit = false;
+						return;
 					}
-				}
 
-				auto assign = std::make_unique<AstNode>(location, type,
-					std::move(lhs_idx), std::move(rhs_expr));
-				assign->was_checked = true;
-				assignments.push_back(std::move(assign));
-			});
+					vector<State> bits = elem->valueAsConst(element_width).to_bits();
+					int linear_idx = element_width * flattened_array_index_from_position(lhs_mem, position);
 
-			// For continuous assignments, add to module; for procedural, use block
-			if (type == AST_ASSIGN) {
-				// Add all but last to module
-				for (size_t i = 0; i + 1 < assignments.size(); i++)
-					current_ast_mod->children.push_back(std::move(assignments[i]));
-				// Last one replaces current node
-				newNode = std::move(assignments.back());
-			} else {
-				// Wrap in AST_BLOCK for procedural
+					for (int b = 0; b < element_width; b++)
+						meminit_bits[linear_idx + b] = bits[b];
+				});
+			}
+
+			if (use_meminit) {
+				int start = lhs_mem->unpacked_dimensions == 1
+					? lhs_mem->dimensions[0].range_right
+					: 0;
+
+				vector<State> en_bits(element_width, State::S1);
+				auto meminit_owned = std::make_unique<AstNode>(
+					location,
+					AST_MEMINIT,
+					AstNode::mkconst_int(location, start, false),
+					AstNode::mkconst_bits(location, meminit_bits, false),
+					AstNode::mkconst_bits(location, en_bits, false),
+					AstNode::mkconst_int(location, total_elements, false)
+				);
+
+				auto meminit = meminit_owned.get();
+				meminit->str = lhs_mem->str;
+				meminit->id2ast = lhs_mem;
+
+				current_ast_mod->children.push_back(std::move(meminit_owned));
 				newNode = std::make_unique<AstNode>(location, AST_BLOCK);
-				for (auto& assign : pattern_temp_assignments)
-					newNode->children.push_back(std::move(assign));
-				for (auto& assign : assignments)
-					newNode->children.push_back(std::move(assign));
+			} else {
+				// Warn if array assignment expansion is large.
+				if (total_elements > 10000)
+					log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
+						total_elements, location.to_string().c_str());
+
+				// Collect all assignments
+				std::vector<std::unique_ptr<AstNode>> assignments;
+				std::vector<std::unique_ptr<AstNode>> pattern_temp_assignments;
+
+				foreach_array_position(lhs_mem, [&](const std::vector<int>& position) {
+					auto lhs_idx = add_position_to_id(lhs->clone(), lhs_mem, position);
+
+					std::unique_ptr<AstNode> rhs_expr;
+					if (is_direct_assign) {
+						rhs_expr = add_position_to_id(rhs->clone(), direct_rhs_mem, position);
+					} else if (is_ternary_assign) {
+						// Ternary case
+						AstNode *cond = rhs->children[0].get();
+						AstNode *true_val = rhs->children[1].get();
+						AstNode *false_val = rhs->children[2].get();
+
+						auto true_idx = add_position_to_id(true_val->clone(), true_mem, position);
+						auto false_idx = add_position_to_id(false_val->clone(), false_mem, position);
+
+						rhs_expr = std::make_unique<AstNode>(location, AST_TERNARY,
+							cond->clone(), std::move(true_idx), std::move(false_idx));
+					} else {
+						auto pattern_rhs = pattern_element_at_position(position, GetSize(assignments));
+
+						if (type == AST_ASSIGN_EQ) {
+							auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE,
+								std::make_unique<AstNode>(location, AST_RANGE,
+									mkconst_int(location, element_width - 1, true),
+									mkconst_int(location, 0, true)));
+							auto wire_tmp = wire_tmp_owned.get();
+							wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
+								RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+							current_scope[wire_tmp->str] = wire_tmp;
+							current_ast_mod->children.push_back(std::move(wire_tmp_owned));
+							wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
+							while (wire_tmp->simplify(true, 1, -1, false)) { }
+							wire_tmp->is_logic = true;
+							wire_tmp->is_signed = lhs_mem->is_signed;
+
+							auto tmp_id = std::make_unique<AstNode>(location, AST_IDENTIFIER);
+							tmp_id->str = wire_tmp->str;
+							pattern_temp_assignments.push_back(std::make_unique<AstNode>(location, AST_ASSIGN_EQ,
+								tmp_id->clone(), std::move(pattern_rhs)));
+							rhs_expr = std::move(tmp_id);
+						} else {
+							rhs_expr = std::move(pattern_rhs);
+						}
+					}
+
+					auto assign = std::make_unique<AstNode>(location, type,
+						std::move(lhs_idx), std::move(rhs_expr));
+					assign->was_checked = true;
+					assignments.push_back(std::move(assign));
+				});
+
+				// For continuous assignments, add to module; for procedural, use block
+				if (type == AST_ASSIGN) {
+					// Add all but last to module
+					for (size_t i = 0; i + 1 < assignments.size(); i++)
+						current_ast_mod->children.push_back(std::move(assignments[i]));
+					// Last one replaces current node
+					newNode = std::move(assignments.back());
+				} else {
+					// Wrap in AST_BLOCK for procedural
+					newNode = std::make_unique<AstNode>(location, AST_BLOCK);
+					for (auto& assign : pattern_temp_assignments)
+						newNode->children.push_back(std::move(assign));
+					for (auto& assign : assignments)
+						newNode->children.push_back(std::move(assign));
+				}
 			}
 
 			goto apply_newNode;
@@ -4256,24 +4324,7 @@ skip_dynamic_range_lvalue_expansion:;
 					finish_addr = int(node_addr->asInt(false));
 				}
 
-				bool unconditional_init = false;
-				if (current_always->type == AST_INITIAL) {
-					pool<AstNode*> queue;
-					log_assert(current_always->children[0]->type == AST_BLOCK);
-					queue.insert(current_always->children[0].get());
-					while (!unconditional_init && !queue.empty()) {
-						pool<AstNode*> next_queue;
-						for (auto& n : queue)
-						for (auto& c : n->children) {
-							if (c.get() == this)
-								unconditional_init = true;
-							next_queue.insert(c.get());
-						}
-						next_queue.swap(queue);
-					}
-				}
-
-				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, unconditional_init);
+				newNode = readmem(str == "\\$readmemh", node_filename->bitsAsConst().decode_string(), node_memory->id2ast, start_addr, finish_addr, this->is_in_unconditional_init());
 				goto apply_newNode;
 			}
 
@@ -5816,6 +5867,26 @@ bool AstNode::is_simple_const_expr()
 		if (!child->is_simple_const_expr())
 			return false;
 	return true;
+}
+
+bool AstNode::is_in_unconditional_init() {
+	if (current_always && current_always->type == AST_INITIAL) {
+		pool<AstNode*> queue;
+		log_assert(current_always->children[0]->type == AST_BLOCK);
+		queue.insert(current_always->children[0].get());
+		while (!queue.empty()) {
+			pool<AstNode*> next_queue;
+			for (auto& n : queue)
+			for (auto& c : n->children) {
+				if (c.get() == this)
+					return true;
+				next_queue.insert(c.get());
+			}
+			next_queue.swap(queue);
+		}
+	}
+
+	return false;
 }
 
 // helper function for AstNode::eval_const_function()
