@@ -46,6 +46,7 @@ EOF
 equiv_opt -assert mcm -max_shift 128
 design -load postopt
 select -assert-count 0 t:$mul
+select -assert-count 2 t:$add t:$sub
 
 design -reset
 

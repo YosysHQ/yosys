@@ -27,7 +27,7 @@ private:
 
 	void add_target(const AOp &target);
 	bool heuristic(AOp &selected);
-	ExactDistance exact_dist(const UnsignedContainer &target) const;
+	ExactDistance exact_dist(const UnsignedContainer &target);
 	int estimate_after(const UnsignedContainer &successor, const UnsignedContainer &target, int previous);
 	bool finishes_in_one(const IntSet &ready, const UnsignedContainer &successor, const UnsignedContainer &target) const;
 	bool finishes_in_two(const UnsignedContainer &successor, const UnsignedContainer &target) const;
@@ -43,6 +43,7 @@ private:
 	AOpMap work_list;
 	AOpMap successor_set;
 	IntSet c1, c2;
+	bool c2_initialized = false;
 	std::map<UnsignedContainer, int> distance_cache;
 	std::map<std::pair<UnsignedContainer, UnsignedContainer>, int> estimate_cache;
 	int max_bit_width;
