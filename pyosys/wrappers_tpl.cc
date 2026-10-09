@@ -84,28 +84,11 @@ namespace pyosys {
 		return RTLIL::PooledName(&self.twines(), self.twines().add(name));
 	}
 
-	static py::object design_id_find(RTLIL::Design &self, const std::string &name)
-	{
-		RTLIL::IdString ref = self.twines().find(name);
-		if (ref.empty())
-			return py::none();
-		return py::cast(RTLIL::PooledName(&self.twines(), ref));
-	}
-
 	static std::string design_str(RTLIL::Design &self, const RTLIL::PooledName &name)
 	{
 		if (name_renderable(name))
 			return name.str();
 		return self.twines().str(name.ref());
-	}
-
-	static py::list module_ports(RTLIL::Module &self)
-	{
-		TwinePool *pool = twine_pool(self);
-		py::list out;
-		for (RTLIL::IdString port : self.ports)
-			out.append(py::cast(RTLIL::PooledName(pool, port)));
-		return out;
 	}
 
 	static bool lookup_constid(const std::string &text, RTLIL::IdString &out)
@@ -116,6 +99,36 @@ namespace pyosys {
 		} catch (...) {
 			return false;
 		}
+	}
+
+	struct PyName {
+		RTLIL::PooledName name;
+		unsigned int design = 0;
+	};
+
+	static unsigned int design_of(const TwinePool *pool)
+	{
+		if (pool != nullptr)
+			for (auto &[hashidx, design] : *RTLIL::Design::get_all_designs())
+				if (&design->twines() == pool)
+					return hashidx;
+		return 0;
+	}
+
+	static bool alive(const PyName &n)
+	{
+		if (n.name.pool() == nullptr)
+			return true;
+		auto designs = RTLIL::Design::get_all_designs();
+		auto it = designs->find(n.design);
+		return it != designs->end() && &it->second->twines() == n.name.pool();
+	}
+
+	static const RTLIL::PooledName &live(const PyName &n)
+	{
+		if (!alive(n))
+			throw std::runtime_error("this name belongs to a design that no longer exists");
+		return n.name;
 	}
 
 	struct NameArg {
@@ -165,6 +178,24 @@ namespace pyosys {
 namespace pybind11 {
 namespace detail {
 
+template <> struct type_caster<Yosys::RTLIL::PooledName> {
+public:
+	PYBIND11_TYPE_CASTER(Yosys::RTLIL::PooledName, const_name("IdString"));
+
+	bool load(handle src, bool)
+	{
+		if (!isinstance<pyosys::PyName>(src))
+			return false;
+		value = pyosys::live(src.cast<const pyosys::PyName &>());
+		return true;
+	}
+
+	static handle cast(const Yosys::RTLIL::PooledName &src, return_value_policy, handle)
+	{
+		return pybind11::cast(pyosys::PyName{src, pyosys::design_of(src.pool())}).release();
+	}
+};
+
 template <> struct type_caster<Yosys::RTLIL::IdString> {
 public:
 	PYBIND11_TYPE_CASTER(Yosys::RTLIL::IdString, const_name("IdString"));
@@ -173,8 +204,8 @@ public:
 	{
 		if (!src)
 			return false;
-		if (isinstance<Yosys::RTLIL::PooledName>(src)) {
-			value = src.cast<const Yosys::RTLIL::PooledName &>().ref();
+		if (isinstance<pyosys::PyName>(src)) {
+			value = pyosys::live(src.cast<const pyosys::PyName &>()).ref();
 			return true;
 		}
 		if (PyUnicode_Check(src.ptr()))
@@ -196,8 +227,8 @@ public:
 	{
 		if (!src)
 			return false;
-		if (isinstance<Yosys::RTLIL::PooledName>(src)) {
-			value.name = src.cast<const Yosys::RTLIL::PooledName &>();
+		if (isinstance<pyosys::PyName>(src)) {
+			value.name = pyosys::live(src.cast<const pyosys::PyName &>());
 			value.is_text = false;
 			return true;
 		}
@@ -223,6 +254,23 @@ template <typename Owner, typename Slot> struct type_caster<Yosys::RTLIL::OwnedI
 }
 
 namespace pyosys {
+
+	static py::object design_id_find(RTLIL::Design &self, const std::string &name)
+	{
+		RTLIL::IdString ref = self.twines().find(name);
+		if (ref.empty())
+			return py::none();
+		return py::cast(RTLIL::PooledName(&self.twines(), ref));
+	}
+
+	static py::list module_ports(RTLIL::Module &self)
+	{
+		TwinePool *pool = twine_pool(self);
+		py::list out;
+		for (RTLIL::IdString port : self.ports)
+			out.append(py::cast(RTLIL::PooledName(pool, port)));
+		return out;
+	}
 
 	template<typename Value>
 	struct NameMapView {
@@ -524,15 +572,15 @@ namespace pyosys {
 			.def("notify_blackout", &RTLIL::Monitor::notify_blackout)
 		;
 
-		py::class_<RTLIL::PooledName>(m, "IdString")
-			.def("str", &name_str)
-			.def("empty", &RTLIL::PooledName::empty)
-			.def("isPublic", &RTLIL::PooledName::isPublic)
-			.def("__str__", &name_str)
-			.def("__repr__", &name_repr)
-			.def("__hash__", &name_hash)
-			.def("__eq__", &name_eq)
-			.def("__lt__", &name_lt)
+		py::class_<PyName>(m, "IdString")
+			.def("str", [](const PyName &n) { return name_str(live(n)); })
+			.def("empty", [](const PyName &n) { return n.name.empty(); })
+			.def("isPublic", [](const PyName &n) { return n.name.isPublic(); })
+			.def("__str__", [](const PyName &n) { return name_str(live(n)); })
+			.def("__repr__", [](const PyName &n) { return alive(n) ? name_repr(n.name) : std::string("<IdString of a deleted design>"); })
+			.def("__hash__", [](const PyName &n) { return name_hash(live(n)); })
+			.def("__eq__", [](const PyName &n, const NameArg &rhs) { return name_eq(live(n), rhs); })
+			.def("__lt__", [](const PyName &a, const PyName &b) { return name_lt(live(a), live(b)); })
 		;
 
 		// Bind Opaque Containers
