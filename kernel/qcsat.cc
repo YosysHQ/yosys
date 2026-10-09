@@ -87,7 +87,7 @@ int QuickConeSat::cell_complexity(RTLIL::Cell *cell)
 			ID($mux), ID($pmux), ID($bmux), ID($demux), ID($lut), ID($sop),
 			ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
 			ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_),
-			ID($_MUX_), ID($_NMUX_), ID($_MUX4_), ID($_MUX8_), ID($_MUX16_),
+			ID($_MUX_), ID($_NMUX_), ID($_MUX4_), ID($_MUX8_), ID($_MUX16_), ID($_MUX32_),
 			ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_)))
 		return 1;
 	if (cell->type.in(ID($neg), ID($add), ID($sub), ID($alu), ID($lcu),
