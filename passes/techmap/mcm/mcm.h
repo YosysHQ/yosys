@@ -4,57 +4,124 @@
 #include "kernel/yosys.h"
 #include <cstdint>
 #include <cstdlib>
-#include <limits>
 #include <map>
+#include <optional>
 #include <set>
+#include <variant>
 #include <vector>
 
 #include "libs/bigint/BigUnsigned.hh"
-#include "libs/bigint/BigIntegerLibrary.hh"
 
 namespace Yosys::Mcm {
 
-BigUnsigned oddify(BigUnsigned n);
+class UnsignedContainer {
+public:
+	UnsignedContainer(uint64_t integer = 0) : value(integer) {}
+	UnsignedContainer(const BigUnsigned &integer);
+	BigUnsigned to_big_unsigned() const;
 
-int shift_of(BigUnsigned n);
+	bool operator==(const UnsignedContainer &other) const { return value == other.value; }
+	bool operator<(const UnsignedContainer &other) const { return value < other.value; }
 
-int bit_width(BigUnsigned n);
+	template<typename Unsigned> const Unsigned &get() const {
+		return std::get<Unsigned>(value);
+	}
+	std::optional<uint64_t> get_uint64_t() const {
+		if (auto small = std::get_if<uint64_t>(&value))
+			return *small;
+		return std::nullopt;
+	}
+
+private:
+	std::variant<uint64_t, BigUnsigned> value;
+};
+
+template<typename Unsigned>
+int shift_of(const Unsigned &n)
+{
+	if constexpr (std::is_same_v<Unsigned, uint64_t>) {
+		return n ? std::countr_zero(n) : 0;
+	} else {
+		for (BigUnsigned::Index i = 0; i < n.getLength(); i++)
+			if (auto block = n.getBlock(i))
+				return i * BigUnsigned::N + std::countr_zero(block);
+		return 0;
+	}
+}
+
+template<typename Unsigned> Unsigned oddify(Unsigned n)
+{
+	return n >> shift_of(n);
+}
+
+template<typename Unsigned> int bit_width(const Unsigned &n)
+{
+	if constexpr (std::is_same_v<Unsigned, uint64_t>)
+		return std::bit_width(n);
+	else
+		return n.bitLength();
+}
+
 
 // Number of non-zero digits in the non-adjacent signed-digit form.
-int naf_weight(BigUnsigned n);
+template<typename Unsigned> int naf_weight(Unsigned n)
+{
+	int weight = 0;
+	while (n != 0) {
+		if ((n & 1) != 0) {
+			weight++;
+			if ((n & 3) == 3) {
+				n >>= 1;
+				n++;
+				continue;
+			}
+		}
+		n >>= 1;
+	}
+	return weight;
+}
 
+inline UnsignedContainer oddify(const UnsignedContainer &n) {
+	if (auto small = n.get_uint64_t())
+		return oddify<uint64_t>(*small);
+	return oddify<BigUnsigned>(n.get<BigUnsigned>());
+}
+inline int shift_of(const UnsignedContainer &n) {
+	if (auto small = n.get_uint64_t())
+		return shift_of<uint64_t>(*small);
+	return shift_of<BigUnsigned>(n.get<BigUnsigned>());
+}
+inline int bit_width(const UnsignedContainer &n) {
+	if (auto small = n.get_uint64_t())
+		return bit_width<uint64_t>(*small);
+	return bit_width<BigUnsigned>(n.get<BigUnsigned>());
+}
+inline int naf_weight(const UnsignedContainer &n) {
+	if (auto small = n.get_uint64_t())
+		return naf_weight<uint64_t>(*small);
+	return naf_weight<BigUnsigned>(n.get<BigUnsigned>());
+}
 
 struct AOpCfg {
 	int su, sv, norm;
 	bool sub;
 
 	BigUnsigned eval(BigUnsigned u, BigUnsigned v) const {
-		if (u != 0 || v != 0 || su < 0 || sv < 0 || norm < 0 || su > 63 || sv > 63 || norm > 63)
-			log_error("invalid shift or operand in AOpCfg::eval.\n");
+		if (su < 0 || sv < 0 || norm < 0)
+			log_error("invalid shift in AOpCfg::eval.\n");
 		BigUnsigned lhs = u << su, rhs = v << sv;
-		BigUnsigned res;
-		if (sub) {
-			if (lhs < rhs)
-				std::swap(lhs, rhs);
-			res = lhs - rhs;
-		} else {
-			if (lhs > std::numeric_limits<BigUnsigned>::max() - rhs)
-				log_error("overflow in AOpCfg::eval.\n");
-			res = lhs + rhs;
-		}
-
-		if ((res & ((BigUnsigned(1) << norm) - 1)) != 0)
+		BigUnsigned res = sub ? (lhs >= rhs ? lhs - rhs : rhs - lhs) : lhs + rhs;
+		if (res != 0 && shift_of(res) < norm)
 			log_error("inexact right shift in AOpCfg::eval.\n");
-		res >>= norm;
-		return res;
+		return res >> norm;
 	}
 
 };
 
 // One A-operation: res == |(u << su) +/- (v << sv)| >> norm
 struct AOp {
-	BigUnsigned res;
-	BigUnsigned u, v;
+	UnsignedContainer res;
+	UnsignedContainer u, v;
 	AOpCfg cfg;
 };
 
@@ -77,10 +144,10 @@ class AdderGraph {
 public:
 	AdderGraph();
 	void add(const AOp &op) { ops[op.res] = op; }
-	const std::map<BigUnsigned, AOp> &operations() const { return ops; }
+	const std::map<UnsignedContainer, AOp> &operations() const { return ops; }
 
 private:
-	std::map<BigUnsigned, AOp> ops;
+	std::map<UnsignedContainer, AOp> ops;
 };
 
 enum class AdderGraphStatus {
@@ -92,8 +159,8 @@ enum class AdderGraphStatus {
 
 // ######################
 
-using IntSet = std::set<BigUnsigned>;
-using AOpMap = std::map<BigUnsigned, AOp>;
+using IntSet = std::set<UnsignedContainer>;
+using AOpMap = std::map<UnsignedContainer, AOp>;
 
 struct SearchResult {
 	AdderGraph graph;

@@ -27,11 +27,18 @@ void inline HcubSearch::consume_work() const
 IntSet HcubSearch::quotients(const IntSet &values, const IntSet &divisors) const
 {
 	IntSet result;
-	for (BigUnsigned value : values)
-		for (BigUnsigned divisor : divisors) {
+	for (const auto &value : values)
+		for (const auto &divisor : divisors) {
 			consume_work();
-			if (value % divisor == 0)
-				result.insert(value / divisor);
+			auto small_value = value.get_uint64_t(), small_divisor = divisor.get_uint64_t();
+			if (small_value && small_divisor) {
+				if (*small_value % *small_divisor == 0)
+					result.insert(*small_value / *small_divisor);
+			} else {
+				BigUnsigned dividend = value.to_big_unsigned(), denominator = divisor.to_big_unsigned();
+				if (dividend % denominator == 0)
+					result.insert(dividend / denominator);
+			}
 		}
 	return result;
 }
@@ -44,18 +51,18 @@ void unite(IntSet &destination, const IntSet &source)
 int auxiliary_cost(const IntSet &values)
 {
 	int cost = 128;
-	for (BigUnsigned value : values)
+	for (const auto &value : values)
 		cost = std::min(cost, naf_weight(value));
 	return cost;
 }
 
 HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(params.config), work_remaining(config.work_budget) {
-	std::vector<BigUnsigned> odd_targets;
+	std::vector<UnsignedContainer> odd_targets;
 	odd_targets.reserve(params.target_set.size());
-	for (BigUnsigned target : params.target_set) {
-		target = oddify(target);
-		if (target > 1)
-			odd_targets.push_back(target);
+	for (const auto &target : params.target_set) {
+		auto odd = oddify(target);
+		if (odd != 0 && odd != 1)
+			odd_targets.push_back(odd);
 	}
 
 	target_set_remaining = IntSet(odd_targets.begin(), odd_targets.end());
@@ -67,28 +74,27 @@ HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(para
 	if (config.min_shift < 0 || config.max_shift < config.min_shift || config.max_nodes < 0 ||
 			config.work_budget < 1 || (config.max_depth && *config.max_depth < 1))
 		log_error("Invalid MCM search limits.\n");
-	for (BigUnsigned target : target_set_remaining)
+	for (const auto &target : target_set_remaining)
 		distance_cache[target] = max_bit_width + 3;
 }
 
 bool HcubSearch::a_op_valid(const AOp &op) const {
-	return op.res > 0 && ((op.res & 1) == 1 && (op.res != 0)) &&
-		(max_bit_width >= 62 || op.res <= (BigUnsigned(1) << (max_bit_width + 1)));
+	return op.res != 0 && shift_of(op.res) == 0 && bit_width(op.res) <= max_bit_width + 1;
 }
 
 // debug assert that all returned values here are oddified
-AOpMap HcubSearch::vertex_fundamental_set(BigUnsigned u, BigUnsigned v) const {
+AOpMap HcubSearch::vertex_fundamental_set(const UnsignedContainer &u, const UnsignedContainer &v) const {
 	return enumerate_pair(u, v, config.min_shift, std::min(config.max_shift, max_bit_width + 1));
 }
 
 AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_set) const {
 	AOpMap results{};
-	std::set<std::pair<BigUnsigned, BigUnsigned>> seen{};
-	for (BigUnsigned u : u_set)
-		for (BigUnsigned v : v_set) {
+	std::set<std::pair<UnsignedContainer, UnsignedContainer>> seen{};
+	for (const auto &u : u_set)
+		for (const auto &v : v_set) {
 			consume_work();
-			std::pair<BigUnsigned, BigUnsigned> key;
-			if (u > v) {
+			std::pair<UnsignedContainer, UnsignedContainer> key;
+			if (v < u) {
 				key = std::pair(u, v);
 			} else  {
 				key = std::pair(v, u);
@@ -98,23 +104,23 @@ AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_s
 
 			results.merge(vertex_fundamental_set(u, v));
 		}
-	for (BigUnsigned u : u_set)
+	for (const auto &u : u_set)
 		results.erase(u);
-	for (BigUnsigned v : v_set)
+	for (const auto &v : v_set)
 		results.erase(v);
 	return results;
 }
 
 AOpMap HcubSearch::vertex_fundamental_set(const AOpMap &u_set, const AOpMap &v_set) const {
 	AOpMap results{};
-	std::set<std::pair<BigUnsigned, BigUnsigned>> seen{};
+	std::set<std::pair<UnsignedContainer, UnsignedContainer>> seen{};
 	for (const auto &u : u_set)
 		for (const auto  &v : v_set) {
 			consume_work();
 			if (config.max_depth && 1 + std::max(depths.at(u.first), depths.at(v.first)) > *config.max_depth)
 				continue;
-			std::pair<BigUnsigned, BigUnsigned> key;
-			if (u.first > v.first) {
+			std::pair<UnsignedContainer, UnsignedContainer> key;
+			if (v.first < u.first) {
 				key = std::pair(u.first, v.first);
 			} else  {
 				key = std::pair(v.first, u.first);
@@ -166,7 +172,7 @@ SearchResult HcubSearch::run_search() {
 				successor_set.erase(entry.first);
 
 			// if successor_set contains remaining targets, add them
-			for (BigUnsigned target : IntSet(target_set_remaining)) {
+			for (const auto &target : IntSet(target_set_remaining)) {
 				consume_work();
 				auto successor = successor_set.find(target);
 				if (successor != successor_set.end()) {
@@ -189,12 +195,12 @@ SearchResult HcubSearch::run_search() {
 				return result;
 			if (!distances_initialized) {
 				c1 = keys(vertex_fundamental_set(1, 1));
-				for (BigUnsigned c : c1) {
+				for (const auto &c : c1) {
 					IntSet constants{1, c};
 					unite(c2, keys(vertex_fundamental_set(constants, constants)));
 				}
 				c2.erase(1);
-				for (BigUnsigned c : c1)
+				for (const auto &c : c1)
 					c2.erase(c);
 				distances_initialized = true;
 			}
@@ -214,7 +220,7 @@ void HcubSearch::add_target(const AOp &target) {
 	target_set_remaining.erase(target.res);
 }
 
-HcubSearch::ExactDistance HcubSearch::exact_dist(BigUnsigned target) const {
+HcubSearch::ExactDistance HcubSearch::exact_dist(const UnsignedContainer &target) const {
 	if (ready_set.count(target))
 		return {0, {}};
 	if (successor_set.count(target))
@@ -229,7 +235,7 @@ HcubSearch::ExactDistance HcubSearch::exact_dist(BigUnsigned target) const {
 
 	ExactDistance result;
 	auto collect = [&](int distance) {
-		for (BigUnsigned s : candidates) {
+		for (const auto &s : candidates) {
 			consume_work();
 			if (successor_set.count(s) &&
 				(distance == 2 ? finishes_in_one(ready, s, target) : finishes_in_two(s, target)))
@@ -251,7 +257,7 @@ HcubSearch::ExactDistance HcubSearch::exact_dist(BigUnsigned target) const {
 	return result;
 }
 
-int HcubSearch::estimate_after(BigUnsigned successor, BigUnsigned target, int previous) {
+int HcubSearch::estimate_after(const UnsignedContainer &successor, const UnsignedContainer &target, int previous) {
 	auto key = std::make_pair(successor, target);
 	auto found = estimate_cache.find(key);
 	if (found == estimate_cache.end()) {
@@ -259,13 +265,16 @@ int HcubSearch::estimate_after(BigUnsigned successor, BigUnsigned target, int pr
 		int estimate = 1 + auxiliary_cost(inverse_set(IntSet{successor}, IntSet{target}));
 		estimate = std::min(estimate, 2 + auxiliary_cost(inverse_set(IntSet{successor}, quotients(IntSet{target}, c1))));
 		IntSet scaled;
-		for (BigUnsigned c : c1) {
+		for (const auto &c : c1) {
 			consume_work();
-			if (successor <= std::numeric_limits<BigUnsigned>::max() / c) {
-				BigUnsigned value = successor * c;
-				if (a_op_valid(AOp{value, 0, 0, {0, 0, 0, false}}))
-					scaled.insert(value);
-			}
+			auto small_successor = successor.get_uint64_t(), small_c = c.get_uint64_t();
+			UnsignedContainer value;
+			if (small_successor && small_c && *small_successor <= UINT64_MAX / *small_c)
+				value = *small_successor * *small_c;
+			else
+				value = successor.to_big_unsigned() * c.to_big_unsigned();
+			if (a_op_valid(AOp{value, 0, 0, {0, 0, 0, false}}))
+				scaled.insert(value);
 		}
 		estimate = std::min(estimate, 2 + auxiliary_cost(inverse_set(scaled, IntSet{target})));
 		found = estimate_cache.emplace(key, estimate).first;
@@ -274,15 +283,15 @@ int HcubSearch::estimate_after(BigUnsigned successor, BigUnsigned target, int pr
 }
 
 bool HcubSearch::heuristic(AOp &selected) {
-	std::map<BigUnsigned, ExactDistance> distances;
-	for (BigUnsigned target : target_set_remaining) {
+	std::map<UnsignedContainer, ExactDistance> distances;
+	for (const auto &target : target_set_remaining) {
 		consume_work();
 		auto exact = exact_dist(target);
 		if (exact.value >= 0)
 			distance_cache[target] = exact.value;
 		distances.emplace(target, std::move(exact));
 	}
-	auto distance_after = [&](BigUnsigned s, BigUnsigned target) {
+	auto distance_after = [&](const UnsignedContainer &s, const UnsignedContainer &target) {
 		const auto &exact = distances.at(target);
 		if (exact.value >= 0)
 			return exact.value - int(exact.reducing_successors.count(s));
@@ -307,34 +316,40 @@ bool HcubSearch::heuristic(AOp &selected) {
 	if (best_score == 0)
 		return false;
 	selected = best_succ;
-	for (BigUnsigned target : target_set_remaining)
+	for (const auto &target : target_set_remaining)
 		distance_cache[target] = distance_after(selected.res, target);
 	return true;
 }
 
-AOpMap HcubSearch::enumerate_pair(BigUnsigned u, BigUnsigned v, int min_shift, int max_shift) const {
-	if (u <= 0 || v <= 0 || !((u & 1) == 1) || !((v & 1) == 1))
+AOpMap HcubSearch::enumerate_pair(const UnsignedContainer &u, const UnsignedContainer &v, int min_shift, int max_shift) const {
+	if (u == 0u || v == 0u || shift_of(u) != 0 || shift_of(v) != 0)
+		log_error("MCM A-operation inputs must be positive odd constants.\n");
+	auto small_u = u.get_uint64_t(), small_v = v.get_uint64_t();
+	if (small_u && small_v)
+		return enumerate_pair<uint64_t>(*small_u, *small_v, min_shift, max_shift);
+	return enumerate_pair<BigUnsigned>(u.to_big_unsigned(), v.to_big_unsigned(), min_shift, max_shift);
+}
+
+template<typename Unsigned>
+AOpMap HcubSearch::enumerate_pair(Unsigned u, Unsigned v, int min_shift, int max_shift) const {
+	if (u == 0 || v == 0 || (u & 1) == 0 || (v & 1) == 0)
 		log_error("MCM A-operation inputs must be positive odd constants.\n");
 
 	AOpMap results;
 	auto emit = [&](int su, int sv, bool sub) {
 		consume_work();
-		BigUnsigned lhs = u << su, rhs = v << sv;
-		BigUnsigned raw = sub ? (lhs >= rhs ? lhs - rhs : rhs - lhs) : lhs + rhs;
-		// if (!raw)
-		// 	return;
-		int norm = 0;
-		while (!((raw & 1) == 1) && raw != 0) {
-			raw >>= 1;
-			norm++;
-		}
-		AOp op{raw, u, v, AOpCfg{su, sv, norm, sub}};
+		Unsigned lhs = u << su, rhs = v << sv;
+		Unsigned raw = sub ? (lhs >= rhs ? lhs - rhs : rhs - lhs) : lhs + rhs;
+		if (raw == 0)
+			return;
+		int norm = shift_of<Unsigned>(raw);
+		AOp op{raw >> norm, u, v, AOpCfg{su, sv, norm, sub}};
 		if (op.res != u && op.res != v && a_op_valid(op))
 			results.emplace(op.res, op);
 	};
 
 	// A common input shift cancels during normalization.
-	for (int shift = min_shift; shift <= std::min(max_shift, 63); shift++) {
+	for (int shift = min_shift; shift <= max_shift; shift++) {
 		emit(shift, 0, false);
 		emit(shift, 0, true);
 		if (shift) {
@@ -347,30 +362,30 @@ AOpMap HcubSearch::enumerate_pair(BigUnsigned u, BigUnsigned v, int min_shift, i
 
 IntSet HcubSearch::inverse_set(const IntSet &u, const IntSet &v) const {
 	IntSet result;
-	for (BigUnsigned lhs : u)
-		for (BigUnsigned rhs : v) {
-			unite(result, keys(enumerate_pair(lhs, rhs, 0, 63)));
+	for (const auto &lhs : u)
+		for (const auto &rhs : v) {
+			unite(result, keys(enumerate_pair(lhs, rhs, 0, std::max(63, max_bit_width + 1))));
 		}
 	return result;
 }
 
-bool HcubSearch::finishes_in_one(const IntSet &ready, BigUnsigned successor, BigUnsigned target) const {
+bool HcubSearch::finishes_in_one(const IntSet &ready, const UnsignedContainer &successor, const UnsignedContainer &target) const {
 	if (vertex_fundamental_set(successor, successor).count(target))
 		return true;
-	for (BigUnsigned r : ready)
+	for (const auto &r : ready)
 		if (vertex_fundamental_set(successor, r).count(target))
 			return true;
 	return false;
 }
 
-bool HcubSearch::finishes_in_two(BigUnsigned successor, BigUnsigned target) const {
+bool HcubSearch::finishes_in_two(const UnsignedContainer &successor, const UnsignedContainer &target) const {
 	IntSet available = keys(ready_set);
 	available.insert(successor);
 	IntSet next = keys(successor_set);
 	unite(next, keys(vertex_fundamental_set(available, IntSet{successor})));
-	for (BigUnsigned r : available)
+	for (const auto &r : available)
 		next.erase(r);
-	for (BigUnsigned second : next)
+	for (const auto &second : next)
 		if (finishes_in_one(available, second, target))
 			return true;
 	return false;

@@ -13,11 +13,8 @@
  */
 
 #include "mcm.h"
-#include "libs/bigint/BigInteger.hh"
-#include "libs/bigint/BigUnsigned.hh"
 
 #include <algorithm>
-#include <limits>
 #include <tuple>
 #include <utility>
 
@@ -25,57 +22,35 @@
 
 namespace Yosys::Mcm {
 
-// right shifts until n % 2 == 1
-BigUnsigned oddify(BigUnsigned n)
+UnsignedContainer::UnsignedContainer(const BigUnsigned &integer) : value(uint64_t(0))
 {
-	while (n > 0 && (n % 2) == 0)
-		n /= 2;
-	return n;
-}
-
-// number of right shifts until n % 2 == 1
-int shift_of(BigUnsigned n)
-{
-	int k = 0;
-	while (n > 0 && (n % 2) == 0) { n /= 2; k++; }
-	return k;
-}
-
-// number of right shifts until n % 2 == 1
-int bit_width(BigUnsigned n)
-{
-	int k = 0;
-	while (n > 1) { n /= 2; k++; }
-	return k + 1;
-}
-
-// Number of non-zero digits in the non-adjacent signed-digit form.
-int naf_weight(BigUnsigned n)
-{
-	BigUnsigned v = n;
-	int weight = 0;
-	while (v > 0) {
-		if ((v & 1) == 1 && v != 0) {
-			weight++;
-			if ((v & 3) == 3)
-				v++;
-			else
-				v--;
-		}
-		v >>= 1;
+	if (integer.bitLength() <= 64) {
+		// uint64_t small = 0;
+		// for (BigUnsigned::Index i = 0; i < integer.getLength(); i++)
+		// 	small |= uint64_t(integer.getBlock(i)) << (i * BigUnsigned::N);
+		// value = small;
+		value = integer.toUnsignedLong();
+	} else {
+		value = integer;
 	}
-	return weight;
+}
+
+BigUnsigned UnsignedContainer::to_big_unsigned() const
+{
+	if (auto small = get_uint64_t())
+		return BigUnsigned(*small);
+	return get<BigUnsigned>();
 }
 
 int max_bit_width(const IntSet &int_set) {
 	int max_width = 0;
-	for (BigUnsigned n : int_set)
+	for (const auto &n : int_set)
 		max_width = std::max(max_width, bit_width(n));
 	return max_width;
 }
 
 AdderGraph::AdderGraph() {
-	ops.insert(std::pair<BigUnsigned, AOp>(1, ONE));
+	ops.insert(std::pair<UnsignedContainer, AOp>(1, ONE));
 }
 
 } // namespace Yosys::Mcm

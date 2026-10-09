@@ -33,7 +33,7 @@ namespace Yosys {
 
 struct McmItem {
 	Cell *cell;
-	BigUnsigned magnitude;
+	UnsignedContainer magnitude;
 	bool is_signed;
 	bool is_negative;
 };
@@ -50,8 +50,8 @@ using McmGroupMap = std::map<std::pair<SigSpec, bool>, McmGroup>;
 struct McmPlan {
 	std::vector<int> active_items;
 	std::vector<AOp> ops;
-	std::map<BigUnsigned, int> demand;
-	std::map<BigUnsigned, int> raw_width;
+	std::map<UnsignedContainer, int> demand;
+	std::map<UnsignedContainer, int> raw_width;
 	int realized_depth = 0;
 	long long shared_cost = 0;
 	long long independent_cost = 0;
@@ -104,7 +104,7 @@ struct McmWorker {
 		return result;
 	}
 
-	bool decode_multiplier(Cell *cell, SigSpec &input, BigUnsigned &magnitude, bool &is_signed, bool &is_negative)
+	bool decode_multiplier(Cell *cell, SigSpec &input, UnsignedContainer &magnitude, bool &is_signed, bool &is_negative)
 	{
 		if (cell->type != ID($mul) || cell->has_keep_attr())
 			return false;
@@ -141,13 +141,9 @@ struct McmWorker {
 		magnitude = coefficient.getMagnitude();
 		if (magnitude == 0 || magnitude == 1)
 			return false;
-		// checks if power of 2
-		size_t popcnt = 0;
-		for (BigUnsigned::Index i = 0; i < magnitude.getLength(); ++i)
-			popcnt += std::popcount(magnitude.getBlock(i));
-		if (popcnt == 1)
+		if (oddify(magnitude) == 1)
 			return false;
-		return magnitude >= config.min_const;
+		return config.min_const <= 0 || !(magnitude < uint64_t(config.min_const));
 	}
 
 	McmGroupMap collect_groups()
@@ -155,7 +151,7 @@ struct McmWorker {
 		McmGroupMap groups;
 		for (auto cell : module->selected_cells()) {
 			SigSpec input;
-			BigUnsigned magnitude;
+			UnsignedContainer magnitude;
 			bool is_signed;
 			bool is_negative;
 			if (!decode_multiplier(cell, input, magnitude, is_signed, is_negative))
@@ -175,16 +171,16 @@ struct McmWorker {
 
 	bool select_active_items(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
 	{
-		std::map<BigUnsigned, int> depths;
+		std::map<UnsignedContainer, int> depths;
 		depths[1] = 0;
-		std::function<int(BigUnsigned)> depth_of = [&](BigUnsigned value) {
+		std::function<int(const UnsignedContainer &)> depth_of = [&](const UnsignedContainer &value) {
 			if (depths.count(value))
 				return depths.at(value);
 			const auto &op = graph.operations().at(value);
 			return depths[value] = 1 + std::max(depth_of(op.u), depth_of(op.v));
 		};
 		for (int i = 0; i < GetSize(group.items); i++) {
-			BigUnsigned odd = oddify(group.items[i].magnitude);
+			UnsignedContainer odd = oddify(group.items[i].magnitude);
 			int depth = depth_of(odd) + (group.items[i].is_negative ? 1 : 0);
 			if (config.max_depth.has_value() && depth > config.max_depth) {
 				log_debug("Skipping constant multiplier %s: output negation exceeds depth %d.\n",
@@ -199,8 +195,8 @@ struct McmWorker {
 
 	void prune_graph(const McmGroup &group, const AdderGraph &graph, McmPlan &plan)
 	{
-		std::set<BigUnsigned> live_values;
-		std::function<void(BigUnsigned)> mark_live = [&](BigUnsigned value) {
+		std::set<UnsignedContainer> live_values;
+		std::function<void(const UnsignedContainer &)> mark_live = [&](const UnsignedContainer &value) {
 			if (value == 1 || live_values.count(value))
 				return;
 			live_values.insert(value);
@@ -217,7 +213,7 @@ struct McmWorker {
 	void propagate_widths(const McmGroup &group, McmPlan &plan)
 	{
 		for (int i : plan.active_items) {
-			BigUnsigned odd = oddify(group.items[i].magnitude);
+			UnsignedContainer odd = oddify(group.items[i].magnitude);
 			int shift = shift_of(group.items[i].magnitude);
 			int need = std::max(1, GetSize(group.items[i].cell->getPort(ID::Y)) - shift);
 			plan.demand[odd] = std::max(plan.demand[odd], need);
@@ -276,7 +272,7 @@ struct McmWorker {
 
 	void emit_plan(McmGroup &group, const McmPlan &plan)
 	{
-		std::map<BigUnsigned, SigSpec> nodes;
+		std::map<UnsignedContainer, SigSpec> nodes;
 		log_assert(plan.demand.count(1));
 		SigSpec input = group.input;
 		input.extend_u0(plan.demand.at(1), group.is_signed);
@@ -287,7 +283,7 @@ struct McmWorker {
 			SigSpec a = shl(nodes.at(op.u), op.cfg.su, width, group.is_signed);
 			SigSpec b = shl(nodes.at(op.v), op.cfg.sv, width, group.is_signed);
 
-			if (op.cfg.sub && (op.u << op.cfg.su) < (op.v << op.cfg.sv))
+			if (op.cfg.sub && (op.u.to_big_unsigned() << op.cfg.su) < (op.v.to_big_unsigned() << op.cfg.sv))
 				std::swap(a, b);
 			SigSpec y = module->addWire(NEW_ID, width);
 			if (!op.cfg.sub)
@@ -304,7 +300,7 @@ struct McmWorker {
 
 		for (int i : plan.active_items) {
 			auto &item = group.items[i];
-			BigUnsigned odd = oddify(item.magnitude);
+			UnsignedContainer odd = oddify(item.magnitude);
 			int shift = shift_of(item.magnitude);
 			log_assert(nodes.count(odd));
 			SigSpec output = item.cell->getPort(ID::Y);
