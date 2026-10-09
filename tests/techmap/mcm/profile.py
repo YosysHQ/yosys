@@ -116,7 +116,7 @@ class Test:
 		stdout, seconds = run_profile(args, self.results_dir / "acm.log")
 		return parse_acm(stdout, seconds)
 
-	def profile(self, yosys_path: Path, acm_path: Path):
+	def profile(self, yosys_path: Path, acm_path: Path, idx: int):
 		yosys = self.profile_yosys(yosys_path)
 		acm = self.profile_acm(acm_path)
 		coeffs = [str(coeff) for coeff in self.coeffs]
@@ -129,7 +129,7 @@ class Test:
 			("runtime ratio", f"{ratio:.2f}"),
 			("coeffs", ", ".join(coeffs)),
 		]
-		print_table(self.verilog_file.stem, items)
+		print_table(f"Test {idx}", items)
 		return yosys, acm
 
 def print_table(title: str, items: list[tuple[str, str]]) -> None:
@@ -169,6 +169,10 @@ def generate_coeffs(rng: random.Random, number_tests: int, length_range: tuple[i
 	coeffs = [sample_coeff(rng, length_range, value_range) for idx in range(number_tests)]
 	return coeffs
 
+# smaller a means proportially more larger values and fewer smaller values
+# larger scale shifts all values upwards
+# the distrition is the following
+# p(x) ~ 1 - x^(-a)
 def sample_coeff(
     rng: random.Random,
     length_range: tuple[int, int],
@@ -213,7 +217,7 @@ def main():
 
 	for idx, coeff in enumerate(coeffs):
 		test_file = Test(input_bit_width, coeff, idx, output_dir)
-		yosys_res, acm_res = test_file.profile(yosys_bin, acm_path)
+		yosys_res, acm_res = test_file.profile(yosys_bin, acm_path, idx)
 		results.append((yosys_res, acm_res))
 
 	# 1000ms = 1s
