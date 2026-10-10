@@ -123,20 +123,48 @@ struct LtpWorker
 		}
 	}
 
-	void run()
+	void selectpath(RTLIL::Selection &sel)
+	{
+		if (maxlvl < 0)
+			return;
+
+		SigBit bit = maxbit;
+		while (true) {
+			if (!bit.wire)
+				break;
+
+			sel.select(module, bit.wire);
+
+			auto &bitinfo = bits.at(bit);
+			Cell *via = get<2>(bitinfo);
+			if(!via)
+				break;
+			sel.select(module, via);
+
+			bit = get<1>(bitinfo);
+		}
+	}
+
+	void run(bool selectMode, RTLIL::Selection &sel)
 	{
 		for (auto &it : bits)
 			if (get<0>(it.second) < 0)
 				runner(it.first, 0, State::Sx, nullptr);
 
-		log("\n");
-		log("Longest topological path in %s (length=%d):\n", module, maxlvl);
+		if (selectMode) {
+			log("\n");
+			log("Longest topological path in %s is length %d.\n", module, maxlvl);
+			selectpath(sel);
+		} else {
+			log("\n");
+			log("Longest topological path in %s (length=%d):\n", module, maxlvl);
 
-		if (maxlvl >= 0)
-			printpath(maxbit);
+			if (maxlvl >= 0)
+				printpath(maxbit);
 
-		if (bit2ff.count(maxbit))
-			log("%5s: %s (via %s)\n", "ff", log_signal(get<0>(bit2ff.at(maxbit))), get<1>(bit2ff.at(maxbit)));
+			if (bit2ff.count(maxbit))
+				log("%5s: %s (via %s)\n", "ff", log_signal(get<0>(bit2ff.at(maxbit))), get<1>(bit2ff.at(maxbit)));
+		}
 	}
 };
 
@@ -159,10 +187,14 @@ struct LtpPass : public Pass {
 		log("    -noff\n");
 		log("        automatically exclude FF cell types\n");
 		log("\n");
+		log("    -select\n");
+		log("        select the path elements instead of printing\n");
+		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool noff = false;
+		bool selectMode = false;
 
 		log_header(design, "Executing LTP pass (find longest path).\n");
 
@@ -172,10 +204,16 @@ struct LtpPass : public Pass {
 				noff = true;
 				continue;
 			}
+			if (args[argidx] == "-select") {
+				selectMode = true;
+				continue;
+			}
 			break;
 		}
-
+		int origSelectPos = design->selection_stack.size() - 1;
 		extra_args(args, argidx, design);
+
+		auto newSelection = RTLIL::Selection::EmptySelection(design);
 
 		for (Module *module : design->selected_modules())
 		{
@@ -183,7 +221,13 @@ struct LtpPass : public Pass {
 				continue;
 
 			LtpWorker worker(module, noff);
-			worker.run();
+			worker.run(selectMode, newSelection);
+		}
+
+		if (selectMode) {
+			log_assert(origSelectPos >= 0);
+			design->selection_stack[origSelectPos] = newSelection;
+			design->selection_stack[origSelectPos].optimize(design);
 		}
 	}
 } LtpPass;
