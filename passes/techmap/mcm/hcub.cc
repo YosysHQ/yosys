@@ -368,7 +368,7 @@ IntSet HcubSearch::inverse_set(const IntSet &u, const IntSet &v) const {
 	IntSet result;
 	for (const auto &lhs : u)
 		for (const auto &rhs : v) {
-			unite(result, keys(enumerate_pair(lhs, rhs, 0, std::max(63, max_bit_width + 1))));
+			unite(result, keys(enumerate_pair(lhs, rhs, 0, max_bit_width + 1)));
 		}
 	return result;
 }
