@@ -38,12 +38,23 @@ private:
 };
 
 template<typename Unsigned>
-int shift_of(const Unsigned &n)
+inline bool is_odd(const Unsigned &n)
+{
+	if constexpr (std::is_same_v<Unsigned, uint64_t>)
+		return (n & 1) != 0;
+	else
+		return (n.getBlock(0) & 1) != 0;
+}
+
+template<typename Unsigned>
+inline int shift_of(const Unsigned &n)
 {
 	if constexpr (std::is_same_v<Unsigned, uint64_t>) {
 		return n ? std::countr_zero(n) : 0;
 	} else {
-		for (BigUnsigned::Index i = 0; i < n.getLength(); i++)
+		if (auto block = n.getBlock(0))
+			return std::countr_zero(block);
+		for (BigUnsigned::Index i = 1, length = n.getLength(); i < length; i++)
 			if (auto block = n.getBlock(i))
 				return i * BigUnsigned::N + std::countr_zero(block);
 		return 0;
@@ -55,12 +66,14 @@ template<typename Unsigned> Unsigned oddify(Unsigned n)
 	return n >> shift_of(n);
 }
 
-template<typename Unsigned> int bit_width(const Unsigned &n)
+template<typename Unsigned> inline int bit_width(const Unsigned &n)
 {
 	if constexpr (std::is_same_v<Unsigned, uint64_t>)
 		return std::bit_width(n);
-	else
-		return n.bitLength();
+	else {
+		auto length = n.getLength();
+		return length ? (length - 1) * BigUnsigned::N + std::bit_width(n.getBlock(length - 1)) : 0;
+	}
 }
 
 

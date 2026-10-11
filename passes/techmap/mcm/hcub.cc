@@ -78,8 +78,15 @@ HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(para
 		distance_cache[target] = max_bit_width + 3;
 }
 
-bool HcubSearch::a_op_valid(const AOp &op) const {
-	return op.res != 0 && shift_of(op.res) == 0 && bit_width(op.res) <= max_bit_width + 1;
+template<typename Unsigned>
+inline bool HcubSearch::a_op_valid(const Unsigned &res) const {
+	return is_odd<Unsigned>(res) && bit_width<Unsigned>(res) <= max_bit_width + 1;
+}
+
+inline bool HcubSearch::a_op_valid(const AOp &op) const {
+	if (auto small = op.res.get_uint64_t())
+		return a_op_valid<uint64_t>(*small);
+	return a_op_valid<BigUnsigned>(op.res.get<BigUnsigned>());
 }
 
 // debug assert that all returned values here are oddified
@@ -336,7 +343,7 @@ AOpMap HcubSearch::enumerate_pair(const UnsignedContainer &u, const UnsignedCont
 
 template<typename Unsigned>
 AOpMap HcubSearch::enumerate_pair(Unsigned u, Unsigned v, int min_shift, int max_shift) const {
-	if (u == 0 || v == 0 || (u & 1) == 0 || (v & 1) == 0)
+	if (!is_odd<Unsigned>(u) || !is_odd<Unsigned>(v))
 		log_error("MCM A-operation inputs must be positive odd constants.\n");
 
 	AOpMap results;
@@ -347,9 +354,11 @@ AOpMap HcubSearch::enumerate_pair(Unsigned u, Unsigned v, int min_shift, int max
 		if (raw == 0)
 			return;
 		int norm = shift_of<Unsigned>(raw);
-		AOp op{raw >> norm, u, v, AOpCfg{su, sv, norm, sub}};
-		if (op.res != u && op.res != v && a_op_valid(op))
-			results.emplace(op.res, op);
+		Unsigned res = raw >> norm;
+		if (res == u || res == v || !a_op_valid<Unsigned>(res))
+			return;
+		AOp op{res, u, v, AOpCfg{su, sv, norm, sub}};
+		results.emplace(op.res, op);
 	};
 
 	// A common input shift cancels during normalization.

@@ -18,6 +18,7 @@ public:
 private:
 	struct BudgetExhausted {};
 	void consume_work() const;
+	template<typename Unsigned> bool a_op_valid(const Unsigned &res) const;
 	SearchResult run_search();
 	IntSet quotients(const IntSet &values, const IntSet &divisors) const;
 	struct ExactDistance {
