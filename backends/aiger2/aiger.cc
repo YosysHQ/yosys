@@ -1898,10 +1898,7 @@ struct Aiger2Backend : Backend {
 } Aiger2Backend;
 
 struct XAiger2Backend : Backend {
-	XAiger2Backend() : Backend("xaiger2", "(experimental) write module to XAIGER file")
-	{
-		experimental();
-	}
+	XAiger2Backend() : Backend("xaiger2", "write module to XAIGER file") { }
 
 	void help() override
 	{
