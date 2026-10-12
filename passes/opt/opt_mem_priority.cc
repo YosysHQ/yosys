@@ -48,8 +48,11 @@ struct OptMemPriorityPass : public Pass {
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
+			std::vector<Mem> memories = Mem::get_selected_memories(module);
+			if (memories.empty())
+				continue;
 			modwalker.setup(module);
-			for (auto &mem : Mem::get_selected_memories(module)) {
+			for (auto &mem : memories) {
 				bool mem_changed = false;
 				QuickConeSat qcsat(modwalker);
 				for (int i = 0; i < GetSize(mem.wr_ports); i++) {

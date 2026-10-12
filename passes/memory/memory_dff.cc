@@ -221,8 +221,10 @@ struct MemoryDffWorker
 	FfInitVals initvals;
 	FfMergeHelper merger;
 	bool flag_no_rw_check;
+	std::vector<Mem> memories;
 
-	MemoryDffWorker(Module *module, bool flag_no_rw_check) : module(module), modwalker(module->design), flag_no_rw_check(flag_no_rw_check)
+	MemoryDffWorker(Module *module, bool flag_no_rw_check, std::vector<Mem> memories) :
+			module(module), modwalker(module->design), flag_no_rw_check(flag_no_rw_check), memories(std::move(memories))
 	{
 		modwalker.setup(module);
 		initvals.set(&modwalker.sigmap, module);
@@ -606,7 +608,6 @@ struct MemoryDffWorker
 
 	void run()
 	{
-		std::vector<Mem> memories = Mem::get_selected_memories(module);
 		for (auto &mem : memories) {
 			QuickConeSat qcsat(modwalker);
 			for (int i = 0; i < GetSize(mem.rd_ports); i++) {
@@ -657,7 +658,11 @@ struct MemoryDffPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
-			MemoryDffWorker worker(mod, flag_no_rw_check);
+			std::vector<Mem> memories = Mem::get_selected_memories(mod);
+			if (memories.empty())
+				continue;
+
+			MemoryDffWorker worker(mod, flag_no_rw_check, std::move(memories));
 			worker.run();
 		}
 	}

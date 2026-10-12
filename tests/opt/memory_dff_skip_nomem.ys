@@ -1,0 +1,184 @@
+# tests/opt/memory_dff_skip_nomem.ys
+# Regression test for Issue #6282:
+# Verify that memory_dff correctly merges DFFs on memory read ports while
+# skipping memory-less modules without modifying their registers or combinational logic.
+
+read_verilog << EOT
+
+// 1. Module with memory and asynchronous read port followed by output DFF
+module mem_async_rd(
+    input clk,
+    input we,
+    input [3:0] waddr,
+    input [7:0] wdata,
+    input [3:0] raddr,
+    output reg [7:0] rdata
+);
+    reg [7:0] mem [0:15];
+    always @(posedge clk) begin
+        if (we)
+            mem[waddr] <= wdata;
+    end
+
+    wire [7:0] raw_rd = mem[raddr];
+    always @(posedge clk) begin
+        rdata <= raw_rd;
+    end
+endmodule
+
+// 2. Pure combinational module (no memories, no flip-flops)
+module pure_comb_alu(
+    input [7:0] a,
+    input [7:0] b,
+    input sel,
+    output [7:0] y
+);
+    assign y = sel ? (a + b) : (a ^ b);
+endmodule
+
+// 3. Sequential module with registers/FSM but NO memories (must be skipped and untouched)
+module pure_reg_counter(
+    input clk,
+    input rst,
+    input en,
+    output reg [7:0] count
+);
+    always @(posedge clk) begin
+        if (rst)
+            count <= 8'h00;
+        else if (en)
+            count <= count + 1'b1;
+    end
+endmodule
+
+// 4. Memory module with already-synchronous read port (no async read port to merge)
+module mem_already_sync(
+    input clk,
+    input we,
+    input [3:0] addr,
+    input [7:0] din,
+    output reg [7:0] dout
+);
+    reg [7:0] mem [0:15];
+    always @(posedge clk) begin
+        if (we)
+            mem[addr] <= din;
+        dout <= mem[addr];
+    end
+endmodule
+
+// 5. Top-level integration hierarchy
+module top(
+    input clk,
+    input rst,
+    input en,
+    input we,
+    input sel,
+    input [3:0] addr,
+    input [7:0] din,
+    output [7:0] out_mem,
+    output [7:0] out_alu,
+    output [7:0] out_cnt,
+    output [7:0] out_sync
+);
+    mem_async_rd u_mem (
+        .clk(clk), .we(we), .waddr(addr), .wdata(din),
+        .raddr(addr), .rdata(out_mem)
+    );
+
+    pure_comb_alu u_alu (
+        .a(din), .b(out_mem), .sel(sel), .y(out_alu)
+    );
+
+    pure_reg_counter u_cnt (
+        .clk(clk), .rst(rst), .en(en), .count(out_cnt)
+    );
+
+    mem_already_sync u_sync (
+        .clk(clk), .we(we), .addr(addr), .din(din), .dout(out_sync)
+    );
+endmodule
+
+EOT
+
+hierarchy -top top
+proc
+opt_dff
+opt_clean
+
+# -------------------------------------------------------------
+# Step 1: Baseline assertions on hierarchical design
+# -------------------------------------------------------------
+select -assert-count 1 mem_async_rd/t:$memrd
+select -assert-count 1 mem_async_rd/t:$dff
+select -assert-count 1 pure_comb_alu/t:$add
+select -assert-count 1 pure_comb_alu/t:$xor
+select -assert-count 1 pure_comb_alu/t:$mux
+select -assert-count 2 pure_reg_counter/c:*
+select -assert-count 1 mem_already_sync/t:$memrd
+
+# Save hierarchical baseline
+design -save baseline
+
+# -------------------------------------------------------------
+# Step 2: Run memory_dff across the hierarchy
+# -------------------------------------------------------------
+memory_dff
+memory_collect
+opt_clean
+
+# Verify post-pass structural preservation:
+# mem_async_rd: output DFF merged into $mem_v2
+select -assert-count 1 mem_async_rd/t:$mem_v2
+select -assert-count 0 mem_async_rd/t:$dff
+
+# pure_comb_alu: 100% untouched
+select -assert-count 1 pure_comb_alu/t:$add
+select -assert-count 1 pure_comb_alu/t:$xor
+select -assert-count 1 pure_comb_alu/t:$mux
+
+# pure_reg_counter: 100% untouched
+select -assert-count 2 pure_reg_counter/c:*
+
+# mem_already_sync: synchronous memory preserved
+select -assert-count 1 mem_already_sync/t:$mem_v2
+
+# -------------------------------------------------------------
+# Step 3: Formal SAT Miter Equivalence Check
+# -------------------------------------------------------------
+# Save optimized hierarchical state
+design -save opt_hier
+
+# Load baseline, flatten and map memory
+design -load baseline
+flatten
+opt_clean
+memory_map
+design -save preopt
+
+# Load optimized state, flatten and map memory
+design -load opt_hier
+flatten
+opt_clean
+memory_map
+design -save postopt
+
+# Prove bit-exact formal equivalence between baseline and optimized
+equiv_opt -assert -run prepare: :
+
+# -------------------------------------------------------------
+# Step 4: Test explicit selection on memory-less module
+# -------------------------------------------------------------
+design -reset
+
+read_verilog << EOT
+module no_mem_sub(input clk, input d, output reg q);
+    always @(posedge clk) q <= d;
+endmodule
+EOT
+
+hierarchy -auto-top
+proc
+# Explicitly targeting a memory-less module with memory_dff must cleanly no-op
+memory_dff no_mem_sub
+select -assert-count 1 t:$dff

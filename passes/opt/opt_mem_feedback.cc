@@ -276,10 +276,13 @@ struct OptMemFeedbackWorker
 	void operator()(RTLIL::Module* module)
 	{
 		std::vector<Mem> memories = Mem::get_selected_memories(module);
+		if (memories.empty())
+			return;
 
 		this->module = module;
 		sigmap.set(module);
 		initvals.set(&sigmap, module);
+		sig_users_count.clear();
 		sig_to_mux.clear();
 		conditions_logic_cache.clear();
 
