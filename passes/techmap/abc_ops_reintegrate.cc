@@ -432,18 +432,21 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::copy_attr_dict(cell->parameters, mapped_cell->parameters, mapped_mod->design, design);
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
 
-			auto equiv = mapped_cell->attributes.find(ID::abc9_equiv);
-			if (equiv != mapped_cell->attributes.end()) {
-				uint32_t equiv_literal = equiv->second.as_int();
-				uint32_t equiv_node = equiv_literal >> 1;
-				bool equiv_inverted = equiv_literal & 1;
-				log("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
-				auto name = names.find(equiv_node);
-				if (name != names.end()) {
-					log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
-					auto equiv_wire = module->wire(name->second.first);
-					if (equiv_wire) {
-						log("        which exists in module\n");
+			if (mapped_cell->hasPort(ID::Y)) {
+				for (auto bit: mapped_cell->getPort(ID::Y)) {
+					if (bit.is_wire() && bit.wire->has_attribute(ID::abc9_equiv)) {
+						uint32_t equiv_literal = bit.wire->attributes[ID::abc9_equiv].as_int();
+						uint32_t equiv_node = equiv_literal >> 1;
+						bool equiv_inverted = equiv_literal & 1;
+						log_debug("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
+						auto name = names.find(equiv_node);
+						if (name != names.end()) {
+							log_debug("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+							auto equiv_wire = module->wire(name->second.first);
+							if (equiv_wire) {
+								log_debug("        which exists in module\n");
+							}
+						}
 					}
 				}
 			}
