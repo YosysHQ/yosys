@@ -177,7 +177,7 @@ def sample_coeff(
     rng: random.Random,
     length_range: tuple[int, int],
     value_range: tuple[int, int],
-    a: float = 1.5,
+    a: float = 1.3,
     scale: float = 1024,
 ) -> list[Coeff]:
     if a <= 1 or scale <= 0:
@@ -204,7 +204,7 @@ def main():
 	acm_path = root_dir / "synth" / "acm"
 	output_dir = root_dir / "results"
 
-	number_tests = 20
+	number_tests = 40
 	seed = 42
 	rng = random.Random()
 

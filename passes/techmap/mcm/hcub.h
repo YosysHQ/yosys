@@ -23,17 +23,25 @@ private:
 	IntSet quotients(const IntSet &values, const IntSet &divisors) const;
 	struct ExactDistance {
 		int value = -1; // No distance <= 3 found.
-		IntSet reducing_successors;
+		std::map<UnsignedContainer, AOpMap> completions;
 	};
 
 	void add_target(const AOp &target);
 	bool heuristic(AOp &selected);
 	ExactDistance exact_dist(const UnsignedContainer &target);
 	int estimate_after(const UnsignedContainer &successor, const UnsignedContainer &target, int previous);
-	bool finishes_in_one(const IntSet &ready, const UnsignedContainer &successor, const UnsignedContainer &target) const;
-	bool finishes_in_two(const UnsignedContainer &successor, const UnsignedContainer &target) const;
+	std::optional<AOp> find_operation(const UnsignedContainer &u, const UnsignedContainer &v, const UnsignedContainer &target) const;
+	std::optional<AOp> finishing_operation(const std::map<UnsignedContainer, int> &available,
+			const UnsignedContainer &successor, const UnsignedContainer &target) const;
+	AOpMap completion_after(const UnsignedContainer &successor, const UnsignedContainer &target,
+			int distance, const IntSet &finish_candidates) const;
+	bool prune_completion(const UnsignedContainer &target, AOpMap &graph) const;
+	void record_completion(ExactDistance &distance, const UnsignedContainer &target, AOpMap graph) const;
 	AOpMap enumerate_pair(const UnsignedContainer &u, const UnsignedContainer &v, int min_shift, int max_shift) const;
-	template<typename Unsigned> AOpMap enumerate_pair(Unsigned u, Unsigned v, int min_shift, int max_shift) const;
+	template<typename Emit> bool enumerate_pair(const UnsignedContainer &u, const UnsignedContainer &v,
+			int min_shift, int max_shift, Emit emit) const;
+	template<typename Unsigned, typename Emit> bool enumerate_pair(Unsigned u, Unsigned v,
+			int min_shift, int max_shift, Emit emit) const;
 	IntSet inverse_set(const IntSet &u, const IntSet &v) const;
 
 	McmConfig config;
@@ -46,6 +54,7 @@ private:
 	IntSet c1, c2;
 	bool c2_initialized = false;
 	std::map<UnsignedContainer, int> distance_cache;
+	std::map<UnsignedContainer, ExactDistance> completion_cache;
 	std::map<std::pair<UnsignedContainer, UnsignedContainer>, int> estimate_cache;
 	int max_bit_width;
 
