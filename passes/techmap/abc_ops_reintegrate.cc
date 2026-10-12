@@ -462,7 +462,32 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 								log("  %d\n", source);
 								auto name = names.find(source);
 								if (name != names.end()) {
-									log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+									log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
+									auto equiv_wire = module->wire(name->second.first);
+									if (equiv_wire) {
+										log("        which exists in module\n");
+										if (equiv_wire->has_attribute(ID::src)) {
+											log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
+										} else {
+											log("            but has no src attribute :(\n");
+										}
+									}
+									continue;
+								}
+								// Perhaps we can use the src attribute of the inverted signal?
+								name = names.find(source ^ 1);
+								if (name != names.end()) {
+									log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
+									auto equiv_wire = module->wire(name->second.first);
+									if (equiv_wire) {
+										log("        which exists in module\n");
+										if (equiv_wire->has_attribute(ID::src)) {
+											log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
+										} else {
+											log("            but has no src attribute :(\n");
+										}
+									}
+									continue;
 								}
 							}
 						}
