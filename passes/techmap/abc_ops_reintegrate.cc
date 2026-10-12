@@ -432,46 +432,47 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 								}
 							}
 						}
-
-						if (bit.wire->has_attribute(ID::abc9_src)) {
-							auto sources = bit.wire->get_intvec_attribute(ID::abc9_src);
-							log("found sources: %s contains nodes:\n", mapped_cell->name);
-							for (auto source : sources) {
-								log("  %d\n", source);
-								auto name = names.find(source);
-								if (name != names.end()) {
-									log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
-									auto equiv_wire = module->wire(name->second.first);
-									if (equiv_wire) {
-										log("        which exists in module\n");
-										if (equiv_wire->has_attribute(ID::src)) {
-											log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
-										} else {
-											log("            but has no src attribute :(\n");
-										}
-									}
-									continue;
-								}
-								// Perhaps we can use the src attribute of the inverted signal?
-								name = names.find(source ^ 1);
-								if (name != names.end()) {
-									log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
-									auto equiv_wire = module->wire(name->second.first);
-									if (equiv_wire) {
-										log("        which exists in module\n");
-										if (equiv_wire->has_attribute(ID::src)) {
-											log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
-										} else {
-											log("            but has no src attribute :(\n");
-										}
-									}
-									continue;
-								}
-							}
-						}
 					}
 				}
 			}
+
+			if (mapped_cell->has_attribute(ID::abc9_src)) {
+				auto sources = mapped_cell->get_intvec_attribute(ID::abc9_src);
+				log("found sources: %s contains nodes:\n", mapped_cell->name);
+				for (auto source : sources) {
+					log("  %d\n", source);
+					auto name = names.find(source);
+					if (name != names.end()) {
+						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
+						auto equiv_wire = module->wire(name->second.first);
+						if (equiv_wire) {
+							log("        which exists in module\n");
+							if (equiv_wire->has_attribute(ID::src)) {
+								log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
+							} else {
+								log("            but has no src attribute :(\n");
+							}
+						}
+						continue;
+					}
+					// Perhaps we can use the src attribute of the inverted signal?
+					name = names.find(source ^ 1);
+					if (name != names.end()) {
+						log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
+						auto equiv_wire = module->wire(name->second.first);
+						if (equiv_wire) {
+							log("        which exists in module\n");
+							if (equiv_wire->has_attribute(ID::src)) {
+								log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
+							} else {
+								log("            but has no src attribute :(\n");
+							}
+						}
+						continue;
+					}
+				}
+			}
+			cell->attributes.erase(ID::abc9_src);
 
 			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;

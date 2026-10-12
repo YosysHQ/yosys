@@ -423,6 +423,8 @@ void AigerReader::parse_xaiger()
 	if (f.peek() == '\n')
 		f.get();
 
+	dict<RTLIL::Cell*, std::vector<int>> lut_sources;
+	std::vector<uint32_t> equivalences;
 	bool got_equivalences = false;
 
 	// Parse footer (comments, extensions)
@@ -473,7 +475,7 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				RTLIL::Cell *lut = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 
 				auto sources_pool = pool<int>{};
 				log("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
@@ -489,7 +491,7 @@ void AigerReader::parse_xaiger()
 				for (auto source : sources_pool)
 					sources.push_back(source);
 
-				output_sig->set_intvec_attribute(ID::abc9_src, sources);
+				lut_sources[lut] = sources;
 			}
 		}
 		else if (c == 'M') { // cell 'M'apping
@@ -626,36 +628,13 @@ void AigerReader::parse_xaiger()
 			got_equivalences = true;
 
 			uint32_t entryCount = parse_xaiger_literal(f) / sizeof(uint32_t);
-			auto equivalences = std::vector<uint32_t>{};
+			equivalences.clear();
 			for (unsigned i = 0; i < entryCount; i++) {
 				uint32_t entry;
 				// Surprise! This is native-endian not big-endian.
 				f.read(reinterpret_cast<char*>(&entry), sizeof(entry));
 				log("%u -> %u\n", i, entry);
 				equivalences.push_back(entry);
-			}
-
-			for (auto cell : module->cells()) {
-				if (cell->type != ID($lut))
-					continue;
-
-				auto y = cell->getPort(ID::Y);
-				log_assert(y.size() == 1);
-				log_assert(y.is_wire());
-				auto y_wire = y.as_wire();
-				log_assert(y_wire->has_attribute(ID::abc9_src));
-				
-				auto mapped_sources = std::vector<int>{};
-				for (auto source : y_wire->get_intvec_attribute(ID::abc9_src)) {
-					auto equivalence = equivalences.at(source);
-					// if `source` is not equivalent to an input design node, skip it.
-					if (equivalence == ~0u)
-						continue;
-					mapped_sources.push_back(equivalence);
-				}
-				y_wire->set_intvec_attribute(ID::abc9_src, mapped_sources);
-
-				log("%s -> %s: %s\n", cell->name, y_wire->name, y_wire->attributes[ID::abc9_src].decode_string());
 			}
 
 			/* {
@@ -692,10 +671,21 @@ void AigerReader::parse_xaiger()
 		}
 	}
 
-	// TODO: if `&verify -y` fails, we get no equivalences, which means the `(* abc9_src *)` attributes
-	// incorrectly refer to the nodes in the output design, rather than the input design, resulting in
-	// abc_ops_reintegrate consuming garbage.
-	log_assert(got_equivalences);
+	// LUT sources are nodes of the output design; only the 'y' section maps them to the input design
+	if (got_equivalences) {
+		for (auto &[lut, sources] : lut_sources) {
+			auto mapped_sources = std::vector<int>{};
+			for (auto source : sources) {
+				// if `source` is not equivalent to an input design node, skip it.
+				if (source >= GetSize(equivalences) || equivalences[source] == ~0u)
+					continue;
+				mapped_sources.push_back(equivalences[source]);
+			}
+			lut->set_intvec_attribute(ID::abc9_src, mapped_sources);
+
+			log("%s: %s\n", lut->name, lut->attributes[ID::abc9_src].decode_string());
+		}
+	}
 
 	post_process();
 }
@@ -985,15 +975,17 @@ void AigerReader::post_process()
 
 	design->scratchpad_set_int("read_aiger.co_count", co_count);
 
+	log_module(module, "before ");
 	// Insert into a new (temporary) design so that "clean" will only
 	// operate (and run checks on) this one module
 	RTLIL::Design *mapped_design = new RTLIL::Design;
 	mapped_design->add(module);
-	Pass::call(mapped_design, "clean");
+	Pass::call(mapped_design, "opt_clean");
 	mapped_design->modules_.erase(module->name);
 	delete mapped_design;
 
 	design->add(module);
+	log_module(module, "after ");
 
 	for (auto cell : module->cells().to_vector()) {
 		if (cell->type != ID($lut)) continue;
