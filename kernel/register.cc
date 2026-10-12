@@ -283,6 +283,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		std::string message = stringf("%s", create_prompt(design, 0, false));
 		for (size_t i = 0; i < args.size(); i++)
 			message += stringf("%s%s", i ? " " : "", args[i]);
+		log("\n");
 		log("%s\n", message);
 	}
 
