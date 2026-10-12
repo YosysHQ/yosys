@@ -383,7 +383,7 @@ RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, std::string nam
 {
 	log_debug2("Creating %s\n", name);
 	RTLIL::Wire *wire = module->addWire(std::move(name));
-	wire_to_literal[wire] = variable;
+	wire_to_variable[wire] = variable;
 	return wire;
 }
 
@@ -494,9 +494,9 @@ void AigerReader::parse_xaiger()
 				log("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
 				for (auto literal : ce.deps) {
 					if (literal.is_wire()) {
-						log("  %d: %s\n", wire_to_literal.at(literal), literal.wire->name);
-						log_assert(wire_to_literal.find(literal) != wire_to_literal.end());
-						sources_pool.insert(wire_to_literal.at(literal));
+						log("  %d: %s\n", wire_to_variable.at(literal), literal.wire->name);
+						log_assert(wire_to_variable.find(literal) != wire_to_variable.end());
+						sources_pool.insert(wire_to_variable.at(literal));
 					}
 				}
 
