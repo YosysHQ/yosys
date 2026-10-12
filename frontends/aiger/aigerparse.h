@@ -56,6 +56,9 @@ struct AigerReader
     void post_process();
 
     RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal);
+    RTLIL::Wire* getOrCreateNormalWire(RTLIL::Module *module, unsigned variable);
+    RTLIL::Wire* getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable);
+    RTLIL::Wire* addVariableWire(RTLIL::Module *module, RTLIL::IdString name, unsigned variable);
 };
 
 YOSYS_NAMESPACE_END

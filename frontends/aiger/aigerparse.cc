@@ -338,31 +338,37 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 
 RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
-	const unsigned variable = literal >> 1;
-	const bool invert = literal & 1;
-	RTLIL::IdString wire_name(stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : ""));
-	RTLIL::Wire *wire = module->wire(wire_name);
-	if (wire) return wire;
-	log_debug2("Creating %s\n", wire_name.c_str());
-	wire = module->addWire(wire_name);
-	wire->port_input = wire->port_output = false;
+	if (literal & 1)
+		return getOrCreateInvertedWire(module, literal >> 1);
+	return getOrCreateNormalWire(module, literal >> 1);
+}
+
+RTLIL::Wire* AigerReader::getOrCreateNormalWire(RTLIL::Module *module, unsigned variable)
+{
+	RTLIL::IdString name(stringf("$aiger%d$%d", aiger_autoidx, variable));
+	if (RTLIL::Wire *wire = module->wire(name))
+		return wire;
+	return addVariableWire(module, name, variable);
+}
+
+RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable)
+{
+	// Wires for inverted literals are named with a 'b' at the end
+	RTLIL::IdString name(stringf("$aiger%d$%db", aiger_autoidx, variable));
+	if (RTLIL::Wire *wire = module->wire(name))
+		return wire;
+	RTLIL::Wire *inverted = addVariableWire(module, name, variable);
+	RTLIL::Wire *normal = getOrCreateNormalWire(module, variable);
+	log_debug("Creating %s = ~%s\n", inverted->name.c_str(), normal->name.c_str());
+	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), normal, inverted);
+	return inverted;
+}
+
+RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, RTLIL::IdString name, unsigned variable)
+{
+	log_debug("Creating %s\n", name.c_str());
+	RTLIL::Wire *wire = module->addWire(name);
 	wire_to_literal[wire] = variable;
-	if (!invert) return wire;
-	RTLIL::IdString wire_inv_name(stringf("$aiger%d$%d", aiger_autoidx, variable));
-	RTLIL::Wire *wire_inv = module->wire(wire_inv_name);
-	if (wire_inv) {
-		if (module->cell(wire_inv_name)) return wire;
-	}
-	else {
-		log_debug2("Creating %s\n", wire_inv_name.c_str());
-		wire_inv = module->addWire(wire_inv_name);
-		wire_inv->port_input = wire_inv->port_output = false;
-		wire_to_literal[wire_inv] = variable;
-	}
-
-	log_debug2("Creating %s = ~%s\n", wire_name.c_str(), wire_inv_name.c_str());
-	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
-
 	return wire;
 }
 
