@@ -51,7 +51,7 @@ struct CopyPass : public Pass {
 		if (design->module(trg_name) != nullptr)
 			log_cmd_error("Target module name %s already exists.\n", trg_name);
 
-		design->module(src_ref)->clone(design, design->twines().add(std::string{trg_name}));
+		design->module(src_ref)->clone(design, design->twines().add(trg_name));
 	}
 } CopyPass;
 

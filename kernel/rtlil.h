@@ -1273,14 +1273,14 @@ template<typename N>
 inline constexpr bool is_unpooled_name_v =
 	std::is_same_v<std::decay_t<N>, TwineSpec> || std::is_same_v<std::decay_t<N>, TwineSpec::Leaf> ||
 	std::is_same_v<std::decay_t<N>, TwineSpec::Suffix> || std::is_same_v<std::decay_t<N>, TwineSpec::AutoSuffix> ||
-	std::is_same_v<std::decay_t<N>, std::string> ||
+	std::is_same_v<std::decay_t<N>, std::string> || std::is_same_v<std::decay_t<N>, std::string_view> ||
 	std::is_same_v<std::decay_t<N>, const char*> || std::is_same_v<std::decay_t<N>, char*>;
 
 #define YS_UNPOOLED_NAME(N) std::enable_if_t<is_unpooled_name_v<N>, int> = 0
 
 template<typename N>
 inline constexpr bool is_name_string_v =
-	std::is_same_v<std::decay_t<N>, std::string> ||
+	std::is_same_v<std::decay_t<N>, std::string> || std::is_same_v<std::decay_t<N>, std::string_view> ||
 	std::is_same_v<std::decay_t<N>, const char *> || std::is_same_v<std::decay_t<N>, char *>;
 
 #define YS_NAME_STRING(N) std::enable_if_t<is_name_string_v<N>, int> = 0

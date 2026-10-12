@@ -383,14 +383,13 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	int compare_by_name(IdString a, IdString b) const;
 	IdString prefix_of(IdString ref) const;
 
-	IdString find(const std::string &name) const;
 	IdString find(std::string_view name) const;
 	IdString find(TwineSpec t) const;
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
 	// Infers publicity from first character
-	IdString add(std::string s);
+	IdString add(std::string_view s);
 	IdString copy_from(const TwinePool& src, IdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;

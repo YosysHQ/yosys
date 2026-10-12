@@ -44,15 +44,15 @@ struct ExampleDtPass : public Pass
 			DriverMap dm;
 
 			TwinePool &twines = design->twines();
-			const IdString fn_concat = twines.add(std::string("$$concat"));
-			const IdString fn_input = twines.add(std::string("$$input"));
-			const IdString fn_buf = twines.add(std::string("$$buf"));
-			const IdString fn_slice = twines.add(std::string("$$slice"));
-			const IdString fn_state = twines.add(std::string("$$state"));
-			const IdString fn_cell_output = twines.add(std::string("$$cell_output"));
-			const IdString fn_const = twines.add(std::string("$$const"));
-			const IdString fn_multi = twines.add(std::string("$$multi"));
-			const IdString fn_undriven = twines.add(std::string("$$undriven"));
+			const IdString fn_concat = twines.add("$$concat");
+			const IdString fn_input = twines.add("$$input");
+			const IdString fn_buf = twines.add("$$buf");
+			const IdString fn_slice = twines.add("$$slice");
+			const IdString fn_state = twines.add("$$state");
+			const IdString fn_cell_output = twines.add("$$cell_output");
+			const IdString fn_const = twines.add("$$const");
+			const IdString fn_multi = twines.add("$$multi");
+			const IdString fn_undriven = twines.add("$$undriven");
 
 			struct ExampleFn {
 				IdString name;

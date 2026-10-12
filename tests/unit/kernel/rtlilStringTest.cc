@@ -47,13 +47,27 @@ namespace RTLIL {
 	TEST(RtlilStrTest, CellToString) {
 		Design design;
 		Module *mod = design.addModule("\\m");
-		Cell *cell = mod->addCell("\\u1", design.twines().add(std::string{"\\my_cell_type"}));
+		Cell *cell = mod->addCell("\\u1", design.twines().add("\\my_cell_type"));
 
 		std::string cell_str = cell->to_rtlil_str();
 
 		EXPECT_NE(cell_str.find("cell"), std::string::npos);
 		EXPECT_NE(cell_str.find("\\my_cell_type"), std::string::npos);
 		EXPECT_NE(cell_str.find("\\u1"), std::string::npos);
+	}
+
+	TEST(RtlilStrTest, StringViewNames) {
+		Design design;
+		std::string_view buf = "\\m\\w\\u\\t";
+		Module *mod = design.addModule(buf.substr(0, 2));
+		Wire *wire = mod->addWire(buf.substr(2, 2), 4);
+		Cell *cell = mod->addCell(buf.substr(4, 2), buf.substr(6, 2));
+
+		EXPECT_EQ(design.module(std::string_view("\\m")), mod);
+		EXPECT_EQ(mod->wire(std::string_view("\\w")), wire);
+		EXPECT_EQ(mod->cell(std::string_view("\\u")), cell);
+		EXPECT_EQ(cell->type, design.twines().find(std::string_view("\\t")));
+		EXPECT_NE(mod->to_rtlil_str().find("cell \\t \\u"), std::string::npos);
 	}
 
 }

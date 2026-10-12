@@ -280,7 +280,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				while ((p = strtok(NULL, " \t\r\n")) != NULL)
 				{
 					std::string wire_name_str = stringf("\\%s", p);
-					IdString wire_ref = design->twines().add(std::string{wire_name_str});
+					IdString wire_ref = design->twines().add(wire_name_str);
 					RTLIL::Wire *wire = module->wire(wire_ref);
 					if (wire == nullptr)
 						wire = module->addWire(wire_ref);
@@ -292,7 +292,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					if (wideports) {
 						std::pair<std::string, int> wp = wideports_split(p);
 						if (!wp.first.empty() && wp.second >= 0) {
-							IdString wp_ref = design->twines().add(std::string(wp.first));
+							IdString wp_ref = design->twines().add(wp.first);
 							wideports_cache[wp_ref].first = std::max(wideports_cache[wp_ref].first, wp.second + 1);
 							wideports_cache[wp_ref].second = !strcmp(cmd, ".inputs");
 						}
@@ -422,7 +422,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 							IdString port_ref = design->twines().add(RTLIL::escape_id(p));
 							cell->setPort(port_ref, *q ? blif_wire(q) : SigSpec());
 						} else {
-							IdString wp_ref = design->twines().add(std::string(wp.first));
+							IdString wp_ref = design->twines().add(wp.first);
 							cell_wideports_cache[wp_ref][wp.second] = blif_wire(q);
 						}
 					} else {

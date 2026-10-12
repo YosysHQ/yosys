@@ -776,7 +776,7 @@ const RTLIL::Module* AstNode::lookup_cell_module()
 		if (child->str.empty() && para_counter >= module->avail_parameters.size())
 			return nullptr; // let hierarchy handle this error
 		IdString paraname = child->str.empty() ? module->avail_parameters[para_counter++]
-				: module->twines().add(std::string(child->str));
+				: module->twines().add(child->str);
 
 		const AstNode *value = child->children[0].get();
 		if (value->type != AST_REALVALUE && value->type != AST_CONSTANT)

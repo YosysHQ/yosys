@@ -45,7 +45,7 @@ TEST(OwnedIdTest, SuffixQueries)
 {
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
-	IdString prefix = design.twines().add(std::string("\\zz_bus"));
+	IdString prefix = design.twines().add("\\zz_bus");
 	IdString suffixed = design.twines().add(TwineSpec{TwineSpec::Suffix{prefix, "_hi"}});
 	Wire *w = mod->addWire(suffixed, 1);
 
@@ -64,7 +64,7 @@ TEST(OwnedIdTest, SuffixQueries)
 TEST(OwnedIdTest, PoollessMatchesPooled)
 {
 	Design design;
-	IdString id = design.twines().add(std::string("\\zz_shared"));
+	IdString id = design.twines().add("\\zz_shared");
 	PooledName pooled(&design.twines(), id);
 	PooledName poolless(ID::A);
 
@@ -77,7 +77,7 @@ TEST(OwnedIdTest, PoollessMatchesPooled)
 	EXPECT_FALSE(poolless.begins_with("\\AB"));
 	EXPECT_TRUE(poolless.ends_with("A"));
 
-	PooledName same_content(&design.twines(), design.twines().add(std::string("\\A")));
+	PooledName same_content(&design.twines(), design.twines().add("\\A"));
 	EXPECT_EQ(same_content.escaped(), poolless.escaped());
 	EXPECT_EQ(same_content.size(), poolless.size());
 	EXPECT_EQ(same_content.begins_with("\\A"), poolless.begins_with("\\A"));
@@ -191,7 +191,7 @@ TEST(OwnedIdTest, WireAssignment)
 	Module *mod = design.addModule(std::string("\\zz_top"));
 	Wire *a = mod->addWire(std::string("\\zz_a"), 1);
 	Wire *b = mod->addWire(std::string("\\zz_b"), 1);
-	IdString renamed = design.twines().add(std::string("\\zz_renamed"));
+	IdString renamed = design.twines().add("\\zz_renamed");
 
 	a->name = renamed;
 	EXPECT_EQ(a->name.str(), "\\zz_renamed");
@@ -227,7 +227,7 @@ TEST(OwnedIdTest, ModuleAssignment)
 	Design design;
 	Module *mod = design.addModule(std::string("\\zz_top"));
 	Module *sibling = design.addModule(std::string("\\zz_side"));
-	IdString renamed = design.twines().add(std::string("\\zz_renamed"));
+	IdString renamed = design.twines().add("\\zz_renamed");
 
 	mod->name = renamed;
 	EXPECT_EQ(mod->name.str(), "\\zz_renamed");

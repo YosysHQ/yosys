@@ -376,7 +376,7 @@ struct RTLILFrontendWorker {
 				RTLIL::Wire *wire = current_module->wire(design->twines().find(*id));
 				if (wire == nullptr) {
 					if (flag_legalize)
-						wire = legalize_wire(design->twines().add(std::string(*id)));
+						wire = legalize_wire(design->twines().add(*id));
 					else
 						error("Wire `%s' not found.", *id);
 				}
@@ -806,7 +806,7 @@ struct RTLILFrontendWorker {
 				int suffix = 1;
 				do {
 					new_name_str = base + "_" + std::to_string(suffix);
-					cell_name_ref = design->twines().add(std::string(new_name_str));
+					cell_name_ref = design->twines().add(new_name_str);
 					++suffix;
 				} while (current_module->cell(cell_name_ref) != nullptr);
 				log("Legalizing redefinition of cell %s by renaming to %s.\n", base.c_str(), new_name_str.c_str());

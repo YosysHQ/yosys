@@ -220,7 +220,7 @@ struct SubmodWorker
 		submod.cells.clear();
 
 		if (!copy_mode) {
-			IdString submod_type = design->twines().add(std::string{submod.full_name});
+			IdString submod_type = design->twines().add(submod.full_name);
 		RTLIL::Cell *new_cell = module->addCell(submod.full_name, submod_type);
 			for (auto &it : wire_flags)
 			{
@@ -291,8 +291,8 @@ struct SubmodWorker
 					submodules[submod_str].name = submod_str;
 					std::string module_name_str(module->name.str());
 					submodules[submod_str].full_name = module_name_str + "_" + submod_str;
-					while (design->module(design->twines().add(std::string{submodules[submod_str].full_name})) != nullptr ||
-							module->count_id(design->twines().add(std::string{submodules[submod_str].full_name})) != 0)
+					while (design->module(design->twines().add(submodules[submod_str].full_name)) != nullptr ||
+							module->count_id(design->twines().add(submodules[submod_str].full_name)) != 0)
 						submodules[submod_str].full_name += "_";
 				}
 

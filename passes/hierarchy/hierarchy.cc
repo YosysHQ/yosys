@@ -240,7 +240,7 @@ struct IFExpander
 		// Strip the prefix '$dummywireforinterface' from the dummy wire to get the name
 		interface_name_str.replace(0,23,"");
 		interface_name_str = "\\" + interface_name_str;
-		IdString interface_name = design.twines().add(std::string(interface_name_str));
+		IdString interface_name = design.twines().add(interface_name_str);
 
 		// If 'interfaces' in the cell have not be been handled yet, we aren't
 		// ready to derive the sub-module either
@@ -254,7 +254,7 @@ struct IFExpander
 		// '_inst_from_top_dummy'. Check for both of them here
 		int nexactmatch = interfaces_in_module.count(interface_name) > 0;
 		std::string interface_name_str2 =  interface_name_str + "_inst_from_top_dummy";
-		IdString interface_name2 = design.twines().add(std::string(interface_name_str2));
+		IdString interface_name2 = design.twines().add(interface_name_str2);
 		int nmatch2 = interfaces_in_module.count(interface_name2) > 0;
 
 		// If we can't find either name, this is a missing interface.
@@ -509,7 +509,7 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			int idx = atoi(cell->type.substr(pos_idx + 1, pos_num).c_str());
 			int num = atoi(cell->type.substr(pos_num + 1, pos_type).c_str());
 			array_cells[cell] = std::pair<int, int>(idx, num);
-			cell->type = cell->twines().add(std::string{cell->type.str().substr(pos_type + 1)});
+			cell->type = cell->twines().add(cell->type.str().substr(pos_type + 1));
 		}
 
 		dict<IdString, RTLIL::Module*> interfaces_by_name;

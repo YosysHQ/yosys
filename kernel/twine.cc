@@ -278,10 +278,6 @@ IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
 	return add_inner(TwineNode{prefix, text, hash});
 }
 
-IdString TwinePool::find(const std::string &name) const {
-	return find(std::string_view(name));
-}
-
 IdString TwinePool::find(std::string_view name) const {
 	if (name.empty())
 		return IdString::Null;
@@ -321,7 +317,7 @@ IdString TwinePool::add(IdString prefix, std::string_view tail) {
 	return stamp(intern((uint32_t)prefix.untag().raw(), tail).tag(prefix.isPublic()));
 }
 
-IdString TwinePool::add(std::string s) {
+IdString TwinePool::add(std::string_view s) {
 	if (s.empty())
 		return IdString::Null;
 	check_name(s);

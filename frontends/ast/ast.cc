@@ -1132,7 +1132,7 @@ IdString AST::intern_hier_name(RTLIL::Design *design, std::string_view escaped)
 {
 	if (escaped.size() > 1 && escaped[0] == '\\')
 		return build_hier_content(design->twines(), escaped.substr(1));
-	return design->twines().add(std::string{escaped});
+	return design->twines().add(escaped);
 }
 
 IdString AST::intern_src_loc(RTLIL::Design *design, const AstSrcLocType &location)
@@ -1177,7 +1177,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	module->design = design;
 
 	module->ast = nullptr;
-	module->name = design->twines().add(std::string{ast->str});
+	module->name = design->twines().add(ast->str);
 	set_src_attr(module, ast);
 	module->set_bool_attribute(ID::cells_not_processed);
 
@@ -1349,7 +1349,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		}
 		for (const auto& node : ast->children)
 			if (node->type == AST_PARAMETER)
-				current_module->avail_parameters(design->twines().add(std::string(node->str)));
+				current_module->avail_parameters(design->twines().add(node->str));
 	}
 
 	if (ast->type == AST_INTERFACE)
@@ -1796,7 +1796,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 		log("Found cached RTLIL representation for module `%s'.\n", modname);
 	}
 
-	return design->twines().add(std::string{modname});
+	return design->twines().add(modname);
 }
 
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
@@ -1807,7 +1807,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 	std::unique_ptr<AstNode> new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast, quiet);
 
-	IdString modname_ref = design->twines().add(std::string{modname});
+	IdString modname_ref = design->twines().add(modname);
 	if (!design->has(modname_ref) && new_ast) {
 		new_ast->str = modname;
 		process_module(design, new_ast.get(), false, NULL, quiet);

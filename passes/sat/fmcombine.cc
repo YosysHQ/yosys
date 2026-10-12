@@ -53,7 +53,7 @@ struct FmcombineWorker
 		SigSpec newsig;
 		for (auto chunk : sig.chunks()) {
 			if (chunk.wire != nullptr)
-				chunk.wire = module->wire(design->twines().add(std::string{chunk.wire->name.str() + suffix}));
+				chunk.wire = module->wire(design->twines().add(chunk.wire->name.str() + suffix));
 			newsig.append(chunk);
 		}
 		return newsig;

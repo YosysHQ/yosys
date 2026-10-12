@@ -517,7 +517,7 @@ struct RenamePass : public Pass {
 			if (argidx+1 != args.size())
 				log_cmd_error("Invalid number of arguments!\n");
 
-			IdString new_name = design->twines().add(std::string{RTLIL::escape_id(args[argidx])});
+			IdString new_name = design->twines().add(RTLIL::escape_id(args[argidx]));
 			RTLIL::Module *module = design->top_module();
 
 			if (module == nullptr)

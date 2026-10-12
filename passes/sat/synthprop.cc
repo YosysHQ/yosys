@@ -50,7 +50,7 @@ struct SynthPropWorker
 	bool reset_pol;
 
 	// basic contrcutor
-	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(design->twines().add(std::string("\\assertions"))) {}
+	SynthPropWorker(RTLIL::Design *design) : design(design), or_outputs(false), port_name(design->twines().add("\\assertions")) {}
 
 	void tracing(RTLIL::Module *mod, int depth, TrackingData &tracing_data, std::string hier_path);
 	void run();

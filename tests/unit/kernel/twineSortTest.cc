@@ -11,7 +11,7 @@ namespace {
 
 std::vector<IdString> bench_refs(TwinePool &twines, int count)
 {
-	IdString prefix = twines.add(std::string("$sortbench"));
+	IdString prefix = twines.add("$sortbench");
 	std::vector<IdString> refs;
 	refs.reserve(count);
 	for (int i = 0; i < count; i++)
@@ -23,9 +23,9 @@ TEST(TwineSortTest, RenderedOrder)
 {
 	TwinePool twines;
 	std::vector<IdString> refs = {
-		twines.add(std::string("$c")),
-		twines.add(std::string("$a")),
-		twines.add(std::string("$b")),
+		twines.add("$c"),
+		twines.add("$a"),
+		twines.add("$b"),
 	};
 	std::sort(refs.begin(), refs.end(), RTLIL::sort_by_id_str(twines));
 	EXPECT_EQ(twines.str(refs[0]), "$a");
@@ -36,7 +36,7 @@ TEST(TwineSortTest, RenderedOrder)
 TEST(TwineSortTest, PublicOrder)
 {
 	TwinePool twines;
-	IdString pub = twines.add(std::string("\\same"));
+	IdString pub = twines.add("\\same");
 	IdString priv = pub.tag(false);
 
 	ASSERT_EQ(twines.str(pub), "\\same");
@@ -62,9 +62,9 @@ TEST(TwineSortTest, GeneralWalk)
 	TwinePool twines;
 	std::vector<IdString> refs;
 
-	IdString a = twines.add(std::string("$alpha"));
-	IdString b = twines.add(std::string("\\alpha"));
-	IdString c = twines.add(std::string("$alphabet"));
+	IdString a = twines.add("$alpha");
+	IdString b = twines.add("\\alpha");
+	IdString c = twines.add("$alphabet");
 	refs.insert(refs.end(), {a, b, c});
 
 	IdString deep = a;
@@ -74,7 +74,7 @@ TEST(TwineSortTest, GeneralWalk)
 		refs.push_back(deep.tag(true));
 	}
 
-	IdString other = twines.add(std::string("$alpha."));
+	IdString other = twines.add("$alpha.");
 	for (int i = 0; i < 12; i++) {
 		other = twines.add(TwineSpec::Suffix{other, stringf("lvl%d.", i)});
 		refs.push_back(other);

@@ -254,7 +254,7 @@ struct DesignPass : public Pass {
 		if (import_mode)
 		{
 			std::string prefix = RTLIL::escape_id(as_name);
-			IdString as_name_ref = copy_to_design->twines().add(std::string{prefix});
+			IdString as_name_ref = copy_to_design->twines().add(prefix);
 
 			pool<Module*> queue;
 			dict<IdString, IdString> done;
@@ -320,7 +320,7 @@ struct DesignPass : public Pass {
 			for (auto mod : copy_src_modules)
 			{
 				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
-				IdString trg_ref = copy_to_design->twines().add(std::string{trg_name});
+				IdString trg_ref = copy_to_design->twines().add(trg_name);
 
 				if (copy_to_design->module(trg_ref) != nullptr)
 					copy_to_design->remove(copy_to_design->module(trg_ref));

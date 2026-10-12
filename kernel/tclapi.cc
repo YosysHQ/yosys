@@ -400,7 +400,7 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 	if (!obj)
 		ERROR("object not found")
 
-	IdString attr_twine = yosys_design->twines().add(std::string(attr_id));
+	IdString attr_twine = yosys_design->twines().add(attr_id);
 
 	if (string_flag) {
 		obj->set_string_attribute(attr_twine, Tcl_GetString(objv[i++]));
@@ -518,7 +518,7 @@ static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *cons
 	if (!cell)
 		ERROR("object not found")
 
-	IdString param_twine = yosys_design->twines().add(std::string(param_id));
+	IdString param_twine = yosys_design->twines().add(param_id);
 
 	if (string_flag) {
 		cell->setParam(param_twine, Const(std::string(Tcl_GetString(objv[i++]))));

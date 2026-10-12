@@ -299,7 +299,7 @@ end_of_header:
 				wire = bad_properties[l1];
 			} else log_abort();
 
-			module->rename(wire, design->twines().add(std::string{escaped_s}));
+			module->rename(wire, design->twines().add(escaped_s));
 		}
 		else if (c == 'j' || c == 'f') {
 			// TODO
@@ -499,14 +499,14 @@ void AigerReader::parse_xaiger()
 				std::getline(f, outPinName, '\0');
 				uint32_t inPinNum = parse_xaiger_literal(f);
 				log_debug2("M: cellID=%u cellName=%s outPinName=%s inPinNum=%u\n", i, cellName, outPinName, inPinNum);
-				mapping_cell.type = design->twines().add(std::string{RTLIL::escape_id(cellName)});
-				mapping_cell.out = design->twines().add(std::string{RTLIL::escape_id(outPinName)});
+				mapping_cell.type = design->twines().add(RTLIL::escape_id(cellName));
+				mapping_cell.out = design->twines().add(RTLIL::escape_id(outPinName));
 
 				for (unsigned j = 0; j < inPinNum; ++j) {
 					auto inPinName = std::string{};
 					std::getline(f, inPinName, '\0');
 					log_debug2("M:    inPinName=%s\n", inPinName);
-					mapping_cell.ins.push_back(design->twines().add(std::string{RTLIL::escape_id(inPinName)}));
+					mapping_cell.ins.push_back(design->twines().add(RTLIL::escape_id(inPinName)));
 				}
 
 				if (!design->module(mapping_cell.type)) {
@@ -600,7 +600,7 @@ void AigerReader::parse_xaiger()
 				uint32_t boxUniqueId = parse_xaiger_literal(f);
 				log_assert(boxUniqueId > 0);
 				uint32_t oldBoxNum = parse_xaiger_literal(f);
-				IdString _type = module->twines().add(std::string{stringf("$__boxid%u", boxUniqueId)});
+				IdString _type = module->twines().add(stringf("$__boxid%u", boxUniqueId));
 				RTLIL::Cell* cell = module->addCell(stringf("$box%u", oldBoxNum), _type);
 				cell->setPort(ID::i, SigSpec(State::S0, boxInputs));
 				cell->setPort(ID::o, SigSpec(State::S0, boxOutputs));

@@ -372,7 +372,7 @@ struct ClockgatePass : public Pass {
 					continue;
 
 				auto& twines = module->twines();
-				Cell* icg = module->addCell(NEW_ID, twines.add(std::string{matching_icg_desc->name}));
+				Cell* icg = module->addCell(NEW_ID, twines.add(matching_icg_desc->name));
 				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID);

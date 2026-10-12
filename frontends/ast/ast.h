@@ -37,7 +37,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace AST
 {
 	TwinePool &ast_name_pool();
-	inline IdString intern_attr_name(const std::string &name) { return ast_name_pool().add(std::string(name)); }
+	inline IdString intern_attr_name(std::string_view name) { return ast_name_pool().add(name); }
 	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
 
 	// all node types, type2str() must be extended

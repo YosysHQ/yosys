@@ -260,7 +260,7 @@ struct statdata_t {
 							} else if (it == "S") {
 								port_name = ID::S;
 							} else {
-								port_name = design->twines().add(std::string{it});
+								port_name = design->twines().add(it);
 							}
 							if (cell->hasPort(port_name)) {
 								int width = GetSize(cell->getPort(port_name));

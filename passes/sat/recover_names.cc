@@ -384,7 +384,7 @@ struct RecoverModuleWorker {
                     if (buf_name_str[0] == '\\')
                         buf_name_str[0] = '$';
                     rename_map[buf_bit] = std::make_pair(
-                        InvBit(IdBit(design->twines().add(std::string{buf_name_str}), pair.second.bit.bit), pair.second.inverted), gold_wire);
+                        InvBit(IdBit(design->twines().add(buf_name_str), pair.second.bit.bit), pair.second.inverted), gold_wire);
                 }
             }
         }
@@ -400,7 +400,7 @@ struct RecoverModuleWorker {
                     rule.second.first.inverted ? "inv" : "dup", ++dup_idx);
                 if (new_name_str[0] == '\\')
                     new_name_str[0] = '$';
-                new_name.name = design->twines().add(std::string{new_name_str});
+                new_name.name = design->twines().add(new_name_str);
                 must_invert_name = false;
             }
             // Create the wire if needed

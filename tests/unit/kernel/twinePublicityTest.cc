@@ -123,8 +123,8 @@ TEST(TwinePublicityTest, CopyTag)
 TEST(TwinePublicityTest, GcRoots)
 {
 	TwinePool twines;
-	IdString pub = twines.add(std::string("\\keep"));
-	twines.add(std::string("\\drop"));
+	IdString pub = twines.add("\\keep");
+	twines.add("\\drop");
 	Yosys::pool<IdString> roots{pub};
 	EXPECT_EQ(twines.gc(roots), 1u);
 	EXPECT_EQ(twines.str(pub), "\\keep");

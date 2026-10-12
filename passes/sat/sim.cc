@@ -356,7 +356,7 @@ struct SimInstance
 				std::string name_str = cell->parameters.at(ID::MEMID).decode_string();
 				auto mit = memid_by_name.find(RTLIL::unescape_id(name_str));
 				IdString name = mit != memid_by_name.end() ? mit->second
-						: module->twines().add(std::string(name_str));
+						: module->twines().add(name_str);
 				mem_cells[cell] = name;
 				if (shared->fst)
 					fst_memories[name] = shared->fst->getMemoryHandles(scope + "." + RTLIL::unescape_id(name_str));

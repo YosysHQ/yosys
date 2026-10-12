@@ -1649,7 +1649,7 @@ struct SelectPass : public Pass {
 
 		if (!set_name.empty())
 		{
-			IdString set_twine = design->twines().add(std::string(set_name));
+			IdString set_twine = design->twines().add(set_name);
 			if (work_stack.size() == 0)
 				design->selection_vars[set_twine] = RTLIL::Selection::EmptySelection(design);
 			else

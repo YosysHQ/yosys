@@ -896,7 +896,7 @@ struct AST_INTERNAL::ProcessGenerator
 					cellname = intern_src_name(current_module->design, ast->location,
 							stringf("$%s", flavor), autoidx++);
 				else
-					cellname = current_module->twines().add(std::string{ast->str});
+					cellname = current_module->twines().add(ast->str);
 				check_unique_id(current_module, cellname, ast, "procedural assertion");
 
 				RTLIL::SigSpec check = ast->children[0]->genWidthRTLIL(-1, false, &subst_rvalue_map.stdmap());
@@ -1428,9 +1428,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 
 	// remember the parameter, needed for example in techmap
 	case AST_PARAMETER:
-		current_module->avail_parameters(current_module->twines().add(std::string(str)));
+		current_module->avail_parameters(current_module->twines().add(str));
 		if (GetSize(children) >= 1 && children[0]->type == AST_CONSTANT) {
-			current_module->parameter_default_values[current_module->twines().add(std::string(str))] = children[0]->asParaConst();
+			current_module->parameter_default_values[current_module->twines().add(str)] = children[0]->asParaConst();
 		}
 		YS_FALLTHROUGH
 	case AST_LOCALPARAM:
@@ -2053,7 +2053,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				cellname = intern_src_name(current_module->design, location,
 						stringf("$%s", flavor), autoidx++);
 			else
-				cellname = current_module->twines().add(std::string{str});
+				cellname = current_module->twines().add(str);
 			check_unique_id(current_module, cellname, this, "procedural assertion");
 
 			RTLIL::SigSpec check = children[0]->genRTLIL();
@@ -2121,7 +2121,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					std::string type_str = child->str;
 					if (flag_icells && type_str.size() >= 2 && type_str[0] == '\\' && type_str[1] == '$')
 						type_str = type_str.substr(1);
-					cell->type = current_module->twines().add(std::string{type_str});
+					cell->type = current_module->twines().add(type_str);
 					continue;
 				}
 				if (child->type == AST_PARASET) {
@@ -2169,9 +2169,9 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 					if (child->str.size() == 0) {
 						char buf[100];
 						snprintf(buf, 100, "$%d", ++port_counter);
-						cell->setPort(current_module->twines().add(std::string{std::string(buf)}), sig);
+						cell->setPort(current_module->twines().add(buf), sig);
 					} else {
-						cell->setPort(current_module->twines().add(std::string{child->str}), sig);
+						cell->setPort(current_module->twines().add(child->str), sig);
 					}
 					continue;
 				}
@@ -2276,7 +2276,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 				if (width <= 0)
 					input_error("Failed to detect width of %s!\n", RTLIL::unescape_id(str));
 
-				IdString _type = current_module->twines().add(std::string{str.substr(1)});
+				IdString _type = current_module->twines().add(str.substr(1));
 				Cell *cell = current_module->addCell(myid, _type);
 				set_src_attr(cell, this);
 				cell->parameters[ID::WIDTH] = width;
