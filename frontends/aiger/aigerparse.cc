@@ -356,7 +356,6 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	const unsigned variable = literal >> 1;
 	RTLIL::Wire *wire = literal & 1 ? getOrCreateInvertedWire(module, variable) : getOrCreateNormalWire(module, variable);
 	aiger_wires[literal] = wire;
-	wire_to_literal[wire] = variable;
 	return wire;
 }
 
@@ -365,8 +364,7 @@ RTLIL::Wire* AigerReader::getOrCreateNormalWire(RTLIL::Module *module, unsigned 
 	std::string name = stringf("$aiger%d$%d", aiger_autoidx, variable);
 	if (RTLIL::Wire *wire = module->wire(name))
 		return wire;
-	log_debug2("Creating %s\n", name);
-	return module->addWire(std::move(name));
+	return addVariableWire(module, std::move(name), variable);
 }
 
 RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable)
@@ -374,12 +372,19 @@ RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigne
 	std::string name = stringf("$aiger%d$%db", aiger_autoidx, variable);
 	if (RTLIL::Wire *wire = module->wire(name))
 		return wire;
-	log_debug2("Creating %s\n", name);
-	RTLIL::Wire *inverted = module->addWire(std::move(name));
+	RTLIL::Wire *inverted = addVariableWire(module, std::move(name), variable);
 	RTLIL::Wire *normal = createWireIfNotExists(module, variable << 1);
 	log_debug2("Creating %s = ~%s\n", inverted->name, normal->name);
 	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), normal, inverted);
 	return inverted;
+}
+
+RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, std::string name, unsigned variable)
+{
+	log_debug2("Creating %s\n", name);
+	RTLIL::Wire *wire = module->addWire(std::move(name));
+	wire_to_literal[wire] = variable;
+	return wire;
 }
 
 void AigerReader::parse_xaiger()
