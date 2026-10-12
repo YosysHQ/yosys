@@ -434,17 +434,36 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 
 			if (mapped_cell->hasPort(ID::Y)) {
 				for (auto bit: mapped_cell->getPort(ID::Y)) {
-					if (bit.is_wire() && bit.wire->has_attribute(ID::abc9_equiv)) {
-						uint32_t equiv_literal = bit.wire->attributes[ID::abc9_equiv].as_int();
-						uint32_t equiv_node = equiv_literal >> 1;
-						bool equiv_inverted = equiv_literal & 1;
-						log_debug("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
-						auto name = names.find(equiv_node);
-						if (name != names.end()) {
-							log_debug("    which is called \'%s\' %d\n", name->second.first, name->second.second);
-							auto equiv_wire = module->wire(name->second.first);
-							if (equiv_wire) {
-								log_debug("        which exists in module\n");
+					if (bit.is_wire()) {
+						log("%s:\n", bit.wire->name);
+						for (auto [attr, value] : bit.wire->attributes) {
+							log("  %s = %s\n", PooledName(module, attr), value.decode_string());
+						}
+
+						if (bit.wire->has_attribute(ID::abc9_equiv)) {
+							uint32_t equiv_literal = bit.wire->attributes[ID::abc9_equiv].as_int();
+							uint32_t equiv_node = equiv_literal >> 1;
+							bool equiv_inverted = equiv_literal & 1;
+							log("found equivalence: %s is equivalent to the %s form of node %u\n", mapped_cell->name, equiv_inverted ? "inverted" : "normal", equiv_node);
+							auto name = names.find(equiv_node);
+							if (name != names.end()) {
+								log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+								auto equiv_wire = module->wire(name->second.first);
+								if (equiv_wire) {
+									log("        which exists in module\n");
+								}
+							}
+						}
+
+						if (bit.wire->has_attribute(ID::abc9_src)) {
+							auto sources = bit.wire->get_intvec_attribute(ID::abc9_src);
+							log("found sources: %s contains nodes:\n", mapped_cell->name);
+							for (auto source : sources) {
+								log("  %d\n", source);
+								auto name = names.find(source);
+								if (name != names.end()) {
+									log("    which is called \'%s\' %d\n", name->second.first, name->second.second);
+								}
 							}
 						}
 					}
