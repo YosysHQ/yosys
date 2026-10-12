@@ -46,6 +46,8 @@ struct AigerReader
     std::vector<RTLIL::Cell*> boxes;
     std::vector<int> mergeability, initial_state;
 
+    dict<RTLIL::SigBit, unsigned> wire_to_literal;
+
     AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename);
     void parse_aiger();
     void parse_xaiger();
