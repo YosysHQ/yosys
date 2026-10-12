@@ -603,7 +603,7 @@ void AigerReader::parse_xaiger()
 					continue;
 				} else if (i == 0) { // the zero node is always equivalent, but not useful
 					continue;
-				}				
+				}
 
 				// Let's play "guess the cell name": this gate may or may not have been mapped.
 				RTLIL::Cell* cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, i));
@@ -621,8 +621,14 @@ void AigerReader::parse_xaiger()
 					log("%s === ~in(%u)\n", cell->name, entry >> 1);
 				}
 
-				// TODO: the naming of these attributes needs workshopping.
-				cell->attributes[ID::abc9_equiv] = entry;
+				// TODO: standard cell handling means looking for the output port instead of hardcoding it.
+				log_assert(cell->hasPort(ID::Y));
+
+				auto y = cell->getPort(ID::Y);
+				log_assert(y.size() == 1);
+				log_assert(y.is_wire());
+				auto y_wire = y.as_wire();
+				y_wire->attributes[ID::abc9_equiv] = entry;
 			}
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
