@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 using namespace Yosys::Mcm;
 
@@ -12,7 +11,7 @@ namespace Yosys::Mcm::Hcub {
 template<typename Map> IntSet keys(const Map &map)
 {
 	IntSet result;
-	for (const auto &entry : map)
+	for (auto &entry : map)
 		result.insert(entry.first);
 	return result;
 }
@@ -24,21 +23,29 @@ void inline HcubSearch::consume_work() const
 	work_remaining--;
 }
 
-IntSet HcubSearch::quotients(const IntSet &values, const IntSet &divisors) const
+std::optional<UnsignedContainer> HcubSearch::quotient(const UnsignedContainer &value, const UnsignedContainer &divisor) const
+{
+	consume_work();
+	std::optional<uint64_t> small_value = value.get_uint64_t(), small_divisor = divisor.get_uint64_t();
+	if (small_value && small_divisor) {
+		if (*small_value % *small_divisor == 0)
+			return UnsignedContainer(*small_value / *small_divisor);
+	} else {
+		BigUnsigned dividend = value.to_big_unsigned(), denominator = divisor.to_big_unsigned();
+		if (dividend % denominator == 0)
+			return UnsignedContainer(dividend / denominator);
+	}
+	return std::nullopt;
+}
+
+IntSet HcubSearch::quotients(const IntSet &values, const AOpMap &divisors) const
 {
 	IntSet result;
-	for (const auto &value : values)
-		for (const auto &divisor : divisors) {
-			consume_work();
-			auto small_value = value.get_uint64_t(), small_divisor = divisor.get_uint64_t();
-			if (small_value && small_divisor) {
-				if (*small_value % *small_divisor == 0)
-					result.insert(*small_value / *small_divisor);
-			} else {
-				BigUnsigned dividend = value.to_big_unsigned(), denominator = divisor.to_big_unsigned();
-				if (dividend % denominator == 0)
-					result.insert(dividend / denominator);
-			}
+	for (const UnsignedContainer &value : values)
+		for (const std::pair<const UnsignedContainer, AOp> &entry : divisors) {
+			std::optional<UnsignedContainer> divided = quotient(value, entry.first);
+			if (divided)
+				result.insert(*divided);
 		}
 	return result;
 }
@@ -51,7 +58,7 @@ void unite(IntSet &destination, const IntSet &source)
 int auxiliary_cost(const IntSet &values)
 {
 	int cost = 128;
-	for (const auto &value : values)
+	for (const UnsignedContainer &value : values)
 		cost = std::min(cost, naf_weight(value));
 	return cost;
 }
@@ -59,8 +66,8 @@ int auxiliary_cost(const IntSet &values)
 HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(params.config), work_remaining(config.work_budget) {
 	std::vector<UnsignedContainer> odd_targets;
 	odd_targets.reserve(params.target_set.size());
-	for (const auto &target : params.target_set) {
-		auto odd = oddify(target);
+	for (const UnsignedContainer &target : params.target_set) {
+		UnsignedContainer odd = oddify(target);
 		if (odd != 0 && odd != 1)
 			odd_targets.push_back(odd);
 	}
@@ -74,7 +81,7 @@ HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(para
 	if (config.min_shift < 0 || config.max_shift < config.min_shift || config.max_nodes < 0 ||
 			config.work_budget < 1 || (config.max_depth && *config.max_depth < 1))
 		log_error("Invalid MCM search limits.\n");
-	for (const auto &target : target_set_remaining)
+	for (const UnsignedContainer &target : target_set_remaining)
 		distance_cache[target] = max_bit_width + 3;
 }
 
@@ -84,7 +91,7 @@ inline bool HcubSearch::a_op_valid(const Unsigned &res) const {
 }
 
 inline bool HcubSearch::a_op_valid(const AOp &op) const {
-	if (auto small = op.res.get_uint64_t())
+	if (std::optional<uint64_t> small = op.res.get_uint64_t())
 		return a_op_valid<uint64_t>(*small);
 	return a_op_valid<BigUnsigned>(op.res.get<BigUnsigned>());
 }
@@ -97,8 +104,8 @@ AOpMap HcubSearch::vertex_fundamental_set(const UnsignedContainer &u, const Unsi
 AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_set) const {
 	AOpMap results{};
 	std::set<std::pair<UnsignedContainer, UnsignedContainer>> seen{};
-	for (const auto &u : u_set)
-		for (const auto &v : v_set) {
+	for (const UnsignedContainer &u : u_set)
+		for (const UnsignedContainer &v : v_set) {
 			consume_work();
 			std::pair<UnsignedContainer, UnsignedContainer> key;
 			if (v < u) {
@@ -111,9 +118,9 @@ AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_s
 
 			results.merge(vertex_fundamental_set(u, v));
 		}
-	for (const auto &u : u_set)
+	for (const UnsignedContainer &u : u_set)
 		results.erase(u);
-	for (const auto &v : v_set)
+	for (const UnsignedContainer &v : v_set)
 		results.erase(v);
 	return results;
 }
@@ -121,8 +128,8 @@ AOpMap HcubSearch::vertex_fundamental_set(const IntSet &u_set, const IntSet &v_s
 AOpMap HcubSearch::vertex_fundamental_set(const AOpMap &u_set, const AOpMap &v_set) const {
 	AOpMap results{};
 	std::set<std::pair<UnsignedContainer, UnsignedContainer>> seen{};
-	for (const auto &u : u_set)
-		for (const auto  &v : v_set) {
+	for (const std::pair<const UnsignedContainer, AOp> &u : u_set)
+		for (const std::pair<const UnsignedContainer, AOp> &v : v_set) {
 			consume_work();
 			if (config.max_depth && 1 + std::max(depths.at(u.first), depths.at(v.first)) > *config.max_depth)
 				continue;
@@ -137,9 +144,9 @@ AOpMap HcubSearch::vertex_fundamental_set(const AOpMap &u_set, const AOpMap &v_s
 
 			results.merge(vertex_fundamental_set(u.first, v.first));
 		}
-	for (const auto &u : u_set)
+	for (const std::pair<const UnsignedContainer, AOp> &u : u_set)
 		results.erase(u.first);
-	for (const auto &v : v_set)
+	for (const std::pair<const UnsignedContainer, AOp> &v : v_set)
 		results.erase(v.first);
 	return results;
 }
@@ -155,7 +162,7 @@ SearchResult HcubSearch::search() {
 
 SearchResult HcubSearch::run_search() {
 	bool c1_initialized = false;
-	for (const auto &entry : ready_set)
+	for (const std::pair<const UnsignedContainer, AOp> &entry : ready_set)
 		result.add(entry.second);
 	while (!target_set_remaining.empty() || !work_list.empty()) {
 		consume_work();
@@ -164,22 +171,22 @@ SearchResult HcubSearch::run_search() {
 			consume_work();
 			// update successor_set & ready_set
 			AOpMap current_work = work_list;
-			for (const auto &entry : current_work)
+			for (const std::pair<const UnsignedContainer, AOp> &entry : current_work)
 				result.add(entry.second);
 			ready_set.merge(work_list);
 			work_list.clear();
 			if (target_set_remaining.empty())
 				break;
-			for (const auto &entry : vertex_fundamental_set(ready_set, current_work))
+			for (const std::pair<const UnsignedContainer, AOp> &entry : vertex_fundamental_set(ready_set, current_work))
 				if (!ready_set.count(entry.first))
 					successor_set.emplace(entry);
-			for (const auto &entry : ready_set)
+			for (const std::pair<const UnsignedContainer, AOp> &entry : ready_set)
 				successor_set.erase(entry.first);
 
 			// if successor_set contains remaining targets, add them
-			for (const auto &target : IntSet(target_set_remaining)) {
+			for (const UnsignedContainer &target : IntSet(target_set_remaining)) {
 				consume_work();
-				auto successor = successor_set.find(target);
+				AOpMap::const_iterator successor = successor_set.find(target);
 				if (successor != successor_set.end()) {
 					if (ready_set.size() + work_list.size() - 1 >= size_t(config.max_nodes)) {
 						result.status = AdderGraphStatus::NodeLimit;
@@ -199,7 +206,7 @@ SearchResult HcubSearch::run_search() {
 			if (successor_set.empty())
 				return result;
 			if (!c1_initialized) {
-				c1 = keys(vertex_fundamental_set(1, 1));
+				c1 = vertex_fundamental_set(1, 1);
 				c1_initialized = true;
 			}
 			AOp candidate;
@@ -231,71 +238,138 @@ HcubSearch::ExactDistance HcubSearch::exact_dist(const UnsignedContainer &target
 		return result;
 	}
 
-	auto cached = completion_cache.find(target);
+	std::map<UnsignedContainer, ExactDistance>::const_iterator cached = completion_cache.find(target);
 	if (cached != completion_cache.end())
-		for (const auto &entry : cached->second.completions)
+		for (const std::pair<const UnsignedContainer, AOpMap> &entry : cached->second.completions)
 			record_completion(result, target, entry.second);
 
-	const IntSet ready = keys(ready_set);
-	const IntSet successors = keys(successor_set);
-	// Distance 2: Case 1: t = A(s, r), with r ready.
-	const IntSet inverse = inverse_set(ready, IntSet{target});
-	// Distance 2: Case 2: t = c1*s.
-	const IntSet divided = quotients(IntSet{target}, c1);
-	IntSet candidates = divided;
-	unite(candidates, inverse);
-
-	auto collect = [&](int distance) {
-		for (const auto &s : candidates) {
-			consume_work();
-			// continue if the candidate is not in the successor set
-			if (!successor_set.count(s))
-				continue;
-			// continue if the candidate is no better than an existing solution
-			if (result.value == distance && result.completions.count(s))
-				continue;
-			// record the result using a graph that assumes s is ready
-			record_completion(result, target, completion_after(s, target, distance, candidates));
-		}
+	auto known_completion = [&](const UnsignedContainer &s, int distance) {
+		return result.value == distance && result.completions.count(s);
 	};
-	collect(2);
+
+	// Distance 2: Case 1: t = A(s, r).
+	std::vector<AOp> inverse;
+	for (const std::pair<const UnsignedContainer, AOp> &r : ready_set) {
+		for (const AOp &last : predecessors(r.first, target)) {
+			inverse.push_back(last);
+			AOpMap::const_iterator first = successor_set.find(last.u);
+			if (first != successor_set.end() && !known_completion(last.u, 2))
+				record_completion(result, target, {{last.u, first->second}, {target, last}});
+		}
+	}
+
+	// Distance 2: Case 2: t = c1*s.
+	std::vector<AOp> divided;
+	for (const std::pair<const UnsignedContainer, AOp> &c : c1) {
+		std::optional<UnsignedContainer> s = quotient(target, c.first);
+		if (!s)
+			continue;
+		std::optional<AOp> last = scale_operation(c.second, *s);
+		if (!last)
+			continue;
+		divided.push_back(*last);
+		AOpMap::const_iterator first = successor_set.find(*s);
+		if (first != successor_set.end() && !known_completion(*s, 2))
+			record_completion(result, target, {{*s, first->second}, {target, *last}});
+	}
 	if (result.value == 2)
 		return result;
 
-	// Distance 3: the five topologies in Figure 9(c).
-	if (!c2_initialized) {
-		for (const auto &c : c1) {
-			IntSet constants{1, c};
-			unite(c2, keys(vertex_fundamental_set(constants, constants)));
-		}
-		c2.erase(1);
-		for (const auto &c : c1)
-			c2.erase(c);
-		c2_initialized = true;
-	}
 	// Distance 3: Cases 1, 2: t = c2*s.
-	candidates = quotients(IntSet{target}, c2);
-	// Distance 3: Case 3: t = c1*A(s, r), with r ready.
-	unite(candidates, inverse_set(divided, ready));
-	// Distance 3: Case 4: t = A(c1*s, r), with r ready.
-	unite(candidates, quotients(inverse, c1));
+	if (!c2_initialized)
+		initialize_c2();
+	for (const std::pair<const UnsignedContainer, std::vector<AOpMap>> &c : c2) {
+		std::optional<UnsignedContainer> s = quotient(target, c.first);
+		if (!s)
+			continue;
+		AOpMap::const_iterator first = successor_set.find(*s);
+		if (first == successor_set.end() || known_completion(*s, 3))
+			continue;
+		for (const AOpMap &entry : c.second) {
+			AOpMap graph = scale_template(entry, *s);
+			if (graph.empty())
+				continue;
+			graph.emplace(*s, first->second);
+			record_completion(result, target, std::move(graph));
+			if (result.completions.count(*s))
+				break;
+		}
+	}
+
+	// Distance 3: Case 3: t = c1*A(s, r).
+	for (const AOp &last : divided) {
+		for (const std::pair<const UnsignedContainer, AOp> &r : ready_set) {
+			for (const AOp &middle : predecessors(r.first, last.u, &successor_set)) {
+				AOpMap::const_iterator first = successor_set.find(middle.u);
+				if (!known_completion(middle.u, 3))
+					record_completion(result, target,
+						{{middle.u, first->second}, {middle.res, middle}, {target, last}});
+			}
+		}
+	}
+
+	// Distance 3: Case 4: t = A(c1*s, r).
+	for (const AOp &last : inverse) {
+		for (const std::pair<const UnsignedContainer, AOp> &c : c1) {
+			std::optional<UnsignedContainer> s = quotient(last.u, c.first);
+			if (!s)
+				continue;
+			AOpMap::const_iterator first = successor_set.find(*s);
+			if (first == successor_set.end() || known_completion(*s, 3))
+				continue;
+			if (std::optional<AOp> middle = scale_operation(c.second, *s))
+				record_completion(result, target,
+						{{*s, first->second}, {middle->res, *middle}, {target, last}});
+		}
+	}
+
+	// Distance 3: Case 4, unfactored form: t = A(s, A(s, r)).
+	std::vector<AOp> successor_inverse;
+	for (const std::pair<const UnsignedContainer, AOp> &first : successor_set) {
+		for (const AOp &last : predecessors(first.first, target)) {
+			successor_inverse.push_back(last);
+			if (known_completion(first.first, 3))
+				continue;
+			for (const AOp &middle : predecessors(first.first, last.u, &ready_set))
+				record_completion(result, target,
+						{{first.first, first.second}, {middle.res, middle}, {target, last}});
+		}
+	}
+
 	// Distance 3: Case 5: t = A(s1, s2), with s1, s2 successors.
-	unite(candidates, inverse_set(successors, IntSet{target}));
-	collect(3);
+	for (const AOp &last : successor_inverse) {
+		AOpMap::const_iterator first = successor_set.find(last.u);
+		if (first != successor_set.end() &&
+				(!known_completion(last.u, 3) || !known_completion(last.v, 3)))
+			record_completion(result, target,
+					{{last.u, first->second}, {last.v, successor_set.at(last.v)}, {target, last}});
+	}
+	// Distance 3: Case 5, chained form: t = A(A(s, r1), r2).
+	for (const AOp &last : inverse) {
+		for (const std::pair<const UnsignedContainer, AOp> &r : ready_set) {
+			for (const AOp &middle : predecessors(r.first, last.u, &successor_set)) {
+				AOpMap::const_iterator first = successor_set.find(middle.u);
+				if (!known_completion(middle.u, 3))
+					record_completion(result, target,
+							{{middle.u, first->second}, {middle.res, middle}, {target, last}});
+			}
+		}
+	}
 	return result;
 }
 
 int HcubSearch::estimate_after(const UnsignedContainer &successor, const UnsignedContainer &target, int previous) {
-	auto key = std::make_pair(successor, target);
-	auto found = estimate_cache.find(key);
+	std::pair<UnsignedContainer, UnsignedContainer> key = std::make_pair(successor, target);
+	std::map<std::pair<UnsignedContainer, UnsignedContainer>, int>::const_iterator found = estimate_cache.find(key);
 	if (found == estimate_cache.end()) {
 		// Figure 10, E1-E3: build the missing z, then finish in 1 or 2 ops.
 		int estimate = 1 + auxiliary_cost(inverse_set(IntSet{successor}, IntSet{target}));
 		estimate = std::min(estimate, 2 + auxiliary_cost(inverse_set(IntSet{successor}, quotients(IntSet{target}, c1))));
 		IntSet scaled;
-		for (const auto &c : c1) {
+		for (const std::pair<const UnsignedContainer, AOp> &entry : c1) {
+			const UnsignedContainer &c = entry.first;
 			consume_work();
-			auto small_successor = successor.get_uint64_t(), small_c = c.get_uint64_t();
+			std::optional<uint64_t> small_successor = successor.get_uint64_t(), small_c = c.get_uint64_t();
 			UnsignedContainer value;
 			if (small_successor && small_c && *small_successor <= UINT64_MAX / *small_c)
 				value = *small_successor * *small_c;
@@ -311,15 +385,15 @@ int HcubSearch::estimate_after(const UnsignedContainer &successor, const Unsigne
 }
 
 bool HcubSearch::heuristic(AOp &selected) {
-	for (const auto &target : target_set_remaining) {
+	for (const UnsignedContainer &target : target_set_remaining) {
 		consume_work();
-		auto exact = exact_dist(target);
+		ExactDistance exact = exact_dist(target);
 		if (exact.value >= 0)
 			distance_cache[target] = exact.value;
 		completion_cache[target] = std::move(exact);
 	}
 	auto distance_after = [&](const UnsignedContainer &s, const UnsignedContainer &target) {
-		const auto &exact = completion_cache.at(target);
+		const ExactDistance &exact = completion_cache.at(target);
 		if (exact.value >= 0)
 			return exact.value - int(exact.completions.count(s));
 		return estimate_after(s, target, distance_cache.at(target));
@@ -328,9 +402,9 @@ bool HcubSearch::heuristic(AOp &selected) {
 	AOp best_succ;
 	double best_score = 0.0;
 
-	for (auto& s : successor_set) {
+	for (std::pair<const UnsignedContainer, AOp> &s : successor_set) {
 		double score = 0.0;
-		for (auto& t : target_set_remaining) {
+		for (const UnsignedContainer &t : target_set_remaining) {
 			consume_work();
 			int after = distance_after(s.first, t);
 			score += std::pow(10.0, -after) * (distance_cache.at(t) - after);
@@ -343,7 +417,7 @@ bool HcubSearch::heuristic(AOp &selected) {
 	if (best_score == 0)
 		return false;
 	selected = best_succ;
-	for (const auto &target : target_set_remaining)
+	for (const UnsignedContainer &target : target_set_remaining)
 		distance_cache[target] = distance_after(selected.res, target);
 	return true;
 }
@@ -362,7 +436,7 @@ bool HcubSearch::enumerate_pair(const UnsignedContainer &u, const UnsignedContai
 	if (u == 0u || v == 0u || shift_of(u) != 0 || shift_of(v) != 0)
 		log_error("MCM A-operation inputs must be positive odd constants.\n");
 
-	auto small_u = u.get_uint64_t(), small_v = v.get_uint64_t();
+	std::optional<uint64_t> small_u = u.get_uint64_t(), small_v = v.get_uint64_t();
 	if (small_u && small_v && max_shift < 64 &&
 			*small_u <= ((UINT64_MAX - *small_v) >> max_shift) &&
 			*small_v <= ((UINT64_MAX - *small_u) >> max_shift))
@@ -400,89 +474,84 @@ bool HcubSearch::enumerate_pair(Unsigned u, Unsigned v, int min_shift, int max_s
 
 IntSet HcubSearch::inverse_set(const IntSet &u, const IntSet &v) const {
 	IntSet result;
-	for (const auto &lhs : u)
-		for (const auto &rhs : v) {
+	for (const UnsignedContainer &lhs : u)
+		for (const UnsignedContainer &rhs : v) {
 			unite(result, keys(enumerate_pair(lhs, rhs, 0, max_bit_width + 1)));
 		}
 	return result;
 }
 
-std::optional<AOp> HcubSearch::find_operation(const UnsignedContainer &u, const UnsignedContainer &v,
-		const UnsignedContainer &target) const {
-	std::optional<AOp> result;
-	enumerate_pair(u, v, config.min_shift, std::min(config.max_shift, max_bit_width + 1), [&](const AOp &op) {
-		if (op.res != target)
+// Forward operations producing target: u is missing, v is input.
+std::vector<AOp> HcubSearch::predecessors(const UnsignedContainer &input, const UnsignedContainer &target,
+		const AOpMap *allowed) const {
+	std::vector<AOp> result;
+	if (input == target)
+		return result;
+	IntSet seen;
+	enumerate_pair(input, target, 0, max_bit_width + 1, [&](const AOp &inverse) {
+		if (allowed && !allowed->count(inverse.res))
 			return false;
-		result = op;
-		return true;
+		// inverse.res*2^norm = |input*2^su +/- target*2^sv|.
+		// then solve for target
+		AOpCfg cfg{inverse.cfg.norm, inverse.cfg.su, inverse.cfg.sv, true};
+		if (inverse.cfg.sub) {
+			std::optional<uint64_t> small_input = input.get_uint64_t(), small_target = target.get_uint64_t();
+			if (small_input && small_target && inverse.cfg.su < 64 && inverse.cfg.sv < 64 &&
+					*small_input <= (UINT64_MAX >> inverse.cfg.su) &&
+					*small_target <= (UINT64_MAX >> inverse.cfg.sv))
+				cfg.sub = (*small_input << inverse.cfg.su) >= (*small_target << inverse.cfg.sv);
+			else
+				cfg.sub = (input.to_big_unsigned() << inverse.cfg.su) >= (target.to_big_unsigned() << inverse.cfg.sv);
+		}
+		int common_shift = std::min(cfg.su, cfg.sv);
+		cfg.su -= common_shift;
+		cfg.sv -= common_shift;
+		cfg.norm -= common_shift;
+		int shift = std::max(cfg.su, cfg.sv);
+		if (cfg.norm < 0 || shift < config.min_shift || shift > std::min(config.max_shift, max_bit_width + 1))
+			return false;
+		if (seen.insert(inverse.res).second)
+			result.push_back(AOp{target, inverse.res, input, cfg});
+		return false;
 	});
 	return result;
 }
 
-std::optional<AOp> HcubSearch::finishing_operation(const std::map<UnsignedContainer, int> &available,
-		const UnsignedContainer &successor, const UnsignedContainer &target) const {
-	int depth = available.at(successor);
-	if (!config.max_depth || depth + 1 <= *config.max_depth)
-		if (auto op = find_operation(successor, successor, target))
-			return op;
-	for (const auto &entry : available) {
-		consume_work();
-		if (entry.first == successor)
-			continue;
-		if (config.max_depth && 1 + std::max(depth, entry.second) > *config.max_depth)
-			continue;
-		if (auto op = find_operation(successor, entry.first, target))
-			return op;
-	}
-	return std::nullopt;
+std::optional<AOp> HcubSearch::scale_operation(const AOp &op, const UnsignedContainer &scale) const {
+	consume_work();
+	auto multiply = [&](const UnsignedContainer &value) -> UnsignedContainer {
+		std::optional<uint64_t> small_value = value.get_uint64_t(), small_scale = scale.get_uint64_t();
+		if (small_value && small_scale && *small_value <= UINT64_MAX / *small_scale)
+			return *small_value * *small_scale;
+		return value.to_big_unsigned() * scale.to_big_unsigned();
+	};
+	AOp scaled{multiply(op.res), multiply(op.u), multiply(op.v), op.cfg};
+	if (!a_op_valid(scaled))
+		return std::nullopt;
+	return scaled;
 }
 
-AOpMap HcubSearch::completion_after(const UnsignedContainer &successor, const UnsignedContainer &target,
-		int distance, const IntSet &candidates) const {
-	const AOp &first = successor_set.at(successor);
-	std::map<UnsignedContainer, int> available = depths;
-	available[successor] = 1 + std::max(depths.at(first.u), depths.at(first.v));
-	if (distance == 2) {
-		if (auto last = finishing_operation(available, successor, target))
-			return {{successor, first}, {target, *last}};
-		return {};
+AOpMap HcubSearch::scale_template(const AOpMap &graph, const UnsignedContainer &scale) const {
+	AOpMap result;
+	for (const std::pair<const UnsignedContainer, AOp> &entry : graph) {
+		std::optional<AOp> op = scale_operation(entry.second, scale);
+		if (!op)
+			return {};
+		result.emplace(op->res, *op);
 	}
+	return result;
+}
 
-	// looks for 3 op solutions
-	IntSet seconds = candidates;
-	unite(seconds, inverse_set(IntSet{successor}, IntSet{target}));
-	for (const auto &second : seconds) {
-		consume_work();
-		if (available.count(second))
-			continue;
-		std::optional<AOp> middle;
-		int middle_depth = std::numeric_limits<int>::max();
-		auto found = successor_set.find(second);
-		// check if able to reuse an op from the 2 op set to create 3 op solution
-		if (found != successor_set.end()) {
-			middle = found->second;
-			middle_depth = 1 + std::max(depths.at(middle->u), depths.at(middle->v));
-		}
-
-		// try to construct new 3 op solution
-		for (const auto &entry : available) {
-			int depth = 1 + std::max(available.at(successor), entry.second);
-			if (depth >= middle_depth || (config.max_depth && depth > *config.max_depth))
+void HcubSearch::initialize_c2() {
+	for (const std::pair<const UnsignedContainer, AOp> &first : c1) {
+		IntSet inputs{1, first.first};
+		for (const std::pair<const UnsignedContainer, AOp> &second : vertex_fundamental_set(inputs, inputs)) {
+			if (second.first == 1 || c1.count(second.first))
 				continue;
-			if (auto op = find_operation(successor, entry.first, second)) {
-				middle = op;
-				middle_depth = depth;
-			}
+			c2[second.first].push_back({{first.first, first.second}, {second.first, second.second}});
 		}
-		if (!middle || (config.max_depth && middle_depth > *config.max_depth))
-			continue;
-		available[second] = middle_depth;
-		auto last = finishing_operation(available, second, target);
-		available.erase(second);
-		if (last)
-			return {{successor, first}, {second, *middle}, {target, *last}};
 	}
-	return {};
+	c2_initialized = true;
 }
 
 bool HcubSearch::prune_completion(const UnsignedContainer &target, AOpMap &graph) const {
@@ -491,13 +560,13 @@ bool HcubSearch::prune_completion(const UnsignedContainer &target, AOpMap &graph
 	IntSet visiting;
 	auto visit = [&](auto &&self, const UnsignedContainer &value) -> std::optional<int> {
 		consume_work();
-		if (auto found = known_depths.find(value); found != known_depths.end())
+		if (std::map<UnsignedContainer, int>::const_iterator found = known_depths.find(value); found != known_depths.end())
 			return found->second;
-		auto found = graph.find(value);
+		AOpMap::const_iterator found = graph.find(value);
 		if (found == graph.end() || !visiting.insert(value).second)
 			return std::nullopt;
-		const auto &op = found->second;
-		auto u = self(self, op.u), v = self(self, op.v);
+		const AOp &op = found->second;
+		std::optional<int> u = self(self, op.u), v = self(self, op.v);
 		if (!u || !v)
 			return std::nullopt;
 		int depth = 1 + std::max(*u, *v);
@@ -520,8 +589,8 @@ void HcubSearch::record_completion(ExactDistance &distance, const UnsignedContai
 	int cost = int(graph.size());
 	if (cost == 0 || cost > 3 || (distance.value >= 0 && cost > distance.value))
 		return;
-	for (const auto &entry : graph) {
-		auto first = successor_set.find(entry.first);
+	for (const std::pair<const UnsignedContainer, AOp> &entry : graph) {
+		AOpMap::const_iterator first = successor_set.find(entry.first);
 		if (first == successor_set.end() || !ready_set.count(entry.second.u) || !ready_set.count(entry.second.v))
 			continue;
 		AOpMap completion = graph;

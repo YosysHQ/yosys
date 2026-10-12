@@ -20,7 +20,8 @@ private:
 	void consume_work() const;
 	template<typename Unsigned> bool a_op_valid(const Unsigned &res) const;
 	SearchResult run_search();
-	IntSet quotients(const IntSet &values, const IntSet &divisors) const;
+	std::optional<UnsignedContainer> quotient(const UnsignedContainer &value, const UnsignedContainer &divisor) const;
+	IntSet quotients(const IntSet &values, const AOpMap &divisors) const;
 	struct ExactDistance {
 		int value = -1; // No distance <= 3 found.
 		std::map<UnsignedContainer, AOpMap> completions;
@@ -30,11 +31,11 @@ private:
 	bool heuristic(AOp &selected);
 	ExactDistance exact_dist(const UnsignedContainer &target);
 	int estimate_after(const UnsignedContainer &successor, const UnsignedContainer &target, int previous);
-	std::optional<AOp> find_operation(const UnsignedContainer &u, const UnsignedContainer &v, const UnsignedContainer &target) const;
-	std::optional<AOp> finishing_operation(const std::map<UnsignedContainer, int> &available,
-			const UnsignedContainer &successor, const UnsignedContainer &target) const;
-	AOpMap completion_after(const UnsignedContainer &successor, const UnsignedContainer &target,
-			int distance, const IntSet &finish_candidates) const;
+	std::vector<AOp> predecessors(const UnsignedContainer &input, const UnsignedContainer &target,
+			const AOpMap *allowed = nullptr) const;
+	std::optional<AOp> scale_operation(const AOp &op, const UnsignedContainer &scale) const;
+	AOpMap scale_template(const AOpMap &graph, const UnsignedContainer &scale) const;
+	void initialize_c2();
 	bool prune_completion(const UnsignedContainer &target, AOpMap &graph) const;
 	void record_completion(ExactDistance &distance, const UnsignedContainer &target, AOpMap graph) const;
 	AOpMap enumerate_pair(const UnsignedContainer &u, const UnsignedContainer &v, int min_shift, int max_shift) const;
@@ -51,7 +52,8 @@ private:
 	AOpMap ready_set;
 	AOpMap work_list;
 	AOpMap successor_set;
-	IntSet c1, c2;
+	AOpMap c1;
+	std::map<UnsignedContainer, std::vector<AOpMap>> c2;
 	bool c2_initialized = false;
 	std::map<UnsignedContainer, int> distance_cache;
 	std::map<UnsignedContainer, ExactDistance> completion_cache;
