@@ -409,9 +409,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
 
-			if (mapped_cell->has_attribute(ID::abc9_src)) {
-				auto sources = mapped_cell->get_intvec_attribute(ID::abc9_src);
-				log("found abc9_src: %s contains nodes:\n", mapped_cell->name);
+			if (cell->has_attribute(ID::abc9_src)) {
+				auto sources = cell->get_intvec_attribute(ID::abc9_src);
+				log("found abc9_src: %s contains nodes:\n", cell->name);
 				auto src_pool = pool<std::string>{};
 				for (auto source : sources) {
 					log("  %d\n", source);
@@ -456,12 +456,14 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 				if (!src_pool.empty()) {
 					src_pool.insert(std::string{"name recovery"});
 				}
-				mapped_cell->add_strpool_attribute(ID::src, src_pool);
-				/*for (auto bit: mapped_cell->getPort(ID::Y)) {
-					if (bit.is_wire()) {
-						bit.wire->add_strpool_attribute(ID::src, src_pool);
+				cell->add_strpool_attribute(ID::src, src_pool);
+				if (cell->hasPort(ID::Y)) {
+					for (auto bit : cell->getPort(ID::Y)) {
+						if (bit.is_wire()) {
+							bit.wire->add_strpool_attribute(ID::src, src_pool);
+						}
 					}
-				}*/
+				}
 			}
 			cell->attributes.erase(ID::abc9_src);
 
