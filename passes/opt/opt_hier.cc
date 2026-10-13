@@ -369,6 +369,7 @@ struct UsageData {
 			const_.replace(constant_inputs);
 			log("Substituting constant %s for input terminal '%s' in module '%s'\n",
 				log_signal(const_), log_signal(chunk), module);
+                        did_something = true;
 		}
 
 		// Propagate tied-together inputs
@@ -398,6 +399,7 @@ struct UsageData {
 		if (applied_ties.size()) {
 			log("Replacing %zu input terminal bits with tie-togethers in module '%s'\n",
 					applied_ties.size(), module);
+                        did_something = true;
 		}
 		return did_something;
 	}
