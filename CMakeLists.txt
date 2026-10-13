@@ -98,21 +98,13 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 check_pie_supported() # opportunistically enable PIE
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-	if (NOT CMAKE_CXX_FLAGS_DEBUG)
-		set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
-	endif()
-	if (NOT CMAKE_CXX_FLAGS_RELEASE)
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -UNDEBUG")
-	endif()
-	if (NOT CMAKE_CXX_FLAGS_RELWITHDEBINFO)
-		# Otherwise symfpu seems to fail to compile because of unused arguments
-		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb -UNDEBUG")
-	endif()
-	if (NOT CMAKE_CXX_FLAGS_MINSIZEREL)
-		set(CMAKE_CXX_FLAGS_MINSIZEREL"-Os")
-	endif()
-	if (NOT CMAKE_CXX_FLAGS_SANITIZE)
-		set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+	if (NOT CMAKE_PRESET)
+			set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
+			set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+			# Otherwise symfpu seems to fail to compile because of unused arguments
+			set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb")
+			set(CMAKE_CXX_FLAGS_MINSIZEREL"-Os")
+			set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
 	endif()
 	if ("${SANITIZE}" MATCHES "memory")
 		add_compile_options(

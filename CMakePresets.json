@@ -3,7 +3,10 @@
   "configurePresets": [
     {
       "name": "base",
-      "hidden": true
+      "hidden": true,
+      "cacheVariables": {
+        "CMAKE_PRESET": "True"
+      }
     },
     {
       "name": "debug",
