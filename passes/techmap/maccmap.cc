@@ -292,7 +292,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 			RTLIL::SigSpec sig;
 			bool do_subtract, is_signed;
 		};
-		
+
 		std::string src = cell->get_src_attribute();
 		std::vector<summand_t> summands, products;
 

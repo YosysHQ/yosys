@@ -656,7 +656,7 @@ struct SatHelper
 					log("%s%-*s %11s %9s %*s\n",  max_timestep > 0 ? "  Time " : "  ",
 						maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
-				log("%s%*.*s %11.11s %9.9s %*.*s\n", max_timestep > 0 ? "  ---- " : "  ", 
+				log("%s%*.*s %11.11s %9.9s %*.*s\n", max_timestep > 0 ? "  ---- " : "  ",
 						maxModelName+5, maxModelName+5,
 						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
