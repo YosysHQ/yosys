@@ -339,47 +339,46 @@ static uint32_t parse_xaiger_literal(std::istream &f)
 
 RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned literal)
 {
-	const unsigned variable = literal >> 1;
-	const bool invert = literal & 1;
 	if (auto it = aiger_wires.find(literal); it != aiger_wires.end())
 		return it->second;
-	std::string wire_name = stringf("$aiger%d$%d%s", aiger_autoidx, variable, invert ? "b" : "");
-	RTLIL::Wire *wire = module->wire(wire_name);
-	if (wire) {
-		aiger_wires[literal] = wire;
-		return wire;
-	}
-	log_debug2("Creating %s\n", wire_name.c_str());
-	wire = module->addWire(wire_name);
-	wire->port_input = wire->port_output = false;
+	if (literal & 1)
+		return getOrCreateInvertedWire(module, literal >> 1);
+	return getOrCreateNormalWire(module, literal >> 1);
+}
+
+RTLIL::Wire* AigerReader::getOrCreateNormalWire(RTLIL::Module *module, unsigned variable)
+{
+	const unsigned literal = variable << 1;
+	if (auto it = aiger_wires.find(literal); it != aiger_wires.end())
+		return it->second;
+	std::string name = stringf("$aiger%d$%d", aiger_autoidx, variable);
+	if (RTLIL::Wire *wire = module->wire(name))
+		return aiger_wires[literal] = wire;
+	return addVariableWire(module, std::move(name), literal);
+}
+
+RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable)
+{
+	const unsigned literal = (variable << 1) | 1;
+	if (auto it = aiger_wires.find(literal); it != aiger_wires.end())
+		return it->second;
+	// Wires for inverted literals are named with a 'b' at the end
+	std::string name = stringf("$aiger%d$%db", aiger_autoidx, variable);
+	if (RTLIL::Wire *wire = module->wire(name))
+		return aiger_wires[literal] = wire;
+	RTLIL::Wire *inverted = addVariableWire(module, std::move(name), literal);
+	RTLIL::Wire *normal = getOrCreateNormalWire(module, variable);
+	log_debug("Creating %s = ~%s\n", inverted->name, normal->name);
+	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), normal, inverted);
+	return inverted;
+}
+
+RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, std::string name, unsigned literal)
+{
+	log_debug("Creating %s\n", name);
+	RTLIL::Wire *wire = module->addWire(std::move(name));
 	aiger_wires[literal] = wire;
-	wire_to_literal[wire] = variable;
-	if (!invert) return wire;
-	const unsigned base_literal = variable << 1;
-	RTLIL::Wire *wire_inv;
-	bool wire_inv_existed = true;
-	if (auto it = aiger_wires.find(base_literal); it != aiger_wires.end()) {
-		wire_inv = it->second;
-	}
-	else {
-		std::string wire_inv_name = stringf("$aiger%d$%d", aiger_autoidx, variable);
-		wire_inv = module->wire(wire_inv_name);
-		if (!wire_inv) {
-			wire_inv_existed = false;
-			log_debug2("Creating %s\n", wire_inv_name);
-			wire_inv = module->addWire(std::move(wire_inv_name));
-			wire_inv->port_input = wire_inv->port_output = false;
-			wire_to_literal[wire_inv] = variable;
-		}
-		aiger_wires[base_literal] = wire_inv;
-	}
-
-	if (wire_inv_existed && module->cell(wire_inv->name))
-		return wire;
-
-	log_debug2("Creating %s = ~$aiger%d$%d\n", wire_name.c_str(), aiger_autoidx, variable);
-	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
-
+	wire_to_literal[wire] = literal >> 1;
 	return wire;
 }
 
@@ -434,6 +433,8 @@ void AigerReader::parse_xaiger()
 	if (f.peek() == '\n')
 		f.get();
 
+	dict<RTLIL::Cell*, std::vector<int>> lut_sources;
+	std::vector<uint32_t> equivalences;
 	bool got_equivalences = false;
 
 	// Parse footer (comments, extensions)
@@ -500,8 +501,7 @@ void AigerReader::parse_xaiger()
 				for (auto source : sources_pool)
 					sources.push_back(source);
 
-				if (!sources.empty())
-					output_cell->set_intvec_attribute(ID::abc9_src, sources);
+				lut_sources[output_cell] = sources;
 			}
 		}
 		else if (c == 'M') { // cell 'M'apping
@@ -639,37 +639,13 @@ void AigerReader::parse_xaiger()
 			got_equivalences = true;
 
 			uint32_t entryCount = parse_xaiger_literal(f) / sizeof(uint32_t);
-			auto equivalences = std::vector<uint32_t>{};
+			equivalences.clear();
 			for (unsigned i = 0; i < entryCount; i++) {
 				uint32_t entry;
 				// Surprise! This is native-endian not big-endian.
 				f.read(reinterpret_cast<char*>(&entry), sizeof(entry));
 				log("%u -> %u\n", i, entry);
 				equivalences.push_back(entry);
-			}
-
-			for (auto cell : module->cells()) {
-				if (cell->type != ID($lut))
-					continue;
-
-				log_assert(cell->has_attribute(ID::abc9_src));
-
-				auto y = cell->getPort(ID::Y);
-				log_assert(y.size() == 1);
-				log_assert(y.is_wire());
-				auto y_wire = y.as_wire();
-				
-				auto mapped_sources = std::vector<int>{};
-				for (auto source : cell->get_intvec_attribute(ID::abc9_src)) {
-					auto equivalence = equivalences.at(source);
-					// if `source` is not equivalent to an input design node, skip it.
-					if (equivalence == ~0u)
-						continue;
-					mapped_sources.push_back(equivalence);
-				}
-				cell->set_intvec_attribute(ID::abc9_src, mapped_sources);
-
-				log("%s -> %s: %s\n", cell->name, y_wire->name, cell->attributes[ID::abc9_src].decode_string());
 			}
 
 			/* {
@@ -706,10 +682,29 @@ void AigerReader::parse_xaiger()
 		}
 	}
 
-	// TODO: if `&verify -y` fails, we get no equivalences, which means the `(* abc9_src *)` attributes
-	// incorrectly refer to the nodes in the output design, rather than the input design, resulting in
-	// abc_ops_reintegrate consuming garbage.
-	log_assert(got_equivalences);
+	if (got_equivalences) {
+		for (auto [cell, sources] : lut_sources) {
+			if (cell->type != ID($lut))
+				continue;
+
+			auto y = cell->getPort(ID::Y);
+			log_assert(y.size() == 1);
+			log_assert(y.is_wire());
+			auto y_wire = y.as_wire();
+			
+			auto mapped_sources = std::vector<int>{};
+			for (auto source : sources) {
+				auto equivalence = equivalences.at(source);
+				// if `source` is not equivalent to an input design node, skip it.
+				if (equivalence == ~0u)
+					continue;
+				mapped_sources.push_back(equivalence);
+			}
+			cell->set_intvec_attribute(ID::abc9_src, mapped_sources);
+
+			log("%s -> %s: %s\n", cell->name, y_wire->name, cell->attributes[ID::abc9_src].decode_string());
+		}
+	}
 
 	post_process();
 }
