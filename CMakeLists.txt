@@ -102,7 +102,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
 		set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
 	endif()
 	if (NOT CMAKE_CXX_FLAGS_RELEASE)
-		set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3 -UNDEBUG")
 	endif()
 	if (NOT CMAKE_CXX_FLAGS_RELWITHDEBINFO)
 		# Otherwise symfpu seems to fail to compile because of unused arguments
