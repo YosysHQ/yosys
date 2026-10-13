@@ -87,6 +87,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
 	dict<int, std::pair<RTLIL::IdString, int>> names;
+	dict<int, pool<RTLIL::IdString>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -225,6 +226,14 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			}
 			else if (type == "name") {
 				names.insert({variable, std::make_pair(escaped_s, index)});
+			}
+			else if (type == "source") {
+				auto entry = sources.find(variable);
+				if (entry != sources.end()) {
+					entry->second.insert({escaped_s});
+				} else {
+					sources.insert({variable, pool<RTLIL::IdString>{escaped_s}});
+				}
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -434,12 +443,33 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
 
 			if (cell->has_attribute(ID::abc9_src)) {
-				auto sources = cell->get_intvec_attribute(ID::abc9_src);
+				auto abc9_srcs = cell->get_intvec_attribute(ID::abc9_src);
 				log("found abc9_src: %s contains nodes:\n", cell->name);
 				auto src_pool = pool<std::string>{};
-				for (auto source : sources) {
-					log("  %d\n", source);
-					auto name = names.find(source);
+				for (auto abc9_src : abc9_srcs) {
+					log("  %d\n", abc9_src);
+
+					auto source = sources.find(abc9_src);
+					if (source != sources.end()) {
+						log("    which has an entry in the map for the normal form\n");
+						for (auto src : source->second) {
+							log("        (* src = %s *)\n", src);
+							src_pool.insert(src.str());
+							names_recovered++;
+						}
+					} else {
+						source = sources.find(abc9_src ^ 1);
+						if (source != sources.end()) {
+							log("    which has an entry in the map for the inverted form\n");
+							for (auto src : source->second) {
+								log("        (* src = %s *)\n", src);
+								src_pool.insert(src.str());
+								names_recovered++;
+							}
+						}
+					}
+
+					auto name = names.find(abc9_src);
 					if (name != names.end()) {
 						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
 						auto equiv_wire = module->wire(name->second.first);
@@ -455,26 +485,25 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 								log("            but has no src attribute :(\n");
 							}
 						}
-						continue;
-					}
-					// Perhaps we can use the src attribute of the inverted signal?
-					name = names.find(source ^ 1);
-					if (name != names.end()) {
-						log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
-						auto equiv_wire = module->wire(name->second.first);
-						if (equiv_wire) {
-							log("        which exists in module\n");
-							if (equiv_wire->has_attribute(ID::src)) {
-								log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
-								for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
-									src_pool.insert(src);
-									names_recovered++;
+					} else {
+						// Perhaps we can use the src attribute of the inverted signal?
+						name = names.find(abc9_src ^ 1);
+						if (name != names.end()) {
+							log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
+							auto equiv_wire = module->wire(name->second.first);
+							if (equiv_wire) {
+								log("        which exists in module\n");
+								if (equiv_wire->has_attribute(ID::src)) {
+									log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
+									for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+										src_pool.insert(src);
+										names_recovered++;
+									}
+								} else {
+									log("            but has no src attribute :(\n");
 								}
-							} else {
-								log("            but has no src attribute :(\n");
 							}
 						}
-						continue;
 					}
 				}
 				if (!src_pool.empty()) {

@@ -1434,8 +1434,14 @@ struct XAigerWriter : AigerWriter {
 		if (map_file) {
 			map_file << "name " << lit << " " << bit.offset
 				<< " " << bit.wire->name.c_str() << "\n";
+			log("name %d %d %s\n", lit, bit.offset, bit.wire->name);
+			if (bit.wire->has_attribute(ID::src)) {
+				for (auto source : bit.wire->get_strpool_attribute(ID::src)) {
+					map_file << "source " << lit << " " << bit.offset << " " << source << "\n";
+					log("source %d %d %s\n", lit, bit.offset, source);
+				}
+			}
 		}
-		log("name %d %d %s\n", lit, bit.offset, bit.wire->name);
 	}
 
 	RTLIL::Module *holes_module;
