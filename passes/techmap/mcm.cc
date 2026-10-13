@@ -118,7 +118,7 @@ class Scorer {
 public:
 	virtual bool better(const AdderGraphCandidate &candidate, const AdderGraphCandidate &selected,
 			bool direct_target) const = 0;
-	virtual bool score_intermediate(SearchState &state, const AdderGraphCandidate &candidate, 
+	virtual bool score_intermediate(SearchState &state, const AdderGraphCandidate &candidate,
 		const pool<int> &remaining, int &score) const = 0;
 	virtual ~Scorer() = default;
 };

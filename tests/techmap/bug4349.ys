@@ -62,4 +62,3 @@ EOF
 
 synth_ice40
 logger -expect-no-warnings
-

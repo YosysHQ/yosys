@@ -2,8 +2,19 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.69 .. Yosys 0.70-dev
+Yosys 0.69 .. Yosys 0.70
 --------------------------
+ * Commands and options
+    - Added "-macc-only" to "alumacc" pass.
+    - Added "optbarriers" experimental pass for optimization barriers insertion
+    - Added "-barriers" to "flatten" and "prep" pass.
+    - Added "mcm" pass to replace constant multipliers with shared adder graphs.
+    - Added "-purge" to "rmports" pass.
+    - Added "-select" to "ltp" pass.
+    - Removed "read_xaiger2" pass.
+
+ * Various
+    - Added colored log messages output in terminal mode.
 
 Yosys 0.68 .. Yosys 0.69
 --------------------------

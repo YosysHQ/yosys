@@ -402,7 +402,7 @@ struct Index {
 	struct ShiftDesc {
 		SigSpec aport;
 		SigSpec bport;
-		int width; // width of the vector being shifted 
+		int width; // width of the vector being shifted
 		Lit pad;
 		Lit fill;
 		bool left;
@@ -1834,7 +1834,7 @@ struct Aiger2Backend : Backend {
 			message += stringf("%s, ", name.c_str());
 		}
 		if (!message.empty())
-			log("    %s\n", message);		
+			log("    %s\n", message);
 		log("\n");
 		log("And all combinational gates except for:\n");
 		log("\n");
@@ -1858,7 +1858,7 @@ struct Aiger2Backend : Backend {
 			message += stringf("%s, ", name.c_str());
 		}
 		if (!message.empty())
-			log("    %s\n", message);		
+			log("    %s\n", message);
 		log("\n");
 	}
 
