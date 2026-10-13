@@ -459,6 +459,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					}
 				}
 			}
+			cell->attributes.erase(ID::abc9_src);
 
 			/*if (mapped_cell->hasPort(ID::Y)) {
 				for (auto bit: mapped_cell->getPort(ID::Y)) {
