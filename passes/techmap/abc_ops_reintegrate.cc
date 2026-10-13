@@ -69,6 +69,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
 	dict<int, std::pair<RTLIL::IdString, int>> names;
+	dict<int, pool<RTLIL::IdString>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -204,6 +205,14 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			}
 			else if (type == "name") {
 				names.insert({variable, std::make_pair(escaped_s, index)});
+			}
+			else if (type == "source") {
+				auto entry = sources.find(variable);
+				if (entry != sources.end()) {
+					entry->second.insert({escaped_s});
+				} else {
+					sources.insert({variable, pool<RTLIL::IdString>{escaped_s}});
+				}
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
