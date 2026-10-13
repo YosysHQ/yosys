@@ -1,0 +1,71 @@
+read_verilog <<EOT
+module rotr1(input [3:0] a, b, d, output [3:0] y);
+	wire [3:0] c = a + b;
+	assign y = {c[0], c[3:1]} + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+read_verilog <<EOT
+module byteswap16(input [15:0] a, b, d, output [15:0] y);
+	wire [15:0] c = a + b;
+	assign y = {c[7:0], c[15:8]} + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+read_verilog <<EOT
+module sub_child_perm(input [3:0] a, b, d, output [3:0] y);
+	wire [3:0] c = a - b;
+	assign y = {c[0], c[3:1]} + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 1 t:$sub
+select -assert-count 1 t:$add
+design -reset
+
+read_verilog <<EOT
+module sub_parent_b_perm(input [3:0] a, b, d, output [3:0] y);
+	wire [3:0] c = a + b;
+	assign y = d - {c[0], c[3:1]};
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 1 t:$add
+select -assert-count 1 t:$sub
+design -reset
+
+read_verilog <<EOT
+module split_ports(input [7:0] a, b, output [3:0] y);
+	wire [7:0] c = a + b;
+	assign y = c[3:0] + c[7:4];
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+select -assert-count 2 t:$add
+design -reset
