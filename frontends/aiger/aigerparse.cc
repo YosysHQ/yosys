@@ -433,7 +433,7 @@ void AigerReader::parse_xaiger()
 			for (unsigned i = 0; i < lutNum; ++i) {
 				uint32_t rootNodeID = parse_xaiger_literal(f);
 				uint32_t cutLeavesM = parse_xaiger_literal(f);
-				log("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
+				log_debug2("rootNodeID=%d cutLeavesM=%d\n", rootNodeID, cutLeavesM);
 				RTLIL::Wire *output_sig = module->wire(stringf("$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_sig);
 				uint32_t nodeID;
@@ -467,13 +467,13 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				output_cell = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
 
 				auto sources_pool = pool<int>{};
-				log("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
+				log_debug("$lut$aiger%d$%d -> %s:\n", aiger_autoidx, rootNodeID, output_sig->name);
 				for (auto literal : ce.deps) {
 					if (literal.is_wire()) {
-						log("  %d: %s\n", wire_to_literal.at(literal), literal.wire->name);
+						log_debug("  %d: %s\n", wire_to_literal.at(literal), literal.wire->name);
 						log_assert(wire_to_literal.find(literal) != wire_to_literal.end());
 						sources_pool.insert(wire_to_literal.at(literal));
 					}
@@ -483,7 +483,8 @@ void AigerReader::parse_xaiger()
 				for (auto source : sources_pool)
 					sources.push_back(source);
 
-				output_sig->set_intvec_attribute(ID::abc9_src, sources);
+				if (!sources.empty())
+					output_cell->set_intvec_attribute(ID::abc9_src, sources);
 			}
 		}
 		else if (c == 'M') { // cell 'M'apping
@@ -633,23 +634,24 @@ void AigerReader::parse_xaiger()
 				if (cell->type != ID($lut))
 					continue;
 
+				log_assert(cell->has_attribute(ID::abc9_src));
+
 				auto y = cell->getPort(ID::Y);
 				log_assert(y.size() == 1);
 				log_assert(y.is_wire());
 				auto y_wire = y.as_wire();
-				log_assert(y_wire->has_attribute(ID::abc9_src));
 				
 				auto mapped_sources = std::vector<int>{};
-				for (auto source : y_wire->get_intvec_attribute(ID::abc9_src)) {
+				for (auto source : cell->get_intvec_attribute(ID::abc9_src)) {
 					auto equivalence = equivalences.at(source);
 					// if `source` is not equivalent to an input design node, skip it.
 					if (equivalence == ~0u)
 						continue;
 					mapped_sources.push_back(equivalence);
 				}
-				y_wire->set_intvec_attribute(ID::abc9_src, mapped_sources);
+				cell->set_intvec_attribute(ID::abc9_src, mapped_sources);
 
-				log("%s -> %s: %s\n", cell->name, y_wire->name, y_wire->attributes[ID::abc9_src].decode_string());
+				log("%s -> %s: %s\n", cell->name, y_wire->name, cell->attributes[ID::abc9_src].decode_string());
 			}
 
 			/* {

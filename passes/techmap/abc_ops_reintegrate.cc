@@ -335,6 +335,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<SigBit, std::vector<RTLIL::Cell*>> bit2sinks;
 
 	std::map<IdString, int> cell_stats;
+	int names_recovered = 0;
 	for (auto mapped_cell : mapped_mod->cells())
 	{
 		// Short out $_FF_ cells since the flop box already has
@@ -408,7 +409,58 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			cell->parameters = mapped_cell->parameters;
 			cell->attributes = mapped_cell->attributes;
 
-			if (mapped_cell->hasPort(ID::Y)) {
+			if (mapped_cell->has_attribute(ID::abc9_src)) {
+				auto sources = mapped_cell->get_intvec_attribute(ID::abc9_src);
+				log("found abc9_src: %s contains nodes:\n", mapped_cell->name);
+				auto src_pool = pool<std::string>{};
+				for (auto source : sources) {
+					log("  %d\n", source);
+					auto name = names.find(source);
+					if (name != names.end()) {
+						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
+						auto equiv_wire = module->wire(name->second.first);
+						if (equiv_wire) {
+							log("        which exists in module\n");
+							if (equiv_wire->has_attribute(ID::src)) {
+								log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
+								for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+									src_pool.insert(src);
+									names_recovered++;
+								}
+							} else {
+								log("            but has no src attribute :(\n");
+							}
+						}
+						continue;
+					}
+					// Perhaps we can use the src attribute of the inverted signal?
+					name = names.find(source ^ 1);
+					if (name != names.end()) {
+						log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
+						auto equiv_wire = module->wire(name->second.first);
+						if (equiv_wire) {
+							log("        which exists in module\n");
+							if (equiv_wire->has_attribute(ID::src)) {
+								log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
+								for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+									src_pool.insert(src);
+									names_recovered++;
+								}
+							} else {
+								log("            but has no src attribute :(\n");
+							}
+						}
+						continue;
+					}
+				}
+				for (auto bit: mapped_cell->getPort(ID::Y)) {
+					if (bit.is_wire()) {
+						bit.wire->add_strpool_attribute(ID::src, src_pool);
+					}
+				}
+			}
+
+			/*if (mapped_cell->hasPort(ID::Y)) {
 				for (auto bit: mapped_cell->getPort(ID::Y)) {
 					if (bit.is_wire()) {
 						log("%s:\n", bit.wire->name);
@@ -431,45 +483,10 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 							}
 						}
 
-						if (bit.wire->has_attribute(ID::abc9_src)) {
-							auto sources = bit.wire->get_intvec_attribute(ID::abc9_src);
-							log("found sources: %s contains nodes:\n", mapped_cell->name);
-							for (auto source : sources) {
-								log("  %d\n", source);
-								auto name = names.find(source);
-								if (name != names.end()) {
-									log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
-									auto equiv_wire = module->wire(name->second.first);
-									if (equiv_wire) {
-										log("        which exists in module\n");
-										if (equiv_wire->has_attribute(ID::src)) {
-											log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
-										} else {
-											log("            but has no src attribute :(\n");
-										}
-									}
-									continue;
-								}
-								// Perhaps we can use the src attribute of the inverted signal?
-								name = names.find(source ^ 1);
-								if (name != names.end()) {
-									log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
-									auto equiv_wire = module->wire(name->second.first);
-									if (equiv_wire) {
-										log("        which exists in module\n");
-										if (equiv_wire->has_attribute(ID::src)) {
-											log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
-										} else {
-											log("            but has no src attribute :(\n");
-										}
-									}
-									continue;
-								}
-							}
-						}
+
 					}
 				}
-			}
+			}*/
 
 			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
@@ -770,6 +787,7 @@ clone_lut:
 
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
+	log("ABC RESULTS:    wire names recovered: %8d\n", names_recovered);
 
 	design->remove(mapped_mod);
 }
