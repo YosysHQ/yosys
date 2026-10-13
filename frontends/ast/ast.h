@@ -286,6 +286,7 @@ namespace AST
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		std::unique_ptr<AstNode> eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
+		bool is_in_unconditional_init();
 
 		// helper for parsing format strings
 		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0, bool may_fail = false);
@@ -337,6 +338,7 @@ namespace AST
 		int isConst() const; // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
 		double asReal(bool is_signed);
 		RTLIL::Const realAsConst(int width);
+		RTLIL::Const valueAsConst(int width);
 
 		// helpers for enum
 		void allocateDefaultEnumValues();
