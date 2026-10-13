@@ -451,38 +451,34 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 
 					auto source = sources.find(abc9_src);
 					if (source != sources.end()) {
-						log("    which has an entry in the map for the normal form\n");
-						for (auto src : source->second) {
-							log("        (* src = %s *)\n", src);
-							src_pool.insert(src.str());
-							names_recovered++;
-						}
 					} else {
-						source = sources.find(abc9_src ^ 1);
-						if (source != sources.end()) {
-							log("    which has an entry in the map for the inverted form\n");
-							for (auto src : source->second) {
-								log("        (* src = %s *)\n", src);
-								src_pool.insert(src.str());
-								names_recovered++;
-							}
-						}
+
 					}
 
 					auto name = names.find(abc9_src);
 					if (name != names.end()) {
 						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
+						src_pool.insert(stringf("containing signal %s", name->second.first));
 						auto equiv_wire = module->wire(name->second.first);
 						if (equiv_wire) {
 							log("        which exists in module\n");
 							if (equiv_wire->has_attribute(ID::src)) {
 								log("            (* src = %s *)\n", equiv_wire->attributes[ID::src].decode_string());
 								for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
-									src_pool.insert(src);
+									src_pool.insert(stringf("    defined in %s", src));
 									names_recovered++;
 								}
 							} else {
 								log("            but has no src attribute :(\n");
+							}
+						}
+						auto source = sources.find(abc9_src);
+						if (source != sources.end()) {
+							log("    which has an entry in the map for the normal form\n");
+							for (auto src : source->second) {
+								log("        (* src = %s *)\n", src);
+								src_pool.insert(stringf("    defined in %s", src));
+								names_recovered++;
 							}
 						}
 					} else {
@@ -490,24 +486,34 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						name = names.find(abc9_src ^ 1);
 						if (name != names.end()) {
 							log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
+							src_pool.insert(stringf("containing inverted signal %s", name->second.first));
 							auto equiv_wire = module->wire(name->second.first);
 							if (equiv_wire) {
 								log("        which exists in module\n");
 								if (equiv_wire->has_attribute(ID::src)) {
 									log("            (* src = \"%s\" *)\n", equiv_wire->attributes[ID::src].decode_string());
 									for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
-										src_pool.insert(src);
+										src_pool.insert(stringf("    defined in %s", src));
 										names_recovered++;
 									}
 								} else {
 									log("            but has no src attribute :(\n");
 								}
 							}
+							auto source = sources.find(abc9_src ^ 1);
+							if (source != sources.end()) {
+								log("    which has an entry in the map for the inverted form\n");
+								for (auto src : source->second) {
+									log("        (* src = %s *)\n", src);
+									src_pool.insert(stringf("    defined in %s", src));
+									names_recovered++;
+								}
+							}
 						}
 					}
 				}
 				if (!src_pool.empty()) {
-					src_pool.insert(std::string{"name recovery"});
+					src_pool.insert(std::string{"end of name recovery"});
 				}
 				cell->add_strpool_attribute(ID::src, src_pool);
 				if (cell->hasPort(ID::Y)) {
