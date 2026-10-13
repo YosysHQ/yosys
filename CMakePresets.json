@@ -1,0 +1,68 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true
+    },
+    {
+      "name": "debug",
+      "inherits": "base",
+      "displayName": "Debug",
+      "binaryDir": "${sourceDir}/build-dbg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SANITIZE": "",
+        "CMAKE_C_FLAGS_DEBUG": "-Og -ggdb -fno-inline -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+        "CMAKE_CXX_FLAGS_DEBUG": "-Og -ggdb -fno-inline -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+
+      }
+    },
+    {
+      "name": "sanitize",
+      "inherits": "debug",
+      "displayName": "Debug with Sanitizers",
+      "binaryDir": "${sourceDir}/build-san",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Sanitize",
+        "SANITIZE": "address,undefined",
+        "CMAKE_C_FLAGS_DEBUG": "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+        "CMAKE_CXX_FLAGS_DEBUG": "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+
+      }
+    },
+    {
+      "name": "sanitize_mem",
+      "inherits": "sanitize",
+      "displayName": "Debug with MemorySanitizer",
+      "binaryDir": "${sourceDir}/build-memsan",
+      "cacheVariables": {
+        "SANITIZE": "memory",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "optdbg",
+      "inherits": "base",
+      "displayName": "Release with debug info",
+      "binaryDir": "${sourceDir}/build-optdbg",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O3 -ggdb -fno-omit-frame-pointer -fno-optimize-sibling-calls",
+        "CMAKE_C_FLAGS_RELWITHDEBINFO": "-O3 -ggdb -fno-omit-frame-pointer -fno-optimize-sibling-calls"
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "base",
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/build-rel",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_CXX_FLAGS_RELEASE": "-O3",
+        "CMAKE_C_FLAGS_RELEASE": "-O3"
+      }
+    }
+  ]
+}
