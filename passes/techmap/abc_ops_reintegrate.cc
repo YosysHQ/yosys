@@ -346,7 +346,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			if (it != Qi.wire->attributes.end())
 				it->second.set(Qi.offset, State::Sx);
 		}
-		else if (cell->type.in(ID($_AND_), ID($_NOT_)))
+		else if (cell->type.in(ID($_AND_), ID($_NOT_), ID($_OR_), ID($_XNOR_), ID($_XOR_)))
 			module->remove(cell);
 		else if (cell->attributes.erase(ID::abc9_box_seq))
 			boxes.insert(cell);
@@ -477,11 +477,15 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						continue;
 					}
 				}
-				for (auto bit: mapped_cell->getPort(ID::Y)) {
+				if (!src_pool.empty()) {
+					src_pool.insert(std::string{"name recovery"});
+				}
+				mapped_cell->add_strpool_attribute(ID::src, src_pool);
+				/*for (auto bit: mapped_cell->getPort(ID::Y)) {
 					if (bit.is_wire()) {
 						bit.wire->add_strpool_attribute(ID::src, src_pool);
 					}
-				}
+				}*/
 			}
 			cell->attributes.erase(ID::abc9_src);
 
