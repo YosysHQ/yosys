@@ -80,7 +80,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	// Monitor event (e.g. opt_clean) are not seen otherwise
 	bool valid() const override;
 	bool changed() const;
-	void invalidateCheck() const;
+	void invalidateCheck();
 
 	Instance *top() const override;
 	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const override;
@@ -105,9 +105,23 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void notify_blackout(RTLIL::Module *module) override;
 private:
 	using PortShapes = std::vector<PortShape>;
-	using Nets = std::vector<Net *>;
-	using Aliases = std::vector<Alias>;
-	using ConstNets = std::array<Net *, 2>; // tie-low, tie-high
+
+	struct ScopeData {
+		std::vector<Net *> nets;
+		std::vector<Alias> aliases;
+		std::array<Net *, 2> consts = {}; // tie-low, tie-high
+	};
+
+	struct InstData {
+		RTLIL::Cell *cell = nullptr;     // none for the top
+		RTLIL::Module *module = nullptr; // none for leaves
+	};
+
+	struct NetData {
+		RTLIL::SigBit bit;      // canonical SigMap bit
+		RTLIL::SigBit name_bit;
+		NetName name;           // copied out of RTLIL
+	};
 
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
@@ -120,7 +134,7 @@ private:
 	void registerAliases(RTLIL::Module *module, Instance *scope);
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
-	SigMap &sigmapFor(RTLIL::Module *module) const;
+	SigMap &sigmapFor(RTLIL::Module *module);
 	Net *knownNet(const RTLIL::SigBit &bit) const;
 	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
 
@@ -147,22 +161,17 @@ private:
 	dict<std::string, const PortShapes *> shape_cache_; // library leaf types
 
 	// Scope contents
-	std::unordered_map<const Instance *, Nets> scope_nets_;
-	std::unordered_map<const Instance *, Aliases> scope_aliases_;
-	std::unordered_map<const Instance *, ConstNets> const_nets_;
+	std::unordered_map<const Instance *, ScopeData> scopes_;
 
 	// RTLIL to records
 	dict<uint32_t, Instance *> cell_inst_; // by cell hashidx_
-	IdMap<RTLIL::Cell *> inst_cell_;
 	dict<const RTLIL::Module *, Instance *> module_scope_;
-	IdMap<RTLIL::Module *> inst_module_;
+	IdMap<InstData> inst_data_;
 
 	// Nets by bit
-	mutable std::map<RTLIL::Module *, SigMap> sigmaps_;
+	std::map<RTLIL::Module *, SigMap> sigmaps_;
 	dict<uint64_t, Net *> bit_net_;
-	IdMap<RTLIL::SigBit> net_bit_;
-	IdMap<RTLIL::SigBit> net_name_bit_; // naming bit when it differs
-	IdMap<NetName> net_names_;
+	IdMap<NetData> net_data_;
 
 	// Staleness
 	uint64_t fingerprint_ = 0;
