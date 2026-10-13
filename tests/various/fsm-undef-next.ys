@@ -1,0 +1,21 @@
+# an undef next state must go to a valid state (#6303)
+read_verilog <<EOT
+module top (input clk, input load, input sel, input a, input b, output [2:0] y);
+  wire [2:0] payload = b ? 3'd5 : a ? 3'd1 : 3'bxxx;
+  reg [2:0] r;
+  always @(posedge clk) if (load) r <= payload;
+  assign y = sel ? (load ? payload : r) : 3'd0;
+endmodule
+EOT
+proc
+opt -nodffe
+rename top gold
+copy gold gate
+cd gate
+fsm_detect
+fsm_extract
+select -assert-count 1 t:$fsm
+fsm
+cd
+miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
+sat -verify -seq 3 -prove-asserts -set-init-undef -set-def-inputs -enable_undef miter
