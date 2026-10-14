@@ -214,6 +214,11 @@ struct MemQueryCache
 	}
 };
 
+static bool same_clock(const MemWr &wport, const FfData &ff)
+{
+	return wport.clk_enable && wport.clk == ff.sig_clk && wport.clk_polarity == ff.pol_clk;
+}
+
 struct MemoryDffWorker
 {
 	Module *module;
@@ -375,19 +380,11 @@ struct MemoryDffWorker
 		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 			PortData pd;
 			auto &wport = mem.wr_ports[i];
-			pd.relevant = true;
-			if (!wport.clk_enable)
-				pd.relevant = false;
-			if (wport.clk != ff.sig_clk)
-				pd.relevant = false;
-			if (wport.clk_polarity != ff.pol_clk)
-				pd.relevant = false;
 			// In theory, we *could* support mismatched width
 			// ports here.  However, it's not worth it — wide
 			// ports are recognized *after* memory_dff in
 			// a normal flow.
-			if (wport.wide_log2 != port.wide_log2)
-				pd.relevant = false;
+			pd.relevant = same_clock(wport, ff) && wport.wide_log2 == port.wide_log2;
 			pd.uncollidable_mask.resize(GetSize(port.data));
 			pd.transparency_mask.resize(GetSize(port.data));
 			pd.collision_x_mask.resize(GetSize(port.data));
@@ -582,9 +579,8 @@ struct MemoryDffWorker
 			log("    address FF has fully-defined init value, not supported.\n");
 			return;
 		}
-		for (int i = 0; i < GetSize(mem.wr_ports); i++) {
-			auto &wport = mem.wr_ports[i];
-			if (!wport.clk_enable || wport.clk != ff.sig_clk || wport.clk_polarity != ff.pol_clk) {
+		for (auto &wport : mem.wr_ports) {
+			if (!same_clock(wport, ff)) {
 				log("    address FF clock is not compatible with write clock.\n");
 				return;
 			}
