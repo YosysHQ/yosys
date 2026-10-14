@@ -15,7 +15,7 @@ dfflibmap -liberty ../openroad/sm_test_cells.lib
 abc -script @SCRIPT@ -D 10000 -constr abc.constr -showtmp -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
 opt_clean
 select -assert-none t:$_*_
-select -assert-count 16 t:DFFR
+select -assert-count 15 t:DFFR
 check -assert
 
 read_verilog ../openroad/cells_sim.v

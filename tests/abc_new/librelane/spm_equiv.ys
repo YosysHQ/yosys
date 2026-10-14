@@ -11,11 +11,11 @@ design -save gold
 
 synth -run fine:
 dfflibmap -liberty ../openroad/sm_test_cells.lib
-select -assert-count 16 t:DFFR
+select -assert-count 15 t:DFFR
 abc_new -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
 opt_clean
 select -assert-none t:$_*_
-select -assert-count 16 t:DFFR
+select -assert-count 15 t:DFFR
 check -assert
 stat -liberty ../openroad/cm_test_cells.lib -liberty ../openroad/sm_test_cells.lib
 

@@ -6,7 +6,7 @@ module top(input clk, input en, output reg qc, output reg qw);
 	initial qc = 1'b0;
 	initial qw = 1'b0;
 	always @(posedge clk) qc <= 1'b0;
-	always @(posedge clk) qw <= qw & en;
+	always @(posedge clk) qw <= ~(~qw | ~en);
 endmodule
 EOT
 
