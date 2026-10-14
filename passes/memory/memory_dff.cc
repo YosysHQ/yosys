@@ -604,9 +604,8 @@ struct MemoryDffWorker
 		log("    merged address FF to cell.\n");
 	}
 
-	void run()
+	void run(std::vector<Mem>& memories)
 	{
-		std::vector<Mem> memories = Mem::get_selected_memories(module);
 		for (auto &mem : memories) {
 			QuickConeSat qcsat(modwalker);
 			for (int i = 0; i < GetSize(mem.rd_ports); i++) {
@@ -657,8 +656,11 @@ struct MemoryDffPass : public Pass {
 		extra_args(args, argidx, design);
 
 		for (auto mod : design->selected_modules()) {
-			MemoryDffWorker worker(mod, flag_no_rw_check);
-			worker.run();
+			std::vector<Mem> memories = Mem::get_selected_memories(mod);
+			if (!memories.empty()) {
+				MemoryDffWorker worker(mod, flag_no_rw_check);
+				worker.run(memories);
+			}
 		}
 	}
 } MemoryDffPass;
