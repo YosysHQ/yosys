@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 COEFF_RE = re.compile(r"y\d+\s*=\s*x\s*\*\s*\((-?)\d+\'sd(\d+)\);")
 STAT_RE = re.compile(r"^\s*(\d+)\s+\$(\w+)\s*$", re.MULTILINE)
+AREA_RE = re.compile(r"^\s*Chip area for (?:top )?module '[^']+':\s*([\d.eE+-]+)\s*$", re.MULTILINE)
 DEPTH_RE = re.compile(r"^\s*mcm: .* -> \d+ adder\(s\), depth (\d+),", re.MULTILINE)
 ACM_COST_RE = re.compile(r"^// Cost: (\d+) adds/subtracts (\d+) shifts (\d+) negations$", re.MULTILINE)
 ACM_DEPTH_RE = re.compile(r"^// Depth: (\d+)$", re.MULTILINE)
@@ -116,9 +117,32 @@ class Test:
 		stdout, seconds = run_profile(args, self.results_dir / "acm.log")
 		return parse_acm(stdout, seconds)
 
-	def profile(self, yosys_path: Path, acm_path: Path, idx: int):
+	def profile_synth(self, yosys_path: Path, liberty_path: Path, use_mcm: bool) -> float:
+		name = "synth_mcm" if use_mcm else "synth"
+		script_path = self.results_dir / f"{name}.ys"
+		stats_path = self.results_dir / f"{name}.stat"
+		mcm = "mcm -depth 16 -search_budget 200000000\n" if use_mcm else ""
+		script_path.write_text(
+			f'read_verilog "{self.verilog_file}"\n'
+			"hierarchy -top unoptimized\n"
+			+ mcm + dedent(f"""\
+				synth -top unoptimized -noabc
+				abc -liberty "{liberty_path}"
+				tee -o "{stats_path}" stat -liberty "{liberty_path}"
+			""")
+		)
+		run_profile([str(yosys_path), "-s", str(script_path)], self.results_dir / f"{name}.log")
+		area = AREA_RE.search(stats_path.read_text())
+		if area is None:
+			raise ValueError(f"Missing chip area in {stats_path}")
+		return float(area.group(1))
+
+	def profile(self, yosys_path: Path, acm_path: Path, liberty_path: Path, idx: int):
 		yosys = self.profile_yosys(yosys_path)
 		acm = self.profile_acm(acm_path)
+		synth_area = self.profile_synth(yosys_path, liberty_path, use_mcm=False)
+		mcm_area = self.profile_synth(yosys_path, liberty_path, use_mcm=True)
+		relative_area = f"{mcm_area / synth_area:.2%}" if synth_area else "n/a"
 		coeffs = [str(coeff) for coeff in self.coeffs]
 		ratio = yosys.seconds / acm.seconds
 		items = [
@@ -126,11 +150,14 @@ class Test:
 			("hcub_paper runtime", acm.time()),
 			("yosys stats", yosys.stats()),
 			("hcub_paper stats", acm.stats()),
+			("synth area", f"{synth_area:.3f}"),
+			("synth with MCM area", f"{mcm_area:.3f}"),
+			("MCM / baseline area", relative_area),
 			("runtime ratio", f"{ratio:.2f}"),
 			("coeffs", ", ".join(coeffs)),
 		]
 		print_table(f"Test {idx}", items)
-		return yosys, acm
+		return yosys, acm, synth_area, mcm_area
 
 def print_table(title: str, items: list[tuple[str, str]]) -> None:
 	print(title)
@@ -202,6 +229,7 @@ def main():
 	yosys_bin = Path(os.environ["YOSYS"])
 	root_dir = Path(sys.argv[0]).parent
 	acm_path = root_dir / "synth" / "acm"
+	liberty_path = root_dir / "NangateOpenCellLibrary_typical.lib"
 	output_dir = root_dir / "results"
 
 	number_tests = 40
@@ -214,11 +242,13 @@ def main():
 
 	coeffs = generate_coeffs(rng, number_tests, length_range, value_range, seed)
 	results = []
+	area_results = []
 
 	for idx, coeff in enumerate(coeffs):
 		test_file = Test(input_bit_width, coeff, idx, output_dir)
-		yosys_res, acm_res = test_file.profile(yosys_bin, acm_path, idx)
+		yosys_res, acm_res, synth_area, mcm_area = test_file.profile(yosys_bin, acm_path, liberty_path, idx)
 		results.append((yosys_res, acm_res))
+		area_results.append((synth_area, mcm_area))
 
 	# 1000ms = 1s
 	timescale = 1000
@@ -235,6 +265,8 @@ def main():
 	num_better = len([i for i in compared_results if i == Cmp.Better])
 	num_same   = len([i for i in compared_results if i == Cmp.Same])
 	num_worse  = len([i for i in compared_results if i == Cmp.Worse])
+	num_mcm_better_or_same = sum(mcm_area <= synth_area for synth_area, mcm_area in area_results)
+	num_mcm_larger = len(area_results) - num_mcm_better_or_same
 
 	items = [
 		("Avg Yosys runtime (ms)", f"{avg_yosys_runtime:.2f}"),
@@ -242,9 +274,11 @@ def main():
 		("Stdev Yosys runtime (ms)", f"{stdev_yosys_runtime:.2f}"),
 		("Stdev hcub_paper runtime (ms)", f"{stdev_acm_runtime:.2f}"),
 		("Average hcub_paper Speed Up", f"{avg_runtime_ratio:.2f}"),
-		("Number of Times Yosys Results Smaller", str(num_better)),
-		("Number of Times Yosys Results Same", str(num_same)),
-		("Number of Times Yosys Results Larger", str(num_worse)),
+		("Number of Times Yosys Results Smaller v.s. HCUB Paper", str(num_better)),
+		("Number of Times Yosys Results Same v.s. HCUB Paper", str(num_same)),
+		("Number of Times Yosys Results Larger v.s. HCUB Paper", str(num_worse)),
+		("Number of Times MCM Area Smaller or Same v.s. Without MCM", str(num_mcm_better_or_same)),
+		("Number of Times MCM Area Larger v.s. Without MCM", str(num_mcm_larger)),
 	]
 	print_table("Results", items)
 
