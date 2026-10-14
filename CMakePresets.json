@@ -15,7 +15,6 @@
       "binaryDir": "${sourceDir}/build-dbg",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "SANITIZE": "",
         "CMAKE_C_FLAGS_DEBUG": "-Og -ggdb -fno-inline -fno-omit-frame-pointer -fno-optimize-sibling-calls",
         "CMAKE_CXX_FLAGS_DEBUG": "-Og -ggdb -fno-inline -fno-omit-frame-pointer -fno-optimize-sibling-calls"
 
