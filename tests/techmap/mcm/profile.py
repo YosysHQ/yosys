@@ -267,6 +267,8 @@ def main():
 	num_worse  = len([i for i in compared_results if i == Cmp.Worse])
 	num_mcm_better_or_same = sum(mcm_area <= synth_area for synth_area, mcm_area in area_results)
 	num_mcm_larger = len(area_results) - num_mcm_better_or_same
+	area_savings = [100 * (1 - mcm_area / synth_area) for synth_area, mcm_area in area_results if synth_area]
+	avg_area_savings = f"{statistics.mean(area_savings):.2f}%" if area_savings else "n/a"
 
 	items = [
 		("Avg Yosys runtime (ms)", f"{avg_yosys_runtime:.2f}"),
@@ -279,6 +281,7 @@ def main():
 		("Number of Times Yosys Results Larger v.s. HCUB Paper", str(num_worse)),
 		("Number of Times MCM Area Smaller or Same v.s. Without MCM", str(num_mcm_better_or_same)),
 		("Number of Times MCM Area Larger v.s. Without MCM", str(num_mcm_larger)),
+		("Avg MCM area savings", avg_area_savings),
 	]
 	print_table("Results", items)
 
