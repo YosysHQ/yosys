@@ -219,9 +219,8 @@ struct MemoryDffWorker
 	FfMergeHelper merger;
 	bool flag_no_rw_check;
 
-	MemoryDffWorker(Module *module, bool flag_no_rw_check) : module(module), modwalker(module->design), flag_no_rw_check(flag_no_rw_check)
+	MemoryDffWorker(Module *module, bool flag_no_rw_check) : module(module), modwalker(module->design, module), flag_no_rw_check(flag_no_rw_check)
 	{
-		modwalker.setup(module);
 		initvals.set(&modwalker.sigmap, module);
 		merger.set(&initvals, module);
 	}
