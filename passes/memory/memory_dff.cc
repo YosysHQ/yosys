@@ -622,6 +622,15 @@ struct MemoryDffWorker
 	}
 };
 
+static bool has_async_rd_port(const std::vector<Mem> &memories)
+{
+	for (auto &mem : memories)
+		for (auto &port : mem.rd_ports)
+			if (!port.clk_enable)
+				return true;
+	return false;
+}
+
 struct MemoryDffPass : public Pass {
 	MemoryDffPass() : Pass("memory_dff", "merge input/output DFFs into memory read ports") { }
 	void help() override
@@ -657,7 +666,7 @@ struct MemoryDffPass : public Pass {
 
 		for (auto mod : design->selected_modules()) {
 			std::vector<Mem> memories = Mem::get_selected_memories(mod);
-			if (!memories.empty()) {
+			if (has_async_rd_port(memories)) {
 				MemoryDffWorker worker(mod, flag_no_rw_check);
 				worker.run(memories);
 			}
