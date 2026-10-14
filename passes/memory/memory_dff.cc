@@ -345,7 +345,7 @@ struct MemoryDffWorker
 			return;
 		}
 		if (!ff.has_clk) {
-			log(    "output latches are not supported.\n");
+			log("    output latches are not supported.\n");
 			return;
 		}
 		if (ff.has_aload) {
