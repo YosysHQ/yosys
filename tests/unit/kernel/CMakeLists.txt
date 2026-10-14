@@ -7,6 +7,7 @@ yosys_gtest(kernel
 	logTest.cc
 	modindexTest.cc
 	ownedIdTest.cc
+	perfHelpers.h
 	pooledNameTest.cc
 	rtlilHelpers.h
 	rtlilStringTest.cc

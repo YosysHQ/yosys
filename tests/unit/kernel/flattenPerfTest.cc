@@ -1,46 +1,14 @@
 #include <gtest/gtest.h>
 
-#include <chrono>
-#include <cstdio>
-#include <cstdlib>
 #include <string>
-
-#include <sys/resource.h>
 
 #include "kernel/rtlil.h"
 #include "kernel/yosys.h"
+#include "perfHelpers.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 namespace {
-
-int env_int(const char *name, int fallback)
-{
-	const char *value = getenv(name);
-	if (value == nullptr || *value == 0)
-		return fallback;
-	return atoi(value);
-}
-
-size_t rss_bytes()
-{
-	size_t total_pages = 0, resident_pages = 0;
-	FILE *f = fopen("/proc/self/statm", "r");
-	if (f == nullptr)
-		return 0;
-	if (fscanf(f, "%zu %zu", &total_pages, &resident_pages) != 2)
-		resident_pages = 0;
-	fclose(f);
-	return resident_pages * (size_t)sysconf(_SC_PAGESIZE);
-}
-
-size_t peak_rss_bytes()
-{
-	struct rusage ru;
-	if (getrusage(RUSAGE_SELF, &ru) != 0)
-		return 0;
-	return (size_t)ru.ru_maxrss * 1024;
-}
 
 std::string name_padding;
 bool attach_src = false;
@@ -58,11 +26,6 @@ std::string pad(std::string name)
 {
 	name += name_padding;
 	return name;
-}
-
-double ms(std::chrono::steady_clock::duration d)
-{
-	return std::chrono::duration<double, std::milli>(d).count();
 }
 
 RTLIL::Module *build_leaf(RTLIL::Design *design, int chain_length)
@@ -174,8 +137,8 @@ TEST(FlattenPerf, deep_hierarchy_stress)
 	printf("[ PERF     ] cells=%zu wires=%zu\n", top->cells().size(), top->wires().size());
 	printf("[ PERF     ] build_ms=%.1f flatten_ms=%.1f\n", ms(build_end - build_start), ms(flatten_end - flatten_start));
 	printf("[ PERF     ] rss_before_mb=%.1f rss_after_mb=%.1f flatten_rss_mb=%.1f peak_rss_mb=%.1f\n",
-			rss_before / 1048576.0, rss_after / 1048576.0,
-			(rss_after - rss_before) / 1048576.0, peak_rss_bytes() / 1048576.0);
+			mb(rss_before), mb(rss_after),
+			mb(rss_after - rss_before), mb(peak_rss_bytes()));
 	fflush(stdout);
 
 	delete design;

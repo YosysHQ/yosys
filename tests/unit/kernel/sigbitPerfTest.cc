@@ -1,41 +1,16 @@
 #include <gtest/gtest.h>
 
-#include <chrono>
-#include <cstdio>
-#include <cstdlib>
 #include <string>
 #include <vector>
-
-#include <sys/resource.h>
 
 #include "kernel/rtlil.h"
 #include "kernel/sigtools.h"
 #include "kernel/yosys.h"
+#include "perfHelpers.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 namespace {
-
-int env_int(const char *name, int fallback)
-{
-	const char *value = getenv(name);
-	if (value == nullptr || *value == 0)
-		return fallback;
-	return atoi(value);
-}
-
-size_t peak_rss_bytes()
-{
-	struct rusage ru;
-	if (getrusage(RUSAGE_SELF, &ru) != 0)
-		return 0;
-	return (size_t)ru.ru_maxrss * 1024;
-}
-
-double ms(std::chrono::steady_clock::duration d)
-{
-	return std::chrono::duration<double, std::milli>(d).count();
-}
 
 uint32_t next_rand(uint32_t &state)
 {
@@ -149,7 +124,7 @@ TEST(SigBitPerf, hash_and_sigmap_stress)
 	printf("[ PERF     ] dict_insert_ns=%.2f dict_lookup_ns=%.2f\n",
 			1e6 * ms(t5 - t4) / (double)ops, 1e6 * ms(t6 - t5) / (double)ops);
 	printf("[ PERF     ] total_ms=%.1f peak_rss_mb=%.1f rss_before_mb=%.1f\n",
-			ms(t6 - t0), peak_rss_bytes() / 1048576.0, rss_before / 1048576.0);
+			ms(t6 - t0), mb(peak_rss_bytes()), mb(rss_before));
 	fflush(stdout);
 
 	delete design;
