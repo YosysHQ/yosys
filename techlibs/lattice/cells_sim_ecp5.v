@@ -217,10 +217,3 @@ module DP16KD(
 	parameter INITVAL_3F = 320'h00000000000000000000000000000000000000000000000000000000000000000000000000000000;
 	parameter INIT_DATA = "STATIC";
 endmodule
-
-`ifndef NO_INCLUDES
-
-`include "cells_ff.vh"
-`include "cells_io.vh"
-
-`endif

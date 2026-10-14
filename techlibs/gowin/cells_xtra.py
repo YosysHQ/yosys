@@ -26,6 +26,7 @@ _skip = { # These are already described, no need to extract them from the vendor
           'OSER8', 'OVIDEO', 'PLLVR', 'RAM16S1', 'RAM16S2', 'RAM16S4',
           'RAM16SDP1', 'RAM16SDP2', 'RAM16SDP4', 'rPLL', 'SDP',
           'SDPX9', 'SP', 'SPX9', 'TBUF', 'TLVDS_OBUF', 'VCC', 'EMCU',
+          'IDES4_MEM', 'OSER4_MEM', 'DQS',
           # These are not planned for implementation
           'MUX2_MUX8', 'MUX2_MUX16', 'MUX2_MUX32', 'MUX4', 'MUX8', 'MUX16',
           'MUX32', 'DL', 'DLE', 'DLC', 'DLCE', 'DLP', 'DLPE', 'DLN', 'DLNE',

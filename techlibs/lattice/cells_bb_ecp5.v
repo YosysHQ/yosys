@@ -1733,7 +1733,6 @@ module DCUA(CH0_HDINP, CH1_HDINP, CH0_HDINN, CH1_HDINN, D_TXBIT_CLKP_FROM_ND, D_
     parameter D_CMUSETICP4P = "DONTCARE";
     parameter D_CMUSETBIASI = "DONTCARE";
     (* iopad_external_pin *)
-    (* iopad_external_pin *)
     input CH0_HDINP;
     (* iopad_external_pin *)
     input CH1_HDINP;
