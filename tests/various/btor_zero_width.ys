@@ -1,0 +1,26 @@
+# A one-entry memory has a zero-width address. write_btor emitted `sort bitvec 0` and `read ... -1` for the
+# array, and `uext <sid> -1 1` for the zero-width operands of memory_map's address decoder ($eq with
+# A_WIDTH = B_WIDTH = 0); neither is valid BTOR2 (a sort width must be positive, -1 is not a node id).
+read_verilog -sv -nomem2reg <<EOT
+module top(input clk, input en, input [7:0] d, output [7:0] q);
+	reg [7:0] mem [0:0];
+	always @(posedge clk) if (en) mem[0] <= d;
+	assign q = mem[0];
+endmodule
+EOT
+prep -top top
+! mkdir -p temp
+design -save gold
+
+memory -nomap
+select -assert-count 1 t:$mem_v2
+write_btor temp/btor_zero_width_array.btor
+! ! grep -qE ' -1( |$)|bitvec 0$' temp/btor_zero_width_array.btor
+! grep -q 'sort array' temp/btor_zero_width_array.btor
+
+design -load gold
+memory_map
+select -assert-count 1 t:$eq r:A_WIDTH=0 %i
+write_btor temp/btor_zero_width_map.btor
+! ! grep -qE ' -1( |$)|bitvec 0$' temp/btor_zero_width_map.btor
+! grep -q ' zero ' temp/btor_zero_width_map.btor
