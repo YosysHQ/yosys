@@ -71,18 +71,16 @@ struct MemQueryCache
 		// port_ren is an upper bound on when we care about the value fetched
 		// from memory this cycle.
 		int ren = ezSAT::CONST_TRUE;
-		if (ff.has_ce) {
-			ren = qcsat.importSigBit(ff.sig_ce);
-			if (!ff.pol_ce)
-				ren = qcsat.ez->NOT(ren);
-		}
-		if (ff.has_srst) {
-			int nrst = qcsat.importSigBit(ff.sig_srst);
-			if (ff.pol_srst)
-				nrst = qcsat.ez->NOT(nrst);
-			ren = qcsat.ez->AND(ren, nrst);
-		}
+		if (ff.has_ce)
+			ren = import_bit(ff.sig_ce, !ff.pol_ce);
+		if (ff.has_srst)
+			ren = qcsat.ez->AND(ren, import_bit(ff.sig_srst, ff.pol_srst));
 		port_ren = ren;
+	}
+
+	int import_bit(SigBit bit, bool invert) {
+		int res = qcsat.importSigBit(bit);
+		return invert ? qcsat.ez->NOT(res) : res;
 	}
 
 	// Returns ezSAT variable that is true iff the two addresses are the same.
@@ -141,9 +139,7 @@ struct MemQueryCache
 		int aeq = addr_eq(port.addr, wport.addr);
 		int wen_sat = qcsat.importSigBit(wen);
 		int sel_expected = qcsat.ez->AND(aeq, wen_sat);
-		int sel_sat = qcsat.importSigBit(sel);
-		if (neg_sel)
-			sel_sat = qcsat.ez->NOT(sel_sat);
+		int sel_sat = import_bit(sel, neg_sel);
 		qcsat.prepare();
 		bool res = !qcsat.ez->solve(port_ren, qcsat.ez->XOR(sel_expected, sel_sat));
 		cache_is_w2rbyp[key] = res;
@@ -157,9 +153,7 @@ struct MemQueryCache
 		auto it = cache_impossible_with_ren.find(key);
 		if (it != cache_impossible_with_ren.end())
 			return it->second;
-		int sel_sat = qcsat.importSigBit(sel);
-		if (neg_sel)
-			sel_sat = qcsat.ez->NOT(sel_sat);
+		int sel_sat = import_bit(sel, neg_sel);
 		qcsat.prepare();
 		bool res = !qcsat.ez->solve(port_ren, sel_sat);
 		cache_impossible_with_ren[key] = res;
@@ -178,9 +172,7 @@ struct MemQueryCache
 			return false;
 		log_assert(driver.port == ID::Y);
 		SigSpec sig_s = driver.cell->getPort(ID::S);
-		int sel_sat = qcsat.importSigBit(sel);
-		if (neg_sel)
-			sel_sat = qcsat.ez->NOT(sel_sat);
+		int sel_sat = import_bit(sel, neg_sel);
 		bool all_0 = true;
 		int width = driver.cell->parameters.at(ID::WIDTH).as_int();
 		for (int i = 0; i < GetSize(sig_s); i++) {
