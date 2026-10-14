@@ -335,6 +335,11 @@ public:
 	bool empty() const { return _values.empty(); }
 };
 
+// Set a port on a generated RAM cell. If the design has no module for the cell
+// type, a blackbox module is generated and the port is declared on it, so that
+// the port directions of the cell are known before it's techmapped.
+void set_ram_cell_port(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &sig, bool is_output = false);
+
 YOSYS_NAMESPACE_END
 
 #endif

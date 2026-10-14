@@ -49,6 +49,38 @@ $fatal(1, "Macro DSP_NAME must be defined");
 `define MAX(a,b) (a > b ? a : b)
 `define MIN(a,b) (a < b ? a : b)
 
+(* blackbox *)
+module \$__mul (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+endmodule
+
+(* blackbox *)
+module \$__soft_mul (A, B, Y);
+	parameter A_SIGNED = 0;
+	parameter B_SIGNED = 0;
+	parameter A_WIDTH = 1;
+	parameter B_WIDTH = 1;
+	parameter Y_WIDTH = 1;
+
+	(* force_downto *)
+	input [A_WIDTH-1:0] A;
+	(* force_downto *)
+	input [B_WIDTH-1:0] B;
+	(* force_downto *)
+	output [Y_WIDTH-1:0] Y;
+endmodule
+
 (* techmap_celltype = "$mul $__mul" *)
 module _80_mul (A, B, Y);
 	parameter A_SIGNED = 0;
