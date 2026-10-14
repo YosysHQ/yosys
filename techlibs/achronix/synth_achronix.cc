@@ -157,7 +157,7 @@ struct SynthAchronixPass : public ScriptPass {
 
     if (check_label("map_cells"))
       {
-        run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I");
+        run("iopadmap -bits -outpad $__outpad I:O -inpad $__inpad O:I A:top");
         run("techmap -map +/achronix/speedster22i/cells_map.v");
         // VT: not done yet run("dffinit -highlow -ff DFF q power_up");
         run("clean -purge");
