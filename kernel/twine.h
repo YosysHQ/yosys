@@ -334,7 +334,7 @@ private:
 	uint32_t hash_ = 0;
 };
 
-static_assert(sizeof(TwineNode) == 24);
+static_assert(sizeof(TwineNode) == (sizeof(void *) == 8 ? 24 : 20));
 
 struct StaticTwines {
 	static void init();
