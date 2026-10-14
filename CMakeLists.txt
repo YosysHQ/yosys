@@ -98,13 +98,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 check_pie_supported() # opportunistically enable PIE
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-	set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
-	set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+	if (NOT CMAKE_PRESET)
+		set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb")
+		set(CMAKE_CXX_FLAGS_MINSIZEREL"-Os")
+		set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+	endif()
 	if ("${SANITIZE}" MATCHES "memory")
-		set(CMAKE_CXX_FLAGS_SANITIZE "${CMAKE_CXX_FLAGS_SANITIZE} -fsanitize-memory-track-origins")
+		add_compile_options(
+			"$<$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>,$<CONFIG:Sanitize>>:-fsanitize-memory-track-origins>"
+		)
 	endif()
 	set(no_abc_options
 		"$<$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>,$<CONFIG:Sanitize>>:-fsanitize=${SANITIZE}>"
@@ -441,8 +445,6 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 			install(FILES ${YOSYS_CMAKE_BINARY_DIR}/yosys.exe.a DESTINATION ${YOSYS_INSTALL_LIBDIR})
 		endif()
 	endif()
-
-	target_compile_options(yosys PRIVATE -fsanitize=undefined)
 endif()
 
 # Yosys components as a library.

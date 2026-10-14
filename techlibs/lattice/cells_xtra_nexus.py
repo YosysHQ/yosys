@@ -84,7 +84,7 @@ devices = [
         Cell("MULTADDSUB18X18WIDE"),
 #        Cell("MULTADDSUB18X36"),
 #        Cell("MULTADDSUB36X36"),
-        Cell("MULTADDSUB9X9WIDE"),
+#        Cell("MULTADDSUB9X9WIDE"),
         Cell("MULTIBOOT", keep=True),
 #        Cell("MULTPREADD18X18"),
 #        Cell("MULTPREADD9X9"),
