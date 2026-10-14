@@ -260,14 +260,7 @@ struct McmWorker {
 			return false;
 		prune_graph(group, graph, plan);
 		propagate_widths(group, plan);
-		// estimate_cost(group, plan);
-		// if (is_profitable(plan))
-		// 	return true;
 		return true;
-		// log_debug("Skipping MCM group in module %s: estimated bit cost %lld vs %lld "
-		// 		"does not meet %d%% minimum gain.\n", module, plan.shared_cost,
-		// 		plan.independent_cost, config.min_gain);
-		// return false;
 	}
 
 	void emit_plan(McmGroup &group, const McmPlan &plan)
@@ -371,7 +364,6 @@ struct McmPass : public Pass {
 
 	void help() override
 	{
-		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
 		log("    mcm [options] [selection]\n");
 		log("\n");
@@ -395,18 +387,11 @@ struct McmPass : public Pass {
 		log("    -min_const <n>\n");
 		log("        skip constants whose magnitude is below <n> (default: 3).\n");
 		log("\n");
-		// log("    -min_gain <percent>\n");
-		// log("        require this estimated one-bit-adder saving over independent\n");
-		// log("        signed-digit implementations (default: 0).\n");
-		// log("\n");
 		log("    -search_budget <n>\n");
 		log("        maximum search work per operand group (default: 200000000).\n");
 		log("        Counts candidate operations and heuristic checks, including\n");
 		log("        precomputation. Exhausted groups are left unchanged.\n");
 		log("\n");
-		// log("    -force\n");
-		// log("        ignore the profitability check.\n");
-		// log("\n");
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -444,22 +429,12 @@ struct McmPass : public Pass {
 				config.min_const = atoi(args[++argidx].c_str());
 				continue;
 			}
-			// if (args[argidx] == "-min_gain" && argidx + 1 < args.size()) {
-			// 	config.min_gain = atoi(args[++argidx].c_str());
-			// 	if (config.min_gain < 0 || config.min_gain > 100)
-			// 		log_cmd_error("mcm: -min_gain must be between 0 and 100\n");
-			// 	continue;
-			// }
 			if (args[argidx] == "-search_budget" && argidx + 1 < args.size()) {
 				config.work_budget = atoll(args[++argidx].c_str());
 				if (config.work_budget < 1)
 					log_cmd_error("mcm: -search_budget must be >= 1\n");
 				continue;
 			}
-			// if (args[argidx] == "-force") {
-			// 	config.force = true;
-			// 	continue;
-			// }
 			break;
 		}
 		if (config.min_shift > config.max_shift)

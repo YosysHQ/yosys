@@ -25,10 +25,6 @@ namespace Yosys::Mcm {
 UnsignedContainer::UnsignedContainer(const BigUnsigned &integer) : value(uint64_t(0))
 {
 	if (integer.bitLength() <= 64) {
-		// uint64_t small = 0;
-		// for (BigUnsigned::Index i = 0; i < integer.getLength(); i++)
-		// 	small |= uint64_t(integer.getBlock(i)) << (i * BigUnsigned::N);
-		// value = small;
 		value = integer.toUnsignedLong();
 	} else {
 		value = integer;
