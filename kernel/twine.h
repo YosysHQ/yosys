@@ -286,7 +286,10 @@ struct TwineNode {
 		std::string_view text;
 	};
 
-	static constexpr uint64_t extend_hash(uint64_t hash, std::string_view tail) {
+	static constexpr uint32_t extend_hash(uint32_t hash, std::string_view tail) {
+		// Basically DJB2, but we're not doing it with hashlib.h hash64,
+		// so that we get the "content hashing" identity:
+		// hash(suffix(leaf("a"), "b")) == hash(leaf("ab"))
 		for (char c : tail)
 			hash = ((hash << 5) + hash) + static_cast<unsigned char>(c);
 		return hash;
@@ -295,7 +298,7 @@ struct TwineNode {
 	TwineNode() = default;
 	explicit TwineNode(std::string_view content)
 		: text_(content), prefix_(NO_PREFIX), hash_(extend_hash(0, content)) {}
-	TwineNode(uint32_t prefix, std::string_view tail, uint64_t hash)
+	TwineNode(uint32_t prefix, std::string_view tail, uint32_t hash)
 		: text_(tail), prefix_(prefix), hash_(hash) {}
 	TwineNode(const TwineNode &other) = default;
 	TwineNode(TwineNode &&other) noexcept;
@@ -317,7 +320,7 @@ struct TwineNode {
 
 	std::string_view text() const { return text_.view(); }
 	IdString prefix() const { return IdString(prefix_); }
-	uint64_t hash() const { return hash_; }
+	uint32_t hash() const { return hash_; }
 	Key key() const { return {prefix_, text()}; }
 
 	bool operator==(const TwineNode &other) const
@@ -326,9 +329,9 @@ struct TwineNode {
 		{ return prefix_ == other.prefix && text() == other.text; }
 
 private:
-	YS_NO_UNIQUE_ADDRESS SmallString text_;
+	SmallString text_;
 	uint32_t prefix_ = DEAD;
-	uint64_t hash_ = 0;
+	uint32_t hash_ = 0;
 };
 
 static_assert(sizeof(TwineNode) == 24);
@@ -359,7 +362,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	static const TwineNode& static_node(size_t idx);
 
 	static void check_ready();
-	static uint64_t hash_node(const TwineNode& t) { return t.hash(); }
+	static uint32_t hash_node(const TwineNode& t) { return t.hash(); }
 
 	template<typename F>
 	static void for_each_child(const TwineNode& t, F&& f) {
@@ -407,8 +410,8 @@ private:
 	IdString auto_prefix(const std::string *prefix);
 	IdString add_inner(TwineNode t);
 	IdString intern(uint32_t prefix, std::string_view text);
-	uint64_t content_hash(uint32_t prefix, std::string_view text) const;
-	IdString find_content(uint32_t prefix, std::string_view text, uint64_t hash) const;
+	uint32_t content_hash(uint32_t prefix, std::string_view text) const;
+	IdString find_content(uint32_t prefix, std::string_view text, uint32_t hash) const;
 	IdString find_content(uint32_t prefix, std::string_view text) const;
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;

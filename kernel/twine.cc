@@ -260,8 +260,8 @@ std::string TwinePool::unescaped_str(IdString ref) const {
 	return str(ref.untag());
 }
 
-uint64_t TwinePool::content_hash(uint32_t prefix, std::string_view text) const {
-	uint64_t hash = prefix == TwineNode::NO_PREFIX ? 0 : (*this)[IdString(prefix)].hash();
+uint32_t TwinePool::content_hash(uint32_t prefix, std::string_view text) const {
+	uint32_t hash = prefix == TwineNode::NO_PREFIX ? 0 : (*this)[IdString(prefix)].hash();
 	return TwineNode::extend_hash(hash, text);
 }
 
@@ -271,7 +271,7 @@ IdString TwinePool::find_content(uint32_t prefix, std::string_view text) const {
 
 IdString TwinePool::intern(uint32_t prefix, std::string_view text) {
 	log_assert(!Multithreading::active());
-	uint64_t hash = content_hash(prefix, text);
+	uint32_t hash = content_hash(prefix, text);
 	IdString ref = find_content(prefix, text, hash);
 	if (ref != IdString::Null)
 		return ref;
@@ -500,7 +500,7 @@ static int compare_segments(TwineSegments &sa, TwineSegments &sb)
 	}
 }
 
-IdString TwinePool::find_content(uint32_t prefix, std::string_view text, uint64_t hash) const {
+IdString TwinePool::find_content(uint32_t prefix, std::string_view text, uint32_t hash) const {
 	return find_hashed(hash, [&](IdString ref) {
 		const TwineNode &t = (*this)[ref];
 		if (t == TwineNode::Key{prefix, text})
