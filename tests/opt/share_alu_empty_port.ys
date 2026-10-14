@@ -1,0 +1,14 @@
+# share -aggressive used to crash pairing an $alu with an empty unsigned A port (from $neg) with a signed one
+read_verilog <<EOT
+module top(input signed [5:0] a, input signed [3:0] b, input signed [2:0] x, input s, output [3:0] y);
+  assign y = s ? $unsigned(-a) : $unsigned(-(b - x));
+endmodule
+EOT
+proc; wreduce; alumacc
+select -assert-count 2 t:$alu
+copy top gold
+share -aggressive top
+opt_clean top
+select -assert-count 1 top/t:$alu
+miter -equiv -flatten -make_assert gold top miter
+sat -verify -prove-asserts miter
