@@ -980,7 +980,7 @@ struct AigerFrontend : public Frontend {
 			char fname[_MAX_FNAME];
 			_splitpath(filename.c_str(), NULL /* drive */, NULL /* dir */, fname, NULL /* ext */);
 			char* bn = strdup(fname);
-			module_name = RTLIL::escape_id(bn);
+			module_name = design->twines().add(RTLIL::escape_id(bn));
 			free(bn);
 #else
 			char* bn = strdup(filename.c_str());
