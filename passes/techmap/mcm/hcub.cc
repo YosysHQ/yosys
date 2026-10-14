@@ -63,10 +63,11 @@ int auxiliary_cost(const IntSet &values)
 	return cost;
 }
 
-HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(params.config), work_remaining(config.work_budget) {
+HcubSearch::HcubSearch(const SearchParams &params_in) : Search(params_in), config(params_in.config), work_remaining(config.work_budget) {
+
 	std::vector<UnsignedContainer> odd_targets;
-	odd_targets.reserve(params.target_set.size());
-	for (const UnsignedContainer &target : params.target_set) {
+	odd_targets.reserve(params().target_set.size());
+	for (const UnsignedContainer &target : params().target_set) {
 		UnsignedContainer odd = oddify(target);
 		if (odd != 0 && odd != 1)
 			odd_targets.push_back(odd);
@@ -77,7 +78,7 @@ HcubSearch::HcubSearch(const SearchParams &params) : Search(params), config(para
 	work_list.emplace(1, ONE);
 	depths.emplace(1, 0);
 
-	max_bit_width = Yosys::Mcm::max_bit_width(params.target_set);
+	max_bit_width = Yosys::Mcm::max_bit_width(params().target_set);
 	if (config.min_shift < 0 || config.max_shift < config.min_shift || config.max_nodes < 0 ||
 			config.work_budget < 1 || (config.max_depth && *config.max_depth < 1))
 		log_error("Invalid MCM search limits.\n");

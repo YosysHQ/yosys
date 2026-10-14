@@ -192,7 +192,7 @@ int max_bit_width(const IntSet &int_set);
 
 class Search {
 public:
-	Search(const SearchParams &params) : params(params) {}
+	Search(const SearchParams &params) : params_m(params) {}
 	virtual ~Search() = default;
 
 
@@ -202,8 +202,10 @@ public:
 	// A_*(u, v) = {forall cfg, op(u, v, cfg) where a_op_valid(cfg)}
 	// Can this be made lazy? Probably not
 	virtual AOpMap vertex_fundamental_set(const IntSet &u, const IntSet &v) const = 0;
+
+	const SearchParams &params() const { return params_m; }
 private:
-	const SearchParams &params;
+	const SearchParams &params_m;
 };
 
 } // namespace Yosys::Mcm
