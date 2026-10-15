@@ -92,8 +92,8 @@ inline bool HcubSearch::a_op_valid(const Unsigned &res) const {
 }
 
 inline bool HcubSearch::a_op_valid(const AOp &op) const {
-	if (std::optional<uint64_t> small = op.res.get_uint64_t())
-		return a_op_valid<uint64_t>(*small);
+	if (std::optional<uint64_t> small_value = op.res.get_uint64_t())
+		return a_op_valid<uint64_t>(*small_value);
 	return a_op_valid<BigUnsigned>(op.res.get<BigUnsigned>());
 }
 

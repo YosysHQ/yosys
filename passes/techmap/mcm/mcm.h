@@ -28,8 +28,8 @@ public:
 		return std::get<Unsigned>(value);
 	}
 	std::optional<uint64_t> get_uint64_t() const {
-		if (auto small = std::get_if<uint64_t>(&value))
-			return *small;
+		if (auto small_value = std::get_if<uint64_t>(&value))
+			return *small_value;
 		return std::nullopt;
 	}
 
@@ -96,23 +96,23 @@ template<typename Unsigned> int naf_weight(Unsigned n)
 }
 
 inline UnsignedContainer oddify(const UnsignedContainer &n) {
-	if (auto small = n.get_uint64_t())
-		return oddify<uint64_t>(*small);
+	if (auto small_value = n.get_uint64_t())
+		return oddify<uint64_t>(*small_value);
 	return oddify<BigUnsigned>(n.get<BigUnsigned>());
 }
 inline int shift_of(const UnsignedContainer &n) {
-	if (auto small = n.get_uint64_t())
-		return shift_of<uint64_t>(*small);
+	if (auto small_value = n.get_uint64_t())
+		return shift_of<uint64_t>(*small_value);
 	return shift_of<BigUnsigned>(n.get<BigUnsigned>());
 }
 inline int bit_width(const UnsignedContainer &n) {
-	if (auto small = n.get_uint64_t())
-		return bit_width<uint64_t>(*small);
+	if (auto small_value = n.get_uint64_t())
+		return bit_width<uint64_t>(*small_value);
 	return bit_width<BigUnsigned>(n.get<BigUnsigned>());
 }
 inline int naf_weight(const UnsignedContainer &n) {
-	if (auto small = n.get_uint64_t())
-		return naf_weight<uint64_t>(*small);
+	if (auto small_value = n.get_uint64_t())
+		return naf_weight<uint64_t>(*small_value);
 	return naf_weight<BigUnsigned>(n.get<BigUnsigned>());
 }
 
