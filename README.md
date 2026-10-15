@@ -63,9 +63,32 @@ Many Linux distributions also provide Yosys binaries, some more up to date than 
 Building from Source
 ====================
 
+### TL;DR
+
+This sequence of commands will build Yosys from source using the configuration:
+
+	$ git clone https://github.com/YosysHQ/yosys.git
+	$ cd yosys
+	$ git submodule update --init
+	$ cmake --preset default
+	$ cmake --build build --parallel $(nproc)
+
+For release builds, substitute the cmake commands with these:
+
+	$ cmake --preset release
+	$ cmake --build build-rel --config Release --parallel $(nproc)
+
+To run tests, run the following:
+
+  $ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
+
+### Detailed instructions
+
 For more details, and instructions for other platforms, check [building from
 source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source)
 on Read the Docs.
+
+#### Prerequisites
 
 When cloning Yosys, some required libraries are included as git submodules. Make
 sure to call e.g.
@@ -90,9 +113,11 @@ prerequisites for building yosys:
 install a newer version and meet the minimum required for building Yosys, use
 `sudo snap install cmake --classic`.
 
+#### Compilation
+
 CMake is used for build configuration, and requires a separate build directory:
 
-	$ cmake -B build .
+	$ cmake --preset default
 
 Once generated, available build variables can be inspected and modified with
 `ccmake` or opening the generated `build/CMakeCache.txt` file:
@@ -105,6 +130,13 @@ line option. For example, disabling zlib support:
 
 	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
 
+However, this omits using a preset and requires manual configuration. 
+Adding this flags to a preset would allow inheritting the existing configuration 
+provided in `CMakePresets.json`. Another option is to create a `CMakeUserPresets.json` file.
+See the next example which contains a preset for building with this flag:
+
+	$ cmake --preset without_zlib && cmake --build build --parallel $(nproc)
+
 For a more persistent configuration, we recommend creating and using a
 `CMakeUserPresets.json` file in the root `yosys` directory. Below is an example
 file which enables ccache and sets the default compiler to clang when calling
@@ -116,13 +148,19 @@ file which enables ccache and sets the default compiler to clang when calling
 	"configurePresets": [
 		{
 			"name": "clang",
-			"inherits": "base",
-			"binaryDir": "build",
+			"inherits": "default",
 			"generator": "Unix Makefiles",
 			"cacheVariables": {
 				"CMAKE_C_COMPILER": "clang",
 				"CMAKE_CXX_COMPILER": "clang++",
 				"YOSYS_COMPILER_LAUNCHER": "ccache"
+			}
+		},
+		{
+			"name": "without_zlib",
+			"inherits": "clang",
+			"cacheVariables": {
+				"YOSYS_WITHOUT_ZLIB": "ON"
 			}
 		}
 	]
@@ -135,15 +173,24 @@ Once generated, build yosys like this:
 
 To build and install a release build of Yosys:
 
-	$ cmake -B build -DCMAKE_BUILD_TYPE=Release
-	$ cmake --build build --config Release --parallel $(nproc)
-	$ sudo cmake --install build --strip
+	$ cmake --preset release
+	$ cmake --build build-rel --config Release --parallel $(nproc)
+	$ sudo cmake --install build-rel --strip
+
+#### Running Tests
 
 Tests are located in the tests subdirectory and can be executed using the `test`
 target. Note that you need gawk, a recent version of iverilog, and gtest.
 Execute tests via:
 
 	$ cmake --build build --target test --parallel $(nproc)
+
+Note that is Ninja is used as the generator, the tests will only execute single threaded. 
+If Make is used, the number passed to --parallel is forwarded as you would expect.
+
+The tests can also be ran directly via:
+
+	$ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
 
 
 Getting Started
