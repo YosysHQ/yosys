@@ -65,7 +65,7 @@ Building from Source
 
 ### TL;DR
 
-This sequence of commands will build Yosys from source using the configuration:
+This sequence of commands will build Yosys from source using the default preset:
 
 	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
 	$ cd yosys
