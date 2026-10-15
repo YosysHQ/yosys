@@ -1,0 +1,14 @@
+read_verilog -sv <<EOT
+module top(output [3:0] y);
+	wb #(.W(4)) b(.a('1), .y(y));
+endmodule
+
+(* whitebox *)
+module wb #(parameter W = 1) (input [W-1:0] a, output [W-1:0] y);
+	assign y = a;
+endmodule
+EOT
+hierarchy -top top
+box_derive -apply_derived_type
+flatten -wb
+sat -verify -prove y 4'b1111

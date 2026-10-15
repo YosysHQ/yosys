@@ -543,6 +543,17 @@ bool expand_module(RTLIL::Design *design, RTLIL::Module *module, bool flag_check
 			if (flag_simcheck || (flag_smtcheck && !mod->get_bool_attribute(ID::smtlib2_module)))
 				log_error("Module `%s' referenced in module `%s' in cell `%s' is a blackbox/whitebox module.\n",
 						cell->type, module->name.str().data(), cell->name);
+
+			// Parametric blackboxes labeled reprocess_after need to be derived
+			// just so we have correct widths. The instance still points to the
+			// parametric module and the derived module is discarded via to_delete
+			if (!cell->parameters.empty() && cell->has_attribute(ID::reprocess_after) &&
+			    !design->module(design->twines().find(cell->get_string_attribute(ID::reprocess_after)))) {
+				size_t num_modules = design->modules_.size();
+				IdString derived = mod->derive(design, cell->parameters, true);
+				if (!derived.empty() && design->modules_.size() > num_modules)
+					design->module(derived)->set_bool_attribute(ID::to_delete);
+			}
 			continue;
 		}
 
