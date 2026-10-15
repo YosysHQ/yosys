@@ -25,6 +25,22 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+static bool has_priority(const Mem &mem)
+{
+	for (auto &wport : mem.wr_ports)
+		for (bool bit : wport.priority_mask)
+			if (bit)
+				return true;
+	return false;
+}
+
+struct ModUtils {
+	ModWalker modwalker;
+	QuickConeSat qcsat;
+
+	ModUtils(Design *design, Module *module) : modwalker(design, module), qcsat(modwalker) {}
+};
+
 struct OptMemPriorityPass : public Pass {
 	OptMemPriorityPass() : Pass("opt_mem_priority", "remove priority relations between write ports that can never collide") { }
 	void help() override
@@ -44,14 +60,16 @@ struct OptMemPriorityPass : public Pass {
 		log_header(design, "Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).\n");
 		extra_args(args, 1, design);
 
-		ModWalker modwalker(design);
-
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {
-			modwalker.setup(module);
+			std::optional<ModUtils> utils;
 			for (auto &mem : Mem::get_selected_memories(module)) {
+				if (!has_priority(mem))
+					continue;
+				if (!utils)
+					utils.emplace(design, module);
+				QuickConeSat &qcsat = utils->qcsat;
 				bool mem_changed = false;
-				QuickConeSat qcsat(modwalker);
 				for (int i = 0; i < GetSize(mem.wr_ports); i++) {
 					auto &wport1 = mem.wr_ports[i];
 					for (int j = 0; j < GetSize(mem.wr_ports); j++) {
