@@ -325,7 +325,7 @@ struct Abc9Pass : public ScriptPass
 					else {
 						// Rename all submod-s to _TECHMAP_REPLACE_ to inherit name + attrs
 						for (auto module : active_design->selected_modules()) {
-							active_design->selected_active_module = module->name.str();
+							active_design->selected_active_module = module->name;
 							if (module->cell(stringf("%s_$abc9_flop", module->name)))
 								run(stringf("rename %s_$abc9_flop _TECHMAP_REPLACE_", module->name));
 						}
@@ -399,6 +399,8 @@ struct Abc9Pass : public ScriptPass
 
 					log_push();
 					active_design->select(mod);
+
+					GarbageCollectionGuard gc_guard(false);
 
 					// this check does nothing because the above line adds the whole module to the selection
 					if (!active_design->selected_whole_module(mod))

@@ -52,6 +52,8 @@ struct VerificClocking {
 	RTLIL::Cell *addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value);
 	RTLIL::Cell *addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q);
 	RTLIL::Cell *addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::SigSpec sig_adata, SigSpec sig_d, SigSpec sig_q);
+	YS_NAME_FWD_POOL(addDff, module->twines()) YS_NAME_FWD_POOL(addAdff, module->twines())
+	YS_NAME_FWD_POOL(addDffsr, module->twines()) YS_NAME_FWD_POOL(addAldff, module->twines())
 
 	bool property_matches_sequence(const VerificClocking &seq) const {
 		if (clock_net != seq.clock_net)

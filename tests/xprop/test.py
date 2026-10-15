@@ -453,7 +453,7 @@ for mode in ["", "_xprop"]:
             hierarchy -top top; proc -noopt
             flatten
             opt_expr -keepdc; clean
-            dump -o opt_expr{mode}.list */\Y_*
+            dump -readable -o opt_expr{mode}.list */\Y_*
         """
     )
 

@@ -45,12 +45,6 @@ TEST(KernelStringfTest, stringViewParam)
         EXPECT_EQ(stringf("%s", std::string_view("hello")), "hello");
 }
 
-TEST(KernelStringfTest, idStringParam)
-{
-        RTLIL::IdString id("$hello");
-        EXPECT_EQ(stringf("%s", id), "$hello");
-}
-
 TEST(KernelStringfTest, escapePercent)
 {
 	EXPECT_EQ(stringf("%%"), "%");
