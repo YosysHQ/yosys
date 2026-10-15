@@ -9,6 +9,12 @@
       }
     },
     {
+      "name": "default",
+      "inherits": "debug",
+      "displayName": "Default",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
       "name": "debug",
       "inherits": "base",
       "displayName": "Debug",
