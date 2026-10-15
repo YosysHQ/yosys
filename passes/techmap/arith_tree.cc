@@ -139,7 +139,14 @@ struct ArithTreeWorker {
 		// (x % 2**link) % 2**parent == x % 2**parent only when parent <= link.
 		// A link narrower than its consumer discards a carry that the wider
 		// consumer would otherwise see, so it must not be flattened away.
-		if (consumer != nullptr && GetSize(sig) < GetSize(consumer->getPort(ID::Y)))
+		if (consumer == nullptr || GetSize(sig) < GetSize(consumer->getPort(ID::Y)))
+			return nullptr;
+		SigSpec a = sigmap(consumer->getPort(ID::A));
+		SigSpec b = sigmap(consumer->getPort(ID::B));
+		if ((a == sig) == (b == sig))
+			return nullptr;
+		pool<SigBit> link_bits(sig.begin(), sig.end());
+		if (overlaps(a == sig ? b : a, link_bits))
 			return nullptr;
 		return consumer;
 	}

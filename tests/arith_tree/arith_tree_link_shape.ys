@@ -1,0 +1,44 @@
+#6324
+read_verilog <<EOT
+module rotr1(input [3:0] a, b, d, output [3:0] y);
+	wire [3:0] c = a + b;
+	assign y = {c[0], c[3:1]} + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-none t:$fa
+design -reset
+
+# link in both ports stays a leaf
+read_verilog <<EOT
+module both(input [3:0] a, b, d, output [3:0] y);
+	wire [3:0] v = a + b;
+	wire [3:0] w = v + v;
+	assign y = w + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 1 t:$fa
+select -assert-count 2 t:$add
+design -reset
+
+# link in one port and shifted in the other stays a leaf
+read_verilog <<EOT
+module shiftadd(input [7:0] a, b, d, output [7:0] y);
+	wire [7:0] u = a + b;
+	assign y = u + {u[4:0], 3'b000} + d;
+endmodule
+EOT
+hierarchy -auto-top
+proc
+equiv_opt -assert arith_tree
+design -load postopt
+select -assert-count 1 t:$fa
+select -assert-count 2 t:$add
+design -reset
