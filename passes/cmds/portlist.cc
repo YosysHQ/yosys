@@ -76,9 +76,10 @@ struct PortlistPass : public Pass {
 			log("module %s%s\n", module, m_mode ? " (" : "");
 			for (int i = 0; i < GetSize(ports); i++)
 				log("%s%s\n", ports[i], m_mode && i+1 < GetSize(ports) ? "," : "");
-			if (m_mode)
+			if (m_mode) {
 				log(");\n");
 				log("endmodule\n");
+			}
 		};
 
 		if (argidx == args.size())
