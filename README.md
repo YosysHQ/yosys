@@ -133,7 +133,7 @@ line option. For example, disabling zlib support:
 However, this omits using a preset and requires manual configuration. 
 Adding this flags to a preset would allow inheritting the existing configuration 
 provided in `CMakePresets.json`. Another option is to create a `CMakeUserPresets.json` file.
-See the next example which contains a preset for building with this flag:
+The next example which contains a preset for building with this flag:
 
 	$ cmake --preset without_zlib && cmake --build build --parallel $(nproc)
 
