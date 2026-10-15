@@ -67,9 +67,8 @@ Building from Source
 
 This sequence of commands will build Yosys from source using the configuration:
 
-	$ git clone https://github.com/YosysHQ/yosys.git
+	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
 	$ cd yosys
-	$ git submodule update --init
 	$ cmake --preset default
 	$ cmake --build build --parallel $(nproc)
 
@@ -93,9 +92,7 @@ on Read the Docs.
 When cloning Yosys, some required libraries are included as git submodules. Make
 sure to call e.g.
 
-	$ git clone https://github.com/YosysHQ/yosys.git
-	$ cd yosys
-	$ git submodule update --init
+	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
 
 A C++ compiler with C++20 support is required as well as some standard tools
 such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), GNU Make, and Python (>=3.11). Some additional tools: readline,
