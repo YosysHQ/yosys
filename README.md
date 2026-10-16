@@ -65,6 +65,12 @@ Building from Source
 
 ### TL;DR
 
+The following libraries are required, this command will install them on Ubuntu Linux 22.04 LTS based systems:
+
+  $ sudo apt-get install gawk git make python3 lld bison clang flex \
+		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
+		graphviz xdot
+
 This sequence of commands will build Yosys from source using the default preset:
 
 	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
@@ -84,111 +90,8 @@ To run tests, run the following:
 ### Detailed instructions
 
 For more details, and instructions for other platforms, check [building from
-source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source)
-on Read the Docs.
-
-#### Prerequisites
-
-When cloning Yosys, some required libraries are included as git submodules. Make
-sure to call e.g.
-
-	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
-
-A C++ compiler with C++20 support is required as well as some standard tools
-such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), GNU Make, and Python (>=3.11). Some additional tools: readline,
-libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
-Xdot are used by the `show` command to display schematics.
-
-For example on Ubuntu Linux 22.04 LTS the following commands will install all
-prerequisites for building yosys:
-
-	$ sudo apt-get install gawk git make python3 lld bison clang flex \
-		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
-		graphviz xdot
-
-**NOTE**: By default, Ubuntu 22.04 LTS is limited to CMake 3.22 via `apt`. To
-install a newer version and meet the minimum required for building Yosys, use
-`sudo snap install cmake --classic`.
-
-#### Compilation
-
-CMake is used for build configuration, and requires a separate build directory:
-
-	$ cmake --preset default
-
-Once generated, available build variables can be inspected and modified with
-`ccmake` or opening the generated `build/CMakeCache.txt` file:
-
-	$ ccmake build              #..or..
-	$ vi build/CMakeCache.txt
-
-When setting one-off variables, CMake provides the `-D <var>=<value>` command
-line option. For example, disabling zlib support:
-
-	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
-
-However, this omits using a preset and requires manual configuration. 
-Adding this flags to a preset would allow inheritting the existing configuration 
-provided in `CMakePresets.json`. Another option is to create a `CMakeUserPresets.json` file.
-The next example which contains a preset for building with this flag:
-
-	$ cmake --preset without_zlib && cmake --build build --parallel $(nproc)
-
-For a more persistent configuration, we recommend creating and using a
-`CMakeUserPresets.json` file in the root `yosys` directory. Below is an example
-file which enables ccache and sets the default compiler to clang when calling
-`cmake --preset clang`:
-
-```json
-{
-	"version": 1,
-	"configurePresets": [
-		{
-			"name": "clang",
-			"inherits": "default",
-			"generator": "Unix Makefiles",
-			"cacheVariables": {
-				"CMAKE_C_COMPILER": "clang",
-				"CMAKE_CXX_COMPILER": "clang++",
-				"YOSYS_COMPILER_LAUNCHER": "ccache"
-			}
-		},
-		{
-			"name": "without_zlib",
-			"inherits": "clang",
-			"cacheVariables": {
-				"YOSYS_WITHOUT_ZLIB": "ON"
-			}
-		}
-	]
-}
-```
-
-Once generated, build yosys like this:
-
-	$ cmake --build build
-
-To build and install a release build of Yosys:
-
-	$ cmake --preset release
-	$ cmake --build build-rel --config Release --parallel $(nproc)
-	$ sudo cmake --install build-rel --strip
-
-#### Running Tests
-
-Tests are located in the tests subdirectory and can be executed using the `test`
-target. Note that you need gawk, a recent version of iverilog, and gtest.
-Execute tests via:
-
-	$ cmake --build build --target test --parallel $(nproc)
-
-Note that is Ninja is used as the generator, the tests will only execute single threaded. 
-If Make is used, the number passed to --parallel is forwarded as you would expect.
-
-The tests can also be ran directly via:
-
-	$ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
-
+source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source) and [running the tests](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/test_suites.html)
+on Read the Docs. 
 
 Getting Started
 ===============
