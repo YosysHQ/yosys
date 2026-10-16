@@ -22,23 +22,29 @@ struct SrcRef {
 	static constexpr NullSrcRef Null{};
 
 	constexpr SrcRef() : value(NULL_VAL) {}
-	explicit constexpr SrcRef(size_t val) : value((uint32_t) val) {}
 
 	constexpr bool operator==(const SrcRef&) const = default;
-	constexpr auto operator<=>(const SrcRef&) const = default;
 
+private:
+	template<typename, typename, typename> friend struct HashConsPool;
+	friend struct SrcPool;
+
+	explicit constexpr SrcRef(size_t val) : value((uint32_t) val) {}
 	constexpr size_t raw() const { return value; }
 	constexpr SrcRef untag() const { return *this; }
 
-	Hasher hash_into(Hasher h) const { h.hash32(value); return h; }
-
-private:
 	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
 	uint32_t value;
 };
 
 constexpr NullSrcRef::operator SrcRef() const { return SrcRef(); }
 constexpr bool NullSrcRef::operator==(SrcRef ref) const { return ref == SrcRef(); }
+
+namespace hashlib {
+template<> struct hash_ops<SrcRef> {
+	static Hasher hash_into(const SrcRef &, Hasher) = delete;
+};
+}
 
 struct SrcSet {
 	SrcSet() = default;
@@ -55,6 +61,17 @@ private:
 
 struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	static constexpr size_t STATIC_COUNT = 0;
+
+	struct Marks {
+		bool insert(SrcRef ref);
+		bool empty() const { return refs.empty(); }
+		std::vector<SrcRef>::const_iterator begin() const { return refs.begin(); }
+		std::vector<SrcRef>::const_iterator end() const { return refs.end(); }
+
+	private:
+		std::vector<SrcRef> refs;
+		std::vector<bool> seen;
+	};
 
 	explicit SrcPool(TwinePool &twines) : twines(twines) {}
 
@@ -86,10 +103,11 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	SrcRef copy_from(const SrcPool &other, SrcRef ref);
 
 	std::string str(SrcRef ref) const;
+	std::string serial(SrcRef ref) const;
 	pool<std::string> leaves(SrcRef ref) const;
 
-	void root_members(const pool<SrcRef> &live_srcs, pool<IdString> &live_twines) const;
-	size_t gc(const pool<SrcRef> &live_srcs);
+	void root_members(const Marks &live_srcs, pool<IdString> &live_twines) const;
+	size_t gc(const Marks &live_srcs);
 
 	void dump(SrcRef ref, std::ostream &os = std::cout) const;
 	void dump(std::ostream &os = std::cout) const;
