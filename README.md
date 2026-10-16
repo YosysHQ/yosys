@@ -63,90 +63,35 @@ Many Linux distributions also provide Yosys binaries, some more up to date than 
 Building from Source
 ====================
 
-For more details, and instructions for other platforms, check [building from
-source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source)
-on Read the Docs.
+### TL;DR
 
-When cloning Yosys, some required libraries are included as git submodules. Make
-sure to call e.g.
+The following libraries are required, this command will install them on Ubuntu Linux 22.04 LTS based systems:
 
-	$ git clone https://github.com/YosysHQ/yosys.git
-	$ cd yosys
-	$ git submodule update --init
-
-A C++ compiler with C++20 support is required as well as some standard tools
-such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), Make (or other CMake
-generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
-libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
-Xdot are used by the `show` command to display schematics.
-
-For example on Ubuntu Linux 22.04 LTS the following commands will install all
-prerequisites for building yosys:
-
-	$ sudo apt-get install gawk git make python3 lld bison clang flex \
+  $ sudo apt-get install gawk git make python3 lld bison clang flex \
 		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
 		graphviz xdot
 
-**NOTE**: By default, Ubuntu 22.04 LTS is limited to CMake 3.22 via `apt`. To
-install a newer version and meet the minimum required for building Yosys, use
-`sudo snap install cmake --classic`.
+This sequence of commands will build Yosys from source using the default preset:
 
-CMake is used for build configuration, and requires a separate build directory:
+	$ git clone --recurse-submodules https://github.com/YosysHQ/yosys.git
+	$ cd yosys
+	$ cmake --preset default
+	$ cmake --build build --parallel $(nproc)
 
-	$ cmake -B build .
+For release builds, substitute the cmake commands with these:
 
-Once generated, available build variables can be inspected and modified with
-`ccmake` or opening the generated `build/CMakeCache.txt` file:
+	$ cmake --preset release
+	$ cmake --build build-rel --config Release --parallel $(nproc)
 
-	$ ccmake build              #..or..
-	$ vi build/CMakeCache.txt
+To run tests, run the following:
 
-When setting one-off variables, CMake provides the `-D <var>=<value>` command
-line option. For example, disabling zlib support:
+  $ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
 
-	$ cmake -B build . -DYOSYS_WITHOUT_ZLIB=ON
+### Detailed instructions
 
-For a more persistent configuration, we recommend creating and using a
-`CMakeUserPresets.json` file in the root `yosys` directory. Below is an example
-file which enables ccache and sets the default compiler to clang when calling
-`cmake --preset clang`:
-
-```json
-{
-	"version": 1,
-	"configurePresets": [
-		{
-			"name": "default",
-			"binaryDir": "build",
-			"generator": "Unix Makefiles",
-			"cacheVariables": {
-				"CMAKE_C_COMPILER": "clang",
-				"CMAKE_CXX_COMPILER": "clang++",
-				"YOSYS_COMPILER_LAUNCHER": "ccache"
-			}
-		}
-	]
-}
-```
-
-Once generated, the build system can be run as follows:
-
-	$ cmake --build build       #..or..
-	$ cd build
-	$ cmake --build .
-
-To quickly install Yosys with the default settings:
-
-	$ cmake -B build . -DCMAKE_BUILD_TYPE=Release
-	$ cmake --build build --config Release --parallel $(nproc)
-	$ sudo cmake --install build --strip
-
-Tests are located in the tests subdirectory and can be executed using the `test`
-target. Note that you need gawk, a recent version of iverilog, and gtest.
-Execute tests via:
-
-	$ cmake --build build --target test --parallel $(nproc)
-
+For more details, and instructions for other platforms, check [building from
+source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source) and [running the tests](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/test_suites.html)
+on Read the Docs. 
 
 Getting Started
 ===============

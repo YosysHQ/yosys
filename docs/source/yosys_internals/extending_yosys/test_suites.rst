@@ -13,7 +13,7 @@ tests.
 
 .. code:: console
 
-   cmake -B build .
+   cmake --preset default
    cmake --build build --target test --parallel $(nproc)
 
 .. warning::
