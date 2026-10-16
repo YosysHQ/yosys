@@ -1,0 +1,12 @@
+read_verilog <<EOT
+module top(input a, output b);
+	assign b = a;
+endmodule
+EOT
+select -assert-min 1 a:src
+setattr -unset src
+select -assert-none a:src
+setattr -mod -unset src
+select -assert-none A:src
+setattr -set src "x.v:1.2-3.4|y.v:5.6-7.8" w:a
+select -assert-count 1 w:a a:src=x.v:1.2-3.4|y.v:5.6-7.8 %i
