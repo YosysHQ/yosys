@@ -425,13 +425,19 @@ struct VerilogWriter
 		}
 	}
 
-	void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string term = "\n", bool modattr = false, bool regattr = false, bool as_comment = false)
+	void dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, std::string term = "\n", bool modattr = false, bool regattr = false, bool as_comment = false)
 	{
 		if (config.noattr)
 			return;
 		if (config.attr2comment)
 			as_comment = true;
-		for (auto it = attributes.begin(); it != attributes.end(); ++it) {
+		if (obj->src() != SrcRef::Null) {
+			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id(ID::str(ID::src)));
+			f << stringf(" = ");
+			dump_const(f, RTLIL::Const(active_module->design->get_src_attribute(obj)), -1, 0, false, as_comment);
+			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
+		}
+		for (auto it = obj->attributes.begin(); it != obj->attributes.end(); ++it) {
 			if (it->first == ID::single_bit_vector) continue;
 			if (it->first == ID::init && regattr) continue;
 			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(it->first));
@@ -455,7 +461,7 @@ struct VerilogWriter
 
 	void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 	{
-		dump_attributes(f, indent, wire->attributes, "\n", /*modattr=*/false, /*regattr=*/reg_wires.count(wire->name));
+		dump_attributes(f, indent, wire, "\n", /*modattr=*/false, /*regattr=*/reg_wires.count(wire->name));
 #if 0
 		if (wire->port_input && !wire->port_output)
 			f << stringf("%s" "input %s", indent, reg_wires.count(wire->name) ? "reg " : "");
@@ -503,7 +509,7 @@ struct VerilogWriter
 	{
 		std::string mem_id = id(mem.memid.str());
 
-		dump_attributes(f, indent, mem.attributes);
+		dump_attributes(f, indent, &mem);
 		f << stringf("%s" "reg [%d:0] %s [%d:%d];\n", indent, mem.width-1, mem_id, mem.size+mem.start_offset-1, mem.start_offset);
 
 		// for memory block make something like:
@@ -1113,7 +1119,7 @@ struct VerilogWriter
 		f << stringf("%s" "assign ", indent);
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = %s ", op);
-		dump_attributes(f, "", cell->attributes, " ");
+		dump_attributes(f, "", cell, " ");
 		dump_cell_expr_port(f, cell, ID::A, true);
 		f << stringf(";\n");
 	}
@@ -1125,7 +1131,7 @@ struct VerilogWriter
 		f << stringf(" = ");
 		dump_cell_expr_port(f, cell, ID::A, true);
 		f << stringf(" %s ", op);
-		dump_attributes(f, "", cell->attributes, " ");
+		dump_attributes(f, "", cell, " ");
 		dump_cell_expr_port(f, cell, ID::B, true);
 		f << stringf(";\n");
 	}
@@ -1196,7 +1202,7 @@ struct VerilogWriter
 			dump_sigspec(f, cell->getPort(ID::Y));
 			f << stringf(" = ");
 			f << stringf("~");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			dump_cell_expr_port(f, cell, ID::A, false);
 			f << stringf(";\n");
 			return true;
@@ -1252,7 +1258,7 @@ struct VerilogWriter
 				f << stringf("|");
 			if (cell->type.in(ID($_XOR_), ID($_XNOR_)))
 				f << stringf("^");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			f << stringf(" ");
 			if (cell->type.in(ID($_ANDNOT_), ID($_ORNOT_)))
 				f << stringf("~(");
@@ -1269,7 +1275,7 @@ struct VerilogWriter
 			f << stringf(" = ");
 			dump_cell_expr_port(f, cell, ID::S, false);
 			f << stringf(" ? ");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			dump_cell_expr_port(f, cell, ID::B, false);
 			f << stringf(" : ");
 			dump_cell_expr_port(f, cell, ID::A, false);
@@ -1283,7 +1289,7 @@ struct VerilogWriter
 			f << stringf(" = !(");
 			dump_cell_expr_port(f, cell, ID::S, false);
 			f << stringf(" ? ");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			dump_cell_expr_port(f, cell, ID::B, false);
 			f << stringf(" : ");
 			dump_cell_expr_port(f, cell, ID::A, false);
@@ -1299,7 +1305,7 @@ struct VerilogWriter
 			f << (cell->type == ID($_AOI3_) ? " & " : " | ");
 			dump_cell_expr_port(f, cell, ID::B, false);
 			f << (cell->type == ID($_AOI3_) ? ") |" : ") &");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			f << stringf(" ");
 			dump_cell_expr_port(f, cell, ID::C, false);
 			f << stringf(");\n");
@@ -1314,7 +1320,7 @@ struct VerilogWriter
 			f << (cell->type == ID($_AOI4_) ? " & " : " | ");
 			dump_cell_expr_port(f, cell, ID::B, false);
 			f << (cell->type == ID($_AOI4_) ? ") |" : ") &");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			f << stringf(" (");
 			dump_cell_expr_port(f, cell, ID::C, false);
 			f << (cell->type == ID($_AOI4_) ? " & " : " | ");
@@ -1416,7 +1422,7 @@ struct VerilogWriter
 				f << stringf("%s" "assign ", indent);
 				dump_sigspec(f, cell->getPort(ID::Y));
 				f << stringf(" = $signed(%s) / ", buf_num);
-				dump_attributes(f, "", cell->attributes, " ");
+				dump_attributes(f, "", cell, " ");
 				f << stringf("$signed(%s);\n", buf_b);
 				return true;
 			} else {
@@ -1439,7 +1445,7 @@ struct VerilogWriter
 				f << stringf("%s" "wire [%d:0] %s = ", indent, GetSize(cell->getPort(ID::A))-1, temp_id);
 				dump_cell_expr_port(f, cell, ID::A, true);
 				f << stringf(" %% ");
-				dump_attributes(f, "", cell->attributes, " ");
+				dump_attributes(f, "", cell, " ");
 				dump_cell_expr_port(f, cell, ID::B, true);
 				f << stringf(";\n");
 
@@ -1514,7 +1520,7 @@ struct VerilogWriter
 			f << stringf(" = ");
 			dump_sigspec(f, cell->getPort(ID::S));
 			f << stringf(" ? ");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			dump_sigspec(f, cell->getPort(ID::B));
 			f << stringf(" : ");
 			dump_sigspec(f, cell->getPort(ID::A));
@@ -1533,7 +1539,7 @@ struct VerilogWriter
 			f << stringf("%s" "  input [%d:0] b;\n", indent, s_width*width-1);
 			f << stringf("%s" "  input [%d:0] s;\n", indent, s_width-1);
 
-			dump_attributes(f, indent + "  ", cell->attributes);
+			dump_attributes(f, indent + "  ", cell);
 			if (config.noparallelcase)
 				f << stringf("%s" "  case (s)\n", indent);
 			else {
@@ -1623,7 +1629,7 @@ struct VerilogWriter
 			f << stringf(" = ");
 			dump_const(f, cell->parameters.at(ID::LUT));
 			f << stringf(" >> ");
-			dump_attributes(f, "", cell->attributes, " ");
+			dump_attributes(f, "", cell, " ");
 			dump_sigspec(f, cell->getPort(ID::A));
 			f << stringf(";\n");
 			return true;
@@ -1733,7 +1739,7 @@ struct VerilogWriter
 					}
 				}
 
-				dump_attributes(f, indent, cell->attributes);
+				dump_attributes(f, indent, cell);
 				if (ff.has_clk)
 				{
 					// FFs.
@@ -2068,7 +2074,7 @@ struct VerilogWriter
 				return;
 		}
 
-		dump_attributes(f, indent, cell->attributes);
+		dump_attributes(f, indent, cell);
 		f << stringf("%s" "%s", indent, id(cell->type, false));
 
 		if (!config.defparam && cell->parameters.size() > 0) {
@@ -2252,7 +2258,7 @@ struct VerilogWriter
 			}
 		}
 
-		dump_attributes(f, indent, sw->attributes);
+		dump_attributes(f, indent, sw);
 		f << indent;
 		auto sig_it = sw->signal.begin();
 		for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it, ++sig_it) {
@@ -2313,14 +2319,14 @@ struct VerilogWriter
 		if (dump_proc_switch_ifelse(f, indent, sw))
 			return;
 
-		dump_attributes(f, indent, sw->attributes);
+		dump_attributes(f, indent, sw);
 		f << stringf("%s" "casez (", indent);
 		dump_sigspec(f, sw->signal);
 		f << stringf(")\n");
 
 		for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
 			bool got_default = false;
-			dump_attributes(f, indent + "  ", (*it)->attributes, "\n", /*modattr=*/false, /*regattr=*/false, /*as_comment=*/true);
+			dump_attributes(f, indent + "  ", (*it), "\n", /*modattr=*/false, /*regattr=*/false, /*as_comment=*/true);
 			if ((*it)->compare.size() == 0) {
 				f << stringf("%s  default", indent);
 				got_default = true;
@@ -2507,7 +2513,7 @@ struct VerilogWriter
 			}
 		}
 
-		dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
+		dump_attributes(f, indent, module, "\n", /*modattr=*/true);
 		f << stringf("%s" "module %s(", indent, id(module->name, false));
 		int cnt = 0;
 		for (auto port : module->ports) {

@@ -46,15 +46,29 @@ struct setunset_t
 	}
 };
 
+static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &attrs, const setunset_t &item)
+{
+	if (item.unset) {
+		IdString name = design->twines().find(item.name);
+		if (name != IdString::Null)
+			attrs.erase(name);
+	} else
+		attrs[design->twines().add(item.name)] = item.value;
+}
+
 static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &attrs, const std::vector<setunset_t> &list)
 {
 	for (auto &item : list)
-		if (item.unset) {
-			IdString name = design->twines().find(item.name);
-			if (name != IdString::Null)
-				attrs.erase(name);
-		} else
-			attrs[design->twines().add(item.name)] = item.value;
+		do_setunset(design, attrs, item);
+}
+
+static void do_setunset(RTLIL::Design *design, RTLIL::AttrObject *obj, const std::vector<setunset_t> &list)
+{
+	for (auto &item : list)
+		if (item.name == "\\src")
+			obj->set_src(item.unset ? SrcRef::Null : design->srcs().add(item.value.decode_string()));
+		else
+			do_setunset(design, obj->attributes, item);
 }
 
 struct SetattrPass : public Pass {
@@ -103,12 +117,12 @@ struct SetattrPass : public Pass {
 		{
 			if (flag_mod) {
 				if (module->is_selected_whole())
-					do_setunset(design, module->attributes, setunset_list);
+					do_setunset(design, module, setunset_list);
 				continue;
 			}
 
 			for (auto memb : module->selected_members())
-				do_setunset(design, memb.obj->attributes, setunset_list);
+				do_setunset(design, memb.obj, setunset_list);
 		}
 	}
 } SetattrPass;

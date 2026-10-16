@@ -130,7 +130,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 		return wire;
 	};
 
-	dict<RTLIL::IdString, RTLIL::Const> *obj_attributes = nullptr;
+	RTLIL::AttrObject *attr_obj = nullptr;
 	dict<RTLIL::IdString, RTLIL::Const> *obj_parameters = nullptr;
 
 	dict<RTLIL::IdString, std::pair<int, bool>> wideports_cache;
@@ -178,7 +178,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				if (name == nullptr)
 					goto error;
 				module->name = design->twines().add(RTLIL::escape_id(name));
-				obj_attributes = &module->attributes;
+				attr_obj = module;
 				obj_parameters = nullptr;
 				if (design->module(module->name))
 					log_error("Duplicate definition of module %s in line %d!\n", module->name.unescape(), line_count);
@@ -258,7 +258,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 
 				module = nullptr;
 				lastcell = nullptr;
-				obj_attributes = nullptr;
+				attr_obj = nullptr;
 				obj_parameters = nullptr;
 				continue;
 			}
@@ -297,7 +297,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 						}
 					}
 				}
-				obj_attributes = nullptr;
+				attr_obj = nullptr;
 				obj_parameters = nullptr;
 				continue;
 			}
@@ -336,11 +336,14 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					const_v = const_v_builder.build();
 				}
 				if (!strcmp(cmd, ".attr")) {
-					if (obj_attributes == nullptr) {
+					if (attr_obj == nullptr) {
 						err_reason = stringf("No object to attach .attr too.");
 						goto error_with_reason;
 					}
-					(*obj_attributes)[id_n] = const_v;
+					if (id_n == ID::src)
+						attr_obj->set_src(design->srcs().add(const_v.decode_string()));
+					else
+						attr_obj->attributes[id_n] = const_v;
 				} else {
 					if (obj_parameters == nullptr) {
 						err_reason = stringf("No object to attach .param too.");
@@ -391,7 +394,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				}
 
 				lastcell = cell;
-				obj_attributes = &cell->attributes;
+				attr_obj = cell;
 				obj_parameters = &cell->parameters;
 				continue;
 			}
@@ -461,12 +464,12 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 				}
 
 				lastcell = cell;
-				obj_attributes = &cell->attributes;
+				attr_obj = cell;
 				obj_parameters = &cell->parameters;
 				continue;
 			}
 
-			obj_attributes = nullptr;
+			attr_obj = nullptr;
 			obj_parameters = nullptr;
 
 			if (!strcmp(cmd, ".barbuf") || !strcmp(cmd, ".conn"))
