@@ -30,6 +30,28 @@ struct SynthQuickLogicPass : public ScriptPass {
 
 	SynthQuickLogicPass() : ScriptPass("synth_quicklogic", "Synthesis for QuickLogic FPGAs") {}
 
+	void on_register() override
+	{
+		target_register.emplace("quicklogic", Target{
+			"QuickLogic",
+			{
+				{"pp3", {
+					"PolarPro 3",
+					{"+/quicklogic/common/cells_sim.v", "+/quicklogic/pp3/cells_sim.v"}
+				}},
+				{"qlf_k6n10f", {
+					"K6N10f",
+					{"+/quicklogic/common/cells_sim.v",
+					 "+/quicklogic/qlf_k6n10f/cells_sim.v",
+					 "+/quicklogic/qlf_k6n10f/brams_sim.v",
+					 "+/quicklogic/qlf_k6n10f/bram_types_sim.v",
+					 "+/quicklogic/qlf_k6n10f/dsp_sim.v",
+					}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

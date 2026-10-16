@@ -34,6 +34,24 @@ struct SynthNanoXplorePass : public ScriptPass
 	void on_register() override
 	{
 		RTLIL::constpad["synth_nanoxplore.abc9.W"] = "300";
+
+		target_register.emplace("nanoxplore", Target{
+			"NanoXplore",
+			{
+				{"medium", {
+					"NG-Medium",
+					{"+/nanoxplore/cells_sim.v", "+/nanoxplore/cells_sim_m.v", "+/nanoxplore/cells_bb_m.v"}
+				}},
+				{"large", {
+					"NG-Large",
+					{"+/nanoxplore/cells_sim.v", "+/nanoxplore/cells_sim_l.v", "+/nanoxplore/cells_bb_l.v"}
+				}},
+				{"ultra", {
+					"NG-Ultra",
+					{"+/nanoxplore/cells_sim.v", "+/nanoxplore/cells_sim_u.v", "+/nanoxplore/cells_bb_u.v"}
+				}}
+			}
+		});
 	}
 
 	void help() override

@@ -185,6 +185,20 @@ extern std::map<std::string, Pass*> pass_register;
 extern std::map<std::string, Frontend*> frontend_register;
 extern std::map<std::string, Backend*> backend_register;
 
+struct TargetFamily {
+	std::string description;
+	std::vector<std::string> files;
+};
+
+struct Target {
+	std::string description;
+	std::map<std::string, TargetFamily> families;
+};
+
+extern std::map<std::string, Target> target_register;
+
+#define YOSYS_HAS_TARGET_REGISTER 1
+
 YOSYS_NAMESPACE_END
 
 #endif
