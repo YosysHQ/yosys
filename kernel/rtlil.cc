@@ -763,7 +763,7 @@ size_t RTLIL::Design::gc_twines()
 		if (ref != IdString::Null)
 			live.insert(ref);
 	};
-	pool<SrcRef> live_srcs;
+	SrcPool::Marks live_srcs;
 
 	auto src_root = [&](SrcRef ref) {
 		if (ref != SrcRef::Null)

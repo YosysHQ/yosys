@@ -233,14 +233,14 @@ void HashConsPool<Derived, Node, Ref>::finish_placement() {
 template<typename Derived, typename Node, typename Ref>
 template<typename Roots>
 size_t HashConsPool<Derived, Node, Ref>::gc(const Roots& roots) {
-	pool<Ref> live;
+	std::vector<bool> live(backing.size());
 	for (Ref ref : roots)
 		mark_live(ref, live);
 	size_t erased = 0;
 	for (size_t idx = 0; idx < backing.size(); ++idx) {
 		if (backing[idx].is_dead())
 			continue;
-		if (!live.count(Ref(Derived::STATIC_COUNT + idx))) {
+		if (!live[idx]) {
 			index_erase(Ref(Derived::STATIC_COUNT + idx));
 			free_list.push_back(idx);
 			backing[idx] = Node{};
@@ -253,10 +253,14 @@ size_t HashConsPool<Derived, Node, Ref>::gc(const Roots& roots) {
 }
 
 template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::mark_live(Ref ref, pool<Ref>& live) const {
+void HashConsPool<Derived, Node, Ref>::mark_live(Ref ref, std::vector<bool>& live) const {
 	ref = ref.untag();
-	if (ref == Ref() || is_static(ref) || !live.insert(ref).second)
+	if (ref == Ref() || is_static(ref))
 		return;
+	size_t slot = ref.raw() - Derived::STATIC_COUNT;
+	if (live[slot])
+		return;
+	live[slot] = true;
 	Derived::for_each_child((*this)[ref], [&](Ref child) { mark_live(child, live); });
 }
 
