@@ -86,7 +86,7 @@ private:
 	void grow_index();
 
 	bool slot_live(size_t abs) const;
-	void mark_live(Ref ref, pool<Ref>& live) const;
+	void mark_live(Ref ref, std::vector<bool>& live) const;
 };
 
 YOSYS_NAMESPACE_END

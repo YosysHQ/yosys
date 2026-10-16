@@ -33,10 +33,10 @@ using namespace RTLIL_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
 static pool<IdString> *emitted_twines = nullptr;
-static pool<SrcRef> *emitted_srcs = nullptr;
+static SrcPool::Marks *emitted_srcs = nullptr;
 
 struct TwineCollector {
-	TwineCollector(pool<IdString> *twines, pool<SrcRef> *srcs) {
+	TwineCollector(pool<IdString> *twines, SrcPool::Marks *srcs) {
 		emitted_twines = twines;
 		emitted_srcs = srcs;
 	}
@@ -143,7 +143,7 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 			} else {
 				if (emitted_srcs != nullptr)
 					emitted_srcs->insert(id);
-				dump_const(f, RTLIL::Const(stringf("$%zu", id.raw())));
+				dump_const(f, RTLIL::Const("$" + design->srcs().serial(id)));
 			}
 			if (mode == DumpMode::Replayable)
 				f << stringf("  # %s", design->srcs().str(id));
@@ -190,14 +190,11 @@ static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool
 	f << stringf("  end\n");
 }
 
-static void dump_srcs(std::ostream &f, const RTLIL::Design *design, const pool<SrcRef> &used)
+static void dump_srcs(std::ostream &f, const RTLIL::Design *design, const SrcPool::Marks &used)
 {
-	std::vector<SrcRef> refs(used.begin(), used.end());
-	std::sort(refs.begin(), refs.end());
-
 	f << stringf("  srcs\n");
-	for (SrcRef ref : refs) {
-		f << stringf("    set %zu", ref.raw());
+	for (SrcRef ref : used) {
+		f << stringf("    set %s", design->srcs().serial(ref));
 		for (IdString member : design->srcs()[ref].members())
 			f << stringf(" %zu", member.raw());
 		f << stringf("\n");
@@ -205,7 +202,7 @@ static void dump_srcs(std::ostream &f, const RTLIL::Design *design, const pool<S
 	f << stringf("  end\n");
 }
 
-void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used_twines, const pool<SrcRef> &used_srcs)
+void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used_twines, const SrcPool::Marks &used_srcs)
 {
 	if (design == nullptr || used_twines.empty())
 		return;
@@ -529,7 +526,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 
 	std::stringstream body;
 	pool<IdString> used_twines;
-	pool<SrcRef> used_srcs;
+	SrcPool::Marks used_srcs;
 	{
 		TwineCollector collector(mode == DumpMode::Readable ? nullptr : &used_twines,
 				mode == DumpMode::Readable ? nullptr : &used_srcs);
