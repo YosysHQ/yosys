@@ -100,6 +100,9 @@ struct QlIoffPass : public Pass {
 				std::swap(old_port_output->upto, new_port_output->upto);
 				std::swap(old_port_output->is_signed, new_port_output->is_signed);
 				std::swap(old_port_output->attributes, new_port_output->attributes);
+				SrcRef old_src = old_port_output->src();
+				old_port_output->set_src(new_port_output->src());
+				new_port_output->set_src(old_src);
 
 				// create new output FFs
 				SigSpec sig_o(old_port_output);
