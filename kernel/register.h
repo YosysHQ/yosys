@@ -197,6 +197,8 @@ struct Target {
 
 extern std::map<std::string, Target> target_register;
 
+#define YOSYS_HAS_TARGET_REGISTER 1
+
 YOSYS_NAMESPACE_END
 
 #endif
