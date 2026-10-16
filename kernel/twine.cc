@@ -325,6 +325,15 @@ IdString TwinePool::add(std::string_view s) {
 	return stamp(intern(TwineNode::NO_PREFIX, content).tag(is_public));
 }
 
+IdString TwinePool::place(size_t idx, TwineSpec t) {
+	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
+		return stamp(HashConsPool::place(idx, TwineNode{leaf->s}));
+	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
+	uint32_t prefix = (uint32_t)sfx.prefix.untag().raw();
+	return stamp(HashConsPool::place(idx,
+			TwineNode{prefix, sfx.tail, content_hash(prefix, sfx.tail)}).tag(sfx.prefix.isPublic()));
+}
+
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
 	IdString found = find_from(src, ref);
 	if (found != IdString::Null || ref == IdString::Null)
@@ -366,6 +375,10 @@ IdString TwinePool::ref_from_token(std::string_view token) const {
 	if (ref == IdString::Null)
 		return IdString::Null;
 	return is_live(ref) ? ref : IdString::Null;
+}
+
+bool TwinePool::shares_index_space_with(const TwinePool &other) const {
+	return backing.size() == other.backing.size() && free_list == other.free_list;
 }
 
 /**
