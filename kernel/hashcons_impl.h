@@ -104,7 +104,7 @@ HashConsPool<Derived, Node, Ref>::HashConsPool() { rebuild_index(); }
 
 template<typename Derived, typename Node, typename Ref>
 HashConsPool<Derived, Node, Ref>::HashConsPool(HashConsPool&& other)
-	: backing(std::move(other.backing)), table(std::move(other.table)), free_list(std::move(other.free_list)) {
+	: backing(std::move(other.backing)), table(std::move(other.table)), free_list(std::move(other.free_list)), index_entries(other.index_entries) {
 	other.reset();
 }
 
@@ -114,6 +114,7 @@ HashConsPool<Derived, Node, Ref>& HashConsPool<Derived, Node, Ref>::operator=(Ha
 		backing = std::move(other.backing);
 		table = std::move(other.table);
 		free_list = std::move(other.free_list);
+		index_entries = other.index_entries;
 		other.reset();
 	}
 	return *this;
@@ -135,6 +136,7 @@ void HashConsPool<Derived, Node, Ref>::rebuild_index() {
 			free_list.push_back(idx);
 	std::sort(free_list.begin(), free_list.end(), std::greater<size_t>());
 	table.assign(std::bit_ceil((Derived::STATIC_COUNT + size()) * 2 + 2), Ref());
+	index_entries = 0;
 	for (Ref ref : refs())
 		index_insert(ref);
 }
@@ -152,10 +154,13 @@ Ref HashConsPool<Derived, Node, Ref>::find_hashed(uint64_t hash, Eq&& eq) const 
 
 template<typename Derived, typename Node, typename Ref>
 void HashConsPool<Derived, Node, Ref>::index_insert(Ref ref) {
+	if ((index_entries + 1) * 3 > table.size() * 2)
+		grow_index();
 	size_t slot = home_slot(Derived::hash_node((*this)[ref]));
 	while (table[slot] != Ref())
 		slot = next_slot(slot);
 	table[slot] = ref;
+	index_entries++;
 }
 
 template<typename Derived, typename Node, typename Ref>
@@ -172,12 +177,14 @@ void HashConsPool<Derived, Node, Ref>::index_erase(Ref ref) {
 		}
 	}
 	table[hole] = Ref();
+	index_entries--;
 }
 
 template<typename Derived, typename Node, typename Ref>
 void HashConsPool<Derived, Node, Ref>::grow_index() {
 	std::vector<Ref> old(table.size() * 2, Ref());
 	std::swap(old, table);
+	index_entries = 0;
 	for (Ref ref : old)
 		if (ref != Ref())
 			index_insert(ref);
@@ -195,8 +202,6 @@ Ref HashConsPool<Derived, Node, Ref>::add_inner(Node t) {
 		ref = Ref(Derived::STATIC_COUNT + backing.size());
 		backing.push_back(std::move(t));
 	}
-	if ((Derived::STATIC_COUNT + size()) * 3 > table.size() * 2)
-		grow_index();
 	index_insert(ref);
 	if (yosys_xtrace) {
 		std::cout << "#X# add_inner added ";
@@ -211,12 +216,11 @@ template<typename Derived, typename Node, typename Ref>
 Ref HashConsPool<Derived, Node, Ref>::place(size_t abs, Node t) {
 	log_assert(abs >= Derived::STATIC_COUNT);
 	size_t slot = abs - Derived::STATIC_COUNT;
+	free_list.clear();
 	while (backing.size() <= slot)
 		backing.push_back(Node{});
 	log_assert(backing[slot].is_dead());
 	backing[slot] = std::move(t);
-	if ((Derived::STATIC_COUNT + size()) * 3 > table.size() * 2)
-		grow_index();
 	index_insert(Ref(abs));
 	return Ref(abs);
 }

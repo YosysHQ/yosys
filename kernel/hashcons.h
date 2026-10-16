@@ -22,6 +22,7 @@ protected:
 	std::deque<Node> backing;
 	std::vector<Ref> table;
 	std::vector<size_t> free_list;
+	size_t index_entries = 0;
 
 	HashConsPool();
 	HashConsPool(const HashConsPool& other) = default;
