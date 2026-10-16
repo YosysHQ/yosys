@@ -208,6 +208,25 @@ Ref HashConsPool<Derived, Node, Ref>::add_inner(Node t) {
 }
 
 template<typename Derived, typename Node, typename Ref>
+Ref HashConsPool<Derived, Node, Ref>::place(size_t abs, Node t) {
+	log_assert(abs >= Derived::STATIC_COUNT);
+	size_t slot = abs - Derived::STATIC_COUNT;
+	while (backing.size() <= slot)
+		backing.push_back(Node{});
+	log_assert(backing[slot].is_dead());
+	backing[slot] = std::move(t);
+	if ((Derived::STATIC_COUNT + size()) * 3 > table.size() * 2)
+		grow_index();
+	index_insert(Ref(abs));
+	return Ref(abs);
+}
+
+template<typename Derived, typename Node, typename Ref>
+void HashConsPool<Derived, Node, Ref>::finish_placement() {
+	rebuild_index();
+}
+
+template<typename Derived, typename Node, typename Ref>
 template<typename Roots>
 size_t HashConsPool<Derived, Node, Ref>::gc(const Roots& roots) {
 	pool<Ref> live;
