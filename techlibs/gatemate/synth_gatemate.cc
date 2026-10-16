@@ -287,7 +287,7 @@ struct SynthGateMatePass : public ScriptPass
 				"-inpad CC_IBUF Y:I "
 				"-outpad CC_OBUF A:O "
 				"-toutpad CC_TOBUF ~T:A:O "
-				"-tinoutpad CC_IOBUF ~T:Y:A:IO"
+				"-tinoutpad CC_IOBUF ~T:Y:A:IO A:top"
 			);
 			run("clean");
 		}
