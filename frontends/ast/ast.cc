@@ -1148,9 +1148,23 @@ IdString AST::intern_src_name(RTLIL::Design *design, const AstSrcLocType &locati
 			stringf("%s$%d", kind, idx)});
 }
 
+SrcRef AST::src_ref(const AstNode *ast)
+{
+	SrcPool &srcs = current_module->srcs();
+	auto it = ast->attributes.find(ID::src);
+	if (it != ast->attributes.end() && it->second->type == AST_CONSTANT)
+		return srcs.add(it->second->asAttrConst().decode_string());
+	const auto &loc = ast->location;
+	if (!loc.begin.filename || loc.begin.filename->empty())
+		return srcs.add(ast->loc_string());
+	return srcs.add(*loc.begin.filename,
+			stringf(":%d.%d-%d.%d", loc.begin.line, loc.begin.column,
+					loc.end.line, loc.end.column));
+}
+
 void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
 {
-	obj->attributes[ID::src] = ast->loc_string();
+	obj->set_src(src_ref(ast));
 }
 
 static bool param_has_no_default(const AstNode* param) {
@@ -1315,6 +1329,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		for (auto &attr : ast->attributes) {
 			log_assert((bool)attr.second.get());
+			if (attr.first == ID::src)
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
@@ -1343,6 +1359,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	}
 	else {
 		for (auto &attr : ast->attributes) {
+			if (attr.first == ID::src)
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				continue;
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
