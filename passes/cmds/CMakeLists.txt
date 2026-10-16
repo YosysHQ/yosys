@@ -86,6 +86,9 @@ yosys_pass(copy
 yosys_pass(splice
 	splice.cc
 )
+yosys_pass(shuffle
+	shuffle.cc
+)
 yosys_pass(scc
 	scc.cc
 )
