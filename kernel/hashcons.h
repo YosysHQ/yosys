@@ -36,6 +36,9 @@ protected:
 	template<typename Eq>
 	Ref find_hashed(uint64_t hash, Eq&& eq) const;
 	Ref add_inner(Node t);
+	Ref place(size_t abs, Node t);
+	void finish_placement();
+	size_t size() const;
 
 	template<typename Roots>
 	size_t gc(const Roots& roots);
@@ -81,7 +84,6 @@ private:
 	void index_erase(Ref ref);
 	void grow_index();
 
-	size_t size() const;
 	bool slot_live(size_t abs) const;
 	void mark_live(Ref ref, pool<Ref>& live) const;
 };
