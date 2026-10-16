@@ -474,6 +474,7 @@ struct OptMergeWorker
 					}
 				}
 				log_debug("    Removing %s cell `%s' from module `%s'.\n", remove_cell->type, remove_cell->name, module->name);
+				module->design->merge_src(keep_cell, remove_cell);
 				module->remove(remove_cell);
 				total_count++;
 			}

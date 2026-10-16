@@ -1556,8 +1556,8 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 	for (auto w : mapped_mod->wires()) {
 		RTLIL::Wire *orig_wire = nullptr;
 		RTLIL::Wire *wire = module->addWire(remap_name(w->name, &orig_wire));
-		if (orig_wire != nullptr && orig_wire->attributes.count(ID::src))
-			wire->attributes[ID::src] = orig_wire->attributes[ID::src];
+		if (orig_wire != nullptr)
+			wire->set_src(orig_wire->src());
 		if (markgroups) wire->attributes[ID::abcgroup] = map_autoidx;
 		design->select(module, wire);
 	}
