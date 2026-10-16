@@ -134,13 +134,17 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 		if (mode == DumpMode::Readable) {
 			dump_const(f, RTLIL::Const(design->get_src_attribute(obj)));
 		} else {
-			if (emitted_srcs != nullptr) {
-				emitted_srcs->insert(id);
-				if (emitted_twines != nullptr)
-					for (IdString member : design->srcs()[id].members())
-						emitted_twines->insert(member);
+			const std::vector<IdString> &members = design->srcs()[id].members();
+			if (emitted_twines != nullptr)
+				for (IdString member : members)
+					emitted_twines->insert(member);
+			if (members.size() == 1) {
+				dump_const(f, RTLIL::Const(stringf("@%zu", members[0].raw())));
+			} else {
+				if (emitted_srcs != nullptr)
+					emitted_srcs->insert(id);
+				dump_const(f, RTLIL::Const(stringf("$%zu", id.raw())));
 			}
-			dump_const(f, RTLIL::Const(stringf("@%zu", id.raw())));
 			if (mode == DumpMode::Replayable)
 				f << stringf("  # %s", design->srcs().str(id));
 		}
