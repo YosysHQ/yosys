@@ -75,7 +75,7 @@
     {
       "name": "lto",
       "inherits": "release",
-      "binaryDir": "build-lto",
+      "binaryDir": "${sourceDir}/build-lto",
       "generator": "Unix Makefiles",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "clang",
