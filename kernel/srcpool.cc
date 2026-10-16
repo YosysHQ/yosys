@@ -6,6 +6,22 @@ YOSYS_NAMESPACE_BEGIN
 
 template struct HashConsPool<SrcPool, SrcSet, SrcRef>;
 
+template<typename T> concept Ordered = requires(T a) { a < a; };
+template<typename T> concept Indexable = requires(T a) { a.raw(); };
+static_assert(!Ordered<SrcRef> && !Indexable<SrcRef>);
+static_assert(Ordered<IdString> && Indexable<IdString>);
+
+bool SrcPool::Marks::insert(SrcRef ref) {
+	size_t idx = ref.raw();
+	if (idx >= seen.size())
+		seen.resize(idx + 1);
+	if (seen[idx])
+		return false;
+	seen[idx] = true;
+	refs.push_back(ref);
+	return true;
+}
+
 struct SrcEq {
 	const SrcPool &pool;
 	const SrcSet &node;
@@ -116,6 +132,10 @@ std::string SrcPool::str(SrcRef ref) const {
 	return out;
 }
 
+std::string SrcPool::serial(SrcRef ref) const {
+	return std::to_string(ref.raw());
+}
+
 pool<std::string> SrcPool::leaves(SrcRef ref) const {
 	pool<std::string> out;
 	if (ref == SrcRef::Null)
@@ -125,13 +145,13 @@ pool<std::string> SrcPool::leaves(SrcRef ref) const {
 	return out;
 }
 
-void SrcPool::root_members(const pool<SrcRef> &live_srcs, pool<IdString> &live_twines) const {
+void SrcPool::root_members(const Marks &live_srcs, pool<IdString> &live_twines) const {
 	for (SrcRef ref : live_srcs)
 		for (IdString member : (*this)[ref].members())
 			live_twines.insert(member);
 }
 
-size_t SrcPool::gc(const pool<SrcRef> &live_srcs) {
+size_t SrcPool::gc(const Marks &live_srcs) {
 	return HashConsPool::gc(live_srcs);
 }
 
