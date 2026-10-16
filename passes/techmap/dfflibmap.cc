@@ -463,6 +463,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		IdString cell_name = cell->name;
 		auto cell_connections = cell->connections();
 		dict<RTLIL::IdString, RTLIL::Const> attributes = std::move(cell->attributes);
+		SrcRef src = cell->src();
 
 		module->remove(cell);
 
@@ -470,6 +471,7 @@ static void dfflibmap(RTLIL::Design *design, RTLIL::Module *module)
 		RTLIL::Cell *new_cell = module->addCell(cell_name, twines.add(cm.cell_name));
 
 		new_cell->attributes = std::move(attributes);
+		new_cell->set_src(src);
 
 		bool has_q = false, has_qn = false;
 		for (auto &port : cm.ports) {

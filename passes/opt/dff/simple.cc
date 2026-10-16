@@ -88,17 +88,17 @@ struct SimpleContext
 			return worker.module->And(NEW_ID, a, b);
 	}
 
-	void create_mux_to_output(SigSpec a, SigSpec b, SigSpec sel, SigSpec y, bool pol, bool is_fine) {
+	void create_mux_to_output(SigSpec a, SigSpec b, SigSpec sel, SigSpec y, bool pol, bool is_fine, SrcRef src = SrcRef::Null) {
 		if (is_fine) {
 			if (pol)
-				worker.module->addMuxGate(NEW_ID, a, b, sel, y);
+				worker.module->addMuxGate(NEW_ID, a, b, sel, y, src);
 			else
-				worker.module->addMuxGate(NEW_ID, b, a, sel, y);
+				worker.module->addMuxGate(NEW_ID, b, a, sel, y, src);
 		} else {
 			if (pol)
-				worker.module->addMux(NEW_ID, a, b, sel, y);
+				worker.module->addMux(NEW_ID, a, b, sel, y, src);
 			else
-				worker.module->addMux(NEW_ID, b, a, sel, y);
+				worker.module->addMux(NEW_ID, b, a, sel, y, src);
 		}
 	}
 
@@ -273,9 +273,9 @@ struct SimpleContext
 				if (!ff.pol_clr)
 					worker.module->connect(ff.sig_q[i], ff.sig_clr[i]);
 				else if (ff.is_fine)
-					worker.module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+					worker.module->addNotGate(NEW_ID, ff.sig_clr[i], ff.sig_q[i], cell->src());
 				else
-					worker.module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i]);
+					worker.module->addNot(NEW_ID, ff.sig_clr[i], ff.sig_q[i], false, cell->src());
 				log("Handling always-active SET at position %d on %s (%s) from module %s (changing to combinatorial circuit).\n",
 						i, cell, cell->type.unescape(), worker.module);
 				sr_removed = true;
@@ -364,31 +364,32 @@ struct SimpleContext
 			// ALOAD always active
 			log("Handling always-active async load on %s (%s) from module %s (changing to combinatorial circuit).\n",
 					cell, cell->type.unescape(), worker.module);
+			SrcRef src = cell->src();
 			ff.remove();
 
 			if (ff.has_sr) {
 				SigSpec tmp;
 				if (ff.is_fine) {
 					tmp = ff.pol_set
-						? worker.module->MuxGate(NEW_ID, ff.sig_ad, State::S1, ff.sig_set)
-						: worker.module->MuxGate(NEW_ID, State::S1, ff.sig_ad, ff.sig_set);
+						? worker.module->MuxGate(NEW_ID, ff.sig_ad, State::S1, ff.sig_set, src)
+						: worker.module->MuxGate(NEW_ID, State::S1, ff.sig_ad, ff.sig_set, src);
 
 					if (ff.pol_clr)
-						worker.module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q);
+						worker.module->addMuxGate(NEW_ID, tmp, State::S0, ff.sig_clr, ff.sig_q, src);
 					else
-						worker.module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q);
+						worker.module->addMuxGate(NEW_ID, State::S0, tmp, ff.sig_clr, ff.sig_q, src);
 				} else {
 					tmp = ff.pol_set
-						? worker.module->Or(NEW_ID, ff.sig_ad, ff.sig_set)
-						: worker.module->Or(NEW_ID, ff.sig_ad, worker.module->Not(NEW_ID, ff.sig_set));
+						? worker.module->Or(NEW_ID, ff.sig_ad, ff.sig_set, false, src)
+						: worker.module->Or(NEW_ID, ff.sig_ad, worker.module->Not(NEW_ID, ff.sig_set, false, src), false, src);
 
 					if (ff.pol_clr)
-						worker.module->addAnd(NEW_ID, tmp, worker.module->Not(NEW_ID, ff.sig_clr), ff.sig_q);
+						worker.module->addAnd(NEW_ID, tmp, worker.module->Not(NEW_ID, ff.sig_clr, false, src), ff.sig_q, false, src);
 					else
-						worker.module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q);
+						worker.module->addAnd(NEW_ID, tmp, ff.sig_clr, ff.sig_q, false, src);
 				}
 			} else if (ff.has_arst) {
-				create_mux_to_output(ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q, ff.pol_arst, ff.is_fine);
+				create_mux_to_output(ff.sig_ad, ff.val_arst, ff.sig_arst, ff.sig_q, ff.pol_arst, ff.is_fine, src);
 			} else {
 				worker.module->connect(ff.sig_q, ff.sig_ad);
 			}
