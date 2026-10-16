@@ -156,8 +156,10 @@ static int find_next_state(const FsmData &fsm_data, const std::map<RTLIL::Const,
 		bool match = true;
 		// an undef bit can take any value, so only the defined bits must match
 		for (int j = 0; j < GetSize(next_state); j++)
-			if (next_state[j] != RTLIL::State::Sx && next_state[j] != state[j])
+			if (next_state[j] != RTLIL::State::Sx && next_state[j] != state[j]) {
 				match = false;
+				break;
+			}
 		if (match)
 			return i;
 	}
