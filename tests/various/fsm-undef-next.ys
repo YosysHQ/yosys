@@ -8,14 +8,16 @@ module top (input clk, input load, input sel, input a, input b, output [2:0] y);
 endmodule
 EOT
 proc
-opt -nodffe
-rename top gold
-copy gold gate
-cd gate
+opt_expr
+opt_clean
+opt -nodffe -nosdff
+design -save gold
 fsm_detect
 fsm_extract
 select -assert-count 1 t:$fsm
 fsm
-cd
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
 miter -equiv -flatten -make_assert -ignore_gold_x gold gate miter
 sat -verify -seq 3 -prove-asserts -set-init-undef -set-def-inputs -enable_undef miter
