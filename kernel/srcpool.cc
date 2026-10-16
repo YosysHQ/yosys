@@ -21,6 +21,7 @@ void SrcPool::clear() {
 	backing.clear();
 	free_list.clear();
 	std::fill(table.begin(), table.end(), SrcRef());
+	index_entries = 0;
 }
 
 uint64_t SrcPool::hash_node(const SrcSet &n) {
