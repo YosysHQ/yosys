@@ -1,0 +1,7 @@
+read_verilog signed_concat.v
+hierarchy
+proc
+flatten gate
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert
