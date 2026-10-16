@@ -219,3 +219,6 @@ yosys_pass(symfpu
 	LIBRARIES
 		symfpu
 )
+yosys_pass(combine
+	combine.cc
+)
