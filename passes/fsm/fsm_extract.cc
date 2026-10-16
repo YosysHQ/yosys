@@ -141,22 +141,39 @@ static RTLIL::Const sig2const(ConstEval &ce, RTLIL::SigSpec sig, RTLIL::State no
 	return sig.as_const();
 }
 
-static void find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_data, std::map<RTLIL::Const, int> &states, int state_in, RTLIL::SigSpec ctrl_in, RTLIL::SigSpec ctrl_out, RTLIL::SigSpec dff_in, RTLIL::SigSpec dont_care)
+static int find_next_state(const FsmData &fsm_data, const std::map<RTLIL::Const, int> &states, int state_in, const RTLIL::Const &next_state)
 {
-	bool undef_bit_in_next_state_mode = false;
+	if (states.count(next_state))
+		return states.at(next_state);
+
+	// prefer state_in, then try the other states in order
+	std::vector<int> candidates = {state_in};
+	for (int i = 0; i < GetSize(fsm_data.state_table); i++)
+		candidates.push_back(i);
+
+	for (int i : candidates) {
+		const RTLIL::Const &state = fsm_data.state_table.at(i);
+		bool match = true;
+		// an undef bit can take any value, so only the defined bits must match
+		for (int j = 0; j < GetSize(next_state); j++)
+			if (next_state[j] != RTLIL::State::Sx && next_state[j] != state[j]) {
+				match = false;
+				break;
+			}
+		if (match)
+			return i;
+	}
+
+	return -1;
+}
+
+static bool find_transitions(ConstEval &ce, ConstEval &ce_nostop, FsmData &fsm_data, std::map<RTLIL::Const, int> &states, int state_in, RTLIL::SigSpec ctrl_in, RTLIL::SigSpec ctrl_out, RTLIL::SigSpec dff_in, RTLIL::SigSpec dont_care)
+{
 	RTLIL::SigSpec undef, constval;
+	bool ok = true;
 
 	if (ce.eval(ctrl_out, undef) && ce.eval(dff_in, undef))
 	{
-		if (0) {
-undef_bit_in_next_state:
-			for (auto &bit : dff_in)
-				if (bit.wire != nullptr) bit = RTLIL::Sm;
-			for (auto &bit : ctrl_out)
-				if (bit.wire != nullptr) bit = RTLIL::Sm;
-			undef_bit_in_next_state_mode = true;
-		}
-
 		log_assert(ctrl_out.is_fully_const() && dff_in.is_fully_const());
 
 		FsmData::transition_t tr;
@@ -173,37 +190,24 @@ undef_bit_in_next_state:
 					if (ctrl_in_bit_indices.count(dc_bit))
 						tr.ctrl_in.set(ctrl_in_bit_indices.at(dc_bit), RTLIL::State::Sa);
 
-		RTLIL::Const log_state_in = RTLIL::Const(RTLIL::State::Sx, fsm_data.state_bits);
-		if (state_in >= 0)
-			log_state_in = fsm_data.state_table.at(state_in);
-
-		if (states.count(ce.values_map(ce.assign_map(dff_in)).as_const()) == 0) {
-			log("  transition: %10s %s -> INVALID_STATE(%s) %s  <ignored invalid transition!>%s\n",
-					log_signal(log_state_in), log_signal(tr.ctrl_in),
-					log_signal(ce.values_map(ce.assign_map(dff_in))), log_signal(tr.ctrl_out),
-					undef_bit_in_next_state_mode ? " SHORTENED" : "");
-			return;
-		}
-
+		RTLIL::Const next_state = dff_in.as_const();
 		tr.state_in = state_in;
-		tr.state_out = states.at(ce.values_map(ce.assign_map(dff_in)).as_const());
+		tr.state_out = find_next_state(fsm_data, states, state_in, next_state);
 
-		if (dff_in.is_fully_def()) {
-			fsm_data.transition_table.push_back(tr);
-			log("  transition: %10s %s -> %10s %s\n",
-					log_signal(log_state_in), log_signal(tr.ctrl_in),
-					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
-		} else {
-			log("  transition: %10s %s -> %10s %s  <ignored undef transition!>\n",
-					log_signal(log_state_in), log_signal(tr.ctrl_in),
-					log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out));
+		if (tr.state_out < 0) {
+			log("  transition: %10s %s -> INVALID_STATE(%s) %s\n",
+					log_signal(fsm_data.state_table.at(state_in)), log_signal(tr.ctrl_in),
+					log_signal(next_state), log_signal(tr.ctrl_out));
+			return false;
 		}
-		return;
-	}
 
-	for (auto &bit : dff_in)
-		if (bit == RTLIL::Sx)
-			goto undef_bit_in_next_state;
+		fsm_data.transition_table.push_back(tr);
+		log("  transition: %10s %s -> %10s %s%s\n",
+				log_signal(fsm_data.state_table.at(state_in)), log_signal(tr.ctrl_in),
+				log_signal(fsm_data.state_table[tr.state_out]), log_signal(tr.ctrl_out),
+				next_state.is_fully_def() ? "" : stringf("  <undef next state %s>", log_signal(next_state)));
+		return true;
+	}
 
 	log_assert(undef.size() > 0);
 	log_assert(ce.stop_signals.check_all(undef));
@@ -224,7 +228,7 @@ undef_bit_in_next_state:
 				else
 					ce.set(bit, State::S0);
 			}
-		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
+		ok = find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 	found_contradiction_1:
 		ce.pop();
 	}
@@ -233,8 +237,10 @@ undef_bit_in_next_state:
 		ce.push(), ce_nostop.push();
 		ce.set(undef, State::S0);
 		ce_nostop.set(undef, State::S0);
-		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
+		ok = find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 		ce.pop(), ce_nostop.pop();
+		if (!ok)
+			return false;
 
 		ce.push(), ce_nostop.push();
 		ce.set(undef, State::S1);
@@ -247,10 +253,11 @@ undef_bit_in_next_state:
 				else
 					ce.set(bit, State::S0), ce_nostop.set(bit, RTLIL::S0);
 			}
-		find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
+		ok = find_transitions(ce, ce_nostop, fsm_data, states, state_in, ctrl_in, ctrl_out, dff_in, dont_care);
 	found_contradiction_2:
 		ce.pop(), ce_nostop.pop();
 	}
+	return ok;
 }
 
 static void extract_fsm(RTLIL::Wire *wire)
@@ -362,8 +369,12 @@ static void extract_fsm(RTLIL::Wire *wire)
 		ce.push(), ce_nostop.push();
 		ce.set(dff_out, fsm_data.state_table[state_idx]);
 		ce_nostop.set(dff_out, fsm_data.state_table[state_idx]);
-		find_transitions(ce, ce_nostop, fsm_data, states, state_idx, ctrl_in, ctrl_out, dff_in, RTLIL::SigSpec());
+		bool ok = find_transitions(ce, ce_nostop, fsm_data, states, state_idx, ctrl_in, ctrl_out, dff_in, RTLIL::SigSpec());
 		ce.pop(), ce_nostop.pop();
+		if (!ok) {
+			log("  fsm extraction failed: next state matches no state code.\n");
+			return;
+		}
 	}
 
 	// create fsm cell
