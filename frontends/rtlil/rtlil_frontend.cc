@@ -528,13 +528,16 @@ struct RTLILFrontendWorker {
 
 	SrcRef parse_src(const std::string &text)
 	{
-		if (text.empty() || text[0] != '@')
+		if (text.empty() || (text[0] != '@' && text[0] != '$'))
 			return design->srcs().add(text);
 		size_t file_id = 0;
 		auto [ptr, ec] = std::from_chars(text.data() + 1, text.data() + text.size(), file_id);
 		if (ec != std::errc() || ptr != text.data() + text.size())
 			error("Malformed src reference %s at line %d", text, line_num);
-		return materialize_file_src(file_id);
+		if (text[0] == '$')
+			return materialize_file_src(file_id);
+		IdString member = materialize_file_twine(file_id);
+		return design->srcs().adopt({&member, 1});
 	}
 
 	void apply_attrs(RTLIL::AttrObject *obj)
@@ -557,7 +560,7 @@ struct RTLILFrontendWorker {
 			return rit->second;
 		auto dit = src_descs.find(id);
 		if (dit == src_descs.end())
-			error("Unknown src reference @%zu at line %d", id, line_num);
+			error("Unknown src reference $%zu at line %d", id, line_num);
 		std::vector<IdString> members;
 		members.reserve(dit->second.size());
 		for (size_t c : dit->second)
