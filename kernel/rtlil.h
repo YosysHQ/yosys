@@ -1347,6 +1347,7 @@ public:
 	RTLIL::Module *top_module() const;
 
 	bool has(RTLIL::IdString id) const {
+		twines_.check_owned(id);
 		return modules_.count(id) != 0;
 	}
 	template<typename N, YS_NAME_STRING(N)> bool has(N name) const
@@ -1582,19 +1583,27 @@ public:
 	}
 
 	RTLIL::Wire* wire(RTLIL::IdString id) {
+		if (design)
+			design->twines().check_owned(id);
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
 	RTLIL::Cell* cell(RTLIL::IdString id) {
+		if (design)
+			design->twines().check_owned(id);
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
 
 	const RTLIL::Wire* wire(RTLIL::IdString id) const{
+		if (design)
+			design->twines().check_owned(id);
 		auto it = wires_.find(id);
 		return it == wires_.end() ? nullptr : it->second;
 	}
 	const RTLIL::Cell* cell(RTLIL::IdString id) const {
+		if (design)
+			design->twines().check_owned(id);
 		auto it = cells_.find(id);
 		return it == cells_.end() ? nullptr : it->second;
 	}
