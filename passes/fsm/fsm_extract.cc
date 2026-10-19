@@ -416,6 +416,7 @@ struct FsmExtractWorker
 		fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 		fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
 		fsm_cell->attributes = wire->attributes;
+		fsm_cell->set_src(wire->src());
 		if(fsm_cell->attributes.count(ID::hdlname)) {
 			auto hdlname = fsm_cell->get_hdlname_attribute();
 			hdlname.pop_back();
