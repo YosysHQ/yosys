@@ -38,7 +38,6 @@ void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 
 // Port shapes
-Netlist::Dir portDir(bool input, bool output);
 Netlist::PortShape wireShape(RTLIL::Wire *wire);
 void moduleShapes(RTLIL::Module *module, std::vector<Netlist::PortShape> &out);
 bool libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out);
@@ -78,17 +77,16 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 
 	// Call invalidateCheck() when the design may have changed: edits without a
 	// Monitor event (e.g. opt_clean) are not seen otherwise
-	bool valid() const override;
-	bool changed() const;
+	bool valid() const;
 	void invalidateCheck();
 
-	Instance *top() const override;
-	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const override;
+	Instance *top() const;
+	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
 
-	const std::vector<Net *> &nets(const Instance *scope) const override;
-	Net *constNet(const Instance *scope, bool one) const override;
-	NetName wireName(const Net *net) const override;
-	const std::vector<Alias> &aliases(const Instance *scope) const override;
+	const std::vector<Net *> &nets(const Instance *scope) const;
+	Net *constNet(const Instance *scope, bool one) const;
+	NetName wireName(const Net *net) const;
+	const std::vector<Alias> &aliases(const Instance *scope) const;
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;

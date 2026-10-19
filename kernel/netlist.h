@@ -1,4 +1,4 @@
-// Netlist: a read-only, bit-level, unfolded netlist interface for external consumers
+// Netlist: the records of a read-only, bit-level, unfolded netlist and their helpers
 // Objects:
 // - Instance  one occurrence of a cell or module, the top is an instance
 //             with no parent, hierarchical instances own a scope of nets
@@ -56,6 +56,7 @@ struct Netlist
 		int to;
 		Dir dir;
 		bool vector = false; // declared with a range
+		bool scalar() const;
 	};
 
 	struct Instance {
@@ -79,6 +80,7 @@ struct Netlist
 		uint32_t id;
 		uint32_t port;
 		int bit;
+		mutable uint32_t user = 0; // the consumer's value, 0 after each build
 	};
 
 	struct Net {
@@ -120,23 +122,10 @@ struct Netlist
 		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
 	};
 
-	virtual ~Netlist();
-
-	virtual bool valid() const = 0;
-
-	virtual Instance *top() const = 0;
+	static Dir portDir(bool input, bool output);
 	bool isTop(const Instance *inst) const;
-	// Ports of an instance's master as the host knows them, ignoring PortModel
-	virtual bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const = 0;
-
-	virtual const std::vector<Net *> &nets(const Instance *scope) const = 0;
-	virtual Net *constNet(const Instance *scope, bool one) const = 0;
-	virtual NetName wireName(const Net *net) const = 0;
-	virtual const std::vector<Alias> &aliases(const Instance *scope) const = 0;
-
 	const PortShape &shape(const Pin *pin) const;
 	Dir dir(const Pin *pin) const;
-	bool scalar(const Pin *pin) const;
 	int hdlIndex(const Pin *pin) const;
 	bool isDriver(const Pin *pin) const;
 };

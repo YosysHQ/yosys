@@ -4,7 +4,21 @@ YOSYS_NAMESPACE_BEGIN
 
 Netlist::PortModel::~PortModel() {}
 
-Netlist::~Netlist() {}
+bool Netlist::PortShape::scalar() const
+{
+	return width == 1 && !vector;
+}
+
+Netlist::Dir Netlist::portDir(bool input, bool output)
+{
+	if (input && output)
+		return Dir::Inout;
+	if (input)
+		return Dir::Input;
+	if (output)
+		return Dir::Output;
+	return Dir::Unknown;
+}
 
 bool Netlist::isTop(const Instance *inst) const
 {
@@ -19,11 +33,6 @@ const Netlist::PortShape &Netlist::shape(const Pin *pin) const
 Netlist::Dir Netlist::dir(const Pin *pin) const
 {
 	return shape(pin).dir;
-}
-
-bool Netlist::scalar(const Pin *pin) const
-{
-	return shape(pin).width == 1 && !shape(pin).vector;
 }
 
 int Netlist::hdlIndex(const Pin *pin) const
