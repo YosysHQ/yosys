@@ -1,10 +1,9 @@
-read -sv <<EOT
+read_slang --std latest <<EOT
 module test(input foo);
 always @(*) assert(foo);
 endmodule
 EOT
 
-verific -import test
 prep
 
 select -assert-count 1 t:$assert

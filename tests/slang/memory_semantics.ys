@@ -1,4 +1,4 @@
-verific -sv <<EOF
+read_slang --std latest <<EOF
 
 module top(clk);
 input wire clk;

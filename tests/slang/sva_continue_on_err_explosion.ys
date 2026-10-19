@@ -1,4 +1,4 @@
-verific -sv <<EOF
+read_slang --std latest <<EOF
 module top(input clk, input a, input b);
 
     prop_supported1: assert property (@(posedge clk) a ##1 b |=> b);

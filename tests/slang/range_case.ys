@@ -1,11 +1,11 @@
 verific -cfg db_abstract_case_statement_synthesis 0
-read -sv range_case.sv
+read_slang --std latest range_case.sv
 verific -import top
 proc
 rename top gold
 
 verific -cfg db_abstract_case_statement_synthesis 1
-read -sv range_case.sv
+read_slang --std latest range_case.sv
 verific -import top
 proc
 rename top gate

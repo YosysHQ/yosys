@@ -1,11 +1,11 @@
 verific -cfg db_abstract_case_statement_synthesis 0
-read -sv case.sv
+read_slang --std latest case.sv
 verific -import top
 prep
 rename top gold
 
 verific -cfg db_abstract_case_statement_synthesis 1
-read -sv case.sv
+read_slang --std latest case.sv
 verific -import top
 prep
 rename top gate

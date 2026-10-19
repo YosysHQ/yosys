@@ -1,4 +1,4 @@
-verific -sv <<EOT
+read_slang --std latest <<EOT
 module simple (
   input  [3:0] I2,
   input  [3:0] I1,
