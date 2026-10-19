@@ -1431,7 +1431,7 @@ struct XAigerWriter : AigerWriter {
 	{
 		if (map_file) {
 			map_file << "name " << lit << " " << bit.offset
-				<< " " << bit.wire->name.c_str() << "\n";
+				<< " " << design->twines().ref_token(bit.wire->name) << "\n";
 			log("name %d %d %s\n", lit, bit.offset, bit.wire->name);
 			if (bit.wire->has_attribute(ID::src)) {
 				for (auto source : bit.wire->get_strpool_attribute(ID::src)) {
@@ -1683,7 +1683,7 @@ struct XAigerWriter : AigerWriter {
 	{
 		if (map_file.is_open())
 			map_file << "node" << " " << proper_pos_counter << " " << w->start_offset + i
-				<< " " << w->name.c_str() << "\n";
+				<< " " << design->twines().ref_token(w->name) << "\n";
 	}
 
 	void write(std::ostream *f) {

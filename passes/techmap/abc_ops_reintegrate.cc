@@ -87,7 +87,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
 	dict<int, std::pair<RTLIL::IdString, int>> names;
-	dict<int, pool<RTLIL::IdString>> sources;
+	dict<int, pool<std::string>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
@@ -95,6 +95,10 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 		int variable, index;
 
 		while (mf >> type >> variable >> index >> symbol) {
+			if (type == "source") {
+				sources[variable].insert(symbol);
+				continue;
+			}
 			IdString escaped_ref = ref_from_token(design, symbol);
 			if (type == "input") {
 				log_assert(variable < input_count);
@@ -225,15 +229,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					mapped_mod->rename(cell, escaped_ref);
 			}
 			else if (type == "name") {
-				names.insert({variable, std::make_pair(escaped_s, index)});
-			}
-			else if (type == "source") {
-				auto entry = sources.find(variable);
-				if (entry != sources.end()) {
-					entry->second.insert({escaped_s});
-				} else {
-					sources.insert({variable, pool<RTLIL::IdString>{escaped_s}});
-				}
+				names.insert({variable, std::make_pair(escaped_ref, index)});
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -457,8 +453,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 
 					auto name = names.find(abc9_src);
 					if (name != names.end()) {
-						log("    which is the normal form of \'%s\' %d\n", name->second.first, name->second.second);
-						src_pool.insert(stringf("containing signal %s", name->second.first));
+						log("    which is the normal form of \'%s\' %d\n", PooledName(design, name->second.first), name->second.second);
+						src_pool.insert(stringf("containing signal %s", PooledName(design, name->second.first)));
 						auto equiv_wire = module->wire(name->second.first);
 						if (equiv_wire) {
 							log("        which exists in module\n");
@@ -485,8 +481,8 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 						// Perhaps we can use the src attribute of the inverted signal?
 						name = names.find(abc9_src ^ 1);
 						if (name != names.end()) {
-							log("    which is the inverted form of \'%s\' %d\n", name->second.first, name->second.second);
-							src_pool.insert(stringf("containing inverted signal %s", name->second.first));
+							log("    which is the inverted form of \'%s\' %d\n", PooledName(design, name->second.first), name->second.second);
+							src_pool.insert(stringf("containing inverted signal %s", PooledName(design, name->second.first)));
 							auto equiv_wire = module->wire(name->second.first);
 							if (equiv_wire) {
 								log("        which exists in module\n");
