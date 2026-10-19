@@ -6,7 +6,7 @@ function(yosys_gtest arg_TARGET)
 	set(arg_SOURCES ${arg_UNPARSED_ARGUMENTS})
 
 	set(target "gtest-${arg_TARGET}")
-	add_executable(${target} ${arg_SOURCES})
+	add_executable(${target} ${arg_SOURCES} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/yosysSetupEnv.cc)
 	target_link_libraries(${target} PRIVATE
 		GTest::gmock_main
 		yosys_common
@@ -24,6 +24,7 @@ endfunction()
 if (GTest_FOUND)
 	add_custom_target(yosys-gtest-all)
 
+	add_subdirectory(cmds)
 	add_subdirectory(kernel)
 	add_subdirectory(netview)
 	add_subdirectory(opt)

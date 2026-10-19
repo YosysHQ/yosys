@@ -55,9 +55,6 @@ std::chrono::steady_clock::time_point LogManager::get_initial_time() const
 void (*log_error_atexit)() = nullptr;
 void (*log_verific_callback)(int msg_type, const char *message_id, LogSourceLocation src, const char *msg) = nullptr;
 
-// TODO: remove when log_id is removed
-vector<char*> log_id_cache;
-
 static bool next_print_log = true;
 
 FileLogSink::FileLogSink(const std::string &filename, bool line_buffered, bool append)
@@ -159,13 +156,6 @@ LogMessage::LogMessage(LogSeverity severity, LogSourceLocation src, std::string_
 	}
 	std::string loc = !src.filename.empty() ? stringf("%s:%d: ", src.filename, src.start_line) : "";
 	cached_msg = stringf("%s%s%s%s", time_str, loc, prefix, message);
-}
-
-static void log_id_cache_clear()
-{
-	for (auto p : log_id_cache)
-		free(p);
-	log_id_cache.clear();
 }
 
 void LogManager::logv_string(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string str_in) {
@@ -270,11 +260,7 @@ void LogManager::formatted_header(RTLIL::Design *design, std::string_view format
 	if (hdump.count(header_id) && design != nullptr)
 		for (auto &filename : hdump.at(header_id)) {
 			log("Dumping current design to '%s'.\n", filename);
-			if (yosys_xtrace)
-				IdString::xtrace_db_dump();
 			Pass::call(design, {"dump", "-o", filename});
-			if (yosys_xtrace)
-				log("#X# -- end of dump --\n");
 		}
 	log_stderr_sink_forced = false;
 }
@@ -415,9 +401,9 @@ void LogManager::add_deprecated(const std::string &feature, const std::string &e
 	}
 }
 
-void log_assert_failure(const char *expr, const char *file, int line)
+void log_assert_failure(const char *expr, source_location location)
 {
-	log_error("Assert `%s' failed in %s:%d.\n", expr, file, line);
+	log_error("Assert `%s' failed in %s:%d.\n", expr, location.file_name(), location.line());
 }
 
 void log_abort_internal(const char *file, int line)
@@ -456,7 +442,6 @@ void LogManager::push()
 void LogManager::pop()
 {
 	header_count.pop_back();
-	log_id_cache_clear();
 	flush();
 }
 
@@ -561,12 +546,18 @@ void LogManager::reset_stack()
 {
 	while (header_count.size() > 1)
 		header_count.pop_back();
-	log_id_cache_clear();
 	flush();
 }
 
 void log_dump_val_worker(RTLIL::IdString v) {
-	log("%s", v.unescape());
+	if (v == IdString::Null)
+		log("(null)");
+	else if (ID::is_static(v))
+		log("%s", ID::unescaped_str(v));
+	else if (yosys_design && yosys_design->twines().is_live(v))
+		log("%s", yosys_design->twines().unescaped_str(v));
+	else
+		log("%s", v.handle_token());
 }
 
 void log_dump_val_worker(RTLIL::SigSpec v) {
@@ -580,7 +571,7 @@ void log_dump_val_worker(RTLIL::State v) {
 std::string log_signal(const RTLIL::SigSpec &sig, bool autoint)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint);
+	RTLIL_BACKEND::dump_sigspec(buf, sig, autoint, RTLIL_BACKEND::DumpMode::Readable);
 	return buf.str();
 }
 
@@ -592,31 +583,24 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 	return "\"" + value.decode_string() + "\"";
 }
 
-const char *log_id(const RTLIL::IdString &str)
-{
-	std::string unescaped = str.unescape();
-	log_id_cache.push_back(strdup(unescaped.c_str()));
-	return log_id_cache.back();
-}
-
 void log_module(RTLIL::Module *module, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false);
+	RTLIL_BACKEND::dump_module(buf, indent, module, module->design, false, true, false, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_cell(RTLIL::Cell *cell, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_cell(buf, indent, cell);
+	RTLIL_BACKEND::dump_cell(buf, indent, cell, cell->module ? cell->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 
 void log_wire(RTLIL::Wire *wire, std::string indent)
 {
 	std::stringstream buf;
-	RTLIL_BACKEND::dump_wire(buf, indent, wire);
+	RTLIL_BACKEND::dump_wire(buf, indent, wire, wire->module ? wire->module->design : nullptr, RTLIL_BACKEND::DumpMode::Readable);
 	log("%s", buf.str());
 }
 

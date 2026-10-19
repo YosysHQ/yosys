@@ -45,6 +45,7 @@ option(YOSYS_ENABLE_UNIT_TESTS "Enable unit tests" ON)
 option(YOSYS_ENABLE_COVERAGE "Enable code coverage" OFF)
 option(YOSYS_ENABLE_PROFILING "Enable instruction profiling" OFF)
 option(YOSYS_ENABLE_FUNCTIONAL_TESTS "Enable running functional tests" OFF)
+option(YOSYS_ENABLE_TWINE_PROVENANCE "Twine provenance for debugging. Worsens performance" OFF)
 
 set(YOSYS_PROGRAM_PREFIX "" CACHE STRING "Name prefix for programs, libraries, and data")
 set(YOSYS_COMPONENTS "everything" CACHE STRING "List of components to build (use pass names)")
@@ -98,13 +99,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 check_pie_supported() # opportunistically enable PIE
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-	set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3")
-	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb")
-	set(CMAKE_CXX_FLAGS_MINSIZEREL "-Os")
-	set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+	if (NOT CMAKE_PRESET)
+		set(CMAKE_CXX_FLAGS_DEBUG "-Og -ggdb")
+		set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -ggdb")
+		set(CMAKE_CXX_FLAGS_MINSIZEREL"-Os")
+		set(CMAKE_CXX_FLAGS_SANITIZE "-O1 -fno-omit-frame-pointer -fno-optimize-sibling-calls")
+	endif()
 	if ("${SANITIZE}" MATCHES "memory")
-		set(CMAKE_CXX_FLAGS_SANITIZE "${CMAKE_CXX_FLAGS_SANITIZE} -fsanitize-memory-track-origins")
+		add_compile_options(
+			"$<$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>,$<CONFIG:Sanitize>>:-fsanitize-memory-track-origins>"
+		)
 	endif()
 	set(no_abc_options
 		"$<$<AND:$<NOT:$<BOOL:$<TARGET_PROPERTY:YOSYS_IS_ABC>>>,$<CONFIG:Sanitize>>:-fsanitize=${SANITIZE}>"
@@ -323,6 +328,7 @@ condition(YOSYS_ENABLE_SLANG NOT YOSYS_WITHOUT_SLANG)
 add_feature_info(have_glob YOSYS_ENABLE_GLOB "Glob expansion in filenames")
 add_feature_info(have_spawn YOSYS_ENABLE_SPAWN "Passes that invoke external tools")
 add_feature_info(have_threads YOSYS_ENABLE_THREADS "Multithreaded netlist operations")
+add_feature_info(twine_provenance YOSYS_ENABLE_TWINE_PROVENANCE "Twine provenance for debugging. Worsens performance")
 add_feature_info(have_plugins YOSYS_ENABLE_PLUGINS "Dynamically loadable binary plugins")
 add_feature_info(with_abc YOSYS_ENABLE_ABC "Production-quality logic synthesis flow")
 add_feature_info(with_zlib YOSYS_ENABLE_ZLIB "Transparent Gzip decompression and FST file format support")
@@ -441,8 +447,6 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 			install(FILES ${YOSYS_CMAKE_BINARY_DIR}/yosys.exe.a DESTINATION ${YOSYS_INSTALL_LIBDIR})
 		endif()
 	endif()
-
-	target_compile_options(yosys PRIVATE -fsanitize=undefined)
 endif()
 
 # Yosys components as a library.
@@ -521,7 +525,7 @@ if (YOSYS_ENABLE_PYTHON)
 			)
 		endif()
 		if (NOT MSVC AND NOT YOSYS_WITHOUT_SLANG)
-			install(TARGETS sn 
+			install(TARGETS sn
 				DESTINATION ${pyosys_install_dir}
 			)
 		endif()

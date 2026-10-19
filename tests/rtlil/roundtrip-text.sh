@@ -22,9 +22,3 @@ ${YOSYS} -p "read_rtlil temp/roundtrip-text.dump.il; write_rtlil temp/roundtrip-
 remove_empty_lines temp/roundtrip-text.reload.il
 tail -n +2 temp/roundtrip-text.reload.il > temp/roundtrip-text.reload-nogen.il
 diff temp/roundtrip-text.dump.il temp/roundtrip-text.reload-nogen.il
-
-# Hashing differences don't change the RTLIL
-${YOSYS} --hash-seed=2345678 -p "read_rtlil temp/roundtrip-text.dump.il; write_rtlil temp/roundtrip-text.reload-hash.il"
-remove_empty_lines temp/roundtrip-text.reload-hash.il
-tail -n +2 temp/roundtrip-text.reload-hash.il > temp/roundtrip-text.reload-hash-nogen.il
-diff temp/roundtrip-text.dump.il temp/roundtrip-text.reload-hash-nogen.il

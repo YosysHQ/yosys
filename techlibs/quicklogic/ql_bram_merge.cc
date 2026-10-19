@@ -146,14 +146,14 @@ struct QlBramMergeWorker {
 			if (bram1->hasPort(it.first))
 				merged->setPort(it.second, bram1->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", it.first.unescape(), bram1->name.unescape());
+				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram1->name.unescape());
 		}
 		for (auto &it : port_map(true))
 		{
 			if (bram2->hasPort(it.first))
 				merged->setPort(it.second, bram2->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", it.first.unescape(), bram2->name.unescape());
+				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram2->name.unescape());
 		}
 		merged->attributes = bram1->attributes;
 		for (auto attr: bram2->attributes)

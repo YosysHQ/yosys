@@ -276,19 +276,19 @@ code
 		int B_PINS;
 
 		if (aw <= 18 && bw <= 18) {
-			prim = "$__NX_MUL18X18";
+			prim = $__NX_MUL18X18;
 			A_PINS = 18;
 			B_PINS = 18;
 		} else if (aw <= 36 && bw <= 18) {
-			prim = "$__NX_MUL36X18";
+			prim = $__NX_MUL36X18;
 			A_PINS = 36;
 			B_PINS = 18;
 		} else if (aw <= 18 && bw <= 36) {
-			prim = "$__NX_MUL36X18";
+			prim = $__NX_MUL36X18;
 			A_PINS = 36;
 			B_PINS = 18;
 		} else {
-			prim = "$__NX_MUL36X36";
+			prim = $__NX_MUL36X36;
 			A_PINS = 36;
 			B_PINS = 36;
 		}
@@ -303,7 +303,7 @@ code
 		// 36X18 -> wide operand goes to A
 		Cell *ffa = ffA;
 		Cell *ffb = ffB;
-		if (prim == "$__NX_MUL36X18" && aw <= 18 && bw <= 36) {
+		if (prim == $__NX_MUL36X18 && aw <= 18 && bw <= 36) {
 			std::swap(sigA, sigB);
 			std::swap(a_signed, b_signed);
 			std::swap(ffa, ffb);

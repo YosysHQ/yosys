@@ -676,17 +676,6 @@ void format_emit_string_view(std::string &result, std::string_view spec, int *dy
 	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, std::string(arg).c_str());
 }
 
-void format_emit_idstring(std::string &result, std::string_view spec, int *dynamic_ints,
-	DynamicIntCount num_dynamic_ints, const RTLIL::IdString &arg)
-{
-	if (spec == "%s") {
-		// Format checking will have guaranteed num_dynamic_ints == 0.
-		arg.append_to(&result);
-		return;
-	}
-	format_emit_stringf(result, spec, dynamic_ints, num_dynamic_ints, arg.c_str());
-}
-
 void format_emit_void_ptr(std::string &result, std::string_view spec, int *dynamic_ints,
 	DynamicIntCount num_dynamic_ints, const void *arg)
 {

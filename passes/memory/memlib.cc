@@ -94,7 +94,7 @@ struct ResourceDef {
 };
 
 struct RamDef {
-	IdString id;
+	std::string id;
 	dict<std::string, pool<Const>> opts;
 	RamKind kind;
 	Caps<Empty> forbid;
@@ -185,12 +185,12 @@ struct Parser {
 		}
 	}
 
-	IdString get_id() {
+	std::string get_id() {
 		std::string token = get_token();
 		if (token.empty() || (token[0] != '$' && token[0] != '\\')) {
 			log_error("%s:%d: expected id string, got `%s`.\n", filename, line_number, token);
 		}
-		return IdString(token);
+		return token;
 	}
 
 	std::string get_name() {

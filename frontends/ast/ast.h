@@ -36,6 +36,10 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace AST
 {
+	TwinePool &ast_name_pool();
+	inline IdString intern_attr_name(std::string_view name) { return ast_name_pool().add(name); }
+	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
+
 	// all node types, type2str() must be extended
 	// whenever a new node type is added here
 	enum AstNodeType
@@ -182,9 +186,10 @@ namespace AST
 		// the list of child nodes for this node
 		std::vector<std::unique_ptr<AstNode>> children;
 
-		// the list of attributes assigned to this node
-		std::map<RTLIL::IdString, std::unique_ptr<AstNode>> attributes;
-		bool get_bool_attribute(RTLIL::IdString id);
+		// The list of attributes assigned to this node. Keys are IdStrings
+		std::map<IdString, std::unique_ptr<AstNode>> attributes;
+		bool get_bool_attribute(IdString id);
+		bool get_bool_attribute(const std::string &id) { return get_bool_attribute(intern_attr_name(id)); }
 
 		// node content - most of it is unused in most node types
 		std::string str;
@@ -286,6 +291,7 @@ namespace AST
 		bool replace_variables(std::map<std::string, varinfo_t> &variables, AstNode *fcall, bool must_succeed);
 		std::unique_ptr<AstNode> eval_const_function(AstNode *fcall, bool must_succeed);
 		bool is_simple_const_expr();
+		bool is_in_unconditional_init();
 
 		// helper for parsing format strings
 		Fmt processFormat(int stage, bool sformat_like, int default_base = 10, size_t first_arg_at = 0, bool may_fail = false);
@@ -337,6 +343,7 @@ namespace AST
 		int isConst() const; // return '1' for AST_CONSTANT and '2' for AST_REALVALUE
 		double asReal(bool is_signed);
 		RTLIL::Const realAsConst(int width);
+		RTLIL::Const valueAsConst(int width);
 
 		// helpers for enum
 		void allocateDefaultEnumValues();
@@ -356,6 +363,10 @@ namespace AST
 		{
 			node->set_in_param_flag(true);
 			attributes[key] = std::move(node);
+		}
+		void set_attribute(const std::string &key, std::unique_ptr<AstNode> node)
+		{
+			set_attribute(intern_attr_name(key), std::move(node));
 		}
 
 		// helper to set in_lvalue/in_param flags from the hierarchy context (the actual flag
@@ -398,6 +409,9 @@ namespace AST
 		void expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module *> &local_interfaces) override;
 		bool reprocess_if_necessary(RTLIL::Design *design) override;
 		RTLIL::Module *clone() const override;
+		RTLIL::Module *clone(RTLIL::Design *dst) const override;
+		RTLIL::Module *clone(RTLIL::Design *dst, IdString target_name) const override;
+		void copy_config_into(AstModule *new_mod) const;
 		void loadconfig() const;
 	};
 
@@ -423,12 +437,18 @@ namespace AST
 	AstNode * find_modport(AstNode *intf, std::string name);
 	void explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule, std::string intfname, AstNode *modport);
 
+	IdString intern_hier_name(RTLIL::Design *design, std::string_view escaped);
+
+	IdString intern_src_loc(RTLIL::Design *design, const AstSrcLocType &location);
+	IdString intern_src_name(RTLIL::Design *design, const AstSrcLocType &location,
+			std::string_view kind, int idx);
+
 	// Helper for setting the src attribute.
 	void set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast);
 
 	// generate standard $paramod... derived module name; parameters should be
 	// in the order they are declared in the instantiated module
-	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<RTLIL::IdString, RTLIL::Const>> &parameters);
+	std::string derived_module_name(std::string stripped_name, const std::vector<std::pair<std::string, RTLIL::Const>> &parameters);
 
 	// used to provide simplify() access to the current design for looking up
 	// modules, ports, wires, etc.

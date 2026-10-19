@@ -135,15 +135,25 @@ struct MuxcoverWorker
 
 			pool<SigBit> wavefront;
 			wavefront.insert(rootsig);
+			bool has_loop = false;
 
 			while (!wavefront.empty()) {
 				SigBit bit = wavefront.pop();
 				if (sig_to_mux.count(bit) && (bit == rootsig || !roots.count(bit))) {
+					if (tree.muxes.count(bit)) {
+						has_loop = true;
+						break;
+					}
 					Cell *c = sig_to_mux.at(bit);
 					tree.muxes[bit] = c;
 					wavefront.insert(sigmap(c->getPort(ID::A)));
 					wavefront.insert(sigmap(c->getPort(ID::B)));
 				}
+			}
+
+			if (has_loop) {
+				log("    Skipping tree at root %s: contains a logic loop.\n", log_signal(tree.root));
+				continue;
 			}
 
 			if (!tree.muxes.empty()) {
@@ -170,7 +180,8 @@ struct MuxcoverWorker
 				return true;
 			}
 			char port_name[3] = {'\\', *path, 0};
-			return follow_muxtree(ret_bit, tree, sigmap(tree.muxes.at(bit)->getPort(port_name)), path+1, false);
+			Cell *cell = tree.muxes.at(bit);
+			return follow_muxtree(ret_bit, tree, sigmap(cell->getPort(cell->twines().add(port_name))), path+1, false);
 		} else {
 			ret_bit = bit;
 			return true;

@@ -31,6 +31,19 @@ struct SynthEfinixPass : public ScriptPass
 {
 	SynthEfinixPass() : ScriptPass("synth_efinix", "synthesis for Efinix FPGAs") { }
 
+	void on_register() override
+	{
+		target_register.emplace("efinix", Target{
+			"Efinix",
+			{
+				{"", { // default
+					"",
+					{"+/efinix/cells_sim.v"}
+				}}
+			}
+		});
+	}
+
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|

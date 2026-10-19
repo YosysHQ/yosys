@@ -1,7 +1,7 @@
 all: examples all_tex
 
 # set a fake time in pdf generation to prevent unnecessary differences in output
-FAKETIME := TZ='Z' faketime -f '2022-01-01 00:00:00 x0,001'
+FAKETIME := TZ='Z' faketime -f '2022-01-01 00:00:00 x0.001'
 
 ifneq ($(shell :; command -v rsync),)
 RSYNC_CP ?= rsync -t

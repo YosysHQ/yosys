@@ -60,7 +60,5 @@ module \top
 end
 EOF
 
-logger -expect prefix-warning "Feature 'write_xaiger2' is experimental." 1
 synth_ice40
 logger -expect-no-warnings
-

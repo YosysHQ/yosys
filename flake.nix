@@ -45,6 +45,10 @@
 
             packages = with pkgs; [
               llvmPackages.clang-tools
+              (python3.withPackages (ps: [
+                ps.pybind11
+                ps.cxxheaderparser
+              ]))
             ];
 
             shellHook = ''

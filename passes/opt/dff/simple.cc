@@ -33,16 +33,18 @@ struct SimpleContext
 	// Cell to port bit index
 	typedef std::pair<RTLIL::Cell*, int> cell_int_t;
 
-	dict<SigBit, int> bitusers;       // Signal sink count
-	dict<SigBit, cell_int_t> bit2mux; // Signal bit to driving MUX
+	dict<SigBit, int> bitusers;        // Signal sink count
+	dict<SigBit, cell_int_t> bit2mux;  // Signal bit to driving MUX
+	dict<SigBit, cell_int_t> bit2gate; // Signal bit to driving AND/OR
 
 	std::vector<Cell *> dff_cells;
 
 	SimpleContext(OptDffWorker &worker) : worker(worker)
 	{
-		// Gathering two kinds of information here for every sigmapped SigBit:
+		// Gathering three kinds of information here for every sigmapped SigBit:
 		// - bitusers: how many users it has (muxes will only be merged into FFs if the FF is the only user)
 		// - bit2mux: the mux cell and bit index that drives it, if any
+		// - bit2gate: the AND/OR cell and bit index that drives it, if any
 
 		for (auto wire : worker.module->wires())
 			if (wire->port_output)
@@ -54,6 +56,10 @@ struct SimpleContext
 				RTLIL::SigSpec sig_y = worker.sigmap(cell->getPort(ID::Y));
 				for (int i = 0; i < GetSize(sig_y); i++)
 					bit2mux[sig_y[i]] = cell_int_t(cell, i);
+			} else if (cell->type.in(ID($and), ID($or), ID($_AND_), ID($_OR_))) {
+				const RTLIL::SigSpec &sig_y = cell->getPort(ID::Y);
+				for (int i = 0; i < GetSize(sig_y); i++)
+					bit2gate[worker.sigmap(sig_y[i])] = cell_int_t(cell, i);
 			}
 
 			for (auto conn : cell->connections()) {
@@ -629,6 +635,24 @@ struct SimpleContext
 					ff.sig_d[i] = a;
 				} else {
 					break;
+				}
+			}
+
+			// Q & x = x ? Q : 0
+			// Q | x = x ? 1 : Q
+			SigBit d = worker.sigmap(ff.sig_d[i]);
+			if (bit2gate.count(d) && bitusers[d] == 1) {
+				auto [gate, index] = bit2gate.at(d);
+				SigBit q = worker.sigmap(ff.sig_q[i]);
+				bool is_and = gate->type.in(ID($and), ID($_AND_));
+				// Y bits past the A or B width come from extension, not from the inputs
+				if (index < GetSize(gate->getPort(ID::A)) && index < GetSize(gate->getPort(ID::B))) {
+					SigBit a = port_bit(gate, ID::A, index);
+					SigBit b = port_bit(gate, ID::B, index);
+					if (a == q || b == q) {
+						enables.insert(ctrl_t(a == q ? b : a, !is_and));
+						ff.sig_d[i] = is_and ? State::S0 : State::S1;
+					}
 				}
 			}
 

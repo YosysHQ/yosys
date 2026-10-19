@@ -31,6 +31,7 @@
 #  include <unistd.h>
 #  include <dirent.h>
 #endif
+#include <filesystem>
 
 #include "frontends/verific/verific.h"
 
@@ -157,7 +158,7 @@ void msg_func(msg_type_t msg_type, const char *message_id, linefile_type linefil
 			logger().formatted_warning(src, message_prefix, "%s%s\n", message);
 		} else {
 			logger().formatted_string(LogSeverity::Info, src, message_prefix, "%s%s\n", message);
-		}			
+		}
 	}
 	if (msg_type == VERIFIC_ERROR || msg_type == VERIFIC_PROGRAM_ERROR)
 		verific_error_msg = "Design elaboration failed; see full log for details";
@@ -267,7 +268,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	if (obj->Linefile())
 		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", autoidx++);
-	return s;
+	return module->twines().add(std::move(s));
 }
 
 static const RTLIL::Const extract_vhdl_boolean(std::string &val)
@@ -455,7 +456,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 	FOREACH_ATTRIBUTE(obj, mi, attr) {
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
-		attributes[RTLIL::escape_id(attr->Key())] = verific_const(nullptr, attr->Value(), obj);
+		attributes[module->twines().add(RTLIL::escape_id(attr->Key()))] = verific_const(nullptr, attr->Value(), obj);
 	}
 
 	if (nl) {
@@ -500,7 +501,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 			if (nl->IsFromVerilog()) {
 				auto const value = verific_const(type_name, v, nl, false);
 
-				attributes.emplace(stringf("\\enum_value_%s", value.as_string()), RTLIL::escape_id(k));
+				attributes.emplace(module->twines().add(stringf("\\enum_value_%s", value.as_string())), RTLIL::escape_id(k));
 			}
 #ifdef VERIFIC_VHDL_SUPPORT
 			else if (nl->IsFromVhdl()) {
@@ -513,7 +514,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 						strncpy(q, p, l);
 						q[l] = '\0';
 						for(char *ptr = q; *ptr; ++ptr )*ptr = tolower(*ptr);
-						attributes.emplace(stringf("\\enum_value_%s", q), RTLIL::escape_id(k));
+						attributes.emplace(module->twines().add(stringf("\\enum_value_%s", q)), RTLIL::escape_id(k));
 					} else {
 						auto *q = p+1;
 						for (; *q != '"'; q++)
@@ -530,7 +531,7 @@ void VerificImporter::import_attributes(dict<RTLIL::IdString, RTLIL::Const> &att
 							auto q = (char*)malloc(l+1-2);
 							strncpy(q, p+1, l-2);
 							q[l-2] = '\0';
-							attributes.emplace(stringf("\\enum_value_%s", q), RTLIL::escape_id(k));
+							attributes.emplace(module->twines().add(stringf("\\enum_value_%s", q)), RTLIL::escape_id(k));
 							free(q);
 						}
 					}
@@ -1553,14 +1554,16 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	netlist = nl;
 
-	if (design->has(module_name)) {
+	IdString module_id = design->twines().add(module_name);
+	if (design->has(module_id)) {
 		if (!nl->IsOperator() && !is_blackbox(nl))
 			log_cmd_error("Re-definition of module `%s'.\n", netlist_name);
 		return;
 	}
 
 	module = new RTLIL::Module;
-	module->name = module_name;
+	module->design = design;
+	module->name = module_id;
 	design->add(module);
 
 	if (is_blackbox(nl)) {
@@ -1584,10 +1587,11 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	const char *param_value ;
 	MapIter mi;
 	FOREACH_PARAMETER_OF_NETLIST(nl, mi, param_name, param_value) {
-		module->avail_parameters(RTLIL::escape_id(param_name));
+		IdString param_id = design->twines().add(RTLIL::escape_id(param_name));
+		module->avail_parameters(param_id);
 		const TypeRange *tr = nl->GetTypeRange(param_name) ;
 		const char* type_name = (tr) ? tr->GetTypeName() : nullptr;
-		module->parameter_default_values[RTLIL::escape_id(param_name)] = verific_const(type_name, param_value, nl);
+		module->parameter_default_values[param_id] = verific_const(type_name, param_value, nl);
 	}
 
 	SetIter si;
@@ -1695,10 +1699,9 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	{
 		if (net->IsRamNet())
 		{
-			RTLIL::Memory *memory = new RTLIL::Memory;
-			memory->name = RTLIL::escape_id(net->Name());
-			log_assert(module->count_id(memory->name) == 0);
-			module->memories[memory->name] = memory;
+			IdString memory_name = design->twines().add(RTLIL::escape_id(net->Name()));
+			log_assert(module->count_id(memory_name) == 0);
+			RTLIL::Memory *memory = module->addMemory(memory_name);
 			import_attributes(memory->attributes, net, nl);
 
 			int number_of_bits = net->Size();
@@ -1809,12 +1812,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		if (net->Bus())
 			continue;
 
-		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? RTLIL::escape_id(net->Name()) : new_verific_id(net));
-
-		if (verific_verbose)
-			log("  importing net %s as %s.\n", net->Name(), wire_name.unescape());
+		RTLIL::IdString wire_name = module->uniquify(mode_names || net->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(net->Name())) : new_verific_id(net));
 
 		RTLIL::Wire *wire = module->addWire(wire_name);
+
+		if (verific_verbose)
+			log("  importing net %s as %s.\n", net->Name(), wire->name.unescape());
 		import_attributes(wire->attributes, net, nl, 1);
 
 		net_map[net] = wire;
@@ -1833,12 +1836,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		if (found_new_net)
 		{
-			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? RTLIL::escape_id(netbus->Name()) : new_verific_id(netbus));
-
-			if (verific_verbose)
-				log("  importing netbus %s as %s.\n", netbus->Name(), wire_name.unescape());
+			RTLIL::IdString wire_name = module->uniquify(mode_names || netbus->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(netbus->Name())) : new_verific_id(netbus));
 
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
+
+			if (verific_verbose)
+				log("  importing netbus %s as %s.\n", netbus->Name(), wire->name.unescape());
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 			wire->upto = netbus->IsUp();
 			MapIter mibus;
@@ -1966,10 +1969,10 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 	FOREACH_INSTANCE_OF_NETLIST(nl, mi, inst)
 	{
-		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? RTLIL::escape_id(inst->Name()) : new_verific_id(inst));
+		RTLIL::IdString inst_name = module->uniquify(mode_names || inst->IsUserDeclared() ? design->twines().add(RTLIL::escape_id(inst->Name())) : new_verific_id(inst));
 
 		if (verific_verbose)
-			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), inst_name.unescape());
+			log("  importing cell %s (%s) as %s.\n", inst->Name(), inst->View()->Owner()->Name(), PooledName(design, inst_name).unescape());
 
 		if (mode_verific)
 			goto import_verific_cells;
@@ -2003,7 +2006,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		if (inst->Type() == OPER_READ_PORT)
 		{
-			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetInput()->Name()), nullptr);
+			RTLIL::Memory *memory = module->memories.at(module->twines().find(RTLIL::escape_id(inst->GetInput()->Name())), nullptr);
 			if (!memory)
 				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 
@@ -2016,7 +2019,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorOutput(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memrd));
+						module->twines().add(inst_name, stringf("_%d", i)), ID($memrd));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;
@@ -2034,7 +2037,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		if (inst->Type() == OPER_WRITE_PORT || inst->Type() == OPER_CLOCKED_WRITE_PORT)
 		{
-			RTLIL::Memory *memory = module->memories.at(RTLIL::escape_id(inst->GetOutput()->Name()), nullptr);
+			RTLIL::Memory *memory = module->memories.at(module->twines().find(RTLIL::escape_id(inst->GetOutput()->Name())), nullptr);
 			if (!memory)
 				log_error("%sMemory net '%s' missing, possibly no driver, use verific -flatten.\n", announce_src_location(inst), inst->GetInput()->Name());
 			int numchunks = int(inst->Input2Size()) / memory->width;
@@ -2046,7 +2049,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				RTLIL::SigSpec data = operatorInput2(inst).extract(i * memory->width, memory->width);
 
 				RTLIL::Cell *cell = module->addCell(numchunks == 1 ? inst_name :
-						RTLIL::IdString(stringf("%s_%d", inst_name, i)), ID($memwr));
+						module->twines().add(inst_name, stringf("_%d", i)), ID($memwr));
 				cell->parameters[ID::MEMID] = memory->name.str();
 				cell->parameters[ID::CLK_ENABLE] = false;
 				cell->parameters[ID::CLK_POLARITY] = true;
@@ -2318,7 +2321,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 					port_offset = abs(port_offset - (lsb_index - min(msb_index, lsb_index)));
 				}
 			}
-			IdString port_name_id = RTLIL::escape_id(port_name);
+			IdString port_name_id = module->twines().add(RTLIL::escape_id(port_name));
 			auto &sigvec = cell_port_conns[port_name_id];
 			if (GetSize(sigvec) <= port_offset) {
 				SigSpec zwires = module->addWire(new_verific_id(inst), port_offset+1-GetSize(sigvec));
@@ -2333,7 +2336,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 		for (auto &it : cell_port_conns) {
 			if (verific_verbose)
-				log("      .%s(%s)\n", it.first.unescape(), log_signal(it.second));
+				log("      .%s(%s)\n", PooledName(module, it.first).unescape(), log_signal(it.second));
 			cell->setPort(it.first, it.second);
 		}
 	}
@@ -3426,6 +3429,13 @@ struct VerificPass : public Pass {
 		log("Get/set Verific runtime flags.\n");
 		log("\n");
 		log("\n");
+#ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		log("    verific -target <target> [-family <family>]]\n");
+		log("\n");
+		log("Loads required cell definitions for specificed <target> and <family>.\n");
+		log("\n");
+		log("\n");
+#endif
 #if defined(YOSYS_ENABLE_VERIFIC) and defined(YOSYSHQ_VERIFIC_EXTENSIONS)
 		VerificExtensions::Help();
 #endif
@@ -3774,6 +3784,70 @@ struct VerificPass : public Pass {
 		}
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+		if (GetSize(args) > argidx && args[argidx] == "-target") {
+			argidx++;
+			log_experimental("verific -target");
+
+			if (argidx >= GetSize(args))
+				log_cmd_error("Missing target for `-target'.\n");
+
+			std::string synth_target = args[argidx++];
+			std::string synth_family;
+
+			if (argidx < GetSize(args) && args[argidx] == "-family") {
+				argidx++;
+				log_experimental("verific -family");
+
+				if (argidx >= GetSize(args))
+					log_cmd_error("Missing family for `-family'.\n");
+
+				synth_family = args[argidx++];
+			} else if (argidx < GetSize(args) && args[argidx][0] == '-') {
+				log_cmd_error("Unknown option `%s'.\n", args[argidx].c_str());
+			}
+			auto target_it = target_register.find(synth_target);
+			if (target_it == target_register.end())
+				log_cmd_error("Unknown target '%s'.\n", synth_target.c_str());
+
+			auto family_it = target_it->second.families.find(synth_family);
+			if (family_it == target_it->second.families.end()) {
+				if (synth_family.empty())
+					log_cmd_error("Family must be specified for target '%s'.\n", synth_target.c_str());
+				else
+					log_cmd_error("Unknown family '%s' for target '%s'.\n",
+							synth_family.c_str(), synth_target.c_str());
+			}
+
+			bool flag_lib = true;
+			Array file_names;
+			unsigned verilog_mode = veri_file::SYSTEM_VERILOG;
+			veri_file::DefineMacro("YOSYS");
+			veri_file::DefineMacro("VERIFIC");
+
+			for (auto &file : family_it->second.files) {
+				rewrite_filename(file);
+				file_names.Insert(strdup(file.c_str()));
+				std::string dir = std::filesystem::path(file).parent_path().string();
+				veri_file::AddIncludeDir(dir.c_str());
+			}
+
+			Map map(POINTER_HASH);
+			add_modules_to_map(map, work, flag_lib);
+			if (!veri_file::AnalyzeMultipleFiles(&file_names, verilog_mode, work.c_str(), veri_file::MFCU)) {
+					verific_error_msg.clear();
+					log_cmd_error("Reading Verilog/SystemVerilog sources failed.\n");
+			}
+			char* fn;
+			int i = 0;
+
+			FOREACH_ARRAY_ITEM(&file_names, i, fn) {
+				free(fn);
+			}
+			set_modules_to_blackbox(map, work, flag_lib);
+			verific_import_pending = true;
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-f" || args[argidx] == "-F"))
 		{
 			unsigned verilog_mode = veri_file::UNDEFINED;

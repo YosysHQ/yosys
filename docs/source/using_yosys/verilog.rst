@@ -42,6 +42,10 @@ Verilog Attributes and non-standard features
   initialized memories. This effectively puts ``mem2reg`` on all memories that
   are written to in an ``initial`` block and are not ROMs.
 
+- The ``no_rw_check`` attribute on registers indicates that inferred memories
+  can have undefined behavior when read and write target the same address.
+  See :ref:`the chapter on memory handling <no_rw_check>`.
+
 - The ``nolatches`` attribute on modules or always-blocks prohibits the
   generation of logic-loops for latches. Instead all not explicitly assigned
   values default to x-bits. This does not affect clocked storage elements such

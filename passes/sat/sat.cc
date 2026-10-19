@@ -656,7 +656,7 @@ struct SatHelper
 					log("%s%-*s %11s %9s %*s\n",  max_timestep > 0 ? "  Time " : "  ",
 						maxModelName+5, "Signal Name", "Dec", "Hex", maxModelWidth+3, "Bin");
 				}
-				log("%s%*.*s %11.11s %9.9s %*.*s\n", max_timestep > 0 ? "  ---- " : "  ", 
+				log("%s%*.*s %11.11s %9.9s %*.*s\n", max_timestep > 0 ? "  ---- " : "  ",
 						maxModelName+5, maxModelName+5,
 						hline, hline, hline, maxModelWidth+3, maxModelWidth+3, hline);
 				last_timestep = info.timestep;
@@ -709,13 +709,13 @@ struct SatHelper
 		fprintf(f, "$end\n");
 		fprintf(f, "$comment\n");
 		fprintf(f, "    Generated from SAT problem in module %s (declared at %s)\n",
-			module->name.c_str(), module_fname.c_str());
+			module->name.str().c_str(), module_fname.c_str());
 		fprintf(f, "$end\n");
 
 		// VCD has some limits on internal (non-display) identifier names, so make legal ones
 		std::map<std::string, std::string> vcdnames;
 
-		fprintf(f, "$scope module %s $end\n", module->name.c_str());
+		fprintf(f, "$scope module %s $end\n", module->name.str().c_str());
 		for (auto &info : modelInfo)
 		{
 			if (vcdnames.find(info.description) != vcdnames.end())

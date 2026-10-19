@@ -38,6 +38,16 @@ struct FeedbackPath {
 	FeedbackPath(int wrport_idx, int data_bit_idx, dict<RTLIL::SigBit, bool> condition, SigBit feedback_bit) : wrport_idx(wrport_idx), data_bit_idx(data_bit_idx), condition(condition), feedback_bit(feedback_bit) {}
 };
 
+static bool can_have_feedback(const Mem &mem)
+{
+	if (mem.wr_ports.empty())
+		return false;
+	for (auto &port : mem.rd_ports)
+		if (!port.clk_enable)
+			return true;
+	return false;
+}
+
 struct OptMemFeedbackWorker
 {
 	RTLIL::Design *design;
@@ -163,7 +173,7 @@ struct OptMemFeedbackWorker
 		{
 			auto &port = mem.wr_ports[i];
 
-			log("  Analyzing %s.%s write port %d.\n", module, mem.memid.unescape(), i);
+			log("  Analyzing %s.%s write port %d.\n", module, PooledName(module, mem.memid).unescape(), i);
 
 			for (int sub = 0; sub < (1 << port.wide_log2); sub++)
 			{
@@ -232,7 +242,7 @@ struct OptMemFeedbackWorker
 
 		// Okay, let's do it.
 
-		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", module, mem.memid.unescape());
+		log("Populating enable bits on write ports of memory %s.%s with async read feedback:\n", module, PooledName(module, mem.memid).unescape());
 
 		// If a write port has a feedback path that we're about to bypass,
 		// but also has priority over some other write port, the feedback
@@ -271,18 +281,9 @@ struct OptMemFeedbackWorker
 	// Setup and run
 	// -------------
 
-	OptMemFeedbackWorker(RTLIL::Design *design) : design(design) {}
-
-	void operator()(RTLIL::Module* module)
+	OptMemFeedbackWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module)
 	{
-		std::vector<Mem> memories = Mem::get_selected_memories(module);
-
-		this->module = module;
-		sigmap.set(module);
 		initvals.set(&sigmap, module);
-		sig_to_mux.clear();
-		conditions_logic_cache.clear();
-
 		sigmap_xmux = sigmap;
 
 		for (auto wire : module->wires()) {
@@ -316,9 +317,6 @@ struct OptMemFeedbackWorker
 					for (auto bit : sigmap(conn.second))
 						sig_users_count[bit]++;
 		}
-
-		for (auto &mem : memories)
-			translate_rd_feedback_to_en(mem);
 	}
 };
 
@@ -339,10 +337,16 @@ struct OptMemFeedbackPass : public Pass {
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).\n");
 		extra_args(args, 1, design);
-		OptMemFeedbackWorker worker(design);
-
-		for (auto module : design->selected_modules())
-			worker(module);
+		for (auto module : design->selected_modules()) {
+			std::optional<OptMemFeedbackWorker> worker;
+			for (auto &mem : Mem::get_selected_memories(module)) {
+				if (!can_have_feedback(mem))
+					continue;
+				if (!worker)
+					worker.emplace(design, module);
+				worker->translate_rd_feedback_to_en(mem);
+			}
+		}
 	}
 } OptMemFeedbackPass;
 

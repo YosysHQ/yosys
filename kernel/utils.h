@@ -137,7 +137,7 @@ public:
 	// We use this ordering of the edges in the adjacency matrix for
 	// exact compatibility with an older implementation.
 	struct IndirectCmp {
-		IndirectCmp(const std::vector<T> &nodes) : node_cmp_(), nodes_(nodes) {}
+		IndirectCmp(const std::vector<T> &nodes, const C &node_cmp) : node_cmp_(node_cmp), nodes_(nodes) {}
 		bool operator()(int a, int b) const
 		{
 			log_assert(static_cast<size_t>(a) < nodes_.size());
@@ -156,7 +156,8 @@ public:
 	std::vector<T> sorted;
 	std::set<std::vector<T>> loops;
 
-	TopoSort() : indirect_cmp(nodes)
+	TopoSort() requires std::is_default_constructible_v<C> : TopoSort(C()) {}
+	explicit TopoSort(const C &cmp) : node_to_index(cmp), indirect_cmp(nodes, cmp)
 	{
 		analyze_loops = true;
 		found_loops = false;
@@ -205,9 +206,9 @@ public:
 	// a few passes that use it directly.
 	std::map<T, std::set<T, C>, C> get_database()
 	{
-		std::map<T, std::set<T, C>, C> database;
+		std::map<T, std::set<T, C>, C> database(node_to_index.key_comp());
 		for (size_t i = 0; i < nodes.size(); ++i) {
-			std::set<T, C> converted_edge_set;
+			std::set<T, C> converted_edge_set(node_to_index.key_comp());
 			for (int other_node : edges[i]) {
 				converted_edge_set.insert(nodes[other_node]);
 			}

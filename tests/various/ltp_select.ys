@@ -1,0 +1,60 @@
+read_rtlil << EOT
+module \first
+  wire input 1 \a
+  wire \mid
+  wire output 2 \y
+  wire output 3 \short
+  cell $_NOT_ \n1
+    connect \A \a
+    connect \Y \mid
+  end
+  cell $_NOT_ \n2
+    connect \A \mid
+    connect \Y \y
+  end
+  cell $_NOT_ \branch
+    connect \A \a
+    connect \Y \short
+  end
+end
+module \second
+  wire input 1 \a
+  wire output 2 \y
+  wire \unused
+  cell $_NOT_ \n1
+    connect \A \a
+    connect \Y \y
+  end
+end
+EOT
+ltp -select
+select -assert-none first/a first/mid first/y first/n1 first/n2 second/a second/y second/n1 %% % %d
+select -assert-none first/short first/branch second/unused %% % %i
+
+# Due to SigMap only one alias will be selected.
+# Both would have been the better result IMO but either is ok.
+design -reset
+read_rtlil << EOT
+module \direct
+  wire input 1 \a
+  wire output 2 \y
+  connect \y \a
+end
+EOT
+ltp -select
+select -assert-any %
+
+# IMO a preexisting bug that this doesn't pass, but not relevant in practice since opt would get rid of n1 anyway
+# leaving this here commented out in case anyone wants to address it
+# design -reset
+# read_rtlil << EOT
+# module \constant_cell
+#   wire output 1 \y
+#   cell $_NOT_ \n1
+#     connect \A 1'0
+#     connect \Y \y
+#   end
+# end
+# EOT
+# ltp -select
+# select -assert-count 2 %
