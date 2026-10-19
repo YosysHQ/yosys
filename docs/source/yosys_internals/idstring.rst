@@ -159,6 +159,12 @@ But as long as you use them in the construction of RTLIL objects, magic happens:
 ``RTLIL::unescape_id(IdString)`` and ``log_id`` have been removed, together with
 other things that have relied on the old design.
 
+If you are experiencing bugs while working multiple ``Design``s,
+enable extra checks with the ``YOSYS_ENABLE_TWINE_PROVENANCE`` CMake variable.
+
+Attribute and parameter dictionaries copied between objects of different
+``Design``s need to be done via ``copy_attr_dict`` to safetly re-intern twines.
+
 Python helpers
 ^^^^^^^^^^^^^^
 
