@@ -86,6 +86,7 @@ struct Pass
 	};
 
 	pre_post_exec_state_t pre_execute();
+	pre_post_exec_state_t pre_execute(RTLIL::Design *design);
 	void post_execute(pre_post_exec_state_t state);
 
 	void cmd_log_args(const std::vector<std::string> &args);

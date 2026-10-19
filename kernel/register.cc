@@ -125,6 +125,14 @@ Pass::pre_post_exec_state_t Pass::pre_execute()
 	return state;
 }
 
+Pass::pre_post_exec_state_t Pass::pre_execute(RTLIL::Design *design)
+{
+	pre_post_exec_state_t state = pre_execute();
+	if (design != nullptr)
+		design->notify_pass_start(this);
+	return state;
+}
+
 void Pass::post_execute(Pass::pre_post_exec_state_t state)
 {
 	log_suppressed();
@@ -300,7 +308,7 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 		log_experimental(args[0]);
 
 	size_t orig_sel_stack_pos = design->selection_stack.size();
-	auto state = pass->pre_execute();
+	auto state = pass->pre_execute(design);
 	pass->execute(args, design);
 	pass->post_execute(state);
 	while (design->selection_stack.size() > orig_sel_stack_pos)
@@ -452,7 +460,7 @@ void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 	do {
 		std::istream *f = NULL;
 		next_args.clear();
-		auto state = pre_execute();
+		auto state = pre_execute(design);
 		execute(f, std::string(), args, design);
 		post_execute(state);
 		args = next_args;
@@ -558,12 +566,12 @@ void Frontend::frontend_call(RTLIL::Design *design, std::istream *f, std::string
 		log_cmd_error("No such frontend: %s\n", args[0]);
 
 	if (f != NULL) {
-		auto state = frontend_register[args[0]]->pre_execute();
+		auto state = frontend_register[args[0]]->pre_execute(design);
 		frontend_register[args[0]]->execute(f, filename, args, design);
 		frontend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
 		std::istream *f_cin = &std::cin;
-		auto state = frontend_register[args[0]]->pre_execute();
+		auto state = frontend_register[args[0]]->pre_execute(design);
 		frontend_register[args[0]]->execute(f_cin, "<stdin>", args, design);
 		frontend_register[args[0]]->post_execute(state);
 	} else {
@@ -597,7 +605,7 @@ Backend::~Backend()
 void Backend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	std::ostream *f = NULL;
-	auto state = pre_execute();
+	auto state = pre_execute(design);
 	execute(f, std::string(), args, design);
 	post_execute(state);
 	if (f != &std::cout)
@@ -680,12 +688,12 @@ void Backend::backend_call(RTLIL::Design *design, std::ostream *f, std::string f
 	size_t orig_sel_stack_pos = design->selection_stack.size();
 
 	if (f != NULL) {
-		auto state = backend_register[args[0]]->pre_execute();
+		auto state = backend_register[args[0]]->pre_execute(design);
 		backend_register[args[0]]->execute(f, filename, args, design);
 		backend_register[args[0]]->post_execute(state);
 	} else if (filename == "-") {
 		std::ostream *f_cout = &std::cout;
-		auto state = backend_register[args[0]]->pre_execute();
+		auto state = backend_register[args[0]]->pre_execute(design);
 		backend_register[args[0]]->execute(f_cout, "<stdout>", args, design);
 		backend_register[args[0]]->post_execute(state);
 	} else {

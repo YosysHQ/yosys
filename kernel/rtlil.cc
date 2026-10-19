@@ -1191,6 +1191,13 @@ void RTLIL::Design::sort_modules()
 
 void check_module(RTLIL::Module *module, ParallelDispatchThreadPool &thread_pool);
 
+void RTLIL::Design::notify_pass_start(Pass *pass)
+{
+	pool<RTLIL::Monitor *> current = monitors;
+	for (RTLIL::Monitor *monitor : current)
+		monitor->notify_pass_start(pass);
+}
+
 void RTLIL::Design::check()
 {
 #ifndef NDEBUG

@@ -351,6 +351,9 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 
 static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
+	if (yosys_design != nullptr)
+		yosys_design->notify_pass_start(nullptr);
+	Tcl_ResetResult(interp);
 	int i;
 	bool mod_flag = false, string_flag = false, bool_flag = false;
 	bool true_flag = false, false_flag = false, sint_flag = false, uint_flag = false;
@@ -490,6 +493,9 @@ static int tcl_get_param(ClientData, Tcl_Interp *interp, int argc, const char *a
 
 static int tcl_set_param(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
+	if (yosys_design != nullptr)
+		yosys_design->notify_pass_start(nullptr);
+	Tcl_ResetResult(interp);
 	int i;
 	bool string_flag = false, sint_flag = false, uint_flag = false;
 	for (i = 1; i < objc; i++) {

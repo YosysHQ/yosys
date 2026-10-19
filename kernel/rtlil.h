@@ -1246,6 +1246,8 @@ struct RTLIL::Selection
 	static Selection CompleteSelection(RTLIL::Design *design = nullptr) { return Selection(true, true, design); };
 };
 
+struct Pass;
+
 struct RTLIL::Monitor
 {
 	Hasher::hash_t hashidx_;
@@ -1264,6 +1266,7 @@ struct RTLIL::Monitor
 	virtual void notify_connect(RTLIL::Module*, const RTLIL::SigSig&) { }
 	virtual void notify_connect(RTLIL::Module*, const std::vector<RTLIL::SigSig>&) { }
 	virtual void notify_blackout(RTLIL::Module*) { }
+	virtual void notify_pass_start(Pass*) { }
 };
 
 // Forward declaration; defined in preproc.h.
@@ -1373,6 +1376,7 @@ public:
 	void sort();
 	void sort_modules();
 	void check();
+	void notify_pass_start(Pass *pass);
 	void optimize();
 
 	void clone_into(RTLIL::Design *dst) const;
