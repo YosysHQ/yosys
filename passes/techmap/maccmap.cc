@@ -28,8 +28,9 @@ struct MaccmapWorker
 	std::vector<std::set<RTLIL::SigBit>> bits;
 	RTLIL::Module *module;
 	int width;
+	SrcRef src;
 
-	MaccmapWorker(RTLIL::Module *module, int width) : module(module), width(width)
+	MaccmapWorker(RTLIL::Module *module, int width, SrcRef src) : module(module), width(width), src(src)
 	{
 		bits.resize(width);
 	}
@@ -52,7 +53,7 @@ struct MaccmapWorker
 		a.extend_u0(width, is_signed);
 
 		if (do_subtract) {
-			a = module->Not(NEW_ID, a);
+			a = module->Not(NEW_ID, a, false, src);
 			add(State::S1, 0);
 		}
 
@@ -73,13 +74,13 @@ struct MaccmapWorker
 		for (int i = 0; i < GetSize(b); i++)
 			if (is_signed && i+1 == GetSize(b))
 			{
-				a = {module->Not(NEW_ID, a.extract(i, width-i)), RTLIL::SigSpec(0, i)};
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				a = {module->Not(NEW_ID, a.extract(i, width-i), false, src), RTLIL::SigSpec(0, i)};
+				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width), false, src), false, do_subtract);
 				add({b[i], RTLIL::SigSpec(0, i)}, false, do_subtract);
 			}
 			else
 			{
-				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width)), false, do_subtract);
+				add(module->And(NEW_ID, a, RTLIL::SigSpec(b[i], width), false, src), false, do_subtract);
 				a = {a.extract(0, width-1), State::S0};
 			}
 	}
@@ -112,6 +113,7 @@ struct MaccmapWorker
 			RTLIL::Wire *w2 = module->addWire(NEW_ID, width);
 
 			RTLIL::Cell *cell = module->addCell(NEW_ID, ID($fa));
+			cell->set_src(src);
 			cell->setParam(ID::WIDTH, width);
 			cell->setPort(ID::A, in1);
 			cell->setPort(ID::B, in2);
@@ -238,6 +240,7 @@ struct MaccmapWorker
 
 
 		RTLIL::Cell *c = module->addCell(NEW_ID, ID($alu));
+		c->set_src(src);
 		c->setPort(ID::A, summands.front());
 		c->setPort(ID::B, summands.back());
 		c->setPort(ID::CI, State::S0);
@@ -361,7 +364,7 @@ void maccmap(RTLIL::Module *module, RTLIL::Cell *cell, bool unmap)
 	}
 	else
 	{
-		MaccmapWorker worker(module, width);
+		MaccmapWorker worker(module, width, cell->src());
 		RTLIL::SigSpec bit_terms;
 
 		for (auto &term : macc.terms) {
