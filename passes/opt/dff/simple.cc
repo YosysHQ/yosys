@@ -74,18 +74,18 @@ struct SimpleContext
 		}
 	}
 
-	SigSpec create_not(SigSpec a, bool is_fine) {
+	SigSpec create_not(SigSpec a, bool is_fine, SrcRef src) {
 		if (is_fine)
-			return worker.module->NotGate(NEW_ID, a);
+			return worker.module->NotGate(NEW_ID, a, src);
 		else
-			return worker.module->Not(NEW_ID, a);
+			return worker.module->Not(NEW_ID, a, false, src);
 	}
 
-	SigSpec create_and(SigSpec a, SigSpec b, bool is_fine) {
+	SigSpec create_and(SigSpec a, SigSpec b, bool is_fine, SrcRef src) {
 		if (is_fine)
-			return worker.module->AndGate(NEW_ID, a, b);
+			return worker.module->AndGate(NEW_ID, a, b, src);
 		else
-			return worker.module->And(NEW_ID, a, b);
+			return worker.module->And(NEW_ID, a, b, false, src);
 	}
 
 	void create_mux_to_output(SigSpec a, SigSpec b, SigSpec sel, SigSpec y, bool pol, bool is_fine, SrcRef src = SrcRef::Null) {
@@ -180,7 +180,7 @@ struct SimpleContext
 		return ret;
 	}
 
-	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates)
+	ctrl_t make_patterns_logic(const patterns_t &patterns, const ctrls_t &ctrls, bool make_gates, SrcRef src)
 	{
 		if (patterns.empty() && GetSize(ctrls) == 1)
 			return *ctrls.begin();
@@ -197,7 +197,7 @@ struct SimpleContext
 			}
 
 			RTLIL::SigSpec y = worker.module->addWire(NEW_ID);
-			RTLIL::Cell *c = worker.module->addNe(NEW_ID, s1, s2, y);
+			RTLIL::Cell *c = worker.module->addNe(NEW_ID, s1, s2, y, false, src);
 			maybe_simplemap(c, make_gates);
 			or_input.append(y);
 		}
@@ -207,19 +207,19 @@ struct SimpleContext
 			if (item.second)
 				or_input.append(item.first);
 			else
-				or_input.append(create_not(item.first, make_gates));
+				or_input.append(create_not(item.first, make_gates, src));
 		}
 
 		if (GetSize(or_input) == 0) return ctrl_t(State::S1, true);
 		if (GetSize(or_input) == 1) return ctrl_t(or_input, true);
 
 		RTLIL::SigSpec y = worker.module->addWire(NEW_ID);
-		RTLIL::Cell *c = worker.module->addReduceAnd(NEW_ID, or_input, y);
+		RTLIL::Cell *c = worker.module->addReduceAnd(NEW_ID, or_input, y, false, src);
 		maybe_simplemap(c, make_gates);
 		return ctrl_t(y, true);
 	}
 
-	ctrl_t combine_resets(const ctrls_t &ctrls, bool make_gates)
+	ctrl_t combine_resets(const ctrls_t &ctrls, bool make_gates, SrcRef src)
 	{
 		if (GetSize(ctrls) == 1)
 			return *ctrls.begin();
@@ -234,13 +234,13 @@ struct SimpleContext
 			if (item.second == final_pol)
 				or_input.append(item.first);
 			else
-				or_input.append(create_not(item.first, make_gates));
+				or_input.append(create_not(item.first, make_gates, src));
 		}
 
 		RTLIL::SigSpec y = worker.module->addWire(NEW_ID);
 		RTLIL::Cell *c = final_pol
-			? worker.module->addReduceOr(NEW_ID, or_input, y)
-			: worker.module->addReduceAnd(NEW_ID, or_input, y);
+			? worker.module->addReduceOr(NEW_ID, or_input, y, false, src)
+			: worker.module->addReduceAnd(NEW_ID, or_input, y, false, src);
 		maybe_simplemap(c, make_gates);
 		return ctrl_t(y, final_pol);
 	}
@@ -500,9 +500,9 @@ struct SimpleContext
 			log("Handling D = Q on %s (%s) from module %s (conecting SRST instead).\n",
 					cell, cell->type.unescape(), worker.module);
 			if (ff.has_ce && ff.ce_over_srst) {
-				SigSpec ce = ff.pol_ce ? ff.sig_ce : create_not(ff.sig_ce, ff.is_fine);
-				SigSpec srst = ff.pol_srst ? ff.sig_srst : create_not(ff.sig_srst, ff.is_fine);
-				ff.sig_ce = create_and(ce, srst, ff.is_fine);
+				SigSpec ce = ff.pol_ce ? ff.sig_ce : create_not(ff.sig_ce, ff.is_fine, cell->src());
+				SigSpec srst = ff.pol_srst ? ff.sig_srst : create_not(ff.sig_srst, ff.is_fine, cell->src());
+				ff.sig_ce = create_and(ce, srst, ff.is_fine, cell->src());
 				ff.pol_ce = true;
 			} else {
 				ff.pol_ce = ff.pol_srst;
@@ -581,7 +581,7 @@ struct SimpleContext
 
 			new_ff.val_srst = new_val_srst_builder.build();
 
-			ctrl_t srst = combine_resets(it.first, ff.is_fine);
+			ctrl_t srst = combine_resets(it.first, ff.is_fine, cell->src());
 			new_ff.has_srst = true;
 			new_ff.sig_srst = srst.first;
 			new_ff.pol_srst = srst.second;
@@ -673,7 +673,7 @@ struct SimpleContext
 
 		for (auto &it : groups) {
 			FfData new_ff = ff.slice(it.second);
-			ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine);
+			ctrl_t en = make_patterns_logic(it.first.first, it.first.second, ff.is_fine, cell->src());
 
 			new_ff.has_ce = true;
 			new_ff.sig_ce = en.first;
