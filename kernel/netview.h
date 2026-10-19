@@ -62,6 +62,21 @@ void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
 
 } // namespace detail
 
+// A list of values per key, empty for a missing key
+template <typename K, typename V> struct ListMap {
+	void add(const K &key, V value) { data[key].push_back(value); }
+	const std::vector<V> &get(const K &key) const
+	{
+		auto it = data.find(key);
+		if (it != data.end())
+			return it->second;
+		return none;
+	}
+	void clear() { data.clear(); }
+	dict<K, std::vector<V>> data;
+	std::vector<V> none;
+};
+
 struct NetView final : public Netlist, public RTLIL::Monitor
 {
 	NetView() = default;
@@ -121,6 +136,13 @@ private:
 		NetName name;           // copied out of RTLIL
 	};
 
+	struct NetsByScopeBit {
+		Net *get(const Instance *scope, const RTLIL::SigBit &bit) const;
+		void set(const Instance *scope, const RTLIL::SigBit &bit, Net *net);
+		void clear() { data.clear(); }
+		dict<std::pair<uint32_t, uint64_t>, Net *> data;
+	};
+
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
@@ -133,7 +155,7 @@ private:
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
-	Net *knownNet(const Instance *scope, const RTLIL::SigBit &bit) const;
+	const ScopeData &scopeData(const Instance *scope) const;
 	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
 
 	bool designAlive() const;
@@ -162,13 +184,13 @@ private:
 	std::unordered_map<const Instance *, ScopeData> scopes_;
 
 	// RTLIL to records
-	dict<uint32_t, std::vector<Instance *>> cell_insts_; // by cell hashidx_
-	dict<const RTLIL::Module *, std::vector<Instance *>> module_scopes_;
+	ListMap<uint32_t, Instance *> cell_insts_;                 // by cell hashidx_
+	ListMap<const RTLIL::Module *, Instance *> module_scopes_;
 	IdMap<InstData> inst_data_;
 
 	// Nets by bit
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
-	dict<std::pair<uint32_t, uint64_t>, Net *> bit_net_; // by scope id and bit key
+	NetsByScopeBit bit_nets_;
 	IdMap<NetData> net_data_;
 
 	// Staleness
