@@ -336,6 +336,8 @@ struct DesignPass : public Pass {
 			design->clone_into(design_copy);
 
 			design_copy->selection_stack = design->selection_stack;
+			for (auto &sel : design_copy->selection_stack)
+				sel.current_design = design_copy;
 			design_copy->selection_vars = design->selection_vars;
 			design_copy->selected_active_module = design->selected_active_module;
 
@@ -377,6 +379,8 @@ struct DesignPass : public Pass {
 			saved_design->clone_into(design);
 
 			design->selection_stack = saved_design->selection_stack;
+			for (auto &sel : design->selection_stack)
+				sel.current_design = design;
 			design->selection_vars = saved_design->selection_vars;
 			design->selected_active_module = saved_design->selected_active_module;
 
