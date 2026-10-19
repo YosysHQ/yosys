@@ -188,8 +188,9 @@ influence the build process.  When setting one-off variables, CMake provides the
 
 For a more persistent configuration, we recommend creating and using a
 ``CMakeUserPresets.json`` file in the root ``yosys`` directory. Below is an
-example file which enables ccache and sets the default compiler to clang when
-calling ``cmake --preset default``:
+example file which has two configurations, one enables ccache and sets the default compiler to clang when
+calling ``cmake --preset clang``, and the other disables zlib support when calling ``cmake --preset without_zlib``
+This can be used instead of manually specifying ``-DYOSYS_WITHOUT_ZLIB=ON``:
 
 .. code-block:: json
    :caption: CMakeUserPresets.json
@@ -198,15 +199,22 @@ calling ``cmake --preset default``:
       "version": 1,
       "configurePresets": [
          {
-            "name": "default",
-            "binaryDir": "build",
-            "generator": "Unix Makefiles",
-            "cacheVariables": {
-               "CMAKE_C_COMPILER": "clang",
-               "CMAKE_CXX_COMPILER": "clang++",
-               "YOSYS_COMPILER_LAUNCHER": "ccache"
-            }
-         }
+			"name": "clang",
+			"inherits": "default",
+			"generator": "Unix Makefiles",
+			"cacheVariables": {
+				"CMAKE_C_COMPILER": "clang",
+				"CMAKE_CXX_COMPILER": "clang++",
+				"YOSYS_COMPILER_LAUNCHER": "ccache"
+			}
+		},
+		{
+			"name": "without_zlib",
+			"inherits": "clang",
+			"cacheVariables": {
+				"YOSYS_WITHOUT_ZLIB": "ON"
+			}
+		}
       ]
    }
 
@@ -220,14 +228,20 @@ Once generated, available build variables can be inspected and modified with
 
 If you have clang, and (a compatible version of) ``ld.lld`` available in PATH,
 it's recommended to speed up incremental builds with lld by enabling LTO with
-``CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON``.  On macOS, LTO requires using clang
-from homebrew rather than clang from xcode.  For example:
+``CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON``. On macOS, LTO requires using clang
+from homebrew rather than clang from xcode. For example:
 
 .. code:: console
 
    cmake -B build . -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON \
       -DCMAKE_C_COMPILER=$(brew --prefix)/opt/llvm/bin/clang \
       -DCMAKE_CXX_COMPILER=$(brew --prefix)/opt/llvm/bin/clang++
+
+This is also available with a preset:
+
+.. code:: console
+
+   cmake --preset lto
 
 By default, building (and installing) Yosys will build (and install) `ABC`_,
 using :program:`yosys-abc` as the executable name.  To use an existing ABC
@@ -242,15 +256,15 @@ the root ``yosys`` directory:
 
 .. code:: console
 
-   cmake -B build . -DCMAKE_BUILD_TYPE=Release --fresh
-   cmake --build build --config Release --parallel $(nproc)
-   sudo cmake --install build --strip
+   cmake --preset release --fresh
+   cmake --build build-rel --config Release --parallel $(nproc)
+   sudo cmake --install build-rel --strip
 
 To use an existing configuration, use the ``--build`` option, e.g:
 
 .. code:: console
 
-   cmake -B build .
+   cmake --preset default
    ccmake build              # modify configuration
    cmake --build build
 
