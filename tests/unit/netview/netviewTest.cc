@@ -106,7 +106,7 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_FALSE(iinv0->internal);
 	EXPECT_EQ(isub->parent, t);
 	EXPECT_EQ(view.module(isub), sub);
-	EXPECT_EQ(view.scope(sub), isub);
+	EXPECT_EQ(view.scopes(sub), std::vector<Netlist::Instance *>{isub});
 	EXPECT_EQ(view.cell(iinv0), u_inv0);
 	EXPECT_EQ(iinv0->type, "INV");
 	EXPECT_EQ(isub->children.size(), 2u);
@@ -306,13 +306,53 @@ TEST_F(NetViewTest, buildableReasons)
 	EXPECT_NE(reason.find("(run proc)"), std::string::npos) << reason;
 	sub->remove(sub->processes.at(d->twines().find("\\proc")));
 
-	top->addCell("\\u_sub2", "\\sub");
+	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
+	EXPECT_TRUE(NetView::buildable(d, reason)) << reason;
+	top->remove(u_sub2);
+	Cell *self = sub->addCell("\\self", "\\sub");
 	EXPECT_FALSE(NetView::buildable(d, reason));
-	EXPECT_NE(reason.find("uniquify"), std::string::npos);
+	EXPECT_NE(reason.find("contains itself"), std::string::npos) << reason;
+	sub->remove(self);
 
 	Design empty;
 	EXPECT_FALSE(NetView::buildable(&empty, reason));
 	EXPECT_NE(reason.find("no top"), std::string::npos);
+}
+
+TEST_F(NetViewTest, sharedModuleUnfolds)
+{
+	sub->connect(SigBit(y, 1), State::S1);
+	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
+	u_sub2->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	Netlist::Instance *first = view.instance(i1, view.instance(u_sub));
+	Netlist::Instance *second = view.instance(i1, view.instance(u_sub2));
+	ASSERT_NE(first, nullptr);
+	ASSERT_NE(second, nullptr);
+	EXPECT_NE(first->parent, second->parent);
+	EXPECT_EQ(view.cell(first), i1);
+	EXPECT_EQ(view.cell(second), i1);
+	EXPECT_EQ(view.module(first->parent), sub);
+	EXPECT_EQ(view.scopes(sub).size(), 2u);
+
+	Netlist::Net *net = second->pins[0]->net;
+	EXPECT_NE(first->pins[0]->net, net);
+	EXPECT_EQ(net->scope, second->parent);
+	EXPECT_EQ(second->parent->pins[0]->term->net, net);
+	EXPECT_EQ(second->parent->pins[0]->net, view.instance(u_inv0)->pins[0]->net);
+	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
+	for (const Netlist::Alias &alias : view.aliases(second->parent))
+		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
+	Netlist::Net *one = view.constNet(second->parent, true);
+	ASSERT_NE(one, nullptr);
+	EXPECT_EQ(one->scope, second->parent);
+	EXPECT_NE(view.constNet(first->parent, true), one);
+
+	// The instance of a cell in each scope
+	EXPECT_EQ(view.instance(i1), nullptr);
+	EXPECT_EQ(view.instance(i1, second->parent), second);
+	EXPECT_EQ(view.instance(i1, view.top()), nullptr);
 }
 
 TEST_F(NetViewTest, selectionDoesNotMatter)
