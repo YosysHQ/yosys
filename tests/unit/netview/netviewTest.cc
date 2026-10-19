@@ -235,6 +235,17 @@ TEST_F(NetViewTest, resetRestartsIds)
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }
 
+TEST_F(NetViewTest, retireKeepsOwners)
+{
+	NetView view;
+	view.build(d);
+	Netlist::Instance *inv = view.instance(u_inv0);
+	EXPECT_FALSE(view.retire()->built());
+	EXPECT_EQ(inv->netlist, &view);
+	EXPECT_TRUE(inv->pins.empty());
+	EXPECT_EQ(view.instance(u_inv0), nullptr);
+}
+
 TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
 {
 	Wire *d1 = top->addWire("\\d1");
