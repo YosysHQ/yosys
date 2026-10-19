@@ -14,6 +14,7 @@ module top(input clk, a, en);
             assert(a_q);
 endmodule
 EOT
+opt_clean
 
 prep
 

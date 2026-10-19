@@ -6,6 +6,7 @@ parameter DATAWIDTH=1;
 (* keep, mem2reg *) reg [DATAWIDTH-1:0] data2 [DATADEPTH-1:0];
 endmodule
 EOT
+opt_clean
 
 proc
 cd top

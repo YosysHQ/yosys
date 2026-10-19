@@ -13,6 +13,7 @@ module test_module (
   assign y = x;
 endmodule
 EOT
+opt_clean
 proc
 
 splitnets -ports -format __:

@@ -20,6 +20,7 @@ module f3_test(input in, output [1:0] out);
 	assign out[1] = in;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 flatten -scopename

@@ -1,3 +1,0 @@
-setenv filename top.sv
-read_slang --no-proc --std latest -f setenv.flist
-select -assert-mod-count 1 top

@@ -3,6 +3,7 @@ module test(input foo);
 always @(*) assert(foo);
 endmodule
 EOT
+opt_clean
 
 prep
 

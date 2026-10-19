@@ -1,0 +1,415 @@
+/* https://github.com/The-OpenROAD-Project/OpenROAD/blob/80443953721b0134bed51bbab17a633a575098a6/src/syn/test/cm_test_cells.lib
+
+   changed: multi-pin related_pin lists split per pin, abc only reads single-pin ones */
+library(cm_test) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+
+  nom_process : 1.0;
+  nom_temperature : 25.0;
+  nom_voltage : 1.0;
+  operating_conditions(typ) {
+    process : 1.0;
+    temperature : 25.0;
+    voltage : 1.0;
+    tree_type : balanced_tree;
+  }
+  default_operating_conditions : typ;
+
+  cell(INV) {
+    area : 1;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "!A";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(BUF) {
+    area : 2;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(AND2) {
+    area : 3;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A&B";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(OR2) {
+    area : 3;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A|B";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(NAND2) {
+    area : 2;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "!(A&B)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(NOR2) {
+    area : 2;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "!(A|B)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(ANDNOT2) {
+    area : 3;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A&!B";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(ORNOT2) {
+    area : 3;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A|!B";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(XOR2) {
+    area : 5;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "(A&!B)|(!A&B)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(XNOR2) {
+    area : 5;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "(A&B)|(!A&!B)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(MUX2) {
+    area : 7;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(S) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "(A&!S)|(B&S)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "S";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(AOI21) {
+    area : 4;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(C) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "!(A&(B|C))";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "C";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(OAI21) {
+    area : 4;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(C) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "!(A|(B&C))";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "C";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(AO21) {
+    area : 5;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(C) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A&(B|C)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "C";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(OA21) {
+    area : 5;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(C) { direction : input; capacitance : 0.001; }
+    pin(Y) {
+      direction : output;
+      function : "A|(B&C)";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "C";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(TIELO) {
+    area : 1;
+    pin(Y) { direction : output; function : "0"; }
+  }
+
+  cell(TIEHI) {
+    area : 1;
+    pin(Y) { direction : output; function : "1"; }
+  }
+}

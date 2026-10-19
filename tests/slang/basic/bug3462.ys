@@ -3,6 +3,7 @@ module sub #(parameter d=1) (input in, output out);
     assign out = in;
 endmodule
 EOT
+opt_clean
 
 read_slang --no-proc --std latest <<EOT
 module top();
@@ -14,5 +15,6 @@ module top();
     );
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top

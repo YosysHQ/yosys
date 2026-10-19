@@ -9,6 +9,7 @@ module half_clock (CLK, Q, magic);
 endmodule
 
 EOT
+opt_clean
 proc
 design -save half_clock
 
@@ -71,6 +72,7 @@ module wide_flop_no_q (CLK, DDD, QQQ, magic);
 		QQQ <= DDD;
 endmodule
 EOT
+opt_clean
 proc
 opt_expr
 opt_dff
@@ -106,6 +108,7 @@ module wide_flop (CLK, DDD, QQQ, Q, magic);
 	assign Q = QQQ[0];
 endmodule
 EOT
+opt_clean
 proc
 design -save wide_flop
 # Test that abstracting an output slice muxes an input slice
@@ -132,6 +135,7 @@ module half_clock_en (CLK, E, Q, magic);
             Q <= ~Q;
 endmodule
 EOT
+opt_clean
 proc
 opt_expr
 opt_dff
@@ -154,6 +158,7 @@ module top (CLK, E, Q, Q_EN);
 	half_clock_en uut_en (CLK, E, Q_EN, 1'b0);
 endmodule
 EOT
+opt_clean
 proc
 design -import half_clock
 design -import half_clock_en

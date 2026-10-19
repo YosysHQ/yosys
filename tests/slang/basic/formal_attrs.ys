@@ -13,8 +13,9 @@ module top (clk);
     wire d;
 endmodule
 EOT
+opt_clean
 
-select -assert-count 1 t:anyseq
-select -assert-count 1 t:anyconst
-select -assert-count 1 t:allseq
-select -assert-count 1 t:allconst
+select -assert-count 1 t:$anyseq
+select -assert-count 1 t:$anyconst
+select -assert-count 1 t:$allseq
+select -assert-count 1 t:$allconst

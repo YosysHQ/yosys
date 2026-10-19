@@ -4,6 +4,7 @@ module top(input g, d, output reg q);
 always @* if (g) q = d;
 endmodule
 EOT
+opt_clean
 hierarchy -top top
 proc
 select -assert-count 1 t:$dlatch
@@ -17,6 +18,7 @@ module top(input g, d, output reg q);
 always @* q = g ? d : 1'b0;
 endmodule
 EOT
+opt_clean
 hierarchy -top top
 proc
 check -nolatches -assert
@@ -27,6 +29,7 @@ module top(input g, d, output reg q);
 always_latch if (g) q <= d;
 endmodule
 EOT
+opt_clean
 hierarchy -top top
 proc
 select -assert-count 1 t:$dlatch a:always_latch %i
@@ -41,6 +44,7 @@ wire u;
 assign y = u;
 endmodule
 EOT
+opt_clean
 hierarchy -top top
 proc
 logger -expect error "Found [0-9]+ problems in 'check -assert'" 1

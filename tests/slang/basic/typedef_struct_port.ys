@@ -1,0 +1,6 @@
+read_slang --no-proc --std latest typedef_struct_port.sv
+hierarchy; proc; opt; async2sync
+select -module top
+sat -verify -tempinduct -prove-asserts -show-all
+select -module test_parser
+sat -verify -tempinduct -prove-asserts -show-all

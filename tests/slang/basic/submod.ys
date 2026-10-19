@@ -9,6 +9,7 @@ module sub(input a, output c);
 assign c = a;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -36,6 +37,7 @@ module sub(input a, output c);
 assign c = a;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -64,6 +66,7 @@ module sub(input a, output c);
 assign c = a;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -92,6 +95,7 @@ module DFF(input D, C, output Q);
 parameter INIT = 1'b0;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -109,6 +113,7 @@ DFF s2(.D(d), .C(c), .Q(q[0]));
 DFF s3(.D(d), .C(c), .Q(q[2]));
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -120,5 +125,6 @@ read_slang --no-proc --std latest <<EOT
 module DFF(input D, C, output Q);
 endmodule
 EOT
+opt_clean
 
 check -assert

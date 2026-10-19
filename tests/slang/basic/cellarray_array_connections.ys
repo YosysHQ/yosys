@@ -37,6 +37,7 @@ module top2 (
 endmodule
 
 EOT
+opt_clean
 
 hierarchy
 proc
