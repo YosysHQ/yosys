@@ -48,22 +48,20 @@ std::vector<std::string> detail::hdlPath(const RTLIL::AttrObject *object)
 }
 
 // Unescaped
-std::string detail::plainName(RTLIL::IdString id)
+std::string detail::plainName(RTLIL::PooledName id)
 {
-	if (id.isPublic())
-		return id.str().substr(1);
-	return id.str();
+	return id.unescape();
 }
 
-RTLIL::IdString detail::escapedPortId(const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name)
+RTLIL::IdString detail::escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name)
 {
-	RTLIL::IdString pub = "\\" + name;
+	RTLIL::IdString pub = design->twines().find("\\" + name);
 	if (name.empty() || name[0] != '$')
 		return pub;
 	bool known = (cell != nullptr && cell->hasPort(pub)) || (sub != nullptr && sub->wire(pub) != nullptr);
 	if (known)
 		return pub;
-	return RTLIL::IdString(name);
+	return design->twines().find(name);
 }
 
 // Declared with a range - wider than one bit, offset, or [0:0]
@@ -123,7 +121,7 @@ bool detail::libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShap
 		if (width == 0)
 			continue;
 		Netlist::PortShape shape;
-		shape.name = detail::plainName(port);
+		shape.name = detail::plainName({cell->module, port});
 		shape.width = width;
 		shape.from = width - 1;
 		shape.to = 0;
@@ -214,7 +212,7 @@ bool detail::checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::M
 		if (sub == nullptr)
 			continue;
 		if (sub == top || !seen.insert(sub).second) {
-			reason = stringf("module %s instantiated more than once (run uniquify)", log_id(sub));
+			reason = stringf("module %s instantiated more than once (run uniquify)", sub);
 			return false;
 		}
 		if (!detail::checkUniquified(design, top, sub, seen, reason))
@@ -250,7 +248,7 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 bool detail::checkModule(RTLIL::Module *module, std::string &reason)
 {
 	if (!module->processes.empty()) {
-		reason = stringf("module %s has processes (run proc)", log_id(module));
+		reason = stringf("module %s has processes (run proc)", module);
 		return false;
 	}
 	return detail::checkIndices(module, reason);
@@ -265,7 +263,7 @@ bool detail::checkIndices(RTLIL::Module *module, std::string &reason)
 {
 	for (RTLIL::Wire *wire : module->wires()) {
 		if (!detail::indicesFitInt(wire)) {
-			reason = stringf("range of wire %s in module %s overflows", log_id(wire->name), log_id(module->name));
+			reason = stringf("range of wire %s in module %s overflows", wire, module);
 			return false;
 		}
 	}
@@ -352,8 +350,8 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 		name = module->name;
 		type = module->name;
 	}
-	inst->name = detail::plainName(name);
-	inst->type = detail::plainName(type);
+	inst->name = detail::plainName({design_, name});
+	inst->type = detail::plainName({design_, type});
 
 	// A uniquified module keeps its original name in hdlname
 	inst->master = inst->type;
@@ -411,7 +409,7 @@ void NetView::makePins(Instance *inst)
 	inst->ports = portsFor(inst, sub);
 	for (uint32_t p = 0; p < inst->ports->size(); p++) {
 		const PortShape &shape = (*inst->ports)[p];
-		RTLIL::IdString port_id = detail::escapedPortId(c, sub, shape.name);
+		RTLIL::IdString port_id = detail::escapedPortId(design_, c, sub, shape.name);
 		RTLIL::SigSpec sig;
 		if (c != nullptr && c->hasPort(port_id))
 			sig = c->getPort(port_id);
@@ -484,7 +482,7 @@ detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
 	bool keep = wire->get_bool_attribute(ID::keep);
 	bool pub = wire->name.isPublic();
 	size_t depth = detail::hdlPath(wire).size();
-	return {!port, !keep, !pub, depth, wire->name.c_str(), bit.offset};
+	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
 }
 
 void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
@@ -672,7 +670,7 @@ uint64_t NetView::fingerprint() const
 	detail::Fingerprint fp;
 	detail::hashDesign(fp, design_);
 
-	for (RTLIL::IdString name : tracked_) {
+	for (const std::string &name : tracked_) {
 		RTLIL::Module *module = design_->module(name);
 		fp.eat(module != nullptr);
 		if (module != nullptr)
