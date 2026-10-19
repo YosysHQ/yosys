@@ -377,11 +377,12 @@ struct SynthPass : public ScriptPass {
 
 		if (check_label("map_iopad", "(skip if -noiopad)") && !noiopad) {
 			run("opt -full");
+			std::string iopadmap_sel = (top_module.empty() && !autotop) ? "" : " A:top";
 			run("iopadmap -bits "
 			    "-inpad $__FABULOUS_IBUF OUT:PAD "
 			    "-outpad $__FABULOUS_OBUF IN:PAD "
 			    "-toutpad $__FABULOUS_TBUF EN:IN:PAD "
-			    "-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD");
+			    "-tinoutpad $__FABULOUS_IOBUF EN:OUT:IN:PAD" + iopadmap_sel);
 		}
 
 		if (check_label("map_ffs")) {

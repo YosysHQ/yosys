@@ -345,7 +345,7 @@ struct SynthGowinPass : public ScriptPass
 			run("opt -fast");
 			if (!noiopads || help_mode)
 				run("iopadmap -bits -inpad IBUF O:I -outpad OBUF I:O "
-					"-toutpad TBUF ~OEN:I:O -tinoutpad IOBUF ~OEN:O:I:IO", "(unless -noiopads)");
+					"-toutpad TBUF ~OEN:I:O -tinoutpad IOBUF ~OEN:O:I:IO A:top", "(unless -noiopads)");
 		}
 
 		if (check_label("map_ffs"))

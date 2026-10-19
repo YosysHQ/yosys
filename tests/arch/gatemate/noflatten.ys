@@ -1,0 +1,31 @@
+# Test that `synth_gatemate -noflatten` keeps a submodule in the design,
+# and that only the top module receives IO pads.
+
+read_verilog <<EOF
+module sub_module(input a, output b);
+	assign b = a;
+endmodule
+
+module my_top(input a, output b);
+	wire w;
+	sub_module u(.a(a), .b(w));
+	assign b = w;
+endmodule
+EOF
+
+synth_gatemate -top my_top -noflatten
+
+log Assert that sub_module survives the flow
+select -assert-mod-count 1 sub_module
+
+log Assert that my_top instantiates sub_module
+select -assert-count 1 t:sub_module
+
+log Assert that sub_module has no IOBUFs
+cd sub_module
+select -assert-none t:CC_IBUF t:CC_OBUF t:CC_TOBUF t:CC_IOBUF
+cd my_top
+
+log Assert that my_top has its IOBUFs
+select -assert-count 1 t:CC_IBUF
+select -assert-count 1 t:CC_OBUF
