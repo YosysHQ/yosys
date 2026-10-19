@@ -1,0 +1,4 @@
+setenv filename case.sv
+verific -f -sv setenv.flist
+verific -import top
+select -assert-mod-count 1 top

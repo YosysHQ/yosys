@@ -1,0 +1,94 @@
+verific -sv <<EOF
+
+module top(clk);
+input wire clk;
+
+parameter DEPTH_LOG2 = 4;
+parameter DEPTH = 2**DEPTH_LOG2;
+parameter BYTEWIDTH = 8;
+parameter WIDTH = BYTEWIDTH*4;
+parameter PRIME1 = 237481091;
+parameter PRIME2 = 296851369;
+
+(* ram_style = "block" *)
+reg [WIDTH-1:0] mem [DEPTH-1:0];
+
+integer i;
+initial begin
+    for (i = 0; i < DEPTH; i = i + 1) begin
+        // Make up data by multiplying a large prime with the address,
+        // then cropping and retaining the lower bits
+        mem[i] = PRIME1 * i;
+    end
+end
+
+reg [DEPTH_LOG2-1:0] counter = 0;
+reg done = 1'b0;
+always @(posedge clk) begin
+    if (!done)
+        counter = counter + 1'b1;
+    if (counter == 0)
+        done = 1'b1;
+end
+
+wire [WIDTH-1:0] old_data = PRIME1 * counter;
+wire [WIDTH-1:0] new_data = PRIME2 * counter;
+
+reg [WIDTH-1:0] expect_old_data;
+reg [WIDTH-1:0] expect_mixed_data;
+
+always @(posedge clk) begin
+    if (!done) begin
+        expect_old_data <= mem[counter];
+        mem[counter][31:24] <= new_data[31:24];
+        mem[counter][23:16] = new_data[23:16]; // !!! is blocking
+        mem[counter][15:8] <= new_data[15:8];
+        mem[counter][7:0] <= new_data[7:0];
+        expect_mixed_data <= mem[counter];
+    end
+end
+
+reg done_delay1 = 1'b1;
+reg [WIDTH-1:0] new_data_delay1 = 1'b1;
+reg [WIDTH-1:0] old_data_delay1 = 1'b1;
+
+always @(posedge clk) begin
+    if (!done_delay1) begin
+        assert(expect_old_data == old_data_delay1);
+        assert(expect_mixed_data[31:24] == old_data_delay1[31:24]);
+        assert(expect_mixed_data[23:16] == new_data_delay1[23:16]);
+        assert(expect_mixed_data[15:0] == old_data_delay1[15:0]);
+    end
+end
+
+reg [DEPTH_LOG2-1:0] counter_delay1;
+always @(posedge clk) begin
+    counter_delay1 <= counter;
+    done_delay1 <= done;
+    new_data_delay1 <= new_data;
+    old_data_delay1 <= old_data;
+end
+
+reg [DEPTH_LOG2-1:0] counter_delay2;
+reg done_delay2 = 1'b1;
+reg [WIDTH-1:0] new_data_delay2 = 1'b1;
+always @(posedge clk) begin
+    counter_delay2 <= counter_delay1;
+    done_delay2 <= done_delay1;
+    new_data_delay2 <= new_data_delay1;
+end
+
+always @(posedge clk) begin
+    if (!done_delay2)
+        assert(mem[counter_delay2] == new_data_delay2);
+end
+
+endmodule
+EOF
+
+hierarchy -top top
+proc
+opt_clean
+memory -nomap -nordff
+select -assert-count 1 t:$mem_v2
+sim -assert -clock clk -n 20
