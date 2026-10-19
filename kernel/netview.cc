@@ -702,15 +702,34 @@ NetView::Net *NetView::findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit)
 	return net;
 }
 
+uint64_t detail::mix64(uint64_t state, uint64_t value)
+{
+	uint64_t z = state + value + 0x9e3779b97f4a7c15;
+	z = (z ^ z >> 30) * 0xbf58476d1ce4e5b9;
+	z = (z ^ z >> 27) * 0x94d049bb133111eb;
+	return z ^ z >> 31;
+}
+
 struct detail::Fingerprint {
-	Hasher lo, hi;
-	Fingerprint() { hi.force(0x9e3779b9); }
-	template <typename T> void eat(const T &value)
+	uint64_t state = 0;
+	void eat(uint64_t value) { state = detail::mix64(state, value); }
+	void eat(uint32_t high, uint32_t low) { eat(uint64_t(high) << 32 | low); }
+	void eat(RTLIL::IdString id) { eat(uint64_t(id.eq_key())); }
+	void eat(const std::string &text)
 	{
-		lo.eat(value);
-		hi.eat(value);
+		eat(text.size());
+		for (size_t at = 0; at < text.size(); at += 8) {
+			uint64_t chunk = 0;
+			memcpy(&chunk, text.data() + at, std::min<size_t>(8, text.size() - at));
+			eat(chunk);
+		}
 	}
-	uint64_t yield() const { return uint64_t(hi.yield()) << 32 | lo.yield(); }
+	void eat(const RTLIL::SigSpec &sig)
+	{
+		for (RTLIL::SigBit bit : sig)
+			eat(bit.wire ? uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset) : uint64_t(bit.data) + 8);
+	}
+	uint64_t yield() const { return state; }
 };
 
 uint64_t NetView::fingerprint() const
@@ -730,7 +749,7 @@ uint64_t NetView::fingerprint() const
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {
 	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name);
+		fp.eat(module->name.ref());
 		fp.eat(module->hashidx_);
 		bool blackbox = module->get_blackbox_attribute();
 		fp.eat(blackbox);
@@ -751,8 +770,11 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
-	for (const RTLIL::SigSig &conn : module->connections())
-		fp.eat(conn);
+	for (const auto &[lhs, rhs] : module->connections()) {
+		fp.eat(GetSize(lhs));
+		fp.eat(lhs);
+		fp.eat(rhs);
+	}
 	for (RTLIL::Wire *wire : module->wires())
 		detail::hashWire(fp, wire);
 	for (RTLIL::Cell *cell : module->cells())
@@ -761,27 +783,24 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 
 void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 {
-	fp.eat(wire->name);
+	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
+	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
+	fp.eat(wire->name.ref());
 	fp.eat(wire->hashidx_);
-	fp.eat(wire->width);
-	fp.eat(wire->start_offset);
-	fp.eat(wire->upto);
-	fp.eat(wire->port_id);
-	fp.eat(wire->port_input);
-	fp.eat(wire->port_output);
-	fp.eat(wire->get_bool_attribute(ID::keep));
+	fp.eat(wire->width, wire->start_offset);
+	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
-	fp.eat(wire->has_attribute(ID::single_bit_vector));
 }
 
 void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
 {
-	fp.eat(cell->name);
+	fp.eat(cell->name.ref());
 	fp.eat(cell->hashidx_);
-	fp.eat(cell->type);
+	fp.eat(cell->type.ref());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
 	for (const auto &[port, sig] : cell->connections()) {
 		fp.eat(port);
+		fp.eat(GetSize(sig));
 		fp.eat(sig);
 	}
 }
