@@ -234,10 +234,7 @@ public:
 
 	bool empty() { return sinks.empty(); }
 	void clear() { sinks.clear(); }
-	void clear_original()
-	{
-		std::erase_if(sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
-	}
+	void clear_original();
 	void flush() { for (auto &sink : sinks) sink->flush(); }
 
 	class Scoped
