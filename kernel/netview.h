@@ -22,6 +22,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail {
 
 struct Fingerprint;
+uint64_t mix64(uint64_t state, uint64_t value);
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
