@@ -1,5 +1,5 @@
 [options]
-mode bmc
+mode cover
 expect pass,fail
 append 0
 depth 11

@@ -1,0 +1,20 @@
+design -reset
+read_slang <<EOT
+module top (clk);
+	input clk;
+
+	(* anyseq *)
+    wire a;
+    (* anyconst *)
+    wire b;
+    (* allseq *)
+    wire c;
+    (* allconst *)
+    wire d;
+endmodule
+EOT
+
+select -assert-count 1 t:anyseq
+select -assert-count 1 t:anyconst
+select -assert-count 1 t:allseq
+select -assert-count 1 t:allconst

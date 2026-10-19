@@ -47,8 +47,8 @@ module rvfi_bus_dmem_check (
 
 	always @(posedge clock) begin
 		if (reset) begin
-			dmem_shadow <= dmem_data;
-			bus_shadow <= dmem_data;
+			dmem_shadow = dmem_data;
+			bus_shadow = dmem_data;
 		end else begin
 			for (channel_idx = 0; channel_idx < `RISCV_FORMAL_NBUS; channel_idx=channel_idx+1) begin
 				if (rvfi_bus_valid[channel_idx] && rvfi_bus_data[channel_idx]) begin
