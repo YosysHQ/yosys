@@ -1056,6 +1056,7 @@ skip_fine_alu:
 		}
 
 		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 &&
+				!cell->has_keep_attr() &&
 				invert_map.count(assign_map(cell->getPort(ID::A))) != 0) {
 			replace_cell(assign_map, module, cell, "double_invert", ID::Y, invert_map.at(assign_map(cell->getPort(ID::A))));
 			goto next_cell;
