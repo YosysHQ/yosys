@@ -65,6 +65,7 @@ struct Netlist
 		std::string type;                 // cell type or module name, unescaped
 		std::string master;               // display name of the master (e.g. the pre-uniquify module)
 		Instance *parent;
+		const Netlist *netlist;
 		uint32_t id;
 		bool leaf;
 		bool internal;

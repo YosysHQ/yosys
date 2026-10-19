@@ -87,6 +87,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void build(RTLIL::Design *design, PortModel *ports = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
+	std::unique_ptr<NetView> retire();
 	bool built() const;
 	static RTLIL::Module *topModule(RTLIL::Design *design);
 
@@ -143,6 +144,7 @@ private:
 		dict<std::pair<uint32_t, uint64_t>, Net *> data;
 	};
 
+	void clearTables();
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);

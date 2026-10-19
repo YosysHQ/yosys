@@ -345,6 +345,15 @@ void NetView::reset()
 	pins_.clear();
 	nets_.clear();
 	terms_.clear();
+	clearTables();
+	next_inst_id_ = 1;
+	next_pin_id_ = 1;
+	next_net_id_ = 1;
+	next_term_id_ = 1;
+}
+
+void NetView::clearTables()
+{
 	shape_store_.clear();
 	shape_cache_.clear();
 	sigmaps_.clear();
@@ -354,10 +363,27 @@ void NetView::reset()
 	module_scopes_.clear();
 	inst_data_.clear();
 	net_data_.clear();
-	next_inst_id_ = 1;
-	next_pin_id_ = 1;
-	next_net_id_ = 1;
-	next_term_id_ = 1;
+}
+
+std::unique_ptr<NetView> NetView::retire()
+{
+	unregisterMonitor();
+	design_ = nullptr;
+	clearTables();
+	for (Instance &inst : instances_) {
+		inst.pins = {};
+		inst.children = {};
+		inst.name = {};
+		inst.hdlpath = {};
+		inst.type = {};
+		inst.master = {};
+		inst.ports = nullptr;
+	}
+	for (Net &net : nets_) {
+		net.pins = {};
+		net.terms = {};
+	}
+	return std::make_unique<NetView>();
 }
 
 NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent)
@@ -383,6 +409,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	// The top is 0
 	inst->parent = parent;
+	inst->netlist = this;
 	inst->id = 0;
 	if (parent != nullptr)
 		inst->id = next_inst_id_++;
