@@ -7,7 +7,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-static Module *addInv(Design *design, IdString name)
+static Module *addInv(Design *design, const std::string &name)
 {
 	Module *inv = design->addModule(name);
 	inv->addWire(ID(A))->port_input = true;
@@ -28,45 +28,45 @@ protected:
 	{
 		d = new Design;
 
-		inv = addInv(d, ID(INV));
-		inv2 = addInv(d, ID(INV2)); // unused
+		inv = addInv(d, "\\INV");
+		inv2 = addInv(d, "\\INV2"); // unused
 
-		sub = d->addModule(ID(sub));
+		sub = d->addModule("\\sub");
 		a = sub->addWire(ID(a));
 		a->port_input = true;
 		y = sub->addWire(ID(y), 4);
 		y->port_output = true;
 		y->upto = true;
 		sub->fixup_ports();
-		i1 = sub->addCell(ID(i1), ID(INV));
+		i1 = sub->addCell("\\i1", ID(INV));
 		i1->setPort(ID(A), a);
 		i1->setPort(ID(Y), SigBit(y, 0));
-		i2 = sub->addCell(ID(i2), ID(INV)); // no load
+		i2 = sub->addCell("\\i2", ID(INV)); // no load
 		i2->setPort(ID(A), a);
 
 		top = d->addModule(ID(top));
 		top->set_bool_attribute(ID::top);
-		in = top->addWire(ID(in));
+		in = top->addWire("\\in");
 		in->port_input = true;
-		out = top->addWire(ID(out));
+		out = top->addWire("\\out");
 		out->port_output = true;
-		q = top->addWire(ID(q), 4);
+		q = top->addWire("\\q", 4);
 		q->port_input = true;
-		s = top->addWire(ID(s));
+		s = top->addWire("\\s");
 		s->start_offset = 5; // [5:5]
 		s->port_input = true;
 		top->fixup_ports();
-		d0 = top->addWire(ID(d0));
-		p = top->addWire(ID(p));
-		tie = top->addWire(ID(tie));
+		d0 = top->addWire("\\d0");
+		p = top->addWire("\\p");
+		tie = top->addWire("\\tie");
 		top->connect(tie, State::S0);
-		u_inv0 = top->addCell(ID(u_inv0), ID(INV));
+		u_inv0 = top->addCell("\\u_inv0", ID(INV));
 		u_inv0->setPort(ID(A), in);
 		u_inv0->setPort(ID(Y), d0);
-		u_sub = top->addCell(ID(u_sub), ID(sub));
+		u_sub = top->addCell("\\u_sub", "\\sub");
 		u_sub->setPort(ID(a), d0);
 		u_sub->setPort(ID(y), SigSpec(p));
-		u_inv2 = top->addCell(ID(u_inv2), ID(INV));
+		u_inv2 = top->addCell("\\u_inv2", ID(INV));
 		u_inv2->setPort(ID(A), p);
 		u_inv2->setPort(ID(Y), out);
 	}
@@ -162,7 +162,7 @@ TEST_F(NetViewTest, hdlIndexDirAndScalar)
 
 TEST_F(NetViewTest, namesAliasesAndConstants)
 {
-	Cell *u_x = top->addCell(ID(u_x), ID(INV));
+	Cell *u_x = top->addCell("\\u_x", ID(INV));
 	u_x->setPort(ID(A), State::Sx);
 	NetView view;
 	view.build(d);
@@ -205,7 +205,7 @@ TEST_F(NetViewTest, instancesFollowCreationOrderDepthFirst)
 	view.build(d);
 	std::vector<Cell *> order = {u_inv0, u_sub, i1, i2, u_inv2};
 	for (size_t i = 0; i < order.size(); i++)
-		EXPECT_EQ(view.instance(order[i])->id, i + 1) << log_id(order[i]);
+		EXPECT_EQ(view.instance(order[i])->id, i + 1) << order[i]->name.unescape();
 	std::vector<Netlist::Instance *> children = {view.instance(u_inv0), view.instance(u_sub), view.instance(u_inv2)};
 	EXPECT_EQ(view.top()->children, children);
 
@@ -237,7 +237,7 @@ TEST_F(NetViewTest, resetRestartsIds)
 
 TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
 {
-	Wire *d1 = top->addWire(ID(d1));
+	Wire *d1 = top->addWire("\\d1");
 	top->connect(d1, d0);
 	NetView view;
 	view.build(d);
@@ -256,39 +256,39 @@ TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
 }
 
 // i -> u1 -> $n (pa, pb) -> u2 -> o
-static Design *aliasDesign(const std::vector<IdString> &order)
+static Design *aliasDesign(const std::vector<std::string> &order)
 {
 	Design *design = new Design;
-	addInv(design, ID(INV));
+	addInv(design, "\\INV");
 	Module *m = design->addModule(ID(top));
 	m->set_bool_attribute(ID::top);
-	for (IdString name : order)
+	for (const std::string &name : order)
 		m->addWire(name);
 	m->wire(ID(i))->port_input = true;
 	m->wire(ID(o))->port_output = true;
 	m->fixup_ports();
-	Cell *u1 = m->addCell(ID(u1), ID(INV));
+	Cell *u1 = m->addCell("\\u1", ID(INV));
 	u1->setPort(ID::A, m->wire(ID(i)));
-	u1->setPort(ID::Y, m->wire(ID($n)));
-	Cell *u2 = m->addCell(ID(u2), ID(INV));
-	u2->setPort(ID::A, m->wire(ID($n)));
+	u1->setPort(ID::Y, m->wire("$n"));
+	Cell *u2 = m->addCell("\\u2", ID(INV));
+	u2->setPort(ID::A, m->wire("$n"));
 	u2->setPort(ID::Y, m->wire(ID(o)));
-	m->connect(m->wire(ID(pb)), m->wire(ID($n)));
-	m->connect(m->wire(ID(pa)), m->wire(ID($n)));
+	m->connect(m->wire("\\pb"), m->wire("$n"));
+	m->connect(m->wire("\\pa"), m->wire("$n"));
 	return design;
 }
 
 TEST(NetViewNamingTest, namingIsIndependentOfWireOrder)
 {
-	std::vector<std::vector<IdString>> orders = {
-		{ID(i), ID(o), ID(zz), ID(pa), ID($n), ID(pb)},
-		{ID(pb), ID($n), ID(o), ID(pa), ID(i), ID(zz)},
+	std::vector<std::vector<std::string>> orders = {
+		{"\\i", "\\o", "\\zz", "\\pa", "$n", "\\pb"},
+		{"\\pb", "$n", "\\o", "\\pa", "\\i", "\\zz"},
 	};
-	for (const std::vector<IdString> &order : orders) {
+	for (const std::vector<std::string> &order : orders) {
 		Design *design = aliasDesign(order);
 		NetView view;
 		view.build(design);
-		Cell *u1 = design->module(ID(top))->cell(ID(u1));
+		Cell *u1 = design->module(ID(top))->cell("\\u1");
 		EXPECT_EQ(view.wireName(view.instance(u1)->pins[1]->net), (Netlist::NetName{"pa", 0, true}));
 		EXPECT_EQ(view.aliases(view.top()).size(), 4u); // zz has no net
 		view.reset();
@@ -301,12 +301,12 @@ TEST_F(NetViewTest, buildableReasons)
 	std::string reason;
 	EXPECT_TRUE(NetView::buildable(d, reason));
 
-	sub->addProcess(ID(proc));
+	sub->addProcess("\\proc");
 	EXPECT_FALSE(NetView::buildable(d, reason));
 	EXPECT_NE(reason.find("(run proc)"), std::string::npos) << reason;
-	sub->remove(sub->processes.at(ID(proc)));
+	sub->remove(sub->processes.at(d->twines().find("\\proc")));
 
-	top->addCell(ID(u_sub2), ID(sub));
+	top->addCell("\\u_sub2", "\\sub");
 	EXPECT_FALSE(NetView::buildable(d, reason));
 	EXPECT_NE(reason.find("uniquify"), std::string::npos);
 
@@ -355,9 +355,9 @@ TEST_F(NetViewTest, fingerprintSeesEdits)
 	d0->set_bool_attribute(ID::keep);
 	expectStale(view, d);
 
-	Wire *b_out = top->addWire(ID(b_out));
+	Wire *b_out = top->addWire("\\b_out");
 	expectStale(view, d);
-	Cell *barrier = top->addBarrier(ID($b), in, b_out);
+	Cell *barrier = top->addBarrier("$b", in, b_out);
 	expectStale(view, d);
 	top->remove(barrier);
 	expectStale(view, d);
@@ -368,7 +368,7 @@ TEST_F(NetViewTest, staleViewKeepsNames)
 	NetView view;
 	view.build(d);
 	Netlist::Net *d0_net = view.instance(u_inv0)->pins[1]->net;
-	top->rename(d0, ID(renamed));
+	top->rename(d0, "\\renamed");
 	top->remove(pool<Wire *>{d0});
 	view.invalidateCheck();
 	EXPECT_FALSE(view.valid());
@@ -389,7 +389,7 @@ TEST_F(NetViewTest, monitorEventsMakeTheViewStale)
 
 	NetView third;
 	third.build(d);
-	d->addModule(ID(extra));
+	d->addModule("\\extra");
 	EXPECT_FALSE(third.valid());
 }
 
@@ -406,7 +406,7 @@ TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 	EXPECT_FALSE(view.valid());
 }
 
-static Module *addWrapper(Design *design, IdString name, IdString child, IdString type, bool mid_inv)
+static Module *addWrapper(Design *design, const std::string &name, const std::string &child, const std::string &type, bool mid_inv)
 {
 	Module *module = design->addModule(name);
 	Wire *a = module->addWire(ID(a));
@@ -416,14 +416,14 @@ static Module *addWrapper(Design *design, IdString name, IdString child, IdStrin
 	module->fixup_ports();
 	Wire *in = a;
 	if (mid_inv) {
-		in = module->addWire(ID(mid));
-		Cell *i0 = module->addCell(ID(i0), ID(INV));
+		in = module->addWire("\\mid");
+		Cell *i0 = module->addCell("\\i0", ID(INV));
 		i0->setPort(ID(A), a);
 		i0->setPort(ID(Y), in);
 	}
 	Cell *cell = module->addCell(child, type);
-	cell->setPort(type == ID(INV) ? ID(A) : ID(a), in);
-	cell->setPort(type == ID(INV) ? ID(Y) : ID(y), y);
+	cell->setPort(type == "\\INV" ? ID(A) : ID(a), in);
+	cell->setPort(type == "\\INV" ? ID(Y) : ID(y), y);
 	return module;
 }
 
@@ -432,10 +432,10 @@ static Design *flatDesign()
 {
 	ensurePasses();
 	Design *design = new Design;
-	addInv(design, ID(INV));
-	addWrapper(design, ID(inner), ID(j), ID(INV), false);
-	addWrapper(design, ID(sub), ID(u2), ID(inner), true);
-	addWrapper(design, ID(top), ID(u1), ID(sub), false)->set_bool_attribute(ID::top);
+	addInv(design, "\\INV");
+	addWrapper(design, "\\inner", "\\j", "\\INV", false);
+	addWrapper(design, "\\sub", "\\u2", "\\inner", true);
+	addWrapper(design, "\\top", "\\u1", "\\sub", false)->set_bool_attribute(ID::top);
 	Pass::call(design, "flatten");
 	return design;
 }
@@ -444,11 +444,11 @@ TEST(NetViewFlatTest, scopeinfoIsTransparent)
 {
 	Design *design = flatDesign();
 	Module *top = design->module(ID(top));
-	ASSERT_NE(top->cell(ID(u1)), nullptr);
-	EXPECT_EQ(top->cell(ID(u1))->type, ID($scopeinfo));
+	ASSERT_NE(top->cell("\\u1"), nullptr);
+	EXPECT_EQ(top->cell("\\u1")->type, ID($scopeinfo));
 	NetView view;
 	view.build(design);
-	EXPECT_EQ(view.instance(top->cell(ID(u1))), nullptr);
+	EXPECT_EQ(view.instance(top->cell("\\u1")), nullptr);
 	EXPECT_EQ(view.top()->children.size(), 2u); // u1.i0, u1.u2.j
 	delete design;
 }
@@ -459,8 +459,8 @@ TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
 	Module *top = design->module(ID(top));
 	NetView view;
 	view.build(design);
-	Netlist::Instance *i0 = view.instance(top->cell(ID(u1.i0)));
-	Netlist::Instance *j = view.instance(top->cell(ID(u1.u2.j)));
+	Netlist::Instance *i0 = view.instance(top->cell("\\u1.i0"));
+	Netlist::Instance *j = view.instance(top->cell("\\u1.u2.j"));
 	ASSERT_NE(i0, nullptr);
 	ASSERT_NE(j, nullptr);
 	EXPECT_EQ(i0->name, "u1.i0");
@@ -485,12 +485,12 @@ TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
 TEST_F(NetViewTest, buildableRefusesRangeOverflow)
 {
 	std::string reason;
-	top->addWire(ID(huge), 2)->start_offset = INT_MAX - 1; // fits: [INT_MAX:INT_MAX-1]
+	top->addWire("\\huge", 2)->start_offset = INT_MAX - 1; // fits: [INT_MAX:INT_MAX-1]
 	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
-	top->wire(ID(huge))->start_offset = INT_MAX;
+	top->wire("\\huge")->start_offset = INT_MAX;
 	EXPECT_FALSE(NetView::buildable(d, reason));
 	EXPECT_NE(reason.find("huge"), std::string::npos) << reason;
-	top->remove(pool<Wire *>{top->wire(ID(huge))});
+	top->remove(pool<Wire *>{top->wire("\\huge")});
 	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
 	inv->addWire(ID(B), 2)->start_offset = INT_MAX; // [INT_MAX+1:INT_MAX]
 	inv->wire(ID(B))->port_input = true;
@@ -502,22 +502,22 @@ TEST_F(NetViewTest, buildableRefusesRangeOverflow)
 TEST(NetViewNameTest, publicNamesAreUnescaped)
 {
 	Design design;
-	Module *bb = design.addModule(ID(BB));
-	bb->addWire(RTLIL::IdString("\\$a"))->port_input = true;
-	bb->addWire(RTLIL::IdString("$p"))->port_input = true; // private
+	Module *bb = design.addModule("\\BB");
+	bb->addWire("\\$a")->port_input = true;
+	bb->addWire("$p")->port_input = true; // private
 	bb->addWire(ID(Y))->port_output = true;
 	bb->fixup_ports();
 	bb->set_bool_attribute(ID::blackbox);
 	Module *m = design.addModule(ID(top));
 	m->set_bool_attribute(ID::top);
-	Wire *i = m->addWire(RTLIL::IdString("\\1in"));
+	Wire *i = m->addWire("\\1in");
 	i->port_input = true;
 	Wire *o = m->addWire(ID(o));
 	o->port_output = true;
 	m->fixup_ports();
-	Cell *u = m->addCell(RTLIL::IdString("\\$u"), ID(BB));
-	u->setPort(RTLIL::IdString("\\$a"), i);
-	u->setPort(RTLIL::IdString("$p"), i);
+	Cell *u = m->addCell("\\$u", "\\BB");
+	u->setPort("\\$a", i);
+	u->setPort("$p", i);
 	u->setPort(ID(Y), o);
 	NetView view;
 	view.build(&design);
@@ -562,12 +562,12 @@ TEST_F(NetViewTest, zeroWidthPortsHaveNoShape)
 	Wire *z = top->addWire(ID(z), 0);
 	z->port_input = true;
 	top->fixup_ports();
-	Module *zb = d->addModule(ID(ZB));
+	Module *zb = d->addModule("\\ZB");
 	zb->addWire(ID(A), 0)->port_input = true;
 	zb->addWire(ID(Y))->port_output = true;
 	zb->fixup_ports();
 	zb->set_bool_attribute(ID::blackbox);
-	Cell *u_z = top->addCell(ID(u_z), ID(ZB));
+	Cell *u_z = top->addCell("\\u_z", "\\ZB");
 	u_z->setPort(ID(Y), p);
 	NetView view;
 	view.build(d);
@@ -580,23 +580,23 @@ TEST_F(NetViewTest, zeroWidthPortsHaveNoShape)
 
 TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 {
-	top->addCell(ID(u_unknown), ID(UNKNOWN));
+	top->addCell("\\u_unknown", "\\UNKNOWN");
 	auto scope = logger().error_throw_scope();
 	NetView view;
 	EXPECT_THROW(view.build(d), log_cmd_error_exception);
 	EXPECT_FALSE(view.built());
 	EXPECT_EQ(d->monitors.count(&view), 0u);
-	top->remove(top->cell(ID(u_unknown)));
+	top->remove(top->cell("\\u_unknown"));
 	view.build(d);
 	EXPECT_TRUE(view.valid());
 }
 
 TEST_F(NetViewTest, directEditsNeedInvalidateCheck)
 {
-	Cell *u_spare = top->addCell(ID(u_spare), ID(INV)); // no connections
+	Cell *u_spare = top->addCell("\\u_spare", ID(INV)); // no connections
 	NetView view;
 	view.build(d);
-	u_inv2->type = ID(INV2);
+	u_inv2->type = d->twines().add("\\INV2");
 	EXPECT_TRUE(view.valid());
 	view.invalidateCheck();
 	EXPECT_FALSE(view.valid());
@@ -613,7 +613,7 @@ TEST_F(NetViewTest, directEditsNeedInvalidateCheck)
 
 	view.reset();
 	view.build(d);
-	top->rename(d0, ID(renamed));
+	top->rename(d0, "\\renamed");
 	EXPECT_TRUE(view.valid());
 	view.invalidateCheck();
 	EXPECT_FALSE(view.valid());
@@ -622,9 +622,9 @@ TEST_F(NetViewTest, directEditsNeedInvalidateCheck)
 // $pre -> $barrier -> d0
 TEST_F(NetViewTest, barriersAreTransparent)
 {
-	Wire *pre = top->addWire(ID($pre));
+	Wire *pre = top->addWire("$pre");
 	u_inv0->setPort(ID(Y), pre);
-	Cell *barrier = top->addBarrier(ID($b), pre, d0);
+	Cell *barrier = top->addBarrier("$b", pre, d0);
 	NetView view;
 	view.build(d);
 	EXPECT_EQ(view.instance(barrier), nullptr);
@@ -639,7 +639,7 @@ TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
 {
 	Wire *c = top->addWire(ID(c));
 	top->connect(c, State::S1);
-	Cell *barrier = top->addBarrier(ID($b), c, p);
+	Cell *barrier = top->addBarrier("$b", c, p);
 	NetView view;
 	view.build(d);
 	EXPECT_EQ(view.instance(barrier), nullptr);
@@ -652,9 +652,9 @@ TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
 
 TEST_F(NetViewTest, barrierOntoAConstantKeepsTheDrivenNet)
 {
-	Wire *k = top->addWire(ID(k));
+	Wire *k = top->addWire("\\k");
 	top->connect(k, State::S0);
-	top->addBarrier(ID($b), d0, k);
+	top->addBarrier("$b", d0, k);
 	NetView view;
 	view.build(d);
 	Netlist::Net *net = view.instance(u_inv0)->pins[1]->net;

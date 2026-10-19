@@ -14,7 +14,6 @@
 #include <array>
 #include <deque>
 #include <map>
-#include <string_view>
 #include <tuple>
 #include <unordered_map>
 
@@ -44,13 +43,13 @@ bool libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out)
 Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool internal);
 
 // Names
-std::string plainName(RTLIL::IdString id);
-RTLIL::IdString escapedPortId(const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
+std::string plainName(RTLIL::PooledName id);
+RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
 std::vector<std::string> hdlPath(const RTLIL::AttrObject *object);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
-using NameRank = std::tuple<bool, bool, bool, size_t, std::string_view, int>;
+using NameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
 NameRank nameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
@@ -173,7 +172,7 @@ private:
 
 	// Staleness
 	uint64_t fingerprint_ = 0;
-	std::vector<RTLIL::OwningIdString> tracked_; // modules with a scope
+	std::vector<std::string> tracked_; // modules with a scope
 	mutable bool dirty_ = false;
 	mutable bool changed_ = false;
 };
