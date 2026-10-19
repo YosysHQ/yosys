@@ -1,4 +1,4 @@
-read_slang --std latest <<EOT
+read_slang --no-proc --std latest <<EOT
 module simple (
   input  [3:0] I2,
   input  [3:0] I1,

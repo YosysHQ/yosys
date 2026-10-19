@@ -1,4 +1,4 @@
-read_slang --std latest <<EOF
+read_slang --no-proc --std latest <<EOF
 module rom(input clk, input [2:0] addr, (* ram_style = "block" *) output reg [7:0] data);
 
 always @(posedge clk) begin

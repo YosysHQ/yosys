@@ -1,4 +1,4 @@
-read_slang --std latest enum_values.sv
+read_slang --no-proc --std latest enum_values.sv
 hierarchy -top top
 printattrs a:*
 

@@ -1,0 +1,6 @@
+read_slang --no-proc --std latest struct_access.sv
+hierarchy
+proc
+opt
+async2sync
+sat -verify -seq 1 -prove-asserts -show-all

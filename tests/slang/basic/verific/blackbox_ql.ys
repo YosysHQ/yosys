@@ -1,6 +1,6 @@
-read_slang --std latest --libfile +/quicklogic/qlf_k6n10f/dsp_sim.v
+read_slang --no-proc --std latest --libfile +/quicklogic/qlf_k6n10f/dsp_sim.v
 
-read_slang --std latest <<EOF
+read_slang --no-proc --std latest <<EOF
 module top (
     input  wire [19:0] a,
     input  wire [17:0] b,

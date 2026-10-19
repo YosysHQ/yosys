@@ -1,0 +1,1 @@
+read_slang --no-proc --std latest rand_const.sv

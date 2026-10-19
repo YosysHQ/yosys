@@ -1,0 +1,18 @@
+read_slang --no-proc --std latest <<EOT
+module sub #(parameter d=1) (input in, output out);
+    assign out = in;
+endmodule
+EOT
+
+read_slang --no-proc --std latest <<EOT
+module top();
+    wire array[0:0];
+    wire out;
+    sub #(.d(1)) inst(
+        .in(array[0]),
+        .out(out)
+    );
+endmodule
+EOT
+
+hierarchy -top top
