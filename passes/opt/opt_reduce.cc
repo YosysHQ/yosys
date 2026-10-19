@@ -129,6 +129,7 @@ struct OptReduceWorker
 			if (this_s.size() > 1)
 			{
 				RTLIL::Cell *reduce_or_cell = module->addCell(NEW_ID, ID($reduce_or));
+				reduce_or_cell->set_src(cell->src());
 				reduce_or_cell->setPort(ID::A, this_s);
 				reduce_or_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				reduce_or_cell->parameters[ID::A_WIDTH] = RTLIL::Const(this_s.size());
