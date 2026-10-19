@@ -149,7 +149,7 @@ TEST_F(NetViewTest, hdlIndexDirAndScalar)
 	ASSERT_EQ(qpins.size(), 4u);
 	EXPECT_EQ(view.hdlIndex(qpins[0]), 0);
 	EXPECT_EQ(view.hdlIndex(qpins[3]), 3);
-	EXPECT_FALSE(view.scalar(qpins[0]));
+	EXPECT_FALSE(view.shape(qpins[0]).scalar());
 	ASSERT_NE(spin, nullptr);
 	EXPECT_EQ(view.hdlIndex(spin), 5);
 	Netlist::Instance *isub = view.instance(u_sub);
@@ -221,6 +221,8 @@ TEST_F(NetViewTest, resetRestartsIds)
 {
 	NetView view;
 	view.build(d);
+	const Netlist::Pin *pin = view.top()->pins[0];
+	pin->user = 7; // a consumer writes it through a const pin
 	view.reset();
 	EXPECT_FALSE(view.built());
 	EXPECT_FALSE(view.valid());
@@ -228,6 +230,7 @@ TEST_F(NetViewTest, resetRestartsIds)
 	view.build(d);
 	EXPECT_TRUE(view.valid());
 	EXPECT_EQ(view.top()->pins[0]->id, 1u);
+	EXPECT_EQ(view.top()->pins[0]->user, 0u);
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }
@@ -545,12 +548,12 @@ TEST_F(NetViewTest, oneBitBusesKeepTheirIndex)
 		if (port != "s" && port != "z")
 			continue;
 		buses++;
-		EXPECT_FALSE(view.scalar(pin)) << port;
+		EXPECT_FALSE(view.shape(pin).scalar()) << port;
 		EXPECT_FALSE(view.wireName(pin->term->net).scalar) << port;
 		EXPECT_EQ(view.wireName(pin->term->net).index, port == "s" ? 5 : 0);
 	}
 	EXPECT_EQ(buses, 2);
-	EXPECT_TRUE(view.scalar(view.instance(u_inv0)->pins[0]));
+	EXPECT_TRUE(view.shape(view.instance(u_inv0)->pins[0]).scalar());
 	EXPECT_TRUE(view.wireName(view.instance(u_inv0)->pins[1]->net).scalar);
 }
 

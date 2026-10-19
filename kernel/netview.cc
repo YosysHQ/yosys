@@ -78,17 +78,6 @@ Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::hdlPath(wire)};
 }
 
-Netlist::Dir detail::portDir(bool input, bool output)
-{
-	if (input && output)
-		return Netlist::Dir::Inout;
-	if (input)
-		return Netlist::Dir::Input;
-	if (output)
-		return Netlist::Dir::Output;
-	return Netlist::Dir::Unknown;
-}
-
 Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
 {
 	Netlist::PortShape shape;
@@ -97,7 +86,7 @@ Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
 	shape.vector = detail::isVector(wire);
 	shape.from = wire->to_hdl_index(wire->width - 1);
 	shape.to = wire->to_hdl_index(0);
-	shape.dir = detail::portDir(wire->port_input, wire->port_output);
+	shape.dir = Netlist::portDir(wire->port_input, wire->port_output);
 	return shape;
 }
 
@@ -149,11 +138,11 @@ Netlist::Dir detail::libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString por
 	if (internal) {
 		bool input = StaticCellTypes::port_info.inputs(cell->type).contains(port);
 		bool output = StaticCellTypes::port_info.outputs(cell->type).contains(port);
-		return detail::portDir(input, output);
+		return Netlist::portDir(input, output);
 	}
 	bool input = yosys_celltypes.cell_input(cell->type, port);
 	bool output = yosys_celltypes.cell_output(cell->type, port);
-	return detail::portDir(input, output);
+	return Netlist::portDir(input, output);
 }
 
 bool NetView::hostPorts(const Instance *inst, std::vector<PortShape> &out) const
@@ -751,17 +740,6 @@ void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
 	}
 }
 
-bool NetView::changed() const
-{
-	if (!built() || changed_)
-		return true;
-	if (!dirty_)
-		return false;
-	dirty_ = false;
-	changed_ = !designAlive() || fingerprint() != fingerprint_;
-	return changed_;
-}
-
 void NetView::invalidateCheck()
 {
 	dirty_ = true;
@@ -769,7 +747,13 @@ void NetView::invalidateCheck()
 
 bool NetView::valid() const
 {
-	return !changed();
+	if (!built() || changed_)
+		return false;
+	if (!dirty_)
+		return true;
+	dirty_ = false;
+	changed_ = !designAlive() || fingerprint() != fingerprint_;
+	return !changed_;
 }
 
 void NetView::notify_module_add(RTLIL::Module *)
