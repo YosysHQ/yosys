@@ -1,4 +1,4 @@
-read_slang --std latest -lib <<EOF
+read_slang --std latest --libfile <<EOF
 module TEST_CELL(input clk, input a, input b, output reg c);
 parameter PATH = "DEFAULT";
 always @(posedge clk) begin
@@ -18,7 +18,6 @@ module top(input clk, input a, input b, output c, output d);
 endmodule
 EOF
 
-verific -import top
 hierarchy -top top
 stat
 select -assert-count 2 t:TEST_CELL

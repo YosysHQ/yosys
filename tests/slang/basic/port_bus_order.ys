@@ -7,7 +7,6 @@ module simple (
   assign result = I2 & I1;
 endmodule
 EOT
-verific -import simple
 
 write_verilog verilog_port_bus_order.out
 !grep -qF 'simple(I2, I1, result)' verilog_port_bus_order.out

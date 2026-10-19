@@ -1,4 +1,4 @@
-verific -formal <<EOT
+read_slang --formal <<EOT
 
 module top(input clk, a, en);
     reg a_q = '0;
