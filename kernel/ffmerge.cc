@@ -61,6 +61,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 		bits.insert(std::make_pair(cell, idx));
 
 		FfData cur_ff(initvals, cell);
+		ff.src = module->srcs().merge(ff.src, cur_ff.src);
 
 		// Reject latches and $ff.
 		if (!cur_ff.has_clk)
@@ -189,6 +190,7 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 		bits.insert(std::make_pair(cell, idx));
 
 		FfData cur_ff(initvals, cell);
+		ff.src = module->srcs().merge(ff.src, cur_ff.src);
 
 		log_assert((*sigmap)(cur_ff.sig_q[idx]) == bit);
 
