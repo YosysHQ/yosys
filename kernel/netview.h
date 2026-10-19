@@ -1,5 +1,5 @@
-// NetView: a Netlist built from a uniquified RTLIL design
-// - Instances  one per cell, depth first in statement order
+// NetView: a Netlist built from an RTLIL design
+// - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit a barrier's A and Y are one net unless
 //              either is constant
 // - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
@@ -25,7 +25,8 @@ struct Fingerprint;
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
-bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
+uint64_t countInstances(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, uint64_t> &counts);
+bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
 bool checkModule(RTLIL::Module *module, std::string &reason);
 bool indicesFitInt(const RTLIL::Wire *wire);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
@@ -89,9 +90,9 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
-	Instance *instance(const RTLIL::Cell *cell) const;
+	Instance *instance(const RTLIL::Cell *cell, const Instance *scope = nullptr) const;
 	RTLIL::Module *module(const Instance *scope) const;
-	Instance *scope(const RTLIL::Module *module) const;
+	const std::vector<Instance *> &scopes(const RTLIL::Module *module) const;
 
 	// RTLIL::Monitor: every event marks the view for a re-check
 	void notify_module_add(RTLIL::Module *module) override;
@@ -132,8 +133,8 @@ private:
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
-	Net *knownNet(const RTLIL::SigBit &bit) const;
-	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
+	Net *knownNet(const Instance *scope, const RTLIL::SigBit &bit) const;
+	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
 
 	bool designAlive() const;
 	void unregisterMonitor();
@@ -161,13 +162,13 @@ private:
 	std::unordered_map<const Instance *, ScopeData> scopes_;
 
 	// RTLIL to records
-	dict<uint32_t, Instance *> cell_inst_; // by cell hashidx_
-	dict<const RTLIL::Module *, Instance *> module_scope_;
+	dict<uint32_t, std::vector<Instance *>> cell_insts_; // by cell hashidx_
+	dict<const RTLIL::Module *, std::vector<Instance *>> module_scopes_;
 	IdMap<InstData> inst_data_;
 
 	// Nets by bit
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
-	dict<uint64_t, Net *> bit_net_;
+	dict<std::pair<uint32_t, uint64_t>, Net *> bit_net_; // by scope id and bit key
 	IdMap<NetData> net_data_;
 
 	// Staleness
