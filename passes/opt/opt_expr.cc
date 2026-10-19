@@ -628,9 +628,9 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 				if (cell->type.in(ID($xor), ID($_XOR_))) {
 					SigSpec sig_y;
 					if (cell->type == ID($xor))
-						sig_y = (sig_b == State::S1 ? module->Not(NEW_ID, sig_a).as_bit() : sig_a);
+						sig_y = (sig_b == State::S1 ? module->Not(NEW_ID, sig_a, false, cell->src()).as_bit() : sig_a);
 					else if (cell->type == ID($_XOR_))
-						sig_y = (sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a) : sig_a);
+						sig_y = (sig_b == State::S1 ? module->NotGate(NEW_ID, sig_a, cell->src()) : sig_a);
 					else log_abort();
 					replace_cell(cell, "xor_buffer", ID::Y, sig_y);
 					goto next_cell;
@@ -638,12 +638,12 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 				if (cell->type.in(ID($xnor), ID($_XNOR_))) {
 					SigSpec sig_y;
 					if (cell->type == ID($xnor)) {
-						sig_y = (sig_b == State::S1 ? sig_a : module->Not(NEW_ID, sig_a).as_bit());
+						sig_y = (sig_b == State::S1 ? sig_a : module->Not(NEW_ID, sig_a, false, cell->src()).as_bit());
 						int width = cell->getParam(ID::Y_WIDTH).as_int();
 						sig_y.append(RTLIL::Const(State::S1, width-1));
 					}
 					else if (cell->type == ID($_XNOR_))
-						sig_y = (sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a));
+						sig_y = (sig_b == State::S1 ? sig_a : module->NotGate(NEW_ID, sig_a, cell->src()));
 					else log_abort();
 					replace_cell(cell, "xnor_buffer", ID::Y, sig_y);
 					goto next_cell;
@@ -710,7 +710,7 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 					if (!y_group_1.empty()) y_new_1 = b_group_1;
 					if (!y_group_x.empty()) {
 						if (config.keepdc)
-							y_new_x = module->And(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = module->And(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->src());
 						else
 							y_new_x = Const(State::S0, GetSize(y_group_x));
 					}
@@ -719,16 +719,16 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 					if (!y_group_1.empty()) y_new_1 = Const(State::S1, GetSize(y_group_1));
 					if (!y_group_x.empty()) {
 						if (config.keepdc)
-							y_new_x = module->Or(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = module->Or(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->src());
 						else
 							y_new_x = Const(State::S1, GetSize(y_group_x));
 					}
 				} else if (cell->type.in(ID($xor), ID($xnor))) {
 					if (!y_group_0.empty()) y_new_0 = b_group_0;
-					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID, b_group_1);
+					if (!y_group_1.empty()) y_new_1 = module->Not(NEW_ID, b_group_1, false, cell->src());
 					if (!y_group_x.empty()) {
 						if (config.keepdc)
-							y_new_x = module->Xor(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x);
+							y_new_x = module->Xor(NEW_ID, Const(State::Sx, GetSize(y_group_x)), b_group_x, false, cell->src());
 						else // This should be fine even with config.keepdc, but opt_expr_xor.ys wants to keep the xor
 							y_new_x = Const(State::Sx, GetSize(y_group_x));
 					}
@@ -791,11 +791,11 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 				RTLIL::SigSpec y_new_0, y_new_1;
 
 				if (flip) {
-					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, module->Not(NEW_ID, s_group_0));
-					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, s_group_1);
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, module->Not(NEW_ID, s_group_0, false, cell->src()), false, cell->src());
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, s_group_1, false, cell->src());
 				} else {
-					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, s_group_0);
-					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, module->Not(NEW_ID, s_group_1));
+					if (!y_group_0.empty()) y_new_0 = module->And(NEW_ID, b_group_0, s_group_0, false, cell->src());
+					if (!y_group_1.empty()) y_new_1 = module->Or(NEW_ID, b_group_1, module->Not(NEW_ID, s_group_1, false, cell->src()), false, cell->src());
 				}
 
 				module->connect(y_group_0, y_new_0);
@@ -1002,12 +1002,12 @@ void OptExprWorker::replace_const_cells(bool consume_x)
 					RTLIL::SigBit a = sig_a[i];
 					if (b == ((bi ^ ci) ? State::S1 : State::S0)) {
 						module->connect(sig_y[i], a);
-						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a).as_bit() : a);
+						module->connect(sig_x[i], ci ? module->Not(NEW_ID, a, false, cell->src()).as_bit() : a);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else if (a == (ci ? State::S1 : State::S0)) {
-						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b).as_bit() : b);
-						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b).as_bit() : b);
+						module->connect(sig_y[i], bi ? module->Not(NEW_ID, b, false, cell->src()).as_bit() : b);
+						module->connect(sig_x[i], (bi ^ ci) ? module->Not(NEW_ID, b, false, cell->src()).as_bit() : b);
 						module->connect(sig_co[i], ci ? State::S1 : State::S0);
 					}
 					else
@@ -1413,7 +1413,7 @@ skip_fine_alu:
 						/* sub, b is 0 */
 						RTLIL::SigSpec a = cell->getPort(ID::A);
 						a.extend_u0(y_width, is_signed);
-						module->connect(cell->getPort(ID::X), module->Not(NEW_ID, a));
+						module->connect(cell->getPort(ID::X), module->Not(NEW_ID, a, false, cell->src()));
 						module->connect(cell->getPort(ID::CO), RTLIL::Const(State::S1, y_width));
 					} else {
 						/* add */
@@ -1712,7 +1712,7 @@ skip_identity:
 					SigSpec y_wire = module->addWire(NEW_ID, y_size);
 					cell->setPort(ID::Y, y_wire);
 
-					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y);
+					module->addShl(NEW_ID, Const(State::S1, 1), y_wire, sig_y, false, cell->src());
 				}
 				did_something = true;
 				goto next_cell;
@@ -1856,9 +1856,9 @@ skip_identity:
 							cell->setPort(ID::Y, flooring);
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, std::min(exp, GetSize(sig_a))));
-							SigSpec should_add = module->And(NEW_ID, a_sign, rem_nonzero);
-							module->addAdd(NEW_ID, flooring, should_add, sig_y);
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, sig_a.extract(0, std::min(exp, GetSize(sig_a))), false, cell->src());
+							SigSpec should_add = module->And(NEW_ID, a_sign, rem_nonzero, false, cell->src());
+							module->addAdd(NEW_ID, flooring, should_add, sig_y, false, cell->src());
 						}
 
 						cell->check();
@@ -1874,15 +1874,16 @@ skip_identity:
 						// the sign bits are those of A (except when R=0)
 						if (is_truncating && a_signed && GetSize(sig_a) != 0 && exp != 0)
 						{
+							SrcRef src = cell->src();
 							module->remove(cell);
 							SigSpec truncating = sig_a.extract(0, std::min(exp, GetSize(sig_a)));
 
 							SigSpec a_sign = sig_a[sig_a.size()-1];
-							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, truncating);
-							SigSpec extend_bit = module->And(NEW_ID, a_sign, rem_nonzero);
+							SigSpec rem_nonzero = module->ReduceOr(NEW_ID, truncating, false, src);
+							SigSpec extend_bit = module->And(NEW_ID, a_sign, rem_nonzero, false, src);
 
 							truncating.append(extend_bit);
-							module->addPos(NEW_ID, truncating, sig_y, true);
+							module->addPos(NEW_ID, truncating, sig_y, true, src);
 						}
 						else
 						{
@@ -1966,6 +1967,7 @@ skip_identity:
 				bool last = cur == GetSize(sig_y);
 
 				RTLIL::Cell *c = module->addCell(NEW_ID, cell->type);
+				c->set_src(cell->src());
 				c->setPort(ID::A, sig_a.extract(prev, sz));
 				c->setPort(ID::B, sig_b.extract(prev, sz));
 				c->setPort(ID::BI, sig_bi);
@@ -2031,7 +2033,7 @@ skip_alu_split:
 
 					if (b_fits)
 					{
-						RTLIL::SigSpec sig_y = module->Not(NEW_ID, sig_b.extract(0, k));
+						RTLIL::SigSpec sig_y = module->Not(NEW_ID, sig_b.extract(0, k), false, cell->src());
 						if (y_width > k)
 							sig_y.append(RTLIL::SigSpec(State::S0, y_width - k));
 
@@ -2191,14 +2193,14 @@ skip_alu_split:
 						{
 							condition   = stringf("unsigned X<%s", log_signal(const_sig));
 							replacement = stringf("!X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addLogicNot(NEW_ID, var_high_sig, cell->getPort(ID::Y));
+							module->addLogicNot(NEW_ID, var_high_sig, cell->getPort(ID::Y), false, cell->src());
 							remove = true;
 						}
 						if (cmp_type == ID($ge))
 						{
 							condition   = stringf("unsigned X>=%s", log_signal(const_sig));
 							replacement = stringf("|X[%d:%d]", var_width - 1, const_bit_hot);
-							module->addReduceOr(NEW_ID, var_high_sig, cell->getPort(ID::Y));
+							module->addReduceOr(NEW_ID, var_high_sig, cell->getPort(ID::Y), false, cell->src());
 							remove = true;
 						}
 					}
@@ -2240,7 +2242,7 @@ skip_alu_split:
 					{
 						condition   = "signed X>=0";
 						replacement = stringf("X[%d]", var_width - 1);
-						module->addLogicNot(NEW_ID, var_sig[var_width - 1], cell->getPort(ID::Y));
+						module->addLogicNot(NEW_ID, var_sig[var_width - 1], cell->getPort(ID::Y), false, cell->src());
 						remove = true;
 					}
 				}
