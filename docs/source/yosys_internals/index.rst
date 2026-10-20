@@ -40,3 +40,4 @@ as reference to implement a similar system in any language.
    techmap
    hashing
    idstring
+   metadata
