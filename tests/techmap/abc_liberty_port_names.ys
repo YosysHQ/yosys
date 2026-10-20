@@ -1,0 +1,14 @@
+# The cells that abc maps keep the names of their Liberty pins, also a
+# pin name that yosys does not know otherwise (ZN).
+read_liberty -lib abc_liberty_port_names.lib
+read_verilog <<EOT
+module top(input a, b, output y);
+	assign y = a & b;
+endmodule
+EOT
+proc
+techmap
+abc -liberty abc_liberty_port_names.lib
+check -assert -mapped
+select -assert-count 1 t:AND2
+select -assert-count 1 t:AND2 %co:+[ZN] w:* %i
