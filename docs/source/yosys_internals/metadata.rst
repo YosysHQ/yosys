@@ -116,7 +116,7 @@ and ``Process`` returns the design's pool, which offers ``add``, ``merge``,
 .. code-block:: diff
 
    -module.addAnd("\\and", a, b, y, src=cell.get_src_attribute())
-   +module.addAnd("\\and", a, b, y, src_ref=cell.src())
+   +module.addAnd("\\and", a, b, y, src=cell.src())
 
 ``cell.get_src_attribute()`` still returns the location as a string.
 
