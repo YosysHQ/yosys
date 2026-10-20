@@ -1,0 +1,11 @@
+read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
+module foo(inout a, b);
+  assign a = b;
+endmodule
+module bar(output c);
+  foo f(c, 1'b0);
+endmodule
+EOT
+
+hierarchy -auto-top
+flatten

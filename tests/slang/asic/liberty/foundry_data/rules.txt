@@ -1,0 +1,16 @@
+-wire_load
+-wire_load_selection
+-default_wire_load
+-default_wire_load_area
+-default_wire_load_capacitance
+-default_wire_load_mode
+-default_wire_load_resistance
+-default_cell_leakage_power
+-default_wire_load_selection
+-default_leakage_power_density
+-lu_table_template
+-power_lut_template
+-leakage_power
+-cell_leakage_power
+-leakage_power
+-internal_power
