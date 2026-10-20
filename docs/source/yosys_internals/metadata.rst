@@ -49,7 +49,9 @@ be sorted. ``SrcPool::Marks`` is a deduplicating set of ``SrcRef``\ s that
 iterates in insertion order, for the few places that need it.
 
 Sets are garbage collected in ``opt_clean``. Like an ``IdString``, a ``SrcRef`` held outside
-the design is not a root, so it must not be kept across passes.
+the design is not a root, so it must not be kept across passes. A ``SrcRef``
+used with the wrong design or after its set was collected is caught by the
+checks described in :doc:`provenance`.
 
 Migration from ``src`` attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
