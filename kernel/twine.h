@@ -423,6 +423,8 @@ private:
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
 	int autoidx_;
+
+	friend struct SrcPool;
 };
 
 YOSYS_NAMESPACE_END
