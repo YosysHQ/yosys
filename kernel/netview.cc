@@ -40,11 +40,48 @@ bool detail::internalType(RTLIL::IdString type)
 	return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo);
 }
 
-std::vector<std::string> detail::hdlPath(const RTLIL::AttrObject *object)
+std::vector<std::string> detail::sourcePath(const RTLIL::AttrObject *object, std::string_view name)
 {
-	if (!object->has_attribute(ID::hdlname))
+	if (object->has_attribute(ID::hdlname))
+		return object->get_hdlname_attribute();
+	return detail::flattenPath(name);
+}
+
+// $flatten\a.\b.$x or $flatten\a/\b/$x for a, b and $x
+std::vector<std::string> detail::flattenPath(std::string_view name)
+{
+	constexpr std::string_view prefix = "$flatten";
+	if (!name.starts_with(prefix))
 		return {};
-	return object->get_hdlname_attribute();
+	name.remove_prefix(prefix.size());
+	std::vector<std::string> parts;
+	while (name.starts_with('\\')) {
+		size_t sep = detail::flattenSeparator(name);
+		if (sep == std::string_view::npos)
+			break;
+		parts.emplace_back(name.substr(1, sep - 1));
+		name.remove_prefix(sep + 1);
+	}
+	if (parts.empty() || name.empty())
+		return {};
+	parts.emplace_back(name);
+	return parts;
+}
+
+// '.' or '/', then the next scope ('\') or the private name ('$')
+size_t detail::flattenSeparator(std::string_view name)
+{
+	for (size_t i = 1; i + 1 < name.size(); i++) {
+		bool sep = name[i] == '.' || name[i] == '/';
+		if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
+			return i;
+	}
+	return std::string_view::npos;
+}
+
+bool detail::transparentType(RTLIL::IdString type)
+{
+	return type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo));
 }
 
 // Unescaped
@@ -64,16 +101,16 @@ RTLIL::IdString detail::escapedPortId(const RTLIL::Design *design, const RTLIL::
 	return design->twines().find(name);
 }
 
-// Declared with a range - wider than one bit, offset, or [0:0]
+// Declared with a range - wider than one bit, or [n:n]
 bool detail::isVector(const RTLIL::Wire *wire)
 {
-	return wire->width > 1 || wire->start_offset != 0 || wire->has_attribute(ID::single_bit_vector);
+	return wire->width > 1 || wire->has_attribute(ID::single_bit_vector);
 }
 
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::hdlPath(wire)};
+	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::sourcePath(wire, wire->name.str())};
 }
 
 Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
@@ -421,7 +458,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	inst_data_[inst->id] = {cell, module};
 	if (cell != nullptr) {
-		inst->hdlpath = detail::hdlPath(cell);
+		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		cell_insts_.add(cell->hashidx_, inst);
 	}
 	if (module != nullptr)
@@ -442,7 +479,7 @@ std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
-		if (cell->type.in(ID($barrier), ID($scopeinfo)))
+		if (detail::transparentType(cell->type))
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
 		makePins(inst);
@@ -531,7 +568,7 @@ detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
 	bool port = wire->port_id != 0;
 	bool keep = wire->get_bool_attribute(ID::keep);
 	bool pub = wire->name.isPublic();
-	size_t depth = detail::hdlPath(wire).size();
+	size_t depth = detail::sourcePath(wire, wire->name.str()).size();
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
 }
 
@@ -569,8 +606,21 @@ SigMap &NetView::sigmapFor(RTLIL::Module *module)
 	if (it != sigmaps_.end())
 		return it->second;
 	SigMap &sigmap = sigmaps_.try_emplace(module, module).first->second;
+	detail::addConnectAliases(module, sigmap);
 	detail::addBarrierAliases(module, sigmap);
 	return sigmap;
+}
+
+// $connect joins its two sides, as a module connection does
+void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		if (cell->type != ID($connect))
+			continue;
+		RTLIL::SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
+		for (int i = 0; i < GetSize(a) && i < GetSize(b); i++)
+			sigmap.add(a[i], b[i]);
+	}
 }
 
 void detail::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap)
