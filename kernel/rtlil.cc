@@ -1044,9 +1044,11 @@ RTLIL::ObjRange<RTLIL::Module*, IdString> RTLIL::Design::modules()
 }
 
 const RTLIL::Module *RTLIL::Design::module(IdString id) const {
+	twines_.check_owned(id);
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
 RTLIL::Module *RTLIL::Design::module(IdString id) {
+	twines_.check_owned(id);
 	return modules_.count(id) ? modules_.at(id) : NULL;
 }
 

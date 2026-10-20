@@ -401,11 +401,11 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	std::string ref_token(IdString ref) const;
 	// Null unless the token names a live twine stamped by this pool
 	IdString ref_from_token(std::string_view token) const;
+	void check_owned(IdString ref) const;
 
 private:
 	bool owns(IdString ref) const;
 	IdString stamp(IdString ref) const;
-	void check_owned(IdString ref) const;
 	void append_str(IdString ref, std::string& out) const;
 	IdString auto_prefix(const std::string *prefix);
 	IdString add_inner(TwineNode t);
