@@ -16,7 +16,7 @@ struct SrcRef {
 
 	constexpr SrcRef() : value(NULL_VAL) {}
 
-	constexpr bool operator==(const SrcRef&) const = default;
+	constexpr bool operator==(const SrcRef &rhs) const { return value == rhs.value; }
 
 private:
 	template<typename, typename, typename> friend struct HashConsPool;
@@ -28,6 +28,9 @@ private:
 
 	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
 	uint32_t value;
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+	uint32_t serial = 0;
+#endif
 };
 
 inline constexpr SrcRef SrcRef::Null{};
@@ -72,7 +75,10 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	SrcPool &operator=(const SrcPool &) = delete;
 	SrcPool &operator=(SrcPool &&) = delete;
 
-	const SrcSet &operator[](SrcRef ref) const { return HashConsPool::operator[](ref); }
+	const SrcSet &operator[](SrcRef ref) const {
+		check_owned(ref);
+		return HashConsPool::operator[](ref);
+	}
 
 	void clone_from(const SrcPool &other);
 
@@ -106,6 +112,9 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 
 private:
 	TwinePool &twines;
+
+	SrcRef stamp(SrcRef ref) const;
+	void check_owned(SrcRef ref) const;
 
 	IdString add_location(std::string_view location);
 	static void canonicalize_members(std::vector<IdString> &members);
