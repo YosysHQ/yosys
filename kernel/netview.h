@@ -2,7 +2,7 @@
 // - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit a barrier's A and Y are one net unless
 //              either is constant
-// - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
+// - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -14,6 +14,7 @@
 #include <array>
 #include <deque>
 #include <map>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
 
@@ -35,6 +36,8 @@ void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL:
 
 // Cells
 bool internalType(RTLIL::IdString type);
+bool transparentType(RTLIL::IdString type);
+void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 
@@ -48,7 +51,9 @@ Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool 
 std::string plainName(RTLIL::PooledName id);
 RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
-std::vector<std::string> hdlPath(const RTLIL::AttrObject *object);
+std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
+std::vector<std::string> flattenPath(std::string_view name);
+size_t flattenSeparator(std::string_view name);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
 using NameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;

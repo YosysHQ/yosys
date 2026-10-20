@@ -53,7 +53,7 @@ protected:
 		q = top->addWire("\\q", 4);
 		q->port_input = true;
 		s = top->addWire("\\s");
-		s->start_offset = 5; // [5:5]
+		s->start_offset = 5; // a scalar with an offset
 		s->port_input = true;
 		top->fixup_ports();
 		d0 = top->addWire("\\d0");
@@ -550,6 +550,14 @@ TEST_F(NetViewTest, buildableRefusesRangeOverflow)
 	EXPECT_NE(reason.find("INV"), std::string::npos) << reason;
 }
 
+TEST(NetViewNameTest, flattenNamesGiveSourcePath)
+{
+	EXPECT_EQ(detail::flattenPath("$flatten\\u1.\\l0.$and$x.v:3$7"), (std::vector<std::string>{"u1", "l0", "$and$x.v:3$7"}));
+	EXPECT_EQ(detail::flattenPath("$flatten\\u1/$y"), (std::vector<std::string>{"u1", "$y"}));
+	EXPECT_TRUE(detail::flattenPath("$and$x.v:3$7").empty());
+	EXPECT_TRUE(detail::flattenPath("$flatten\\u1").empty());
+}
+
 TEST(NetViewNameTest, publicNamesAreUnescaped)
 {
 	Design design;
@@ -599,8 +607,9 @@ TEST_F(NetViewTest, oneBitBusesKeepTheirIndex)
 		if (port != "s" && port != "z")
 			continue;
 		buses++;
-		EXPECT_FALSE(view.shape(pin).scalar()) << port;
-		EXPECT_FALSE(view.wireName(pin->term->net).scalar) << port;
+		bool bus = port == "z";
+		EXPECT_EQ(view.shape(pin).scalar(), !bus) << port;
+		EXPECT_EQ(view.wireName(pin->term->net).scalar, !bus) << port;
 		EXPECT_EQ(view.wireName(pin->term->net).index, port == "s" ? 5 : 0);
 	}
 	EXPECT_EQ(buses, 2);
@@ -684,6 +693,26 @@ TEST_F(NetViewTest, barriersAreTransparent)
 	EXPECT_EQ(driven, view.instance(u_sub)->pins[0]->net);
 	EXPECT_EQ(view.wireName(driven), (Netlist::NetName{"d0", 0, true}));
 	EXPECT_EQ(driven->pins.size(), 2u);
+}
+
+TEST_F(NetViewTest, connectAndInputPortAreTransparent)
+{
+	Wire *pre = top->addWire("$pre");
+	u_inv0->setPort(ID(Y), pre);
+	Cell *connect = top->addCell("$c", ID($connect));
+	connect->setParam(ID::WIDTH, 1);
+	connect->setPort(ID::A, pre);
+	connect->setPort(ID::B, d0);
+	Cell *input = top->addCell("$i", ID($input_port));
+	input->setParam(ID::WIDTH, 1);
+	input->setPort(ID::Y, in);
+	NetView view;
+	view.build(d);
+	EXPECT_EQ(view.instance(connect), nullptr);
+	EXPECT_EQ(view.instance(input), nullptr);
+	EXPECT_EQ(view.top()->children.size(), 3u);
+	Netlist::Net *driven = view.instance(u_inv0)->pins[1]->net;
+	EXPECT_EQ(driven, view.instance(u_sub)->pins[0]->net);
 }
 
 TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
