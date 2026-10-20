@@ -434,6 +434,11 @@ void LogManager::spacer()
 	if (newline_count < 2) log("\n");
 }
 
+void LogManager::clear_original()
+{
+	std::erase_if(sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
+}
+
 void LogManager::push()
 {
 	header_count.push_back(0);
