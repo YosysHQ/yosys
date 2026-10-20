@@ -353,19 +353,12 @@ std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 {
 	std::vector<IdString> path;
 	IdString trailing = object->name;
-	if (object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract")) {
-		for (auto const &item : object->get_hdlname_attribute())
-			path.push_back("\\" + item);
-		if (!path.empty()) {
+	for (auto const &item : object->get_hdlname_attribute())
+		path.push_back("\\" + item);
+	if (!path.empty()) {
+		if (object->name.isPublic() || object->name.begins_with("$paramod") || object->name.begins_with("$abstract"))
 			trailing = path.back();
-			path.pop_back();
-		}
-	} else if (object->has_attribute(ID::hdlname)) {
-		for (auto const &item : object->get_hdlname_attribute())
-			path.push_back("\\" + item);
-		if (!path.empty()) {
-			path.pop_back();
-		}
+		path.pop_back();
 	} else {
 		for (auto const &item : split_tokens(object->get_string_attribute(ID(scopename)), " "))
 			path.push_back("\\" + item);
