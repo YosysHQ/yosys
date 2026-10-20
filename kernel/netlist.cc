@@ -30,6 +30,15 @@ const Netlist::PortShape &Netlist::shape(const Pin *pin) const
 	return (*pin->inst->ports)[pin->port];
 }
 
+Netlist::Pin *Netlist::pin(const Instance *inst, const std::string &port, int bit) const
+{
+	for (Pin *p : inst->pins) {
+		if (shape(p).name == port && p->bit == bit)
+			return p;
+	}
+	return nullptr;
+}
+
 Netlist::Dir Netlist::dir(const Pin *pin) const
 {
 	return shape(pin).dir;
