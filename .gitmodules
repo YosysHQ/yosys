@@ -24,3 +24,7 @@
 	path = libs/symfpu
 	url = https://github.com/YosysHQ/symfpu
 	branch = floatWithStatusFlags
+[submodule "mddbench"]
+	path = tests/slang/mddbench
+	url = https://github.com/YosysHQ/mddbench.git
+	branch = nick/slang

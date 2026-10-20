@@ -1,7 +1,0 @@
-read_slang --top top <<EOT
-module top(input a, b, output \$0 );
-  assign \$0 = a & b;
-endmodule
-EOT
-synth -top top
-check -assert

@@ -1,7 +1,0 @@
-read_slang --top top <<EOT
-module top(input clk, d, output reg q);
-  always @(posedge clk) q <= #1 d;
-endmodule
-EOT
-synth -top top
-check -assert
