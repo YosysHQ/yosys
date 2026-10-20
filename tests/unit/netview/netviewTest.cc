@@ -357,6 +357,7 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(second->parent->pins[0]->term->net, net);
 	EXPECT_EQ(second->parent->pins[0]->net, view.instance(u_inv0)->pins[0]->net);
 	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
+	EXPECT_EQ(view.wireBits(first->pins[0]->net), std::vector<SigBit>{SigBit(a)});
 	for (const Netlist::Alias &alias : view.aliases(second->parent))
 		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
 	std::vector<Netlist::Net *> ones = view.constNets(true);
