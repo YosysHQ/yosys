@@ -15,6 +15,7 @@ yosys_gtest(kernel
 	sigbitPerfTest.cc
 	sigspecExtractTest.cc
 	sigspecRemove2Test.cc
+	srcPoolTest.cc
 	threadingTest.cc
 	twineHashTest.cc
 	twineSortTest.cc

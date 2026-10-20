@@ -420,6 +420,8 @@ private:
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
+
+	friend struct SrcPool;
 };
 
 YOSYS_NAMESPACE_END
