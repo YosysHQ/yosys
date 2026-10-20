@@ -1,0 +1,43 @@
+# tristate hidden behind an ordinary mux must still be inferred as a tribuf
+read_verilog <<EOT
+module nested(A, COND, DATA, BI);
+inout BI;
+input A, COND, DATA;
+assign BI = COND ? 1'b0 : (A ? 1'bz : DATA);
+endmodule
+EOT
+hierarchy -top nested
+proc
+
+tribuf -logic
+cd nested
+select -assert-count 1 t:$tribuf
+
+design -reset
+read_verilog <<EOT
+module flat(A, COND, DATA, BI);
+inout BI;
+input A, COND, DATA;
+assign BI = !COND && A ? 1'bz : (COND ? 1'b0 : DATA);
+endmodule
+EOT
+hierarchy -top flat
+proc
+tribuf -logic
+cd flat
+select -assert-count 1 t:$tribuf
+
+design -reset
+read_verilog <<EOT
+module valnest(s, a, b, BI);
+inout BI;
+input s, a, b;
+assign BI = s ? a : 1'bz;
+assign BI = s ? 1'bz : (b ? 1'bz : a);
+endmodule
+EOT
+hierarchy -top valnest
+proc
+tribuf -logic
+cd valnest
+select -assert-count 1 t:$tribuf
