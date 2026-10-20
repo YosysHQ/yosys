@@ -80,6 +80,15 @@ jobs:
         uses: aminya/setup-cpp@v1
         with:
           compiler: ${{ matrix.compiler }}
+          gcc: ${{ (runner.os == 'Linux' && matrix.compiler == 'clang-16') && '13' || '' }}
+
+      - name: Select compatible libstdc++ for Clang 16
+        if: runner.os == 'Linux' && matrix.compiler == 'clang-16'
+        shell: bash
+        run: |
+          # Clang 16 cannot compile the ranges headers from libstdc++ 15.
+          gcc_install_dir="$(dirname "$(gcc-13 -print-libgcc-file-name)")"
+          echo "CXXFLAGS=${CXXFLAGS} --gcc-install-dir=${gcc_install_dir}" >> "$GITHUB_ENV"
 
       - name: Tool versions
         shell: bash
