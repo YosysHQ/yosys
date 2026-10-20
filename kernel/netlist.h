@@ -132,6 +132,7 @@ struct Netlist
 	static Dir portDir(bool input, bool output);
 	bool isTop(const Instance *inst) const;
 	const PortShape &shape(const Pin *pin) const;
+	Pin *pin(const Instance *inst, const std::string &port, int bit) const;
 	Dir dir(const Pin *pin) const;
 	int hdlIndex(const Pin *pin) const;
 	bool isDriver(const Pin *pin) const;

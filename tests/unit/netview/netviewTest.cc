@@ -127,6 +127,8 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	Netlist::Pin *y0 = isub->pins[1];
 	EXPECT_EQ(view.shape(y0).name, "y");
 	EXPECT_EQ(y0->bit, 0);
+	EXPECT_EQ(view.pin(isub, "y", 0), y0);
+	EXPECT_EQ(view.pin(isub, "y", 4), nullptr);
 	ASSERT_NE(y0->term, nullptr);
 	EXPECT_EQ(y0->term->net->scope, isub);
 	EXPECT_EQ(y0->term->net, view.instance(i1)->pins[1]->net);
