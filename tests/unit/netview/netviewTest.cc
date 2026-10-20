@@ -167,10 +167,12 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	NetView view;
 	view.build(d);
 	Netlist::Instance *t = view.top();
-	Netlist::Net *zero = view.constNet(t, false);
-	ASSERT_NE(zero, nullptr);
+	std::vector<Netlist::Net *> zeros = view.constNets(false);
+	ASSERT_EQ(zeros.size(), 1u);
+	Netlist::Net *zero = zeros[0];
+	EXPECT_EQ(zero->scope, t);
 	EXPECT_EQ(zero->constant, Netlist::Net::Const::Zero);
-	EXPECT_EQ(view.constNet(t, true), nullptr);
+	EXPECT_TRUE(view.constNets(true).empty());
 	bool found = false;
 	for (const Netlist::Alias &alias : view.aliases(t)) {
 		if (alias.name.wire == "tie")
@@ -355,10 +357,11 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
 	for (const Netlist::Alias &alias : view.aliases(second->parent))
 		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
-	Netlist::Net *one = view.constNet(second->parent, true);
-	ASSERT_NE(one, nullptr);
-	EXPECT_EQ(one->scope, second->parent);
-	EXPECT_NE(view.constNet(first->parent, true), one);
+	std::vector<Netlist::Net *> ones = view.constNets(true);
+	ASSERT_EQ(ones.size(), 2u);
+	EXPECT_NE(ones[0]->scope, ones[1]->scope);
+	for (Netlist::Net *one : ones)
+		EXPECT_TRUE(one->scope == first->parent || one->scope == second->parent);
 
 	// The instance of a cell in each scope
 	EXPECT_EQ(view.instance(i1), nullptr);
@@ -651,6 +654,23 @@ TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 	EXPECT_TRUE(view.valid());
 }
 
+struct NoLeafModel : Netlist::PortModel {
+	bool ports(const Netlist::Instance &, std::vector<Netlist::PortShape> &) override { return false; }
+};
+
+TEST_F(NetViewTest, unmodeledLeafTakesTheHostPorts)
+{
+	NoLeafModel model;
+	NetView view;
+	int warnings = logger().get_warnings_total();
+	view.build(d, &model);
+	EXPECT_EQ(logger().get_warnings_total(), warnings + 1);
+	const std::vector<Netlist::PortShape> &ports = *view.instance(u_inv0)->ports;
+	ASSERT_EQ(ports.size(), 2u);
+	EXPECT_EQ(ports[0].name, "A");
+	EXPECT_EQ(ports[1].name, "Y");
+}
+
 TEST_F(NetViewTest, directEditsNeedInvalidateCheck)
 {
 	Cell *u_spare = top->addCell("\\u_spare", ID(INV)); // no connections
@@ -740,6 +760,38 @@ TEST_F(NetViewTest, barrierOntoAConstantKeepsTheDrivenNet)
 	Netlist::Net *net = view.instance(u_inv0)->pins[1]->net;
 	EXPECT_EQ(net->constant, Netlist::Net::Const::None);
 	EXPECT_EQ(view.wireName(net).wire, "d0");
+}
+
+// instances but the top, nets and pins below a scope
+static void walk(const NetView &view, const Netlist::Instance *scope, std::array<size_t, 3> &counts)
+{
+	counts[1] += view.nets(scope).size();
+	for (const Netlist::Instance *child : scope->children) {
+		counts[0]++;
+		counts[2] += child->pins.size();
+		if (!child->leaf)
+			walk(view, child, counts);
+	}
+}
+
+TEST_F(NetViewTest, countsMatchAWalk)
+{
+	NetView view;
+	view.build(d);
+	std::array<size_t, 3> walked = {0, 0, view.top()->pins.size()};
+	walk(view, view.top(), walked);
+	EXPECT_EQ(view.counts(), walked);
+	EXPECT_EQ(walked[0], 5u); // u_inv0, u_sub, u_inv2, i1 and i2
+}
+
+TEST_F(NetViewTest, countsOfAnUnbuiltViewAreZero)
+{
+	NetView view;
+	EXPECT_EQ(view.counts(), (std::array<size_t, 3>{}));
+	view.build(d);
+	EXPECT_NE(view.counts(), (std::array<size_t, 3>{}));
+	view.reset();
+	EXPECT_EQ(view.counts(), (std::array<size_t, 3>{}));
 }
 
 YOSYS_NAMESPACE_END
