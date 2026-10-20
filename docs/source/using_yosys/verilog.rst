@@ -112,10 +112,14 @@ Verilog Attributes and non-standard features
   ``-top``. Other commands, such as `flatten` and various backends use this
   attribute to determine the top module.
 
-- The ``src`` attribute is set on cells and wires created by to the string
-  ``<hdl-file-name>:<line-number>`` by the HDL front-end and is then carried
-  through the synthesis. When entities are combined, a new \|-separated string
-  is created that contains all the strings from the original entities.
+- The ``src`` attribute records where an object comes from in the HDL source.
+  HDL front-ends set it on the modules, wires, cells and processes they create,
+  in the form ``<file-name>:<line>.<column>-<line>.<column>``.
+  An explicit ``(* src = "..." *)`` attribute in the source replaces this
+  location. Passes carry it in a specialized data structure through synthesis.
+  `write_verilog` writes it back out as a ``(* src = "..." *)`` attribute,
+  reconstructing it from the data structure. When objects are combined,
+  the result lists all original locations, separated by \|. 
 
 - The ``defaultvalue`` attribute is used to store default values for module
   inputs. The attribute is attached to the input wire by the HDL front-end when
