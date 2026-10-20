@@ -59,6 +59,7 @@ jobs:
           cmake -B build . \
                 -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
                 -DCMAKE_BUILD_TYPE=Sanitize -DSANITIZE='undefined,address' \
+                -DYOSYS_ENABLE_INDEX_PROVENANCE=ON \
                 -DYOSYS_COMPILER_LAUNCHER=ccache
           cmake --build build -j$procs
 
