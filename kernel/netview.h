@@ -103,10 +103,10 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void invalidateCheck();
 
 	Instance *top() const;
-	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
+	std::array<size_t, 3> counts() const;
 
 	const std::vector<Net *> &nets(const Instance *scope) const;
-	Net *constNet(const Instance *scope, bool one) const;
+	std::vector<Net *> constNets(bool one) const;
 	NetName wireName(const Net *net) const;
 	const std::vector<Alias> &aliases(const Instance *scope) const;
 
@@ -155,6 +155,8 @@ private:
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
 	void makePins(Instance *inst);
+	// Ports of an instance's master as the host knows them, ignoring PortModel
+	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
 	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
@@ -187,6 +189,7 @@ private:
 	// Port shapes
 	std::deque<PortShapes> shape_store_;
 	dict<std::string, const PortShapes *> shape_cache_; // library leaf types
+	pool<std::string> unmodeled_; // leaf types that the model does not know
 
 	// Scope contents
 	std::unordered_map<const Instance *, ScopeData> scopes_;

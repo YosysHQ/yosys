@@ -19,6 +19,13 @@ NetView::Instance *NetView::top() const
 	return top_;
 }
 
+std::array<size_t, 3> NetView::counts() const
+{
+	if (!built())
+		return {};
+	return {instances_.size() - 1, nets_.size(), pins_.size()};
+}
+
 bool NetView::designAlive() const
 {
 	for (const auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
@@ -205,15 +212,14 @@ const NetView::PortShapes *NetView::portsFor(Instance *inst, RTLIL::Module *sub)
 	}
 
 	PortShapes &shapes = shape_store_.emplace_back();
-	bool ok = true;
 	if (sub != nullptr)
 		detail::moduleShapes(sub, shapes);
-	else if (ports_ != nullptr)
-		ok = ports_->ports(*inst, shapes);
-	else
-		ok = hostPorts(inst, shapes);
-	if (!ok)
+	else if (ports_ == nullptr && !hostPorts(inst, shapes))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
+	else if (ports_ != nullptr && !ports_->ports(*inst, shapes)) {
+		hostPorts(inst, shapes);
+		unmodeled_.insert(inst->type);
+	}
 
 	if (shared)
 		shape_cache_[inst->type] = &shapes;
@@ -257,8 +263,7 @@ uint64_t detail::countInstances(RTLIL::Design *design, RTLIL::Module *module, di
 	return count;
 }
 
-bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open,
-                            std::string &reason)
+bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason)
 {
 	open.insert(module);
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -289,7 +294,7 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 		return false;
 	dict<RTLIL::Module *, uint64_t> counts;
 	if (detail::countInstances(design, top, counts) >= UINT32_MAX) {
-		reason = "todo biiiiig ids";
+		reason = "the unfolded design needs more than the 32-bit object ids hold";
 		return false;
 	}
 	pool<RTLIL::Module *> blackboxes;
@@ -354,6 +359,8 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 		reset();
 		throw;
 	}
+	for (const std::string &type : unmodeled_)
+		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
 	for (const auto &[module, occurrences] : module_scopes_.data)
 		tracked_.push_back(module->name);
 	fingerprint_ = fingerprint();
@@ -393,6 +400,7 @@ void NetView::clearTables()
 {
 	shape_store_.clear();
 	shape_cache_.clear();
+	unmodeled_.clear();
 	sigmaps_.clear();
 	bit_nets_.clear();
 	scopes_.clear();
@@ -718,9 +726,14 @@ const std::vector<NetView::Alias> &NetView::aliases(const Instance *scope) const
 	return scopeData(scope).aliases;
 }
 
-NetView::Net *NetView::constNet(const Instance *scope, bool one) const
+std::vector<NetView::Net *> NetView::constNets(bool one) const
 {
-	return scopeData(scope).consts[one];
+	std::vector<Net *> nets;
+	for (const auto &[scope, data] : scopes_) {
+		if (data.consts[one] != nullptr)
+			nets.push_back(data.consts[one]);
+	}
+	return nets;
 }
 
 NetView::Net *NetView::findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit)
