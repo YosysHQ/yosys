@@ -515,6 +515,11 @@ const std::vector<NetView::Instance *> &NetView::scopes(const RTLIL::Module *mod
 	return index_.scopes_by_module.get(module);
 }
 
+const std::vector<RTLIL::SigBit> &NetView::wireBits(const Net *net) const
+{
+	return index_.net_rtlil.get(net->id).wire_bits;
+}
+
 NetView::NetName NetView::wireName(const Net *net) const
 {
 	log_assert(net->constant == Net::Const::None);

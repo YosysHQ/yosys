@@ -126,6 +126,7 @@ struct NetRtlil {
 	RTLIL::SigBit bit; // canonical SigMap bit
 	RTLIL::SigBit name_bit;
 	Netlist::NetName name; // copied out of RTLIL
+	std::vector<RTLIL::SigBit> wire_bits;
 };
 
 struct NetsByScopeBit {
@@ -172,7 +173,7 @@ private:
 	Netlist::Pin *makePin(Netlist::Instance *inst, uint32_t port, int bit, Netlist::Net *net);
 	void makeTerm(Netlist::Pin *pin, Netlist::Net *inner_net);
 	Netlist::Net *newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
-	void registerAliases(RTLIL::Module *module, Netlist::Instance *scope);
+	void registerWires(RTLIL::Module *module, Netlist::Instance *scope);
 	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
 	WireOrigin wireOrigin(const RTLIL::Wire *wire);
 	RTLIL::SigBit nameBit(const Netlist::Net *net) const;
@@ -221,6 +222,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	Instance *instance(const RTLIL::Cell *cell, const Instance *scope = nullptr) const;
 	RTLIL::Module *module(const Instance *scope) const;
 	const std::vector<Instance *> &scopes(const RTLIL::Module *module) const;
+	const std::vector<RTLIL::SigBit> &wireBits(const Net *net) const;
 
 	// RTLIL::Monitor: every event marks the view for a re-check
 	void notify_module_add(RTLIL::Module *module) override;

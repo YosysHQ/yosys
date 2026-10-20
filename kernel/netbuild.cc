@@ -106,7 +106,7 @@ void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *s
 		if (!inst->isLeaf())
 			buildScope(view_.module(inst), inst);
 	}
-	registerAliases(module, scope);
+	registerWires(module, scope);
 }
 
 void detail::ViewBuilder::makePins(Netlist::Instance *inst)
@@ -176,21 +176,24 @@ Netlist::Net *detail::ViewBuilder::newNet(Netlist::Instance *scope, const RTLIL:
 	return net;
 }
 
-void detail::ViewBuilder::registerAliases(RTLIL::Module *module, Netlist::Instance *scope)
+void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance *scope)
 {
 	SigMap &sigmap = sigmapFor(module);
 	for (RTLIL::Wire *wire : module->wires()) {
-		if (!wire->name.isPublic())
-			continue;
+		bool pub = wire->name.isPublic();
 		for (int b = 0; b < wire->width; b++) {
 			RTLIL::SigBit bit(wire, b);
 			RTLIL::SigBit canon = sigmap(bit);
-			Netlist::Net *net;
-			if (canon.wire == nullptr)
-				net = findOrMakeNet(scope, canon);
-			else
+			Netlist::Net *net = nullptr;
+			if (canon.wire != nullptr)
 				net = view_.index_.nets_by_scope_bit.get(scope, canon);
+			else if (pub)
+				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
+				continue;
+			if (canon.wire != nullptr)
+				view_.index_.net_rtlil[net->id].wire_bits.push_back(bit);
+			if (!pub)
 				continue;
 
 			// Public wires collapsed into another wire's net (assign aliases)
