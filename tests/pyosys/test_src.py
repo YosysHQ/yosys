@@ -33,7 +33,7 @@ both = srcs.merge(first, second)
 assert set(srcs.leaves(both)) == {"top.v:1.2-1.3", "top.v:2.2-2.3"}
 assert srcs.merge(both, first) == both
 
-c = m.addAnd("\\and", ys.SigSpec(a), ys.SigSpec(b), ys.SigSpec(y), src_ref=both)
+c = m.addAnd("\\and", ys.SigSpec(a), ys.SigSpec(b), ys.SigSpec(y), src=both)
 assert c.src() == both
 assert c.srcs().str(c.src()) == srcs.str(both)
 assert m.addOr("\\or", ys.SigSpec(a), ys.SigSpec(b), ys.SigSpec(y)).src() == ys.SrcRef.Null
