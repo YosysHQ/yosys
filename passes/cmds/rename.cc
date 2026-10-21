@@ -61,13 +61,13 @@ static void rename_in_module(RTLIL::Module *module, std::string from_name, std::
 	log_cmd_error("Object `%s' not found!\n", RTLIL::unescape_id(from_name));
 }
 
-static std::string derive_name_from_src(const std::string &src, int counter)
+static IdString derive_name_from_src(RTLIL::Module *module, const std::string &src, int counter)
 {
 	std::string src_base = src.substr(0, src.find('|'));
 	if (src_base.empty())
-		return stringf("$%d", counter);
-	else
-		return stringf("\\%s$%d", src_base, counter);
+		return module->twines().add(stringf("$%d", counter));
+	IdString base = module->twines().add("\\" + src_base);
+	return module->twines().add(base, stringf("$%d", counter));
 }
 
 static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix, bool move_to_cell)
@@ -396,11 +396,11 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (!wire->name.isPublic())
-						new_wire_names.emplace(wire, module->twines().add(derive_name_from_src(wire->get_src_attribute(), counter++)));
+						new_wire_names.emplace(wire, module->uniquify(derive_name_from_src(module, wire->get_src_attribute(), counter++)));
 
 				for (auto cell : module->selected_cells())
 					if (!cell->name.isPublic())
-						new_cell_names.emplace(cell, module->twines().add(derive_name_from_src(cell->get_src_attribute(), counter++)));
+						new_cell_names.emplace(cell, module->uniquify(derive_name_from_src(module, cell->get_src_attribute(), counter++)));
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);
