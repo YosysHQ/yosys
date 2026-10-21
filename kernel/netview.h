@@ -93,6 +93,43 @@ void hashModule(Fingerprint &fp, RTLIL::Module *module);
 void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
 void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
 
+// Where an object of a ref was, on a cell or wire
+struct Anchor {
+	enum class Role : uint8_t {
+		Pin,
+		Cell,
+		Net
+	};
+
+	Role role;
+	uint32_t ref;
+	std::string scope;      // path, with the own scope of the cell or wire
+	std::string port;
+	int bit;
+	std::string wire_scope; // path of the scope that holds the wire
+	bool in_shared_module;
+};
+
+// An anchor that the rebuilt view holds
+struct Hit {
+	Anchor anchor;
+	const Netlist::Instance *inst; // of a cell anchor
+	const Netlist::Net *net;       // of a wire anchor
+	bool in_own_scope;
+};
+
+// Anchors
+RTLIL::IdString refId(RTLIL::Design *design, bool add);
+void markScope(RTLIL::AttrObject *object);
+std::vector<const Hit *> pick(const std::vector<Hit> &hits, Anchor::Role role);
+std::vector<const void *> unique(std::vector<const void *> objects);
+
+// Scope paths
+std::vector<std::string> ownScope(const RTLIL::AttrObject *object);
+std::string joinScope(const std::vector<std::string> &parts);
+std::string scopePath(const Netlist::Instance *scope);
+std::string withOwnScope(const std::string &path, const RTLIL::AttrObject *object);
+
 // The records and their next ids
 struct RecordStore {
 	std::deque<Netlist::Instance> instances;
@@ -190,6 +227,21 @@ private:
 
 struct NetView final : public Netlist, public RTLIL::Monitor
 {
+	// The objects of a ref, found again after passes
+	struct Found {
+		enum class Kind : uint8_t {
+			Pin,
+			Cell,
+			Net,
+			Port // of the top, as its pin
+		};
+
+		Kind kind;
+		const void *top_pin = nullptr; // of a port by name, set before resolve
+		std::vector<const void *> objects = {};
+		std::vector<const void *> through_pins = {}; // of a net in its old scope
+	};
+
 	using PortShapes = std::vector<PortShape>;
 
 	NetView() = default;
@@ -208,6 +260,10 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	// Monitor event (e.g. opt_clean) are not seen otherwise
 	bool valid() const;
 	void invalidateCheck();
+
+	void anchor(const std::vector<Found *> &refs);
+	void clearAnchors(RTLIL::Design *design);
+	void resolve(const std::vector<Found *> &refs);
 
 	Instance *top() const;
 	std::array<size_t, 3> counts() const;
@@ -247,6 +303,23 @@ private:
 	void clearTables();
 	const ScopeContents &scopeContents(const Instance *scope) const;
 
+	// Anchors: write
+	void addAnchor(RTLIL::AttrObject *object, const detail::Anchor &anchor);
+	bool markIfShared(RTLIL::AttrObject *object, RTLIL::Module *module);
+	void anchorCell(const Instance *inst, detail::Anchor anchor);
+	void anchorWires(const Net *net, uint32_t ref);
+	void anchorRef(const void *object, uint32_t ref, Found::Kind kind);
+	// Anchors: resolve
+	const std::vector<detail::Anchor> &anchorsOf(const RTLIL::AttrObject *object) const;
+	void addNetHits(const Net *net, const RTLIL::SigBit &bit);
+	std::vector<const void *> resolvePin(const std::vector<detail::Hit> &hits);
+	std::vector<const void *> resolveCell(const std::vector<detail::Hit> &hits);
+	std::vector<const void *> resolvePort(const std::vector<detail::Hit> &hits, const void *top_pin);
+	void topPorts(const Net *net, std::vector<const void *> &pins) const;
+	std::vector<const void *> pinsUnder(const Net *net, const std::string &scope) const;
+	std::vector<const void *> resolveNet(const std::vector<detail::Hit> &hits, Found &ref);
+	std::string cellScope(const Instance *inst) const;
+
 	RTLIL::Design *design_ = nullptr;
 	PortModel *ports_ = nullptr;
 	Instance *top_ = nullptr;
@@ -255,6 +328,10 @@ private:
 	detail::RtlilIndex index_;
 	std::unordered_map<const Instance *, ScopeContents> scope_contents_;
 	detail::ChangeDetector watch_;
+
+	// Anchors
+	std::vector<std::vector<detail::Anchor>> anchor_table_; // by netview_ref value
+	IdMap<std::vector<detail::Hit>> hits_;                  // by ref
 };
 
 YOSYS_NAMESPACE_END

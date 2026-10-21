@@ -347,6 +347,7 @@ void NetView::clearTables()
 	shapes_.clear();
 	scope_contents_.clear();
 	index_.clear();
+	hits_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -367,7 +368,9 @@ std::unique_ptr<NetView> NetView::retire()
 		net.pins = {};
 		net.terms = {};
 	}
-	return std::make_unique<NetView>();
+	std::unique_ptr<NetView> next = std::make_unique<NetView>();
+	next->anchor_table_ = std::move(anchor_table_);
+	return next;
 }
 
 Netlist::Instance *detail::RecordStore::newInstance()

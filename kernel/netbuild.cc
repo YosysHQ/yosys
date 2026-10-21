@@ -88,6 +88,8 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 	if (cell != nullptr) {
 		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		index.instances_by_cell.add(cell->hashidx_, inst);
+		for (const Anchor &anchor : view_.anchorsOf(cell))
+			view_.hits_[anchor.ref].push_back({anchor, inst, nullptr, anchor.scope == view_.cellScope(inst)});
 	}
 	if (module != nullptr)
 		index.scopes_by_module.add(module, inst);
@@ -191,8 +193,10 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
 				continue;
-			if (canon.wire != nullptr)
+			if (canon.wire != nullptr) {
 				view_.index_.net_rtlil[net->id].wire_bits.push_back(bit);
+				view_.addNetHits(net, bit);
+			}
 			if (!pub)
 				continue;
 
