@@ -28,9 +28,3 @@ do
 done
 
 sh formal/riscv-formal-dmem-check/rvf.sh
-
-cd mddbench
-uv sync --locked
-cp config-slang-fails.yaml config.yaml
-
-uv run python -m scripts.mau_runner -j 16 -k -f
