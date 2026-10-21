@@ -408,6 +408,7 @@ void NetView::clearTables()
 	module_scopes_.clear();
 	inst_data_.clear();
 	net_data_.clear();
+	hits_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -428,7 +429,9 @@ std::unique_ptr<NetView> NetView::retire()
 		net.pins = {};
 		net.terms = {};
 	}
-	return std::make_unique<NetView>();
+	std::unique_ptr<NetView> next = std::make_unique<NetView>();
+	next->anchor_table_ = std::move(anchor_table_);
+	return next;
 }
 
 NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent)
@@ -468,6 +471,8 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 	if (cell != nullptr) {
 		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		cell_insts_.add(cell->hashidx_, inst);
+		for (const detail::Anchor &anchor : anchorsOf(cell))
+			hits_[anchor.ref].push_back({anchor, inst, nullptr, anchor.scope == cellScope(inst)});
 	}
 	if (module != nullptr)
 		module_scopes_.add(module, inst);
@@ -595,8 +600,10 @@ void NetView::registerWires(RTLIL::Module *module, Instance *scope)
 				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
 				continue;
-			if (canon.wire != nullptr)
+			if (canon.wire != nullptr) {
 				net_data_[net->id].wire_bits.push_back(bit);
+				addNetHits(net, bit);
+			}
 			if (!pub)
 				continue;
 

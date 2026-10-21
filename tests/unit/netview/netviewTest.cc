@@ -797,4 +797,46 @@ TEST_F(NetViewTest, countsOfAnUnbuiltViewAreZero)
 	EXPECT_EQ(view.counts(), (std::array<size_t, 3>{}));
 }
 
+TEST_F(NetViewTest, anchorFindsEachFoundObject)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetView::Found outer{NetView::Found::Kind::Cell}, inner{NetView::Found::Kind::Cell};
+	outer.objects = {view.instance(u_inv0), view.instance(u_inv2)};
+	inner.objects = {view.instance(i1), view.instance(i2)};
+	view.anchor({&outer, &inner});
+	Pass::call(d, "flatten");
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&outer, &inner});
+	std::vector<const void *> outer_cells = {next->instance(u_inv0), next->instance(u_inv2)};
+	std::vector<const void *> inner_cells = {next->instance(top->cell("\\u_sub.i1")), next->instance(top->cell("\\u_sub.i2"))};
+	for (std::vector<const void *> *cells : {&outer.objects, &inner.objects, &outer_cells, &inner_cells})
+		std::sort(cells->begin(), cells->end());
+	EXPECT_EQ(outer.objects, outer_cells);
+	EXPECT_EQ(inner.objects, inner_cells);
+}
+
+TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
+{
+	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
+	u_sub2->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	NetView::Found ref{NetView::Found::Kind::Pin};
+	ref.objects = {view.instance(i1, view.instance(u_sub2))->pins[0]};
+	view.anchor({&ref});
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	ASSERT_EQ(ref.objects.size(), 1u);
+	EXPECT_EQ(static_cast<const Netlist::Pin *>(ref.objects[0])->inst->parent, next->instance(u_sub2));
+	top->rename(u_sub2, "\\u_other");
+	std::unique_ptr<NetView> last = next->retire();
+	last->build(d);
+	last->resolve({&ref});
+	EXPECT_TRUE(ref.objects.empty());
+}
+
 YOSYS_NAMESPACE_END
