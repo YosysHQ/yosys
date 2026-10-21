@@ -44,7 +44,7 @@ MK_TEST_DIRS += ./verific
 endif
 endif
 MK_TEST_DIRS += ./verilog
-MK_TEST_DIRS += ./slang/basic
+
 MK_TEST_DIRS += ./arith_tree
 MK_TEST_DIRS += ./simple
 MK_TEST_DIRS += ./simple_abc9
@@ -82,6 +82,22 @@ MK_TEST_DIRS += ./check_mem
 MK_TEST_DIRS += ./write_verilog
 MK_TEST_DIRS += ./symfpu
 
+MK_TEST_DIRS += ./slang/asic/abc_new
+MK_TEST_DIRS += ./slang/asic/abc_new/librelane
+MK_TEST_DIRS += ./slang/asic/abc_new/openroad
+MK_TEST_DIRS += ./slang/asic/liberty
+MK_TEST_DIRS += ./slang/asic/techmap
+MK_TEST_DIRS += ./slang/basic
+#MK_TEST_DIRS += ./slang/formal/riscv-formal-dmem-check
+MK_TEST_DIRS += ./slang/fpga/analogdevices
+MK_TEST_DIRS += ./slang/fpga/ecp5
+MK_TEST_DIRS += ./slang/fpga/fabulous
+MK_TEST_DIRS += ./slang/fpga/gatemate
+MK_TEST_DIRS += ./slang/fpga/gowin
+MK_TEST_DIRS += ./slang/fpga/ice40
+MK_TEST_DIRS += ./slang/fpga/machxo2
+MK_TEST_DIRS += ./slang/fpga/quicklogic/qlf_k6n10f
+MK_TEST_DIRS += ./slang/fpga/xilinx
 all: vanilla-test
 
 # makefile-./ is a dummy string, not a directory
