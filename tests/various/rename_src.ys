@@ -2,6 +2,37 @@ read_rtlil <<EOF
 module \top
   wire input 1 \a
   wire output 2 \y
+  attribute \src "a.v:2.3-2.9"
+  wire $n
+  attribute \src "a.v:2.3-2.9|b.v:4.1-4.5"
+  cell $not $foo
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \Y $n
+  end
+  cell $not $bar
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A $n
+    connect \Y \y
+  end
+end
+EOF
+
+check -assert
+rename -src
+select -assert-count 1 w:a.v:2.3-2.9$*
+select -assert-count 1 c:a.v:2.3-2.9$*
+select -assert-count 1 c:$*
+
+design -reset
+read_rtlil <<EOF
+module \top
+  wire input 1 \a
+  wire output 2 \y
   wire output 3 \z
   cell $not $foo
     parameter \A_SIGNED 0
