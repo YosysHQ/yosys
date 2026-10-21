@@ -44,7 +44,6 @@ MK_TEST_DIRS += ./verific
 endif
 endif
 MK_TEST_DIRS += ./verilog
-
 MK_TEST_DIRS += ./arith_tree
 MK_TEST_DIRS += ./simple
 MK_TEST_DIRS += ./simple_abc9
