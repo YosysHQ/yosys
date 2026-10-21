@@ -461,6 +461,17 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		INSTALL_IF ${YOSYS_INSTALL_LIBRARY}
 	)
 	yosys_link_components(libyosys PRIVATE ${library_components})
+	# Settings for consumers
+	# - Header paths for either shared build tree or relative install location
+	target_include_directories(libyosys INTERFACE
+		$<BUILD_INTERFACE:${YOSYS_CMAKE_BINARY_DIR}/share/include>
+		$<INSTALL_INTERFACE:${YOSYS_INSTALL_DATADIR}/include>
+	)
+	# - Require C++20 standard
+	target_compile_features(libyosys INTERFACE cxx_std_20)
+	# - Set define _YOSYS_
+	target_compile_definitions(libyosys INTERFACE _YOSYS_)
+	# Library
 	add_library(Yosys::libyosys ALIAS libyosys)
 	if (MINGW)
 		set_target_properties(libyosys PROPERTIES
