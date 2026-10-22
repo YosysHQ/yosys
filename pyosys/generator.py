@@ -130,6 +130,9 @@ global_denylist = frozenset(
         "log_verific_callback",
         # incomplete type
         "yosys_get_tcl_interp",
+        # owning containers
+        "saved_designs",
+        "pushed_designs",
     }
 )
 name_lookup_methods = frozenset(

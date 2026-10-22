@@ -86,8 +86,8 @@ extern const char *yosys_build_datetime_str;
 const char* yosys_maybe_version();
 
 // from passes/cmds/design.cc
-extern std::map<std::string, RTLIL::Design*> saved_designs;
-extern std::vector<RTLIL::Design*> pushed_designs;
+extern std::map<std::string, std::unique_ptr<RTLIL::Design>> saved_designs;
+extern std::vector<std::unique_ptr<RTLIL::Design>> pushed_designs;
 
 // from passes/cmds/pluginc.cc
 extern std::map<std::string, void*> loaded_plugins;

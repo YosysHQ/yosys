@@ -640,7 +640,7 @@ struct XAigerWriter
 			RTLIL::Design *holes_design;
 			auto it = saved_designs.find("$abc9_holes");
 			if (it != saved_designs.end())
-				holes_design = it->second;
+				holes_design = it->second.get();
 			else
 				holes_design = nullptr;
 			RTLIL::Module *holes_module = holes_design ?
