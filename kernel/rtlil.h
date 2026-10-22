@@ -1524,7 +1524,7 @@ public:
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 
-	Module();
+	explicit Module(RTLIL::Design *design);
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
@@ -1946,7 +1946,7 @@ struct RTLIL::Wire : public RTLIL::AttrObject
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
-	Wire();
+	explicit Wire(RTLIL::Module *module);
 	~Wire();
 
 	friend struct RTLIL::Design;
@@ -2000,7 +2000,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
-	Memory();
+	explicit Memory(RTLIL::Module *module);
 	~Memory();
 
 	RTLIL::Module *module = nullptr;
@@ -2033,7 +2033,7 @@ public:
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
-	Cell();
+	explicit Cell(RTLIL::Module *module);
 	~Cell();
 
 public:
@@ -2157,7 +2157,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes
 	friend struct RTLIL::Module;
-	Process();
+	explicit Process(RTLIL::Module *module);
 	~Process();
 
 public:
@@ -2170,7 +2170,7 @@ public:
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
-	RTLIL::Process *clone() const;
+	RTLIL::Process *clone(RTLIL::Module *module) const;
 
 	std::string to_rtlil_str() const;
 };
