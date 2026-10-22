@@ -155,6 +155,8 @@ struct RpcServer {
 };
 
 struct RpcModule : RTLIL::Module {
+	using RTLIL::Module::Module;
+
 	std::shared_ptr<RpcServer> server;
 
 	RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/) override {
@@ -229,7 +231,7 @@ struct RpcModule : RTLIL::Module {
 	}
 
 	RTLIL::Module *clone() const override {
-		RpcModule *new_mod = new RpcModule;
+		RpcModule *new_mod = new RpcModule(design);
 		new_mod->server = server;
 		cloneInto(new_mod);
 		return new_mod;
@@ -586,8 +588,7 @@ cleanup_path:
 
 		for (auto &module_name : server->get_module_names()) {
 			log("Linking module `%s'.\n", module_name);
-			RpcModule *module = new RpcModule;
-			module->design = design;
+			RpcModule *module = new RpcModule(design);
 			module->name = design->twines().add("$abstract\\" + module_name);
 			module->server = server;
 			design->add(module);

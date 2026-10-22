@@ -1073,9 +1073,8 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", twines_.str(name));
 	log_assert(refcount_modules_ == 0);
 
-	RTLIL::Module *module = new RTLIL::Module;
+	RTLIL::Module *module = new RTLIL::Module(this);
 	modules_[name] = module;
-	module->design = this;
 	module->name = name;
 
 	for (auto mon : monitors)
@@ -1349,13 +1348,13 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 	return result;
 }
 
-RTLIL::Module::Module()
+RTLIL::Module::Module(RTLIL::Design *design)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
 
-	design = nullptr;
+	this->design = design;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
 
@@ -2649,8 +2648,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 
 RTLIL::Module *RTLIL::Module::clone() const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = design;
+	RTLIL::Module *new_mod = new RTLIL::Module(design);
 	new_mod->name = name;
 	cloneInto(new_mod);
 	return new_mod;
@@ -2658,8 +2656,7 @@ RTLIL::Module *RTLIL::Module::clone() const
 
 RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst) const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = dst;
+	RTLIL::Module *new_mod = new RTLIL::Module(dst);
 	new_mod->name = dst->twines().copy_from(design->twines(), name);
 	cloneInto(new_mod);
 	dst->add(new_mod);
@@ -2668,8 +2665,7 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst) const
 
 RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, IdString target_name) const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = dst;
+	RTLIL::Module *new_mod = new RTLIL::Module(dst);
 	new_mod->name = target_name;
 	cloneInto(new_mod);
 	dst->add(new_mod);
@@ -3073,7 +3069,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
 	log_assert(design);
 	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = new RTLIL::Wire(this);
 	wire->width = width;
 	wire->name = name;
 	add(wire);
@@ -3100,7 +3096,7 @@ RTLIL::Wire *RTLIL::Module::addWire(IdString name, const RTLIL::Wire *other)
 RTLIL::Cell *RTLIL::Module::addCell(IdString name, IdString type)
 {
 	log_assert(design);
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = new RTLIL::Cell(this);
 	cell->type = type;
 	cell->name = name;
 	add(cell);
@@ -3133,8 +3129,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 RTLIL::Memory *RTLIL::Module::addMemory(IdString name)
 {
 	log_assert(design);
-	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->module = this;
+	RTLIL::Memory *mem = new RTLIL::Memory(this);
 	mem->name = name;
 	memories[name] = mem;
 	return mem;
@@ -3143,8 +3138,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name)
 RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *other)
 {
 	log_assert(design);
-	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->module = this;
+	RTLIL::Memory *mem = new RTLIL::Memory(this);
 	mem->name = name;
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
@@ -3158,7 +3152,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *othe
 RTLIL::Process *RTLIL::Module::addProcess(IdString name)
 {
 	log_assert(design);
-	RTLIL::Process *proc = new RTLIL::Process;
+	RTLIL::Process *proc = new RTLIL::Process(this);
 	proc->name = name;
 	add(proc);
 	return proc;
@@ -3167,7 +3161,7 @@ RTLIL::Process *RTLIL::Module::addProcess(IdString name)
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	log_assert(design);
-	RTLIL::Process *proc = other->clone();
+	RTLIL::Process *proc = other->clone(this);
 	proc->name = name;
 	const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
 	if (src_design && src_design != design) {
@@ -4170,13 +4164,12 @@ std::string RTLIL::Module::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Wire::Wire()
+RTLIL::Wire::Wire(RTLIL::Module *module) : module(module)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
 	hashidx_ = hashidx_count;
 
-	module = nullptr;
 	width = 1;
 	start_offset = 0;
 	port_id = 0;
@@ -4212,7 +4205,7 @@ std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
 }
 #endif
 
-RTLIL::Memory::Memory()
+RTLIL::Memory::Memory(RTLIL::Module *module) : module(module)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -4233,7 +4226,7 @@ std::string RTLIL::Memory::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Process::Process() : module(nullptr)
+RTLIL::Process::Process(RTLIL::Module *module) : module(module)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -4247,7 +4240,7 @@ std::string RTLIL::Process::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Cell::Cell() : module(nullptr)
+RTLIL::Cell::Cell(RTLIL::Module *module) : module(module)
 {
 	static unsigned int hashidx_count = 123456789;
 	hashidx_count = mkhash_xorshift(hashidx_count);
@@ -5923,9 +5916,9 @@ RTLIL::Process::~Process()
 		delete *it;
 }
 
-RTLIL::Process *RTLIL::Process::clone() const
+RTLIL::Process *RTLIL::Process::clone(RTLIL::Module *module) const
 {
-	RTLIL::Process *new_proc = new RTLIL::Process;
+	RTLIL::Process *new_proc = new RTLIL::Process(module);
 
 	new_proc->attributes = attributes;
 

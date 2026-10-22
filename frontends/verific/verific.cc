@@ -1561,8 +1561,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		return;
 	}
 
-	module = new RTLIL::Module;
-	module->design = design;
+	module = new RTLIL::Module(design);
 	module->name = module_id;
 	design->add(module);
 

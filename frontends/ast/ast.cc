@@ -1172,9 +1172,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		log("Generating RTLIL representation for module `%s'.\n", ast->str);
 	}
 
-	AstModule *module = new AstModule;
+	AstModule *module = new AstModule(design);
 	current_module = module;
-	module->design = design;
 
 	module->ast = nullptr;
 	module->name = design->twines().add(ast->str);
@@ -1948,8 +1947,7 @@ std::string AstModule::derive_common(RTLIL::Design *design, const dict<RTLIL::Id
 
 RTLIL::Module *AstModule::clone() const
 {
-	AstModule *new_mod = new AstModule;
-	new_mod->design = design;
+	AstModule *new_mod = new AstModule(design);
 	new_mod->name = name;
 	cloneInto(new_mod);
 	copy_config_into(new_mod);
@@ -1964,8 +1962,7 @@ RTLIL::Module *AstModule::clone(RTLIL::Design *dst) const
 
 RTLIL::Module *AstModule::clone(RTLIL::Design *dst, IdString target_name) const
 {
-	AstModule *new_mod = new AstModule;
-	new_mod->design = dst;
+	AstModule *new_mod = new AstModule(dst);
 	new_mod->name = target_name;
 	cloneInto(new_mod);
 	dst->add(new_mod);

@@ -455,7 +455,7 @@ struct RTLILFrontendWorker {
 			}
 		}
 
-		current_module = new RTLIL::Module;
+		current_module = new RTLIL::Module(design);
 		current_module->name = std::move(module_name);
 		current_module->attributes = std::move(attrbuf);
 		if (!delete_current_module)
@@ -729,7 +729,7 @@ struct RTLILFrontendWorker {
 
 	void parse_memory()
 	{
-		RTLIL::Memory *memory = new RTLIL::Memory;
+		RTLIL::Memory *memory = new RTLIL::Memory(current_module);
 		memory->attributes = std::move(attrbuf);
 
 		int width = 1;
