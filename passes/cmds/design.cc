@@ -23,17 +23,13 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::map<std::string, RTLIL::Design*> saved_designs;
-std::vector<RTLIL::Design*> pushed_designs;
+std::map<std::string, std::unique_ptr<RTLIL::Design>> saved_designs;
+std::vector<std::unique_ptr<RTLIL::Design>> pushed_designs;
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
 	void on_shutdown() override {
-		for (auto &it : saved_designs)
-			delete it.second;
 		saved_designs.clear();
-		for (auto &it : pushed_designs)
-			delete it;
 		pushed_designs.clear();
 	}
 	void help() override
@@ -173,15 +169,15 @@ struct DesignPass : public Pass {
 				got_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
 					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
-				copy_from_design = saved_designs.at(args[argidx]);
+				copy_from_design = saved_designs.at(args[argidx]).get();
 				copy_to_design = design;
 				continue;
 			}
 			if (!got_mode && args[argidx] == "-copy-to" && argidx+1 < args.size()) {
 				got_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
-					saved_designs[args[argidx]] = new RTLIL::Design;
-				copy_to_design = saved_designs.at(args[argidx]);
+					saved_designs[args[argidx]] = std::make_unique<RTLIL::Design>();
+				copy_to_design = saved_designs.at(args[argidx]).get();
 				copy_from_design = design;
 				continue;
 			}
@@ -190,7 +186,7 @@ struct DesignPass : public Pass {
 				import_mode = true;
 				if (saved_designs.count(args[++argidx]) == 0)
 					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
-				copy_from_design = saved_designs.at(args[argidx]);
+				copy_from_design = saved_designs.at(args[argidx]).get();
 				copy_to_design = design;
 				as_name = args[argidx];
 				continue;
@@ -332,17 +328,14 @@ struct DesignPass : public Pass {
 
 		if (!save_name.empty() || push_mode || push_copy_mode)
 		{
-			RTLIL::Design *design_copy = new RTLIL::Design;
+			auto design_copy = std::make_unique<RTLIL::Design>();
 
-			design->clone_into(design_copy);
-
-			if (saved_designs.count(save_name))
-				delete saved_designs.at(save_name);
+			design->clone_into(design_copy.get());
 
 			if (push_mode || push_copy_mode)
-				pushed_designs.push_back(design_copy);
+				pushed_designs.push_back(std::move(design_copy));
 			else
-				saved_designs[save_name] = design_copy;
+				saved_designs[save_name] = std::move(design_copy);
 		}
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
@@ -352,23 +345,16 @@ struct DesignPass : public Pass {
 
 		if (!load_name.empty() || pop_mode)
 		{
-			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
+			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back().get() : saved_designs.at(load_name).get();
 
 			saved_design->clone_into(design);
 
-			if (pop_mode) {
-				delete saved_design;
+			if (pop_mode)
 				pushed_designs.pop_back();
-			}
 		}
 
 		if (!delete_name.empty())
-		{
-			auto it = saved_designs.find(delete_name);
-			log_assert(it != saved_designs.end());
-			delete it->second;
-			saved_designs.erase(it);
-		}
+			saved_designs.erase(delete_name);
 	}
 } DesignPass;
 

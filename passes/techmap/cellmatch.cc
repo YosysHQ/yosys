@@ -174,7 +174,7 @@ struct CellmatchPass : Pass {
 			} else if (args[argidx] == "-lib" && argidx + 1 < args.size()) {
 				if (!saved_designs.count(args[++argidx]))
 					log_cmd_error("No design '%s' found!\n", args[argidx]);
-				lib = saved_designs.at(args[argidx]);
+				lib = saved_designs.at(args[argidx]).get();
 			} else {
 				break;
 			}
@@ -211,8 +211,8 @@ struct CellmatchPass : Pass {
 
 		auto r = saved_designs.emplace("$cellmatch", nullptr);
 		if (r.second)
-			r.first->second = new Design;
-		Design *map_design = r.first->second;
+			r.first->second = std::make_unique<Design>();
+		Design *map_design = r.first->second.get();
 
 		for (auto m : d->selected_whole_modules_warn(/* visit whiteboxes */derive_luts)) {
 			std::vector<uint64_t> luts;

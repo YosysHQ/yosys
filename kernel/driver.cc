@@ -670,9 +670,9 @@ int main(int argc, char **argv)
 	}
 
 	yosys_design->check();
-	for (auto it : saved_designs)
+	for (auto &it : saved_designs)
 		it.second->check();
-	for (auto it : pushed_designs)
+	for (auto &it : pushed_designs)
 		it->check();
 
 	if (!depsfile.empty())

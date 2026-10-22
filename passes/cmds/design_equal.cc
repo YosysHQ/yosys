@@ -370,7 +370,7 @@ struct DesignEqualPass : public Pass {
 		if (saved_designs.count(check_name) == 0)
 			log_cmd_error("No saved design '%s' found!\n", check_name.c_str());
 
-		RTLIL::Design *other = saved_designs.at(check_name);
+		RTLIL::Design *other = saved_designs.at(check_name).get();
 
 		PoolBridge bridge(design, other);
 
