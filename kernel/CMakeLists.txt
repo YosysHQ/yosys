@@ -1,6 +1,8 @@
 yosys_version_file(version.cc.in version.cc)
 configure_file(yosys_config.h.in yosys_config.h @ONLY)
 
+add_subdirectory(rewriter)
+
 set(cellhelp_sources)
 foreach (library simlib simcells)
 	add_custom_command(
