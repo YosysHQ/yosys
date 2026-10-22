@@ -10,6 +10,16 @@ for dir in \
     asic/abc_new/openroad \
     asic/techmap \
     basic \
+    basic/abc_new \
+    basic/arch/xilinx \
+    basic/opt \
+    basic/peepopt \
+    basic/proc \
+    basic/svtypes \
+    basic/techmap \
+    basic/various \
+    basic/verific \
+    basic/verilog \
     fpga/analogdevices \
     fpga/ecp5 \
     fpga/fabulous \
