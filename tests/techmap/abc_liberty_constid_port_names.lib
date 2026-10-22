@@ -1,4 +1,4 @@
-library(abc_liberty_port_names) {
+library(abc_liberty_constid_port_names) {
   delay_model : table_lookup;
   time_unit : "1ns";
   voltage_unit : "1V";
