@@ -36,7 +36,7 @@ const NetView::PortShapes *detail::ViewBuilder::portShapesFor(Netlist::Instance 
 	}
 
 	NetView::PortShapes &shapes = cache.shape_store.emplace_back();
-	Netlist::PortModel *model = view_.ports_;
+	Netlist::LeafModel *model = view_.model_;
 	if (sub != nullptr)
 		detail::moduleShapes(sub, shapes);
 	else if (model == nullptr && !hostPortShapes(inst, shapes))

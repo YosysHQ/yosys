@@ -123,10 +123,12 @@ struct Netlist
 		Net *net;
 	};
 
-	// Leaf port shapes from a consumer with a richer library (liberty)
-	struct PortModel {
-		virtual ~PortModel();
+	// Leaf cell facts from a consumer with a richer library (liberty)
+	struct LeafModel {
+		virtual ~LeafModel();
 		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
+		virtual bool isRegister(const Instance &inst) = 0;
+		virtual bool isClockPin(const Pin &pin) = 0;
 	};
 
 	static Dir portDir(bool input, bool output);

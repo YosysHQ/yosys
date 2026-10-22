@@ -249,7 +249,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
-	void build(RTLIL::Design *design, PortModel *ports = nullptr);
+	void build(RTLIL::Design *design, LeafModel *model = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
 	std::unique_ptr<NetView> retire();
@@ -323,7 +323,7 @@ private:
 	void markEpochEnd();
 
 	RTLIL::Design *design_ = nullptr;
-	PortModel *ports_ = nullptr;
+	LeafModel *model_ = nullptr;
 	Instance *top_ = nullptr;
 	detail::RecordStore records_;
 	detail::PortShapeCache shapes_;

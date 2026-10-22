@@ -2,7 +2,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-Netlist::PortModel::~PortModel() {}
+Netlist::LeafModel::~LeafModel() {}
 
 bool Netlist::Instance::isLeaf() const
 {
