@@ -24,11 +24,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool did_something;
-
-// scratchpad configurations for pmgen
-int shiftadd_max_ratio;
-
 // Helper function, removes LSB 0s
 SigSpec remove_bottom_padding(SigSpec sig)
 {
@@ -101,22 +96,22 @@ struct PeepoptPass : public Pass {
 		// limit the padding from shiftadd to a multiple of the input data
 		// during techmap it creates (#data + #padding) * log(shift) $_MUX_ cells
 		// 2x implies there is a constant shift larger than the input-data which should be extremely rare
-		shiftadd_max_ratio = design->scratchpad_get_int("peepopt.shiftadd.max_data_multiple", 2);
+		int shiftadd_max_ratio = design->scratchpad_get_int("peepopt.shiftadd.max_data_multiple", 2);
 
 		for (auto module : design->selected_modules())
 		{
-			did_something = true;
+			bool did_something = true;
 
 			while (did_something)
 			{
-				did_something = false;
-
 				peepopt_pm pm(module);
 
 				pm.setup(module->selected_cells());
+				pm.ud_shiftadd.shiftadd_max_ratio = shiftadd_max_ratio;
 
 				if (formalclk) {
 					pm.run_formal_clockgateff();
+					did_something = pm.ud_formal_clockgateff.did_something;
 				} else {
 					pm.run_shiftadd();
 					pm.run_shiftmul_right();
@@ -124,6 +119,8 @@ struct PeepoptPass : public Pass {
 					pm.run_shiftpow2();
 					pm.run_muldiv();
 					pm.run_muldiv_c();
+					did_something = pm.ud_shiftadd.did_something || pm.ud_shiftmul_right.did_something ||
+							pm.ud_shiftmul_left.did_something || pm.ud_shiftpow2.did_something || pm.ud_muldiv.did_something;
 				}
 			}
 		}
