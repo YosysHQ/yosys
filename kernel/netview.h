@@ -142,7 +142,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
-	void build(RTLIL::Design *design, PortModel *ports = nullptr);
+	void build(RTLIL::Design *design, LeafModel *model = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
 	std::unique_ptr<NetView> retire();
@@ -213,7 +213,7 @@ private:
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
 	void makePins(Instance *inst);
-	// Ports of an instance's master as the host knows them, ignoring PortModel
+	// Ports of an instance's master as the host knows them, ignoring LeafModel
 	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
 	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
@@ -248,7 +248,7 @@ private:
 	std::string cellScope(const Instance *inst) const;
 private:
 	RTLIL::Design *design_ = nullptr;
-	PortModel *ports_ = nullptr;
+	LeafModel *model_ = nullptr;
 	Instance *top_ = nullptr;
 
 	// Records

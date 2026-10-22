@@ -657,8 +657,10 @@ TEST_F(NetViewTest, unknownCellTypeIsACommandError)
 	EXPECT_TRUE(view.valid());
 }
 
-struct NoLeafModel : Netlist::PortModel {
+struct NoLeafModel : Netlist::LeafModel {
 	bool ports(const Netlist::Instance &, std::vector<Netlist::PortShape> &) override { return false; }
+	bool isRegister(const Netlist::Instance &) override { return false; }
+	bool isClockPin(const Netlist::Pin &) override { return false; }
 };
 
 TEST_F(NetViewTest, unmodeledLeafTakesTheHostPorts)

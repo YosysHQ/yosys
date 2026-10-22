@@ -214,9 +214,9 @@ const NetView::PortShapes *NetView::portsFor(Instance *inst, RTLIL::Module *sub)
 	PortShapes &shapes = shape_store_.emplace_back();
 	if (sub != nullptr)
 		detail::moduleShapes(sub, shapes);
-	else if (ports_ == nullptr && !hostPorts(inst, shapes))
+	else if (model_ == nullptr && !hostPorts(inst, shapes))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
-	else if (ports_ != nullptr && !ports_->ports(*inst, shapes)) {
+	else if (model_ != nullptr && !model_->ports(*inst, shapes)) {
 		hostPorts(inst, shapes);
 		unmodeled_.insert(inst->type);
 	}
@@ -344,14 +344,14 @@ void detail::addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, poo
 	}
 }
 
-void NetView::build(RTLIL::Design *design, PortModel *ports)
+void NetView::build(RTLIL::Design *design, LeafModel *model)
 {
 	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
 	design_ = design;
-	ports_ = ports;
+	model_ = model;
 	// A leaf type without a port model errors out halfway, drop the partial view
 	try {
 		buildTop(topModule(design));
@@ -379,7 +379,7 @@ void NetView::reset()
 	unregisterMonitor();
 	design_ = nullptr;
 	top_ = nullptr;
-	ports_ = nullptr;
+	model_ = nullptr;
 	fingerprint_ = 0;
 	tracked_.clear();
 	dirty_ = false;
