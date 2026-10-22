@@ -11,6 +11,7 @@ set(YOSYS_PROGRAM_PREFIX "@YOSYS_PROGRAM_PREFIX@")
 set_and_check(YOSYS_DATADIR "@PACKAGE_yosys_pkg_DATADIR@")
 set_and_check(YOSYS_INCLUDEDIR "@PACKAGE_yosys_pkg_DATADIR@/include")
 # Provide package consumer with ABC configuration choice.
+set(YOSYS_ENABLE_ABC "@YOSYS_ENABLE_ABC@")
 set(YOSYS_ABC_EXECUTABLE "@yosys_pkg_ABC_EXECUTABLE@")
 
 # Get generated paths in consumer run

@@ -23,7 +23,7 @@ function(yosys_package_config variant)
 
 	# ABC path depends on how it is integrated
 	if (NOT YOSYS_ENABLE_ABC OR YOSYS_ABC_EXECUTABLE STREQUAL "INTEGRATED-NOTFOUND")
-		# In-process
+		# Disabled or in-process, check `YOSYS_ENABLE_ABC`
 		set(yosys_pkg_ABC_EXECUTABLE "")
 	elseif (YOSYS_ABC_EXECUTABLE STREQUAL "")
 		# Building
