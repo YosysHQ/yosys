@@ -14,8 +14,6 @@ module top (clk, a, b, c, d);
 endmodule
 EOT
 opt_clean
-stat
-write_rtlil
 
 select -assert-count 1 t:$anyseq
 select -assert-count 1 t:$anyconst
