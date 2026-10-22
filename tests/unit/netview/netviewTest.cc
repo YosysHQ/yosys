@@ -740,6 +740,21 @@ TEST_F(NetViewTest, connectAndInputPortAreTransparent)
 	EXPECT_EQ(driven, view.instance(u_sub)->pins[0]->net);
 }
 
+TEST_F(NetViewTest, cutWireNamesNoNet)
+{
+	Wire *cut = top->addWire("$cut");
+	cut->set_bool_attribute(d->twines().add("\\netview_cut"));
+	Wire *post = top->addWire("$post");
+	u_inv0->setPort(ID(Y), cut);
+	top->addBarrier("$b", cut, post);
+	u_sub->setPort(ID(a), post);
+	NetView view;
+	view.build(d);
+	Netlist::Net *driven = view.instance(u_inv0)->pins[1]->net;
+	EXPECT_EQ(driven, view.instance(u_sub)->pins[0]->net);
+	EXPECT_EQ(view.wireName(driven).wire, "$post");
+}
+
 TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
 {
 	Wire *c = top->addWire(ID(c));
@@ -839,6 +854,67 @@ TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
 	last->build(d);
 	last->resolve({&ref});
 	EXPECT_TRUE(ref.objects.empty());
+}
+
+TEST_F(NetViewTest, clockPinKeepsAnImage)
+{
+	NetView view;
+	view.build(d);
+	NetView::Found ref{NetView::Found::Kind::Pin};
+	ref.image = true;
+	ref.objects = {view.instance(u_sub)->pins[0]};
+	view.protect({&ref});
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	ASSERT_EQ(ref.image_a.size(), 1u);
+	ASSERT_EQ(ref.image_y.size(), 1u);
+	const Netlist::Pin *a = static_cast<const Netlist::Pin *>(ref.image_a[0]);
+	const Netlist::Pin *y = static_cast<const Netlist::Pin *>(ref.image_y[0]);
+	EXPECT_TRUE(next->isBarrier(a->inst));
+	EXPECT_EQ(next->dir(a), Netlist::Dir::Input);
+	EXPECT_EQ(a->net, next->instance(u_sub)->pins[0]->term->net);
+	EXPECT_EQ(y->net, next->instance(i1)->pins[0]->net);
+	EXPECT_NE(a->net, y->net);
+	ASSERT_EQ(next->nets(a->inst).size(), 1u);
+	EXPECT_EQ(a->term->net, y->term->net);
+	std::vector<const void *> loads = {next->instance(i1)->pins[0], next->instance(i2)->pins[0]};
+	std::sort(loads.begin(), loads.end());
+	EXPECT_EQ(ref.objects, loads);
+	EXPECT_TRUE(ref.inside);
+	NetView::Found image{NetView::Found::Kind::Pin};
+	image.objects = {a};
+	next->anchor({&image});
+	EXPECT_TRUE(image.image_pin);
+}
+
+TEST_F(NetViewTest, protectFindsAPinAfterFlatten)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetView::Found ref{NetView::Found::Kind::Pin}, net{NetView::Found::Kind::Net};
+	ref.objects = {view.instance(i1)->pins[0]};
+	net.objects = {view.instance(u_inv0)->pins[0]->net};
+	view.protect({&ref, &net});
+	EXPECT_TRUE(view.valid());
+	Pass::call(d, "flatten");
+	Cell *old = top->cell("\\u_sub.i1");
+	ASSERT_NE(old, nullptr);
+	Cell *renewed = top->addCell("$renewed", ID(INV));
+	renewed->setPort(ID(A), old->getPort(ID(A)));
+	renewed->setPort(ID(Y), old->getPort(ID(Y)));
+	top->remove(old);
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref, &net});
+	EXPECT_EQ(net.objects, std::vector<const void *>{next->instance(u_inv0)->pins[0]->net});
+	ASSERT_EQ(ref.objects.size(), 1u);
+	const Netlist::Pin *pin = static_cast<const Netlist::Pin *>(ref.objects[0]);
+	EXPECT_EQ(next->cell(pin->inst), renewed);
+	EXPECT_EQ(next->shape(pin).name, "A");
 }
 
 YOSYS_NAMESPACE_END
