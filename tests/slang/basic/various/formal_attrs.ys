@@ -1,18 +1,20 @@
 design -reset
 read_slang <<EOT
-module top (clk);
+module top (clk, a, b, c, d);
 	input clk;
 
 	(* anyseq *)
-    wire a;
+    output wire a;
     (* anyconst *)
-    wire b;
+    output wire b;
     (* allseq *)
-    wire c;
+    output wire c;
     (* allconst *)
-    wire d;
+    output wire d;
 endmodule
 EOT
+stat
+write_rtlil
 opt_clean
 
 select -assert-count 1 t:$anyseq
