@@ -917,4 +917,26 @@ TEST_F(NetViewTest, protectFindsAPinAfterFlatten)
 	EXPECT_EQ(next->shape(pin).name, "A");
 }
 
+TEST_F(NetViewTest, unprotectKeepsTheAnchors)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetView::Found cell{NetView::Found::Kind::Cell};
+	cell.objects = {view.instance(u_inv2)};
+	view.protect({&cell});
+	EXPECT_TRUE(u_inv2->get_bool_attribute(ID::keep));
+	EXPECT_EQ(top->cells().size(), 5u); // a barrier at each pin
+	EXPECT_NE(top->cell("\\netview_anchor$1"), nullptr);
+	view.unprotect(d);
+	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
+	EXPECT_EQ(top->cells().size(), 3u);
+	view.invalidateCheck();
+	EXPECT_FALSE(view.valid());
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&cell});
+	EXPECT_EQ(cell.objects, std::vector<const void *>{next->instance(u_inv2)});
+}
+
 YOSYS_NAMESPACE_END
