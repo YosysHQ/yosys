@@ -49,6 +49,15 @@ TwinePool &AST::ast_name_pool()
 	return pool;
 }
 
+static RTLIL::Design *ast_scoped_design = nullptr;
+
+AST::DesignScope::DesignScope(RTLIL::Design *design) : prev(ast_scoped_design)
+{
+	ast_scoped_design = design;
+}
+
+AST::DesignScope::~DesignScope() { ast_scoped_design = prev; }
+
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
 	bool flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
@@ -208,9 +217,7 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 // (the optional child arguments make it easier to create AST trees)
 AstNode::AstNode(AstSrcLocType loc, AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_ptr<AstNode> child2, std::unique_ptr<AstNode> child3, std::unique_ptr<AstNode> child4)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = ast_scoped_design ? ast_scoped_design->next_hashidx() : LARGE_HASHIDX_COLLIDER;
 	astnodes++;
 
 	this->type = type;
@@ -1617,6 +1624,7 @@ void AST::explode_interface_port(AstNode *module_ast, RTLIL::Module * intfmodule
 // that it should be reprocessed once the specified module has been elaborated.
 bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 {
+	DesignScope design_scope(design);
 	for (const RTLIL::Cell *cell : cells())
 	{
 		std::string modname = cell->get_string_attribute(ID::reprocess_after);
@@ -1639,6 +1647,7 @@ bool AstModule::reprocess_if_necessary(RTLIL::Design *design)
 // from AST. The interface members are copied into the AST module with the prefix of the interface.
 void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Module*> &local_interfaces)
 {
+	DesignScope design_scope(design);
 	loadconfig();
 
 	auto new_ast = ast->clone();
@@ -1712,6 +1721,7 @@ void AstModule::expand_interfaces(RTLIL::Design *design, const dict<RTLIL::IdStr
 // This method is used to explode the interface when the interface is a port of the module (not instantiated inside)
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool /*mayfail*/)
 {
+	DesignScope design_scope(design);
 	std::unique_ptr<AstNode> new_ast = NULL;
 	std::string modname = derive_common(design, parameters, &new_ast);
 
@@ -1801,6 +1811,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 // create a new parametric module (when needed) and return the name of the generated module - without support for interfaces
 RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool /*mayfail*/)
 {
+	DesignScope design_scope(design);
 	bool quiet = lib || attributes.count(ID::blackbox) || attributes.count(ID::whitebox);
 
 	std::unique_ptr<AstNode> new_ast = NULL;
@@ -1973,6 +1984,7 @@ RTLIL::Module *AstModule::clone(RTLIL::Design *dst, IdString target_name) const
 
 void AstModule::copy_config_into(AstModule *new_mod) const
 {
+	DesignScope design_scope(new_mod->design);
 	new_mod->ast = ast->clone();
 	new_mod->nolatches = nolatches;
 	new_mod->nomeminit = nomeminit;

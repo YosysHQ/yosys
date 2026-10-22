@@ -391,6 +391,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
+	size_t serial() const;
 	// Infers publicity from first character
 	IdString add(std::string_view s);
 	IdString copy_from(const TwinePool& src, IdString ref);

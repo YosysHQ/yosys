@@ -114,6 +114,9 @@ many RTLIL data structures like ``RTLIL::Wire`` carry their own unique index
 ``Hasher::hash_t hashidx_;``, there are specializations for ``hash_ops<Wire*>``
 and others in ``kernel/hashlib.h`` that actually dereference the pointers and
 call ``hash_into`` on the instances pointed to.
+The index comes from a counter owned by the ``RTLIL::Design`` the object
+belongs to, so the hashes, and with them the iteration order of hashlib
+containers of RTLIL objects, only depend on the history of that design.
 
 ``hash_ops<T>`` is also specialized for simple compound types like
 ``std::pair<U>`` by calling hash_into in sequence on its members. For flexible
