@@ -1,0 +1,10 @@
+read_verilog <<EOT
+module m(input c, d, output reg q);
+	always @(posedge c) q <= d;
+endmodule
+EOT
+proc
+write_verilog -sv temp/write_verilog_sv_reset_sv.v
+write_verilog temp/write_verilog_sv_reset.v
+design -reset
+read_verilog temp/write_verilog_sv_reset.v
