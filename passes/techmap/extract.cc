@@ -296,7 +296,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	auto &tw = needle->twines();
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), haystack->twines().copy_from(tw, needle->name));
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, haystack->twines().next_autoidx()), haystack->twines().copy_from(tw, needle->name));
 
 	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {

@@ -77,7 +77,7 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	auto design = module->design;
 	log_assert(design);
 
-	Remapper remap{design, autoidx++};
+	Remapper remap{design, design->twines().next_autoidx()};
 
 	RTLIL::Module *mapped_mod = design->module(stringf("%s$abc9", module->name));
 	if (mapped_mod == NULL)

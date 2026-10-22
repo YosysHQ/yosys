@@ -207,7 +207,7 @@ struct TechmapWorker
 
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
-				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
+				module->rename(cell, stringf("$techmap%d", module->twines().next_autoidx()) + cell->name.str());
 				break;
 			}
 

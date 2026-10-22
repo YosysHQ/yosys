@@ -153,7 +153,7 @@ void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::Ca
 RTLIL::SigSpec gen_cmp(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const std::vector<RTLIL::SigSpec> &compare, RTLIL::SwitchRule *sw, RTLIL::CaseRule *cs, bool ifxmode)
 {
 	std::stringstream sstr;
-	sstr << "$procmux$" << (autoidx++);
+	sstr << "$procmux$" << (mod->twines().next_autoidx());
 
 	RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
 
@@ -223,7 +223,7 @@ RTLIL::SigSpec gen_mux(RTLIL::Module *mod, const RTLIL::SigSpec &signal, const s
 	log_assert(when_signal.size() == else_signal.size());
 
 	std::stringstream sstr;
-	sstr << "$procmux$" << (autoidx++);
+	sstr << "$procmux$" << (mod->twines().next_autoidx());
 
 	// the trivial cases
 	if (compare.size() == 0 || when_signal == else_signal)

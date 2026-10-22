@@ -42,7 +42,8 @@ struct DesignPass : public Pass {
 		log("\n");
 		log("    design -reset\n");
 		log("\n");
-		log("Clear the current design.\n");
+		log("Clear the current design. This also restarts the numbering of generated\n");
+		log("names.\n");
 		log("\n");
 		log("\n");
 		log("    design -save <name>\n");

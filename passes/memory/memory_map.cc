@@ -81,7 +81,7 @@ struct MemoryMapWorker
 		if (k >= 0)
 			sstr << "[" << k << "]";
 
-		sstr << token4 << "$" << (autoidx++);
+		sstr << token4 << "$" << (design->twines().next_autoidx());
 		return sstr.str();
 	}
 

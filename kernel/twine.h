@@ -246,9 +246,6 @@ struct TwineSpec {
 	TwineSpec(Leaf v);
 	TwineSpec(Suffix v);
 	TwineSpec(AutoSuffix v);
-
-	// Only for the pool-free variants, Leaf and AutoSuffix
-	std::string content_str() const;
 };
 
 struct SmallString {
@@ -391,6 +388,9 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	// Doesn't infer publicity
 	IdString add(TwineSpec t);
 	IdString add(IdString prefix, std::string_view tail);
+	int next_autoidx();
+	int autoidx() const;
+	void ensure_autoidx(int v);
 	size_t serial() const;
 	// Infers publicity from first character
 	IdString add(std::string_view s);
@@ -417,6 +417,7 @@ private:
 	static size_t next_serial();
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
+	int autoidx_;
 };
 
 YOSYS_NAMESPACE_END

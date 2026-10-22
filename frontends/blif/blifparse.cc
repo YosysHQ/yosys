@@ -252,7 +252,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 					if (undef_wire != nullptr)
 						module->rename(undef_wire, stringf("$undef$%d", ++blif_maxnum));
 
-					autoidx.ensure_at_least(blif_maxnum+1);
+					design->twines().ensure_autoidx(blif_maxnum+1);
 					blif_maxnum = 0;
 				}
 
@@ -699,7 +699,7 @@ struct BlifFrontend : public Frontend {
 		}
 		extra_args(f, filename, args, argidx);
 
-		parse_blif(design, *f, IdString::Null, autoidx++, true, sop_mode, wideports);
+		parse_blif(design, *f, IdString::Null, design->twines().next_autoidx(), true, sop_mode, wideports);
 	}
 } BlifFrontend;
 
