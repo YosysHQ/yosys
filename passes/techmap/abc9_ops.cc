@@ -636,6 +636,9 @@ void break_scc(RTLIL::Module *module)
 
 void prep_delays(RTLIL::Design *design, bool dff_mode)
 {
+#ifndef NDEBUG
+	pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+#endif
 	TimingInfo timing;
 
 	// Derive all Yosys blackbox modules that are not combinatorial abc9 boxes
@@ -708,7 +711,6 @@ void prep_delays(RTLIL::Design *design, bool dff_mode)
 
 #ifndef NDEBUG
 			if (ys_debug(1)) {
-				static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 				if (seen.emplace(cell->type, i.first).second) log("%s.%s[%d] abc9_required = %d\n",
 						cell->type.unescape(), design->twines().unescaped_str(i.first.name), offset, d);
 			}
@@ -1042,6 +1044,9 @@ void write_lut(RTLIL::Module *module, const std::string &dst) {
 
 void prep_box(RTLIL::Design *design)
 {
+#ifndef NDEBUG
+	std::set<std::pair<IdString,IdString>> seen;
+#endif
 	TimingInfo timing;
 
 	int abc9_box_id = 1;
@@ -1110,7 +1115,6 @@ void prep_box(RTLIL::Design *design)
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
-						static std::set<std::pair<IdString,IdString>> seen;
 						if (seen.emplace(module->name, port_name).second) log("%s.%s abc9_required = %d\n", module,
 								design->twines().unescaped_str(port_name), it->second.first);
 					}
