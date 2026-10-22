@@ -38,10 +38,10 @@ bool RewritePipeline::run(RTLIL::Module *module) const
 	if (module->get_bool_attribute(ID::blackbox))
 		return changed;
 
-	for (RTLIL::Wire *wire : module->wires())
+	for (RTLIL::Wire *wire : module->wires().to_vector())
 		changed |= rewrite_objects(wire, wire_rules);
 
-	for (RTLIL::Cell *cell : module->cells())
+	for (RTLIL::Cell *cell : module->cells().to_vector())
 		changed |= rewrite_objects(cell, cell_rules);
 
 	return changed;
