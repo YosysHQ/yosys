@@ -165,6 +165,10 @@ TwinePool& TwinePool::operator=(TwinePool&& other) {
 	return *this;
 }
 
+void TwinePool::reset() {
+	*this = TwinePool();
+}
+
 int TwinePool::next_autoidx() {
 	return autoidx_++;
 }

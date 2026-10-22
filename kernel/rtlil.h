@@ -1335,6 +1335,8 @@ public:
 	Design();
 	~Design();
 
+	void reset();
+	void reset_verilog_state();
 
 	RTLIL::ObjRange<RTLIL::Module*, IdString> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
