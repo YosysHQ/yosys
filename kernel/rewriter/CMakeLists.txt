@@ -5,6 +5,7 @@ yosys_core(rewriter
 	pipeline.h
 	rewriter.cc
 	rewriter.h
+	rule.cc
 	rule.h
 	REQUIRES
 		kernel

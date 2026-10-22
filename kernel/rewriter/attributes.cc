@@ -4,7 +4,7 @@
 namespace Yosys::Rewriter::Rules {
 
 
-bool BlackboxRule::rewrite(RTLIL::Module *module) const {
+bool BlackboxRule::apply(RTLIL::Module *module) const {
 	if (!module->get_bool_attribute(ID::blackbox))
 		return false;
 
@@ -24,7 +24,7 @@ bool BlackboxRule::rewrite(RTLIL::Module *module) const {
 // end
 // ```
 // For now, redirect existing drivers, including slang's implicit initialization buffers.
-bool FormalAttrRule::rewrite(RTLIL::Wire *wire) const {
+bool FormalAttrRule::apply(RTLIL::Wire *wire) const {
 	RTLIL::Module* module = wire->module;
 	auto rewrite_attr = [&](RTLIL::IdString attr, auto create_sig) {
 		if (!wire->get_bool_attribute(attr))

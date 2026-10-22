@@ -21,39 +21,19 @@ void RewritePipeline::add(std::unique_ptr<WireRewriteRule> rule)
 }
 
 template<typename T>
-bool RewritePipeline::rewrite_objects(T *item, const std::vector<std::unique_ptr<RewriteRule<T>>> &rules) const
+bool RewritePipeline::run(T* item) const
 {
 	bool changed = false;
-	for (auto &rule : rules)
+	for (auto &rule : module_rules)
+		changed |= rule->rewrite(item);
+	for (auto &rule : wire_rules)
+		changed |= rule->rewrite(item);
+	for (auto &rule : cell_rules)
 		changed |= rule->rewrite(item);
 	return changed;
 }
 
-bool RewritePipeline::run(RTLIL::Module *module) const
-{
-	bool changed = false;
-	for (auto &rule : module_rules)
-		changed |= rule->rewrite(module);
-
-	if (module->get_bool_attribute(ID::blackbox))
-		return changed;
-
-	for (RTLIL::Wire *wire : module->wires().to_vector())
-		changed |= rewrite_objects(wire, wire_rules);
-
-	for (RTLIL::Cell *cell : module->cells().to_vector())
-		changed |= rewrite_objects(cell, cell_rules);
-
-	return changed;
-}
-
-bool RewritePipeline::run(RTLIL::Design *design) const
-{
-	bool changed = false;
-	for (RTLIL::Module *module : design->modules()) {
-		changed |= run(module);
-	}
-	return changed;
-}
+template bool RewritePipeline::run<RTLIL::Module>(RTLIL::Module *item) const;
+template bool RewritePipeline::run<RTLIL::Design>(RTLIL::Design *item) const;
 
 } // namespace Yosys::Rewriter

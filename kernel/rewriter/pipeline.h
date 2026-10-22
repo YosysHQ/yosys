@@ -17,12 +17,8 @@ public:
 	void add(std::unique_ptr<CellRewriteRule> rule);
 	void add(std::unique_ptr<WireRewriteRule> rule);
 
-	bool run(RTLIL::Module *module) const;
-	bool run(RTLIL::Design *design) const;
-
-private:
 	template<typename T>
-	bool rewrite_objects(T *item, const std::vector<std::unique_ptr<RewriteRule<T>>> &rules) const;
+	bool run(T *item) const;
 };
 
 } // namespace Yosys::Rewriter
