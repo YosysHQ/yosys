@@ -24,6 +24,7 @@ include(PmgenCommand)
 include(YosysVersion)
 include(YosysInstallDirs)
 include(YosysConfigScript)
+include(YosysPackageConfig)
 include(YosysComponent)
 include(YosysLinkTarget)
 include(YosysAbc)
@@ -459,6 +460,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	yosys_cxx_library(libyosys ${libyosys_type}
 		OUTPUT_NAME libyosys
 		INSTALL_IF ${YOSYS_INSTALL_LIBRARY}
+		EXPORT Yosys
 	)
 	yosys_link_components(libyosys PRIVATE ${library_components})
 	# Settings for consumers
@@ -548,6 +550,17 @@ endif()
 yosys_config_script(BUILD)
 if (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY)
 	yosys_config_script(INSTALL)
+endif()
+
+# Package definition.
+# Limit it to dynamic library as static would require more (third-party) component exports.
+if (NOT YOSYS_BUILD_PYTHON_ONLY)
+	if (BUILD_SHARED_LIBS)
+		yosys_package_config(BUILD)
+		if (YOSYS_INSTALL_LIBRARY)
+			yosys_package_config(INSTALL)
+		endif()
+	endif()
 endif()
 
 # Configuration for Makefile-based steps.

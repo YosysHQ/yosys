@@ -1,0 +1,17 @@
+@PACKAGE_INIT@
+
+# Version
+set(YOSYS_VERSION "@YOSYS_VERSION@")
+# Path prefix
+set(YOSYS_PROGRAM_PREFIX "@YOSYS_PROGRAM_PREFIX@")
+# Provide package consumer with build-time paths
+# TODO: This is done so we can update the search paths of libyosys when it is
+# executed as part of another process. A more flexible path system could make
+# this superfluous.
+set_and_check(YOSYS_DATADIR "@PACKAGE_yosys_pkg_DATADIR@")
+set_and_check(YOSYS_INCLUDEDIR "@PACKAGE_yosys_pkg_DATADIR@/include")
+# Provide package consumer with ABC configuration choice.
+set(YOSYS_ABC_EXECUTABLE "@yosys_pkg_ABC_EXECUTABLE@")
+
+# Get generated paths in consumer run
+include("${CMAKE_CURRENT_LIST_DIR}/YosysTargets.cmake")
