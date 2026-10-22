@@ -150,6 +150,7 @@ bool isCutWire(const RTLIL::Wire *wire);
 int anchorNumber(const RTLIL::Cell *barrier);
 std::string barrierScope(const std::string &path, const RTLIL::Cell *barrier);
 void markKeep(RTLIL::Design *design, RTLIL::AttrObject *object);
+void unmark(RTLIL::Design *design, RTLIL::AttrObject *object);
 void replaceBit(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
 std::vector<const void *> pinsOf(const std::vector<const Netlist::Instance *> &insts, const std::vector<const void *> &leaves);
 
@@ -304,6 +305,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 
 	void anchor(const std::vector<Found *> &refs);
 	void protect(const std::vector<Found *> &refs);
+	void unprotect(RTLIL::Design *design);
 	void clearAnchors(RTLIL::Design *design);
 	void resolve(const std::vector<Found *> &refs);
 	void innerPins(const Net *net, bool drivers, std::vector<const void *> &found) const;

@@ -14,6 +14,7 @@
 //   Net   the leaf drivers
 #include "kernel/netview.h"
 #include "kernel/newcelltypes.h"
+#include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -56,6 +57,34 @@ void NetView::protectObject(const void *object, uint32_t ref, const Found &found
 		protectCell(static_cast<const Instance *>(object), ref);
 	else
 		protectNet(static_cast<const Net *>(object), ref);
+}
+
+// abc9 renews a barrier, its old name stays in the new one
+void NetView::unprotect(RTLIL::Design *design)
+{
+	Pass::call(design, stringf("optbarriers -remove t:$barrier n:*%s* %%i", detail::anchor_prefix));
+	barrier_marks_.clear();
+	RTLIL::IdString cut = detail::attrId(design, "\\netview_cut", false);
+	for (RTLIL::Module *module : design->modules()) {
+		for (RTLIL::Wire *wire : module->wires()) {
+			wire->attributes.erase(cut);
+			detail::unmark(design, wire);
+		}
+		for (RTLIL::Cell *cell : module->cells())
+			detail::unmark(design, cell);
+	}
+}
+
+// Our keep and an empty scopename go
+void detail::unmark(RTLIL::Design *design, RTLIL::AttrObject *object)
+{
+	RTLIL::IdString keep = detail::attrId(design, "\\netview_keep", false);
+	if (object->get_bool_attribute(keep)) {
+		object->attributes.erase(ID::keep);
+		object->attributes.erase(keep);
+	}
+	if (object->has_attribute(ID(scopename)) && object->get_string_attribute(ID(scopename)).empty())
+		object->attributes.erase(ID(scopename));
 }
 
 // netview_cut: it never names a net
