@@ -1,0 +1,32 @@
+# A fully defined 32-bit attribute value from 0 to 2^31-1 is written unsized,
+# as some tools (e.g. Lattice LSE for syn_keep) accept only a bare integer.
+
+! mkdir -p temp
+
+read_rtlil <<EOT
+module \top
+  attribute \one 1
+  attribute \zero 0
+  attribute \max 2147483647
+  attribute \over 32'10000000000000000000000000000000
+  attribute \narrow 8'00000001
+  attribute \undef 32'x
+  attribute \str "abcd"
+  wire \w
+end
+EOT
+
+write_verilog temp/write_verilog_int_attr.v
+! grep -qF "(* one = 1 *)" temp/write_verilog_int_attr.v
+! grep -qF "(* zero = 0 *)" temp/write_verilog_int_attr.v
+! grep -qF "(* max = 2147483647 *)" temp/write_verilog_int_attr.v
+! grep -qF "(* over = 32'd2147483648 *)" temp/write_verilog_int_attr.v
+! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_int_attr.v
+! grep -qF "(* undef = 32'hxxxxxxxx *)" temp/write_verilog_int_attr.v
+! grep -qF "(* str = \"abcd\" *)" temp/write_verilog_int_attr.v
+
+write_verilog -nodec temp/write_verilog_int_attr_nodec.v
+! grep -qF "(* one = 32'h00000001 *)" temp/write_verilog_int_attr_nodec.v
+
+write_verilog -nostr temp/write_verilog_int_attr_nostr.v
+! grep -qF "(* one = 32'h00000001 *)" temp/write_verilog_int_attr_nostr.v
