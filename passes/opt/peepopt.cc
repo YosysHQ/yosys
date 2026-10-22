@@ -120,7 +120,8 @@ struct PeepoptPass : public Pass {
 					pm.run_muldiv();
 					pm.run_muldiv_c();
 					did_something = pm.ud_shiftadd.did_something || pm.ud_shiftmul_right.did_something ||
-							pm.ud_shiftmul_left.did_something || pm.ud_shiftpow2.did_something || pm.ud_muldiv.did_something;
+							pm.ud_shiftmul_left.did_something || pm.ud_shiftpow2.did_something || pm.ud_muldiv.did_something ||
+							pm.ud_muldiv_c.did_something;
 				}
 			}
 		}
