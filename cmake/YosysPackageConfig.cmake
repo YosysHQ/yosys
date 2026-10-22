@@ -50,7 +50,7 @@ function(yosys_package_config variant)
 	)
 
 	if (variant STREQUAL BUILD)
-		export(TARGETS libyosys
+		export(EXPORT Yosys
 			NAMESPACE Yosys::
 			FILE ${output}/YosysTargets.cmake
 		)

@@ -554,13 +554,10 @@ endif()
 
 # Package definition.
 # Limit it to dynamic library as static would require more (third-party) component exports.
-if (NOT YOSYS_BUILD_PYTHON_ONLY)
-	if (BUILD_SHARED_LIBS)
-		yosys_package_config(BUILD)
-		if (YOSYS_INSTALL_LIBRARY)
-			yosys_package_config(INSTALL)
-		endif()
-	endif()
+# Only generated if libyosys is installed, as it is otherwise not part of the default build.
+if (NOT YOSYS_BUILD_PYTHON_ONLY AND BUILD_SHARED_LIBS AND YOSYS_INSTALL_LIBRARY)
+	yosys_package_config(BUILD)
+	yosys_package_config(INSTALL)
 endif()
 
 # Configuration for Makefile-based steps.
