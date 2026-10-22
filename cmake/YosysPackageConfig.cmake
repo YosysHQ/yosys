@@ -27,8 +27,7 @@ function(yosys_package_config variant)
 		set(yosys_pkg_ABC_EXECUTABLE "")
 	elseif (YOSYS_ABC_EXECUTABLE STREQUAL "")
 		# Building
-		# See `abc_filename`
-		cmake_path(APPEND yosys_pkg_BINDIR "${YOSYS_PROGRAM_PREFIX}yosys-abc${CMAKE_EXECUTABLE_SUFFIX}" OUTPUT_VARIABLE abc_rel)
+		cmake_path(APPEND yosys_pkg_BINDIR "${abc_filename}" OUTPUT_VARIABLE abc_rel)
 		set(yosys_pkg_ABC_EXECUTABLE "\${PACKAGE_PREFIX_DIR}/${abc_rel}")
 	else ()
 		# External
