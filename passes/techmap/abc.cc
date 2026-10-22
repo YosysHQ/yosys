@@ -1777,7 +1777,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				log_assert(c.width == 1);
 				newsig.append(module->wire(remap_ref(module, c.wire->name)));
 			}
-			cell->setPort(conn.first, newsig);
+			cell->setPort(module->twines().copy_from(mapped_design->twines(), conn.first), newsig);
 		}
 		design->select(module, cell);
 	}
