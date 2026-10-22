@@ -469,8 +469,8 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 		$<BUILD_INTERFACE:${YOSYS_CMAKE_BINARY_DIR}/share/include>
 		$<INSTALL_INTERFACE:${YOSYS_INSTALL_DATADIR}/include>
 	)
-	# - Require C++20 standard
-	target_compile_features(libyosys INTERFACE cxx_std_20)
+	# - Forward C++ standard
+	target_compile_features(libyosys INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
 	# - Set define _YOSYS_
 	target_compile_definitions(libyosys INTERFACE _YOSYS_)
 	# Library
