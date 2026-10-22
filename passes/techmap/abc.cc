@@ -2609,8 +2609,8 @@ struct AbcPass : public Pass {
 			}
 
 			// Advance autoidx by the clock domain count for multi-threaded determinism
-			int autoidx_base = autoidx;
-			autoidx.ensure_at_least(autoidx_base + GetSize(assigned_cells));
+			int autoidx_base = design->twines().autoidx();
+			design->twines().ensure_autoidx(autoidx_base + GetSize(assigned_cells));
 
 			int domain_index = 0;
 			for (auto &it : assigned_cells) {

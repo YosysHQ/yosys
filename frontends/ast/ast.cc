@@ -58,6 +58,14 @@ AST::DesignScope::DesignScope(RTLIL::Design *design) : prev(ast_scoped_design)
 
 AST::DesignScope::~DesignScope() { ast_scoped_design = prev; }
 
+static RTLIL::Design *scoped_design()
+{
+	log_assert(ast_scoped_design != nullptr);
+	return ast_scoped_design;
+}
+
+int AST::ast_autoidx() { return scoped_design()->twines().next_autoidx(); }
+
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
 	bool flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
@@ -951,7 +959,7 @@ std::unique_ptr<AstNode> AstNode::mktemp_logic(AstSrcLocType loc, const std::str
 {
 	auto wire_owned = std::make_unique<AstNode>(loc, AST_WIRE, std::make_unique<AstNode>(loc, AST_RANGE, mkconst_int(loc, range_left, true), mkconst_int(loc, range_right, true)));
 	auto* wire = wire_owned.get();
-	wire->str = stringf("%s%s:%d$%d", name, RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+	wire->str = stringf("%s%s:%d$%d", name, RTLIL::encode_filename(*location.begin.filename), location.begin.line, ast_autoidx());
 	if (nosync)
 		wire->set_attribute(ID::nosync, AstNode::mkconst_int(loc, 1, false));
 	wire->is_signed = is_signed;

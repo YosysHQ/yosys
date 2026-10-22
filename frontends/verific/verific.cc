@@ -267,7 +267,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
 		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
-	s += stringf("$%d", autoidx++);
+	s += stringf("$%d", module->twines().next_autoidx());
 	return module->twines().add(std::move(s));
 }
 
@@ -1509,7 +1509,7 @@ void VerificImporter::recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memor
 				cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
 				cell->parameters[ID::ABITS] = 32;
 				cell->parameters[ID::WIDTH] = memory->width;
-				cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+				cell->parameters[ID::PRIORITY] = RTLIL::Const(module->twines().autoidx()-1);
 			}
 			memory->start_offset = min(memory->start_offset, next_idx);
 			memory->size = max(memory->size, next_idx);

@@ -2512,7 +2512,7 @@ void dump_module(std::ostream &f, std::string indent, RTLIL::Module *module)
 	}
 	f << stringf(");\n");
 	if (!systemverilog && !module->processes.empty()) {
-		initial_id = TwineSpec(NEW_ID).content_str();
+		initial_id = module->twines().unescaped_str(module->twines().add(NEW_ID));
 		f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 	}
 

@@ -301,7 +301,7 @@ void FfMergeHelper::remove_output_ff(const pool<std::pair<Cell *, int>> &bits) {
 		SigSpec q = cell->getPort(ID::Q);
 		initvals->remove_init(q[idx]);
 		dff_driver.erase((*sigmap)(q[idx]));
-		q[idx] = module->addWire(stringf("$ffmerge_disconnected$%d", autoidx++));
+		q[idx] = module->addWire(stringf("$ffmerge_disconnected$%d", module->twines().next_autoidx()));
 		cell->setPort(ID::Q, q);
 		initvals->set_init(cell->getPort(ID::Q), (*initvals)(q));
 	}

@@ -1041,7 +1041,7 @@ struct RTLILFrontendWorker {
 				continue;
 			}
 			if (try_parse_keyword("autoidx")) {
-				autoidx = std::max<int>(autoidx, parse_integer());
+				design->twines().ensure_autoidx(parse_integer());
 				expect_eol();
 				continue;
 			}

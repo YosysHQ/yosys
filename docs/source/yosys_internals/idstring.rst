@@ -43,9 +43,10 @@ while Yosys-created names are private.
 ones behind a pointer. This keeps its own size at 24 bytes.
 ``AutoSuffix`` is a ``TwineSpec`` variant produced by ``NEW_ID``
 and ``NEW_ID_SUFFIX`` macros. These are ``TwineSpec``s which skip string hashing
-on the constant per-callsite prefix when repeatedly interned
-and benefit from the ``SmallString`` implementation greatly to represent
-the per-use incremented autoidx integer suffix.
+on the constant per-callsite prefix when repeatedly interned.
+The ``TwinePool`` appends its own autoidx counter value when interning them,
+so each ``Design`` numbers its generated names independently.
+The integer suffix fits the ``SmallString`` inline storage.
 
 Garbage collection traces a ``Design`` in parallel.
 

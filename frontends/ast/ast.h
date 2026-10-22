@@ -46,6 +46,7 @@ namespace AST
 	private:
 		RTLIL::Design *prev;
 	};
+	int ast_autoidx();
 
 	// all node types, type2str() must be extended
 	// whenever a new node type is added here

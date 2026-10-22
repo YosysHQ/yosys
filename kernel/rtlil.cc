@@ -2782,7 +2782,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		void operator()(RTLIL::SigSpec &sig) {
 			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
 				if (wires_p->count(wire))
-					wire = module->addWire(stringf("$delete_wire$%d", (int)autoidx++), wire->width);
+					wire = module->addWire(stringf("$delete_wire$%d", module->twines().next_autoidx()), wire->width);
 			});
 		}
 

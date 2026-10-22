@@ -379,7 +379,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 
 	// create fsm cell
 
-	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name, autoidx++), ID($fsm));
+	RTLIL::Cell *fsm_cell = module->addCell(stringf("$fsm$%s$%d", wire->name, module->twines().next_autoidx()), ID($fsm));
 	fsm_cell->setPort(ID::CLK, clk);
 	fsm_cell->setPort(ID::ARST, arst);
 	fsm_cell->parameters[ID::CLK_POLARITY] = clk_polarity ? State::S1 : State::S0;
@@ -417,7 +417,7 @@ static void extract_fsm(RTLIL::Wire *wire)
 		RTLIL::Cell *cell = module->cell(cellport.first);
 		RTLIL::SigSpec port_sig = assign_map(cell->getPort(cellport.second));
 		RTLIL::SigSpec unconn_sig = port_sig.extract(ctrl_out);
-		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", autoidx++), unconn_sig.size());
+		RTLIL::Wire *unconn_wire = module->addWire(stringf("$fsm_unconnect$%d", module->twines().next_autoidx()), unconn_sig.size());
 		port_sig.replace(unconn_sig, RTLIL::SigSpec(unconn_wire), &cell->connections_[cellport.second]);
 	}
 }
