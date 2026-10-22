@@ -26,6 +26,82 @@ YOSYS_NAMESPACE_BEGIN
 std::map<std::string, std::unique_ptr<RTLIL::Design>> saved_designs;
 std::vector<std::unique_ptr<RTLIL::Design>> pushed_designs;
 
+static void import_design(RTLIL::Design *src, RTLIL::Design *dst, std::vector<RTLIL::Module*> modules,
+		const std::string &as_name)
+{
+	std::vector<RTLIL::Module*> candidates;
+	for (auto module : modules)
+	{
+		if (module->get_bool_attribute(ID::top)) {
+			candidates.clear();
+			candidates.push_back(module);
+			break;
+		}
+		if (!module->get_blackbox_attribute())
+			candidates.push_back(module);
+	}
+
+	if (GetSize(candidates) == 1)
+		modules = std::move(candidates);
+
+	std::string prefix = RTLIL::escape_id(as_name);
+	IdString as_name_ref = dst->twines().add(prefix);
+
+	pool<Module*> queue;
+	dict<IdString, IdString> done;
+
+	if (dst->module(as_name_ref) != nullptr)
+		dst->remove(dst->module(as_name_ref));
+
+	if (GetSize(modules) != 1)
+		log_cmd_error("No top module found in source design.\n");
+
+	for (auto mod : modules)
+	{
+		log("Importing %s as %s.\n", mod, PooledName(dst, as_name_ref).unescape());
+
+		RTLIL::Module *t = mod->clone(dst, as_name_ref);
+		t->attributes.erase(ID::top);
+
+		queue.insert(t);
+		done[mod->name] = as_name_ref;
+	}
+
+	while (!queue.empty())
+	{
+		pool<Module*> old_queue;
+		old_queue.swap(queue);
+
+		for (auto mod : old_queue)
+		for (auto cell : mod->cells())
+		{
+			Module *fmod = src->module(src->twines().find(dst->twines().str(cell->type)));
+
+			if (fmod == nullptr)
+				continue;
+
+			if (done.count(cell->type) == 0)
+			{
+				IdString trg_ref = dst->twines().add(
+						TwineSpec::Suffix{as_name_ref, "." + cell->type.unescape()});
+
+				log("Importing %s as %s.\n", fmod, PooledName(dst, trg_ref).unescape());
+
+				if (dst->module(trg_ref) != nullptr)
+					dst->remove(dst->module(trg_ref));
+
+				RTLIL::Module *t = fmod->clone(dst, trg_ref);
+				t->attributes.erase(ID::top);
+
+				queue.insert(t);
+				done[cell->type] = trg_ref;
+			}
+
+			cell->type = done.at(cell->type);
+		}
+	}
+}
+
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
 	void on_shutdown() override {
@@ -220,23 +296,6 @@ struct DesignPass : public Pass {
 			for (auto mod : copy_from_design->selected_modules(RTLIL::SELECT_WHOLE_CMDERR, RTLIL::SB_ALL))
 				copy_src_modules.push_back(mod);
 
-			if (import_mode) {
-				std::vector<RTLIL::Module*> candidates;
-				for (auto module : copy_src_modules)
-				{
-					if (module->get_bool_attribute(ID::top)) {
-						candidates.clear();
-						candidates.push_back(module);
-						break;
-					}
-					if (!module->get_blackbox_attribute())
-						candidates.push_back(module);
-				}
-
-				if (GetSize(candidates) == 1)
-					copy_src_modules = std::move(candidates);
-			}
-
 			copy_from_design->pop_selection();
 		}
 
@@ -249,65 +308,7 @@ struct DesignPass : public Pass {
 			log_cmd_error("No pushed designs.\n");
 
 		if (import_mode)
-		{
-			std::string prefix = RTLIL::escape_id(as_name);
-			IdString as_name_ref = copy_to_design->twines().add(prefix);
-
-			pool<Module*> queue;
-			dict<IdString, IdString> done;
-
-			if (copy_to_design->module(as_name_ref) != nullptr)
-				copy_to_design->remove(copy_to_design->module(as_name_ref));
-
-			if (GetSize(copy_src_modules) != 1)
-				log_cmd_error("No top module found in source design.\n");
-
-			for (auto mod : copy_src_modules)
-			{
-				log("Importing %s as %s.\n", mod, PooledName(design, as_name_ref).unescape());
-
-				RTLIL::Module *t = mod->clone(copy_to_design, as_name_ref);
-				t->attributes.erase(ID::top);
-
-				queue.insert(t);
-				done[mod->name] = as_name_ref;
-			}
-
-			while (!queue.empty() && copy_from_design)
-			{
-				pool<Module*> old_queue;
-				old_queue.swap(queue);
-
-				for (auto mod : old_queue)
-				for (auto cell : mod->cells())
-				{
-					Module *fmod = copy_from_design->module(
-							copy_from_design->twines().find(copy_to_design->twines().str(cell->type)));
-
-					if (fmod == nullptr)
-						continue;
-
-					if (done.count(cell->type) == 0)
-					{
-						IdString trg_ref = copy_to_design->twines().add(
-								TwineSpec::Suffix{as_name_ref, "." + cell->type.unescape()});
-
-						log("Importing %s as %s.\n", fmod, PooledName(copy_to_design, trg_ref).unescape());
-
-						if (copy_to_design->module(trg_ref) != nullptr)
-							copy_to_design->remove(copy_to_design->module(trg_ref));
-
-						RTLIL::Module *t = fmod->clone(copy_to_design, trg_ref);
-						t->attributes.erase(ID::top);
-
-						queue.insert(t);
-						done[cell->type] = trg_ref;
-					}
-
-					cell->type = done.at(cell->type);
-				}
-			}
-		}
+			import_design(copy_from_design, copy_to_design, copy_src_modules, as_name);
 		else
 		if (copy_to_design != NULL)
 		{
