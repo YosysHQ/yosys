@@ -1014,26 +1014,23 @@ void RTLIL::Selection::clear()
 RTLIL::Design::Design()
   : verilog_defines (new define_map_t)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
-
 	refcount_modules_ = 0;
 	selected_active_module.clear();
 	push_full_selection();
 
-	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
+	RTLIL::Design::get_all_designs()->push_back(this);
 }
 
 RTLIL::Design::~Design()
 {
 	for (auto &pr : modules_)
 		delete pr.second;
-	RTLIL::Design::get_all_designs()->erase(hashidx_);
+	auto &all_designs = *RTLIL::Design::get_all_designs();
+	all_designs.erase(std::find(all_designs.begin(), all_designs.end(), this));
 }
 
-static std::map<unsigned int, RTLIL::Design*> all_designs;
-std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
+static std::vector<RTLIL::Design*> all_designs;
+std::vector<RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
 	return &all_designs;
 }
@@ -1350,17 +1347,11 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 
 RTLIL::Module::Module(RTLIL::Design *design)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = design->next_hashidx();
 
 	this->design = design;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Module::~Module()
@@ -1373,18 +1364,7 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto &pr : processes)
 		delete pr.second;
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Module::get_all_modules()->erase(hashidx_);
-#endif
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Module*> all_modules;
-std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
-{
-	return &all_modules;
-}
-#endif
 
 void RTLIL::Module::makeblackbox()
 {
@@ -4166,9 +4146,7 @@ std::string RTLIL::Module::to_rtlil_str() const
 
 RTLIL::Wire::Wire(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
 	width = 1;
 	start_offset = 0;
@@ -4177,17 +4155,10 @@ RTLIL::Wire::Wire(RTLIL::Module *module) : module(module)
 	port_output = false;
 	upto = false;
 	is_signed = false;
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Wire::~Wire()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Wire::get_all_wires()->erase(hashidx_);
-#endif
 }
 
 std::string RTLIL::Wire::to_rtlil_str() const
@@ -4197,26 +4168,13 @@ std::string RTLIL::Wire::to_rtlil_str() const
 	return f.str();
 }
 
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Wire*> all_wires;
-std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
-{
-	return &all_wires;
-}
-#endif
-
 RTLIL::Memory::Memory(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
 	width = 1;
 	start_offset = 0;
 	size = 0;
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
-#endif
 }
 
 std::string RTLIL::Memory::to_rtlil_str() const
@@ -4228,9 +4186,7 @@ std::string RTLIL::Memory::to_rtlil_str() const
 
 RTLIL::Process::Process(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 }
 
 std::string RTLIL::Process::to_rtlil_str() const
@@ -4242,23 +4198,14 @@ std::string RTLIL::Process::to_rtlil_str() const
 
 RTLIL::Cell::Cell(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
 	// log("#memtrace# %p\n", this);
 	memhasher();
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Cell::~Cell()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Cell::get_all_cells()->erase(hashidx_);
-#endif
 }
 
 std::string RTLIL::Cell::to_rtlil_str() const
@@ -4267,14 +4214,6 @@ std::string RTLIL::Cell::to_rtlil_str() const
 	RTLIL_BACKEND::dump_cell(f, "", this, design(), RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Cell*> all_cells;
-std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
-{
-	return &all_cells;
-}
-#endif
 
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
@@ -5935,16 +5874,5 @@ RTLIL::Process *RTLIL::Process::clone(RTLIL::Module *module) const
 
 RTLIL::Memory::~Memory()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
-#endif
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Memory*> all_memorys;
-std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
-{
-	return &all_memorys;
-}
-#endif
 YOSYS_NAMESPACE_END

@@ -168,6 +168,8 @@ TwinePool& TwinePool::operator=(TwinePool&& other) {
 	return *this;
 }
 
+size_t TwinePool::serial() const { return serial_; }
+
 bool TwinePool::owns(IdString ref) const {
 	return ref.serial() == 0 || ref.serial() == serial_;
 }

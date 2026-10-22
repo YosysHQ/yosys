@@ -1,6 +1,7 @@
 yosys_gtest(kernel
 	bitpatternTest.cc
 	cellTypesTest.cc
+	designStateTest.cc
 	flattenPerfTest.cc
 	hashTest.cc
 	ioTest.cc
