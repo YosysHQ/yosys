@@ -352,26 +352,9 @@ struct DesignPass : public Pass {
 		}
 
 		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
-		{
-			for (auto mod : design->modules().to_vector())
-				design->remove(mod);
-
-			design->selection_stack.clear();
-			design->selection_vars.clear();
-			design->selected_active_module.clear();
-
-			design->push_full_selection();
-		}
-
-		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
-		{
-			design->verilog_packages.clear();
-			design->verilog_globals.clear();
-			design->verilog_defines->clear();
-		}
-
-		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
-			design->twines() = TwinePool();
+			design->reset();
+		else if (reset_vlog_mode)
+			design->reset_verilog_state();
 
 		if (!load_name.empty() || pop_mode)
 		{

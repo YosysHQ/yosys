@@ -1029,6 +1029,28 @@ RTLIL::Design::~Design()
 	all_designs.erase(std::find(all_designs.begin(), all_designs.end(), this));
 }
 
+void RTLIL::Design::reset()
+{
+	for (auto mod : modules().to_vector())
+		remove(mod);
+
+	selection_stack.clear();
+	selection_vars.clear();
+	selected_active_module.clear();
+
+	twines_.reset();
+	hashidx_counter_ = HASHIDX_SEED;
+	reset_verilog_state();
+	push_full_selection();
+}
+
+void RTLIL::Design::reset_verilog_state()
+{
+	verilog_packages.clear();
+	verilog_globals.clear();
+	verilog_defines->clear();
+}
+
 static std::vector<RTLIL::Design*> all_designs;
 std::vector<RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
