@@ -1,0 +1,42 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+(* whitebox *)
+module top(input a, output q);
+  assign q = ~a;
+endmodule
+EOF
+select -assert-any =A:whitebox
+
+verilog_flag:
+design -reset
+read_verilog -nowb <<EOF
+(* whitebox *)
+module top(input a, output q);
+  assign q = ~a;
+endmodule
+EOF
+select -assert-none =A:whitebox
+select -assert-count 1 top/t:$not
+
+slang_default:
+design -reset
+read_slang <<EOF
+(* whitebox *)
+module top(input a, output q);
+  assign q = ~a;
+endmodule
+EOF
+select -assert-any =A:whitebox
+
+slang_flag:
+design -reset
+# TODO: -nowb; require the flagged read_verilog behavior.
+read_slang <<EOF
+(* whitebox *)
+module top(input a, output q);
+  assign q = ~a;
+endmodule
+EOF
+select -assert-none =A:whitebox
+select -assert-count 1 top/t:$not

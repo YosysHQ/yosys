@@ -1,0 +1,52 @@
+verilog_default:
+design -reset
+read_verilog -formal <<EOF
+module top(input a);
+  always @* begin
+    assert(a);
+    assume(a);
+  end
+endmodule
+EOF
+select -assert-count 1 r:FLAVOR=assert
+select -assert-count 1 r:FLAVOR=assume
+
+verilog_flag:
+design -reset
+read_verilog -formal -assume-asserts <<EOF
+module top(input a);
+  always @* begin
+    assert(a);
+    assume(a);
+  end
+endmodule
+EOF
+select -assert-count 0 r:FLAVOR=assert
+select -assert-count 2 r:FLAVOR=assume
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input a);
+  always @* begin
+    assert(a);
+    assume(a);
+  end
+endmodule
+EOF
+select -assert-count 1 r:FLAVOR=assert
+select -assert-count 1 r:FLAVOR=assume
+
+slang_flag:
+design -reset
+# TODO: -assume-asserts; require the flagged read_verilog behavior.
+read_slang <<EOF
+module top(input a);
+  always @* begin
+    assert(a);
+    assume(a);
+  end
+endmodule
+EOF
+select -assert-count 0 r:FLAVOR=assert
+select -assert-count 2 r:FLAVOR=assume

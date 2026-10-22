@@ -1,0 +1,44 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top #(parameter P = 1) (output q);
+  assign q = P;
+endmodule
+EOF
+select -assert-any top
+select -assert-none N:$abstract*
+
+verilog_flag:
+design -reset
+read_verilog -defer <<EOF
+module top #(parameter P = 1) (output q);
+  assign q = P;
+endmodule
+EOF
+select -assert-none top
+select -assert-any N:$abstract*
+hierarchy -top top
+select -assert-any top
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top #(parameter P = 1) (output q);
+  assign q = P;
+endmodule
+EOF
+select -assert-any top
+select -assert-none N:$abstract*
+
+slang_flag:
+design -reset
+# TODO: -defer; require the flagged read_verilog behavior.
+read_slang <<EOF
+module top #(parameter P = 1) (output q);
+  assign q = P;
+endmodule
+EOF
+select -assert-none top
+select -assert-any N:$abstract*
+hierarchy -top top
+select -assert-any top

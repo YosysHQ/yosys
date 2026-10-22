@@ -1,0 +1,50 @@
+# -specify: import specify timing paths as cells. Slang parses the block but does not import the path.
+
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(input a, output q);
+  assign q = a;
+  specify
+    (a => q) = 1;
+  endspecify
+endmodule
+EOF
+select -assert-none t:$specify2
+
+verilog_flag:
+design -reset
+read_verilog -specify <<EOF
+module top(input a, output q);
+  assign q = a;
+  specify
+    (a => q) = 1;
+  endspecify
+endmodule
+EOF
+select -assert-count 1 t:$specify2
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input a, output q);
+  assign q = a;
+  specify
+    (a => q) = 1;
+  endspecify
+endmodule
+EOF
+select -assert-none t:$specify2
+
+slang_flag:
+design -reset
+# TODO: -specify; require the flagged read_verilog behavior.
+read_slang <<EOF
+module top(input a, output q);
+  assign q = a;
+  specify
+    (a => q) = 1;
+  endspecify
+endmodule
+EOF
+select -assert-count 1 t:$specify2

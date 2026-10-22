@@ -1,0 +1,40 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(input en, d, output reg q);
+  always @* if (en) q = d;
+endmodule
+EOF
+proc
+select -assert-count 1 t:$dlatch
+
+verilog_flag:
+design -reset
+read_verilog -nolatches <<EOF
+module top(input en, d, output reg q);
+  always @* if (en) q = d;
+endmodule
+EOF
+proc
+select -assert-none t:$dlatch
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input en, d, output reg q);
+  always @* if (en) q = d;
+endmodule
+EOF
+proc
+select -assert-count 1 t:$dlatch
+
+slang_flag:
+design -reset
+# TODO: -nolatches; require the flagged read_verilog behavior.
+read_slang <<EOF
+module top(input en, d, output reg q);
+  always @* if (en) q = d;
+endmodule
+EOF
+proc
+select -assert-none t:$dlatch

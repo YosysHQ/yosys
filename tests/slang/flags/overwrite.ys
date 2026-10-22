@@ -1,0 +1,32 @@
+verilog_flag:
+design -reset
+read_verilog -overwrite <<EOF
+module top(output q); assign q = 1'b0; endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+sat -verify -prove q 1
+
+slang_default:
+design -reset
+test_slangdiag -expect "duplicate definition of 'top'"
+read_slang <<EOF
+module top(output q); assign q = 1'b0; endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+
+slang_flag:
+design -reset
+# -overwrite is missing; require the read_verilog redefinition policy.
+read_slang <<EOF
+module top(output q); assign q = 1'b0; endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+sat -verify -prove q 1
+
+verilog_default:
+design -reset
+logger -expect error "Re-definition of module" 1
+read_verilog <<EOF
+module top(output q); assign q = 1'b0; endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF

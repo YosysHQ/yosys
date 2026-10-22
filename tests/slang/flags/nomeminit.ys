@@ -1,0 +1,50 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(input clk, a, d, output q);
+  reg mem [0:1];
+  initial begin mem[0] = 0; mem[1] = 1; end
+  always @(posedge clk) mem[a] <= d;
+  assign q = mem[a];
+endmodule
+EOF
+select -assert-count 1 m:mem
+select -assert-any t:$meminit_v2
+
+verilog_flag:
+design -reset
+read_verilog -nomeminit <<EOF
+module top(input clk, a, d, output q);
+  reg mem [0:1];
+  initial begin mem[0] = 0; mem[1] = 1; end
+  always @(posedge clk) mem[a] <= d;
+  assign q = mem[a];
+endmodule
+EOF
+select -assert-none m:mem t:$meminit_v2
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input clk, a, d, output q);
+  reg mem [0:1];
+  initial begin mem[0] = 0; mem[1] = 1; end
+  always @(posedge clk) mem[a] <= d;
+  assign q = mem[a];
+endmodule
+EOF
+select -assert-count 1 m:mem
+select -assert-any t:$meminit_v2
+
+slang_flag:
+design -reset
+# TODO: -nomeminit; require the flagged read_verilog behavior.
+read_slang <<EOF
+module top(input clk, a, d, output q);
+  reg mem [0:1];
+  initial begin mem[0] = 0; mem[1] = 1; end
+  always @(posedge clk) mem[a] <= d;
+  assign q = mem[a];
+endmodule
+EOF
+select -assert-none m:mem t:$meminit_v2

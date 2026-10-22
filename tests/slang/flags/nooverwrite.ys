@@ -1,0 +1,32 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+(* blackbox *) module top(output q); endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+select -assert-none =A:blackbox
+
+verilog_flag:
+design -reset
+read_verilog -nooverwrite <<EOF
+(* blackbox *) module top(output q); endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+select -assert-any =A:blackbox
+
+slang_default:
+design -reset
+read_slang <<EOF
+(* blackbox *) module top(output q); endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+select -assert-none =A:blackbox
+
+slang_flag:
+design -reset
+# -nooverwrite is missing; require the read_verilog redefinition policy.
+read_slang <<EOF
+(* blackbox *) module top(output q); endmodule
+module top(output q); assign q = 1'b1; endmodule
+EOF
+select -assert-any =A:blackbox
