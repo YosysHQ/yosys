@@ -1,0 +1,63 @@
+library(abc_liberty_constid_port_names) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+
+  cell(INV) {
+    area : 1;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(ZN) {
+      direction : output;
+      function : "!A";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(BUF) {
+    area : 2;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(ZN) {
+      direction : output;
+      function : "A";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+
+  cell(AND2) {
+    area : 3;
+    pin(A) { direction : input; capacitance : 0.001; }
+    pin(B) { direction : input; capacitance : 0.001; }
+    pin(ZN) {
+      direction : output;
+      function : "A&B";
+      timing () {
+        related_pin : "A";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+      timing () {
+        related_pin : "B";
+        cell_rise (scalar) { values ("1.0"); }
+        cell_fall (scalar) { values ("1.0"); }
+        rise_transition (scalar) { values ("0.01"); }
+        fall_transition (scalar) { values ("0.01"); }
+      }
+    }
+  }
+}
