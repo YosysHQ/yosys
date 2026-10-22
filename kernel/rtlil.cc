@@ -1243,6 +1243,14 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 	dst->twines_ = twines_;
 	for (auto it = modules_.rbegin(); it != modules_.rend(); ++it)
 		it->second->clone(dst);
+
+	dst->selection_stack = selection_stack;
+	for (auto &sel : dst->selection_stack)
+		sel.current_design = dst;
+	dst->selection_vars = selection_vars;
+	for (auto &[name, sel] : dst->selection_vars)
+		sel.current_design = dst;
+	dst->selected_active_module = selected_active_module;
 }
 
 bool RTLIL::Design::selected_module(IdString mod_name) const
