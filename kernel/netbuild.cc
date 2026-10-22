@@ -101,6 +101,10 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
+		if (cell->type == ID($barrier) && view_.hasMark(cell, MarkImage)) {
+			addImageInstance(cell, scope);
+			continue;
+		}
 		if (detail::isTransparentType(cell->type))
 			continue;
 		Netlist::Instance *inst = newInstance(cell, detail::childModule(view_.design_, cell), scope);
@@ -108,6 +112,8 @@ void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *s
 		if (!inst->isLeaf())
 			buildScope(view_.module(inst), inst);
 	}
+	for (RTLIL::Cell *cell : module->cells())
+		view_.indexBarrier(cell, scope);
 	registerWires(module, scope);
 }
 
@@ -137,6 +143,38 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 				makeTerm(pin, inner_net);
 		}
 	}
+}
+
+// An image: an instance with no module, a net per bit joins A and Y
+void detail::ViewBuilder::addImageInstance(RTLIL::Cell *cell, Netlist::Instance *scope)
+{
+	Netlist::Instance *inst = newInstance(cell, nullptr, scope);
+	inst->kind = Netlist::Instance::Kind::Hierarchy;
+	NetView::PortShapes &shapes = view_.shapes_.shape_store.emplace_back();
+	detail::cellTypePortShapes(cell, shapes);
+	inst->ports = &shapes;
+	int width = GetSize(cell->getPort(ID::Y));
+	std::vector<Netlist::Net *> inner;
+	for (int b = 0; b < width; b++)
+		inner.push_back(newImageNet(inst, b, width == 1));
+	for (uint32_t p = 0; p < shapes.size(); p++) {
+		RTLIL::SigSpec sig = cell->getPort(detail::escapedPortId(view_.design_, cell, nullptr, shapes[p].name));
+		for (int b = 0; b < width && b < sig.size(); b++) {
+			Netlist::Pin *pin = makePin(inst, p, b, findOrMakeNet(scope, sig[b]));
+			makeTerm(pin, inner[b]);
+		}
+	}
+}
+
+// A net of an image, named Y
+Netlist::Net *detail::ViewBuilder::newImageNet(Netlist::Instance *scope, int bit, bool scalar)
+{
+	Netlist::Net *net = view_.records_.newNet();
+	net->scope = scope;
+	net->constant = Netlist::Net::Const::None;
+	view_.index_.net_rtlil[net->id].name = {"Y", bit, scalar};
+	view_.scope_contents_[scope].nets.push_back(net);
+	return net;
 }
 
 Netlist::Pin *detail::ViewBuilder::makePin(Netlist::Instance *inst, uint32_t port, int bit, Netlist::Net *net)
@@ -216,9 +254,28 @@ SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 	auto [it, added] = sigmaps_.try_emplace(module, module);
 	if (added) {
 		detail::addConnectAliases(module, it->second);
-		detail::addBarrierAliases(module, it->second);
+		addBarrierAliases(module, it->second);
 	}
 	return it->second;
+}
+
+void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		if (cell->type != ID($barrier) || view_.hasMark(cell, MarkImage))
+			continue;
+		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
+		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
+			// Cell order doesn't matter here
+			if (sigmap(a[b]).wire == nullptr || sigmap(y[b]).wire == nullptr)
+				continue;
+			// The second bit stays the root, so a cut wire never names a net
+			if (detail::isCutWire(a[b].wire))
+				sigmap.add(a[b], y[b]);
+			else
+				sigmap.add(y[b], a[b]);
+		}
+	}
 }
 
 RTLIL::SigBit detail::ViewBuilder::nameBit(const Netlist::Net *net) const

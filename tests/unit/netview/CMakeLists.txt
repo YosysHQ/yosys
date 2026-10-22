@@ -3,4 +3,5 @@ yosys_gtest(netview
 	netviewTest.cc
 	COMPONENTS
 		flatten
+		optbarriers
 )

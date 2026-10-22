@@ -348,6 +348,8 @@ void NetView::clearTables()
 	scope_contents_.clear();
 	index_.clear();
 	hits_.clear();
+	cuts_.clear();
+	walkers_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -370,6 +372,9 @@ std::unique_ptr<NetView> NetView::retire()
 	}
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->anchor_table_ = std::move(anchor_table_);
+	next->barrier_table_ = std::move(barrier_table_);
+	next->barrier_marks_ = std::move(barrier_marks_);
+	next->barrier_count_ = barrier_count_;
 	next->epoch_names_ = std::move(epoch_names_);
 	return next;
 }
@@ -460,20 +465,6 @@ void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
 	}
 }
 
-void detail::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap)
-{
-	for (RTLIL::Cell *cell : module->cells()) {
-		if (cell->type != ID($barrier))
-			continue;
-		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
-		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
-			// Cell order doesn't matter here
-			if (sigmap(a[b]).wire != nullptr && sigmap(y[b]).wire != nullptr)
-				sigmap.add(y[b], a[b]);
-		}
-	}
-}
-
 uint64_t detail::bitKey(const RTLIL::SigBit &bit)
 {
 	return uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset);
@@ -502,6 +493,11 @@ RTLIL::Cell *NetView::cell(const Instance *inst) const
 RTLIL::Module *NetView::module(const Instance *scope) const
 {
 	return index_.instance_rtlil.get(scope->id).module;
+}
+
+bool NetView::isBarrier(const Instance *inst) const
+{
+	return !inst->isLeaf() && !isTop(inst) && module(inst) == nullptr;
 }
 
 NetView::Instance *NetView::instance(const RTLIL::Cell *cell, const Instance *scope) const
@@ -687,6 +683,13 @@ bool detail::ChangeDetector::isStale(RTLIL::Design *design) const
 	maybe_changed_ = false;
 	stale_ = !detail::designAlive(design) || computeFingerprint(design) != fingerprint_;
 	return stale_;
+}
+
+void detail::ChangeDetector::refresh(RTLIL::Design *design)
+{
+	fingerprint_ = computeFingerprint(design);
+	maybe_changed_ = false;
+	stale_ = false;
 }
 
 void detail::ChangeDetector::clear()
