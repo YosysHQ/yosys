@@ -1,0 +1,28 @@
+# Regression for sv-elab#402: all readers must share the same undriven value.
+design -reset
+read_slang --undriven-as-anyseq --top top <<EOT
+module child(input logic clk, input logic rst, input logic [5:0] x);
+    always @(posedge clk)
+        if (!rst) begin : x_range_a
+            assert(x < 43);
+        end
+endmodule
+
+module top(input logic clk, input logic rst);
+    logic [5:0] x;
+    always @(posedge clk)
+        if (!rst) begin : x_range_m
+            assume(x < 43);
+        end
+    child c0(.clk, .rst, .x);
+    child c1(.clk, .rst, .x);
+endmodule
+EOT
+
+prep -top top
+async2sync
+chformal -lower
+opt_clean
+
+select -assert-count 1 t:$lt
+sat -verify -seq 2 -set rst 0 -set-init-zero -set-assumes -prove-asserts
