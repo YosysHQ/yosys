@@ -13,11 +13,12 @@ module top (clk, a, b, c, d);
     output wire d;
 endmodule
 EOT
+opt_clean
 stat
 write_rtlil
-opt_clean
 
 select -assert-count 1 t:$anyseq
 select -assert-count 1 t:$anyconst
 select -assert-count 1 t:$allseq
 select -assert-count 1 t:$allconst
+select -assert-count 4 c:*
