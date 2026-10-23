@@ -45,7 +45,7 @@ using namespace AST_INTERNAL;
 static RTLIL::SigSpec uniop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &arg, bool gen_attributes = true)
 {
 	IdString name = intern_src_name(current_module->design, that->location,
-			current_module->twines().str(type), autoidx++);
+			current_module->twines().str(type), ast_autoidx());
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -77,7 +77,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 		return;
 	}
 
-	IdString name = intern_src_name(current_module->design, that->location, "$extend", autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location, "$extend", ast_autoidx());
 	RTLIL::Cell *cell = current_module->addCell(name, ID($pos));
 	set_src_attr(cell, that);
 
@@ -105,7 +105,7 @@ static void widthExtend(AstNode *that, RTLIL::SigSpec &sig, int width, bool is_s
 static RTLIL::SigSpec binop2rtlil(AstNode *that, IdString type, int result_width, const RTLIL::SigSpec &left, const RTLIL::SigSpec &right)
 {
 	IdString name = intern_src_name(current_module->design, that->location,
-			current_module->twines().str(type), autoidx++);
+			current_module->twines().str(type), ast_autoidx());
 	RTLIL::Cell *cell = current_module->addCell(name, type);
 	set_src_attr(cell, that);
 
@@ -138,7 +138,7 @@ static RTLIL::SigSpec mux2rtlil(AstNode *that, const RTLIL::SigSpec &cond, const
 {
 	log_assert(cond.size() == 1);
 
-	IdString name = intern_src_name(current_module->design, that->location, "$ternary", autoidx++);
+	IdString name = intern_src_name(current_module->design, that->location, "$ternary", ast_autoidx());
 
 	RTLIL::Cell *cell = current_module->addCell(name, ID($mux));
 	set_src_attr(cell, that);
@@ -205,7 +205,7 @@ struct AST_INTERNAL::LookaheadRewriter
 				for (auto& c : node->id2ast->children)
 					wire->children.push_back(c->clone());
 				wire->fixup_hierarchy_flags();
-				wire->str = stringf("$lookahead%s$%d", node->str, autoidx++);
+				wire->str = stringf("$lookahead%s$%d", node->str, ast_autoidx());
 				wire->set_attribute(ID::nosync, AstNode::mkconst_int(node->location, 1, false));
 				wire->is_logic = true;
 				while (wire->simplify(true, 1, -1, false)) { }
@@ -357,7 +357,7 @@ struct AST_INTERNAL::ProcessGenerator
 		LookaheadRewriter la_rewriter(always.get());
 
 		// generate process and simple root case
-		proc = current_module->addProcess(intern_src_name(current_module->design, always->location, "$proc", autoidx++));
+		proc = current_module->addProcess(intern_src_name(current_module->design, always->location, "$proc", ast_autoidx()));
 		set_src_attr(proc, always.get());
 		for (auto &attr : always->attributes) {
 			if (attr.second->type != AST_CONSTANT)
@@ -494,7 +494,7 @@ struct AST_INTERNAL::ProcessGenerator
 				wire_name = stringf("$%d%s[%d:%d]", new_temp_count[chunk.wire]++,
 						chunk.wire->name, chunk.width+chunk.offset-1, chunk.offset);;
 				if (chunk.wire->name.str().find('$') != std::string::npos)
-					wire_name += stringf("$%d", autoidx++);
+					wire_name += stringf("$%d", ast_autoidx());
 			} while (current_module->wire(wire_name) != nullptr);
 
 			RTLIL::Wire *wire = current_module->addWire(wire_name, chunk.width);
@@ -803,7 +803,7 @@ struct AST_INTERNAL::ProcessGenerator
 		case AST_TCALL:
 			if (ast->str == "$display" || ast->str == "$displayb" || ast->str == "$displayh" || ast->str == "$displayo" ||
 		  ast->str == "$write"   || ast->str == "$writeb"   || ast->str == "$writeh"   || ast->str == "$writeo") {
-				IdString name = intern_src_name(current_module->design, ast->location, ast->str, autoidx++);
+				IdString name = intern_src_name(current_module->design, ast->location, ast->str, ast_autoidx());
 
 				Wire *en = current_module->addWire(TwineSpec::Suffix{name, "_EN"}, 1);
 				set_src_attr(en, ast);
@@ -894,7 +894,7 @@ struct AST_INTERNAL::ProcessGenerator
 				IdString cellname;
 				if (ast->str.empty())
 					cellname = intern_src_name(current_module->design, ast->location,
-							stringf("$%s", flavor), autoidx++);
+							stringf("$%s", flavor), ast_autoidx());
 				else
 					cellname = current_module->twines().add(ast->str);
 				check_unique_id(current_module, cellname, ast, "procedural assertion");
@@ -1963,7 +1963,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMRD:
 		{
 			IdString name = current_module->twines().add(TwineSpec::Suffix{
-					intern_src_name(current_module->design, location, "$memrd", autoidx++),
+					intern_src_name(current_module->design, location, "$memrd", ast_autoidx()),
 					stringf("$%s", str)});
 
 			RTLIL::Cell *cell = current_module->addCell(name, ID($memrd));
@@ -2003,7 +2003,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_MEMINIT:
 		{
 			IdString name = current_module->twines().add(TwineSpec::Suffix{
-					intern_src_name(current_module->design, location, "$meminit", autoidx++),
+					intern_src_name(current_module->design, location, "$meminit", ast_autoidx()),
 					stringf("$%s", str)});
 
 			SigSpec en_sig = children[2]->genRTLIL();
@@ -2030,7 +2030,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			cell->parameters[ID::ABITS] = RTLIL::Const(GetSize(addr_sig));
 			cell->parameters[ID::WIDTH] = RTLIL::Const(current_module->memories[mem_tw]->width);
 
-			cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+			cell->parameters[ID::PRIORITY] = RTLIL::Const(current_module->twines().autoidx()-1);
 		}
 		break;
 
@@ -2051,7 +2051,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			IdString cellname;
 			if (str.empty())
 				cellname = intern_src_name(current_module->design, location,
-						stringf("$%s", flavor), autoidx++);
+						stringf("$%s", flavor), ast_autoidx());
 			else
 				cellname = current_module->twines().add(str);
 			check_unique_id(current_module, cellname, this, "procedural assertion");
@@ -2259,7 +2259,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FCALL: {
 			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
-				string myid = stringf("%s$%d", str.c_str() + 1, autoidx++);
+				string myid = stringf("%s$%d", str.c_str() + 1, ast_autoidx());
 				int width = width_hint;
 
 				if (GetSize(children) > 1)

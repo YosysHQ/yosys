@@ -207,7 +207,7 @@ struct TechmapWorker
 
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
-				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
+				module->rename(cell, stringf("$techmap%d", module->twines().next_autoidx()) + cell->name.str());
 				break;
 			}
 
@@ -1274,7 +1274,7 @@ struct TechmapPass : public Pass {
 						delete map;
 						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
 					}
-					auto saved = saved_designs.at(fn.substr(1));
+					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
 							mod->clone(map);

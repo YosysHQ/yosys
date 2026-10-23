@@ -130,6 +130,9 @@ global_denylist = frozenset(
         "log_verific_callback",
         # incomplete type
         "yosys_get_tcl_interp",
+        # owning containers
+        "saved_designs",
+        "pushed_designs",
     }
 )
 name_lookup_methods = frozenset(
@@ -235,7 +238,7 @@ pyosys_headers = [
             PyosysClass(
                 "Design",
                 name_pool=True,
-                string_expr="std::to_string(s.hashidx_)",
+                string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
             ),

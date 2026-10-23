@@ -562,8 +562,7 @@ struct LibertyFrontend : public Frontend {
 			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
 			parse_type_map(type_map, cell);
 
-			RTLIL::Module *module = new RTLIL::Module;
-			module->design = design;
+			RTLIL::Module *module = new RTLIL::Module(design);
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 			IdString cell_name_ref = design->twines().add(cell_name);
 			module->name = cell_name_ref;

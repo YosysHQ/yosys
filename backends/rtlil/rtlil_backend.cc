@@ -459,7 +459,7 @@ void RTLIL_BACKEND::dump_module(std::ostream &f, std::string indent, RTLIL::Modu
 
 void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool only_selected, bool flag_m, bool flag_n, DumpMode mode)
 {
-	int init_autoidx = autoidx;
+	int init_autoidx = design->twines().autoidx();
 
 	if (!flag_m) {
 		int count_selected_mods = 0;
@@ -489,14 +489,14 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 	if (!only_selected || flag_m) {
 		if (only_selected)
 			f << stringf("\n");
-		f << stringf("autoidx %d\n", autoidx);
+		f << stringf("autoidx %d\n", design->twines().autoidx());
 		dump_twines(f, design, used_twines);
 	}
 
 	if (body.tellp() > 0)
 		f << body.rdbuf();
 
-	log_assert(init_autoidx == autoidx);
+	log_assert(init_autoidx == design->twines().autoidx());
 }
 
 YOSYS_NAMESPACE_END

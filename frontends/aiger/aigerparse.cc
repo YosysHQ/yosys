@@ -208,10 +208,9 @@ eval_end:
 };
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename)
-	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), aiger_autoidx(autoidx++)
+	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), aiger_autoidx(design->twines().next_autoidx())
 {
-	module = new RTLIL::Module;
-	module->design = design;
+	module = new RTLIL::Module(design);
 	module->name = module_name;
 	if (design->module(module->name))
 		log_error("Duplicate definition of module %s!\n", module->name.unescape());
