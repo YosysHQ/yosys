@@ -14,13 +14,18 @@ function(target_safe_compile_options target scope)
 endfunction()
 
 function(_yosys_abc_extract_makefile result vardecl filename)
-	# Parse a Makefile fragment and extracts the first matching variable assignment into
+	# Parse a Makefile fragment and extract matching variable assignments into
 	# a list of values.
 	file(READ ${filename} contents)
 	set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${filename})
-	if ("${contents}" MATCHES "${vardecl}(\\\\\n|[ \t])*(([^\\\\\n]|\\\\\n)+)")
-		string(REGEX REPLACE "(\\\\\n|[ \t])+" ";" ${result} "${CMAKE_MATCH_2}")
-	endif()
+	set(${result})
+	while ("${contents}" MATCHES "${vardecl}(\\\\\n|[ \t])*(([^\\\\\n]|\\\\\n)+)")
+		set(sources "${CMAKE_MATCH_2}")
+		set(matched "${CMAKE_MATCH_0}")
+		string(REGEX REPLACE "(\\\\\n|[ \t])+" ";" sources "${sources}")
+		list(APPEND ${result} ${sources})
+		string(REPLACE "${matched}" "" contents "${contents}")
+	endwhile()
 	return (PROPAGATE ${result})
 endfunction()
 

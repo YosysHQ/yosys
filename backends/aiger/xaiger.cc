@@ -127,6 +127,9 @@ struct XAigerWriter
 
 	XAigerWriter(Module *module, bool dff_mode) : design(module->design), module(module), sigmap(module)
 	{
+#ifndef NDEBUG
+		pool<std::pair<IdString,TimingInfo::NameBit>> seen;
+#endif
 		pool<SigBit> undriven_bits;
 		pool<SigBit> unused_bits;
 
@@ -266,7 +269,6 @@ struct XAigerWriter
 
 #ifndef NDEBUG
 					if (ys_debug(1)) {
-						static pool<std::pair<IdString,TimingInfo::NameBit>> seen;
 						if (seen.emplace(inst_module->name, i.first).second) log("%s.%s[%d] abc9_arrival = %d\n",
 								cell->type.unescape(), cell->twines().unescaped_str(i.first.name), offset, d);
 					}

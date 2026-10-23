@@ -805,7 +805,7 @@ struct BtorWorker
 		{
 			Mem *mem = mem_cells[cell];
 
-			int abits = ceil_log2(mem->size);
+			int abits = std::max(1, ceil_log2(mem->size)); // a one-entry memory still needs a one-bit address sort
 
 			bool asyncwr = false;
 			bool syncwr = false;
@@ -984,6 +984,20 @@ struct BtorWorker
 	{
 		int nid = -1;
 		sigmap.apply(sig);
+
+		if (GetSize(sig) == 0)
+		{
+			// A zero-width signal has no BTOR2 node (bit-vector sorts have a width of at least one),
+			// so it can only be used where the caller extends it: extending zero bits yields zeros,
+			// unsigned or signed. memory_map emits such operands on the $eq cell that decodes the
+			// zero-width address of a one-entry memory.
+			if (to_width <= 0)
+				log_error("Zero-width signal %s cannot be represented in BTOR2 (no target width).\n", log_signal(sig));
+			int sid = get_bv_sid(to_width);
+			nid = next_nid++;
+			btorf("%d zero %d\n", nid, sid);
+			return nid;
+		}
 
 		for (auto bit : sig)
 			if (bit == State::Sx)
@@ -1412,7 +1426,7 @@ struct BtorWorker
 
 				btorf_push(stringf("next %s", mem->memid.unescape()));
 
-				int abits = ceil_log2(mem->size);
+				int abits = std::max(1, ceil_log2(mem->size)); // a one-entry memory still needs a one-bit address sort
 
 				int data_sid = get_bv_sid(mem->width);
 				int bool_sid = get_bv_sid(1);

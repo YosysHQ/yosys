@@ -3,6 +3,8 @@ pattern shiftmul_right
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
 
+udata <bool> did_something
+
 match shift
 	select shift->type.in($shift, $shiftx, $shr)
 	filter !port(shift, \B).empty()
