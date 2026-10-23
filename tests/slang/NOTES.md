@@ -196,6 +196,13 @@ read_verilog:
 
 - port_bus_order.ys
 
+## Slang doesnt preserve single_bit_vector attribute
+
+### Affected Tests
+
+- sbvector.ys
+- splitnets.ys
+
 ## $initstate
 
 This behavior should probably be fixed? 
