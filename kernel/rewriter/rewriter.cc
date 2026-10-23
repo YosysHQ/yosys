@@ -5,6 +5,40 @@
 
 namespace Yosys::Rewriter {
 
+void RewritePipeline::add(std::unique_ptr<ModuleRewriteRule> rule)
+{
+	log_assert(rule != nullptr);
+	module_rules.push_back(std::move(rule));
+}
+
+void RewritePipeline::add(std::unique_ptr<CellRewriteRule> rule)
+{
+	log_assert(rule != nullptr);
+	cell_rules.push_back(std::move(rule));
+}
+
+void RewritePipeline::add(std::unique_ptr<WireRewriteRule> rule)
+{
+	log_assert(rule != nullptr);
+	wire_rules.push_back(std::move(rule));
+}
+
+template<typename T>
+bool RewritePipeline::run(T* item) const
+{
+	bool changed = false;
+	for (auto &rule : module_rules)
+		changed |= rule->rewrite(item);
+	for (auto &rule : wire_rules)
+		changed |= rule->rewrite(item);
+	for (auto &rule : cell_rules)
+		changed |= rule->rewrite(item);
+	return changed;
+}
+
+template bool RewritePipeline::run<RTLIL::Module>(RTLIL::Module *item) const;
+template bool RewritePipeline::run<RTLIL::Design>(RTLIL::Design *item) const;
+
 AttributeRewriter::AttributeRewriter()
 {
 	add(std::make_unique<Rules::BlackboxRule>());
@@ -23,6 +57,7 @@ bool rewrite_attributes(RTLIL::Design *design)
 
 
 // Redirect existing drivers of `sig` to a dummy wire
+// see connect.cc
 void unset_drivers(RTLIL::Module *module, SigMap &sigmap, RTLIL::SigSpec &sig)
 {
 	RTLIL::Design* design = module->design;
@@ -41,7 +76,7 @@ void unset_drivers(RTLIL::Module *module, SigMap &sigmap, RTLIL::SigSpec &sig)
 
 SigMap construct_sigmap(RTLIL::Module *module) {
 	// see connect.cc
-	// I really despise this, why is this not able to be reused
+	// why is this not able to be reused
 	SigMap sigmap;
 	for (auto &it : module->connections()) {
 		std::vector<RTLIL::SigBit> lhs = it.first.to_sigbit_vector();

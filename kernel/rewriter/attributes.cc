@@ -23,7 +23,7 @@ bool BlackboxRule::apply(RTLIL::Module *module) const {
 //     x <= 0
 // end
 // ```
-// For now, redirect existing drivers, including slang's implicit initialization buffers.
+// For now, redirect existing drivers as opposed to emitting an error
 bool FormalAttrRule::apply(RTLIL::Wire *wire) const {
 	RTLIL::Module* module = wire->module;
 	auto rewrite_attr = [&](RTLIL::IdString attr, auto create_sig) {
@@ -35,7 +35,6 @@ bool FormalAttrRule::apply(RTLIL::Wire *wire) const {
 			twines.add(wire->name, "$" + twines.unescaped_str(attr)));
 
 		// see connect.cc
-		// I really despise this
 		SigMap sigmap = construct_sigmap(module);
 
 		RTLIL::SigSpec target = sigmap(wire);
