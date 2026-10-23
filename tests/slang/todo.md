@@ -17,6 +17,14 @@ Tests affected:
 - cellarray_array_connections.ys
 - for_decl_shadow.ys
 
+## Inserted Buffers
+
+Slang seems to emit buffers when read_verilog would not. This messes up existing flows that do not expect buffers: `proc -> opt_expr`. 
+
+The fix is adding `opt_clean` before `opt_expr` in the script. This can & probably should be called by read_slang instead. 
+
+At least abstract_init.ys is affected and I've seen a few others
+
 ## $initstate
 
 This behavior should probably be fixed? 
