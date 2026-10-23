@@ -10,6 +10,8 @@ Attribute `top' found on module `top'. Setting top module to top.
 Attribute `top' found on module `test_parser'. Setting top module to test_parser.
 ```
 
+### Fixes
+
 The fix is to add a `setattr -mod -unset top` before hierarchy in the script.
 
 Tests affected:
@@ -21,9 +23,40 @@ Tests affected:
 
 Slang seems to emit buffers when read_verilog would not. This messes up existing flows that do not expect buffers: `proc -> opt_expr`. 
 
+### Fixes
+
 The fix is adding `opt_clean` before `opt_expr` in the script. This can & probably should be called by read_slang instead. 
 
 At least abstract_init.ys is affected and I've seen a few others
+
+## Undefined Modules
+
+While read_verilog can handle undefined modules and elaborate those later, `read_slang` required they be instantiated before elaboration. e.g. where `read_verilog` handles this `read_slang` fails
+
+```sh
+read_slang --no-proc --std latest <<EOT
+module top (CLK, E, Q, Q_EN);
+	input CLK;
+	input E;
+	output reg Q;
+	output reg Q_EN;
+	half_clock uut (CLK, Q, 1'b0);
+	half_clock_en uut_en (CLK, E, Q_EN, 1'b0);
+endmodule
+EOT
+opt_clean
+proc
+design -import half_clock
+design -import half_clock_en
+hierarchy -check -top top
+```
+
+### Fixes
+
+1. Move `design -import *` before `read_slang`
+2. Add a flag to `read_slang` that reads a module as a blackbox, and can instantiate it later
+	3. This likely needs to be a part of a bigger refactoring to add deferred elab with slang
+
 
 ## $initstate
 
