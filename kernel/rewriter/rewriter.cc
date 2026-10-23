@@ -5,6 +5,7 @@
 
 namespace Yosys::Rewriter {
 
+
 void RewritePipeline::add(std::unique_ptr<ModuleRewriteRule> rule)
 {
 	log_assert(rule != nullptr);
@@ -23,22 +24,29 @@ void RewritePipeline::add(std::unique_ptr<WireRewriteRule> rule)
 	wire_rules.push_back(std::move(rule));
 }
 
-template<typename T>
-bool RewritePipeline::run(T* item) const
+bool RewritePipeline::rewrite_design(RTLIL::Design* design) const
 {
 	bool changed = false;
-	for (auto &rule : module_rules)
-		changed |= rule->rewrite(item);
-	for (auto &rule : wire_rules)
-		changed |= rule->rewrite(item);
-	for (auto &rule : cell_rules)
-		changed |= rule->rewrite(item);
+	for (RTLIL::Module *module : design->modules()) {
+		SigMap sigmap = construct_sigmap(module);
+		changed |= rewrite_module(module, sigmap);
+	}
 	return changed;
 }
 
-template bool RewritePipeline::run<RTLIL::Module>(RTLIL::Module *item) const;
-template bool RewritePipeline::run<RTLIL::Design>(RTLIL::Design *item) const;
+bool RewritePipeline::rewrite_module(RTLIL::Module* module, SigMap &sigmap) const
+{
+	bool changed = false;
+	for (auto &rule : module_rules)
+		changed |= rule->rewrite(module, sigmap);
+	for (auto &rule : wire_rules)
+		changed |= rule->rewrite(module, sigmap);
+	for (auto &rule : cell_rules)
+		changed |= rule->rewrite(module, sigmap);
+	return changed;
+}
 
+// AttributeRewriter / rewrite_attributes(T* item) is meant to be the public interface for rewriter,
 AttributeRewriter::AttributeRewriter()
 {
 	add(std::make_unique<Rules::BlackboxRule>());
@@ -47,12 +55,13 @@ AttributeRewriter::AttributeRewriter()
 
 bool rewrite_attributes(RTLIL::Module *module)
 {
-	return AttributeRewriter().run(module);
+	SigMap sigmap = construct_sigmap(module);
+	return AttributeRewriter().rewrite_module(module, sigmap);
 }
 
 bool rewrite_attributes(RTLIL::Design *design)
 {
-	return AttributeRewriter().run(design);
+	return AttributeRewriter().rewrite_design(design);
 }
 
 
@@ -76,7 +85,6 @@ void unset_drivers(RTLIL::Module *module, SigMap &sigmap, RTLIL::SigSpec &sig)
 
 SigMap construct_sigmap(RTLIL::Module *module) {
 	// see connect.cc
-	// why is this not able to be reused
 	SigMap sigmap;
 	for (auto &it : module->connections()) {
 		std::vector<RTLIL::SigBit> lhs = it.first.to_sigbit_vector();

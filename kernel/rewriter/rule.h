@@ -8,11 +8,10 @@ template<typename T>
 struct RewriteRule {
 	virtual ~RewriteRule() = default;
 
-	bool rewrite(RTLIL::Design *design) const;
-	bool rewrite(RTLIL::Module *module) const;
+	bool rewrite(RTLIL::Module *module, SigMap &sigmap) const;
 
 protected:
-	virtual bool apply(T *target) const = 0;
+	virtual bool apply(T *target, SigMap &sigmap) const = 0;
 };
 
 using ModuleRewriteRule = RewriteRule<RTLIL::Module>;

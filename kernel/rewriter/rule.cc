@@ -1,23 +1,15 @@
 #include "kernel/rewriter/rule.h"
+#include "kernel/sigtools.h"
 
 #include <type_traits>
 
 namespace Yosys::Rewriter {
 
 template<typename T>
-bool RewriteRule<T>::rewrite(RTLIL::Design *design) const
-{
-	bool changed = false;
-	for (auto *module : design->modules())
-		changed |= rewrite(module);
-	return changed;
-}
-
-template<typename T>
-bool RewriteRule<T>::rewrite(RTLIL::Module *module) const
+bool RewriteRule<T>::rewrite(RTLIL::Module *module, SigMap &sigmap) const
 {
 	if constexpr (std::is_same_v<T, RTLIL::Module>)
-		return apply(module);
+		return apply(module, sigmap);
 
 	if (module->get_bool_attribute(ID::blackbox))
 		return false;
@@ -25,10 +17,10 @@ bool RewriteRule<T>::rewrite(RTLIL::Module *module) const
 	bool changed = false;
 	if constexpr (std::is_same_v<T, RTLIL::Wire>)
 		for (auto *wire : module->wires().to_vector())
-			changed |= apply(wire);
+			changed |= apply(wire, sigmap);
 	if constexpr (std::is_same_v<T, RTLIL::Cell>)
 		for (auto *cell : module->cells().to_vector())
-			changed |= apply(cell);
+			changed |= apply(cell, sigmap);
 	return changed;
 }
 
