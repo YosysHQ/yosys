@@ -4,7 +4,7 @@
 namespace Yosys::Rewriter::Rules {
 
 
-bool BlackboxRule::apply(RTLIL::Module *module) const {
+bool BlackboxRule::apply(RTLIL::Module *module, [[maybe_unused]] SigMap &sigmap) const {
 	if (!module->get_bool_attribute(ID::blackbox))
 		return false;
 
@@ -24,7 +24,7 @@ bool BlackboxRule::apply(RTLIL::Module *module) const {
 // end
 // ```
 // For now, redirect existing drivers as opposed to emitting an error
-bool FormalAttrRule::apply(RTLIL::Wire *wire) const {
+bool FormalAttrRule::apply(RTLIL::Wire *wire, SigMap &sigmap) const {
 	RTLIL::Module* module = wire->module;
 	auto rewrite_attr = [&](RTLIL::IdString attr, auto create_sig) {
 		if (!wire->get_bool_attribute(attr))
@@ -33,9 +33,6 @@ bool FormalAttrRule::apply(RTLIL::Wire *wire) const {
 		auto &twines = module->twines();
 		auto name = module->uniquify(
 			twines.add(wire->name, "$" + twines.unescaped_str(attr)));
-
-		// see connect.cc
-		SigMap sigmap = construct_sigmap(module);
 
 		RTLIL::SigSpec target = sigmap(wire);
 		unset_drivers(module, sigmap, target);

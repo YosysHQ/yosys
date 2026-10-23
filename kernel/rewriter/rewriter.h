@@ -18,8 +18,8 @@ public:
 	void add(std::unique_ptr<CellRewriteRule> rule);
 	void add(std::unique_ptr<WireRewriteRule> rule);
 
-	template<typename T>
-	bool run(T *item) const;
+	bool rewrite_design(RTLIL::Design* design) const;
+	bool rewrite_module(RTLIL::Module* module, SigMap &sigmap) const;
 };
 
 class AttributeRewriter final : public RewritePipeline {
