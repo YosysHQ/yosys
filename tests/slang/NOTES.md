@@ -151,7 +151,32 @@ I don't how how to fix or if it needs a fix
 - blackbox_wb.ys
 	- + also naming changes, those have to be expected though
 - keep_hierarchy.ys
-	- opt_clean also
+	- opt_clean also seems to cause this because hierarchy then prunes the modules
+
+## read_slang doesn't add (* keep *) attributes to formal cells
+
+### Fixes
+
+- Should probably be done internally in the sv_elab module
+- add `setattr -set keep 1 t:$check` before `chformal -lower`
+
+### Affected Tests
+
+- opt_merge_properties.ys
+
+## read_slang doesn't warn about implicit latches
+
+it should also be noted that read_slang imposes different structure on latches that `opt` didn't catch and needed special optimization passes:
+
+read_slang:
+![](assets/slang_explicit_latch.png)
+
+read_verilog:
+![](assets/verilog_explicit_latch.png)
+
+### Affected Tests
+
+- check_nolatches.sv
 
 ## $initstate
 
