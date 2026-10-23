@@ -5,6 +5,8 @@ pattern muldiv_c
 // y = (a * b_const) / c_const   ===>   a * eval(b_const / c_const)
 //
 
+udata <bool> did_something
+
 state <SigSpec> a b_const mul_y
 
 match mul
@@ -122,5 +124,6 @@ code
 	// Log, fixup, accept
 	log("muldiv_const pattern in %s: mul=%s, div=%s\n", module, mul, div);
 	mul->fixup_parameters();
+	did_something = true;
 	accept;
 endcode

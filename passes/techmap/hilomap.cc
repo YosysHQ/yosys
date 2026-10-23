@@ -24,34 +24,37 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static std::string hicell_celltype, hicell_portname;
-static std::string locell_celltype, locell_portname;
-static bool singleton_mode;
-
-static RTLIL::Module *module;
-static RTLIL::SigBit last_hi, last_lo;
-
-void hilomap_worker(RTLIL::SigSpec &sig)
+struct HilomapWorker
 {
-	for (auto &bit : sig) {
-		if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
-			if (!singleton_mode || last_hi == RTLIL::State::Sm) {
-				last_hi = module->addWire(NEW_ID);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
-				cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
+	std::string hicell_celltype, hicell_portname;
+	std::string locell_celltype, locell_portname;
+	bool singleton_mode = false;
+
+	RTLIL::Module *module = nullptr;
+	RTLIL::SigBit last_hi, last_lo;
+
+	void operator()(RTLIL::SigSpec &sig)
+	{
+		for (auto &bit : sig) {
+			if (bit == RTLIL::State::S1 && !hicell_celltype.empty()) {
+				if (!singleton_mode || last_hi == RTLIL::State::Sm) {
+					last_hi = module->addWire(NEW_ID);
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(hicell_celltype));
+					cell->setPort(RTLIL::escape_id(hicell_portname), last_hi);
+				}
+				bit = last_hi;
 			}
-			bit = last_hi;
-		}
-		if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
-			if (!singleton_mode || last_lo == RTLIL::State::Sm) {
-				last_lo = module->addWire(NEW_ID);
-				RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
-				cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
+			if (bit == RTLIL::State::S0 && !locell_celltype.empty()) {
+				if (!singleton_mode || last_lo == RTLIL::State::Sm) {
+					last_lo = module->addWire(NEW_ID);
+					RTLIL::Cell *cell = module->addCell(NEW_ID, RTLIL::escape_id(locell_celltype));
+					cell->setPort(RTLIL::escape_id(locell_portname), last_lo);
+				}
+				bit = last_lo;
 			}
-			bit = last_lo;
 		}
 	}
-}
+};
 
 struct HilomapPass : public Pass {
 	HilomapPass() : Pass("hilomap", "technology mapping of constant hi- and/or lo-drivers") { }
@@ -78,27 +81,23 @@ struct HilomapPass : public Pass {
 	{
 		log_header(design, "Executing HILOMAP pass (mapping to constant drivers).\n");
 
-		hicell_celltype = std::string();
-		hicell_portname = std::string();
-		locell_celltype = std::string();
-		locell_portname = std::string();
-		singleton_mode = false;
+		HilomapWorker worker;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
 			if (args[argidx] == "-hicell" && argidx+2 < args.size()) {
-				hicell_celltype = args[++argidx];
-				hicell_portname = args[++argidx];
+				worker.hicell_celltype = args[++argidx];
+				worker.hicell_portname = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-locell" && argidx+2 < args.size()) {
-				locell_celltype = args[++argidx];
-				locell_portname = args[++argidx];
+				worker.locell_celltype = args[++argidx];
+				worker.locell_portname = args[++argidx];
 				continue;
 			}
 			if (args[argidx] == "-singleton") {
-				singleton_mode = true;
+				worker.singleton_mode = true;
 				continue;
 			}
 			break;
@@ -107,11 +106,11 @@ struct HilomapPass : public Pass {
 
 		for (auto mod : design->selected_modules())
 		{
-			module = mod;
-			last_hi = RTLIL::State::Sm;
-			last_lo = RTLIL::State::Sm;
+			worker.module = mod;
+			worker.last_hi = RTLIL::State::Sm;
+			worker.last_lo = RTLIL::State::Sm;
 
-			module->rewrite_sigspecs(hilomap_worker);
+			mod->rewrite_sigspecs(worker);
 		}
 	}
 } HilomapPass;

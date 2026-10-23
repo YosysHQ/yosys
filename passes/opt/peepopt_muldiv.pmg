@@ -1,5 +1,7 @@
 pattern muldiv
 
+udata <bool> did_something
+
 state <SigSpec> t x y
 state <bool> is_signed
 

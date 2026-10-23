@@ -6,6 +6,9 @@ pattern shiftadd
 // this can then be optimized using peepopt_shiftmul_right.pmg
 //
 
+udata <bool> did_something
+udata <int> shiftadd_max_ratio
+
 match shift
 	select shift->type.in($shift, $shiftx, $shr)
 	filter !port(shift, \B).empty()

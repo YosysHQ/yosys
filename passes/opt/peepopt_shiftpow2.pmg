@@ -4,6 +4,8 @@ pattern shiftpow2
 // when W is a power of two and the multiply has been folded away.
 //
 
+udata <bool> did_something
+
 match shift
 	select shift->type.in($shift, $shiftx, $shr)
 	filter !port(shift, \B).empty()
