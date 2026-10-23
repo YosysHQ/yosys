@@ -12,6 +12,7 @@ module top(inout io);
     );
 endmodule
 EOT
+opt_clean
 
 synth_xilinx
 cd top

@@ -46,7 +46,7 @@ if ${YOSYS} -q -p 'verific -sv chparam1.sv'; then
 			-p 'sat -verify -prove-asserts -show-ports -set din[0] 1' \
 			-p 'sat -falsify -prove-asserts -show-ports -set din[0] 0'
 fi
-${YOSYS} -q -p 'read_slang --std latest chparam2.sv; hierarchy -chparam X 123123123 -top top; prep -flatten' \
+${YOSYS} -q -p 'read_slang --std latest chparam2.sv; opt_clean; hierarchy -chparam X 123123123 -top top; prep -flatten' \
 		-p 'async2sync' \
 		-p 'sat -verify -prove-asserts -show-ports -set din[0] 1' \
 		-p 'sat -falsify -prove-asserts -show-ports -set din[0] 0'

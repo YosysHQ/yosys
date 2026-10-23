@@ -8,6 +8,7 @@ module top(input a, b, output y, z);
 	assign z = t | a;
 endmodule
 EOT
+opt_clean
 
 read_liberty -lib -unit_delay openroad/cm_test_cells.lib
 hierarchy -top top

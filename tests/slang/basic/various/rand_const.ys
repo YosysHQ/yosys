@@ -1,1 +1,2 @@
-read_slang --no-proc --std latest rand_const.sv
+read_slang --std latest rand_const.sv
+opt_clean

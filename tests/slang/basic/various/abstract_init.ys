@@ -1,5 +1,5 @@
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q, QQQ);
 	input CLK;
 	output reg QQQ;
@@ -9,8 +9,6 @@ module foo (CLK, Q, QQQ);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff
@@ -20,7 +18,7 @@ check -assert
 select -assert-count 0 w:Q a:init %i
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q, QQQ);
 	input CLK;
 	output reg QQQ;
@@ -30,8 +28,6 @@ module foo (CLK, Q, QQQ);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff
@@ -41,7 +37,7 @@ check -assert
 select -assert-count 1 w:Q a:init=2'b0x %i
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q);
 	input CLK;
 	//         downto
@@ -50,8 +46,6 @@ module foo (CLK, Q);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff
@@ -67,7 +61,7 @@ check -assert
 select -assert-count 0 w:Q a:init %i
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q);
 	input CLK;
 	//         downto
@@ -76,8 +70,6 @@ module foo (CLK, Q);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff
@@ -87,7 +79,7 @@ check -assert
 select -assert-count 1 w:Q a:init=2'b0x %i
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q);
 	input CLK;
 	//         upto
@@ -96,8 +88,6 @@ module foo (CLK, Q);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff
@@ -107,7 +97,7 @@ check -assert
 select -assert-count 1 w:Q a:init=2'bx1 %i
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo (CLK, Q);
 	input CLK;
 	//         upto
@@ -116,8 +106,6 @@ module foo (CLK, Q);
 		Q <= ~Q;
 endmodule
 EOT
-
-proc
 opt_clean
 opt_expr
 opt_dff

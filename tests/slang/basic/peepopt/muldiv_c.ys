@@ -1,7 +1,7 @@
 log -header "Test simple positive case"
 log -push
 design -reset
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module top (
   input wire  [11:0] a,
   output wire  [11:0] y
@@ -9,6 +9,7 @@ module top (
   assign y = (a * 16'd5140) / (257 * 2);
 endmodule
 EOF
+opt_clean
 check -assert
 equiv_opt -assert peepopt
 design -load postopt
@@ -20,7 +21,7 @@ log -pop
 log -header "Test negative case where div is kept"
 log -push
 design -reset
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module top (
   input wire signed [11:0] a,
   output wire signed [31:0] y,
@@ -32,6 +33,7 @@ module top (
   assign y = tmp[27:0] / (257 * 2);
 endmodule
 EOF
+opt_clean
 check -assert
 equiv_opt -assert peepopt
 design -load postopt
@@ -42,7 +44,7 @@ design -reset
 log -pop
 log -header "Basic pattern transformed: (a * b) / c"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -63,7 +65,7 @@ design -reset
 log -pop
 log -header "Transformed on symmetry in multiplication"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -83,7 +85,7 @@ design -reset
 log -pop
 log -header "Transformed on b == c"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -104,7 +106,7 @@ design -reset
 log -pop
 log -header "b negative, c positive"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -125,7 +127,7 @@ design -reset
 log -pop
 log -header "b positive, c negative"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -146,7 +148,7 @@ design -reset
 log -pop
 log -header "No transform when b not divisible by c"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -167,7 +169,7 @@ design -reset
 log -pop
 log -header "No transform when product has a second fanout"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -190,7 +192,7 @@ design -reset
 log -pop
 log -header "No transform when divisor is 0"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -211,7 +213,7 @@ design -reset
 log -pop
 log -header "No transform when (a*b) output can overflow (divider’s A input signed)"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -232,7 +234,7 @@ design -reset
 log -pop
 log -header "No transform when (a*b) output can overflow (divider’s A input signed)"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -253,7 +255,7 @@ design -reset
 log -pop
 log -header "No transform when (a*b) output can overflow (divider’s A input unsigned)"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input [3:0] a,
 	output [7:0] y,
@@ -273,7 +275,7 @@ design -reset
 log -pop
 log -header "No transform when (a*b) output can overflow (divider’s A input unsigned)"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input [3:0] a,
 	output [7:0] y,
@@ -294,7 +296,7 @@ design -reset
 log -pop
 log -header "No transform when (a*b) and x/c fitting criteria but not connected (x != a*b)"
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	input signed [7:0] b,
@@ -317,7 +319,7 @@ log -header "No transform when b only divisible by c if b misinterpreted as unsi
 # b 1001 is -7 but 9 misinterpreted
 # c 11 is 3
 log -push
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input signed [3:0] a,
 	output signed [7:0] y,
@@ -340,7 +342,7 @@ log -push
 # Transform even if:
 # (a*b) result would overflow if divider’s A input signedness is confused
 # (A input is unsigned)
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(
 	input [3:0] a,
 	output [7:0] y,

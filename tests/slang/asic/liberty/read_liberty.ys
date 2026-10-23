@@ -1,7 +1,7 @@
 read_liberty retention.lib
 rename retention_cell retention_cell_lib
 read_slang --allow-use-before-declare --ignore-timing --std latest retention.lib.verilogsim
-proc
+opt_clean
 rename retention_cell retention_cell_vlog
 async2sync
 equiv_make retention_cell_lib retention_cell_vlog equiv

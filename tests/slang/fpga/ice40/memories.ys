@@ -2,24 +2,28 @@
 # RAM bits <= 4K; Data width <= 16; Address width <= 11: -> SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 2 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 4 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 16 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
@@ -28,6 +32,7 @@ select -assert-count 1 t:SB_RAM40_4K
 ## With parameters
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
@@ -35,6 +40,7 @@ select -assert-count 0 t:SB_RAM40_4K # too inefficient
 select -assert-min 1 t:SB_DFFE
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 setattr -set syn_ramstyle "block_ram" m:memory
@@ -42,6 +48,7 @@ synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 setattr -set syn_ramstyle "Block_RAM" m:memory
@@ -49,6 +56,7 @@ synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K # any case works
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 setattr -set ram_block 1 m:memory
@@ -56,6 +64,7 @@ synth_ice40 -top sync_ram_sdp; cd sync_ram_sdp
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 setattr -set syn_ramstyle "registers" m:memory
@@ -64,6 +73,7 @@ select -assert-count 0 t:SB_RAM40_4K # requested FFRAM explicitly
 select -assert-min 1 t:SB_DFFE
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_ram_sdp
 hierarchy -top sync_ram_sdp
 setattr -set logic_block 1 m:memory
@@ -75,24 +85,28 @@ select -assert-min 1 t:SB_DFFE
 # ROM bits <= 4K; Data width <= 16; Address width <= 11: -> SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 2 sync_rom
 hierarchy -top sync_rom
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 4 sync_rom
 hierarchy -top sync_rom
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 8 -set DATA_WIDTH 16 sync_rom
 hierarchy -top sync_rom
 synth_ice40 -top sync_rom; cd sync_rom
@@ -101,6 +115,7 @@ select -assert-count 1 t:SB_RAM40_4K
 ## With parameters
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 synth_ice40 -top sync_rom; cd sync_rom
@@ -108,6 +123,7 @@ select -assert-count 0 t:SB_RAM40_4K # too inefficient
 select -assert-min 1 t:SB_LUT4
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 setattr -set syn_romstyle "ebr" m:memory
@@ -115,6 +131,7 @@ synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 setattr -set rom_block 1 m:memory
@@ -122,6 +139,7 @@ synth_ice40 -top sync_rom; cd sync_rom
 select -assert-count 1 t:SB_RAM40_4K
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 setattr -set syn_romstyle "logic" m:memory
@@ -130,6 +148,7 @@ select -assert-count 0 t:SB_RAM40_4K # requested LUTROM explicitly
 select -assert-min 1 t:SB_LUT4
 
 design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
 chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 8 sync_rom
 hierarchy -top sync_rom
 setattr -set logic_block 1 m:memory

@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest small.v
+opt_clean
 synth -top small
 abc -liberty normal.lib
 

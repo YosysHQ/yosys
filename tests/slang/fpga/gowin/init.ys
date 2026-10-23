@@ -1,5 +1,7 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  init.v
+opt_clean
 read_slang --lib --specify +/gowin/cells_sim.v
+opt_clean
 design -save read
 
 proc

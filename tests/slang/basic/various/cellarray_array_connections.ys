@@ -1,5 +1,5 @@
 # Regression test for #3467
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 
 module bit_buf (
     input wire bit_in,
@@ -37,6 +37,7 @@ module top2 (
 endmodule
 
 EOT
+opt_clean
 setattr -mod -unset top
 hierarchy
 proc

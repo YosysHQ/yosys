@@ -1,4 +1,5 @@
-read_slang --no-proc --std latest struct_access.sv
+read_slang --std latest struct_access.sv
+opt_clean
 hierarchy
 proc
 opt

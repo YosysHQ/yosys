@@ -9,6 +9,7 @@ module top(input [3:0] a, output y);
 	assign y = ^t;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc

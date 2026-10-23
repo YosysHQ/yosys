@@ -3,6 +3,7 @@ module m (input i, output o);
 wire [1023:0] _TECHMAP_DO_00_ = "CONSTMAP; ";
 endmodule
 EOT
+opt_clean
 
 design -stash map
 
@@ -11,5 +12,6 @@ module top(output o);
 m m (.o(o), .i(o));
 endmodule
 EOT
+opt_clean
 
 techmap -map %map

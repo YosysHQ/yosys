@@ -21,6 +21,7 @@ module top(input logic clk, input logic rst);
     child c1(.clk, .rst, .x, .y);
 endmodule
 EOT
+opt_clean
 
 prep -top top
 async2sync

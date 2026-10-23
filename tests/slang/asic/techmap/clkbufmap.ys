@@ -34,6 +34,7 @@ inv s13(.o(sclk9), .i(sclk8));
 dff s14(.clk(sclk9), .d(siq), .q(sq));
 endmodule
 EOT
+opt_clean
 
 hierarchy -auto-top
 design -save ref

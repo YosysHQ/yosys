@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  ../../common/latches.v
+opt_clean
 design -save read
 
 hierarchy -top latchp

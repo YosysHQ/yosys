@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input a, b, output [5:0] y);
 and (y[0], a, b);
 nand (y[1], a, b);
@@ -8,6 +8,7 @@ xor (y[4], a, b);
 xnor (y[5], a, b);
 endmodule
 EOT
+opt_clean
 select -assert-count 1 t:$and a:src=<inlined>:2.4-2.17 %i
 select -assert-count 1 t:$and a:src=<inlined>:3.5-3.18 %i
 select -assert-count 1 t:$or a:src=<inlined>:4.3-4.16 %i

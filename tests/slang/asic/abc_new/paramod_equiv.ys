@@ -8,6 +8,7 @@ module top(input [3:0] a, input [7:0] b, output [3:0] y, output [7:0] z);
 	inc #(.W(8)) i8 (.a(b), .y(z));
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -23,6 +24,7 @@ select -assert-none t:$_*_
 opt_clean
 check -assert
 read_slang --allow-use-before-declare --ignore-timing --std latest openroad/cells_sim.v
+opt_clean
 flatten
 opt_clean
 design -stash gate

@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  mul_unsigned.v
+opt_clean
 hierarchy -top mul_unsigned
 proc
 
@@ -13,6 +14,7 @@ select -assert-none t:DSP48E1 t:FDRE t:BUFG %% t:* %D
 design -reset
 
 read_slang --allow-use-before-declare --ignore-timing --std latest  mul_unsigned.v
+opt_clean
 hierarchy -top mul_unsigned
 proc
 

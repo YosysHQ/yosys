@@ -1,4 +1,5 @@
-read_slang --no-proc --std latest for_decl_shadow.sv
+read_slang --std latest for_decl_shadow.sv
+opt_clean
 setattr -mod -unset top
 hierarchy
 proc

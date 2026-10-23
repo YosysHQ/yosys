@@ -1,4 +1,5 @@
-read_slang --no-proc --std latest enum_values.sv
+read_slang --std latest enum_values.sv
+opt_clean
 hierarchy -top top
 printattrs a:*
 

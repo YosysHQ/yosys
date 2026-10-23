@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  mul_unsigned.v
+opt_clean
 hierarchy -top mul_unsigned
 proc
 

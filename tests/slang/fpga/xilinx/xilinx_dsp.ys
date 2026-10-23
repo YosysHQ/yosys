@@ -8,5 +8,7 @@ assign o4 = a * b;
 DSP48E1 m3 (.A(a), .B(b), .P(o5));
 endmodule
 EOT
+opt_clean
 read_slang --lib +/xilinx/cells_sim.v
+opt_clean
 xilinx_dsp

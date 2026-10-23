@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 (* whitebox *)
 (* final_name=$sformatf("aa%d", X) *)
 module aa(input wire d, output wire q);
@@ -33,6 +33,7 @@ module top;
 	cc #(.X(1)) cc2(.d(d), .q(q6));
 endmodule
 EOF
+opt_clean
 
 design -save before
 box_derive -naming_attr final_name top

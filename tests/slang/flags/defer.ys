@@ -27,6 +27,7 @@ module top #(parameter P = 1) (output q);
   assign q = P;
 endmodule
 EOF
+opt_clean
 select -assert-any top
 select -assert-none N:$abstract*
 
@@ -37,6 +38,7 @@ module top #(parameter P = 1) (output q);
   assign q = P;
 endmodule
 EOF
+opt_clean
 select -assert-none top
 select -assert-any N:$abstract*
 hierarchy -top top

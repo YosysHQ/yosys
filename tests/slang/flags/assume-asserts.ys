@@ -34,6 +34,7 @@ module top(input a);
   end
 endmodule
 EOF
+opt_clean
 select -assert-count 1 r:FLAVOR=assert
 select -assert-count 1 r:FLAVOR=assume
 
@@ -47,5 +48,6 @@ module top(input a);
   end
 endmodule
 EOF
+opt_clean
 select -assert-count 0 r:FLAVOR=assert
 select -assert-count 2 r:FLAVOR=assume

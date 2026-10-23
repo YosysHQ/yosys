@@ -24,6 +24,7 @@ module top(input a, output q);
   assign q = ~a;
 endmodule
 EOF
+opt_clean
 select -assert-count 1 top/t:$not
 
 slang_flag:
@@ -33,5 +34,6 @@ module top(input a, output q);
   assign q = ~a;
 endmodule
 EOF
+opt_clean
 select -assert-any =A:blackbox
 select -assert-none =top/t:$not

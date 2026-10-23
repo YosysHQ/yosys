@@ -1,4 +1,5 @@
-read_slang --no-proc --std latest <<EOF
+# Keep unused logic for the hierarchy cost checks.
+read_slang --std latest <<EOF
 (* blackbox *)
 (* gate_cost_equivalent=150 *)
 module macro;

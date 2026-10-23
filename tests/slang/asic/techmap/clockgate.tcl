@@ -1,6 +1,8 @@
 yosys -import
 read_slang clockgate.v
+opt_clean
 read_slang ../sim/sdffe.v
+opt_clean
 yosys proc
 opt
 
@@ -94,6 +96,7 @@ select -module bad2 -assert-count 0 t:\\pdk_icg
 # Regression test: EN is a bit from a multi-bit wire
 design -reset
 read_slang clockgate_wide.v
+opt_clean
 yosys proc
 opt
 

@@ -3,6 +3,7 @@ read_slang --allow-use-before-declare --ignore-timing --std latest --noblackbox 
 module RM_IHPSG13_1P_64x64_c2_bm_bist();
 endmodule
 EOF
+opt_clean
 read_liberty -lib -ignore_buses foundry_data/RM_IHPSG13_1P_64x64_c2_bm_bist_typ_1p20V_25C.lib.filtered.gz
 
 # Test memory macro doesn't get ignored without -ignore_buses

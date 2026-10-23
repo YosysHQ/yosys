@@ -16,6 +16,7 @@ module top(input [3:0] d, input [1:0] s, input a, output y, z);
 	assign z = m & d[0];
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -27,6 +28,7 @@ select -assert-count 1 top/t:MX4
 select -assert-none top/t:$_*_
 check -assert
 read_slang --allow-use-before-declare --ignore-timing --std latest openroad/cells_sim.v
+opt_clean
 flatten
 opt_clean
 design -stash gate

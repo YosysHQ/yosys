@@ -1,10 +1,10 @@
-read_slang --no-proc --std latest <<EOF
+# Keep unused wires and cells for the rename checks.
+read_slang --std latest <<EOF
 module top();
     wire a, b, c;
 endmodule
 EOF
 
-proc
 hierarchy -top top
 rename -seed 2 -scramble-name w:*
 select -assert-none w:a w:b w:c
@@ -12,7 +12,7 @@ select -assert-count 3 w:$_*_
 select -assert-none w:$_*_ %% %n
 design -reset
 
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module foo(input a, b, output c);
     assign c = a + b;
 endmodule
@@ -23,7 +23,6 @@ module top();
 endmodule
 EOF
 
-proc
 hierarchy -top top
 rename -seed 2 -scramble-name c:bar
 select -assert-none c:bar

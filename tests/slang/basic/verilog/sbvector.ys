@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module foo(
 	output o,
 	input [0:0] i1,
@@ -9,6 +9,7 @@ module foo(
 	assign o = w1 ^ w2;
 endmodule
 EOT
+opt_clean
 
 hierarchy
 proc

@@ -13,6 +13,7 @@ module outpad(input i, output o);
   OB ob (.I(~i), .O(o));
 endmodule
 EOT
+opt_clean
 
 synth_lattice -family ecp5 -top top
 hierarchy -check

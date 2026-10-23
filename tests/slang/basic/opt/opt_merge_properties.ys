@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module top ();
     always_comb begin
         label1: cover(0);
@@ -6,6 +6,7 @@ module top ();
     end
 endmodule
 EOF
+opt_clean
 
 hierarchy -top top
 proc

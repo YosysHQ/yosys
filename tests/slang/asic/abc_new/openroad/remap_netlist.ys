@@ -42,8 +42,10 @@ module top(clk, a, b, c, d);
 
 endmodule
 EOT
+opt_clean
 
 read_slang --allow-use-before-declare --ignore-timing --std latest cells_sim.v
+opt_clean
 hierarchy -top top
 proc
 flatten
@@ -62,7 +64,7 @@ select -assert-count 2 t:DFF
 check -assert
 
 read_slang --allow-use-before-declare --ignore-timing --std latest cells_sim.v
-proc
+opt_clean
 flatten
 opt_clean
 design -stash gate

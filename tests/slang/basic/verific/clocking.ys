@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test(input foo);
 always @(*) assert(foo);
 endmodule

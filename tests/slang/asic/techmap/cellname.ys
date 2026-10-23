@@ -6,6 +6,7 @@ namedsub #(.name(_TECHMAP_CELLNAME_)) _TECHMAP_REPLACE_ (i, o);
 endmodule
 
 EOT
+opt_clean
 
 design -stash map
 
@@ -30,6 +31,7 @@ sub xxx (i[3], o[3]);
 endmodule
 
 EOT
+opt_clean
 
 techmap -map %map
 

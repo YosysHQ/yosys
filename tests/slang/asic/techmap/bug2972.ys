@@ -15,6 +15,7 @@ module top(input clk, d, output q);
 box i1(clk, d, q);
 endmodule
 EOT
+opt_clean
 hierarchy
 abc9 -lut 4
 abc9 -lut 4

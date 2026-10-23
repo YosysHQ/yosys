@@ -20,8 +20,10 @@ module top(input CI, I0, output [1:0] CO, output O);
     SB_CARRY u1 (.I0(~A), .I1(~B), .CI(CI), .CO(CO[1]));
 endmodule
 EOT
+opt_clean
 
 read_slang --icells --lib +/ice40/abc9_model.v +/ice40/cells_sim.v
+opt_clean
 equiv_opt -assert -map +/ice40/abc9_model.v -map +/ice40/cells_sim.v ice40_opt
 design -load postopt
 select -assert-count 1 t:*
@@ -81,6 +83,7 @@ module delay_element (input wire clk, input wire reset, input wire enable,
 
 endmodule // delay_element
 EOT
+opt_clean
 
 synth_ice40
 select -assert-count 1 t:SB_LUT4
@@ -116,4 +119,5 @@ module top(input I3, I2, I1, I0, output O, O2);
 	);
 endmodule
 EOT
+opt_clean
 ice40_opt

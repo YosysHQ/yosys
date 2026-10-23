@@ -15,6 +15,7 @@ module top(clk, a, b);
 
 endmodule
 EOT
+opt_clean
 
 read_liberty -lib -unit_delay cm_test_cells.lib
 read_liberty -lib -unit_delay sm_test_cells.lib

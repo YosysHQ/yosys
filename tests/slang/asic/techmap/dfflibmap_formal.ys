@@ -19,8 +19,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_s.lib
 
@@ -59,8 +59,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_r.lib
 
@@ -99,8 +99,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_l.lib
 
@@ -139,8 +139,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_h.lib
 
@@ -179,8 +179,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_x.lib
 opt
@@ -222,8 +222,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffn_dffe.lib
 read_liberty dfflibmap_dffsr_not_next.lib
@@ -262,8 +262,8 @@ assign Q[11:6] = ~Q[5:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffsr_not_next_l.lib
 
@@ -299,8 +299,8 @@ always @(posedge C, posedge R, posedge S)
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffn_dffe.lib
 read_liberty dfflibmap_dffsr_not_next.lib
@@ -330,8 +330,8 @@ module top(input C, D, R, output Q);
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dfflibmap_dffn_dffe.lib
 read_liberty dfflibmap_dff_not_next.lib

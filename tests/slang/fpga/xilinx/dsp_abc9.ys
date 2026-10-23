@@ -7,6 +7,7 @@ module top(input [24:0] A, input [17:0] B, output [47:0] P);
 DSP48E1 #(.PREG(0)) dsp(.A(A), .B(B), .P(P));
 endmodule
 EOT
+opt_clean
 techmap -autoproc -wb -map +/xilinx/cells_sim.v
 opt
 scc -expect 0
@@ -18,6 +19,7 @@ module top(input signed [24:0] A, input signed [17:0] B, output [47:0] P);
 assign P = A * B;
 endmodule
 EOT
+opt_clean
 synth_xilinx -abc9
 techmap -autoproc -wb -map +/xilinx/cells_sim.v
 opt -full -fine
@@ -32,6 +34,7 @@ module top(output [42:0] P);
 assert property (P == 42*42);
 endmodule
 EOT
+opt_clean
 async2sync
 techmap -map +/xilinx/xc7_dsp_map.v
 verilog_defaults -add -D ALLOW_WHITEBOX_DSP48E1
@@ -50,6 +53,7 @@ DSP48E1 #(.AREG(1)) u1(.A(A), .B(B), .PCOUT(casc));
 DSP48E1 #(.AREG(1)) u2(.A(A), .B(B), .PCIN(casc), .P(P));
 endmodule
 EOT
+opt_clean
 synth_xilinx -run :prepare
 abc9
 clean

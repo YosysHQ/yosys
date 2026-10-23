@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  xilinx_srl.v
+opt_clean
 design -save read
 
 design -copy-to model $__XILINX_SHREG_

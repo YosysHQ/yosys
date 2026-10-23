@@ -7,6 +7,7 @@ module top(a, b, y);
   assign y = a + b;
 endmodule
 EOF_VERILOG
+opt_clean
 
 prep
 alumacc
@@ -26,6 +27,7 @@ module top(input a, output y);
 	mycell u0(.a(a), .y(y));
 endmodule
 EOF_VERILOG
+opt_clean
 
 hierarchy -top top
 select -assert-any t:mycell a:module_not_derived %i

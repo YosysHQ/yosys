@@ -29,6 +29,7 @@ module top(input a, d, output q);
   assign q = mem[0];
 endmodule
 EOF
+opt_clean
 select -assert-none m:mem
 
 slang_flag:
@@ -40,4 +41,5 @@ module top(input a, d, output q);
   assign q = mem[0];
 endmodule
 EOF
+opt_clean
 select -assert-count 1 m:mem

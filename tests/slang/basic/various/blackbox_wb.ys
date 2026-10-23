@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 (* whitebox *)
 module box(input a, output q);
 assign q = ~a;

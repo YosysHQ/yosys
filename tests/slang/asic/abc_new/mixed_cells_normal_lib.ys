@@ -10,6 +10,7 @@ module top(input clk, g, en, input [1:0] a, b, output [1:0] s, output c, output 
 	dff d0(.D(t[0] | t[1]), .CLK(clk), .Q(q));
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc

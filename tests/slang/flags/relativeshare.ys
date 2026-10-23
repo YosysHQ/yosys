@@ -13,11 +13,13 @@ exec -q -expect-return 0 -expect-stdout [+]\/adff2dff.v: -- cat relativeshare.tm
 slang_default:
 design -reset
 read_slang ../../../techlibs/common/adff2dff.v
+opt_clean
 tee -o relativeshare.tmp dump =adff2dff
 exec -q -expect-return 0 -not-expect-stdout [+]\/adff2dff.v: -- cat relativeshare.tmp
 
 slang_flag:
 design -reset
 read_slang --relativeshare ../../../techlibs/common/adff2dff.v
+opt_clean
 tee -o relativeshare.tmp dump =adff2dff
 exec -q -expect-return 0 -expect-stdout [+]\/adff2dff.v: -- cat relativeshare.tmp

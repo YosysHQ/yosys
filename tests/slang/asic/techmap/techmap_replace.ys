@@ -5,6 +5,7 @@ wire _TECHMAP_REPLACE_.asdf = i ;
 barfoo _TECHMAP_REPLACE_.blah (i, o, j);
 endmodule
 EOT
+opt_clean
 design -stash techmap
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
@@ -12,6 +13,7 @@ module top(input i, output o);
 sub s0(i, o);
 endmodule
 EOT
+opt_clean
 
 techmap -map %techmap
 select -assert-any w:s0.asdf
@@ -23,6 +25,7 @@ wire _TECHMAP_REPLACE_.asdf = i ;
 barfoo _TECHMAP_REPLACE_.blah (i, o, j);
 endmodule
 EOT
+opt_clean
 design -stash techmap
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
@@ -30,6 +33,7 @@ module top(input i, output o);
 sub s0(i, o);
 endmodule
 EOT
+opt_clean
 
 techmap -map %techmap
 select -assert-any w:s0.asdf

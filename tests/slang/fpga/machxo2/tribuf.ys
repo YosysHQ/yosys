@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  ../common/tribuf.v
+opt_clean
 hierarchy -top tristate
 proc
 flatten

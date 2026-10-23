@@ -17,6 +17,7 @@ module _80_lcu_primitive(P, G, CI, CO);
 endmodule
 
 EOT
+opt_clean
 design -stash techmap
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
@@ -24,6 +25,7 @@ module top(input [3:0] pi, input [3:0] gi, input ci, output [3:0] co);
 foo #(.WIDTH(8)) suuuub(pi, gi, ci, co);
 endmodule
 EOT
+opt_clean
 
 hierarchy -auto-top
 proc
@@ -38,6 +40,7 @@ module top(input A, input B, output Y);
 assign Y = A ^ B;
 endmodule
 EOT
+opt_clean
 
 # We can only test that the option doesn't crash
 # See https://github.com/YosysHQ/yosys/issues/5414

@@ -36,6 +36,7 @@ module top(input a, output q);
   \$not #(.A_SIGNED(0), .A_WIDTH(1), .Y_WIDTH(1)) inv (.A(a), .Y(q));
 endmodule
 EOF
+opt_clean
 select -assert-count 1 top/t:\\$not
 
 slang_flag:
@@ -49,5 +50,6 @@ module top(input a, output q);
   \$not #(.A_SIGNED(0), .A_WIDTH(1), .Y_WIDTH(1)) inv (.A(a), .Y(q));
 endmodule
 EOF
+opt_clean
 select -assert-none top/t:\\$not
 select -assert-count 1 top/t:$not

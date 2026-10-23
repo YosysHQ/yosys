@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input i, output o, output y);
 	sub s(.i(i), .o(o));
 	bb #(.P(1)) b(.a('0), .y(y));
@@ -12,6 +12,7 @@ endmodule
 module bb #(parameter P = 0) (input a, output y);
 endmodule
 EOT
+opt_clean
 hierarchy -top top
 flatten
 abc9 -lut 4

@@ -37,6 +37,7 @@ module top(input [11:0] a, b, input [5:0] c, d, input s, output [11:0] sum, outp
 	Multiplier6 u12(.a(c), .b(d), .y(prod));
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 proc
@@ -67,6 +68,7 @@ select -assert-count 1 InverterOnly/t:*
 # Best observed post-mapping area + 20% headroom.
 stat -liberty cm_test_cells.lib
 read_slang --allow-use-before-declare --ignore-timing --std latest cells_sim.v
+opt_clean
 flatten
 opt_clean
 design -stash gate

@@ -55,6 +55,7 @@ module CC_MX4 (
 endmodule
 
 EOF
+opt_clean
 
 abc_new -liberty ../../tests/liberty/normal.lib -liberty ../../tests/liberty/dff.lib
 

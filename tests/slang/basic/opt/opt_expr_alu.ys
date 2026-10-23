@@ -1,8 +1,11 @@
+# Keep frontend lowering disabled for the opt_expr checks.
 read_slang --no-proc --std latest <<EOT
 module test(input a, output [1:0] y);
 assign y = {a,1'b0} + 1'b1;
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 equiv_opt -assert opt_expr -fine
@@ -17,6 +20,8 @@ module test(input a, output [1:0] y);
 assign y = {a,1'b1} + 1'b1;
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 select -assert-count 1 t:$alu
@@ -29,6 +34,8 @@ module test(input a, output [1:0] y);
 assign y = {a,1'b1} - 1'b1;
 endmodule
 EOT
+proc
+opt_clean
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -42,6 +49,8 @@ module test(input a, output [3:0] y);
 assign y = {a,3'b101} - 1'b1;
 endmodule
 EOT
+proc
+opt_clean
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -55,6 +64,8 @@ module test(input a, output [3:0] y);
 assign y = {a,3'b101} - 1'b1;
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 equiv_opt -assert opt_expr -fine
@@ -69,6 +80,8 @@ module test(input [1:0] a, output [3:0] y);
 assign y = -{a[1], 2'b10, a[0]};
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 equiv_opt -assert opt -fine
@@ -85,6 +98,8 @@ module test(input [3:0] a, input [2:0] b, output [5:0] y);
 assign y = {a[3:2], 1'b1, a[1:0]} + {b[2], 2'b11, b[1:0]};
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 equiv_opt -assert opt -fine
@@ -102,6 +117,8 @@ module test(input [3:0] a, input [3:0] b, output [5:0] y);
 assign y = {a[3:2], 1'b0, a[1:0]} + {b[3:2], 1'b0, b[1:0]};
 endmodule
 EOT
+proc
+opt_clean
 
 alumacc
 equiv_opt -assert opt -fine
@@ -124,6 +141,8 @@ $alu #(
 );
 endmodule
 EOT
+proc
+opt_clean
 
 equiv_opt -assert opt
 design -load postopt
@@ -143,6 +162,8 @@ $alu #(
 );
 endmodule
 EOT
+proc
+opt_clean
 
 equiv_opt -assert opt
 design -load postopt
@@ -162,6 +183,8 @@ $alu #(
 );
 endmodule
 EOT
+proc
+opt_clean
 
 equiv_opt -assert opt
 design -load postopt

@@ -1,5 +1,5 @@
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input g, d, output reg q);
 always @* if (g) q = d;
 endmodule
@@ -13,7 +13,7 @@ check -nolatches
 logger -check-expected
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input g, d, output reg q);
 always @* q = g ? d : 1'b0;
 endmodule
@@ -24,7 +24,7 @@ proc
 check -nolatches -assert
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input g, d, output reg q);
 always_latch if (g) q <= d;
 endmodule
@@ -37,7 +37,7 @@ check -nolatches -assert
 check -latchonly -assert
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input g, d, output reg q, output y);
 always @* if (g) q = d;
 wire u;

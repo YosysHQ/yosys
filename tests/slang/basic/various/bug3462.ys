@@ -1,11 +1,11 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module sub #(parameter d=1) (input in, output out);
     assign out = in;
 endmodule
 EOT
 opt_clean
 
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top();
     wire array[0:0];
     wire out;

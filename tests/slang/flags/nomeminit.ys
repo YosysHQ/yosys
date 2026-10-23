@@ -33,6 +33,7 @@ module top(input clk, a, d, output q);
   assign q = mem[a];
 endmodule
 EOF
+opt_clean
 select -assert-count 1 m:mem
 select -assert-any t:$meminit_v2
 
@@ -46,4 +47,5 @@ module top(input clk, a, d, output q);
   assign q = mem[a];
 endmodule
 EOF
+opt_clean
 select -assert-none m:mem t:$meminit_v2

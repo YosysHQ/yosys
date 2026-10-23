@@ -23,6 +23,7 @@ module fagate(A, B, C, X, Y);
 	output wire Y = t2 | t3;
 endmodule
 EOF
+opt_clean
 design -stash gatelib
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOF
@@ -56,6 +57,7 @@ module FA(A, B, CI, CO, Y);
 	assign {CO, Y} = A + B + CI;
 endmodule
 EOF
+opt_clean
 
 prep
 cellmatch -lib gatelib FA A:gate

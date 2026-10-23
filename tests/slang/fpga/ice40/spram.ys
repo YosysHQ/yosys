@@ -1,4 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  spram.v
+opt_clean
 hierarchy -top top
 synth_ice40
 select -assert-count 1 t:SB_SPRAM256KA
@@ -7,6 +8,7 @@ select -assert-none t:SB_SPRAM256KA %% t:* %D
 # Testing with pattern as described in pattern document
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  spram.v
+opt_clean
 chparam -set SKIP_RDEN 0
 hierarchy -top top
 synth_ice40

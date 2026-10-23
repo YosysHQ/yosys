@@ -23,6 +23,7 @@ module top(input a);
   always @* restrict property (a);
 endmodule
 EOF
+opt_clean
 select -assert-count 1 r:FLAVOR=assume
 
 slang_flag:
@@ -32,4 +33,5 @@ module top(input a);
   always @* restrict property (a);
 endmodule
 EOF
+opt_clean
 select -assert-none r:FLAVOR=assume

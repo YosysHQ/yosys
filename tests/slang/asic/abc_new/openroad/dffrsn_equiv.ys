@@ -12,6 +12,7 @@ module top(input clk, rst_n, set_n, input [3:0] d, output reg [3:0] qr, qs, qrs,
 	assign y = ^qrs;
 endmodule
 EOT
+opt_clean
 
 read_liberty -lib sm_test_cells.lib
 hierarchy -top top
@@ -31,7 +32,7 @@ select -assert-count 4 t:DFFRSN
 check -assert
 
 read_slang --allow-use-before-declare --ignore-timing --std latest cells_sim.v
-proc
+opt_clean
 flatten
 opt_clean
 design -stash gate

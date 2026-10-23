@@ -1,6 +1,7 @@
 # https://github.com/YosysHQ/yosys/issues/5910
 
-read_slang --no-proc --std latest yosys_latch.sv
+read_slang --std latest yosys_latch.sv
+opt_clean
 hierarchy -check -top yosys_latch
 proc
 opt_clean

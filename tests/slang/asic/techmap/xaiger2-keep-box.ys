@@ -13,6 +13,7 @@ module top(input d, output y);
 	assign y = ~d;
 endmodule
 EOT
+opt_clean
 abc9 -lut 4
 opt_clean
 select -assert-count 1 top/t:box

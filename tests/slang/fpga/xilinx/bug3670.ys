@@ -1,3 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  bug3670.v
+opt_clean
 read_slang --lib --specify +/xilinx/cells_sim.v
+opt_clean
 abc9

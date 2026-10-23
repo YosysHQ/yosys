@@ -4,6 +4,7 @@ module sub(input i, output o, (* techmap_autopurge *) input j);
 foobar f(i, o, j);
 endmodule
 EOT
+opt_clean
 design -stash techmap
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
@@ -19,6 +20,7 @@ module top(input i, output o);
 sub s0(i, o);
 endmodule
 EOT
+opt_clean
 
 techmap -map %techmap
 hierarchy
@@ -31,6 +33,7 @@ module sub(input i, output o, (* techmap_autopurge *) input [1:0] j);
 foobar f(i, o, j);
 endmodule
 EOT
+opt_clean
 design -stash techmap
 
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
@@ -46,6 +49,7 @@ module top(input i, output o);
 sub s0(i, o);
 endmodule
 EOT
+opt_clean
 
 techmap -map %techmap
 hierarchy
@@ -57,6 +61,7 @@ wire j;
 sub s0(i, o, j);
 endmodule
 EOT
+opt_clean
 
 techmap -map %techmap
 hierarchy

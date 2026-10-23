@@ -1,12 +1,12 @@
 ### Reversed part-select case ###
 design -reset
-read_slang --no-proc --std latest ./dynamic_part_select/reversed.v
-proc
+read_slang --std latest ./dynamic_part_select/reversed.v
+opt_clean
 rename -top gold
 design -stash gold
 
-read_slang --no-proc --std latest ./dynamic_part_select/reversed_gate.v
-proc
+read_slang --std latest ./dynamic_part_select/reversed_gate.v
+opt_clean
 rename -top gate
 design -stash gate
 
@@ -19,12 +19,14 @@ sat -prove-asserts -seq 10 -show-public -verify -set-init-zero equiv
 ### Latches
 ## Issue 1990
 design -reset
-read_slang --no-proc --std latest ./dynamic_part_select/latch_1990.v
+read_slang --std latest ./dynamic_part_select/latch_1990.v
+opt_clean
 hierarchy -top latch_1990; prep; async2sync
 rename -top gold
 design -stash gold
 
-read_slang --no-proc --std latest ./dynamic_part_select/latch_1990_gate.v
+read_slang --std latest ./dynamic_part_select/latch_1990_gate.v
+opt_clean
 hierarchy -top latch_1990_gate; prep
 rename -top gate
 design -stash gate
@@ -38,12 +40,14 @@ sat -prove-asserts -show-public -verify -set-init-zero equiv
 ###
 ## Part select with obvious latch, expected to fail due comparison with old shift&mask AST transformation
 design -reset
-read_slang --no-proc --std latest ./dynamic_part_select/latch_002.v
+read_slang --std latest ./dynamic_part_select/latch_002.v
+opt_clean
 hierarchy -top latch_002; prep; async2sync
 rename -top gold
 design -stash gold
 
-read_slang --no-proc --std latest ./dynamic_part_select/latch_002_gate.v
+read_slang --std latest ./dynamic_part_select/latch_002_gate.v
+opt_clean
 hierarchy -top latch_002_gate; prep; async2sync
 rename -top gate
 design -stash gate
@@ -56,12 +60,14 @@ sat -prove-asserts -seq 10 -show-public -falsify -set-init-zero equiv
 
 ## Part select + latch, with no shift&mask
 design -reset
-read_slang --no-proc --std latest ./dynamic_part_select/latch_002.v
+read_slang --std latest ./dynamic_part_select/latch_002.v
+opt_clean
 hierarchy -top latch_002; prep; async2sync
 rename -top gold
 design -stash gold
 
-read_slang --no-proc --std latest ./dynamic_part_select/latch_002_gate_good.v
+read_slang --std latest ./dynamic_part_select/latch_002_gate_good.v
+opt_clean
 hierarchy -top latch_002_gate; prep; async2sync
 rename -top gate
 design -stash gate

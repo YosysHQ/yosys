@@ -8,8 +8,8 @@ module top (input clk, sel, di, output do);
 	assign do = data[0][sel];
 endmodule
 EOT
+opt_clean
 
-proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
 design -load postopt
 

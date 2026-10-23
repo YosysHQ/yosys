@@ -17,6 +17,7 @@ module top(input A, B, CI, output O, CO);
 	);
 endmodule
 EOT
+opt_clean
 
 ice40_wrapcarry
 select -assert-count 1 t:$__ICE40_CARRY_WRAPPER
@@ -43,6 +44,7 @@ module top(input A, B, CI, output O, CO);
 	);
 endmodule
 EOT
+opt_clean
 
 ice40_wrapcarry
 select -assert-count 1 t:$__ICE40_CARRY_WRAPPER

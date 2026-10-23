@@ -23,6 +23,7 @@ module top #(parameter P = 3) (output [3:0] q);
   assign q = P;
 endmodule
 EOF
+opt_clean
 select -assert-none w:P
 
 slang_flag:
@@ -32,4 +33,5 @@ module top #(parameter P = 3) (output [3:0] q);
   assign q = P;
 endmodule
 EOF
+opt_clean
 select -assert-count 1 w:P

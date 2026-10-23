@@ -6,6 +6,7 @@ module bar(output c);
   foo f(c, 1'b0);
 endmodule
 EOT
+opt_clean
 
 hierarchy -auto-top
 flatten

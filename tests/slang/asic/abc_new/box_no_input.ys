@@ -9,6 +9,7 @@ module top(input a, output y, z);
 	assign y = a;
 endmodule
 EOT
+opt_clean
 
 hierarchy -top top
 techmap

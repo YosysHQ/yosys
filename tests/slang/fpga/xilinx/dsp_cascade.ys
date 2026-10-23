@@ -16,7 +16,7 @@ o <= ar3 * br3 + n;
 end
 endmodule
 EOT
-proc
+opt_clean
 design -save read
 
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad
@@ -62,7 +62,7 @@ o <= ar3 * br3 + m;
 end
 endmodule
 EOT
-proc
+opt_clean
 design -save read
 
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad

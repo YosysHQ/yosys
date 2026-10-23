@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module top(
 	input [1:0] a,
 	input [2:0] b,
@@ -15,7 +15,6 @@ module top(
 	assign y3 = a3 | (*keep*) b3;
 endmodule
 EOF
-proc
 opt_clean
 
 wreduce
@@ -28,7 +27,7 @@ select -assert-mod-count 2 OR_2_3_3 OR_3_4_4
 select -assert-mod-count 2 A:bar=w3 A:bar=w4
 
 design -reset
-read_slang --no-proc --std latest <<EOF
+read_slang --std latest <<EOF
 module top(
 	input [1:0] a,
 	input [2:0] b,
@@ -46,7 +45,6 @@ module top(
 	assign y3 = {y3_[2], y3_[0]};
 endmodule
 EOF
-
 opt_clean
 wreduce
 wrapcell -setattr foo -formatattr bar w{Y_WIDTH} -name OR_{A_WIDTH}_{B_WIDTH}_{Y_WIDTH}{%unused}

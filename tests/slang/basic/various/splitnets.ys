@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_module (
   a,
   b,
@@ -13,7 +13,6 @@ module test_module (
   assign y = x;
 endmodule
 EOT
-proc
 opt_clean
 
 splitnets -ports -format __:

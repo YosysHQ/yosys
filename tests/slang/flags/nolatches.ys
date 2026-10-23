@@ -25,7 +25,7 @@ module top(input en, d, output reg q);
   always @* if (en) q = d;
 endmodule
 EOF
-proc
+opt_clean
 select -assert-count 1 t:$dlatch
 
 slang_flag:
@@ -35,5 +35,5 @@ module top(input en, d, output reg q);
   always @* if (en) q = d;
 endmodule
 EOF
-proc
+opt_clean
 select -assert-none t:$dlatch

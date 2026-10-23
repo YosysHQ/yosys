@@ -60,7 +60,6 @@ assign o = 1'bz;
 endmodule
 
 EOT
-
 opt_clean
 tribuf
 simplemap

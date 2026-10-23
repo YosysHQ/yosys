@@ -1,4 +1,4 @@
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input a, output b);
 wire c;
 (* submod="bar" *) sub s1(a, c);
@@ -27,7 +27,7 @@ sat -verify -prove-asserts -show-ports miter
 
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input a, output [1:0] b);
 (* submod="bar" *) sub s1(a, b[1]);
 assign b[0] = 1'b0;
@@ -55,7 +55,7 @@ sat -verify -prove-asserts -show-ports miter
 
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input a, output [1:0] b, c);
 (* submod="bar" *) sub s1(a, b[0]);
 (* submod="bar" *) sub s2(a, c[1]);
@@ -84,7 +84,7 @@ sat -verify -prove-asserts -show-ports miter
 
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input d, c, (* init = 3'b011 *) output reg [2:0] q);
 (* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
 DFF s2(.D(d), .C(c), .Q(q[0]));
@@ -106,7 +106,7 @@ check -noinit -assert
 
 
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module top(input d, c, output reg [2:0] q);
 (* submod="bar" *) DFF s1(.D(d), .C(c), .Q(q[1]));
 DFF s2(.D(d), .C(c), .Q(q[0]));
@@ -121,7 +121,7 @@ proc
 submod
 flatten
 
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module DFF(input D, C, output Q);
 endmodule
 EOT

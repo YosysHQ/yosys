@@ -20,6 +20,7 @@ read_slang <<EOF
 (* blackbox *) module top(output q); endmodule
 module top(output q); assign q = 1'b1; endmodule
 EOF
+opt_clean
 select -assert-none =A:blackbox
 
 slang_flag:
@@ -28,4 +29,5 @@ read_slang --nooverwrite <<EOF
 (* blackbox *) module top(output q); endmodule
 module top(output q); assign q = 1'b1; endmodule
 EOF
+opt_clean
 select -assert-any =A:blackbox

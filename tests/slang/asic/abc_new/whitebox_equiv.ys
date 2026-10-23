@@ -15,6 +15,7 @@ module top(input [3:0] d, input [1:0] s, input a, output y, z);
 	assign z = m & d[0];
 endmodule
 EOT
+opt_clean
 
 read_liberty -lib -unit_delay openroad/cm_test_cells.lib
 hierarchy -top top
@@ -32,6 +33,7 @@ select -assert-none top/t:$_*_
 opt_clean
 check -assert
 read_slang --allow-use-before-declare --ignore-timing --std latest openroad/cells_sim.v
+opt_clean
 flatten -wb
 delete t:$specify2 t:$specify3
 opt_clean

@@ -11,4 +11,5 @@ module top(input [1:0] i, output o);
 box i1(i, o);
 endmodule
 EOT
+opt_clean
 abc9 -lut 4

@@ -24,6 +24,7 @@ always @(posedge C)
 assign Q = r[L];
 endmodule
 EOT
+opt_clean
 design -copy-to model $__XILINX_SHREG_
 hierarchy -top xilinx_srl_enable_test
 prep

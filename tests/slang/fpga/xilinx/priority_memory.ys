@@ -2,6 +2,7 @@
 # no uram by default
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top priority_memory
 select -assert-none t:URAM288
 
@@ -9,12 +10,14 @@ select -assert-none t:URAM288
 design -reset
 read -define USE_HUGE
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top priority_memory -noiopad
 select -assert-count 1 t:URAM288
 
 # uram option
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top priority_memory -noiopad -uram
 # check for URAM block
 select -assert-count 1 t:URAM288
@@ -34,6 +37,7 @@ select -assert-max 2 t:LUT* n:*blif* %d
 design -reset
 read -define FLIP_PORTS
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top priority_memory -noiopad -uram
 # test priority is mapped correctly, rdata_a should now be connected to Port B
 # see above for details
@@ -42,6 +46,7 @@ select -assert-count 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
 # sp write first
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top sp_write_first -noiopad
 select -assert-count 1 t:URAM288
 # write first connects rdata_a to port B
@@ -52,6 +57,7 @@ select -assert-count 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
 # sp read first
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top sp_read_first -noiopad
 select -assert-count 1 t:URAM288
 # read first connects rdata_a to port A
@@ -63,6 +69,7 @@ select -assert-none 1 t:URAM288 %co:+[DOUT_B] w:rdata_a %i
 # the two URAM ports A and B are concatenated, with port A serving LSBs and port B serving MSBs
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest  priority_memory.v
+opt_clean
 synth_xilinx -family xcup -top sp_read_or_write -noiopad
 select -assert-count 1 t:URAM288
 # we expect no more than 1 LUT2 to control the hardware enable ports

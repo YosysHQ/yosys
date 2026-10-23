@@ -3,6 +3,7 @@ module top(input wire [14:0] a, output wire [18:0] b);
 assign b = a*$unsigned(5'b01111);
 endmodule
 EOT
+opt_clean
 
 prep
 ice40_dsp
@@ -71,6 +72,7 @@ module ref(a, b);
   );
 endmodule
 EOT
+opt_clean
 
 techmap -wb -D EQUIV -autoproc -map +/ice40/cells_sim.v
 

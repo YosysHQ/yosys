@@ -17,8 +17,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_s.lib
 
@@ -55,8 +55,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_r.lib
 
@@ -93,8 +93,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_l.lib
 
@@ -131,8 +131,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_h.lib
 
@@ -169,8 +169,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_x.lib
 
@@ -206,8 +206,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchn.lib
 read_liberty dlatchlibmap_dlatchsr_not_data.lib
@@ -244,8 +244,8 @@ assign Q[9:5] = ~Q[4:0];
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchsr_not_data_l.lib
 
@@ -277,8 +277,8 @@ module top(input E, D, S, R, output Q);
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchn.lib
 read_liberty dlatchlibmap_dlatchsr_not_data.lib
@@ -307,8 +307,8 @@ module top(input E, D, R, output Q);
 endmodule
 
 EOT
+opt_clean
 
-proc
 opt
 read_liberty dlatchlibmap_dlatchn.lib
 read_liberty dlatchlibmap_dlatch_not_data.lib
