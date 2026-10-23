@@ -1,0 +1,37 @@
+verilog_default:
+design -reset
+read_verilog -formal <<EOF
+module top(input a);
+  always @* restrict property (a);
+endmodule
+EOF
+select -assert-count 1 r:FLAVOR=assume
+
+verilog_flag:
+design -reset
+read_verilog -formal -norestrict <<EOF
+module top(input a);
+  always @* restrict property (a);
+endmodule
+EOF
+select -assert-none r:FLAVOR=assume
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input a);
+  always @* restrict property (a);
+endmodule
+EOF
+opt_clean
+select -assert-count 1 r:FLAVOR=assume
+
+slang_flag:
+design -reset
+read_slang --norestrict <<EOF
+module top(input a);
+  always @* restrict property (a);
+endmodule
+EOF
+opt_clean
+select -assert-none r:FLAVOR=assume

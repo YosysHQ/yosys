@@ -1,0 +1,8 @@
+read_slang --std latest for_decl_shadow.sv
+opt_clean
+setattr -mod -unset top
+hierarchy
+proc
+equiv_make gold gate equiv
+equiv_simple
+equiv_status -assert

@@ -1,0 +1,44 @@
+module retention_cell (B1, B2B, CK, D, Q, RD, SE, SI);
+  reg Q1, QN1;
+  wire Q1_clear, Q1_preset;
+  reg Q2, QN2;
+  input B1;
+  input B2B;
+  input CK;
+  input D;
+  output Q;
+  assign Q = Q1; // "Q1"
+  input RD;
+  input SE;
+  input SI;
+  always @(posedge CK, posedge Q1_clear, posedge Q1_preset) begin
+    if (Q1_clear) begin
+      Q1 <= 0;
+    end
+    else if (Q1_preset) begin
+      Q1 <= 1;
+    end
+    else begin
+      Q1 <= ((D&(~SE))|(SI&SE));
+    end
+  end
+  always @(posedge CK, posedge Q1_clear, posedge Q1_preset) begin
+    if (Q1_clear) begin
+      QN1 <= 1;
+    end
+    else if (Q1_preset) begin
+      QN1 <= 0;
+    end
+    else begin
+      QN1 <= ~(((D&(~SE))|(SI&SE)));
+    end
+  end
+  assign Q1_clear = (((~B2B)&(~Q2))|(~RD));
+  assign Q1_preset = ((~B2B)&Q2);
+  always @* begin
+    if (B1) begin
+      Q2 <= Q1;
+      QN2 <= ~(Q1);
+    end
+  end
+endmodule

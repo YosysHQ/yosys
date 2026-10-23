@@ -18,3 +18,6 @@ indent_size = 3
 [*.yml]
 indent_style = space
 indent_size = 2
+
+[frontends/slang/**]
+trim_trailing_whitespace = false

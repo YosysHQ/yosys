@@ -1,0 +1,9 @@
+# genlib twin of openroad/cm_test_cells.lib, same cell names
+GATE TIELO  1 Y=CONST0;
+GATE TIEHI  1 Y=CONST1;
+GATE BUF    2 Y=A;                  PIN * NONINV 1 999 1 0 1 0
+GATE INV    1 Y=!A;                 PIN * INV    1 999 1 0 1 0
+GATE NAND2  2 Y=!(A*B);             PIN * INV    1 999 1 0 1 0
+GATE NOR2   2 Y=!(A+B);             PIN * INV    1 999 1 0 1 0
+GATE XOR2   5 Y=(A*!B)+(!A*B);      PIN * UNKNOWN 1 999 1 0 1 0
+GATE MUX2   7 Y=(A*!S)+(B*S);       PIN * UNKNOWN 1 999 1 0 1 0

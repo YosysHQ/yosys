@@ -1,0 +1,95 @@
+`define RISCV_FORMAL
+`define RISCV_FORMAL_NRET 1
+`define RISCV_FORMAL_XLEN 32
+`define RISCV_FORMAL_ILEN 32
+`define RISCV_FORMAL_CHECKER rvfi_bus_dmem_check
+`define RISCV_FORMAL_RESET_CYCLES 1
+`define RISCV_FORMAL_CHECK_CYCLE 10
+`define RISCV_FORMAL_CSR_CUSTOM
+`define RISCV_FORMAL_CSR_CUSTOM_RO
+`define RISCV_FORMAL_CSR_MCYCLE
+`define RISCV_FORMAL_CSR_MHPMCOUNTER5
+`define RISCV_FORMAL_CSR_MHPMEVENT3
+`define RISCV_FORMAL_CSR_MHPMEVENT5
+`define RISCV_FORMAL_CSR_MHPMEVENT9
+`define RISCV_FORMAL_CSR_MINSTRET
+`define RISCV_FORMAL_CSR_MSTATUS
+`define RISCV_FORMAL_CUSTOM_CSR_INPUTS \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rmask \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wmask \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rdata \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wdata \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rmask \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wmask \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rdata \
+  ,input [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wdata \
+
+`define RISCV_FORMAL_CUSTOM_CSR_WIRES \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rmask; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wmask; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rdata; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wdata; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rmask; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wmask; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rdata; \
+  (* keep *) wire [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wdata; \
+
+`define RISCV_FORMAL_CUSTOM_CSR_CONN \
+  ,.rvfi_csr_custom_ro_rmask (rvfi_csr_custom_ro_rmask) \
+  ,.rvfi_csr_custom_ro_wmask (rvfi_csr_custom_ro_wmask) \
+  ,.rvfi_csr_custom_ro_rdata (rvfi_csr_custom_ro_rdata) \
+  ,.rvfi_csr_custom_ro_wdata (rvfi_csr_custom_ro_wdata) \
+  ,.rvfi_csr_custom_rmask (rvfi_csr_custom_rmask) \
+  ,.rvfi_csr_custom_wmask (rvfi_csr_custom_wmask) \
+  ,.rvfi_csr_custom_rdata (rvfi_csr_custom_rdata) \
+  ,.rvfi_csr_custom_wdata (rvfi_csr_custom_wdata) \
+
+`define RISCV_FORMAL_CUSTOM_CSR_CHANNEL(_idx) \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_ro_rmask = rvfi_csr_custom_ro_rmask [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_ro_wmask = rvfi_csr_custom_ro_wmask [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_ro_rdata = rvfi_csr_custom_ro_rdata [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_ro_wdata = rvfi_csr_custom_ro_wdata [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_rmask = rvfi_csr_custom_rmask [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_wmask = rvfi_csr_custom_wmask [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_rdata = rvfi_csr_custom_rdata [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+  wire [`RISCV_FORMAL_XLEN - 1 : 0] csr_custom_wdata = rvfi_csr_custom_wdata [(_idx)*(`RISCV_FORMAL_XLEN) +: `RISCV_FORMAL_XLEN]; \
+
+`define RISCV_FORMAL_CUSTOM_CSR_SIGNALS \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_ro_rmask) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_ro_wmask) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_ro_rdata) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_ro_wdata) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_rmask) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_wmask) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_rdata) \
+`RISCV_FORMAL_CHANNEL_SIGNAL(`RISCV_FORMAL_NRET, `RISCV_FORMAL_XLEN, csr_custom_wdata) \
+
+`define RISCV_FORMAL_CUSTOM_CSR_OUTPUTS \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rmask \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wmask \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_rdata \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_ro_wdata \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rmask \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wmask \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_rdata \
+  ,output [`RISCV_FORMAL_NRET * `RISCV_FORMAL_XLEN - 1 : 0] rvfi_csr_custom_wdata \
+
+`define RISCV_FORMAL_CUSTOM_CSR_INDICES \
+  localparam [11:0] csr_mindex_custom_ro = 12'hFC0; \
+  localparam [11:0] csr_sindex_custom_ro = 12'hFFF; \
+  localparam [11:0] csr_uindex_custom_ro = 12'hFFF; \
+  localparam [11:0] csr_mindex_custom = 12'hBC0; \
+  localparam [11:0] csr_sindex_custom = 12'hFFF; \
+  localparam [11:0] csr_uindex_custom = 12'hBC0; \
+
+`define RISCV_FORMAL_CHANNEL_IDX 0
+`define RISCV_FORMAL_BUS
+`define RISCV_FORMAL_NBUS 2
+`define RISCV_FORMAL_BUSLEN 32
+`define YOSYS // Hotfix for older Tabby CAD Releases
+`define NERV_RVFI
+`define NERV_FAULT
+`define RISCV_FORMAL_ALIGNED_MEM
+`define RISCV_FORMAL_MEM_FAULT
+`include "rvfi_macros.vh"
+

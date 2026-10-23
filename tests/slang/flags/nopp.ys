@@ -1,0 +1,41 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+`define VALUE 1'b1
+module top(output q);
+  assign q = `VALUE;
+endmodule
+EOF
+
+slang_default:
+design -reset
+read_slang <<EOF
+`define VALUE 1'b1
+module top(output q);
+  assign q = `VALUE;
+endmodule
+EOF
+opt_clean
+
+slang_flag:
+design -reset
+logger -expect error "Unimplemented compiler directive or undefined macro" 1
+read_slang --nopp <<EOF
+`define VALUE 1'b1
+module top(output q);
+  assign q = `VALUE;
+endmodule
+EOF
+opt_clean
+logger -check-expected
+
+# Run this terminal error reference separately: script nopp.ys verilog_flag
+verilog_flag:
+design -reset
+logger -expect error "Unimplemented compiler directive or undefined macro" 1
+read_verilog -nopp <<EOF
+`define VALUE 1'b1
+module top(output q);
+  assign q = `VALUE;
+endmodule
+EOF

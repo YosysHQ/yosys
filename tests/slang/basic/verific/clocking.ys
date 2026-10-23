@@ -1,0 +1,13 @@
+read_slang --std latest <<EOT
+module test(input foo);
+always @(*) assert(foo);
+endmodule
+EOT
+opt_clean
+
+prep
+
+async2sync
+chformal -lower
+
+select -assert-count 1 t:$assert

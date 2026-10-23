@@ -1,0 +1,55 @@
+library(test) {
+  // both cells have the same area and pin count, but only DFF_Q has a non-inverted output
+  cell (DFF_QN) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(QN) {
+      direction: output;
+      function : "IQN";
+    }
+  }
+  cell (DFF_Q) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+  }
+  // identical to DFF_Q, so the first of the two must win
+  cell (DFF_Q_ALT) {
+    area : 1;
+    ff("IQ", "IQN") {
+      next_state : "D";
+      clocked_on : "CLK";
+    }
+    pin(D) {
+      direction : input;
+    }
+    pin(CLK) {
+      direction : input;
+    }
+    pin(Q) {
+      direction: output;
+      function : "IQ";
+    }
+  }
+}
