@@ -1,4 +1,5 @@
 read_slang --no-proc --std latest typedef_struct_port.sv
+setattr -mod -unset top
 hierarchy; proc; opt; async2sync
 select -module top
 sat -verify -tempinduct -prove-asserts -show-all

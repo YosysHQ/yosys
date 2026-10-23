@@ -37,10 +37,10 @@ module top2 (
 endmodule
 
 EOT
-opt_clean
-
+setattr -mod -unset top
 hierarchy
 proc
+opt_clean
 
 miter -equiv -make_assert -flatten top top2 miter
 sat -prove-asserts -verify miter
