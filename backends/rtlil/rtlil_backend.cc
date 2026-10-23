@@ -33,10 +33,14 @@ using namespace RTLIL_BACKEND;
 YOSYS_NAMESPACE_BEGIN
 
 static pool<IdString> *emitted_twines = nullptr;
+static SrcPool::Marks *emitted_srcs = nullptr;
 
 struct TwineCollector {
-	TwineCollector(pool<IdString> *collect) { emitted_twines = collect; }
-	~TwineCollector() { emitted_twines = nullptr; }
+	TwineCollector(pool<IdString> *twines, SrcPool::Marks *srcs) {
+		emitted_twines = twines;
+		emitted_srcs = srcs;
+	}
+	~TwineCollector() { emitted_twines = nullptr; emitted_srcs = nullptr; }
 };
 
 static std::string twine_handle(IdString ref)
@@ -124,6 +128,28 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 
 void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, DumpMode mode)
 {
+	SrcRef id = obj->src();
+	if (id != SrcRef::Null) {
+		f << stringf("%s" "attribute \\src ", indent);
+		if (mode == DumpMode::Readable) {
+			dump_const(f, RTLIL::Const(design->get_src_attribute(obj)));
+		} else {
+			const std::vector<IdString> &members = design->srcs()[id].members();
+			if (emitted_twines != nullptr)
+				for (IdString member : members)
+					emitted_twines->insert(member);
+			if (members.size() == 1) {
+				dump_const(f, RTLIL::Const(stringf("@%zu", members[0].raw())));
+			} else {
+				if (emitted_srcs != nullptr)
+					emitted_srcs->insert(id);
+				dump_const(f, RTLIL::Const("$" + design->srcs().serial(id)));
+			}
+			if (mode == DumpMode::Replayable)
+				f << stringf("  # %s", design->srcs().str(id));
+		}
+		f << stringf("\n");
+	}
 	for (const auto& [name, value] : reversed(obj->attributes)) {
 		f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
 		dump_const(f, value);
@@ -163,6 +189,21 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 		case TwineNode::Kind::Dead:
 			break;
 		}
+	}
+	f << stringf("end\n");
+}
+
+void RTLIL_BACKEND::dump_srcs(std::ostream &f, const RTLIL::Design *design, const SrcPool::Marks &used)
+{
+	if (design == nullptr || used.empty())
+		return;
+
+	f << stringf("srcs\n");
+	for (SrcRef ref : used) {
+		f << stringf("  set %s", design->srcs().serial(ref));
+		for (IdString member : design->srcs()[ref].members())
+			f << stringf(" %zu", member.raw());
+		f << stringf("\n");
 	}
 	f << stringf("end\n");
 }
@@ -469,7 +510,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 			if (design->selected(module)) {
 				count_selected_mods++;
 				if (module->has_processes())
-					log_warning("Module %s contains processes. Case action sources attributes will be lost.\n", module);
+					log_warning("Module %s contains processes. Source locations inside them will be lost.\n", module);
 			}
 		}
 		if (count_selected_mods > 1)
@@ -478,8 +519,10 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 
 	std::stringstream body;
 	pool<IdString> used_twines;
+	SrcPool::Marks used_srcs;
 	{
-		TwineCollector collector(mode == DumpMode::Readable ? nullptr : &used_twines);
+		TwineCollector collector(mode == DumpMode::Readable ? nullptr : &used_twines,
+				mode == DumpMode::Readable ? nullptr : &used_srcs);
 		for (const auto& [_, module] : reversed(design->modules_)) {
 			if (!only_selected || design->selected(module)) {
 				if (only_selected)
@@ -494,6 +537,8 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 			f << stringf("\n");
 		f << stringf("autoidx %d\n", autoidx);
 		dump_twines(f, design, used_twines);
+		if (mode != DumpMode::Readable)
+			dump_srcs(f, design, used_srcs);
 	}
 
 	if (body.tellp() > 0)

@@ -47,6 +47,7 @@ struct RTLILFrontendWorker {
 
 	RTLIL::Module *current_module;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
+	SrcRef pending_src = SrcRef::Null;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
@@ -60,6 +61,12 @@ struct RTLILFrontendWorker {
 		bool materializing = false;
 	};
 	dict<size_t, TwineDesc> twine_descs;
+
+	bool preserve_twine_ids = false;
+	bool preserve_src_ids = false;
+
+	dict<size_t, SrcRef> src_remap;
+	dict<size_t, std::vector<size_t>> src_descs;
 
 
 
@@ -457,7 +464,7 @@ struct RTLILFrontendWorker {
 
 		current_module = new RTLIL::Module;
 		current_module->name = std::move(module_name);
-		current_module->attributes = std::move(attrbuf);
+		apply_attrs(current_module);
 		if (!delete_current_module)
 			design->add(current_module);
 
@@ -512,7 +519,90 @@ struct RTLILFrontendWorker {
 	{
 		IdString id = parse_twine();
 		RTLIL::Const c = parse_const();
-		attrbuf.insert({std::move(id), std::move(c)});
+		if (id == ID::src)
+			pending_src = parse_src(c.decode_string());
+		else
+			attrbuf.insert({std::move(id), std::move(c)});
+		expect_eol();
+	}
+
+	SrcRef parse_src(const std::string &text)
+	{
+		if (text.empty() || (text[0] != '@' && text[0] != '$'))
+			return design->srcs().add(text);
+		size_t file_id = 0;
+		auto [ptr, ec] = std::from_chars(text.data() + 1, text.data() + text.size(), file_id);
+		if (ec != std::errc() || ptr != text.data() + text.size())
+			error("Malformed src reference %s at line %d", text, line_num);
+		if (text[0] == '$')
+			return materialize_file_src(file_id);
+		IdString member = materialize_file_twine(file_id);
+		return design->srcs().adopt({&member, 1});
+	}
+
+	void apply_attrs(RTLIL::AttrObject *obj)
+	{
+		obj->set_src(pending_src);
+		pending_src = SrcRef::Null;
+		obj->attributes = std::move(attrbuf);
+	}
+
+	// Heuristic
+	static bool dense_enough(size_t span, size_t count)
+	{
+		return span < 2 * count + 64;
+	}
+
+	SrcRef materialize_file_src(size_t id)
+	{
+		auto rit = src_remap.find(id);
+		if (rit != src_remap.end())
+			return rit->second;
+		auto dit = src_descs.find(id);
+		if (dit == src_descs.end())
+			error("Unknown src reference $%zu at line %d", id, line_num);
+		std::vector<IdString> members;
+		members.reserve(dit->second.size());
+		for (size_t c : dit->second)
+			members.push_back(materialize_file_twine(c));
+		std::span<const IdString> span{members};
+		SrcRef ref = preserve_src_ids && design->srcs().find_members(span) == SrcRef::Null
+				? design->srcs().place(id, span)
+				: design->srcs().adopt(span);
+		src_remap[id] = ref;
+		return ref;
+	}
+
+	void parse_srcs()
+	{
+		expect_eol();
+		while (true) {
+			if (try_parse_keyword("end"))
+				break;
+			if (try_parse_keyword("set")) {
+				size_t file_id = parse_integer();
+				std::vector<size_t> &members = src_descs[file_id];
+				while (!try_parse_eol())
+					members.push_back(parse_integer());
+				continue;
+			}
+			error("Expected `set` inside srcs block, got `%s'.", error_token());
+		}
+		std::vector<size_t> ordered_ids;
+		ordered_ids.reserve(src_descs.size());
+		for (auto &it : src_descs)
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		size_t max_id = ordered_ids.empty() ? 0 : ordered_ids.back();
+		preserve_src_ids = design->srcs().size() == 0 && !ordered_ids.empty()
+				&& dense_enough(max_id, ordered_ids.size());
+		for (size_t id : ordered_ids)
+			materialize_file_src(id);
+		if (preserve_src_ids) {
+			design->srcs().finish_placement();
+			preserve_src_ids = false;
+		}
+		src_descs.clear();
 		expect_eol();
 	}
 
@@ -554,17 +644,13 @@ struct RTLILFrontendWorker {
 		if (desc.materializing)
 			error("Cyclic twine reference @%zu at line %d", id, line_num);
 		desc.materializing = true;
-		IdString ref;
-		switch (desc.kind) {
-		case TwineDesc::Leaf:
-			ref = design->twines().add(TwineSpec::Leaf{desc.text});
-			break;
-		case TwineDesc::Suffix:
-			ref = design->twines().add(TwineSpec::Suffix{
-					materialize_file_twine(desc.parent),
-					desc.text});
-			break;
-		}
+		TwineSpec spec = desc.kind == TwineDesc::Leaf
+				? TwineSpec{TwineSpec::Leaf{desc.text}}
+				: TwineSpec{TwineSpec::Suffix{materialize_file_twine(desc.parent), desc.text}};
+		IdString ref = preserve_twine_ids && id >= STATIC_TWINE_END
+					&& design->twines().find(spec) == IdString::Null
+				? design->twines().place(id, std::move(spec))
+				: design->twines().add(std::move(spec));
 		desc.materializing = false;
 		twine_remap[id] = ref;
 		return ref;
@@ -629,7 +715,8 @@ struct RTLILFrontendWorker {
 		for (auto &it : twine_descs)
 			ordered_ids.push_back(it.first);
 		std::sort(ordered_ids.begin(), ordered_ids.end());
-		if (static_ids_match(ordered_ids)) {
+		bool statics_match = static_ids_match(ordered_ids);
+		if (statics_match) {
 			std::vector<size_t> dynamic_ids;
 			dynamic_ids.reserve(ordered_ids.size());
 			for (size_t id : ordered_ids) {
@@ -640,8 +727,20 @@ struct RTLILFrontendWorker {
 			}
 			ordered_ids.swap(dynamic_ids);
 		}
+		size_t dynamic_count = 0;
+		for (size_t id : ordered_ids)
+			if (id >= STATIC_TWINE_END)
+				dynamic_count++;
+		size_t max_id = ordered_ids.empty() ? 0 : ordered_ids.back();
+		preserve_twine_ids = statics_match && design->twines().size() == 0 && dynamic_count != 0
+				&& max_id >= STATIC_TWINE_END
+				&& dense_enough(max_id - STATIC_TWINE_END, dynamic_count);
 		for (size_t id : ordered_ids)
 			materialize_file_twine(id);
+		if (preserve_twine_ids) {
+			design->twines().finish_placement();
+			preserve_twine_ids = false;
+		}
 		twine_descs.clear();
 		expect_eol();
 	}
@@ -716,7 +815,7 @@ struct RTLILFrontendWorker {
 				error("Unexpected wire option: %s", error_token());
 		}
 
-		wire->attributes = std::move(attrbuf);
+		apply_attrs(wire);
 		wire->width = width;
 		wire->upto = upto;
 		wire->start_offset = start_offset;
@@ -730,7 +829,7 @@ struct RTLILFrontendWorker {
 	void parse_memory()
 	{
 		RTLIL::Memory *memory = new RTLIL::Memory;
-		memory->attributes = std::move(attrbuf);
+		apply_attrs(memory);
 
 		int width = 1;
 		int start_offset = 0;
@@ -814,7 +913,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of cell %s.", design->twines().str(cell_name_ref).c_str());
 		}
 		RTLIL::Cell *cell = current_module->addCell(cell_name_ref, cell_type_ref);
-		cell->attributes = std::move(attrbuf);
+		apply_attrs(cell);
 
 		while (true)
 		{
@@ -893,7 +992,7 @@ struct RTLILFrontendWorker {
 						"The assign statement is reordered to come before all switch statements.");
 				RTLIL::SigSpec s1 = parse_sigspec();
 				RTLIL::SigSpec s2 = parse_sigspec();
-				current_case->actions.push_back({std::move(s1), std::move(s2), Const("")});
+				current_case->actions.push_back({std::move(s1), std::move(s2)});
 				expect_eol();
 			} else
 				return;
@@ -904,7 +1003,7 @@ struct RTLILFrontendWorker {
 	{
 		RTLIL::SwitchRule *rule = new RTLIL::SwitchRule;
 		rule->signal = parse_sigspec();
-		rule->attributes = std::move(attrbuf);
+		apply_attrs(rule);
 		switch_stack.back()->push_back(rule);
 		expect_eol();
 
@@ -921,7 +1020,7 @@ struct RTLILFrontendWorker {
 
 			expect_keyword("case");
 			RTLIL::CaseRule *case_rule = new RTLIL::CaseRule;
-			case_rule->attributes = std::move(attrbuf);
+			apply_attrs(case_rule);
 			rule->cases.push_back(case_rule);
 			switch_stack.push_back(&case_rule->switches);
 			case_stack.push_back(case_rule);
@@ -955,7 +1054,7 @@ struct RTLILFrontendWorker {
 				error("RTLIL error: redefinition of process %s.", design->twines().str(proc_name).c_str());
 		}
 		RTLIL::Process *proc = current_module->addProcess(std::move(proc_name));
-		proc->attributes = std::move(attrbuf);
+		apply_attrs(proc);
 
 		switch_stack.clear();
 		switch_stack.push_back(&proc->root_case.switches);
@@ -989,7 +1088,7 @@ struct RTLILFrontendWorker {
 				if (try_parse_keyword("update")) {
 					RTLIL::SigSpec s1 = parse_sigspec();
 					RTLIL::SigSpec s2 = parse_sigspec();
-					rule->actions.push_back({std::move(s1), std::move(s2), Const("")});
+					rule->actions.push_back({std::move(s1), std::move(s2)});
 					expect_eol();
 					continue;
 				}
@@ -1004,7 +1103,7 @@ struct RTLILFrontendWorker {
 					break;
 
 				RTLIL::MemWriteAction act;
-				act.attributes = std::move(attrbuf);
+				apply_attrs(&act);
 				act.memid = parse_twine();
 				act.address = parse_sigspec();
 				act.data = parse_sigspec();
@@ -1045,6 +1144,10 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
+			if (try_parse_keyword("srcs")) {
+				parse_srcs();
+				continue;
+			}
 			if (try_parse_keyword("twines")) {
 				parse_twines();
 				continue;
@@ -1056,6 +1159,7 @@ struct RTLILFrontendWorker {
 
 		twine_parser_holds.clear();
 		twine_remap.clear();
+		src_remap.clear();
 	}
 };
 

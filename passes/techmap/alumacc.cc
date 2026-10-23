@@ -56,7 +56,7 @@ struct AlumaccWorker
 						cached_slt = cached_sf;
 					} else {
 						get_of();
-						cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf);
+						cached_slt = alu_cell->module->Xor(NEW_ID, cached_of, cached_sf, false, alu_cell->src());
 					}
 				}
 
@@ -75,8 +75,8 @@ struct AlumaccWorker
 				if (GetSize(cached_sgt) == 0) {
 					get_lt(this_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq);
-					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_slt, cached_eq, false, alu_cell->src());
+					cached_sgt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src());
 				}
 
 				return cached_sgt;
@@ -84,8 +84,8 @@ struct AlumaccWorker
 				if (GetSize(cached_gt) == 0) {
 					get_lt(this_signed);
 					get_eq();
-					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq);
-					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->get_src_attribute());
+					SigSpec Or = alu_cell->module->Or(NEW_ID, cached_lt, cached_eq, false, alu_cell->src());
+					cached_gt = alu_cell->module->Not(NEW_ID, Or, false, alu_cell->src());
 				}
 
 				return cached_gt;
@@ -94,13 +94,13 @@ struct AlumaccWorker
 
 		RTLIL::SigSpec get_eq() {
 			if (GetSize(cached_eq) == 0)
-				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->get_src_attribute());
+				cached_eq = alu_cell->module->ReduceAnd(NEW_ID, alu_cell->getPort(ID::X), false, alu_cell->src());
 			return cached_eq;
 		}
 
 		RTLIL::SigSpec get_ne() {
 			if (GetSize(cached_ne) == 0)
-				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->get_src_attribute());
+				cached_ne = alu_cell->module->Not(NEW_ID, get_eq(), false, alu_cell->src());
 			return cached_ne;
 		}
 
@@ -108,7 +108,7 @@ struct AlumaccWorker
 			if (GetSize(cached_cf) == 0) {
 				cached_cf = alu_cell->getPort(ID::CO);
 				log_assert(GetSize(cached_cf) >= 1);
-				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->get_src_attribute());
+				cached_cf = alu_cell->module->Not(NEW_ID, cached_cf[GetSize(cached_cf)-1], false, alu_cell->src());
 			}
 			return cached_cf;
 		}
@@ -120,10 +120,10 @@ struct AlumaccWorker
 				if (oversized) {
 					auto max_input = max(GetSize(a), GetSize(b));
 					log_assert(max_input >= 1);
-					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[max_input], cached_of[max_input-1]);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[max_input], cached_of[max_input-1], false, alu_cell->src());
 				} else {
 					log_assert(GetSize(y) >= 1);
-					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(y)], cached_of[GetSize(y)-1]);
+					cached_of = alu_cell->module->Xor(NEW_ID, cached_of[GetSize(y)], cached_of[GetSize(y)-1], false, alu_cell->src());
 				}
 			}
 			return cached_of;
@@ -430,7 +430,7 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", n->cell, cell);
 
-			cell->set_src_attribute(n->cell->get_src_attribute());
+			cell->adopt_src_from(n->cell);
 
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
@@ -566,6 +566,8 @@ struct AlumaccWorker
 			if (GetSize(n->b) == 0 && GetSize(n->c) == 0 && GetSize(n->cmp) == 0)
 			{
 				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
+				if (n->cells.size() > 0)
+					n->alu_cell->adopt_src_from(n->cells[0]);
 
 				message = "  creating $pos cell for ";
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -584,7 +586,7 @@ struct AlumaccWorker
 			log("%s: %s\n", message, n->alu_cell);
 
 			if (n->cells.size() > 0)
-				n->alu_cell->set_src_attribute(n->cells[0]->get_src_attribute());
+				n->alu_cell->adopt_src_from(n->cells[0]);
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);
@@ -611,7 +613,7 @@ struct AlumaccWorker
 				if (cmp_ne) sig.append(n->get_ne());
 
 				if (GetSize(sig) > 1)
-					sig = module->ReduceOr(NEW_ID, sig);
+					sig = module->ReduceOr(NEW_ID, sig, false, n->alu_cell->src());
 
 				sig.extend_u0(GetSize(cmp_y));
 				module->connect(cmp_y, sig);

@@ -369,8 +369,10 @@ struct DesignPass : public Pass {
 			design->verilog_defines->clear();
 		}
 
-		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
+		if (reset_mode || !load_name.empty() || push_mode || pop_mode) {
+			design->srcs().clear();
 			design->twines() = TwinePool();
+		}
 
 		if (!load_name.empty() || pop_mode)
 		{

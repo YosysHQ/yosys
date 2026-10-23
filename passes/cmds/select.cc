@@ -105,8 +105,20 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	log_abort();
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
+static bool match_src(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
+	if (obj == nullptr || obj->src() == SrcRef::Null)
+		return false;
+	if (!patmatch(name_pat.c_str(), "\\src") && !patmatch(name_pat.c_str(), "src"))
+		return false;
+	return match_attr_val(RTLIL::Const(design->get_src_attribute(obj)), value_pat, match_op);
+}
+
+static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
+{
+	if (match_src(design, obj, name_pat, value_pat, match_op))
+		return true;
+	const TwinePool &pool = design->twines();
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
 			std::string name = pool.str(it.first);
@@ -128,21 +140,21 @@ static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const>
 	return false;
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &match_expr)
+static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const dict<IdString, RTLIL::Const> &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 
 	if (pos != std::string::npos) {
 		if (match_expr.compare(pos, 2, "!=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
+			return match_attr(design, obj, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
 		if (match_expr.compare(pos, 2, "<=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
+			return match_attr(design, obj, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
 		if (match_expr.compare(pos, 2, ">=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
-		return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
+			return match_attr(design, obj, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
+		return match_attr(design, obj, attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
 	}
 
-	return match_attr(pool, attributes, match_expr, std::string(), 0);
+	return match_attr(design, obj, attributes, match_expr, std::string(), 0);
 }
 
 static void select_all(RTLIL::Design *design, RTLIL::Selection &lhs)
@@ -874,7 +886,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			continue;
 
 		if (arg_mod.compare(0, 2, "A:") == 0) {
-			if (!match_attr(design->twines(), mod->attributes, arg_mod.substr(2)))
+			if (!match_attr(design, mod, mod->attributes, arg_mod.substr(2)))
 				continue;
 		} else
 		if (arg_mod.compare(0, 2, "N:") == 0) {
@@ -962,21 +974,21 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto wire : mod->wires())
-				if (match_attr(design->twines(), wire->attributes, arg_memb.substr(2)))
+				if (match_attr(design, wire, wire->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
-				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second, it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines(), cell->attributes, arg_memb.substr(2)))
+				if (match_attr(design, cell, cell->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
-				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second, it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines(), cell->parameters, arg_memb.substr(2)))
+				if (match_attr(design, nullptr, cell->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 		} else {
 			std::string orig_arg_memb = arg_memb;
