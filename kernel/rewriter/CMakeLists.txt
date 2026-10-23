@@ -1,8 +1,6 @@
 yosys_core(rewriter
 	attributes.cc
 	attributes.h
-	pipeline.cc
-	pipeline.h
 	rewriter.cc
 	rewriter.h
 	rule.cc
@@ -13,7 +11,6 @@ yosys_core(rewriter
 		include/kernel/rewriter
 	DATA_FILES
 		attributes.h
-		pipeline.h
 		rewriter.h
 		rule.h
 )
