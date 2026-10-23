@@ -1,6 +1,6 @@
 ##################################################################
 
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -40,7 +40,7 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -80,7 +80,7 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -120,7 +120,7 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -160,7 +160,7 @@ sat -falsify -prove-asserts -enable_undef -set-init-undef -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -200,7 +200,7 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 
@@ -243,7 +243,7 @@ sat -verify -prove-asserts -set-init-undef -show-public -seq 3 miter
 ##################################################################
 
 design -reset
-read_verilog -sv -icells <<EOT
+read_slang --icells <<EOT
 
 module top(input C, D, E, S, R, output [11:0] Q);
 

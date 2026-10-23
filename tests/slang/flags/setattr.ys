@@ -27,8 +27,7 @@ select -assert-none A:marker
 
 slang_flag:
 design -reset
-# TODO: -setattr marker; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --setattr marker <<EOF
 module top(input a, output q);
   assign q = a;
 endmodule

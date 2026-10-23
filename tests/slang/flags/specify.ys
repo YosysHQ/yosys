@@ -38,8 +38,7 @@ select -assert-none t:$specify2
 
 slang_flag:
 design -reset
-# TODO: -specify; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --specify <<EOF
 module top(input a, output q);
   assign q = a;
   specify

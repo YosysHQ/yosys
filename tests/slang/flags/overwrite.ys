@@ -16,8 +16,7 @@ EOF
 
 slang_flag:
 design -reset
-# -overwrite is missing; require the read_verilog redefinition policy.
-read_slang <<EOF
+read_slang --overwrite <<EOF
 module top(output q); assign q = 1'b0; endmodule
 module top(output q); assign q = 1'b1; endmodule
 EOF

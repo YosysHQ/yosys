@@ -39,8 +39,7 @@ select -assert-count 1 r:FLAVOR=assume
 
 slang_flag:
 design -reset
-# TODO: -assert-assumes; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --assert-assumes <<EOF
 module top(input a);
   always @* begin
     assert(a);

@@ -27,8 +27,7 @@ select -assert-none t:$add
 
 slang_flag:
 design -reset
-# TODO: -noopt; require the flagged read_verilog behavior.
-read_slang --no-proc <<EOF
+read_slang --noopt --no-proc <<EOF
 module top(output [3:0] q);
   assign q = 2 + 3;
 endmodule

@@ -1,5 +1,5 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest  init.v
-read_verilog -sv -lib -specify +/gowin/cells_sim.v
+read_slang --lib --specify +/gowin/cells_sim.v
 design -save read
 
 proc

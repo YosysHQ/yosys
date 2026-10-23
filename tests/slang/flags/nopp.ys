@@ -18,9 +18,8 @@ EOF
 
 slang_flag:
 design -reset
-# TODO: -nopp; the parser should reject the unprocessed directive.
 logger -expect error "Unimplemented compiler directive or undefined macro" 1
-read_slang <<EOF
+read_slang --nopp <<EOF
 `define VALUE 1'b1
 module top(output q);
   assign q = `VALUE;

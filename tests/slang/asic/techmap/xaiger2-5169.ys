@@ -32,7 +32,7 @@ end
 
 EOF
 
-read_verilog -sv -lib -specify <<EOF
+read_slang --lib --specify <<EOF
 
 (* abc9_box, lib_whitebox *)
 module CC_MX4 (

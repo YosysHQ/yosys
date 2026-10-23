@@ -33,7 +33,6 @@ select -assert-none r:FLAVOR=assert
 
 slang_flag:
 design -reset
-# TODO: -formal; require the flagged read_verilog behavior.
 read_slang --formal <<EOF
 module top(input a);
 `ifdef FORMAL

@@ -33,8 +33,7 @@ select -assert-none m:mem
 
 slang_flag:
 design -reset
-# TODO: -nomem2reg; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --nomem2reg <<EOF
 module top(input a, d, output q);
   reg mem [0:1];
   always @* mem[a] = d;

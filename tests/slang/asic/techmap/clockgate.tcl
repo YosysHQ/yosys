@@ -1,6 +1,6 @@
 yosys -import
-read_verilog clockgate.v
-read_verilog ../sim/sdffe.v
+read_slang clockgate.v
+read_slang ../sim/sdffe.v
 yosys proc
 opt
 
@@ -93,7 +93,7 @@ select -module bad2 -assert-count 0 t:\\pdk_icg
 
 # Regression test: EN is a bit from a multi-bit wire
 design -reset
-read_verilog clockgate_wide.v
+read_slang clockgate_wide.v
 yosys proc
 opt
 

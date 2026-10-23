@@ -40,8 +40,7 @@ select -assert-count 1 top/t:\\$not
 
 slang_flag:
 design -reset
-# TODO: -icells; require the flagged read_verilog behavior.
-read_slang --top top <<EOF
+read_slang --icells --top top <<EOF
 (* blackbox *)
 module \$not #(parameter A_SIGNED = 0, A_WIDTH = 1, Y_WIDTH = 1)
   (input [A_WIDTH-1:0] A, output [Y_WIDTH-1:0] Y);

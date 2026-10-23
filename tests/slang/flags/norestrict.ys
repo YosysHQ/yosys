@@ -27,8 +27,7 @@ select -assert-count 1 r:FLAVOR=assume
 
 slang_flag:
 design -reset
-# -norestrict is missing; the restrict statement should be ignored.
-read_slang <<EOF
+read_slang --norestrict <<EOF
 module top(input a);
   always @* restrict property (a);
 endmodule

@@ -1,5 +1,5 @@
 # Test memory macro gets ignored due to -ignore_buses
-read_slang --allow-use-before-declare --ignore-timing --std latest -noblackbox <<EOF
+read_slang --allow-use-before-declare --ignore-timing --std latest --noblackbox <<EOF
 module RM_IHPSG13_1P_64x64_c2_bm_bist();
 endmodule
 EOF

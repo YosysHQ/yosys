@@ -12,7 +12,7 @@ def lib_tests():
         base = os.path.splitext(lib)[0]
 
         gen_tests_makefile.generate_cmd_test(lib, [
-            f'$(YOSYS) -p "read_verilog small.v; synth -top small; dfflibmap -info -liberty {lib}" -ql {base}.log',
+            f'$(YOSYS) -p "read_slang small.v; synth -top small; dfflibmap -info -liberty {lib}" -ql {base}.log',
 
             f'$(YOSYS_FILTERLIB) - {lib} > {lib}.filtered',
             f'$(YOSYS_FILTERLIB) -verilogsim {lib} > {lib}.verilogsim',

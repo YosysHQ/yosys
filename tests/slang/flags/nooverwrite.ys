@@ -24,8 +24,7 @@ select -assert-none =A:blackbox
 
 slang_flag:
 design -reset
-# -nooverwrite is missing; require the read_verilog redefinition policy.
-read_slang <<EOF
+read_slang --nooverwrite <<EOF
 (* blackbox *) module top(output q); endmodule
 module top(output q); assign q = 1'b1; endmodule
 EOF

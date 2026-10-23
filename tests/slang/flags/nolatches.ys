@@ -30,8 +30,7 @@ select -assert-count 1 t:$dlatch
 
 slang_flag:
 design -reset
-# TODO: -nolatches; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --nolatches <<EOF
 module top(input en, d, output reg q);
   always @* if (en) q = d;
 endmodule

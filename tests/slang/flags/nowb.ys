@@ -31,8 +31,7 @@ select -assert-any =A:whitebox
 
 slang_flag:
 design -reset
-# TODO: -nowb; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --nowb <<EOF
 (* whitebox *)
 module top(input a, output q);
   assign q = ~a;

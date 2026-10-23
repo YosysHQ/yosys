@@ -38,8 +38,7 @@ select -assert-any t:$meminit_v2
 
 slang_flag:
 design -reset
-# TODO: -nomeminit; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --nomeminit <<EOF
 module top(input clk, a, d, output q);
   reg mem [0:1];
   initial begin mem[0] = 0; mem[1] = 1; end

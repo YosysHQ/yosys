@@ -112,7 +112,7 @@ select -assert-none t:$alu t:* %D
 
 
 design -reset
-read_verilog -icells <<EOT
+read_slang --icells <<EOT
 module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
 $alu #(
 	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
@@ -131,7 +131,7 @@ select -assert-none t:$alu
 
 
 design -reset
-read_verilog -icells <<EOT
+read_slang --icells <<EOT
 module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
 $alu #(
 	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),
@@ -150,7 +150,7 @@ select -assert-none t:$alu
 
 
 design -reset
-read_verilog -icells <<EOT
+read_slang --icells <<EOT
 module test(input [3:0] a, output [3:0] y, output [3:0] x, output [3:0] co);
 $alu #(
 	.A_WIDTH(4), .B_WIDTH(4), .Y_WIDTH(4),

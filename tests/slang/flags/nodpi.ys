@@ -18,9 +18,8 @@ EOF
 
 slang_flag:
 design -reset
-# TODO: -nodpi; this call should reject the DPI import.
 logger -expect error "Found DPI function" 1
-read_slang <<EOF
+read_slang --nodpi <<EOF
 module top(output q);
   import "DPI-C" function int f();
   assign q = 1'b0;

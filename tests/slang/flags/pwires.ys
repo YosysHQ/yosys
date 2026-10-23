@@ -27,8 +27,7 @@ select -assert-none w:P
 
 slang_flag:
 design -reset
-# TODO: -pwires; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --pwires <<EOF
 module top #(parameter P = 3) (output [3:0] q);
   assign q = P;
 endmodule

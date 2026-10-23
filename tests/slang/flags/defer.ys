@@ -32,8 +32,7 @@ select -assert-none N:$abstract*
 
 slang_flag:
 design -reset
-# TODO: -defer; require the flagged read_verilog behavior.
-read_slang <<EOF
+read_slang --defer <<EOF
 module top #(parameter P = 1) (output q);
   assign q = P;
 endmodule
