@@ -178,6 +178,24 @@ read_verilog:
 
 - check_nolatches.sv
 
+## Slang doesn't preserve enum attributes
+
+### Affected Tests
+
+- enum_values.ys
+
+## Slang doesn't preserve signedness
+
+### Affected Tests
+
+- json_netnames_signed.ys
+
+## Slang doesn't preserve port order
+
+### Affected tests
+
+- port_bus_order.ys
+
 ## $initstate
 
 This behavior should probably be fixed? 
