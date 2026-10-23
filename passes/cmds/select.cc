@@ -27,7 +27,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-static std::vector<RTLIL::Selection> work_stack;
 
 static bool match_ids(const std::string &id, const std::string &pattern)
 {
@@ -358,6 +357,14 @@ static void select_op_union(RTLIL::Design* design, RTLIL::Selection &lhs, const 
 	}
 }
 
+static void select_op_union_all(RTLIL::Design *design, std::vector<RTLIL::Selection> &work_stack)
+{
+	while (work_stack.size() > 1) {
+		select_op_union(design, work_stack.front(), work_stack.back());
+		work_stack.pop_back();
+	}
+}
+
 static void select_op_diff(RTLIL::Design *design, RTLIL::Selection &lhs, const RTLIL::Selection &rhs)
 {
 	if (rhs.complete_selection) {
@@ -563,7 +570,7 @@ static int select_op_expand(RTLIL::Design *design, RTLIL::Selection &lhs, std::v
 	return sel_objects;
 }
 
-static void select_op_expand(RTLIL::Design *design, const std::string &arg, char mode, bool eval_only)
+static void select_op_expand(RTLIL::Design *design, std::vector<RTLIL::Selection> &work_stack, const std::string &arg, char mode, bool eval_only)
 {
 	int pos = (mode == 'x' ? 2 : 3) + (eval_only ? 1 : 0);
 	int levels = 1, rem_objects = -1;
@@ -692,7 +699,7 @@ static void select_filter_active_mod(RTLIL::Design *design, RTLIL::Selection &se
 	}
 }
 
-static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_empty_warning = false)
+static void select_stmt(RTLIL::Design *design, std::vector<RTLIL::Selection> &work_stack, std::string arg, bool disable_empty_warning = false)
 {
 	std::string arg_mod, arg_memb;
 	std::unordered_map<std::string, bool> arg_mod_found;
@@ -710,10 +717,7 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 			work_stack.push_back(design->selection());
 		} else
 		if (arg == "%%") {
-			while (work_stack.size() > 1) {
-				select_op_union(design, work_stack.front(), work_stack.back());
-				work_stack.pop_back();
-			}
+			select_op_union_all(design, work_stack);
 		} else
 		if (arg == "%n") {
 			if (work_stack.size() < 1)
@@ -784,32 +788,32 @@ static void select_stmt(RTLIL::Design *design, std::string arg, bool disable_emp
 		if (arg == "%x" || (arg.size() > 2 && arg.compare(0, 2, "%x") == 0 && (arg[2] == ':' || arg[2] == '*' || arg[2] == '.' || ('0' <= arg[2] && arg[2] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%x.\n");
-			select_op_expand(design, arg, 'x', false);
+			select_op_expand(design, work_stack, arg, 'x', false);
 		} else
 		if (arg == "%ci" || (arg.size() > 3 && arg.compare(0, 3, "%ci") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%ci.\n");
-			select_op_expand(design, arg, 'i', false);
+			select_op_expand(design, work_stack, arg, 'i', false);
 		} else
 		if (arg == "%co" || (arg.size() > 3 && arg.compare(0, 3, "%co") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%co.\n");
-			select_op_expand(design, arg, 'o', false);
+			select_op_expand(design, work_stack, arg, 'o', false);
 		} else
 		if (arg == "%xe" || (arg.size() > 3 && arg.compare(0, 3, "%xe") == 0 && (arg[3] == ':' || arg[3] == '*' || arg[3] == '.' || ('0' <= arg[3] && arg[3] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%xe.\n");
-			select_op_expand(design, arg, 'x', true);
+			select_op_expand(design, work_stack, arg, 'x', true);
 		} else
 		if (arg == "%cie" || (arg.size() > 4 && arg.compare(0, 4, "%cie") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%cie.\n");
-			select_op_expand(design, arg, 'i', true);
+			select_op_expand(design, work_stack, arg, 'i', true);
 		} else
 		if (arg == "%coe" || (arg.size() > 4 && arg.compare(0, 4, "%coe") == 0 && (arg[4] == ':' || arg[4] == '*' || arg[4] == '.' || ('0' <= arg[4] && arg[4] <= '9')))) {
 			if (work_stack.size() < 1)
 				log_cmd_error("Must have at least one element on the stack for operator %%coe.\n");
-			select_op_expand(design, arg, 'o', true);
+			select_op_expand(design, work_stack, arg, 'o', true);
 		} else
 			log_cmd_error("Unknown selection operator '%s'.\n", arg);
 		if (work_stack.size() >= 1)
@@ -1045,7 +1049,7 @@ YOSYS_NAMESPACE_BEGIN
 // used in kernel/register.cc and maybe other locations, extern decl. in register.h
 void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t argidx, size_t args_size, RTLIL::Design *design)
 {
-	work_stack.clear();
+	std::vector<RTLIL::Selection> work_stack;
 	for (; argidx < args_size; argidx++) {
 		if (args[argidx].compare(0, 1, "-") == 0) {
 			if (pass != nullptr)
@@ -1053,12 +1057,9 @@ void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t arg
 			else
 				log_cmd_error("Unexpected option in selection arguments.\n");
 		}
-		select_stmt(design, args[argidx]);
+		select_stmt(design, work_stack, args[argidx]);
 	}
-	while (work_stack.size() > 1) {
-		select_op_union(design, work_stack.front(), work_stack.back());
-		work_stack.pop_back();
-	}
+	select_op_union_all(design, work_stack);
 	if (work_stack.empty())
 		design->push_empty_selection();
 	else
@@ -1068,13 +1069,10 @@ void handle_extra_select_args(Pass *pass, const vector<string> &args, size_t arg
 // extern decl. in register.h
 RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *design)
 {
-	work_stack.clear();
+	std::vector<RTLIL::Selection> work_stack;
 	for (auto &arg : args)
-		select_stmt(design, arg);
-	while (work_stack.size() > 1) {
-		select_op_union(design, work_stack.front(), work_stack.back());
-		work_stack.pop_back();
-	}
+		select_stmt(design, work_stack, arg);
+	select_op_union_all(design, work_stack);
 	if (work_stack.empty())
 		return RTLIL::Selection::EmptySelection(design);
 	return work_stack.back();
@@ -1083,9 +1081,7 @@ RTLIL::Selection eval_select_args(const vector<string> &args, RTLIL::Design *des
 // extern decl. in register.h
 void eval_select_op(vector<RTLIL::Selection> &work, const string &op, RTLIL::Design *design)
 {
-	work_stack.swap(work);
-	select_stmt(design, op);
-	work_stack.swap(work);
+	select_stmt(design, work, op);
 }
 
 YOSYS_NAMESPACE_END
@@ -1353,7 +1349,7 @@ struct SelectPass : public Pass {
 		std::string write_file, read_file;
 		std::string set_name, unset_name, sel_str;
 
-		work_stack.clear();
+		std::vector<RTLIL::Selection> work_stack;
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
@@ -1441,7 +1437,7 @@ struct SelectPass : public Pass {
 				log_cmd_error("Unknown option %s.\n", arg);
 			bool disable_empty_warning = count_mode || assert_none || assert_any || (assert_modcount != -1) ||
 											(assert_count != -1) || (assert_max != -1) || (assert_min != -1);
-			select_stmt(design, arg, disable_empty_warning);
+			select_stmt(design, work_stack, arg, disable_empty_warning);
 			sel_str += " " + arg;
 		}
 
@@ -1505,10 +1501,7 @@ struct SelectPass : public Pass {
 			work_stack.push_back(sel);
 		}
 
-		while (work_stack.size() > 1) {
-			select_op_union(design, work_stack.front(), work_stack.back());
-			work_stack.pop_back();
-		}
+		select_op_union_all(design, work_stack);
 
 		log_assert(!design->selection_stack.empty());
 
