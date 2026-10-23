@@ -18,6 +18,9 @@ opt_clean
 
 prep
 
+async2sync
+chformal -lower
+
 design -save prep
 
 select -assert-count 1 t:$assert
