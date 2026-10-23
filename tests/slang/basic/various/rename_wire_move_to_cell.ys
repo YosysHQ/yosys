@@ -16,6 +16,8 @@ endmodule
 EOF
 
 proc
+opt_clean
+stat
 hierarchy -top top
 
 select -assert-count 1 t:$dff
