@@ -5879,9 +5879,16 @@ bool AstNode::detect_latch(const std::string &var)
 	}
 }
 
+static bool is_real_declaration(const AstNode *node)
+{
+	return GetSize(node->children) == 1 && node->children.at(0)->type == AST_REALVALUE;
+}
+
 bool AstNode::has_const_only_constructs()
 {
 	if (type == AST_WHILE || type == AST_REPEAT)
+		return true;
+	if (type == AST_WIRE && is_real_declaration(this))
 		return true;
 	for (auto& child : children)
 		if (child->has_const_only_constructs())
@@ -5919,11 +5926,6 @@ bool AstNode::is_in_unconditional_init() {
 	return false;
 }
 
-static bool is_real_declaration(const AstNode *node)
-{
-	return node->children.size() == 1 && node->children.at(0)->type == AST_REALVALUE;
-}
-
 static bool assigns_to_real(const AstNode *assignment, const std::map<std::string, AstNode::varinfo_t> &variables)
 {
 	const AstNode *target = assignment->children.at(0).get();
@@ -5936,12 +5938,9 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 	if (type == AST_IDENTIFIER && variables.count(str)) {
 		const varinfo_t &variable = variables.at(str);
 		if (variable.realval) {
-			if (!children.empty()) {
-				if (!must_succeed)
-					return false;
+			if (!children.empty())
 				input_error("Select on real variable %s in constant function\n%s: ...called from here.\n",
 						str.c_str(), fcall->loc_string().c_str());
-			}
 			auto newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 			newNode->realvalue = *variable.realval;
 			newNode->cloneInto(*this);
@@ -6115,6 +6114,9 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			}
 
 			if (assigns_real) {
+				if (!stmt->children.at(0)->children.empty())
+					stmt->input_error("Select on real variable %s in constant function\n%s: ...called from here.\n",
+							stmt->children.at(0)->str.c_str(), fcall->loc_string().c_str());
 				variables[stmt->children.at(0)->str].realval = stmt->children.at(1)->asReal(stmt->children.at(1)->is_signed);
 			} else if (stmt->children.at(0)->children.empty()) {
 				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->valueAsConst(variables[stmt->children.at(0)->str].val.size());

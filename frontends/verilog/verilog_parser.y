@@ -2161,6 +2161,8 @@ wire_name:
 		if ($2 != nullptr) {
 			if (node->is_input || node->is_output)
 				err_at_loc(@2, "input/output/inout ports cannot have unpacked dimensions.");
+			if (!node->children.empty() && node->children.at(0)->type == AST_REALVALUE)
+				err_at_loc(@2, "real variables cannot have unpacked dimensions.");
 			if (!extra->astbuf2 && !node->is_custom_type) {
 				addRange(node.get(), 0, 0, false);
 			}
