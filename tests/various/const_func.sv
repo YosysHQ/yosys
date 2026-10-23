@@ -82,7 +82,7 @@ module top(out);
         counted = 0;
         repeat (k) counted = counted + 1;
     endfunction
-    localparam signed C = counted(3.4);
+    localparam signed C = counted(3.6);
 
     function automatic real from_byte;
         input [7:0] x;
@@ -126,7 +126,7 @@ module top(out);
         assert(Z == ~3);
         assert(Q == 25);
         assert(T == 41);
-        assert(C == 3);
+        assert(C == 4);
         assert(B == 200);
         assert(D == -2.0);
         assert(I == 200);

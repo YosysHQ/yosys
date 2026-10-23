@@ -6198,7 +6198,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 
 			temporary_nodes.push_back(std::move(stmt));
 			block->children.erase(block->children.begin());
-			// A real count converts to an integer, at the same width as $rtoi.
+			// A real count rounds to a 32-bit integer.
 			const int repeat_count = num->valueAsConst(32).as_int();
 			for (int i = 0; i < repeat_count; i++)
 				block->children.insert(block->children.begin(), temporary_nodes.back()->children.at(1)->clone());

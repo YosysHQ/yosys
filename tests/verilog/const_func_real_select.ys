@@ -1,4 +1,3 @@
-# A real holds no bits, so a select on one cannot be evaluated.
 logger -expect error "Select on real variable" 1
 read_verilog -sv <<EOT
 module top;
