@@ -1,3 +1,9 @@
+# Shared Fixes
+
+## Default Flags
+
+--no-implicit-memories
+
 # Document the differences
 
 ## Top Attribute Inferred
@@ -121,6 +127,31 @@ I don't how how to fix or if it needs a fix
 - opt_expr.ys
 - opt_expr_alu.ys
 
+## Slang infers mem cells by default
+
+### Fixes
+
+- add `--no-implicit-memories` to `read_slang` call
+	- This should probably be the default behavior
+
+### Affects tests
+
+- opt_dff_eqbits.ys
+
+## Slang flattens by default
+
+### Fixes
+
+- add `--keep-hierarchy` or `--best-effort-hierarchy` to `read_slang` call
+	- This should probably be the default behavior
+
+### Affects tests
+
+- json_scopeinfo.ys
+- blackbox_wb.ys
+	- + also naming changes, those have to be expected though
+- keep_hierarchy.ys
+	- opt_clean also
 
 ## $initstate
 

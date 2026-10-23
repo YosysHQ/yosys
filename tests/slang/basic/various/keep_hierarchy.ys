@@ -1,5 +1,5 @@
 # Keep unused logic for the hierarchy cost checks.
-read_slang --std latest <<EOF
+read_slang --std latest --best-effort-hierarchy <<EOF
 (* blackbox *)
 (* gate_cost_equivalent=150 *)
 module macro;
@@ -46,6 +46,7 @@ module top;
 	branch3_wrapper wrapper();
 endmodule
 EOF
+opt_clean
 
 hierarchy -top top
 keep_hierarchy -min_cost 500

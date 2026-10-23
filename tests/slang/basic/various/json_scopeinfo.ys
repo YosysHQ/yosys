@@ -1,4 +1,4 @@
-read_slang --std latest <<EOT
+read_slang --std latest --best-effort-hierarchy <<EOT
 module top(input in, output out);
 	wire [1:0] w1, w2;
 	f1_test u1 (.in(in), .out(w1[0]));
