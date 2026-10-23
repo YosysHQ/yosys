@@ -84,6 +84,26 @@ module top(out);
     endfunction
     localparam signed C = counted(3.4);
 
+    function automatic real from_byte;
+        input [7:0] x;
+        from_byte = x;
+    endfunction
+    localparam integer B = $rtoi(from_byte(200));
+
+    function automatic real diff;
+        input integer a, b;
+        diff = a - b;
+    endfunction
+    localparam real D = diff(1, 3);
+
+    function automatic real identity;
+        input real k;
+        real zero;
+        identity = k + zero;
+    endfunction
+    localparam integer I = $rtoi(identity(8'd200));
+    localparam real J = identity(-4);
+
     always_comb begin
         assert(a1 == 0);
         assert(a2 == 0);
@@ -107,5 +127,9 @@ module top(out);
         assert(Q == 25);
         assert(T == 41);
         assert(C == 3);
+        assert(B == 200);
+        assert(D == -2.0);
+        assert(I == 200);
+        assert(J == -4.0);
     end
 endmodule

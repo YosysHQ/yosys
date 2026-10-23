@@ -6017,8 +6017,10 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			if (is_real_declaration(stmt.get())) {
 				AstNode::varinfo_t &variable = variables[stmt->str];
 				variable.realval = 0.0;
-				if (stmt->is_input && argidx < fcall->children.size())
-					variable.realval = fcall->children.at(argidx++)->asReal(true);
+				if (stmt->is_input && argidx < fcall->children.size()) {
+					AstNode *arg = fcall->children.at(argidx++).get();
+					variable.realval = arg->asReal(arg->is_signed);
+				}
 				current_scope[stmt->str] = stmt.get();
 				temporary_nodes.push_back(std::move(stmt));
 				block->children.erase(block->children.begin());
@@ -6113,7 +6115,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			}
 
 			if (assigns_real) {
-				variables[stmt->children.at(0)->str].realval = stmt->children.at(1)->asReal(true);
+				variables[stmt->children.at(0)->str].realval = stmt->children.at(1)->asReal(stmt->children.at(1)->is_signed);
 			} else if (stmt->children.at(0)->children.empty()) {
 				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->valueAsConst(variables[stmt->children.at(0)->str].val.size());
 			} else {
