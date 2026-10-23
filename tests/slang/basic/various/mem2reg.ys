@@ -6,9 +6,8 @@ parameter DATAWIDTH=1;
 (* keep, mem2reg *) reg [DATAWIDTH-1:0] data2 [DATADEPTH-1:0];
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 cd top
 select -assert-count 1 m:data1 a:src=<inlined>:4.43-4.48 %i
 select -assert-count 2 w:data2[*] a:src=<inlined>:5.41-5.46 %i

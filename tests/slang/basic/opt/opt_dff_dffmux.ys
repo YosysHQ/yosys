@@ -4,9 +4,8 @@ module opt_dffmuxext_unsigned(input clk, ce, input [1:0] i, output reg [3:0] o);
     always @(posedge clk) if (ce) o <= i;
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
@@ -20,9 +19,8 @@ module opt_dffmuxext_signed(input clk, ce, input signed [1:0] i, output reg sign
     always @(posedge clk) if (ce) o <= i;
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 wreduce
@@ -37,9 +35,8 @@ module opt_dffmuxext_const(input clk, ce, input [1:0] i, output reg [5:0] o);
     always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=2 %i
@@ -53,9 +50,8 @@ module opt_dffmuxext_const_init(input clk, ce, input [1:0] i, (* init=6'b0x00x1 
     always @(posedge clk) if (ce) o <= {1'b0, i[1], 2'b1x, i[0], 1'bz};
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 select -assert-count 1 t:$dffe r:WIDTH=4 %i
@@ -69,9 +65,8 @@ module opt_dffmuxext_unsigned_rst(input clk, ce, rst, input [1:0] i, output reg 
     always @(posedge clk) if (rst) o <= 0; else if (ce) o <= i;
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 wreduce
@@ -89,9 +84,8 @@ module opt_dffmuxext_signed_rst(input clk, ce, rstn, input signed [1:0] i, outpu
     end
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 equiv_opt -assert opt
 design -load postopt
 wreduce
@@ -110,9 +104,8 @@ module opt_dffmuxext_signed_rst_init(input clk, ce, rstn, input signed [1:0] i, 
     end
 endmodule
 EOT
-opt_clean
-
 proc
+opt_clean
 # NB: equiv_opt uses equiv_induct which covers
 #     only the induction half of temporal induction
 #     --- missing the base-case half
