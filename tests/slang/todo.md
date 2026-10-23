@@ -14,7 +14,8 @@ Attribute `top' found on module `test_parser'. Setting top module to test_parser
 
 The fix is to add a `setattr -mod -unset top` before hierarchy in the script.
 
-Tests affected:
+### Affected Tests
+
 - typedef_struct_port.ys
 - cellarray_array_connections.ys
 - for_decl_shadow.ys
@@ -72,6 +73,54 @@ read_slang implicitly converts `z` trits to `x` trits which have different seman
 ### Fix
 
 I don't think this can be fixed inside yosys, this seems likely to need fixes in sv-elab or slang itself to preserve those
+
+### Affected Tests
+
+- opt_dff_dffmux.ys
+- maybe iopadmap.ys?
+
+## Cell port widths
+
+Slang seems to infer that cell port widths (at least for arithmetic cells) should be the same widths for A, B, & Y, this differs from read_verilog, but I'm not sure it's a meaningful differerence?
+
+e.g. this script fails (where read_verilog would succeed)
+```sh
+read_slang --no-proc <<EOT
+module slang_add_test(input [3:0] i, output [4:0] o);
+    assign o = i + 1'b1;
+endmodule
+EOT
+# proc
+opt_clean
+write_rtlil -readable
+```
+
+and outputs the following rtlil
+
+```
+cell $add $0
+  parameter \A_WIDTH 5
+  parameter \B_WIDTH 5
+  parameter \A_SIGNED 0
+  parameter \B_SIGNED 0
+  parameter \Y_WIDTH 5
+  connect \A { 1'0 \i }
+  connect \B 5'00001
+  connect \Y $0y
+end
+```
+
+### Fixes
+
+I don't how how to fix or if it needs a fix
+
+- the opt_expr_alu.ys seems to actually break something so this does likely need a fix
+
+### Affected Tests
+
+- opt_expr.ys
+- opt_expr_alu.ys
+
 
 ## $initstate
 
