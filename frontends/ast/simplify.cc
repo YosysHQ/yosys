@@ -5929,7 +5929,7 @@ bool AstNode::is_in_unconditional_init() {
 static bool assigns_to_real(const AstNode *assignment, const std::map<std::string, AstNode::varinfo_t> &variables)
 {
 	const AstNode *target = assignment->children.at(0).get();
-	return target->type == AST_IDENTIFIER && variables.count(target->str) && variables.at(target->str).realval;
+	return variables.count(target->str) && variables.at(target->str).realval;
 }
 
 // helper function for AstNode::eval_const_function()
