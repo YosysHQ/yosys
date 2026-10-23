@@ -57,6 +57,21 @@ hierarchy -check -top top
 2. Add a flag to `read_slang` that reads a module as a blackbox, and can instantiate it later
 	3. This likely needs to be a part of a bigger refactoring to add deferred elab with slang
 
+## Slang emits $aldff cells by default
+
+`read_slang` seems to emit `$aldff` cells by default. A lot of tests expect dff cells, I don't know if `$aldff` are rejected by some passes, needs more searching
+
+### Fixes
+
+Running `opt_dff` after `opt_clean` seems to fix the issue.
+
+## Z trit
+
+read_slang implicitly converts `z` trits to `x` trits which have different semantics.
+
+### Fix
+
+I don't think this can be fixed inside yosys, this seems likely to need fixes in sv-elab or slang itself to preserve those
 
 ## $initstate
 

@@ -1,6 +1,6 @@
 # D depends on Q
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire en,
@@ -18,6 +18,8 @@ module test_case (
 	end
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
@@ -44,7 +46,7 @@ equiv_status -assert
 
 # mixed-width
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire [3:0] a,
@@ -55,6 +57,8 @@ module test_case (
 		q <= {~(~q[3] | ~a[0]), a[1], ~(~q[1] | ~a[2]), a[3]};
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
@@ -82,7 +86,7 @@ equiv_status -assert
 
 # sync reset gating
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire rst,
@@ -104,6 +108,8 @@ module test_case (
 	end
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
@@ -129,7 +135,7 @@ equiv_status -assert
 
 # async load
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire load,
@@ -148,6 +154,8 @@ module test_case (
 		else q1 <= ~(~q1 | ~en);
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
@@ -174,7 +182,7 @@ equiv_status -assert
 
 # async reset
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire rst,
@@ -192,6 +200,8 @@ module test_case (
 		else q1 <= ~(~q1 & ~en);
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
@@ -265,6 +275,8 @@ module \test_case
   end
 end
 EOT
+opt_clean
+opt_dff
 
 select -assert-count 1 t:$dffsr
 design -save gold
@@ -291,7 +303,7 @@ equiv_status -assert
 
 # clock enable gating
 design -reset
-read_slang --no-proc --std latest <<EOT
+read_slang --std latest <<EOT
 module test_case (
 	input wire clk,
 	input wire ce,
@@ -308,6 +320,8 @@ module test_case (
 		end
 endmodule
 EOT
+opt_clean
+opt_dff
 
 hierarchy -top test_case
 prep
