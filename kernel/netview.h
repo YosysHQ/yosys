@@ -1,5 +1,5 @@
-// NetView: a Netlist built from a uniquified RTLIL design
-// - Instances  one per cell, depth first in statement order
+// NetView: a Netlist built from an RTLIL design
+// - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit a barrier's A and Y are one net unless
 //              either is constant
 // - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
@@ -25,7 +25,8 @@ struct Fingerprint;
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
-bool checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason);
+uint64_t countInstances(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, uint64_t> &counts);
+bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
 bool checkModule(RTLIL::Module *module, std::string &reason);
 bool indicesFitInt(const RTLIL::Wire *wire);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
@@ -61,6 +62,21 @@ void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
 
 } // namespace detail
 
+// A list of values per key, empty for a missing key
+template <typename K, typename V> struct ListMap {
+	void add(const K &key, V value) { data[key].push_back(value); }
+	const std::vector<V> &get(const K &key) const
+	{
+		auto it = data.find(key);
+		if (it != data.end())
+			return it->second;
+		return none;
+	}
+	void clear() { data.clear(); }
+	dict<K, std::vector<V>> data;
+	std::vector<V> none;
+};
+
 struct NetView final : public Netlist, public RTLIL::Monitor
 {
 	NetView() = default;
@@ -89,9 +105,9 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
-	Instance *instance(const RTLIL::Cell *cell) const;
+	Instance *instance(const RTLIL::Cell *cell, const Instance *scope = nullptr) const;
 	RTLIL::Module *module(const Instance *scope) const;
-	Instance *scope(const RTLIL::Module *module) const;
+	const std::vector<Instance *> &scopes(const RTLIL::Module *module) const;
 
 	// RTLIL::Monitor: every event marks the view for a re-check
 	void notify_module_add(RTLIL::Module *module) override;
@@ -120,6 +136,13 @@ private:
 		NetName name;           // copied out of RTLIL
 	};
 
+	struct NetsByScopeBit {
+		Net *get(const Instance *scope, const RTLIL::SigBit &bit) const;
+		void set(const Instance *scope, const RTLIL::SigBit &bit, Net *net);
+		void clear() { data.clear(); }
+		dict<std::pair<uint32_t, uint64_t>, Net *> data;
+	};
+
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
@@ -132,8 +155,8 @@ private:
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
-	Net *knownNet(const RTLIL::SigBit &bit) const;
-	Net *findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit);
+	const ScopeData &scopeData(const Instance *scope) const;
+	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
 
 	bool designAlive() const;
 	void unregisterMonitor();
@@ -161,13 +184,13 @@ private:
 	std::unordered_map<const Instance *, ScopeData> scopes_;
 
 	// RTLIL to records
-	dict<uint32_t, Instance *> cell_inst_; // by cell hashidx_
-	dict<const RTLIL::Module *, Instance *> module_scope_;
+	ListMap<uint32_t, Instance *> cell_insts_;                 // by cell hashidx_
+	ListMap<const RTLIL::Module *, Instance *> module_scopes_;
 	IdMap<InstData> inst_data_;
 
 	// Nets by bit
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
-	dict<uint64_t, Net *> bit_net_;
+	NetsByScopeBit bit_nets_;
 	IdMap<NetData> net_data_;
 
 	// Staleness

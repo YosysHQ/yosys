@@ -204,20 +204,38 @@ RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cel
 	return sub;
 }
 
-// Every non-top module may be instantiated once, more needs uniquify
-bool detail::checkUniquified(RTLIL::Design *design, RTLIL::Module *top, RTLIL::Module *module, pool<RTLIL::Module *> &seen, std::string &reason)
+uint64_t detail::countInstances(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, uint64_t> &counts)
 {
+	auto it = counts.find(module);
+	if (it != counts.end())
+		return it->second;
+	uint64_t count = 0;
+	for (RTLIL::Cell *cell : module->cells()) {
+		count++;
+		if (RTLIL::Module *sub = detail::childModule(design, cell))
+			count += detail::countInstances(design, sub, counts);
+		count = std::min<uint64_t>(count, UINT32_MAX);
+	}
+	counts[module] = count;
+	return count;
+}
+
+bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open,
+                            std::string &reason)
+{
+	open.insert(module);
 	for (RTLIL::Cell *cell : module->cells()) {
 		RTLIL::Module *sub = detail::childModule(design, cell);
 		if (sub == nullptr)
 			continue;
-		if (sub == top || !seen.insert(sub).second) {
-			reason = stringf("module %s instantiated more than once (run uniquify)", sub);
+		if (open.count(sub)) {
+			reason = stringf("module %s contains itself", sub);
 			return false;
 		}
-		if (!detail::checkUniquified(design, top, sub, seen, reason))
+		if (used.insert(sub).second && !detail::checkHierarchy(design, sub, used, open, reason))
 			return false;
 	}
+	open.erase(module);
 	return true;
 }
 
@@ -228,10 +246,15 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 		reason = "no top module (run hierarchy -top)";
 		return false;
 	}
-	pool<RTLIL::Module *> seen;
-	if (!detail::checkUniquified(design, top, top, seen, reason))
+	pool<RTLIL::Module *> seen = {top};
+	pool<RTLIL::Module *> open;
+	if (!detail::checkHierarchy(design, top, seen, open, reason))
 		return false;
-	seen.insert(top);
+	dict<RTLIL::Module *, uint64_t> counts;
+	if (detail::countInstances(design, top, counts) >= UINT32_MAX) {
+		reason = "todo biiiiig ids";
+		return false;
+	}
 	pool<RTLIL::Module *> blackboxes;
 	for (RTLIL::Module *module : seen) {
 		if (!detail::checkModule(module, reason))
@@ -294,7 +317,7 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 		reset();
 		throw;
 	}
-	for (const auto &[module, scope] : module_scope_)
+	for (const auto &[module, occurrences] : module_scopes_.data)
 		tracked_.push_back(module->name);
 	fingerprint_ = fingerprint();
 	design_->monitors.insert(this);
@@ -325,10 +348,10 @@ void NetView::reset()
 	shape_store_.clear();
 	shape_cache_.clear();
 	sigmaps_.clear();
-	bit_net_.clear();
+	bit_nets_.clear();
 	scopes_.clear();
-	cell_inst_.clear();
-	module_scope_.clear();
+	cell_insts_.clear();
+	module_scopes_.clear();
 	inst_data_.clear();
 	net_data_.clear();
 	next_inst_id_ = 1;
@@ -372,10 +395,10 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 	inst_data_[inst->id] = {cell, module};
 	if (cell != nullptr) {
 		inst->hdlpath = detail::hdlPath(cell);
-		cell_inst_[cell->hashidx_] = inst;
+		cell_insts_.add(cell->hashidx_, inst);
 	}
 	if (module != nullptr)
-		module_scope_[module] = inst;
+		module_scopes_.add(module, inst);
 	if (parent != nullptr)
 		parent->children.push_back(inst);
 	return inst;
@@ -420,13 +443,13 @@ void NetView::makePins(Instance *inst)
 			// Outer net
 			Net *net = nullptr;
 			if (b < sig.size())
-				net = findOrMakeNet(c->module, sig[b]);
+				net = findOrMakeNet(inst->parent, sig[b]);
 			Pin *pin = makePin(inst, p, b, net);
 
 			// Term into the instance's scope
 			if (inner_wire == nullptr || b >= inner_wire->width)
 				continue;
-			Net *inner_net = findOrMakeNet(sub, RTLIL::SigBit(inner_wire, b));
+			Net *inner_net = findOrMakeNet(inst, RTLIL::SigBit(inner_wire, b));
 			if (inner_net != nullptr)
 				makeTerm(pin, inner_net);
 		}
@@ -496,9 +519,9 @@ void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
 			RTLIL::SigBit canon = sigmap(bit);
 			Net *net;
 			if (canon.wire == nullptr)
-				net = findOrMakeNet(module, canon);
+				net = findOrMakeNet(scope, canon);
 			else
-				net = knownNet(canon);
+				net = bit_nets_.get(scope, canon);
 			if (net == nullptr)
 				continue;
 
@@ -542,12 +565,14 @@ uint64_t detail::bitKey(const RTLIL::SigBit &bit)
 	return uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset);
 }
 
-NetView::Net *NetView::knownNet(const RTLIL::SigBit &bit) const
+NetView::Net *NetView::NetsByScopeBit::get(const Instance *scope, const RTLIL::SigBit &bit) const
 {
-	auto it = bit_net_.find(detail::bitKey(bit));
-	if (it == bit_net_.end())
-		return nullptr;
-	return it->second;
+	return data.at({scope->id, detail::bitKey(bit)}, nullptr);
+}
+
+void NetView::NetsByScopeBit::set(const Instance *scope, const RTLIL::SigBit &bit, Net *net)
+{
+	data[{scope->id, detail::bitKey(bit)}] = net;
 }
 
 RTLIL::Cell *NetView::cell(const Instance *inst) const
@@ -560,20 +585,19 @@ RTLIL::Module *NetView::module(const Instance *scope) const
 	return inst_data_.get(scope->id).module;
 }
 
-NetView::Instance *NetView::instance(const RTLIL::Cell *cell) const
+NetView::Instance *NetView::instance(const RTLIL::Cell *cell, const Instance *scope) const
 {
-	auto it = cell_inst_.find(cell->hashidx_);
-	if (it == cell_inst_.end())
-		return nullptr;
-	return it->second;
+	const std::vector<Instance *> &all = cell_insts_.get(cell->hashidx_);
+	for (Instance *inst : all) {
+		if (inst->parent == scope || (scope == nullptr && all.size() == 1))
+			return inst;
+	}
+	return nullptr;
 }
 
-NetView::Instance *NetView::scope(const RTLIL::Module *module) const
+const std::vector<NetView::Instance *> &NetView::scopes(const RTLIL::Module *module) const
 {
-	auto it = module_scope_.find(module);
-	if (it == module_scope_.end())
-		return nullptr;
-	return it->second;
+	return module_scopes_.get(module);
 }
 
 RTLIL::SigBit NetView::nameBit(const Net *net) const
@@ -598,36 +622,34 @@ void NetView::setNameBit(Net *net, const RTLIL::SigBit &bit)
 	data.name = detail::netName(bit);
 }
 
-const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const
+const NetView::ScopeData &NetView::scopeData(const Instance *scope) const
 {
-	static const std::vector<Net *> none;
+	static const ScopeData none;
 	auto it = scopes_.find(scope);
 	if (it == scopes_.end())
 		return none;
-	return it->second.nets;
+	return it->second;
+}
+
+const std::vector<NetView::Net *> &NetView::nets(const Instance *scope) const
+{
+	return scopeData(scope).nets;
 }
 
 const std::vector<NetView::Alias> &NetView::aliases(const Instance *scope) const
 {
-	static const std::vector<Alias> none;
-	auto it = scopes_.find(scope);
-	if (it == scopes_.end())
-		return none;
-	return it->second.aliases;
+	return scopeData(scope).aliases;
 }
 
 NetView::Net *NetView::constNet(const Instance *scope, bool one) const
 {
-	auto it = scopes_.find(scope);
-	if (it == scopes_.end())
-		return nullptr;
-	return it->second.consts[one];
+	return scopeData(scope).consts[one];
 }
 
-NetView::Net *NetView::findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit &bit)
+NetView::Net *NetView::findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit)
 {
 	if (bit.wire != nullptr) {
-		if (Net *net = knownNet(bit))
+		if (Net *net = bit_nets_.get(scope, bit))
 			return net;
 	}
 	RTLIL::SigBit canon = bit;
@@ -637,20 +659,19 @@ NetView::Net *NetView::findOrMakeNet(RTLIL::Module *module, const RTLIL::SigBit 
 	if (canon.wire == nullptr) {
 		if (canon.data != RTLIL::State::S0 && canon.data != RTLIL::State::S1)
 			return nullptr; // x/z: unconnected
-		Instance *s = scope(module);
-		Net *&slot = scopes_[s].consts[canon.data == RTLIL::State::S1];
+		Net *&slot = scopes_[scope].consts[canon.data == RTLIL::State::S1];
 		if (slot == nullptr)
-			slot = newNet(s, canon);
+			slot = newNet(scope, canon);
 		net = slot;
 	} else {
-		net = knownNet(canon);
+		net = bit_nets_.get(scope, canon);
 		if (net == nullptr) {
-			net = newNet(scope(canon.wire->module), canon);
-			bit_net_[detail::bitKey(canon)] = net;
+			net = newNet(scope, canon);
+			bit_nets_.set(scope, canon, net);
 		}
 	}
 	if (bit.wire != nullptr && bit != canon)
-		bit_net_[detail::bitKey(bit)] = net;
+		bit_nets_.set(scope, bit, net);
 	return net;
 }
 
