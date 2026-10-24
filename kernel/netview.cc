@@ -408,6 +408,7 @@ void NetView::clearTables()
 	module_scopes_.clear();
 	inst_data_.clear();
 	net_data_.clear();
+	hits_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -428,7 +429,9 @@ std::unique_ptr<NetView> NetView::retire()
 		net.pins = {};
 		net.terms = {};
 	}
-	return std::make_unique<NetView>();
+	std::unique_ptr<NetView> next = std::make_unique<NetView>();
+	next->anchor_table_ = std::move(anchor_table_);
+	return next;
 }
 
 NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent)
@@ -468,6 +471,8 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 	if (cell != nullptr) {
 		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		cell_insts_.add(cell->hashidx_, inst);
+		for (const detail::Anchor &anchor : anchorsOf(cell))
+			hits_[anchor.ref].push_back({anchor, inst, nullptr, anchor.scope == cellScope(inst)});
 	}
 	if (module != nullptr)
 		module_scopes_.add(module, inst);
@@ -494,7 +499,7 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 		if (!inst->leaf)
 			buildScope(this->module(inst), inst);
 	}
-	registerAliases(module, scope);
+	registerWires(module, scope);
 }
 
 void NetView::makePins(Instance *inst)
@@ -580,21 +585,26 @@ detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
 }
 
-void NetView::registerAliases(RTLIL::Module *module, Instance *scope)
+void NetView::registerWires(RTLIL::Module *module, Instance *scope)
 {
 	SigMap &sigmap = sigmapFor(module);
 	for (RTLIL::Wire *wire : module->wires()) {
-		if (!wire->name.isPublic())
-			continue;
+		bool pub = wire->name.isPublic();
 		for (int b = 0; b < wire->width; b++) {
 			RTLIL::SigBit bit(wire, b);
 			RTLIL::SigBit canon = sigmap(bit);
-			Net *net;
-			if (canon.wire == nullptr)
-				net = findOrMakeNet(scope, canon);
-			else
+			Net *net = nullptr;
+			if (canon.wire != nullptr)
 				net = bit_nets_.get(scope, canon);
+			else if (pub)
+				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
+				continue;
+			if (canon.wire != nullptr) {
+				net_data_[net->id].wire_bits.push_back(bit);
+				addNetHits(net, bit);
+			}
+			if (!pub)
 				continue;
 
 			// Public wires collapsed into another wire's net (assign aliases)
@@ -683,6 +693,11 @@ NetView::Instance *NetView::instance(const RTLIL::Cell *cell, const Instance *sc
 const std::vector<NetView::Instance *> &NetView::scopes(const RTLIL::Module *module) const
 {
 	return module_scopes_.get(module);
+}
+
+const std::vector<RTLIL::SigBit> &NetView::wireBits(const Net *net) const
+{
+	return net_data_.get(net->id).wire_bits;
 }
 
 RTLIL::SigBit NetView::nameBit(const Net *net) const

@@ -60,6 +60,7 @@ yosys_core(kernel
 	modtools.h
 	netlist.cc
 	netlist.h
+	nettrack.cc
 	netview.cc
 	netview.h
 	newcelltypes.h

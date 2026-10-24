@@ -127,6 +127,8 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	Netlist::Pin *y0 = isub->pins[1];
 	EXPECT_EQ(view.shape(y0).name, "y");
 	EXPECT_EQ(y0->bit, 0);
+	EXPECT_EQ(view.pin(isub, "y", 0), y0);
+	EXPECT_EQ(view.pin(isub, "y", 4), nullptr);
 	ASSERT_NE(y0->term, nullptr);
 	EXPECT_EQ(y0->term->net->scope, isub);
 	EXPECT_EQ(y0->term->net, view.instance(i1)->pins[1]->net);
@@ -355,6 +357,7 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(second->parent->pins[0]->term->net, net);
 	EXPECT_EQ(second->parent->pins[0]->net, view.instance(u_inv0)->pins[0]->net);
 	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
+	EXPECT_EQ(view.wireBits(first->pins[0]->net), std::vector<SigBit>{SigBit(a)});
 	for (const Netlist::Alias &alias : view.aliases(second->parent))
 		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
 	std::vector<Netlist::Net *> ones = view.constNets(true);
@@ -792,6 +795,48 @@ TEST_F(NetViewTest, countsOfAnUnbuiltViewAreZero)
 	EXPECT_NE(view.counts(), (std::array<size_t, 3>{}));
 	view.reset();
 	EXPECT_EQ(view.counts(), (std::array<size_t, 3>{}));
+}
+
+TEST_F(NetViewTest, anchorFindsEachFoundObject)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetView::Found outer{NetView::Found::Kind::Cell}, inner{NetView::Found::Kind::Cell};
+	outer.objects = {view.instance(u_inv0), view.instance(u_inv2)};
+	inner.objects = {view.instance(i1), view.instance(i2)};
+	view.anchor({&outer, &inner});
+	Pass::call(d, "flatten");
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&outer, &inner});
+	std::vector<const void *> outer_cells = {next->instance(u_inv0), next->instance(u_inv2)};
+	std::vector<const void *> inner_cells = {next->instance(top->cell("\\u_sub.i1")), next->instance(top->cell("\\u_sub.i2"))};
+	for (std::vector<const void *> *cells : {&outer.objects, &inner.objects, &outer_cells, &inner_cells})
+		std::sort(cells->begin(), cells->end());
+	EXPECT_EQ(outer.objects, outer_cells);
+	EXPECT_EQ(inner.objects, inner_cells);
+}
+
+TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
+{
+	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
+	u_sub2->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	NetView::Found ref{NetView::Found::Kind::Pin};
+	ref.objects = {view.instance(i1, view.instance(u_sub2))->pins[0]};
+	view.anchor({&ref});
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	ASSERT_EQ(ref.objects.size(), 1u);
+	EXPECT_EQ(static_cast<const Netlist::Pin *>(ref.objects[0])->inst->parent, next->instance(u_sub2));
+	top->rename(u_sub2, "\\u_other");
+	std::unique_ptr<NetView> last = next->retire();
+	last->build(d);
+	last->resolve({&ref});
+	EXPECT_TRUE(ref.objects.empty());
 }
 
 YOSYS_NAMESPACE_END
