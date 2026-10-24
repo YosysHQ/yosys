@@ -17,6 +17,8 @@ pattern formal_clockgateff
 // always @(posedge clk) flopped_en <= en;
 // assign gated_clk_o = flopped_en & clk_i;
 
+udata <bool> did_something
+
 state <SigSpec> clk en latched_en gated_clk
 state <IdString> latched_en_port_name
 

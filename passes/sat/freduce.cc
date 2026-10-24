@@ -27,10 +27,15 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-bool inv_mode;
-int verbose_level, reduce_counter, reduce_stop_at;
 typedef std::map<RTLIL::SigBit, std::pair<RTLIL::Cell*, std::set<RTLIL::SigBit>>> drivers_t;
-std::string dump_prefix;
+
+struct FreduceConfig
+{
+	bool inv_mode = false;
+	int verbose_level = 0;
+	int reduce_stop_at = 0;
+	std::string dump_prefix;
+};
 
 struct equiv_bit_t
 {
@@ -66,6 +71,7 @@ struct CountBitUsage
 
 struct FindReducedInputs
 {
+	const FreduceConfig &config;
 	SigMap &sigmap;
 	drivers_t &drivers;
 
@@ -76,8 +82,8 @@ struct FindReducedInputs
 	std::map<RTLIL::SigBit, int> sat_pi;
 	std::vector<int> sat_pi_uniq_bitvec;
 
-	FindReducedInputs(SigMap &sigmap, drivers_t &drivers) :
-			sigmap(sigmap), drivers(drivers), satgen(ez.get(), &sigmap)
+	FindReducedInputs(const FreduceConfig &config, SigMap &sigmap, drivers_t &drivers) :
+			config(config), sigmap(sigmap), drivers(drivers), satgen(ez.get(), &sigmap)
 	{
 		satgen.model_undef = true;
 	}
@@ -163,13 +169,13 @@ struct FindReducedInputs
 
 	void analyze(std::vector<RTLIL::SigBit> &reduced_inputs, RTLIL::SigBit output, int prec)
 	{
-		if (verbose_level >= 1)
+		if (config.verbose_level >= 1)
 			log("[%2d%%]  Analyzing input cone for signal %s:\n", prec, log_signal(output));
 
 		std::vector<RTLIL::SigBit> pi;
 		register_cone(pi, output);
 
-		if (verbose_level >= 1)
+		if (config.verbose_level >= 1)
 			log("         Found %d input signals and %d cells.\n", int(pi.size()), int(ez_cells.size()));
 
 		satgen.setContext(&sigmap, "A");
@@ -203,7 +209,7 @@ struct FindReducedInputs
 			int found_count = 0;
 			for (size_t i = 0; i < model_pi_idx.size(); i++)
 				if (model[i]) {
-					if (verbose_level >= 2)
+					if (config.verbose_level >= 2)
 						log("         Found relevant input: %s\n", log_signal(pi[model_pi_idx[i]]));
 					unused_pi_idx.erase(model_pi_idx[i]);
 					found_count++;
@@ -215,13 +221,14 @@ struct FindReducedInputs
 			if (unused_pi_idx.count(i) == 0)
 				reduced_inputs.push_back(pi[i]);
 
-		if (verbose_level >= 1)
+		if (config.verbose_level >= 1)
 			log("         Reduced input cone contains %d inputs.\n", int(reduced_inputs.size()));
 	}
 };
 
 struct PerformReduction
 {
+	const FreduceConfig &config;
 	SigMap &sigmap;
 	drivers_t &drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs;
@@ -274,8 +281,8 @@ struct PerformReduction
 		return sigdepth.at(out);
 	}
 
-	PerformReduction(SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
-			sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(ez.get(), &sigmap), out_bits(bits), cone_size(cone_size)
+	PerformReduction(const FreduceConfig &config, SigMap &sigmap, drivers_t &drivers, std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> &inv_pairs, std::vector<RTLIL::SigBit> &bits, int cone_size) :
+			config(config), sigmap(sigmap), drivers(drivers), inv_pairs(inv_pairs), satgen(ez.get(), &sigmap), out_bits(bits), cone_size(cone_size)
 	{
 		satgen.model_undef = true;
 
@@ -288,7 +295,7 @@ struct PerformReduction
 			sat_def.push_back(ez->NOT(satgen.importUndefSigSpec(bit).front()));
 		}
 
-		if (inv_mode && cone_size > 0) {
+		if (config.inv_mode && cone_size > 0) {
 			if (!ez->solve(sat_out, out_inverted, ez->expression(ezSAT::OpAnd, sat_def)))
 				log_error("Solving for initial model failed!\n");
 			for (size_t i = 0; i < sat_out.size(); i++)
@@ -300,7 +307,7 @@ struct PerformReduction
 
 	void analyze_const(std::vector<std::vector<equiv_bit_t>> &results, int idx)
 	{
-		if (verbose_level == 1)
+		if (config.verbose_level == 1)
 			log("    Finding const value for %s.\n", log_signal(out_bits[idx]));
 
 		bool can_be_set = ez->solve(ez->AND(sat_out[idx], sat_def[idx]));
@@ -312,7 +319,7 @@ struct PerformReduction
 			value = RTLIL::State::S1;
 		if (can_be_clr)
 			value = RTLIL::State::S0;
-		if (verbose_level == 1)
+		if (config.verbose_level == 1)
 			log("      Constant value for this signal: %s\n", log_signal(value));
 
 		int result_idx = -1;
@@ -350,10 +357,10 @@ struct PerformReduction
 		if (bucket.size() <= 1)
 			return;
 
-		if (verbose_level == 1)
+		if (config.verbose_level == 1)
 			log("%s  Trying to shatter bucket with %d signals.\n", indt, int(bucket.size()));
 
-		if (verbose_level > 1) {
+		if (config.verbose_level > 1) {
 			std::vector<RTLIL::SigBit> bucket_sigbits;
 			for (int idx : bucket)
 				bucket_sigbits.push_back(out_bits[idx]);
@@ -370,7 +377,7 @@ struct PerformReduction
 		std::vector<bool> model;
 
 		modelVars.insert(modelVars.end(), sat_def.begin(), sat_def.end());
-		if (verbose_level >= 2)
+		if (config.verbose_level >= 2)
 			modelVars.insert(modelVars.end(), sat_pi.begin(), sat_pi.end());
 
 		if (ez->solve(modelVars, model, ez->expression(ezSAT::OpOr, sat_set_list), ez->expression(ezSAT::OpOr, sat_clr_list)))
@@ -397,7 +404,7 @@ struct PerformReduction
 				iter_count++;
 			}
 
-			if (verbose_level >= 1) {
+			if (config.verbose_level >= 1) {
 				int count_set = 0, count_clr = 0, count_undef = 0;
 				for (int idx : bucket)
 					if (!model[sat_out.size() + idx])
@@ -409,7 +416,7 @@ struct PerformReduction
 				log("%s    After %d iterations: %d set vs. %d clr vs %d undef\n", indt, iter_count, count_set, count_clr, count_undef);
 			}
 
-			if (verbose_level >= 2) {
+			if (config.verbose_level >= 2) {
 				for (size_t i = 0; i < pi_bits.size(); i++)
 					log("%s       -> PI  %c == %s\n", indt, model[2*sat_out.size() + i] ? '1' : '0', log_signal(pi_bits[i]));
 				for (int idx : bucket)
@@ -443,7 +450,7 @@ struct PerformReduction
 			}
 
 			if (undef_slaves.size() == bucket.size()) {
-				if (verbose_level >= 1)
+				if (config.verbose_level >= 1)
 					log("%s    Complex undef overlap. None of the signals covers the others.\n", indt);
 				// FIXME: We could try to further shatter a group with complex undef overlaps
 				return;
@@ -452,7 +459,7 @@ struct PerformReduction
 			for (int idx : undef_slaves)
 				out_depth[idx] = std::numeric_limits<int>::max();
 
-			if (verbose_level >= 1) {
+			if (config.verbose_level >= 1) {
 				std::string message = stringf("%s    Found %d equivalent signals:", indt, int(bucket.size()));
 				for (int idx : bucket)
 					message += stringf("%s%s%s", idx == bucket.front() ? " " : ", ", out_inverted[idx] ? "~" : "", log_signal(out_bits[idx]));
@@ -498,7 +505,7 @@ struct PerformReduction
 			if (r.size() <= 1)
 				continue;
 
-			if (verbose_level >= 1) {
+			if (config.verbose_level >= 1) {
 				std::vector<RTLIL::SigBit> r_sigbits;
 				for (int idx : r)
 					r_sigbits.push_back(out_bits[idx]);
@@ -517,7 +524,7 @@ struct PerformReduction
 			}
 
 			if (undef_slaves.size() == bucket.size()) {
-				if (verbose_level >= 1)
+				if (config.verbose_level >= 1)
 					log("    Complex undef overlap. None of the signals covers the others.\n");
 				// FIXME: We could try to further shatter a group with complex undef overlaps
 				return;
@@ -557,6 +564,8 @@ struct PerformReduction
 
 struct FreduceWorker
 {
+	const FreduceConfig &config;
+	int &reduce_counter;
 	RTLIL::Design *design;
 	RTLIL::Module *module;
 
@@ -564,7 +573,8 @@ struct FreduceWorker
 	drivers_t drivers;
 	std::set<std::pair<RTLIL::SigBit, RTLIL::SigBit>> inv_pairs;
 
-	FreduceWorker(RTLIL::Design *design, RTLIL::Module *module) : design(design), module(module), sigmap(module)
+	FreduceWorker(const FreduceConfig &config, int &reduce_counter, RTLIL::Design *design, RTLIL::Module *module) :
+			config(config), reduce_counter(reduce_counter), design(design), module(module), sigmap(module)
 	{
 	}
 
@@ -595,7 +605,7 @@ struct FreduceWorker
 
 	void dump()
 	{
-		std::string filename = stringf("%s_%s_%05d.il", dump_prefix, module, reduce_counter);
+		std::string filename = stringf("%s_%s_%05d.il", config.dump_prefix, module, reduce_counter);
 		log("%s    Writing dump file `%s'.\n", reduce_counter ? "  " : "", filename);
 		Pass::call(design, stringf("dump -outfile %s %s", filename, design->selected_active_module.empty() ? module->name.str().c_str() : ""));
 	}
@@ -632,7 +642,7 @@ struct FreduceWorker
 				batches.push_back(outputs);
 				bits_full_total += outputs.size();
 			}
-			if (inv_mode && cell->type == ID($_NOT_))
+			if (config.inv_mode && cell->type == ID($_NOT_))
 				inv_pairs.insert(std::pair<RTLIL::SigBit, RTLIL::SigBit>(sigmap(cell->getPort(ID::A)), sigmap(cell->getPort(ID::Y))));
 		}
 
@@ -649,9 +659,9 @@ struct FreduceWorker
 
 		found_selected_wire:
 			log("  Finding reduced input cone for signal batch %s%c\n",
-					log_signal(batch), verbose_level ? ':' : '.');
+					log_signal(batch), config.verbose_level ? ':' : '.');
 
-			FindReducedInputs infinder(sigmap, drivers);
+			FindReducedInputs infinder(config, sigmap, drivers);
 			for (auto &bit : batch) {
 				std::vector<RTLIL::SigBit> inputs;
 				infinder.analyze(inputs, bit, 100 * bits_full_count / bits_full_total);
@@ -672,13 +682,13 @@ struct FreduceWorker
 				continue;
 
 			if (bucket.first.size() == 0) {
-				log("  Finding const values for bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
-				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				log("  Finding const values for bucket %s%c\n", log_signal(bucket.second), config.verbose_level ? ':' : '.');
+				PerformReduction worker(config, sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				for (size_t idx = 0; idx < bucket.second.size(); idx++)
 					worker.analyze_const(equiv, idx);
 			} else {
-				log("  Trying to shatter bucket %s%c\n", log_signal(bucket.second), verbose_level ? ':' : '.');
-				PerformReduction worker(sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
+				log("  Trying to shatter bucket %s%c\n", log_signal(bucket.second), config.verbose_level ? ':' : '.');
+				PerformReduction worker(config, sigmap, drivers, inv_pairs, bucket.second, bucket.first.size());
 				worker.analyze(equiv, 100 * bucket_count / (buckets.size() + 1));
 			}
 		}
@@ -687,7 +697,7 @@ struct FreduceWorker
 		CountBitUsage bitusage_worker(sigmap, bitusage);
 		module->rewrite_sigspecs(bitusage_worker);
 
-		if (!dump_prefix.empty())
+		if (!config.dump_prefix.empty())
 			dump();
 
 		log("  Rewiring %d equivalent groups:\n", int(equiv.size()));
@@ -741,10 +751,10 @@ struct FreduceWorker
 				rewired_sigbits++;
 			}
 
-			if (!dump_prefix.empty())
+			if (!config.dump_prefix.empty())
 				dump();
 
-			if (reduce_counter == reduce_stop_at) {
+			if (reduce_counter == config.reduce_stop_at) {
 				log("    Reached limit passed using -stop option. Skipping all further reductions.\n");
 				break;
 			}
@@ -795,34 +805,30 @@ struct FreducePass : public Pass {
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		reduce_counter = 0;
-		reduce_stop_at = 0;
-		verbose_level = 0;
-		inv_mode = false;
-		dump_prefix = std::string();
+		FreduceConfig config;
 
 		log_header(design, "Executing FREDUCE pass (perform functional reduction).\n");
 
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-v") {
-				verbose_level = 1;
+				config.verbose_level = 1;
 				continue;
 			}
 			if (args[argidx] == "-vv") {
-				verbose_level = 2;
+				config.verbose_level = 2;
 				continue;
 			}
 			if (args[argidx] == "-inv") {
-				inv_mode = true;
+				config.inv_mode = true;
 				continue;
 			}
 			if (args[argidx] == "-stop" && argidx+1 < args.size()) {
-				reduce_stop_at = atoi(args[++argidx].c_str());
+				config.reduce_stop_at = atoi(args[++argidx].c_str());
 				continue;
 			}
 			if (args[argidx] == "-dump" && argidx+1 < args.size()) {
-				dump_prefix = args[++argidx];
+				config.dump_prefix = args[++argidx];
 				continue;
 			}
 			break;
@@ -830,8 +836,9 @@ struct FreducePass : public Pass {
 		extra_args(args, argidx, design);
 
 		int bitcount = 0;
+		int reduce_counter = 0;
 		for (auto module : design->selected_modules()) {
-			bitcount += FreduceWorker(design, module).run();
+			bitcount += FreduceWorker(config, reduce_counter, design, module).run();
 		}
 
 		log("Rewired a total of %d signal bits.\n", bitcount);
