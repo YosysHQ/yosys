@@ -1,0 +1,89 @@
+! mkdir -p temp
+
+read_rtlil <<EOT
+module \top
+  parameter \PD 32'00000000000000000000000000000111
+  attribute \one 1
+  attribute \zero 0
+  attribute \max 2147483647
+  attribute \over 32'10000000000000000000000000000000
+  attribute \neg 32's11111111111111111111111111111011
+  attribute \narrow 8'00000001
+  attribute \undef 32'x
+  attribute \str "abcd"
+  wire \w
+  wire width 32 output 1 \e
+  wire width 34 output 2 \c
+  wire input 3 \a
+  cell \sub \u
+    parameter \W 5
+    parameter \H 32'10000000000000000000000000000000
+    parameter signed \N 32's11111111111111111111111111111011
+    connect \x \a
+  end
+  connect \e 5
+  connect \c { \a 32'00000000000000000000000000000101 \a }
+end
+EOT
+
+write_verilog -defaultparams temp/write_verilog_unsized.v
+! grep -qF "(* one = 1 *)" temp/write_verilog_unsized.v
+! grep -qF "(* zero = 0 *)" temp/write_verilog_unsized.v
+! grep -qF "(* max = 2147483647 *)" temp/write_verilog_unsized.v
+! grep -qF "(* over = 32'd2147483648 *)" temp/write_verilog_unsized.v
+! grep -qF "(* neg = -5 *)" temp/write_verilog_unsized.v
+! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_unsized.v
+! grep -qF "(* undef = 32'hxxxxxxxx *)" temp/write_verilog_unsized.v
+! grep -qF "(* str = \"abcd\" *)" temp/write_verilog_unsized.v
+! grep -qF "parameter PD = 7;" temp/write_verilog_unsized.v
+! grep -qF ".W(5)" temp/write_verilog_unsized.v
+! grep -qF ".H(32'd2147483648)" temp/write_verilog_unsized.v
+! grep -qF ".N(-5)" temp/write_verilog_unsized.v
+! grep -qF "assign e = 32'd5;" temp/write_verilog_unsized.v
+! grep -qF "assign c = { a, 32'h00000005, a };" temp/write_verilog_unsized.v
+
+write_verilog -defaultparams -nodec_attr temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "(* one = 32'd1 *)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "(* neg = -32'sd5 *)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "parameter PD = 7;" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF ".W(5)" temp/write_verilog_unsized_nodec_attr.v
+
+write_verilog -defaultparams -nodec_param temp/write_verilog_unsized_nodec_param.v
+! grep -qF "(* one = 1 *)" temp/write_verilog_unsized_nodec_param.v
+! grep -qF "parameter PD = 32'd7;" temp/write_verilog_unsized_nodec_param.v
+! grep -qF ".W(32'd5)" temp/write_verilog_unsized_nodec_param.v
+! grep -qF ".N(-32'sd5)" temp/write_verilog_unsized_nodec_param.v
+
+write_verilog -defparam temp/write_verilog_unsized_defparam.v
+! grep -qF "defparam u.W = 5;" temp/write_verilog_unsized_defparam.v
+
+write_verilog -decimal temp/write_verilog_unsized_decimal.v
+! grep -qF "assign e = 5;" temp/write_verilog_unsized_decimal.v
+! grep -qF "assign c = { a, 32'h00000005, a };" temp/write_verilog_unsized_decimal.v
+
+write_verilog -nodec temp/write_verilog_unsized_nodec.v
+! grep -qF "(* one = 32'h00000001 *)" temp/write_verilog_unsized_nodec.v
+! grep -qF ".W(32'h00000005)" temp/write_verilog_unsized_nodec.v
+
+write_verilog -nostr temp/write_verilog_unsized_nostr.v
+! grep -qF "(* one = 32'h00000001 *)" temp/write_verilog_unsized_nostr.v
+! grep -qF ".W(32'h00000005)" temp/write_verilog_unsized_nostr.v
+
+design -reset
+read_verilog temp/write_verilog_unsized.v
+design -reset
+read_verilog temp/write_verilog_unsized_defparam.v
+design -reset
+read_verilog temp/write_verilog_unsized_decimal.v
+
+design -reset
+read_verilog -icells <<EOT
+module top(input clk, rst, input [31:0] d, output [31:0] q);
+	\$adff #(.WIDTH(32), .CLK_POLARITY(1), .ARST_POLARITY(1), .ARST_VALUE(32'sh80000000)) u (.CLK(clk), .ARST(rst), .D(d), .Q(q));
+endmodule
+EOT
+write_verilog -noattr -noexpr temp/write_verilog_unsized_intmin.v
+! grep -qF ".WIDTH(32)" temp/write_verilog_unsized_intmin.v
+! grep -qF ".ARST_VALUE(-32'sd2147483648)" temp/write_verilog_unsized_intmin.v
+design -reset
+read_verilog -icells temp/write_verilog_unsized_intmin.v
