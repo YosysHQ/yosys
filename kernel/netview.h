@@ -2,7 +2,7 @@
 // - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit a barrier's A and Y are one net unless
 //              either is constant
-// - Names      port, then 'keep', then public wire; 'hdlname' gives hdlpath
+// - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -14,6 +14,7 @@
 #include <array>
 #include <deque>
 #include <map>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
 
@@ -22,6 +23,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail {
 
 struct Fingerprint;
+uint64_t mix64(uint64_t state, uint64_t value);
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
@@ -34,6 +36,8 @@ void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL:
 
 // Cells
 bool internalType(RTLIL::IdString type);
+bool transparentType(RTLIL::IdString type);
+void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 
@@ -47,7 +51,9 @@ Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool 
 std::string plainName(RTLIL::PooledName id);
 RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
-std::vector<std::string> hdlPath(const RTLIL::AttrObject *object);
+std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
+std::vector<std::string> flattenPath(std::string_view name);
+size_t flattenSeparator(std::string_view name);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
 using NameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
@@ -87,6 +93,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void build(RTLIL::Design *design, PortModel *ports = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
+	std::unique_ptr<NetView> retire();
 	bool built() const;
 	static RTLIL::Module *topModule(RTLIL::Design *design);
 
@@ -96,10 +103,10 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void invalidateCheck();
 
 	Instance *top() const;
-	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
+	std::array<size_t, 3> counts() const;
 
 	const std::vector<Net *> &nets(const Instance *scope) const;
-	Net *constNet(const Instance *scope, bool one) const;
+	std::vector<Net *> constNets(bool one) const;
 	NetName wireName(const Net *net) const;
 	const std::vector<Alias> &aliases(const Instance *scope) const;
 
@@ -143,10 +150,13 @@ private:
 		dict<std::pair<uint32_t, uint64_t>, Net *> data;
 	};
 
+	void clearTables();
 	void buildTop(RTLIL::Module *top);
 	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
 	void buildScope(RTLIL::Module *module, Instance *scope);
 	void makePins(Instance *inst);
+	// Ports of an instance's master as the host knows them, ignoring PortModel
+	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
 	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
@@ -179,6 +189,7 @@ private:
 	// Port shapes
 	std::deque<PortShapes> shape_store_;
 	dict<std::string, const PortShapes *> shape_cache_; // library leaf types
+	pool<std::string> unmodeled_; // leaf types that the model does not know
 
 	// Scope contents
 	std::unordered_map<const Instance *, ScopeData> scopes_;

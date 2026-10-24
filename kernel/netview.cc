@@ -19,6 +19,13 @@ NetView::Instance *NetView::top() const
 	return top_;
 }
 
+std::array<size_t, 3> NetView::counts() const
+{
+	if (!built())
+		return {};
+	return {instances_.size() - 1, nets_.size(), pins_.size()};
+}
+
 bool NetView::designAlive() const
 {
 	for (const auto &[idx, design] : *RTLIL::Design::get_all_designs()) {
@@ -40,11 +47,48 @@ bool detail::internalType(RTLIL::IdString type)
 	return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo);
 }
 
-std::vector<std::string> detail::hdlPath(const RTLIL::AttrObject *object)
+std::vector<std::string> detail::sourcePath(const RTLIL::AttrObject *object, std::string_view name)
 {
-	if (!object->has_attribute(ID::hdlname))
+	if (object->has_attribute(ID::hdlname))
+		return object->get_hdlname_attribute();
+	return detail::flattenPath(name);
+}
+
+// $flatten\a.\b.$x or $flatten\a/\b/$x for a, b and $x
+std::vector<std::string> detail::flattenPath(std::string_view name)
+{
+	constexpr std::string_view prefix = "$flatten";
+	if (!name.starts_with(prefix))
 		return {};
-	return object->get_hdlname_attribute();
+	name.remove_prefix(prefix.size());
+	std::vector<std::string> parts;
+	while (name.starts_with('\\')) {
+		size_t sep = detail::flattenSeparator(name);
+		if (sep == std::string_view::npos)
+			break;
+		parts.emplace_back(name.substr(1, sep - 1));
+		name.remove_prefix(sep + 1);
+	}
+	if (parts.empty() || name.empty())
+		return {};
+	parts.emplace_back(name);
+	return parts;
+}
+
+// '.' or '/', then the next scope ('\') or the private name ('$')
+size_t detail::flattenSeparator(std::string_view name)
+{
+	for (size_t i = 1; i + 1 < name.size(); i++) {
+		bool sep = name[i] == '.' || name[i] == '/';
+		if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
+			return i;
+	}
+	return std::string_view::npos;
+}
+
+bool detail::transparentType(RTLIL::IdString type)
+{
+	return type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo));
 }
 
 // Unescaped
@@ -64,16 +108,16 @@ RTLIL::IdString detail::escapedPortId(const RTLIL::Design *design, const RTLIL::
 	return design->twines().find(name);
 }
 
-// Declared with a range - wider than one bit, offset, or [0:0]
+// Declared with a range - wider than one bit, or [n:n]
 bool detail::isVector(const RTLIL::Wire *wire)
 {
-	return wire->width > 1 || wire->start_offset != 0 || wire->has_attribute(ID::single_bit_vector);
+	return wire->width > 1 || wire->has_attribute(ID::single_bit_vector);
 }
 
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::hdlPath(wire)};
+	return {detail::plainName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::sourcePath(wire, wire->name.str())};
 }
 
 Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)
@@ -168,15 +212,14 @@ const NetView::PortShapes *NetView::portsFor(Instance *inst, RTLIL::Module *sub)
 	}
 
 	PortShapes &shapes = shape_store_.emplace_back();
-	bool ok = true;
 	if (sub != nullptr)
 		detail::moduleShapes(sub, shapes);
-	else if (ports_ != nullptr)
-		ok = ports_->ports(*inst, shapes);
-	else
-		ok = hostPorts(inst, shapes);
-	if (!ok)
+	else if (ports_ == nullptr && !hostPorts(inst, shapes))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
+	else if (ports_ != nullptr && !ports_->ports(*inst, shapes)) {
+		hostPorts(inst, shapes);
+		unmodeled_.insert(inst->type);
+	}
 
 	if (shared)
 		shape_cache_[inst->type] = &shapes;
@@ -220,8 +263,7 @@ uint64_t detail::countInstances(RTLIL::Design *design, RTLIL::Module *module, di
 	return count;
 }
 
-bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open,
-                            std::string &reason)
+bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason)
 {
 	open.insert(module);
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -252,7 +294,7 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 		return false;
 	dict<RTLIL::Module *, uint64_t> counts;
 	if (detail::countInstances(design, top, counts) >= UINT32_MAX) {
-		reason = "todo biiiiig ids";
+		reason = "the unfolded design needs more than the 32-bit object ids hold";
 		return false;
 	}
 	pool<RTLIL::Module *> blackboxes;
@@ -317,6 +359,8 @@ void NetView::build(RTLIL::Design *design, PortModel *ports)
 		reset();
 		throw;
 	}
+	for (const std::string &type : unmodeled_)
+		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
 	for (const auto &[module, occurrences] : module_scopes_.data)
 		tracked_.push_back(module->name);
 	fingerprint_ = fingerprint();
@@ -345,8 +389,18 @@ void NetView::reset()
 	pins_.clear();
 	nets_.clear();
 	terms_.clear();
+	clearTables();
+	next_inst_id_ = 1;
+	next_pin_id_ = 1;
+	next_net_id_ = 1;
+	next_term_id_ = 1;
+}
+
+void NetView::clearTables()
+{
 	shape_store_.clear();
 	shape_cache_.clear();
+	unmodeled_.clear();
 	sigmaps_.clear();
 	bit_nets_.clear();
 	scopes_.clear();
@@ -354,10 +408,27 @@ void NetView::reset()
 	module_scopes_.clear();
 	inst_data_.clear();
 	net_data_.clear();
-	next_inst_id_ = 1;
-	next_pin_id_ = 1;
-	next_net_id_ = 1;
-	next_term_id_ = 1;
+}
+
+std::unique_ptr<NetView> NetView::retire()
+{
+	unregisterMonitor();
+	design_ = nullptr;
+	clearTables();
+	for (Instance &inst : instances_) {
+		inst.pins = {};
+		inst.children = {};
+		inst.name = {};
+		inst.hdlpath = {};
+		inst.type = {};
+		inst.master = {};
+		inst.ports = nullptr;
+	}
+	for (Net &net : nets_) {
+		net.pins = {};
+		net.terms = {};
+	}
+	return std::make_unique<NetView>();
 }
 
 NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent)
@@ -383,6 +454,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	// The top is 0
 	inst->parent = parent;
+	inst->netlist = this;
 	inst->id = 0;
 	if (parent != nullptr)
 		inst->id = next_inst_id_++;
@@ -394,7 +466,7 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 
 	inst_data_[inst->id] = {cell, module};
 	if (cell != nullptr) {
-		inst->hdlpath = detail::hdlPath(cell);
+		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		cell_insts_.add(cell->hashidx_, inst);
 	}
 	if (module != nullptr)
@@ -415,7 +487,7 @@ std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
-		if (cell->type.in(ID($barrier), ID($scopeinfo)))
+		if (detail::transparentType(cell->type))
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
 		makePins(inst);
@@ -504,7 +576,7 @@ detail::NameRank detail::nameRank(const RTLIL::SigBit &bit)
 	bool port = wire->port_id != 0;
 	bool keep = wire->get_bool_attribute(ID::keep);
 	bool pub = wire->name.isPublic();
-	size_t depth = detail::hdlPath(wire).size();
+	size_t depth = detail::sourcePath(wire, wire->name.str()).size();
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
 }
 
@@ -542,8 +614,21 @@ SigMap &NetView::sigmapFor(RTLIL::Module *module)
 	if (it != sigmaps_.end())
 		return it->second;
 	SigMap &sigmap = sigmaps_.try_emplace(module, module).first->second;
+	detail::addConnectAliases(module, sigmap);
 	detail::addBarrierAliases(module, sigmap);
 	return sigmap;
+}
+
+// $connect joins its two sides, as a module connection does
+void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
+{
+	for (RTLIL::Cell *cell : module->cells()) {
+		if (cell->type != ID($connect))
+			continue;
+		RTLIL::SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
+		for (int i = 0; i < GetSize(a) && i < GetSize(b); i++)
+			sigmap.add(a[i], b[i]);
+	}
 }
 
 void detail::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap)
@@ -641,9 +726,14 @@ const std::vector<NetView::Alias> &NetView::aliases(const Instance *scope) const
 	return scopeData(scope).aliases;
 }
 
-NetView::Net *NetView::constNet(const Instance *scope, bool one) const
+std::vector<NetView::Net *> NetView::constNets(bool one) const
 {
-	return scopeData(scope).consts[one];
+	std::vector<Net *> nets;
+	for (const auto &[scope, data] : scopes_) {
+		if (data.consts[one] != nullptr)
+			nets.push_back(data.consts[one]);
+	}
+	return nets;
 }
 
 NetView::Net *NetView::findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit)
@@ -675,15 +765,34 @@ NetView::Net *NetView::findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit)
 	return net;
 }
 
+uint64_t detail::mix64(uint64_t state, uint64_t value)
+{
+	uint64_t z = state + value + 0x9e3779b97f4a7c15;
+	z = (z ^ z >> 30) * 0xbf58476d1ce4e5b9;
+	z = (z ^ z >> 27) * 0x94d049bb133111eb;
+	return z ^ z >> 31;
+}
+
 struct detail::Fingerprint {
-	Hasher lo, hi;
-	Fingerprint() { hi.force(0x9e3779b9); }
-	template <typename T> void eat(const T &value)
+	uint64_t state = 0;
+	void eat(uint64_t value) { state = detail::mix64(state, value); }
+	void eat(uint32_t high, uint32_t low) { eat(uint64_t(high) << 32 | low); }
+	void eat(RTLIL::IdString id) { eat(uint64_t(id.eq_key())); }
+	void eat(const std::string &text)
 	{
-		lo.eat(value);
-		hi.eat(value);
+		eat(text.size());
+		for (size_t at = 0; at < text.size(); at += 8) {
+			uint64_t chunk = 0;
+			memcpy(&chunk, text.data() + at, std::min<size_t>(8, text.size() - at));
+			eat(chunk);
+		}
 	}
-	uint64_t yield() const { return uint64_t(hi.yield()) << 32 | lo.yield(); }
+	void eat(const RTLIL::SigSpec &sig)
+	{
+		for (RTLIL::SigBit bit : sig)
+			eat(bit.wire ? uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset) : uint64_t(bit.data) + 8);
+	}
+	uint64_t yield() const { return state; }
 };
 
 uint64_t NetView::fingerprint() const
@@ -703,7 +812,7 @@ uint64_t NetView::fingerprint() const
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {
 	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name);
+		fp.eat(module->name.ref());
 		fp.eat(module->hashidx_);
 		bool blackbox = module->get_blackbox_attribute();
 		fp.eat(blackbox);
@@ -724,8 +833,11 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
-	for (const RTLIL::SigSig &conn : module->connections())
-		fp.eat(conn);
+	for (const auto &[lhs, rhs] : module->connections()) {
+		fp.eat(GetSize(lhs));
+		fp.eat(lhs);
+		fp.eat(rhs);
+	}
 	for (RTLIL::Wire *wire : module->wires())
 		detail::hashWire(fp, wire);
 	for (RTLIL::Cell *cell : module->cells())
@@ -734,27 +846,24 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 
 void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 {
-	fp.eat(wire->name);
+	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
+	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
+	fp.eat(wire->name.ref());
 	fp.eat(wire->hashidx_);
-	fp.eat(wire->width);
-	fp.eat(wire->start_offset);
-	fp.eat(wire->upto);
-	fp.eat(wire->port_id);
-	fp.eat(wire->port_input);
-	fp.eat(wire->port_output);
-	fp.eat(wire->get_bool_attribute(ID::keep));
+	fp.eat(wire->width, wire->start_offset);
+	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
-	fp.eat(wire->has_attribute(ID::single_bit_vector));
 }
 
 void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
 {
-	fp.eat(cell->name);
+	fp.eat(cell->name.ref());
 	fp.eat(cell->hashidx_);
-	fp.eat(cell->type);
+	fp.eat(cell->type.ref());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
 	for (const auto &[port, sig] : cell->connections()) {
 		fp.eat(port);
+		fp.eat(GetSize(sig));
 		fp.eat(sig);
 	}
 }
