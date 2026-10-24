@@ -429,8 +429,6 @@ void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, 
 			f << stringf(" 0 ");
 		else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 			f << stringf(" 1 ");
-		else if (!nostr && !nodec && it->second.size() == 32 && (it->second.flags & RTLIL::CONST_FLAG_STRING) == 0 && it->second.is_fully_def() && it->second.as_int() >= 0)
-			f << stringf("%d", it->second.as_int());
 		else
 			dump_const(f, it->second, -1, 0, false, as_comment);
 		f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
