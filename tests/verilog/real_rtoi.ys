@@ -1,0 +1,19 @@
+# Like most commercial tools, $rtoi wraps a finite value that does not fit and maps infinity to 0.
+logger -expect warning "does not fit in a 32-bit integer" 2
+read_verilog -sv <<EOT
+module top;
+    localparam integer A = $rtoi(-2147483648.9);
+    localparam integer B = $rtoi(2147483647.9);
+    localparam integer C = $rtoi(1.0e20);
+    localparam integer D = $rtoi(1.0e308 * 10.0);
+    always_comb begin
+        assert(A == 32'h80000000);
+        assert(B == 32'h7fffffff);
+        assert(C == 32'h63100000);
+        assert(D == 0);
+    end
+endmodule
+EOT
+proc
+async2sync
+sat -verify -prove-asserts
