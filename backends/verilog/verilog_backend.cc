@@ -245,7 +245,7 @@ void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int o
 				if (data[i] == State::S1)
 					val |= 1 << (i - offset);
 			}
-			if (decimal)
+			if (decimal && (set_signed || val >= 0))
 				f << stringf("%d", val);
 			else if (set_signed && val < 0)
 				f << stringf("-32'sd%u", -val);

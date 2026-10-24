@@ -1,0 +1,31 @@
+! mkdir -p temp
+
+read_verilog <<EOT
+module top(input [63:0] a, output [63:0] y, output [63:0] z);
+	assign y = a + 32'hFFFFFFFF;
+	assign z = a + 32'd5;
+endmodule
+EOT
+write_verilog -noattr -decimal temp/write_verilog_decimal.v
+! grep -qF "a + 32'd4294967295;" temp/write_verilog_decimal.v
+! grep -qF "a + 5;" temp/write_verilog_decimal.v
+
+design -stash gold
+read_verilog temp/write_verilog_decimal.v
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+prep
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+sat -prove-asserts -verify
+
+design -reset
+read_verilog <<EOT
+module top(output [63:0] y);
+	sub #(.P(-5), .Q(32'hFFFFFFFB)) u (.y(y));
+endmodule
+EOT
+write_verilog -noattr -decimal temp/write_verilog_decimal_param.v
+! grep -qF ".P(-5)" temp/write_verilog_decimal_param.v
+! grep -qF ".Q(32'd4294967291)" temp/write_verilog_decimal_param.v
