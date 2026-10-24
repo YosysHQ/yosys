@@ -2189,6 +2189,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					newNode->children.insert(newNode->children.begin(), packed->clone());
 				else
 					prepend_ranges(newNode->children[0], packed.get());
+				// IEEE 1800-2023 §7.4.1: the array is unsigned, and its elements keep the typedef's sign.
+				int packed_dimensions = packed->type == AST_MULTIRANGE ? GetSize(packed->children) : 1;
+				newNode->signed_element_dimensions = newNode->is_signed ? packed_dimensions : 0;
+				newNode->is_signed = false;
 			}
 
 			// Add unpacked dimensions.
@@ -2368,6 +2372,14 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		// Save original number of dimensions for $size() etc.
 		integer = dims_sel;
 
+		// Assignments expect an lvalue to stay a bare identifier, and its sign never matters.
+		int packed_dims_sel = dims_sel - id2ast->unpacked_dimensions;
+		bool selects_signed_element = !in_lvalue && id2ast->signed_element_dimensions > 0 && packed_dims_sel == id2ast->signed_element_dimensions;
+		for (int i = id2ast->unpacked_dimensions; selects_signed_element && i < dims_sel; i++) {
+			auto& range = children[0]->type == AST_MULTIRANGE ? children[0]->children[i] : children[0];
+			selects_signed_element = GetSize(range->children) == 1;
+		}
+
 		// Split access into unpacked and packed parts.
 		std::unique_ptr<AstNode> unpacked_range = nullptr;
 		std::unique_ptr<AstNode> packed_range = nullptr;
@@ -2407,6 +2419,11 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		fixup_hierarchy_flags();
 		basic_prep = true;
 		did_something = true;
+
+		if (selects_signed_element) {
+			newNode = std::make_unique<AstNode>(location, AST_TO_SIGNED, clone());
+			goto apply_newNode;
+		}
 	}
 
 	// trim/extend parameters
@@ -4036,6 +4053,9 @@ skip_dynamic_range_lvalue_expansion:;
 					}
 				}
 				auto buf = children[0]->clone();
+				// Look through the sign cast of a signed element or struct member.
+				if (buf->type == AST_TO_SIGNED && buf->children[0]->type == AST_IDENTIFIER)
+					buf = std::move(buf->children[0]);
 				int mem_depth = 1;
 				int result, high = 0, low = 0, left = 0, right = 0, width = 1; // defaults for a simple wire
 				int expr_dimensions = 0, expr_unpacked_dimensions = 0;

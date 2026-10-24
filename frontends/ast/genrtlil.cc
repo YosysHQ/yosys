@@ -2151,7 +2151,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 							arg->detectSignWidth(local_width_hint, local_sign_hint);
 						sig = arg->genRTLIL(local_width_hint, local_sign_hint);
 						log_assert(local_sign_hint == arg->is_signed);
-						if (sig.is_wire()) {
+						bool signed_cast_of_wire = arg->is_signed && sig.is_wire() && !sig.as_wire()->is_signed;
+						if (sig.is_wire() && !signed_cast_of_wire) {
 							// if the resulting SigSpec is a wire, its
 							// signedness should match that of the AstNode
 							if (arg->type == AST_IDENTIFIER && arg->id2ast && arg->id2ast->is_signed && !arg->is_signed)
