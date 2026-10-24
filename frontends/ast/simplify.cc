@@ -5879,9 +5879,16 @@ bool AstNode::detect_latch(const std::string &var)
 	}
 }
 
+static bool is_real_declaration(const AstNode *node)
+{
+	return GetSize(node->children) == 1 && node->children.at(0)->type == AST_REALVALUE;
+}
+
 bool AstNode::has_const_only_constructs()
 {
 	if (type == AST_WHILE || type == AST_REPEAT)
+		return true;
+	if (type == AST_WIRE && is_real_declaration(this))
 		return true;
 	for (auto& child : children)
 		if (child->has_const_only_constructs())
@@ -5919,11 +5926,27 @@ bool AstNode::is_in_unconditional_init() {
 	return false;
 }
 
+static bool assigns_to_real(const AstNode *assignment, const std::map<std::string, AstNode::varinfo_t> &variables)
+{
+	const AstNode *target = assignment->children.at(0).get();
+	return variables.count(target->str) && variables.at(target->str).realval;
+}
+
 // helper function for AstNode::eval_const_function()
 bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &variables, AstNode *fcall, bool must_succeed)
 {
 	if (type == AST_IDENTIFIER && variables.count(str)) {
-		int offset = variables.at(str).offset, width = variables.at(str).val.size();
+		const varinfo_t &variable = variables.at(str);
+		if (variable.realval) {
+			if (!children.empty())
+				input_error("Select on real variable %s in constant function\n%s: ...called from here.\n",
+						str.c_str(), fcall->loc_string().c_str());
+			auto newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
+			newNode->realvalue = *variable.realval;
+			newNode->cloneInto(*this);
+			return true;
+		}
+		int offset = variable.offset, width = variable.val.size();
 		if (!children.empty()) {
 			if (children.size() != 1 || children.at(0)->type != AST_RANGE) {
 				if (!must_succeed)
@@ -5943,15 +5966,15 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			offset = min(children.at(0)->range_left, children.at(0)->range_right);
 			width = min(std::abs(children.at(0)->range_left - children.at(0)->range_right) + 1, width);
 		}
-		offset -= variables.at(str).offset;
-		if (variables.at(str).range_swapped)
+		offset -= variable.offset;
+		if (variable.range_swapped)
 			offset = -offset;
-		const RTLIL::Const &val = variables.at(str).val;
+		const RTLIL::Const &val = variable.val;
 		std::vector<RTLIL::State> new_bits;
 		new_bits.reserve(width);
 		for (int i = 0; i < width; i++)
 			new_bits.push_back(val[offset+i]);
-		auto newNode = mkconst_bits(location, new_bits, variables.at(str).is_signed);
+		auto newNode = mkconst_bits(location, new_bits, variable.is_signed);
 		newNode->cloneInto(*this);
 		return true;
 	}
@@ -5990,6 +6013,18 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 #endif
 		if (stmt->type == AST_WIRE)
 		{
+			if (is_real_declaration(stmt.get())) {
+				AstNode::varinfo_t &variable = variables[stmt->str];
+				variable.realval = 0.0;
+				if (stmt->is_input && argidx < fcall->children.size()) {
+					AstNode *arg = fcall->children.at(argidx++).get();
+					variable.realval = arg->asReal(arg->is_signed);
+				}
+				current_scope[stmt->str] = stmt.get();
+				temporary_nodes.push_back(std::move(stmt));
+				block->children.erase(block->children.begin());
+				continue;
+			}
 			while (stmt->simplify(true, 1, -1, false)) { }
 			if (!stmt->range_valid) {
 				if (!must_succeed)
@@ -6015,14 +6050,8 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 				variable.arg = fcall->children.at(argidx++).get();
 			}
 			// load the constant arg's value into this variable
-			if (variable.arg) {
-				if (variable.arg->type == AST_CONSTANT) {
-					variable.val = variable.arg->bitsAsConst(width);
-				} else {
-					log_assert(variable.arg->type == AST_REALVALUE);
-					variable.val = variable.arg->realAsConst(width);
-				}
-			}
+			if (variable.arg)
+				variable.val = variable.arg->valueAsConst(width);
 			current_scope[stmt->str] = stmt.get();
 			temporary_nodes.push_back(std::move(stmt));
 
@@ -6051,12 +6080,19 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 					goto finished;
 			if (!stmt->children.at(1)->replace_variables(variables, fcall, must_succeed))
 				goto finished;
-			while (stmt->simplify(true, 1, -1, false)) { }
+
+			// Simplifying the assignment needs a width for the left hand side,
+			// which a real variable does not have.
+			const bool assigns_real = assigns_to_real(stmt.get(), variables);
+			if (assigns_real)
+				while (stmt->children.at(1)->simplify(true, 1, -1, false)) { }
+			else
+				while (stmt->simplify(true, 1, -1, false)) { }
 
 			if (stmt->type != AST_ASSIGN_EQ)
 				continue;
 
-			if (stmt->children.at(1)->type != AST_CONSTANT) {
+			if (!stmt->children.at(1)->isConst()) {
 				if (!must_succeed)
 					goto finished;
 				stmt->input_error("Non-constant expression in constant function\n%s: ... called from here. X\n",
@@ -6077,8 +6113,13 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 						fcall->loc_string().c_str());
 			}
 
-			if (stmt->children.at(0)->children.empty()) {
-				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->bitsAsConst(variables[stmt->children.at(0)->str].val.size());
+			if (assigns_real) {
+				if (!stmt->children.at(0)->children.empty())
+					stmt->input_error("Select on real variable %s in constant function\n%s: ...called from here.\n",
+							stmt->children.at(0)->str.c_str(), fcall->loc_string().c_str());
+				variables[stmt->children.at(0)->str].realval = stmt->children.at(1)->asReal(stmt->children.at(1)->is_signed);
+			} else if (stmt->children.at(0)->children.empty()) {
+				variables[stmt->children.at(0)->str].val = stmt->children.at(1)->valueAsConst(variables[stmt->children.at(0)->str].val.size());
 			} else {
 				AstNode *range = stmt->children.at(0)->children.at(0).get();
 				if (!range->range_valid) {
@@ -6089,7 +6130,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 				int offset = min(range->range_left, range->range_right);
 				int width = std::abs(range->range_left - range->range_right) + 1;
 				varinfo_t &v = variables[stmt->children.at(0)->str];
-				RTLIL::Const r = stmt->children.at(1)->bitsAsConst(v.val.size());
+				RTLIL::Const r = stmt->children.at(1)->valueAsConst(v.val.size());
 				for (int i = 0; i < width; i++) {
 					int index = i + offset - v.offset;
 					if (v.range_swapped)
@@ -6148,7 +6189,7 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 			num->set_in_param_flag(true);
 			while (num->simplify(true, 1, -1, false)) { }
 
-			if (num->type != AST_CONSTANT) {
+			if (!num->isConst()) {
 				if (!must_succeed)
 					goto finished;
 				stmt->input_error("Non-constant expression in constant function\n%s: ... called from here.\n",
@@ -6157,7 +6198,9 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 
 			temporary_nodes.push_back(std::move(stmt));
 			block->children.erase(block->children.begin());
-			for (int i = 0; i < num->bitsAsConst().as_int(); i++)
+			// A real count rounds to a 32-bit integer.
+			const int repeat_count = num->valueAsConst(32).as_int();
+			for (int i = 0; i < repeat_count; i++)
 				block->children.insert(block->children.begin(), temporary_nodes.back()->children.at(1)->clone());
 
 			continue;
@@ -6241,7 +6284,11 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 		log_abort();
 	}
 
-	result = AstNode::mkconst_bits(location, variables.at(str).val.to_bits(), variables.at(str).is_signed);
+	if (variables.at(str).realval) {
+		result = std::make_unique<AstNode>(location, AST_REALVALUE);
+		result->realvalue = *variables.at(str).realval;
+	} else
+		result = AstNode::mkconst_bits(location, variables.at(str).val.to_bits(), variables.at(str).is_signed);
 
 finished:
 	current_scope = backup_scope;

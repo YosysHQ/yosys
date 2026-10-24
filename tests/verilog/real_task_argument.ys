@@ -1,0 +1,8 @@
+logger -expect error "real is only supported for function arguments and variables." 1
+read_verilog <<EOT
+module top;
+    task t;
+        input real r;
+    endtask
+endmodule
+EOT
