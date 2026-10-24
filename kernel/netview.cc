@@ -214,9 +214,9 @@ const NetView::PortShapes *NetView::portsFor(Instance *inst, RTLIL::Module *sub)
 	PortShapes &shapes = shape_store_.emplace_back();
 	if (sub != nullptr)
 		detail::moduleShapes(sub, shapes);
-	else if (ports_ == nullptr && !hostPorts(inst, shapes))
+	else if (model_ == nullptr && !hostPorts(inst, shapes))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
-	else if (ports_ != nullptr && !ports_->ports(*inst, shapes)) {
+	else if (model_ != nullptr && !model_->ports(*inst, shapes)) {
 		hostPorts(inst, shapes);
 		unmodeled_.insert(inst->type);
 	}
@@ -344,14 +344,14 @@ void detail::addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, poo
 	}
 }
 
-void NetView::build(RTLIL::Design *design, PortModel *ports)
+void NetView::build(RTLIL::Design *design, LeafModel *model)
 {
 	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
 	design_ = design;
-	ports_ = ports;
+	model_ = model;
 	// A leaf type without a port model errors out halfway, drop the partial view
 	try {
 		buildTop(topModule(design));
@@ -379,7 +379,7 @@ void NetView::reset()
 	unregisterMonitor();
 	design_ = nullptr;
 	top_ = nullptr;
-	ports_ = nullptr;
+	model_ = nullptr;
 	fingerprint_ = 0;
 	tracked_.clear();
 	dirty_ = false;
@@ -409,6 +409,8 @@ void NetView::clearTables()
 	inst_data_.clear();
 	net_data_.clear();
 	hits_.clear();
+	cuts_.clear();
+	walkers_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -431,6 +433,9 @@ std::unique_ptr<NetView> NetView::retire()
 	}
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->anchor_table_ = std::move(anchor_table_);
+	next->barrier_table_ = std::move(barrier_table_);
+	next->barrier_marks_ = std::move(barrier_marks_);
+	next->barrier_count_ = barrier_count_;
 	return next;
 }
 
@@ -492,6 +497,10 @@ std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
+		if (cell->type == ID($barrier) && hasMark(cell, detail::MarkImage)) {
+			addBarrierScope(cell, scope);
+			continue;
+		}
 		if (detail::transparentType(cell->type))
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
@@ -499,6 +508,8 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 		if (!inst->leaf)
 			buildScope(this->module(inst), inst);
 	}
+	for (RTLIL::Cell *cell : module->cells())
+		indexBarrier(cell, scope);
 	registerWires(module, scope);
 }
 
@@ -531,6 +542,40 @@ void NetView::makePins(Instance *inst)
 				makeTerm(pin, inner_net);
 		}
 	}
+}
+
+// An image: an instance with no module, a net per bit joins A and Y
+void NetView::addBarrierScope(RTLIL::Cell *cell, Instance *scope)
+{
+	Instance *inst = newInstance(cell, nullptr, scope);
+	inst->leaf = false;
+	inst->internal = false;
+	PortShapes &shapes = shape_store_.emplace_back();
+	detail::libraryPorts(cell, shapes);
+	inst->ports = &shapes;
+	int width = GetSize(cell->getPort(ID::Y));
+	std::vector<Net *> inner;
+	for (int b = 0; b < width; b++)
+		inner.push_back(newInnerNet(inst, b, width == 1));
+	for (uint32_t p = 0; p < shapes.size(); p++) {
+		RTLIL::SigSpec sig = cell->getPort(detail::escapedPortId(design_, cell, nullptr, shapes[p].name));
+		for (int b = 0; b < width && b < sig.size(); b++) {
+			Pin *pin = makePin(inst, p, b, findOrMakeNet(scope, sig[b]));
+			makeTerm(pin, inner[b]);
+		}
+	}
+}
+
+// A net of an image, named Y
+NetView::Net *NetView::newInnerNet(Instance *scope, int bit, bool scalar)
+{
+	Net *net = &nets_.emplace_back();
+	net->scope = scope;
+	net->id = next_net_id_++;
+	net->constant = Net::Const::None;
+	net_data_[net->id].name = {"Y", bit, scalar};
+	scopes_[scope].nets.push_back(net);
+	return net;
 }
 
 NetView::Pin *NetView::makePin(Instance *inst, uint32_t port, int bit, Net *net)
@@ -625,7 +670,7 @@ SigMap &NetView::sigmapFor(RTLIL::Module *module)
 		return it->second;
 	SigMap &sigmap = sigmaps_.try_emplace(module, module).first->second;
 	detail::addConnectAliases(module, sigmap);
-	detail::addBarrierAliases(module, sigmap);
+	addBarrierAliases(module, sigmap);
 	return sigmap;
 }
 
@@ -641,15 +686,20 @@ void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
 	}
 }
 
-void detail::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap)
+void NetView::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const
 {
 	for (RTLIL::Cell *cell : module->cells()) {
-		if (cell->type != ID($barrier))
+		if (cell->type != ID($barrier) || hasMark(cell, detail::MarkImage))
 			continue;
 		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
 			// Cell order doesn't matter here
-			if (sigmap(a[b]).wire != nullptr && sigmap(y[b]).wire != nullptr)
+			if (sigmap(a[b]).wire == nullptr || sigmap(y[b]).wire == nullptr)
+				continue;
+			// The second bit stays the root, so a cut wire never names a net
+			if (detail::isCutWire(a[b].wire))
+				sigmap.add(a[b], y[b]);
+			else
 				sigmap.add(y[b], a[b]);
 		}
 	}
@@ -678,6 +728,11 @@ RTLIL::Cell *NetView::cell(const Instance *inst) const
 RTLIL::Module *NetView::module(const Instance *scope) const
 {
 	return inst_data_.get(scope->id).module;
+}
+
+bool NetView::isBarrier(const Instance *inst) const
+{
+	return !inst->leaf && !isTop(inst) && module(inst) == nullptr;
 }
 
 NetView::Instance *NetView::instance(const RTLIL::Cell *cell, const Instance *scope) const
