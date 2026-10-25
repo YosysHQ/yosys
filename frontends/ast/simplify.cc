@@ -4149,7 +4149,10 @@ skip_dynamic_range_lvalue_expansion:;
 				}
 
 				if (str == "\\$rtoi") {
-					newNode = AstNode::mkconst_int(location, x, true);
+					if (!(x > -2147483649.0 && x < 2147483648.0))
+						log_file_warning(location.to_loc(), "$rtoi argument %e does not fit in a 32-bit integer.\n", x);
+					// Like most commercial tools, wrap a finite value and map infinity and NaN to 0.
+					newNode = AstNode::mkconst_int(location, std::isfinite(x) ? (int64_t)fmod(x, 4294967296.0) : 0, true);
 				} else {
 					newNode = std::make_unique<AstNode>(location, AST_REALVALUE);
 					if (str == "\\$ln")		 newNode->realvalue = ::log(x);
