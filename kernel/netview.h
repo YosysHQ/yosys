@@ -20,10 +20,26 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// A list of values per key, empty for a missing key
+template <typename K, typename V> struct ListMap {
+	void add(const K &key, V value) { data[key].push_back(value); }
+	const std::vector<V> &get(const K &key) const
+	{
+		auto it = data.find(key);
+		if (it != data.end())
+			return it->second;
+		return none;
+	}
+	void clear() { data.clear(); }
+	dict<K, std::vector<V>> data;
+	std::vector<V> none;
+};
+
 namespace detail {
 
 struct Fingerprint;
 uint64_t mix64(uint64_t state, uint64_t value);
+bool designAlive(const RTLIL::Design *design);
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
@@ -71,25 +87,78 @@ void hashModule(Fingerprint &fp, RTLIL::Module *module);
 void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
 void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
 
-} // namespace detail
-
-// A list of values per key, empty for a missing key
-template <typename K, typename V> struct ListMap {
-	void add(const K &key, V value) { data[key].push_back(value); }
-	const std::vector<V> &get(const K &key) const
-	{
-		auto it = data.find(key);
-		if (it != data.end())
-			return it->second;
-		return none;
-	}
-	void clear() { data.clear(); }
-	dict<K, std::vector<V>> data;
-	std::vector<V> none;
+// The records and their next ids
+struct RecordStore {
+	std::deque<Netlist::Instance> instances;
+	std::deque<Netlist::Pin> pins;
+	std::deque<Netlist::Net> nets;
+	std::deque<Netlist::Term> terms;
+	uint32_t next_inst_id = 0; // the top comes first and takes 0
+	uint32_t next_pin_id = 1;
+	uint32_t next_net_id = 1;
+	uint32_t next_term_id = 1;
+	Netlist::Instance *newInstance();
+	Netlist::Pin *newPin();
+	Netlist::Net *newNet();
+	Netlist::Term *newTerm();
+	void clear();
 };
+
+struct PortShapeCache {
+	std::deque<std::vector<Netlist::PortShape>> shape_store;
+	dict<std::string, const std::vector<Netlist::PortShape> *> shapes_by_leaf_type; // library leaf types
+	pool<std::string> unmodeled_leaf_types; // leaf types that the model does not know
+	void clear();
+};
+
+struct InstanceRtlil {
+	RTLIL::Cell *cell = nullptr;     // none for the top
+	RTLIL::Module *module = nullptr; // none for leaves
+};
+
+struct NetRtlil {
+	RTLIL::SigBit bit; // canonical SigMap bit
+	RTLIL::SigBit name_bit;
+	Netlist::NetName name; // copied out of RTLIL
+};
+
+struct NetsByScopeBit {
+	Netlist::Net *get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const;
+	void set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net);
+	void clear();
+	dict<std::pair<uint32_t, uint64_t>, Netlist::Net *> data;
+};
+
+struct RtlilIndex {
+	ListMap<uint32_t, Netlist::Instance *> instances_by_cell; // by cell hashidx_
+	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module;
+	IdMap<InstanceRtlil> instance_rtlil;
+	IdMap<NetRtlil> net_rtlil;
+	NetsByScopeBit nets_by_scope_bit;
+	void clear();
+};
+
+class ChangeDetector {
+public:
+	void arm(RTLIL::Design *design, std::vector<std::string> module_names);
+	void noteEvent();
+	bool isStale(RTLIL::Design *design) const;
+	void clear();
+private:
+	uint64_t computeFingerprint(RTLIL::Design *design) const;
+
+	uint64_t fingerprint_ = 0;
+	std::vector<std::string> tracked_module_names_; // modules with a scope
+	mutable bool maybe_changed_ = false;
+	mutable bool stale_ = false;
+};
+
+} // namespace detail
 
 struct NetView final : public Netlist, public RTLIL::Monitor
 {
+	using PortShapes = std::vector<PortShape>;
+
 	NetView() = default;
 	~NetView() override;
 	NetView(const NetView &) = delete;
@@ -129,8 +198,6 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &conns) override;
 	void notify_blackout(RTLIL::Module *module) override;
 private:
-	using PortShapes = std::vector<PortShape>;
-
 	struct ScopeContents {
 		std::vector<Net *> nets;
 		std::vector<NetAlias> aliases;
@@ -140,32 +207,15 @@ private:
 		void setTieNet(Net::Const value, Net *net);
 	};
 
-	struct InstData {
-		RTLIL::Cell *cell = nullptr;     // none for the top
-		RTLIL::Module *module = nullptr; // none for leaves
-	};
-
-	struct NetData {
-		RTLIL::SigBit bit;      // canonical SigMap bit
-		RTLIL::SigBit name_bit;
-		NetName name;           // copied out of RTLIL
-	};
-
-	struct NetsByScopeBit {
-		Net *get(const Instance *scope, const RTLIL::SigBit &bit) const;
-		void set(const Instance *scope, const RTLIL::SigBit &bit, Net *net);
-		void clear() { data.clear(); }
-		dict<std::pair<uint32_t, uint64_t>, Net *> data;
-	};
-
+	void unregisterMonitor();
 	void clearTables();
 	void buildTop(RTLIL::Module *top);
-	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
-	void buildScope(RTLIL::Module *module, Instance *scope);
-	void makePins(Instance *inst);
 	// Ports of an instance's master as the host knows them, ignoring PortModel
 	bool hostPortShapes(const Instance *inst, std::vector<PortShape> &out) const;
 	const PortShapes *portShapesFor(Instance *inst, RTLIL::Module *sub);
+	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
+	void buildScope(RTLIL::Module *module, Instance *scope);
+	void makePins(Instance *inst);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
 	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
@@ -173,51 +223,19 @@ private:
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
-	const ScopeContents &scopeContents(const Instance *scope) const;
 	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
 	Net *findOrMakeTieNet(Instance *scope, const RTLIL::SigBit &canon);
+	const ScopeContents &scopeContents(const Instance *scope) const;
 
-	bool designAlive() const;
-	void unregisterMonitor();
-	uint64_t fingerprint() const;
-private:
 	RTLIL::Design *design_ = nullptr;
 	PortModel *ports_ = nullptr;
 	Instance *top_ = nullptr;
-
-	// Records
-	std::deque<Instance> instances_;
-	std::deque<Pin> pins_;
-	std::deque<Net> nets_;
-	std::deque<Term> terms_;
-	uint32_t next_inst_id_ = 1; // 0 is the top
-	uint32_t next_pin_id_ = 1;
-	uint32_t next_net_id_ = 1;
-	uint32_t next_term_id_ = 1;
-
-	// Port shapes
-	std::deque<PortShapes> shape_store_;
-	dict<std::string, const PortShapes *> shape_cache_; // library leaf types
-	pool<std::string> unmodeled_; // leaf types that the model does not know
-
-	// Scope contents
-	std::unordered_map<const Instance *, ScopeContents> scopes_;
-
-	// RTLIL to records
-	ListMap<uint32_t, Instance *> cell_insts_;                 // by cell hashidx_
-	ListMap<const RTLIL::Module *, Instance *> module_scopes_;
-	IdMap<InstData> inst_data_;
-
-	// Nets by bit
+	detail::RecordStore records_;
+	detail::PortShapeCache shapes_;
+	detail::RtlilIndex index_;
+	std::unordered_map<const Instance *, ScopeContents> scope_contents_;
+	detail::ChangeDetector watch_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
-	NetsByScopeBit bit_nets_;
-	IdMap<NetData> net_data_;
-
-	// Staleness
-	uint64_t fingerprint_ = 0;
-	std::vector<std::string> tracked_; // modules with a scope
-	mutable bool dirty_ = false;
-	mutable bool changed_ = false;
 };
 
 YOSYS_NAMESPACE_END
