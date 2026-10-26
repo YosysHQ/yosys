@@ -837,7 +837,33 @@ TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
 	std::unique_ptr<NetView> last = next->retire();
 	last->build(d);
 	last->resolve({&ref});
-	EXPECT_TRUE(ref.objects.empty());
+	ASSERT_EQ(ref.objects.size(), 1u);
+	EXPECT_EQ(static_cast<const Netlist::Pin *>(ref.objects[0])->inst->parent, last->instance(u_sub2));
+}
+
+TEST_F(NetViewTest, flattenCopyOfAKeptCellKeepsItsPath)
+{
+	ensurePasses();
+	sub->set_bool_attribute(ID::keep_hierarchy);
+	Module *mid = d->addModule("\\mid");
+	Wire *mid_a = mid->addWire(ID(a));
+	mid_a->port_input = true;
+	mid->fixup_ports();
+	mid->addCell("\\s", "\\sub")->setPort(ID(a), mid_a);
+	Cell *m1 = top->addCell("\\m1", "\\mid");
+	m1->setPort(ID(a), in);
+	top->addCell("\\m2", "\\mid")->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	NetView::Found ref{NetView::Found::Kind::Pin};
+	ref.objects = {view.instance(i1, view.instance(mid->cell("\\s"), view.instance(m1)))->pins[0]};
+	view.anchor({&ref});
+	Pass::call(d, "flatten");
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	ASSERT_EQ(ref.objects.size(), 1u);
+	EXPECT_EQ(static_cast<const Netlist::Pin *>(ref.objects[0])->inst->parent, next->instance(top->cell("\\m1.s")));
 }
 
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)

@@ -12,6 +12,7 @@ void NetView::anchor(const std::vector<Found *> &refs)
 {
 	log_assert(valid());
 	clearAnchors(design_);
+	markEpochEnd();
 	for (uint32_t ref = 0; ref < refs.size(); ref++) {
 		const Found &found = *refs[ref];
 		for (const void *object : found.objects)
@@ -66,7 +67,7 @@ void NetView::anchorWires(const Net *net, uint32_t ref)
 {
 	if (net == nullptr || net->constant != Net::Const::None)
 		return;
-	std::string path = detail::scopePath(net->scope);
+	std::string path = scopePath(net->scope);
 	for (const RTLIL::SigBit &bit : wireBits(net)) {
 		bool shared = markIfShared(bit.wire, bit.wire->module);
 		addAnchor(bit.wire, {detail::Anchor::Role::Net, ref, detail::withOwnScope(path, bit.wire), "", bit.offset, path, shared});
@@ -122,7 +123,7 @@ void NetView::addNetHits(const Net *net, const RTLIL::SigBit &bit)
 	for (const detail::Anchor &anchor : anchorsOf(bit.wire)) {
 		if (anchor.bit != bit.offset)
 			continue;
-		bool in_own_scope = anchor.scope == detail::withOwnScope(detail::scopePath(net->scope), bit.wire);
+		bool in_own_scope = anchor.scope == detail::withOwnScope(scopePath(net->scope), bit.wire);
 		hits_[anchor.ref].push_back({anchor, nullptr, net, in_own_scope});
 	}
 }
@@ -192,7 +193,7 @@ std::vector<const void *> NetView::resolveNet(const std::vector<detail::Hit> &hi
 	pool<const void *> outer;
 	for (const detail::Hit *hit : detail::pick(hits, detail::Anchor::Role::Net)) {
 		nets.push_back(hit->net);
-		if (detail::scopePath(hit->net->scope) == hit->anchor.wire_scope || !outer.insert(hit->net).second)
+		if (scopePath(hit->net->scope) == hit->anchor.wire_scope || !outer.insert(hit->net).second)
 			continue;
 		std::vector<const void *> inside = pinsUnder(hit->net, hit->anchor.wire_scope);
 		if (inside.size() < hit->net->pins.size())
@@ -267,12 +268,31 @@ std::string detail::joinScope(const std::vector<std::string> &parts)
 	return path;
 }
 
-std::string detail::scopePath(const Netlist::Instance *scope)
+std::string detail::ownName(const Netlist::Instance *scope)
+{
+	if (scope->hdlpath.empty())
+		return scope->name;
+	return detail::joinScope(scope->hdlpath);
+}
+
+// By the names at the epoch end: rename -hide renames an occurrence. A copy that
+// flatten made is a new cell, its hdlname holds the source path
+std::string NetView::scopePath(const Instance *scope) const
 {
 	if (scope == nullptr || scope->parent == nullptr)
 		return "";
-	std::string own = scope->hdlpath.empty() ? scope->name : detail::joinScope(scope->hdlpath);
-	return detail::joinScope({detail::scopePath(scope->parent), own});
+	std::string own = epoch_names_.at(cell(scope)->hashidx_, detail::ownName(scope));
+	return detail::joinScope({scopePath(scope->parent), own});
+}
+
+// The own names of the cells at the epoch end
+void NetView::markEpochEnd()
+{
+	epoch_names_.clear();
+	for (const Instance &inst : records_.instances) {
+		if (inst.parent != nullptr)
+			epoch_names_[cell(&inst)->hashidx_] = detail::ownName(&inst);
+	}
 }
 
 std::string detail::withOwnScope(const std::string &path, const RTLIL::AttrObject *object)
@@ -285,9 +305,9 @@ std::string NetView::cellScope(const Instance *inst) const
 	const RTLIL::Cell *cell = this->cell(inst);
 	bool has_own_scope = cell->has_attribute(ID::hdlname) || cell->has_attribute(ID(scopename));
 	if (has_own_scope || inst->hdlpath.size() < 2)
-		return detail::withOwnScope(detail::scopePath(inst->parent), cell);
+		return detail::withOwnScope(scopePath(inst->parent), cell);
 	std::vector<std::string> own(inst->hdlpath.begin(), inst->hdlpath.end() - 1);
-	return detail::joinScope({detail::scopePath(inst->parent), detail::joinScope(own)});
+	return detail::joinScope({scopePath(inst->parent), detail::joinScope(own)});
 }
 
 YOSYS_NAMESPACE_END

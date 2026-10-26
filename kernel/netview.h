@@ -127,7 +127,7 @@ std::vector<const void *> unique(std::vector<const void *> objects);
 // Scope paths
 std::vector<std::string> ownScope(const RTLIL::AttrObject *object);
 std::string joinScope(const std::vector<std::string> &parts);
-std::string scopePath(const Netlist::Instance *scope);
+std::string ownName(const Netlist::Instance *scope);
 std::string withOwnScope(const std::string &path, const RTLIL::AttrObject *object);
 
 // The records and their next ids
@@ -319,6 +319,8 @@ private:
 	std::vector<const void *> pinsUnder(const Net *net, const std::string &scope) const;
 	std::vector<const void *> resolveNet(const std::vector<detail::Hit> &hits, Found &ref);
 	std::string cellScope(const Instance *inst) const;
+	std::string scopePath(const Instance *scope) const;
+	void markEpochEnd();
 
 	RTLIL::Design *design_ = nullptr;
 	PortModel *ports_ = nullptr;
@@ -332,6 +334,7 @@ private:
 	// Anchors
 	std::vector<std::vector<detail::Anchor>> anchor_table_; // by netview_ref value
 	IdMap<std::vector<detail::Hit>> hits_;                  // by ref
+	dict<uint32_t, std::string> epoch_names_;               // by hashidx_, the own names of the cells at the epoch end
 };
 
 YOSYS_NAMESPACE_END

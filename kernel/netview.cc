@@ -370,6 +370,7 @@ std::unique_ptr<NetView> NetView::retire()
 	}
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->anchor_table_ = std::move(anchor_table_);
+	next->epoch_names_ = std::move(epoch_names_);
 	return next;
 }
 
