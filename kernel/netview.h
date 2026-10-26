@@ -290,7 +290,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
-	void build(RTLIL::Design *design, LeafModel *model = nullptr);
+	void build(RTLIL::Design *design, LeafCellModel *model = nullptr);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
 	void reset();
 	std::unique_ptr<NetView> retire();
@@ -324,6 +324,10 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	RTLIL::Module *module(const Instance *scope) const;
 	const std::vector<Instance *> &scopes(const RTLIL::Module *module) const;
 	const std::vector<RTLIL::SigBit> &wireBits(const Net *net) const;
+
+	// Leaf facts, the model first
+	bool isRegister(const Instance *inst) const;
+	bool isClockPin(const Pin *pin) const;
 
 	// RTLIL::Monitor: every event marks the view for a re-check
 	void notify_module_add(RTLIL::Module *module) override;
@@ -365,8 +369,6 @@ private:
 	void protectObject(const void *object, uint32_t ref, const Found &found);
 	void protectPin(const Pin *pin, uint32_t ref, const Found &found);
 	void protectHierPin(const Pin *pin, uint32_t ref, bool image);
-	bool isRegister(const Instance *inst) const;
-	bool isClockPin(const Pin *pin) const;
 	void protectCell(const Instance *inst, uint32_t ref);
 	void protectNet(const Net *net, uint32_t ref);
 	void leafDrivers(const Net *net, pool<const Net *> &seen, std::vector<const Pin *> &drivers) const;
@@ -397,7 +399,7 @@ private:
 	void markEpochEnd();
 
 	RTLIL::Design *design_ = nullptr;
-	LeafModel *model_ = nullptr;
+	LeafCellModel *leaf_model_ = nullptr;
 	Instance *top_ = nullptr;
 	detail::RecordStore records_;
 	detail::PortShapeCache shapes_;

@@ -307,14 +307,14 @@ void detail::addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, poo
 	}
 }
 
-void NetView::build(RTLIL::Design *design, LeafModel *model)
+void NetView::build(RTLIL::Design *design, LeafCellModel *model)
 {
 	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
 	design_ = design;
-	model_ = model;
+	leaf_model_ = model;
 	// A leaf type without a port model errors out halfway, drop the partial view
 	try {
 		detail::ViewBuilder(*this).build(topModule(design));
@@ -336,7 +336,7 @@ void NetView::reset()
 	unregisterMonitor();
 	design_ = nullptr;
 	top_ = nullptr;
-	model_ = nullptr;
+	leaf_model_ = nullptr;
 	watch_.clear();
 	records_.clear();
 	clearTables();

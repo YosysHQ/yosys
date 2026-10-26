@@ -124,8 +124,8 @@ struct Netlist
 	};
 
 	// Leaf cell facts from a consumer with a richer library (liberty)
-	struct LeafModel {
-		virtual ~LeafModel();
+	struct LeafCellModel {
+		virtual ~LeafCellModel();
 		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
 		virtual bool isRegister(const Instance &inst) = 0;
 		virtual bool isClockPin(const Pin &pin) = 0;

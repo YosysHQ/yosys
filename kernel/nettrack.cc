@@ -338,14 +338,14 @@ void NetView::protectHierPin(const Pin *pin, uint32_t ref, bool image)
 
 bool NetView::isRegister(const Instance *inst) const
 {
-	if (model_ != nullptr && model_->isRegister(*inst))
+	if (leaf_model_ != nullptr && leaf_model_->isRegister(*inst))
 		return true;
 	return StaticCellTypes::categories.is_ff(cell(inst)->type);
 }
 
 bool NetView::isClockPin(const Pin *pin) const
 {
-	if (model_ != nullptr && model_->isClockPin(*pin))
+	if (leaf_model_ != nullptr && leaf_model_->isClockPin(*pin))
 		return true;
 	const std::string &name = shape(pin).name;
 	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");

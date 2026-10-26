@@ -2,7 +2,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-Netlist::LeafModel::~LeafModel() {}
+Netlist::LeafCellModel::~LeafCellModel() {}
 
 bool Netlist::Instance::isLeaf() const
 {
