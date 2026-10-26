@@ -22,8 +22,8 @@ ram distributed $__XILINX_LUTRAM_SP_ {
 		abits 8;
 		widths 2 global;
 	}
-	option "ABITS" 16 {
-		abits 16;
+	option "ABITS" 9 {
+		abits 9;
 		widths 1 global;
 	}
 	init any;
