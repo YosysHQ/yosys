@@ -557,6 +557,7 @@ TEST(NetViewNameTest, flattenNamesGiveSourcePath)
 {
 	EXPECT_EQ(detail::flattenPath("$flatten\\u1.\\l0.$and$x.v:3$7"), (std::vector<std::string>{"u1", "l0", "$and$x.v:3$7"}));
 	EXPECT_EQ(detail::flattenPath("$flatten\\u1/$y"), (std::vector<std::string>{"u1", "$y"}));
+	EXPECT_EQ(detail::flattenPath("$flatten\\u1_\\l0_$y"), (std::vector<std::string>{"u1", "l0", "$y"}));
 	EXPECT_TRUE(detail::flattenPath("$and$x.v:3$7").empty());
 	EXPECT_TRUE(detail::flattenPath("$flatten\\u1").empty());
 }

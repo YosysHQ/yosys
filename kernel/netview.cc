@@ -54,7 +54,7 @@ std::vector<std::string> detail::sourcePath(const RTLIL::AttrObject *object, std
 	return detail::flattenPath(name);
 }
 
-// $flatten\a.\b.$x or $flatten\a/\b/$x for a, b and $x
+// $flatten\a.\b.$x for a, b and $x, any separator for the dot
 std::vector<std::string> detail::flattenPath(std::string_view name)
 {
 	constexpr std::string_view prefix = "$flatten";
@@ -75,11 +75,11 @@ std::vector<std::string> detail::flattenPath(std::string_view name)
 	return parts;
 }
 
-// '.' or '/', then the next scope ('\') or the private name ('$')
+// A char not a letter or digit, then the next scope ('\') or the private name ('$')
 size_t detail::flattenSeparator(std::string_view name)
 {
 	for (size_t i = 1; i + 1 < name.size(); i++) {
-		bool sep = name[i] == '.' || name[i] == '/';
+		bool sep = !isalnum(static_cast<unsigned char>(name[i]));
 		if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
 			return i;
 	}
