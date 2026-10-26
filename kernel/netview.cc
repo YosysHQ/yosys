@@ -205,7 +205,7 @@ bool NetView::hostPortShapes(const Instance *inst, std::vector<PortShape> &out) 
 const NetView::PortShapes *NetView::portShapesFor(Instance *inst, RTLIL::Module *sub)
 {
 	// Library leaf shapes are shared per type, internal cells differ in width
-	bool shared = inst->leaf && !inst->internal;
+	bool shared = inst->kind == Instance::Kind::LibraryLeaf;
 	if (shared) {
 		auto it = shape_cache_.find(inst->type);
 		if (it != shape_cache_.end())
@@ -461,8 +461,11 @@ NetView::Instance *NetView::newInstance(RTLIL::Cell *cell, RTLIL::Module *module
 		inst->id = next_inst_id_++;
 
 	// Leaves open no scope (module is nullptr)
-	inst->leaf = module == nullptr;
-	inst->internal = inst->leaf && detail::isInternalType(type);
+	inst->kind = Instance::Kind::Hierarchy;
+	if (module == nullptr && detail::isInternalType(type))
+		inst->kind = Instance::Kind::InternalLeaf;
+	else if (module == nullptr)
+		inst->kind = Instance::Kind::LibraryLeaf;
 	inst->ports = nullptr;
 
 	inst_data_[inst->id] = {cell, module};
@@ -492,7 +495,7 @@ void NetView::buildScope(RTLIL::Module *module, Instance *scope)
 			continue;
 		Instance *inst = newInstance(cell, detail::childModule(design_, cell), scope);
 		makePins(inst);
-		if (!inst->leaf)
+		if (!inst->isLeaf())
 			buildScope(this->module(inst), inst);
 	}
 	registerAliases(module, scope);

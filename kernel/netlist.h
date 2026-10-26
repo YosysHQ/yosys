@@ -60,6 +60,12 @@ struct Netlist
 	};
 
 	struct Instance {
+		enum class Kind : uint8_t {
+			Hierarchy,    // module occurrence
+			LibraryLeaf,  // cell of a library type, shapes shared per type
+			InternalLeaf  // host-internal cell, shapes per instance
+		};
+
 		std::string name;                 // local name, unescaped
 		std::vector<std::string> hdlpath; // source path when flattened
 		std::string type;                 // cell type or module name, unescaped
@@ -67,11 +73,11 @@ struct Netlist
 		Instance *parent;
 		const Netlist *netlist;
 		uint32_t id;
-		bool leaf;
-		bool internal;
+		Kind kind;
 		const std::vector<PortShape> *ports;
 		std::vector<Pin *> pins;
 		std::vector<Instance *> children;
+		bool isLeaf() const;
 	};
 
 	struct Pin {

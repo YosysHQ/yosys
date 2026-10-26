@@ -4,6 +4,11 @@ YOSYS_NAMESPACE_BEGIN
 
 Netlist::PortModel::~PortModel() {}
 
+bool Netlist::Instance::isLeaf() const
+{
+	return kind == Kind::LibraryLeaf || kind == Kind::InternalLeaf;
+}
+
 bool Netlist::PortShape::scalar() const
 {
 	return width == 1 && !vector;
@@ -50,7 +55,7 @@ bool Netlist::isDriver(const Pin *pin) const
 	bool input = d == Dir::Input || d == Dir::Inout;
 	if (isTop(pin->inst))
 		return input; // a top input drives the design
-	return output && pin->inst->leaf;
+	return output && pin->inst->isLeaf();
 }
 
 YOSYS_NAMESPACE_END

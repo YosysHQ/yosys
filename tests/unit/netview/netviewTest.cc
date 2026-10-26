@@ -94,16 +94,16 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_TRUE(view.isTop(t));
 	EXPECT_EQ(t->id, 0u);
 	EXPECT_EQ(t->name, "top");
-	EXPECT_FALSE(t->leaf);
+	EXPECT_FALSE(t->isLeaf());
 	EXPECT_EQ(view.module(t), top);
 	EXPECT_EQ(t->children.size(), 3u);
 
 	Netlist::Instance *isub = view.instance(u_sub);
 	Netlist::Instance *iinv0 = view.instance(u_inv0);
 	ASSERT_NE(isub, nullptr);
-	EXPECT_FALSE(isub->leaf);
-	EXPECT_TRUE(iinv0->leaf);
-	EXPECT_FALSE(iinv0->internal);
+	EXPECT_FALSE(isub->isLeaf());
+	EXPECT_TRUE(iinv0->isLeaf());
+	EXPECT_NE(iinv0->kind, Netlist::Instance::Kind::InternalLeaf);
 	EXPECT_EQ(isub->parent, t);
 	EXPECT_EQ(view.module(isub), sub);
 	EXPECT_EQ(view.scopes(sub), std::vector<Netlist::Instance *>{isub});
@@ -769,7 +769,7 @@ static void walk(const NetView &view, const Netlist::Instance *scope, std::array
 	for (const Netlist::Instance *child : scope->children) {
 		counts[0]++;
 		counts[2] += child->pins.size();
-		if (!child->leaf)
+		if (!child->isLeaf())
 			walk(view, child, counts);
 	}
 }
