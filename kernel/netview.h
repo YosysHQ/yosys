@@ -35,6 +35,8 @@ template <typename K, typename V> struct ListMap {
 	std::vector<V> none;
 };
 
+struct NetView;
+
 namespace detail {
 
 struct Fingerprint;
@@ -153,6 +155,30 @@ private:
 	mutable bool stale_ = false;
 };
 
+class ViewBuilder {
+public:
+	explicit ViewBuilder(NetView &view);
+	void build(RTLIL::Module *top);
+private:
+	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
+	void buildScope(RTLIL::Module *module, Netlist::Instance *scope);
+	void makePins(Netlist::Instance *inst);
+	bool hostPortShapes(const Netlist::Instance *inst, std::vector<Netlist::PortShape> &out) const;
+	const std::vector<Netlist::PortShape> *portShapesFor(Netlist::Instance *inst, RTLIL::Module *sub);
+	Netlist::Pin *makePin(Netlist::Instance *inst, uint32_t port, int bit, Netlist::Net *net);
+	void makeTerm(Netlist::Pin *pin, Netlist::Net *inner_net);
+	Netlist::Net *newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
+	void registerAliases(RTLIL::Module *module, Netlist::Instance *scope);
+	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
+	RTLIL::SigBit nameBit(const Netlist::Net *net) const;
+	SigMap &sigmapFor(RTLIL::Module *module);
+	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
+	Netlist::Net *findOrMakeTieNet(Netlist::Instance *scope, const RTLIL::SigBit &canon);
+
+	NetView &view_;
+	std::map<RTLIL::Module *, SigMap> sigmaps_;
+};
+
 } // namespace detail
 
 struct NetView final : public Netlist, public RTLIL::Monitor
@@ -207,24 +233,10 @@ private:
 		void setTieNet(Net::Const value, Net *net);
 	};
 
+	friend class detail::ViewBuilder;
+
 	void unregisterMonitor();
 	void clearTables();
-	void buildTop(RTLIL::Module *top);
-	// Ports of an instance's master as the host knows them, ignoring PortModel
-	bool hostPortShapes(const Instance *inst, std::vector<PortShape> &out) const;
-	const PortShapes *portShapesFor(Instance *inst, RTLIL::Module *sub);
-	Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Instance *parent);
-	void buildScope(RTLIL::Module *module, Instance *scope);
-	void makePins(Instance *inst);
-	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
-	void makeTerm(Pin *pin, Net *inner_net);
-	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
-	void registerAliases(RTLIL::Module *module, Instance *scope);
-	void setNameBit(Net *net, const RTLIL::SigBit &bit);
-	RTLIL::SigBit nameBit(const Net *net) const;
-	SigMap &sigmapFor(RTLIL::Module *module);
-	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
-	Net *findOrMakeTieNet(Instance *scope, const RTLIL::SigBit &canon);
 	const ScopeContents &scopeContents(const Instance *scope) const;
 
 	RTLIL::Design *design_ = nullptr;
@@ -235,7 +247,6 @@ private:
 	detail::RtlilIndex index_;
 	std::unordered_map<const Instance *, ScopeContents> scope_contents_;
 	detail::ChangeDetector watch_;
-	std::map<RTLIL::Module *, SigMap> sigmaps_;
 };
 
 YOSYS_NAMESPACE_END
