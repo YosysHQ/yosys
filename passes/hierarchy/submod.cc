@@ -53,7 +53,7 @@ struct SubmodWorker
 		bool is_int_used, is_ext_driven, is_ext_used;
 		wire_flags_t(RTLIL::Wire* wire) : new_wire(nullptr), is_int_driven(State::S0, GetSize(wire)), is_int_used(false), is_ext_driven(false), is_ext_used(false) { }
 	};
-	std::map<RTLIL::Wire*, wire_flags_t> wire_flags;
+	dict<RTLIL::Wire*, wire_flags_t> wire_flags;
 	bool flag_found_something;
 
 	void flag_wire(RTLIL::Wire *wire, bool create, bool set_int_used, bool set_ext_driven, bool set_ext_used)
