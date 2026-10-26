@@ -167,14 +167,14 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	NetView view;
 	view.build(d);
 	Netlist::Instance *t = view.top();
-	std::vector<Netlist::Net *> zeros = view.constNets(false);
+	std::vector<Netlist::Net *> zeros = view.constNets(Netlist::Net::Const::Zero);
 	ASSERT_EQ(zeros.size(), 1u);
 	Netlist::Net *zero = zeros[0];
 	EXPECT_EQ(zero->scope, t);
 	EXPECT_EQ(zero->constant, Netlist::Net::Const::Zero);
-	EXPECT_TRUE(view.constNets(true).empty());
+	EXPECT_TRUE(view.constNets(Netlist::Net::Const::One).empty());
 	bool found = false;
-	for (const Netlist::Alias &alias : view.aliases(t)) {
+	for (const Netlist::NetAlias &alias : view.aliases(t)) {
 		if (alias.name.wire == "tie")
 			found = alias.net == zero;
 	}
@@ -355,9 +355,9 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(second->parent->pins[0]->term->net, net);
 	EXPECT_EQ(second->parent->pins[0]->net, view.instance(u_inv0)->pins[0]->net);
 	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
-	for (const Netlist::Alias &alias : view.aliases(second->parent))
+	for (const Netlist::NetAlias &alias : view.aliases(second->parent))
 		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
-	std::vector<Netlist::Net *> ones = view.constNets(true);
+	std::vector<Netlist::Net *> ones = view.constNets(Netlist::Net::Const::One);
 	ASSERT_EQ(ones.size(), 2u);
 	EXPECT_NE(ones[0]->scope, ones[1]->scope);
 	for (Netlist::Net *one : ones)
@@ -522,7 +522,7 @@ TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
 	EXPECT_EQ(j->hdlpath, (std::vector<std::string>{"u1", "u2", "j"}));
 	Netlist::Net *mid = i0->pins[1]->net;
 	bool found = false;
-	for (const Netlist::Alias &alias : view.aliases(view.top())) {
+	for (const Netlist::NetAlias &alias : view.aliases(view.top())) {
 		if (alias.name.wire == "u1.mid")
 			found = alias.net == mid && alias.name.hdlpath == std::vector<std::string>{"u1", "mid"};
 	}

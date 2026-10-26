@@ -35,20 +35,25 @@ bool checkIndices(RTLIL::Module *module, std::string &reason);
 void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes);
 
 // Cells
-bool internalType(RTLIL::IdString type);
-bool transparentType(RTLIL::IdString type);
+bool isInternalType(RTLIL::IdString type);
+bool isTransparentType(RTLIL::IdString type);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 
 // Port shapes
+// The host table that knows a cell type
+enum class CellTypeTable : uint8_t {
+	Static,
+	Yosys
+};
 Netlist::PortShape wireShape(RTLIL::Wire *wire);
 void moduleShapes(RTLIL::Module *module, std::vector<Netlist::PortShape> &out);
-bool libraryPorts(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out);
-Netlist::Dir libraryPortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool internal);
+bool cellTypePortShapes(const RTLIL::Cell *cell, std::vector<Netlist::PortShape> &out);
+Netlist::Dir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, CellTypeTable table);
 
 // Names
-std::string plainName(RTLIL::PooledName id);
+std::string unescapedName(RTLIL::PooledName id);
 RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
 std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
@@ -56,8 +61,8 @@ std::vector<std::string> flattenPath(std::string_view name);
 size_t flattenSeparator(std::string_view name);
 Netlist::NetName netName(const RTLIL::SigBit &bit);
 // Net name preference, smaller is better
-using NameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
-NameRank nameRank(const RTLIL::SigBit &bit);
+using NetNameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
+NetNameRank netNameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 
 // Fingerprint
@@ -106,9 +111,9 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	std::array<size_t, 3> counts() const;
 
 	const std::vector<Net *> &nets(const Instance *scope) const;
-	std::vector<Net *> constNets(bool one) const;
+	std::vector<Net *> constNets(Net::Const value) const;
 	NetName wireName(const Net *net) const;
-	const std::vector<Alias> &aliases(const Instance *scope) const;
+	const std::vector<NetAlias> &aliases(const Instance *scope) const;
 
 	// RTLIL correspondence
 	RTLIL::Cell *cell(const Instance *inst) const;
@@ -126,10 +131,13 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 private:
 	using PortShapes = std::vector<PortShape>;
 
-	struct ScopeData {
+	struct ScopeContents {
 		std::vector<Net *> nets;
-		std::vector<Alias> aliases;
-		std::array<Net *, 2> consts = {}; // tie-low, tie-high
+		std::vector<NetAlias> aliases;
+		Net *zero_net = nullptr;
+		Net *one_net = nullptr;
+		Net *tieNet(Net::Const value) const;
+		void setTieNet(Net::Const value, Net *net);
 	};
 
 	struct InstData {
@@ -156,8 +164,8 @@ private:
 	void buildScope(RTLIL::Module *module, Instance *scope);
 	void makePins(Instance *inst);
 	// Ports of an instance's master as the host knows them, ignoring PortModel
-	bool hostPorts(const Instance *inst, std::vector<PortShape> &out) const;
-	const PortShapes *portsFor(Instance *inst, RTLIL::Module *sub);
+	bool hostPortShapes(const Instance *inst, std::vector<PortShape> &out) const;
+	const PortShapes *portShapesFor(Instance *inst, RTLIL::Module *sub);
 	Pin *makePin(Instance *inst, uint32_t port, int bit, Net *net);
 	void makeTerm(Pin *pin, Net *inner_net);
 	Net *newNet(Instance *scope, const RTLIL::SigBit &bit);
@@ -165,8 +173,9 @@ private:
 	void setNameBit(Net *net, const RTLIL::SigBit &bit);
 	RTLIL::SigBit nameBit(const Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
-	const ScopeData &scopeData(const Instance *scope) const;
+	const ScopeContents &scopeContents(const Instance *scope) const;
 	Net *findOrMakeNet(Instance *scope, const RTLIL::SigBit &bit);
+	Net *findOrMakeTieNet(Instance *scope, const RTLIL::SigBit &canon);
 
 	bool designAlive() const;
 	void unregisterMonitor();
@@ -192,7 +201,7 @@ private:
 	pool<std::string> unmodeled_; // leaf types that the model does not know
 
 	// Scope contents
-	std::unordered_map<const Instance *, ScopeData> scopes_;
+	std::unordered_map<const Instance *, ScopeContents> scopes_;
 
 	// RTLIL to records
 	ListMap<uint32_t, Instance *> cell_insts_;                 // by cell hashidx_

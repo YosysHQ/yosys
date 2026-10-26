@@ -112,7 +112,7 @@ struct Netlist
 		bool operator==(const NetName &) const = default;
 	};
 
-	struct Alias {
+	struct NetAlias {
 		NetName name;
 		Net *net;
 	};
