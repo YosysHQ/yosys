@@ -395,8 +395,13 @@ struct XAigerWriter
 
 		struct sort_by_port_id {
 			bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-				return a.wire->port_id < b.wire->port_id ||
-				    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
+				if (a.wire->port_id != b.wire->port_id)
+					return a.wire->port_id < b.wire->port_id;
+				// Break ties between non-port wires (all port_id 0) by name,
+				// so that the order is total
+				if (a.wire != b.wire)
+					return a.wire->name.lt_by_name(b.wire->name);
+				return a.offset < b.offset;
 			}
 		};
 		input_bits.sort(sort_by_port_id());
