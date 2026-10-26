@@ -71,13 +71,17 @@ bool cellTypePortShapes(const RTLIL::Cell *cell, std::vector<Netlist::PortShape>
 Netlist::Dir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, CellTypeTable table);
 
 // Names
+enum class WireOrigin : uint8_t {
+	Declared,
+	SplitFromVector // splitnets made it of a vector bit
+};
 std::string unescapedName(RTLIL::PooledName id);
 RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
 std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
 std::vector<std::string> flattenPath(std::string_view name);
 size_t flattenSeparator(std::string_view name);
-Netlist::NetName netName(const RTLIL::SigBit &bit);
+Netlist::NetName netName(const RTLIL::SigBit &bit, WireOrigin origin);
 // Net name preference, smaller is better
 using NetNameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
 NetNameRank netNameRank(const RTLIL::SigBit &bit);
@@ -170,6 +174,7 @@ private:
 	Netlist::Net *newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	void registerAliases(RTLIL::Module *module, Netlist::Instance *scope);
 	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
+	WireOrigin wireOrigin(const RTLIL::Wire *wire);
 	RTLIL::SigBit nameBit(const Netlist::Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
@@ -177,6 +182,7 @@ private:
 
 	NetView &view_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
+	std::map<const RTLIL::Module *, dict<std::string, int>> hdlname_counts_; // wires per hdlname
 };
 
 } // namespace detail

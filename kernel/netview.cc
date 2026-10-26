@@ -113,10 +113,11 @@ bool detail::isVector(const RTLIL::Wire *wire)
 	return wire->width > 1 || wire->has_attribute(ID::single_bit_vector);
 }
 
-Netlist::NetName detail::netName(const RTLIL::SigBit &bit)
+Netlist::NetName detail::netName(const RTLIL::SigBit &bit, WireOrigin origin)
 {
 	RTLIL::Wire *wire = bit.wire;
-	return {detail::unescapedName(wire->name), wire->to_hdl_index(bit.offset), !detail::isVector(wire), detail::sourcePath(wire, wire->name.str())};
+	bool scalar = !detail::isVector(wire) && origin == WireOrigin::Declared;
+	return {detail::unescapedName(wire->name), wire->to_hdl_index(bit.offset), scalar, detail::sourcePath(wire, wire->name.str())};
 }
 
 Netlist::PortShape detail::wireShape(RTLIL::Wire *wire)

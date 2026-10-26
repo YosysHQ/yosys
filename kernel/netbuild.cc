@@ -195,7 +195,7 @@ void detail::ViewBuilder::registerAliases(RTLIL::Module *module, Netlist::Instan
 
 			// Public wires collapsed into another wire's net (assign aliases)
 			// stay reachable under their own names
-			view_.scope_contents_[scope].aliases.push_back({detail::netName(bit), net});
+			view_.scope_contents_[scope].aliases.push_back({detail::netName(bit, wireOrigin(bit.wire)), net});
 
 			// A net is named after its best wire bit
 			if (net->constant == Netlist::Net::Const::None && detail::netNameRank(bit) < detail::netNameRank(nameBit(net)))
@@ -227,7 +227,24 @@ void detail::ViewBuilder::setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit
 {
 	NetRtlil &rtlil = view_.index_.net_rtlil[net->id];
 	rtlil.name_bit = bit;
-	rtlil.name = detail::netName(bit);
+	rtlil.name = detail::netName(bit, wireOrigin(bit.wire));
+}
+
+// splitnets copies the hdlname of a vector to each of its bits
+detail::WireOrigin detail::ViewBuilder::wireOrigin(const RTLIL::Wire *wire)
+{
+	if (!wire->has_attribute(ID::hdlname))
+		return WireOrigin::Declared;
+	auto [it, added] = hdlname_counts_.try_emplace(wire->module);
+	if (added) {
+		for (const RTLIL::Wire *other : wire->module->wires()) {
+			if (other->has_attribute(ID::hdlname))
+				it->second[other->get_string_attribute(ID::hdlname)]++;
+		}
+	}
+	if (it->second.at(wire->get_string_attribute(ID::hdlname)) > 1)
+		return WireOrigin::SplitFromVector;
+	return WireOrigin::Declared;
 }
 
 Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)

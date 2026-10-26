@@ -795,4 +795,19 @@ TEST_F(NetViewTest, countsOfAnUnbuiltViewAreZero)
 	EXPECT_EQ(view.counts(), (std::array<size_t, 3>{}));
 }
 
+TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
+{
+	// splitnets copies the hdlname of a flat vector to each bit
+	Wire *w0 = top->addWire("\\u.w[0]");
+	Wire *w1 = top->addWire("\\u.w[1]");
+	w1->start_offset = 1;
+	w0->set_hdlname_attribute({"u", "w"});
+	w1->set_hdlname_attribute({"u", "w"});
+	Cell *c = top->addCell("\\c", ID(INV));
+	c->setPort(ID(A), w1);
+	NetView view;
+	view.build(d);
+	EXPECT_EQ(view.wireName(view.instance(c)->pins[0]->net), (Netlist::NetName{"u.w[1]", 1, false, {"u", "w"}}));
+}
+
 YOSYS_NAMESPACE_END
