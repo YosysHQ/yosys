@@ -43,17 +43,17 @@ template<> struct hash_ops<MetaRef> {
 };
 }
 
-// scope and name form the identity: scope is a path rooted at the pool's
 struct MetaBlock {
 	IdString scope;
-	IdString name;
-	std::vector<IdString> names;
-	std::vector<IdString> scopes;
+	IdString hdlname;
+	std::vector<IdString> absorbed_hdlnames;
+	std::vector<IdString> absorbed_scopes;
 
-	bool is_dead() const { return scope.empty() && names.empty() && scopes.empty(); }
+	bool is_dead() const { return scope.empty() && absorbed_hdlnames.empty() && absorbed_scopes.empty(); }
 
 	bool operator==(const MetaBlock &other) const {
-		return scope == other.scope && name == other.name && names == other.names && scopes == other.scopes;
+		return scope == other.scope && hdlname == other.hdlname
+			&& absorbed_hdlnames == other.absorbed_hdlnames && absorbed_scopes == other.absorbed_scopes;
 	}
 };
 
@@ -83,7 +83,7 @@ struct MetaPool : HashConsPool<MetaPool, MetaBlock, MetaRef> {
 	std::string scopename(MetaRef ref) const;
 	MetaRef with_hdlname(MetaRef ref, std::string_view path);
 	MetaRef with_scopename(MetaRef ref, std::string_view path);
-	MetaRef without_name(MetaRef ref);
+	MetaRef without_hdlname(MetaRef ref);
 
 	MetaRef transfer(MetaRef target, MetaRef source);
 	MetaRef absorb(MetaRef target, MetaRef source);
