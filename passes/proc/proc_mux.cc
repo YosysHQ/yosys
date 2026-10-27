@@ -237,7 +237,7 @@ struct MuxGenContext
 		sstr << "$procmux$" << (mod->twines().next_autoidx());
 
 		RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
-		cmp_wire->adopt_src_from(sw);
+		mod->design->absorb_metadata(cmp_wire, sw);
 
 		for (auto comp : *compare)
 		{
@@ -543,7 +543,7 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 			if (!case_sources.empty())
 				mux->set_src(ctx.mod->srcs().merge(std::span<const SrcRef>{case_sources}));
 			log_assert(mux->getPort(ID::Y).is_wire());
-			mux->getPort(ID::Y).as_wire()->adopt_src_from(mux);
+			ctx.mod->design->absorb_metadata(mux->getPort(ID::Y).as_wire(), mux);
 		}
 	}
 

@@ -221,7 +221,7 @@ struct TechmapWorker
 			IdString m_ref = module->twines().add(m_name_id);
 			RTLIL::Memory *m = module->addMemory(m_ref, it.second);
 			if (m->has_attribute(ID::src))
-				design->merge_src(m, src_cell);
+				design->absorb_metadata(m, src_cell);
 			memory_renames[old_m_id] = m_name_id;
 			design->select(module, m);
 		}
@@ -268,7 +268,7 @@ struct TechmapWorker
 					w->set_src(SrcRef::Null);
 				}
 				if (w->has_attribute(ID::src))
-					design->merge_src(w, src_cell);
+					design->absorb_metadata(w, src_cell);
 			}
 			design->select(module, w);
 
@@ -430,7 +430,7 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			design->merge_src(c, src_cell);
+			design->absorb_metadata(c, src_cell);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)

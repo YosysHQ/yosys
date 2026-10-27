@@ -202,7 +202,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 	}
 
 	for (const auto& p : ports)
-		module->design->merge_src(shared_op, p.op);
+		module->design->absorb_metadata(shared_op, p.op);
 
 	for (const auto& p : ports) {
 		auto op = p.op;

@@ -430,7 +430,7 @@ struct AlumaccWorker
 
 			log("  creating $macc cell for %s: %s\n", n->cell, cell);
 
-			cell->adopt_src_from(n->cell);
+			module->design->transfer_metadata(cell, n->cell);
 
 			n->macc.optimize(GetSize(n->y));
 			n->macc.to_cell(cell);
@@ -567,7 +567,7 @@ struct AlumaccWorker
 			{
 				n->alu_cell = module->addPos(NEW_ID, n->a, n->y, n->is_signed);
 				if (n->cells.size() > 0)
-					n->alu_cell->adopt_src_from(n->cells[0]);
+					module->design->transfer_metadata(n->alu_cell, n->cells[0]);
 
 				message = "  creating $pos cell for ";
 				for (int i = 0; i < GetSize(n->cells); i++)
@@ -586,7 +586,7 @@ struct AlumaccWorker
 			log("%s: %s\n", message, n->alu_cell);
 
 			if (n->cells.size() > 0)
-				n->alu_cell->adopt_src_from(n->cells[0]);
+				module->design->transfer_metadata(n->alu_cell, n->cells[0]);
 
 			n->alu_cell->setPort(ID::A, n->a);
 			n->alu_cell->setPort(ID::B, n->b);
