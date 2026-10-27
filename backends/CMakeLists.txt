@@ -1,3 +1,4 @@
+add_subdirectory(common)
 add_subdirectory(aiger)
 add_subdirectory(aiger2)
 add_subdirectory(blif)

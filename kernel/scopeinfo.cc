@@ -118,6 +118,26 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 	return found->second;
 }
 
+void scopeinfo_set_attributes(RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::AttrObject *obj)
+{
+	log_assert(scopeinfo->type == ID($scopeinfo));
+	RTLIL::Design *design = scopeinfo->module->design;
+	TwinePool &twines = design->twines();
+	const char *prefix = attr_prefix(attrs);
+
+	for (auto const &[id, value] : obj->attributes)
+		scopeinfo->attributes.emplace(twines.add(prefix + twines.unescaped_str(id)), value);
+	for (IdString id : RTLIL::interned_attributes) {
+		if (!obj->has_attribute(id))
+			continue;
+		if (attrs == ScopeinfoAttrs::Cell && id == ID::hdlname)
+			design->set_hdlname(scopeinfo, design->get_hdlname(obj));
+		else
+			scopeinfo->attributes.emplace(twines.add(prefix + twines.unescaped_str(id)),
+					RTLIL::Const(design->get_interned_attribute(obj, id)));
+	}
+}
+
 dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs)
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;

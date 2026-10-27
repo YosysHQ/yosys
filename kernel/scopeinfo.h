@@ -446,6 +446,8 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 // Get all attribute from the flattened module or flattened cell corresponding to a $scopeinfo cell.
 dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs);
 
+void scopeinfo_set_attributes(RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::AttrObject *obj);
+
 YOSYS_NAMESPACE_END
 
 #endif

@@ -5,4 +5,6 @@ yosys_frontend(blif
 		include/frontends/blif
 	DATA_FILES
 		blifparse.h
+	REQUIRES
+		frontend_common
 )

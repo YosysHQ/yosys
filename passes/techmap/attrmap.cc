@@ -146,6 +146,26 @@ void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr
 	attributes.swap(new_attributes);
 }
 
+void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr<AttrmapAction>> &actions, RTLIL::AttrObject *obj)
+{
+	dict<IdString, RTLIL::Const> attributes = obj->attributes;
+	for (IdString id : RTLIL::interned_attributes)
+		if (obj->has_attribute(id))
+			attributes[id] = RTLIL::Const(design->get_interned_attribute(obj, id));
+
+	attrmap_apply(design, objname, actions, attributes);
+
+	for (IdString id : RTLIL::interned_attributes) {
+		auto it = attributes.find(id);
+		std::string value = it == attributes.end() ? std::string() : it->second.decode_string();
+		if (value != design->get_interned_attribute(obj, id))
+			design->set_interned_attribute(obj, id, value);
+		if (it != attributes.end())
+			attributes.erase(it);
+	}
+	obj->attributes = std::move(attributes);
+}
+
 void log_attrmap_paramap_options()
 {
 	log("    -tocase <name>\n");
@@ -267,14 +287,14 @@ struct AttrmapPass : public Pass {
 		if (modattr_mode)
 		{
 			for (auto module : design->all_selected_whole_modules())
-				attrmap_apply(design, stringf("%s", module), actions, module->attributes);
+				attrmap_apply(design, stringf("%s", module), actions, module);
 		}
 		else
 		{
 			for (auto module : design->all_selected_modules())
 			{
 				for (auto memb : module->selected_members())
-					attrmap_apply(design, stringf("%s.%s", module, memb.name.str()), actions, memb.obj->attributes);
+					attrmap_apply(design, stringf("%s.%s", module, memb.name.str()), actions, memb.obj);
 
 				// attrmap already applied to process itself during above loop, but not its children
 				for (auto proc : module->selected_processes())
@@ -283,10 +303,10 @@ struct AttrmapPass : public Pass {
 					while (!all_cases.empty()) {
 						RTLIL::CaseRule *cs = all_cases.back();
 						all_cases.pop_back();
-						attrmap_apply(design, stringf("%s.%s (case)", module, proc), actions, cs->attributes);
+						attrmap_apply(design, stringf("%s.%s (case)", module, proc), actions, cs);
 
 						for (auto &sw : cs->switches) {
-							attrmap_apply(design, stringf("%s.%s (switch)", module, proc), actions, sw->attributes);
+							attrmap_apply(design, stringf("%s.%s (switch)", module, proc), actions, sw);
 							all_cases.insert(all_cases.end(), sw->cases.begin(), sw->cases.end());
 						}
 					}

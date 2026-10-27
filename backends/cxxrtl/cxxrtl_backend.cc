@@ -26,6 +26,7 @@
 #include "kernel/log.h"
 #include "kernel/fmt.h"
 #include "kernel/scopeinfo.h"
+#include "backends/common/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -931,14 +932,12 @@ struct CxxrtlWorker {
 
 	void dump_attrs(const RTLIL::AttrObject *object)
 	{
-		for (auto &[id, value] : design->metadata_attributes(object))
-			f << indent << "// " << design->twines().str(id) << ": " << value << "\n";
-		for (auto attr : object->attributes) {
-			f << indent << "// " << design->twines().str(attr.first) << ": ";
-			if (attr.second.flags & RTLIL::CONST_FLAG_STRING) {
-				f << attr.second.decode_string();
+		for (auto &[name, value] : ExportedAttributes(design, object)) {
+			f << indent << "// " << design->twines().str(name) << ": ";
+			if (value.flags & RTLIL::CONST_FLAG_STRING) {
+				f << value.decode_string();
 			} else {
-				f << attr.second.as_int(/*is_signed=*/attr.second.flags & RTLIL::CONST_FLAG_SIGNED);
+				f << value.as_int(/*is_signed=*/value.flags & RTLIL::CONST_FLAG_SIGNED);
 			}
 			f << "\n";
 		}
@@ -1268,7 +1267,7 @@ struct CxxrtlWorker {
 			f << indent << "if (performer) {\n";
 			inc_indent();
 				f << indent << "static const metadata_map attributes = ";
-				dump_metadata_map(cell->attributes);
+				dump_metadata_map(exported_attributes(cell));
 				f << ";\n";
 				f << indent << "performer->on_print(formatter, attributes);\n";
 			dec_indent();
@@ -1325,7 +1324,7 @@ struct CxxrtlWorker {
 			f << indent << "if (performer) {\n";
 			inc_indent();
 				f << indent << "static const metadata_map attributes = ";
-				dump_metadata_map(cell->attributes);
+				dump_metadata_map(exported_attributes(cell));
 				f << ";\n";
 				if (cell->type == ID($print)) {
 					f << indent << "performer->on_print(formatter, attributes);\n";
@@ -2364,12 +2363,19 @@ struct CxxrtlWorker {
 		}
 	}
 
+	dict<RTLIL::IdString, RTLIL::Const> exported_attributes(const RTLIL::AttrObject *object)
+	{
+		dict<RTLIL::IdString, RTLIL::Const> attributes;
+		for (auto &[name, value] : ExportedAttributes(design, object))
+			attributes[name] = value;
+		return attributes;
+	}
+
 	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
-		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
-		// hdlname is inherently necessary to get access to the object, so a waste of space to emit.
-		if (object->has_attribute(ID::scopename))
-			attributes[ID::scopename] = design->get_scopename(object);
+		dict<RTLIL::IdString, RTLIL::Const> attributes = exported_attributes(object);
+		// Inherently necessary to get access to the object, so a waste of space to emit.
+		attributes.erase(ID::hdlname);
 		// Internal Yosys attribute that should be removed but isn't.
 		attributes.erase(ID::module_not_derived);
 		if (serialize) {
@@ -2705,7 +2711,7 @@ struct CxxrtlWorker {
 						f << "::create(" << escape_cxx_string(get_hdl_name(cell)) << ", ";
 						dump_metadata_map(cell->parameters);
 						f << ", ";
-						dump_metadata_map(cell->attributes);
+						dump_metadata_map(exported_attributes(cell));
 						f << ");\n";
 					} else {
 						f << indent << mangle(cell_module) << " " << mangle(cell) << " {interior()};\n";
