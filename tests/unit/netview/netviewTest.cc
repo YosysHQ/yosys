@@ -984,6 +984,21 @@ TEST_F(NetViewTest, portBarrierFindsItsPortBySignal)
 	EXPECT_EQ(port.objects, std::vector<const void *>{next->pin(next->top(), "q", 1)});
 }
 
+TEST_F(NetViewTest, netBarrierFindsTheNetOfItsScope)
+{
+	NetView view;
+	view.build(d);
+	TrackedRef net{TrackedRef::ObjectKind::Net};
+	net.objects = {view.instance(u_inv2)->pins[0]->net};
+	view.closeEpoch({&net}, Protection::Barriers);
+	// splitnets drops the anchors of the wire
+	p->attributes.clear();
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&net});
+	EXPECT_EQ(net.objects, std::vector<const void *>{next->instance(u_inv2)->pins[0]->net});
+}
+
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
 {
 	// splitnets copies the hdlname of a flat vector to each bit

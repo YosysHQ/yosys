@@ -293,6 +293,27 @@ std::vector<const void *> detail::Resolver::leafPinsUnderScope(const Netlist::Ne
 	return pins;
 }
 
+const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const std::string &scope_path) const
+{
+	pool<const Netlist::Net *> seen;
+	std::vector<const Netlist::Net *> todo = {net};
+	while (!todo.empty()) {
+		const Netlist::Net *at = todo.back();
+		todo.pop_back();
+		if (at == nullptr || !seen.insert(at).second)
+			continue;
+		if (paths_.scopePath(at->scope) == scope_path)
+			return at;
+		for (const Netlist::Term *term : at->terms)
+			todo.push_back(term->pin->net);
+		for (const Netlist::Pin *pin : at->pins) {
+			if (pin->term != nullptr)
+				todo.push_back(pin->term->net);
+		}
+	}
+	return net;
+}
+
 std::vector<const void *> detail::Resolver::resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	std::vector<const void *> nets;
@@ -309,8 +330,12 @@ std::vector<const void *> detail::Resolver::resolveNet(const std::vector<AnchorH
 	}
 	if (!nets.empty())
 		return detail::uniqueSorted(nets);
-	for (const void *pin : cutSidePinsOfHits(hits))
-		nets.push_back(static_cast<const Netlist::Pin *>(pin)->net);
+	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
+		std::vector<const void *> pins;
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, pins);
+		for (const void *pin : pins)
+			nets.push_back(netInScope(static_cast<const Netlist::Pin *>(pin)->net, hit->anchor.net_scope_path));
+	}
 	return detail::uniqueSorted(nets);
 }
 

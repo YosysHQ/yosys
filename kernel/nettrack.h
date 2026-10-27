@@ -238,13 +238,13 @@ public:
 	bool madeNewImage() const;
 private:
 	void protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref);
-	void protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index);
+	void protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
 	void protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool wants_image);
 	void protectPort(const Netlist::Pin *pin, uint32_t ref_index);
 	void protectCell(const Netlist::Instance *inst, uint32_t ref_index);
 	void protectNet(const Netlist::Net *net, uint32_t ref_index);
 	void isolateCell(const Netlist::Instance *inst);
-	void anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index);
+	void anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
 	RTLIL::Cell *ensureBarrierAtPort(const Netlist::Pin *pin);
 	RTLIL::Cell *findPortBarrier(RTLIL::Module *module, const RTLIL::SigBit &bit) const;
@@ -273,6 +273,7 @@ private:
 	std::vector<const void *> resolvePort(const std::vector<AnchorHit> &hits, const void *top_port_pin);
 	void collectTopPorts(const Netlist::Net *net, std::vector<const void *> &pins) const;
 	std::vector<const void *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
+	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
 	std::vector<const void *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 private:
 	const NetView &view_;
