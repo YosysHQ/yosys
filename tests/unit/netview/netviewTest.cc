@@ -966,6 +966,23 @@ TEST_F(NetViewTest, unprotectKeepsTheAnchors)
 	EXPECT_EQ(cell.objects, std::vector<const void *>{next->instance(u_inv2)});
 }
 
+TEST_F(NetViewTest, removedCellKeepsItsLoads)
+{
+	NetView view;
+	view.build(d);
+	TrackedRef cell{TrackedRef::ObjectKind::Cell};
+	cell.objects = {view.instance(u_inv2)};
+	view.closeEpoch({&cell}, Protection::Barriers);
+	// a pass makes the cell a wire
+	top->connect(u_inv2->getPort(ID(Y)), u_inv2->getPort(ID(A)));
+	top->remove(u_inv2);
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&cell});
+	EXPECT_TRUE(cell.objects.empty());
+	EXPECT_EQ(cell.result.loads_beyond, std::vector<const void *>{next->pin(next->top(), "out", 0)});
+}
+
 TEST_F(NetViewTest, portBarrierFindsItsPortBySignal)
 {
 	NetView view;

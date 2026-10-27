@@ -197,12 +197,15 @@ std::vector<const void *> detail::Resolver::cutSidePinsOfHits(const std::vector<
 	return pins;
 }
 
-// The loads beyond the barrier of a hierarchical pin
+// The loads beyond the barrier of a hierarchical pin, or of the outputs of a cell
 void detail::Resolver::collectLoadsBeyondAndImagePins(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
-	if (!ref.facts.isHierarchicalPin())
+	bool of_cell = ref.kind == TrackedRef::ObjectKind::Cell;
+	if (!ref.facts.isHierarchicalPin() && !of_cell)
 		return;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
+		if (of_cell && hit->anchor.side != Anchor::Side::A)
+			continue;
 		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, ref.result.loads_beyond);
 		const Netlist::Instance *inst = view_.instance(hit->barrier, hit->barrier_scope);
 		if (inst == nullptr || inst->isLeaf())

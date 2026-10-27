@@ -56,7 +56,7 @@ struct TrackedRef {
 	};
 
 	struct Result {
-		std::vector<const void *> loads_beyond = {}; // beyond its barrier
+		std::vector<const void *> loads_beyond = {}; // beyond its barrier, or beyond the outputs of a cell
 		std::vector<const void *> image_a_pins = {};
 		std::vector<const void *> image_y_pins = {};
 		std::vector<const void *> through_pins = {}; // of a net in its old scope
