@@ -8,6 +8,7 @@ yosys_pass(ice40_opt
 		opt_merge
 		opt_dff
 		opt_clean
+		frontend_common
 )
 pmgen_command(ice40_dsp
 	ice40_dsp.pmg
@@ -22,6 +23,8 @@ pmgen_command(ice40_wrapcarry
 yosys_pass(ice40_wrapcarry
 	ice40_wrapcarry.cc
 	${PMGEN_ice40_wrapcarry_OUTPUT}
+	REQUIRES
+		frontend_common
 )
 
 yosys_pass(synth_ice40

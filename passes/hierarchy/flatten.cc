@@ -21,6 +21,7 @@
 #include "kernel/utils.h"
 #include "kernel/sigtools.h"
 #include "kernel/ffinit.h"
+#include "kernel/scopeinfo.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -332,21 +333,8 @@ struct FlattenWorker
 			scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
 			scopeinfo->setParam(ID::TYPE, RTLIL::Const("module"));
 
-			for (auto const &attr : cell->attributes)
-				scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
-			if (cell->src() != SrcRef::Null)
-				scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_src")), RTLIL::Const(cell->get_src_attribute()));
-			if (cell->has_attribute(ID::hdlname))
-				design->set_hdlname(scopeinfo, design->get_hdlname(cell));
-			if (cell->has_attribute(ID::scopename))
-				scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_scopename")), RTLIL::Const(design->get_scopename(cell)));
-
-			for (auto const &attr : tpl->attributes)
-				scopeinfo->attributes.emplace(design->twines().add(stringf("\\module_%s", design->twines().unescaped_str(attr.first))), attr.second);
-			for (auto const &[name, value] : design->metadata_attributes(tpl))
-				scopeinfo->attributes.emplace(design->twines().add(stringf("\\module_%s", design->twines().unescaped_str(name))), RTLIL::Const(value));
-			if (tpl->src() != SrcRef::Null)
-				scopeinfo->attributes.emplace(design->twines().add("\\module_src"), RTLIL::Const(tpl->get_src_attribute()));
+			scopeinfo_set_attributes(scopeinfo, ScopeinfoAttrs::Cell, cell);
+			scopeinfo_set_attributes(scopeinfo, ScopeinfoAttrs::Module, tpl);
 
 			scopeinfo->attributes.emplace(ID::module, RTLIL::Const(tpl->name.unescape()));
 		}

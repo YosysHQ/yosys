@@ -18,6 +18,7 @@
  */
 
 #include "blifparse.h"
+#include "frontends/common/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -340,10 +341,7 @@ void parse_blif(RTLIL::Design *design, std::istream &f, IdString dff_name, int a
 						err_reason = stringf("No object to attach .attr too.");
 						goto error_with_reason;
 					}
-					if (id_n == ID::src)
-						attr_obj->set_src(design->srcs().add(const_v.decode_string()));
-					else
-						attr_obj->attributes[id_n] = const_v;
+					import_attribute(design, attr_obj, id_n, const_v);
 				} else {
 					if (obj_parameters == nullptr) {
 						err_reason = stringf("No object to attach .param too.");

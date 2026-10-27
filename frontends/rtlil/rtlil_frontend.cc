@@ -26,6 +26,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 #include "kernel/twine.h"
+#include "frontends/common/attributes.h"
 #include <charconv>
 #include <deque>
 #include <optional>
@@ -544,8 +545,8 @@ struct RTLILFrontendWorker {
 	{
 		obj->set_src(pending_src);
 		pending_src = SrcRef::Null;
-		obj->attributes = std::move(attrbuf);
-		design->import_metadata_attributes(obj);
+		import_attributes(design, obj, std::move(attrbuf));
+		attrbuf.clear();
 	}
 
 	// Heuristic

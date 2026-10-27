@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "frontends/common/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -63,15 +64,14 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 		cell->attributes[twines.add(stringf("\\SB_CARRY.%s", twines.str(a.first)))] = a.second;
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[twines.add(stringf("\\SB_LUT4.%s", twines.str(a.first)))] = a.second;
-	if (st.carry->src() != SrcRef::Null) {
-		cell->attributes[twines.add("\\SB_CARRY.\\src")] = Const(st.carry->get_src_attribute());
-		cell->set_src(st.carry->src());
+	RTLIL::Design *design = cell->module->design;
+	for (IdString id : RTLIL::interned_attributes) {
+		if (st.carry->has_attribute(id))
+			cell->attributes[twines.add("\\SB_CARRY." + twines.str(id))] = Const(design->get_interned_attribute(st.carry, id));
+		if (st.lut->has_attribute(id))
+			cell->attributes[twines.add("\\SB_LUT4." + twines.str(id))] = Const(design->get_interned_attribute(st.lut, id));
 	}
-	if (st.lut->src() != SrcRef::Null) {
-		cell->attributes[twines.add("\\SB_LUT4.\\src")] = Const(st.lut->get_src_attribute());
-		if (st.carry->src() == SrcRef::Null)
-			cell->set_src(st.lut->src());
-	}
+	cell->set_src(st.carry->src() != SrcRef::Null ? st.carry->src() : st.lut->src());
 	cell->attributes[twines.add("\\SB_LUT4.name")] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;
@@ -145,25 +145,20 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setPort(ID::A, { I3, cell->getPort(ID::B), cell->getPort(ID::A), cell->getPort(ID(I0)) });
 					lut->setPort(ID::Y, cell->getPort(ID::O));
 
-					SrcRef carry_src = cell->src(), lut_src = cell->src();
+					carry->set_src(cell->src());
+					lut->set_src(cell->src());
 					for (const auto &a : cell->attributes) {
 						std::string aname = twines.str(a.first);
-						if (aname == "\\SB_CARRY.\\src") {
-							carry_src = module->srcs().add(a.second.decode_string());
-						} else if (aname == "\\SB_LUT4.\\src") {
-							lut_src = module->srcs().add(a.second.decode_string());
-						} else if (aname.starts_with("\\SB_CARRY.\\")) {
-							carry->attributes[twines.add(aname.substr(strlen("\\SB_CARRY.")))] = a.second;
+						if (aname.starts_with("\\SB_CARRY.\\")) {
+							import_attribute(module->design, carry, twines.add(aname.substr(strlen("\\SB_CARRY."))), a.second);
 						} else if (aname.starts_with("\\SB_LUT4.\\")) {
-							lut->attributes[twines.add(aname.substr(strlen("\\SB_LUT4.")))] = a.second;
+							import_attribute(module->design, lut, twines.add(aname.substr(strlen("\\SB_LUT4."))), a.second);
 						} else if (a.first.in(lut_name_attr, ID::keep, ID::module_not_derived)) {
 							continue;
 						} else {
 							log_abort();
 						}
 					}
-					carry->set_src(carry_src);
-					lut->set_src(lut_src);
 
 					module->remove(cell);
 				}

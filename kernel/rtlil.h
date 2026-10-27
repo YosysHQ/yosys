@@ -637,6 +637,11 @@ public:
 	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
+namespace RTLIL {
+	inline constexpr IdString interned_attributes[] = {ID::src, ID::hdlname, ID::scopename};
+	bool is_interned_attribute(IdString id);
+}
+
 struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
@@ -1333,8 +1338,8 @@ public:
 	std::string get_scopename(const RTLIL::AttrObject *obj) const { return metas_.scopename(obj->meta()); }
 	void set_hdlname(RTLIL::AttrObject *obj, std::string_view path);
 	void set_scopename(RTLIL::AttrObject *obj, std::string_view path);
-	void import_metadata_attributes(RTLIL::AttrObject *obj);
-	std::vector<std::pair<RTLIL::IdString, std::string>> metadata_attributes(const RTLIL::AttrObject *obj) const;
+	std::string get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const;
+	void set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value);
 	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 

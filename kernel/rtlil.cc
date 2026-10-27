@@ -637,9 +637,9 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 }
 #undef check /* check(condition) for Const */
 
-static bool is_meta_attribute(RTLIL::IdString id)
+bool RTLIL::is_interned_attribute(RTLIL::IdString id)
 {
-	return id == ID::hdlname || id == ID::scopename;
+	return id == ID::src || id == ID::hdlname || id == ID::scopename;
 }
 
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
@@ -655,7 +655,7 @@ bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
-	log_assert(id != ID::src && !is_meta_attribute(id));
+	log_assert(!is_interned_attribute(id));
 	if (value)
 		attributes[id] = RTLIL::Const(1);
 	else
@@ -664,7 +664,7 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
-	if (id == ID::src || is_meta_attribute(id))
+	if (is_interned_attribute(id))
 		return has_attribute(id);
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
@@ -674,8 +674,7 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 
 void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 {
-	log_assert(id != ID::src && "src is not an attribute; use set_src_attribute");
-	log_assert(!is_meta_attribute(id) && "use Design::set_hdlname or Design::set_scopename");
+	log_assert(!is_interned_attribute(id) && "interned in the design; use Design::set_interned_attribute");
 	if (value.empty())
 		attributes.erase(id);
 	else
@@ -684,8 +683,7 @@ void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 
 string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 {
-	log_assert(id != ID::src && "src is not an attribute; use get_src_attribute");
-	log_assert(!is_meta_attribute(id) && "use Design::get_hdlname or Design::get_scopename");
+	log_assert(!is_interned_attribute(id) && "interned in the design; use Design::get_interned_attribute");
 	std::string value;
 	const auto it = attributes.find(id);
 	if (it != attributes.end())
@@ -703,28 +701,26 @@ void RTLIL::Design::set_scopename(RTLIL::AttrObject *obj, std::string_view path)
 	obj->set_meta(metas_.with_scopename(obj->meta(), path));
 }
 
-void RTLIL::Design::import_metadata_attributes(RTLIL::AttrObject *obj)
+std::string RTLIL::Design::get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const
 {
-	auto it = obj->attributes.find(ID::hdlname);
-	if (it != obj->attributes.end()) {
-		set_hdlname(obj, it->second.decode_string());
-		obj->attributes.erase(it);
-	}
-	it = obj->attributes.find(ID::scopename);
-	if (it != obj->attributes.end()) {
-		set_scopename(obj, it->second.decode_string());
-		obj->attributes.erase(it);
-	}
+	if (id == ID::src)
+		return get_src_attribute(obj);
+	if (id == ID::hdlname)
+		return get_hdlname(obj);
+	log_assert(id == ID::scopename);
+	return get_scopename(obj);
 }
 
-std::vector<std::pair<RTLIL::IdString, std::string>> RTLIL::Design::metadata_attributes(const RTLIL::AttrObject *obj) const
+void RTLIL::Design::set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value)
 {
-	std::vector<std::pair<RTLIL::IdString, std::string>> out;
-	if (obj->meta().has_hdlname())
-		out.emplace_back(ID::hdlname, metas_.hdlname(obj->meta()));
-	if (obj->meta().has_scopename())
-		out.emplace_back(ID::scopename, metas_.scopename(obj->meta()));
-	return out;
+	if (id == ID::src)
+		obj->set_src(value.empty() ? SrcRef::Null : srcs_.add(value));
+	else if (id == ID::hdlname)
+		set_hdlname(obj, value);
+	else {
+		log_assert(id == ID::scopename);
+		set_scopename(obj, value);
+	}
 }
 
 void RTLIL::Design::transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)

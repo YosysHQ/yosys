@@ -150,12 +150,13 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 		}
 		f << stringf("\n");
 	}
-	if (obj->meta() != MetaRef::Null)
-		for (const auto &[name, value] : design->metadata_attributes(obj)) {
-			f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
-			dump_const(f, RTLIL::Const(value));
-			f << stringf("\n");
-		}
+	for (IdString id : RTLIL::interned_attributes) {
+		if (id == ID::src || !obj->has_attribute(id))
+			continue;
+		f << stringf("%s" "attribute %s ", indent, twine_ref(design, id, mode));
+		dump_const(f, RTLIL::Const(design->get_interned_attribute(obj, id)));
+		f << stringf("\n");
+	}
 	for (const auto& [name, value] : reversed(obj->attributes)) {
 		f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
 		dump_const(f, value);

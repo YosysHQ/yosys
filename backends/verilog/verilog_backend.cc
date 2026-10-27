@@ -28,6 +28,7 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 #include "kernel/fmt.h"
+#include "backends/common/attributes.h"
 #include "backends/verilog/verilog_backend.h"
 #include <string>
 #include <sstream>
@@ -462,25 +463,13 @@ struct VerilogWriter
 			return;
 		if (config.attr2comment)
 			as_comment = true;
-		if (obj->src() != SrcRef::Null) {
-			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id(ID::str(ID::src)));
+		for (auto &[name, value] : ExportedAttributes(active_module->design, obj)) {
+			if (name == ID::single_bit_vector) continue;
+			if (name == ID::init && regattr) continue;
+			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(name));
 			f << stringf(" = ");
-			dump_const(f, RTLIL::Const(active_module->design->get_src_attribute(obj)), ConstKind::Attr, -1, 0, as_comment);
-			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
-		}
-		if (obj->meta() != MetaRef::Null)
-			for (auto &[name, value] : active_module->design->metadata_attributes(obj)) {
-				f << stringf("%s" "%s %s = ", indent, as_comment ? "/*" : "(*", id_of(name));
-				dump_const(f, RTLIL::Const(value), ConstKind::Attr, -1, 0, as_comment);
-				f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
-			}
-		for (auto it = obj->attributes.begin(); it != obj->attributes.end(); ++it) {
-			if (it->first == ID::single_bit_vector) continue;
-			if (it->first == ID::init && regattr) continue;
-			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(it->first));
-			f << stringf(" = ");
-			ConstKind kind = it->first.in(ID::init, ID::defaultvalue) ? ConstKind::SizedAttr : ConstKind::Attr;
-			dump_const(f, it->second, kind, -1, 0, as_comment);
+			ConstKind kind = name.in(ID::init, ID::defaultvalue) ? ConstKind::SizedAttr : ConstKind::Attr;
+			dump_const(f, value, kind, -1, 0, as_comment);
 			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 		}
 	}

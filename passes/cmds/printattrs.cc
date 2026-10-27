@@ -58,8 +58,9 @@ struct PrintAttrsPass : public Pass {
 		if (obj->src() != SrcRef::Null)
 			log("%s(* src=\"%s\" *)\n", get_indent_str(indent),
 					design->get_src_attribute(obj));
-		for (auto &[name, value] : design->metadata_attributes(obj))
-			log_const(PooledName(design, name), RTLIL::Const(value), indent);
+		for (IdString id : RTLIL::interned_attributes)
+			if (id != ID::src && obj->has_attribute(id))
+				log_const(PooledName(design, id), RTLIL::Const(design->get_interned_attribute(obj, id)), indent);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
