@@ -166,7 +166,7 @@ void allconstify_inputs(RTLIL::Module *module, const pool<std::string> &input_wi
 		RTLIL::Cell *allconst = module->addCell("$allconst$" + n, ID($allconst));
 		allconst->setParam(ID(WIDTH), input->width);
 		allconst->setPort(ID::Y, input);
-		allconst->adopt_src_from(input);
+		module->design->absorb_metadata(allconst, input);
 		input->port_input = false;
 		log("Replaced input %s with $allconst cell.\n", n);
 	}

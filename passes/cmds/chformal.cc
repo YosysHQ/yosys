@@ -372,7 +372,7 @@ struct ChformalPass : public Pass {
 					if (cell->type == ID($check)) {
 						Cell *cover = module->addCell(NEW_ID_SUFFIX("coverenable"), ID($check));
 						cover->attributes = cell->attributes;
-						cover->adopt_src_from(cell);
+						module->design->absorb_metadata(cover, cell);
 						cover->parameters = cell->parameters;
 						cover->setParam(ID(FLAVOR), Const("cover"));
 
@@ -418,7 +418,7 @@ struct ChformalPass : public Pass {
 					Cell *plain_cell = module->addCell(NEW_ID, formal_flavor(cell));
 
 					plain_cell->attributes = cell->attributes;
-					plain_cell->adopt_src_from(cell);
+					module->design->transfer_metadata(plain_cell, cell);
 
 					SigBit sig_a = cell->getPort(ID::A);
 					SigBit sig_en = cell->getPort(ID::EN);
