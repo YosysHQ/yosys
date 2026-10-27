@@ -1,0 +1,91 @@
+read_verilog <<EOT
+module open_drain(input A, inout Y);
+assign Y = A ? 0 : 1'bz;
+endmodule
+EOT
+design -save open_drain
+
+proc
+tribuf
+opt_clean
+select -assert-count 1 t:$tribuf
+select -assert-count 1 t:$tribuf r:WIDTH=1 %i
+select -assert-count 1 t:$tribuf %x:+[EN] w:A %i
+select -assert-count 1 t:$tribuf %x:+[Y] w:Y %i
+select -assert-none t:* t:$tribuf %d
+
+design -load open_drain
+synth_ice40
+select -assert-count 1 t:$_TBUF_
+select -assert-count 1 t:$_TBUF_ %x:+[E] w:A %i
+select -assert-count 1 t:$_TBUF_ %x:+[Y] w:Y %i
+select -assert-none t:* t:$_TBUF_ %d
+
+design -reset
+read_verilog <<EOT
+module reversed(input A, inout Y);
+assign Y = A ? 1'bz : 0;
+endmodule
+EOT
+proc
+tribuf
+opt_clean
+select -assert-count 1 t:$tribuf
+select -assert-count 1 t:$not
+select -assert-count 1 t:$not %x:+[A] w:A %i
+select -assert-count 1 t:$tribuf %x:+[Y] w:Y %i
+select -assert-none t:* t:$tribuf t:$not %u %d
+
+design -reset
+read_verilog <<EOT
+module partial_bus(input en, input [3:0] d, output [3:0] y);
+assign y = en ? d : {2'b01, 2'bzz};
+endmodule
+EOT
+proc
+tribuf
+opt_clean
+select -assert-count 1 t:$tribuf
+select -assert-count 1 t:$tribuf r:WIDTH=2 %i
+select -assert-count 1 t:$tribuf %x:+[EN] w:en %i
+select -assert-count 1 t:$mux
+select -assert-count 1 t:$mux r:WIDTH=2 %i
+
+design -reset
+read_verilog <<EOT
+module mixed_arms(input s, input [3:0] a, input [3:0] b, output [3:0] y);
+assign y = s ? {b[3], 1'bz, b[1], 1'bz} : {1'bz, a[2], 1'bz, 1'bz};
+endmodule
+EOT
+proc
+tribuf
+opt_clean
+select -assert-count 3 t:$tribuf
+select -assert-count 1 t:$tribuf r:WIDTH=2 %i
+select -assert-count 2 t:$tribuf r:WIDTH=1 %i
+select -assert-count 1 t:$tribuf r:WIDTH=2 %i %x:+[EN] w:s %i
+select -assert-count 1 t:$not
+select -assert-none t:$mux
+
+design -reset
+read_verilog <<EOT
+module wired_and(input A, input B, inout Y);
+assign Y = A ? 0 : 1'bz;
+assign Y = B ? 0 : 1'bz;
+endmodule
+EOT
+synth_ice40
+select -assert-count 1 t:$_TBUF_
+select -assert-count 1 t:$_TBUF_ %x:+[Y] w:Y %i
+
+design -reset
+read_verilog <<EOT
+module disabled_and_other_driver(input s, input t, input b, input c, inout [1:0] y);
+assign y = s ? {b, 1'bz} : {1'b0, 1'bz};
+assign y[0] = t ? c : 1'bz;
+endmodule
+EOT
+synth_ice40
+select -assert-count 1 t:$_TBUF_
+select -assert-count 1 t:$_TBUF_ %x:+[E] w:t %i
+select -assert-count 1 t:$_TBUF_ %x:+[Y] w:y %i

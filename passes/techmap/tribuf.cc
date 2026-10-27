@@ -44,12 +44,75 @@ struct TribufWorker {
 	{
 	}
 
-	static bool is_all_z(SigSpec sig)
+	void mux_to_tribufs(Cell *cell, dict<SigSpec, vector<Cell*>> &tribuf_cells)
 	{
-		for (auto bit : sig)
-			if (bit != State::Sz)
-				return false;
-		return true;
+		bool is_fine = cell->type == ID($_MUX_);
+		SigSpec sig_a = cell->getPort(ID::A);
+		SigSpec sig_b = cell->getPort(ID::B);
+		SigSpec sig_s = cell->getPort(ID::S);
+		SigSpec sig_y = cell->getPort(ID::Y);
+		std::string src = cell->get_src_attribute();
+
+		// Slice the tribuf based on the z-ness of A and B
+		SigSpec mux_a, mux_b, mux_y, s_a, s_y, ns_a, ns_y, off_y;
+		for (int i = 0; i < GetSize(sig_y); i++) {
+			bool z_a = sig_a[i] == State::Sz;
+			bool z_b = sig_b[i] == State::Sz;
+			if (z_a && z_b) {
+				// y = s ? 'z : 'z -> y = $tribuf(A='x, EN='0)
+				off_y.append(sig_y[i]);
+			} else if (z_a) {
+				// y = s ? b : 'z -> y = $tribuf(A=b, EN=s)
+				s_a.append(sig_b[i]);
+				s_y.append(sig_y[i]);
+			} else if (z_b) {
+				// y = s ? 'z : a -> y = $tribuf(A=a, EN=~s)
+				ns_a.append(sig_a[i]);
+				ns_y.append(sig_y[i]);
+			} else {
+				// No change
+				mux_a.append(sig_a[i]);
+				mux_b.append(sig_b[i]);
+				mux_y.append(sig_y[i]);
+			}
+		}
+
+		vector<std::tuple<SigSpec, SigSpec, SigSpec>> drivers;
+		if (!s_y.empty())
+			drivers.emplace_back(s_a, sig_s, s_y);
+		if (!ns_y.empty())
+			drivers.emplace_back(ns_a, is_fine ? SigSpec(module->NotGate(NEW_ID, sig_s, src)) : module->Not(NEW_ID, sig_s, false, src), ns_y);
+		if (!off_y.empty())
+			drivers.emplace_back(SigSpec(State::Sx, GetSize(off_y)), State::S0, off_y);
+
+		if (!mux_y.empty()) {
+			cell->setPort(ID::A, mux_a);
+			cell->setPort(ID::B, mux_b);
+			cell->setPort(ID::Y, mux_y);
+			cell->setParam(ID::WIDTH, GetSize(mux_y));
+		}
+
+		for (int i = 0; i < GetSize(drivers); i++) {
+			auto &[a, en, y] = drivers[i];
+			Cell *tribuf;
+			if (i == 0 && mux_y.empty()) {
+				tribuf = cell;
+				tribuf->unsetPort(ID::B);
+				tribuf->unsetPort(ID::S);
+				tribuf->type = is_fine ? ID($_TBUF_) : ID($tribuf);
+				tribuf->setPort(ID::A, a);
+				tribuf->setPort(is_fine ? ID::E : ID::EN, en);
+				tribuf->setPort(ID::Y, y);
+				if (!is_fine)
+					tribuf->setParam(ID::WIDTH, GetSize(y));
+			} else {
+				tribuf = module->addTribuf(NEW_ID, a, en, y);
+				tribuf->attributes = cell->attributes;
+			}
+			tribuf_cells[sigmap(y)].push_back(tribuf);
+		}
+
+		module->design->scratchpad_set_bool("tribuf.added_something", true);
 	}
 
 	void run()
@@ -71,37 +134,8 @@ struct TribufWorker {
 			if (cell->type == ID($_TBUF_))
 				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
-			if (cell->type.in(ID($mux), ID($_MUX_)))
-			{
-				IdString en_port = cell->type == ID($mux) ? ID::EN : ID::E;
-				IdString tri_type = cell->type == ID($mux) ? ID($tribuf) : ID($_TBUF_);
-
-				if (is_all_z(cell->getPort(ID::A)) && is_all_z(cell->getPort(ID::B))) {
-					module->remove(cell);
-					continue;
-				}
-
-				if (is_all_z(cell->getPort(ID::A))) {
-					cell->setPort(ID::A, cell->getPort(ID::B));
-					cell->setPort(en_port, cell->getPort(ID::S));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
-					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
-					module->design->scratchpad_set_bool("tribuf.added_something", true);
-					continue;
-				}
-
-				if (is_all_z(cell->getPort(ID::B))) {
-					cell->setPort(en_port, module->Not(NEW_ID, cell->getPort(ID::S)));
-					cell->unsetPort(ID::B);
-					cell->unsetPort(ID::S);
-					cell->type = tri_type;
-					tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
-					module->design->scratchpad_set_bool("tribuf.added_something", true);
-					continue;
-				}
-			}
+			if (cell->type.in(ID($mux), ID($_MUX_)) && (cell->getPort(ID::A).has_const(State::Sz) || cell->getPort(ID::B).has_const(State::Sz)))
+				mux_to_tribufs(cell, tribuf_cells);
 		}
 
 		if (config.merge_mode || config.logic_mode || config.formal_mode)
