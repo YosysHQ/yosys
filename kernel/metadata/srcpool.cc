@@ -1,22 +1,16 @@
 #include "kernel/metadata/srcpool.h"
-#include "kernel/metadata/twinebacked_impl.h"
+#include "kernel/metadata/twineset_impl.h"
 
 YOSYS_NAMESPACE_BEGIN
 
-template struct HashConsPool<SrcPool, SrcSet, SrcRef>;
-template struct TwineBackedPool<SrcPool, SrcSet, SrcRef>;
+template struct HashConsPool<SrcPool, TwineSet, SrcRef>;
+template struct TwineBackedPool<SrcPool, TwineSet, SrcRef>;
+template struct TwineSetPool<SrcPool, SrcRef>;
 
 template<typename T> concept Ordered = requires(T a) { a < a; };
 template<typename T> concept Indexable = requires(T a) { a.raw(); };
 static_assert(!Ordered<SrcRef> && !Indexable<SrcRef>);
 static_assert(Ordered<IdString> && Indexable<IdString>);
-
-uint64_t SrcPool::hash_node(const SrcSet &n) {
-	Hasher h;
-	for (IdString member : n.members())
-		h.eat(member);
-	return h.yield();
-}
 
 IdString SrcPool::add_location(std::string_view location) {
 	size_t colon = location.rfind(':');
@@ -45,49 +39,6 @@ SrcRef SrcPool::add(const std::string &file, const std::string &tail) {
 	return intern({twines.add(prefix, tail)});
 }
 
-SrcRef SrcPool::merge(std::span<const SrcRef> refs) {
-	std::vector<IdString> members;
-	for (SrcRef ref : refs)
-		if (ref != SrcRef::Null)
-			members.insert(members.end(), (*this)[ref].members().begin(), (*this)[ref].members().end());
-	return intern(std::move(members));
-}
-
-SrcRef SrcPool::merge(SrcRef a, SrcRef b) {
-	SrcRef both[] = {a, b};
-	return merge(std::span<const SrcRef>{both});
-}
-
-SrcRef SrcPool::adopt(std::span<const IdString> members) {
-	return intern(std::vector<IdString>(members.begin(), members.end()));
-}
-
-SrcRef SrcPool::place(size_t idx, std::span<const IdString> members) {
-	std::vector<IdString> canon(members.begin(), members.end());
-	canonicalize_members(canon);
-	if (canon.empty())
-		return SrcRef::Null;
-	return stamp(HashConsPool::place(idx, SrcSet{std::move(canon)}));
-}
-
-SrcRef SrcPool::find_members(std::span<const IdString> members) const {
-	std::vector<IdString> canon(members.begin(), members.end());
-	canonicalize_members(canon);
-	if (canon.empty())
-		return SrcRef::Null;
-	return find_node(SrcSet{std::move(canon)});
-}
-
-SrcRef SrcPool::copy_from(const SrcPool &other, SrcRef ref) {
-	if (ref == SrcRef::Null)
-		return ref;
-	std::vector<IdString> members;
-	members.reserve(other[ref].members().size());
-	for (IdString member : other[ref].members())
-		members.push_back(twines.copy_from(other.twines, member));
-	return intern(std::move(members));
-}
-
 std::string SrcPool::str(SrcRef ref) const {
 	std::string out;
 	if (ref == SrcRef::Null)
@@ -114,50 +65,6 @@ pool<std::string> SrcPool::leaves(SrcRef ref) const {
 	for (IdString member : (*this)[ref].members())
 		out.insert(twines.str(member));
 	return out;
-}
-
-void SrcPool::root_members(const Marks &live_srcs, pool<IdString> &live_twines) const {
-	for (SrcRef ref : live_srcs)
-		for (IdString member : (*this)[ref].members())
-			live_twines.insert(member);
-}
-
-void SrcPool::dump(SrcRef ref, std::ostream &os) const {
-	os << "Set[";
-	bool first = true;
-	for (IdString member : (*this)[ref].members()) {
-		if (!first)
-			os << ", ";
-		first = false;
-		os << "@" << member.raw();
-	}
-	os << "]";
-}
-
-void SrcPool::dump(std::ostream &os) const {
-	os << "--- SrcPool Dump (" << size() << " nodes) ---\n";
-	for (size_t idx = 0; idx < backing.size(); ++idx) {
-		if (backing[idx].is_dead())
-			continue;
-		os << idx << " -> ";
-		dump(SrcRef(idx), os);
-		os << '\n';
-	}
-	os << "--------------------------------\n";
-}
-
-void SrcPool::canonicalize_members(std::vector<IdString> &members) {
-	for (IdString &member : members)
-		member = member.untag().stamped(0);
-	std::sort(members.begin(), members.end());
-	members.erase(std::unique(members.begin(), members.end()), members.end());
-}
-
-SrcRef SrcPool::intern(std::vector<IdString> members) {
-	canonicalize_members(members);
-	if (members.empty())
-		return SrcRef::Null;
-	return intern_node(SrcSet{std::move(members)});
 }
 
 YOSYS_NAMESPACE_END
