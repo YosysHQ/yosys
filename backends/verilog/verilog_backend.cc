@@ -2540,7 +2540,7 @@ struct VerilogWriter
 		}
 		f << stringf(");\n");
 		if (!config.systemverilog && !module->processes.empty()) {
-			initial_id = TwineSpec(NEW_ID).content_str();
+			initial_id = module->twines().unescaped_str(module->twines().add(NEW_ID));
 			f << indent + "  " << "reg " << id(initial_id) << " = 0;\n";
 		}
 

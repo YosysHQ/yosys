@@ -296,7 +296,7 @@ RTLIL::Cell *replace(RTLIL::Module *needle, RTLIL::Module *haystack, SubCircuit:
 	auto &tw = needle->twines();
 
 	// create new cell
-	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, autoidx++), haystack->twines().copy_from(tw, needle->name));
+	RTLIL::Cell *cell = haystack->addCell(stringf("$extract$%s$%d", needle->name, haystack->twines().next_autoidx()), haystack->twines().copy_from(tw, needle->name));
 
 	for (auto wire : needle->wires()) {
 		if (wire->port_id > 0) {
@@ -598,7 +598,7 @@ struct ExtractPass : public Pass {
 						delete map;
 						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
 					}
-					RTLIL::Design *saved = saved_designs.at(filename.substr(1));
+					RTLIL::Design *saved = saved_designs.at(filename.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->has(map->twines().find_from(saved->twines(), mod->name)))
 							mod->clone(map);
