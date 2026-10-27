@@ -150,6 +150,8 @@ struct JsonWriter
 		bool first = true;
 		if (obj->src() != SrcRef::Null)
 			write_parameter(first, for_module, ID::src, Const(design->get_src_attribute(obj)));
+		for (auto &[name, value] : design->metadata_attributes(obj))
+			write_parameter(first, for_module, name, Const(value));
 		for (auto &attr : obj->attributes)
 			write_parameter(first, for_module, attr.first, attr.second);
 	}

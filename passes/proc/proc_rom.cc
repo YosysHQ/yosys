@@ -154,6 +154,7 @@ struct RomWorker
 		SigSpec rdata = module->addWire(NEW_ID, GetSize(lhs));
 		Mem mem(module, NEW_ID, GetSize(lhs), 0, 1 << abits);
 		mem.attributes = sw->attributes;
+		module->design->absorb_metadata(&mem, sw);
 
 		Const::Builder builder(mem.size * GetSize(lhs));
 		for (int i = 0; i < mem.size; i++) {

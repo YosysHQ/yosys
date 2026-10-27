@@ -437,6 +437,12 @@ struct VerilogWriter
 			dump_const(f, RTLIL::Const(active_module->design->get_src_attribute(obj)), -1, 0, false, as_comment);
 			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 		}
+		if (obj->meta() != MetaRef::Null)
+			for (auto &[name, value] : active_module->design->metadata_attributes(obj)) {
+				f << stringf("%s" "%s %s = ", indent, as_comment ? "/*" : "(*", id_of(name));
+				dump_const(f, RTLIL::Const(value), -1, 0, false, as_comment);
+				f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
+			}
 		for (auto it = obj->attributes.begin(); it != obj->attributes.end(); ++it) {
 			if (it->first == ID::single_bit_vector) continue;
 			if (it->first == ID::init && regattr) continue;

@@ -171,6 +171,7 @@ struct FfData : FfTypeData {
 	int width;
 	dict<IdString, Const> attributes;
 	SrcRef src = SrcRef::Null;
+	MetaRef meta = MetaRef::Null;
 
 	FfData(Module *module = nullptr, FfInitVals *initvals = nullptr, IdString name = IdString()) : module(module), initvals(initvals), cell(nullptr), name(name) {
 		width = 0;

@@ -404,7 +404,7 @@ struct EdifBackend : public Backend {
 
 					{
 						auto count_nontrivial_attr = [](Wire *w) {
-							int count = w->attributes.size();
+							int count = w->attributes.size() + w->has_attribute(ID::hdlname) + w->has_attribute(ID::scopename);
 							return count;
 						};
 
@@ -439,9 +439,12 @@ struct EdifBackend : public Backend {
 					dir = "OUTPUT";
 				if (wire->width == 1) {
 					*f << stringf("          (port %s (direction %s)", EDIF_DEF(wire->name), dir);
-					if (attr_properties)
+					if (attr_properties) {
+						for (auto &[name, value] : design->metadata_attributes(wire))
+							add_prop(name, RTLIL::Const(value));
 						for (auto &p : wire->attributes)
 							add_prop(p.first, p.second);
+					}
 					*f << ")\n";
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
 					net_join_db[sig].insert(make_pair(stringf("(portRef %s)", EDIF_REF(wire->name)), wire->port_input));
@@ -450,9 +453,12 @@ struct EdifBackend : public Backend {
 					b[wire->upto ? 0 : 1] = wire->start_offset;
 					b[wire->upto ? 1 : 0] = wire->start_offset + GetSize(wire) - 1;
 					*f << stringf("          (port (array %s %d) (direction %s)", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
-					if (attr_properties)
+					if (attr_properties) {
+						for (auto &[name, value] : design->metadata_attributes(wire))
+							add_prop(name, RTLIL::Const(value));
 						for (auto &p : wire->attributes)
 							add_prop(p.first, p.second);
+					}
 
 					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
@@ -476,9 +482,12 @@ struct EdifBackend : public Backend {
 						lib_cell_ports.count(cell->type) > 0 ? " (libraryRef LIB)" : "");
 				for (auto &p : cell->parameters)
 					add_prop(p.first, p.second);
-				if (attr_properties)
+				if (attr_properties) {
+					for (auto &[name, value] : design->metadata_attributes(cell))
+						add_prop(name, RTLIL::Const(value));
 					for (auto &p : cell->attributes)
 						add_prop(p.first, p.second);
+				}
 
 				*f << stringf(")\n");
 				for (auto &p : cell->connections()) {
@@ -546,9 +555,12 @@ struct EdifBackend : public Backend {
 						*f << stringf("            (portRef %c (instanceRef VCC))\n", gndvccy ? 'Y' : 'P');
 				}
 				*f << stringf("            )");
-				if (attr_properties && sig.wire != NULL)
+				if (attr_properties && sig.wire != NULL) {
+					for (auto &[name, value] : design->metadata_attributes(sig.wire))
+						add_prop(name, RTLIL::Const(value));
 					for (auto &p : sig.wire->attributes)
 						add_prop(p.first, p.second);
+				}
 				*f << stringf("\n          )\n");
 			}
 
@@ -580,9 +592,12 @@ struct EdifBackend : public Backend {
 								*f << stringf("              %s\n", ref.first);
 						*f << stringf("            )");
 
-						if (attr_properties && raw_sig.wire != NULL)
+						if (attr_properties && raw_sig.wire != NULL) {
+							for (auto &[name, value] : design->metadata_attributes(raw_sig.wire))
+								add_prop(name, RTLIL::Const(value));
 							for (auto &p : raw_sig.wire->attributes)
 								add_prop(p.first, p.second);
+						}
 
 						*f << stringf("\n          )\n");
 					}

@@ -24,6 +24,7 @@
 #include "kernel/yosys.h"
 #include "kernel/twine.h"
 #include "kernel/srcpool.h"
+#include "kernel/metapool.h"
 
 #include <deque>
 #include <string_view>
@@ -642,6 +643,8 @@ struct RTLIL::AttrObject
 
 	SrcRef src() const { return src_; }
 	void set_src(SrcRef ref) { src_ = ref; }
+	MetaRef meta() const { return meta_; }
+	void set_meta(MetaRef ref) { meta_ = ref; }
 
 	bool has_attribute(RTLIL::IdString id) const;
 
@@ -658,14 +661,12 @@ struct RTLIL::AttrObject
 
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
-	void set_hdlname_attribute(const vector<string> &hierarchy);
-	vector<string> get_hdlname_attribute() const;
-
 	void set_intvec_attribute(RTLIL::IdString id, const vector<int> &data);
 	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 
 private:
 	SrcRef src_ = SrcRef::Null;
+	MetaRef meta_ = MetaRef::Null;
 };
 
 #include "kernel/rtlil_twine_compat.h"
@@ -1316,16 +1317,27 @@ struct RTLIL::Design
 private:
 	TwinePool twines_;
 	SrcPool srcs_{twines_};
+	MetaPool metas_{twines_};
 
 public:
 	TwinePool &twines() { return twines_; }
 	const TwinePool &twines() const { return twines_; }
 	SrcPool &srcs() { return srcs_; }
 	const SrcPool &srcs() const { return srcs_; }
+	MetaPool &metas() { return metas_; }
+	const MetaPool &metas() const { return metas_; }
 
 	std::string get_src_attribute(const RTLIL::AttrObject *obj) const { return srcs_.str(obj->src()); }
 	pool<std::string> src_leaves(const RTLIL::AttrObject *obj) const { return srcs_.leaves(obj->src()); }
-	// target becomes the sole carrier of source's identity
+	std::string get_hdlname(const RTLIL::AttrObject *obj) const { return metas_.hdlname(obj->meta()); }
+	std::string get_scopename(const RTLIL::AttrObject *obj) const { return metas_.scopename(obj->meta()); }
+	void set_hdlname(RTLIL::AttrObject *obj, std::string_view path);
+	void set_scopename(RTLIL::AttrObject *obj, std::string_view path);
+	// moves hdlname and scopename out of obj->attributes into its metadata
+	void import_metadata_attributes(RTLIL::AttrObject *obj);
+	// hdlname and scopename as attribute values, for writing them out
+	std::vector<std::pair<RTLIL::IdString, std::string>> metadata_attributes(const RTLIL::AttrObject *obj) const;
+	// target carries source's identity
 	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	// target keeps its own identity and takes in source's metadata
 	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
@@ -1528,6 +1540,8 @@ public:
 	std::string get_src_attribute() const {
 		return design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -1985,6 +1999,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	bool known_driver() const { return driverCell_ != nullptr; }
 
@@ -2029,6 +2045,8 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	RTLIL::MemoryNameId name;
 
@@ -2069,6 +2087,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	RTLIL::CellTypeId type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
@@ -2202,6 +2222,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);

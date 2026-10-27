@@ -221,7 +221,7 @@ struct RpcModule : RTLIL::Module {
 				RTLIL::Module *t = module.second->clone(design, design->twines().add(mangled_name));
 				t->attributes.erase(ID::top);
 				if (!t->has_attribute(ID::hdlname))
-					t->set_string_attribute(ID::hdlname, derived_design->twines().str(original_name));
+					design->set_hdlname(t, derived_design->twines().str(original_name));
 			}
 
 			delete derived_design;

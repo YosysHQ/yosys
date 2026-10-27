@@ -637,16 +637,25 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 }
 #undef check /* check(condition) for Const */
 
+static bool is_meta_attribute(RTLIL::IdString id)
+{
+	return id == ID::hdlname || id == ID::scopename;
+}
+
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
 		return src_ != SrcRef::Null;
+	if (id == ID::hdlname)
+		return meta_.has_hdlname();
+	if (id == ID::scopename)
+		return meta_.has_scopename();
 	return attributes.count(id);
 }
 
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
-	log_assert(id != ID::src);
+	log_assert(id != ID::src && !is_meta_attribute(id));
 	if (value)
 		attributes[id] = RTLIL::Const(1);
 	else
@@ -655,8 +664,8 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
-	if (id == ID::src)
-		return src_ != SrcRef::Null;
+	if (id == ID::src || is_meta_attribute(id))
+		return has_attribute(id);
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
 		return false;
@@ -666,6 +675,7 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 {
 	log_assert(id != ID::src && "src is not an attribute; use set_src_attribute");
+	log_assert(!is_meta_attribute(id) && "use Design::set_hdlname or Design::set_scopename");
 	if (value.empty())
 		attributes.erase(id);
 	else
@@ -675,6 +685,7 @@ void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 {
 	log_assert(id != ID::src && "src is not an attribute; use get_src_attribute");
+	log_assert(!is_meta_attribute(id) && "use Design::get_hdlname or Design::get_scopename");
 	std::string value;
 	const auto it = attributes.find(id);
 	if (it != attributes.end())
@@ -682,9 +693,44 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
+void RTLIL::Design::set_hdlname(RTLIL::AttrObject *obj, std::string_view path)
+{
+	obj->set_meta(metas_.with_hdlname(obj->meta(), path));
+}
+
+void RTLIL::Design::set_scopename(RTLIL::AttrObject *obj, std::string_view path)
+{
+	obj->set_meta(metas_.with_scopename(obj->meta(), path));
+}
+
+void RTLIL::Design::import_metadata_attributes(RTLIL::AttrObject *obj)
+{
+	auto it = obj->attributes.find(ID::hdlname);
+	if (it != obj->attributes.end()) {
+		set_hdlname(obj, it->second.decode_string());
+		obj->attributes.erase(it);
+	}
+	it = obj->attributes.find(ID::scopename);
+	if (it != obj->attributes.end()) {
+		set_scopename(obj, it->second.decode_string());
+		obj->attributes.erase(it);
+	}
+}
+
+std::vector<std::pair<RTLIL::IdString, std::string>> RTLIL::Design::metadata_attributes(const RTLIL::AttrObject *obj) const
+{
+	std::vector<std::pair<RTLIL::IdString, std::string>> out;
+	if (obj->meta().has_hdlname())
+		out.emplace_back(ID::hdlname, metas_.hdlname(obj->meta()));
+	if (obj->meta().has_scopename())
+		out.emplace_back(ID::scopename, metas_.scopename(obj->meta()));
+	return out;
+}
+
 void RTLIL::Design::transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
 	target->set_src(source->src());
+	target->set_meta(metas_.transfer(target->meta(), source->meta()));
 }
 
 void RTLIL::Design::absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
@@ -692,16 +738,20 @@ void RTLIL::Design::absorb_metadata(RTLIL::AttrObject *target, const RTLIL::Attr
 	SrcRef merged = srcs_.merge(target->src(), source->src());
 	if (merged != SrcRef::Null)
 		target->set_src(merged);
+	target->set_meta(metas_.absorb(target->meta(), source->meta()));
 }
 
 namespace {
-	void copy_src_into(const RTLIL::AttrObject *src, const RTLIL::Design *src_design,
+	void copy_metadata_into(const RTLIL::AttrObject *src, const RTLIL::Design *src_design,
 			RTLIL::AttrObject *dst, RTLIL::Design *dst_design)
 	{
-		if (src_design == nullptr || src_design == dst_design)
+		if (src_design == nullptr || src_design == dst_design) {
 			dst->set_src(src->src());
-		else
+			dst->set_meta(src->meta());
+		} else {
 			dst->set_src(dst_design->srcs().copy_from(src_design->srcs(), src->src()));
+			dst->set_meta(dst_design->metas().copy_from(src_design->metas(), src->meta()));
+		}
 	}
 
 	template<typename F>
@@ -769,6 +819,7 @@ size_t RTLIL::Design::gc_twines()
 			live.insert(ref);
 	};
 	SrcPool::Marks live_srcs;
+	std::vector<MetaRef> live_metas;
 
 	auto src_root = [&](SrcRef ref) {
 		if (ref != SrcRef::Null)
@@ -779,6 +830,8 @@ size_t RTLIL::Design::gc_twines()
 		for (auto &attr : obj->attributes)
 			root(attr.first);
 		src_root(obj->src());
+		if (obj->meta() != MetaRef::Null)
+			live_metas.push_back(obj->meta());
 	});
 
 	for (auto &[_, module] : modules_)
@@ -849,6 +902,8 @@ size_t RTLIL::Design::gc_twines()
 
 	srcs_.gc(live_srcs);
 	srcs_.root_members(live_srcs, live);
+	metas_.gc(live_metas);
+	metas_.root_members(live_metas, live);
 	size_t erased = twines_.gc(live);
 
 	int64_t time_ns = PerformanceTimer::query() - start;
@@ -870,21 +925,27 @@ pool<string> RTLIL::AttrObject::get_strpool_attribute(RTLIL::IdString id) const
 	return data;
 }
 
-void RTLIL::AttrObject::set_hdlname_attribute(const vector<string> &hierarchy)
+static string join_hdlname(const vector<string> &hierarchy)
 {
-	string attrval;
+	string path;
 	for (const auto &ident : hierarchy) {
-		if (!attrval.empty())
-			attrval += " ";
-		attrval += ident;
+		if (!path.empty())
+			path += " ";
+		path += ident;
 	}
-	set_string_attribute(ID::hdlname, attrval);
+	return path;
 }
 
-vector<string> RTLIL::AttrObject::get_hdlname_attribute() const
-{
-	return split_tokens(get_string_attribute(ID::hdlname), " ");
-}
+void RTLIL::Module::set_hdlname_attribute(const vector<string> &hierarchy) { design->set_hdlname(this, join_hdlname(hierarchy)); }
+vector<string> RTLIL::Module::get_hdlname_attribute() const { return split_tokens(design->get_hdlname(this), " "); }
+void RTLIL::Wire::set_hdlname_attribute(const vector<string> &hierarchy) { module->design->set_hdlname(this, join_hdlname(hierarchy)); }
+vector<string> RTLIL::Wire::get_hdlname_attribute() const { return split_tokens(module->design->get_hdlname(this), " "); }
+void RTLIL::Memory::set_hdlname_attribute(const vector<string> &hierarchy) { module->design->set_hdlname(this, join_hdlname(hierarchy)); }
+vector<string> RTLIL::Memory::get_hdlname_attribute() const { return split_tokens(module->design->get_hdlname(this), " "); }
+void RTLIL::Cell::set_hdlname_attribute(const vector<string> &hierarchy) { module->design->set_hdlname(this, join_hdlname(hierarchy)); }
+vector<string> RTLIL::Cell::get_hdlname_attribute() const { return split_tokens(module->design->get_hdlname(this), " "); }
+void RTLIL::Process::set_hdlname_attribute(const vector<string> &hierarchy) { module->design->set_hdlname(this, join_hdlname(hierarchy)); }
+vector<string> RTLIL::Process::get_hdlname_attribute() const { return split_tokens(module->design->get_hdlname(this), " "); }
 
 void RTLIL::AttrObject::set_intvec_attribute(RTLIL::IdString id, const vector<int> &data)
 {
@@ -1077,6 +1138,7 @@ void RTLIL::Design::reset()
 
 	twines_.reset();
 	srcs_.clear();
+	metas_.clear();
 	hashidx_counter_ = HASHIDX_SEED;
 	reset_verilog_state();
 	push_full_selection();
@@ -1280,6 +1342,7 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 	log_assert(dst->modules_.empty());
 	dst->twines_ = twines_;
 	dst->srcs_.clone_from(srcs_);
+	dst->metas_.clone_from(metas_);
 	for (auto it = modules_.rbegin(); it != modules_.rend(); ++it)
 		it->second->clone(dst);
 
@@ -2651,7 +2714,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 		new_mod->connect(conn);
 
 	RTLIL::copy_attr_dict(new_mod->attributes, attributes, design, new_mod->design);
-	copy_src_into(this, design, new_mod, new_mod->design);
+	copy_metadata_into(this, design, new_mod, new_mod->design);
 
 	dict<RTLIL::Wire*, RTLIL::Wire*> wire_map;
 
@@ -3139,7 +3202,7 @@ RTLIL::Wire *RTLIL::Module::addWire(IdString name, const RTLIL::Wire *other)
 	{
 		const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
 		RTLIL::copy_attr_dict(wire->attributes, other->attributes, src_design, this->design);
-		copy_src_into(other, src_design, wire, this->design);
+		copy_metadata_into(other, src_design, wire, this->design);
 	}
 	return wire;
 }
@@ -3174,7 +3237,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 			auto &c = *other->connections_.element(i);
 			cell->connections_[twines().copy_from(src_design->twines(), c.first)] = c.second;
 		}
-	copy_src_into(other, src_design, cell, this->design);
+	copy_metadata_into(other, src_design, cell, this->design);
 	return cell;
 }
 
@@ -3197,7 +3260,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *othe
 	mem->size = other->size;
 	RTLIL::copy_attr_dict(mem->attributes, other->attributes,
 			other->module ? other->module->design : nullptr, design);
-	copy_src_into(other, other->module ? other->module->design : nullptr, mem, design);
+	copy_metadata_into(other, other->module ? other->module->design : nullptr, mem, design);
 	memories[name] = mem;
 	return mem;
 }
@@ -3223,6 +3286,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 			RTLIL::copy_attr_dict(attributes, obj->attributes, src_design, design);
 			obj->attributes = std::move(attributes);
 			obj->set_src(design->srcs().copy_from(src_design->srcs(), obj->src()));
+			obj->set_meta(design->metas().copy_from(src_design->metas(), obj->meta()));
 		});
 		walk_process_srcs(proc, [&](SrcRef &src) {
 			src = design->srcs().copy_from(src_design->srcs(), src);
@@ -5890,6 +5954,7 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	new_caserule->actions = actions;
 	new_caserule->attributes = attributes;
 	new_caserule->set_src(src());
+	new_caserule->set_meta(meta());
 	new_caserule->compare_src = compare_src;
 	for (auto &it : switches)
 		new_caserule->switches.push_back(it->clone());
@@ -5913,6 +5978,7 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 	new_switchrule->signal = signal;
 	new_switchrule->attributes = attributes;
 	new_switchrule->set_src(src());
+	new_switchrule->set_meta(meta());
 	new_switchrule->signal_src = signal_src;
 	for (auto &it : cases)
 		new_switchrule->cases.push_back(it->clone());
@@ -5942,6 +6008,7 @@ RTLIL::Process *RTLIL::Process::clone(RTLIL::Module *module) const
 
 	new_proc->attributes = attributes;
 	new_proc->set_src(src());
+	new_proc->set_meta(meta());
 
 	RTLIL::CaseRule *rc_ptr = root_case.clone();
 	new_proc->root_case = *rc_ptr;

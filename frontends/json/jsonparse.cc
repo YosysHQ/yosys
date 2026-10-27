@@ -301,6 +301,7 @@ void json_parse_attributes(RTLIL::Design *design, RTLIL::AttrObject *obj, JsonNo
 		else
 			obj->attributes[key] = value;
 	}
+	design->import_metadata_attributes(obj);
 }
 
 void json_import(Design *design, string &modname, JsonNode *node)

@@ -372,7 +372,7 @@ std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 			path.pop_back();
 		}
 	} else {
-		for (auto const &item : split_tokens(object->get_string_attribute(ID(scopename)), " "))
+		for (auto const &item : split_tokens(object->design()->get_scopename(object), " "))
 			path.push_back(twines.add("\\" + item));
 	}
 	return {path, trailing};

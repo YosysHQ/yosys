@@ -173,6 +173,7 @@ struct SubmodWorker
 			new_wire->port_output = new_wire_port_output;
 			new_wire->start_offset = wire->start_offset;
 			new_wire->attributes = wire->attributes;
+			design->transfer_metadata(new_wire, wire);
 			if (!flags.is_int_driven.is_fully_zero()) {
 				new_wire->attributes.erase(ID::init);
 				auto sig = sigmap(wire);

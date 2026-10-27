@@ -94,6 +94,7 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 
 	RTLIL::Cell *cell = mod->addDffsr(sstr.str(), clk, sig_sr_set, sig_sr_clr, sig_d, sig_q, clk_polarity);
 	cell->attributes = proc->attributes;
+	mod->design->transfer_metadata(cell, proc);
 	transfer_wire_sources(sig_q, cell, proc);
 
 	log("  created %s cell `%s' with %s edge clock and multiple level-sensitive resets.\n",
@@ -108,6 +109,7 @@ void gen_aldff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::SigSpec sig_set
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), ID($aldff));
 	cell->attributes = proc->attributes;
+	mod->design->transfer_metadata(cell, proc);
 	transfer_wire_sources(sig_out, cell, proc);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());
@@ -131,6 +133,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 
 	RTLIL::Cell *cell = mod->addCell(sstr.str(), clk.empty() ? ID($ff) : arst ? ID($adff) : ID($dff));
 	cell->attributes = proc->attributes;
+	mod->design->transfer_metadata(cell, proc);
 	transfer_wire_sources(sig_out, cell, proc);
 
 	cell->parameters[ID::WIDTH] = RTLIL::Const(sig_in.size());

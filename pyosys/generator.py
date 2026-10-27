@@ -176,6 +176,7 @@ pyosys_headers = [
     ),
     PyosysHeader("kernel/consteval.h", [PyosysClass("ConstEval")]),
     PyosysHeader("kernel/srcpool.h", [PyosysClass("SrcRef")]),
+    PyosysHeader("kernel/metapool.h", [PyosysClass("MetaRef")]),
     PyosysHeader(
         "kernel/register.h",
         [
@@ -245,7 +246,7 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
-                denylist=frozenset({"selected_whole_modules", "srcs"}),  # selected_whole_modules is deprecated
+                denylist=frozenset({"selected_whole_modules", "srcs", "metas"}),  # selected_whole_modules is deprecated
             ),
         ],
     ),

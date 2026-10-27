@@ -155,12 +155,11 @@ struct CutpointPass : public Pass {
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
 					for (auto const &attr : cell->attributes)
-					{
-						if (attr.first == ID::hdlname)
-							scopeinfo->attributes.insert(attr);
-						else
-							scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
-					}
+						scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
+					if (cell->has_attribute(ID::hdlname))
+						design->set_hdlname(scopeinfo, design->get_hdlname(cell));
+					if (cell->has_attribute(ID::scopename))
+						scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_scopename")), RTLIL::Const(design->get_scopename(cell)));
 				}
 
 				module->remove(cell);

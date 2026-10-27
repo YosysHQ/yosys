@@ -54,10 +54,12 @@ struct PrintAttrsPass : public Pass {
 			log_assert(x.flags & RTLIL::CONST_FLAG_STRING || x.flags == RTLIL::CONST_FLAG_NONE); //intended to fail
 	}
 
-	static void log_src(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
+	static void log_metadata(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
 		if (obj->src() != SrcRef::Null)
 			log("%s(* src=\"%s\" *)\n", get_indent_str(indent),
 					design->get_src_attribute(obj));
+		for (auto &[name, value] : design->metadata_attributes(obj))
+			log_const(PooledName(design, name), RTLIL::Const(value), indent);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -71,7 +73,7 @@ struct PrintAttrsPass : public Pass {
 			if (design->selected_whole_module(mod)) {
 				log("%s%s\n", get_indent_str(indent), mod);
 				indent += 2;
-				log_src(design, mod, indent);
+				log_metadata(design, mod, indent);
 				for (auto &it : mod->attributes)
 					log_const(PooledName(design, it.first), it.second, indent);
 			}
@@ -79,7 +81,7 @@ struct PrintAttrsPass : public Pass {
 			for (auto cell : mod->selected_cells()) {
 				log("%s%s\n", get_indent_str(indent), cell->name.unescape());
 				indent += 2;
-				log_src(design, cell, indent);
+				log_metadata(design, cell, indent);
 				for (auto &it : cell->attributes)
 					log_const(PooledName(design, it.first), it.second, indent);
 				indent -= 2;
@@ -88,7 +90,7 @@ struct PrintAttrsPass : public Pass {
 			for (auto wire : mod->selected_wires()) {
 				log("%s%s\n", get_indent_str(indent), wire->name.unescape());
 				indent += 2;
-				log_src(design, wire, indent);
+				log_metadata(design, wire, indent);
 				for (auto &it : wire->attributes)
 					log_const(PooledName(design, it.first), it.second, indent);
 				indent -= 2;
