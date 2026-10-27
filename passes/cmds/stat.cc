@@ -593,148 +593,148 @@ struct statdata_t {
 			       count_local, area_local);
 	}
 
-	void log_data_json(const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
+	void append_json(std::string &json, const char *mod_name, bool first_module, bool hierarchical = false, bool global_only = false)
 	{
 		if (!first_module)
-			log(",\n");
+			json += ",\n";
 		if (hierarchical) {
-			log("      %s: {\n", json11::Json(mod_name).dump());
-			log("         \"num_wires\":         %s,\n", json_line(local_num_wires, 0, num_wires, 0));
-			log("         \"num_wire_bits\":     %s,\n", json_line(local_num_wire_bits, 0, num_wire_bits, 0));
-			log("         \"num_pub_wires\":     %s,\n", json_line(local_num_pub_wires, 0, num_pub_wires, 0));
-			log("         \"num_pub_wire_bits\": %s,\n", json_line(local_num_pub_wire_bits, 0, num_pub_wire_bits, 0));
-			log("         \"num_ports\":         %s,\n", json_line(local_num_ports, 0, num_ports, 0));
-			log("         \"num_port_bits\":     %s,\n", json_line(local_num_port_bits, 0, num_port_bits, 0));
-			log("         \"num_memories\":      %s,\n", json_line(local_num_memories, 0, num_memories, 0));
-			log("         \"num_memory_bits\":   %s,\n", json_line(local_num_memory_bits, 0, num_memory_bits, 0));
-			log("         \"num_processes\":     %s,\n", json_line(local_num_processes, 0, num_processes, 0));
-			log("         \"num_cells\":         %s,\n", json_line(local_num_cells, local_area, num_cells, area));
-			log("         \"num_submodules\":       %s,\n", json_line(0, 0, num_submodules, submodule_area));
-			log("         \"sequential_area\":    %s,\n", json_line(0, local_sequential_area, 0, sequential_area));
+			json += stringf("      %s: {\n", json11::Json(mod_name).dump());
+			json += stringf("         \"num_wires\":         %s,\n", json_line(local_num_wires, 0, num_wires, 0));
+			json += stringf("         \"num_wire_bits\":     %s,\n", json_line(local_num_wire_bits, 0, num_wire_bits, 0));
+			json += stringf("         \"num_pub_wires\":     %s,\n", json_line(local_num_pub_wires, 0, num_pub_wires, 0));
+			json += stringf("         \"num_pub_wire_bits\": %s,\n", json_line(local_num_pub_wire_bits, 0, num_pub_wire_bits, 0));
+			json += stringf("         \"num_ports\":         %s,\n", json_line(local_num_ports, 0, num_ports, 0));
+			json += stringf("         \"num_port_bits\":     %s,\n", json_line(local_num_port_bits, 0, num_port_bits, 0));
+			json += stringf("         \"num_memories\":      %s,\n", json_line(local_num_memories, 0, num_memories, 0));
+			json += stringf("         \"num_memory_bits\":   %s,\n", json_line(local_num_memory_bits, 0, num_memory_bits, 0));
+			json += stringf("         \"num_processes\":     %s,\n", json_line(local_num_processes, 0, num_processes, 0));
+			json += stringf("         \"num_cells\":         %s,\n", json_line(local_num_cells, local_area, num_cells, area));
+			json += stringf("         \"num_submodules\":       %s,\n", json_line(0, 0, num_submodules, submodule_area));
+			json += stringf("         \"sequential_area\":    %s,\n", json_line(0, local_sequential_area, 0, sequential_area));
 
-			log("         \"num_cells_by_type\": {\n");
+			json += "         \"num_cells_by_type\": {\n";
 			bool first_line = true;
 			for (auto &it : num_cells_by_type)
 				if (it.second) {
 					if (!first_line)
-						log(",\n");
-					log("            %s: %s", json11::Json(RTLIL::unescape_id(it.first)).dump(),
+						json += ",\n";
+					json += stringf("            %s: %s", json11::Json(RTLIL::unescape_id(it.first)).dump(),
 					    json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 						      local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 						      area_cells_by_type.at(it.first))
 					      .c_str());
 					first_line = false;
 				}
-			log("\n");
-			log("      },\n");
-			log("         \"num_submodules_by_type\": {\n");
+			json += "\n";
+			json += "      },\n";
+			json += "         \"num_submodules_by_type\": {\n";
 			first_line = true;
 			for (auto &it : num_submodules_by_type)
 				if (it.second) {
 					if (!first_line)
-						log(",\n");
-					log("            %s: %s", json11::Json(RTLIL::unescape_id(it.first)).dump(),
+						json += ",\n";
+					json += stringf("            %s: %s", json11::Json(RTLIL::unescape_id(it.first)).dump(),
 					    json_line(0, 0, it.second,
 						      submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
 					      .c_str());
 					first_line = false;
 				}
-			log("\n");
-			log("      }\n");
+			json += "\n";
+			json += "      }\n";
 			if (tech == "xilinx" || tech == "analogdevices") {
-				log("         \"estimated_num_lc\": %u,\n", estimate_xilinx_lc());
+				json += stringf("         \"estimated_num_lc\": %u,\n", estimate_xilinx_lc());
 			}
 			if (tech == "cmos") {
 				bool tran_cnt_exact = true;
 				unsigned int tran_cnt = cmos_transistor_count(&tran_cnt_exact);
-				log("		 \"estimated_num_transistors\": \"%u%s\"\n", tran_cnt, tran_cnt_exact ? "" : "+");
+				json += stringf("		 \"estimated_num_transistors\": \"%u%s\"\n", tran_cnt, tran_cnt_exact ? "" : "+");
 			}
-			log("      }");
+			json += "      }";
 
 		} else {
 			if (global_only) {
-				log("      %s: {\n", json11::Json(mod_name).dump());
-				log("         \"num_wires\":         %u,\n", num_wires);
-				log("         \"num_wire_bits\":     %u,\n", num_wire_bits);
-				log("         \"num_pub_wires\":     %u,\n", num_pub_wires);
-				log("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
-				log("         \"num_ports\":         %u,\n", num_ports);
-				log("         \"num_port_bits\":     %u,\n", num_port_bits);
-				log("         \"num_memories\":      %u,\n", num_memories);
-				log("         \"num_memory_bits\":   %u,\n", num_memory_bits);
-				log("         \"num_processes\":     %u,\n", num_processes);
-				log("         \"num_cells\":         %u,\n", num_cells);
-				log("         \"num_submodules\":       %u,\n", num_submodules);
+				json += stringf("      %s: {\n", json11::Json(mod_name).dump());
+				json += stringf("         \"num_wires\":         %u,\n", num_wires);
+				json += stringf("         \"num_wire_bits\":     %u,\n", num_wire_bits);
+				json += stringf("         \"num_pub_wires\":     %u,\n", num_pub_wires);
+				json += stringf("         \"num_pub_wire_bits\": %u,\n", num_pub_wire_bits);
+				json += stringf("         \"num_ports\":         %u,\n", num_ports);
+				json += stringf("         \"num_port_bits\":     %u,\n", num_port_bits);
+				json += stringf("         \"num_memories\":      %u,\n", num_memories);
+				json += stringf("         \"num_memory_bits\":   %u,\n", num_memory_bits);
+				json += stringf("         \"num_processes\":     %u,\n", num_processes);
+				json += stringf("         \"num_cells\":         %u,\n", num_cells);
+				json += stringf("         \"num_submodules\":       %u,\n", num_submodules);
 				if (area != 0) {
-					log("         \"area\":              %f,\n", area);
-					log("         \"sequential_area\":    %f,\n", sequential_area);
+					json += stringf("         \"area\":              %f,\n", area);
+					json += stringf("         \"sequential_area\":    %f,\n", sequential_area);
 				}
-				log("         \"num_cells_by_type\": {\n");
+				json += "         \"num_cells_by_type\": {\n";
 				bool first_line = true;
 				for (auto &it : num_cells_by_type)
 					if (it.second) {
 						if (!first_line)
-							log(",\n");
-						log("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
+							json += ",\n";
+						json += stringf("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
-							log(",\n");
-						log("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
+							json += ",\n";
+						json += stringf("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
 						first_line = false;
 					}
-				log("\n");
-				log("         }");
+				json += "\n";
+				json += "         }";
 			} else {
-				log("      %s: {\n", json11::Json(mod_name).dump());
-				log("         \"num_wires\":         %u,\n", local_num_wires);
-				log("         \"num_wire_bits\":     %u,\n", local_num_wire_bits);
-				log("         \"num_pub_wires\":     %u,\n", local_num_pub_wires);
-				log("         \"num_pub_wire_bits\": %u,\n", local_num_pub_wire_bits);
-				log("         \"num_ports\":         %u,\n", local_num_ports);
-				log("         \"num_port_bits\":     %u,\n", local_num_port_bits);
-				log("         \"num_memories\":      %u,\n", local_num_memories);
-				log("         \"num_memory_bits\":   %u,\n", local_num_memory_bits);
-				log("         \"num_processes\":     %u,\n", local_num_processes);
-				log("         \"num_cells\":         %u,\n", local_num_cells);
-				log("         \"num_submodules\":       %u,\n", num_submodules);
+				json += stringf("      %s: {\n", json11::Json(mod_name).dump());
+				json += stringf("         \"num_wires\":         %u,\n", local_num_wires);
+				json += stringf("         \"num_wire_bits\":     %u,\n", local_num_wire_bits);
+				json += stringf("         \"num_pub_wires\":     %u,\n", local_num_pub_wires);
+				json += stringf("         \"num_pub_wire_bits\": %u,\n", local_num_pub_wire_bits);
+				json += stringf("         \"num_ports\":         %u,\n", local_num_ports);
+				json += stringf("         \"num_port_bits\":     %u,\n", local_num_port_bits);
+				json += stringf("         \"num_memories\":      %u,\n", local_num_memories);
+				json += stringf("         \"num_memory_bits\":   %u,\n", local_num_memory_bits);
+				json += stringf("         \"num_processes\":     %u,\n", local_num_processes);
+				json += stringf("         \"num_cells\":         %u,\n", local_num_cells);
+				json += stringf("         \"num_submodules\":       %u,\n", num_submodules);
 				if (area != 0) {
-					log("         \"area\":              %f,\n", area);
-					log("         \"sequential_area\":    %f,\n", sequential_area);
+					json += stringf("         \"area\":              %f,\n", area);
+					json += stringf("         \"sequential_area\":    %f,\n", sequential_area);
 				}
-				log("         \"num_cells_by_type\": {\n");
+				json += "         \"num_cells_by_type\": {\n";
 				bool first_line = true;
 				for (auto &it : local_num_cells_by_type)
 					if (it.second) {
 						if (!first_line)
-							log(",\n");
-						log("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
+							json += ",\n";
+						json += stringf("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
 						first_line = false;
 					}
 				for (auto &it : num_submodules_by_type)
 					if (it.second) {
 						if (!first_line)
-							log(",\n");
-						log("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
+							json += ",\n";
+						json += stringf("            %s: %u", json11::Json(RTLIL::unescape_id(it.first)).dump(), it.second);
 						first_line = false;
 					}
-				log("\n");
-				log("         }");
+				json += "\n";
+				json += "         }";
 			}
 			if (tech == "xilinx" || tech == "analogdevices") {
-				log(",\n");
-				log("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
+				json += ",\n";
+				json += stringf("         \"estimated_num_lc\": %u", estimate_xilinx_lc());
 			}
 			if (tech == "cmos") {
 				bool tran_cnt_exact = true;
 				unsigned int tran_cnt = cmos_transistor_count(&tran_cnt_exact);
-				log(",\n");
-				log("         \"estimated_num_transistors\": \"%u%s\"", tran_cnt, tran_cnt_exact ? "" : "+");
+				json += ",\n";
+				json += stringf("         \"estimated_num_transistors\": \"%u%s\"", tran_cnt, tran_cnt_exact ? "" : "+");
 			}
-			log("\n");
-			log("      }");
+			json += "\n";
+			json += "      }";
 		}
 	}
 };
@@ -987,13 +987,14 @@ struct StatPass : public Pass {
 		if (techname != "" && techname != "xilinx" && techname != "analogdevices" && techname != "cmos" && !json_mode)
 			log_cmd_error("Unsupported technology: '%s'\n", techname);
 
+		std::string json;
 		if (json_mode) {
-			log("{\n");
-			log("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump());
+			json += "{\n";
+			json += stringf("   \"creator\": %s,\n", json11::Json(yosys_maybe_version()).dump());
 			std::stringstream invocation;
 			std::copy(args.begin(), args.end(), std::ostream_iterator<std::string>(invocation, " "));
-			log("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump());
-			log("   \"modules\": {\n");
+			json += stringf("   \"invocation\": %s,\n", json11::Json(invocation.str()).dump());
+			json += "   \"modules\": {\n";
 		}
 
 		if (top_mod != nullptr) {
@@ -1021,7 +1022,7 @@ struct StatPass : public Pass {
 					top_mod = mod;
 			statdata_t data = mod_stat.at(mod->name);
 			if (json_mode) {
-				data.log_data_json(mod->name.str().c_str(), first_module, hierarchy_mode);
+				data.append_json(json, mod->name.str().c_str(), first_module, hierarchy_mode);
 				first_module = false;
 			} else {
 				log("\n");
@@ -1031,10 +1032,8 @@ struct StatPass : public Pass {
 			}
 		}
 
-		if (json_mode) {
-			log("\n");
-			log("%s", top_mod == nullptr ? "   }\n" : "   },\n");
-		}
+		if (json_mode)
+			json += top_mod == nullptr ? "\n   }\n" : "\n   },\n";
 
 		if (top_mod != nullptr) {
 			if (!json_mode && GetSize(mod_stat) > 1) {
@@ -1050,7 +1049,7 @@ struct StatPass : public Pass {
 			statdata_t data = hierarchy_worker(design->twines(), mod_stat, top_mod->name, 0, /*quiet=*/json_mode, has_area, hierarchy_mode);
 
 			if (json_mode)
-				data.log_data_json("design", true, hierarchy_mode, true);
+				data.append_json(json, "design", true, hierarchy_mode, true);
 			else if (GetSize(mod_stat) > 1) {
 				log("\n");
 				data.log_data(top_mod->name, true, has_area, hierarchy_mode, true);
@@ -1070,8 +1069,8 @@ struct StatPass : public Pass {
 		}
 
 		if (json_mode) {
-			log("\n");
-			log("}\n");
+			json += "\n}\n";
+			log_lines(json);
 		}
 
 		log("\n");
