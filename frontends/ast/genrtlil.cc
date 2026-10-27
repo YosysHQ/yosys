@@ -737,7 +737,11 @@ struct AST_INTERNAL::ProcessGenerator
 					else
 						log_assert(current_case->compare.size() == 0);
 					current_case = backup_case;
+					auto child_bits = std::move(current_case_assigned_bits);
 					current_case_assigned_bits = std::move(backup_assigned_bits);
+					// collapse bits assigned in child nodes of AST into current case
+					for (auto bit : child_bits)
+						current_case_assigned_bits.insert(bit);
 
 					subst_lvalue_map.restore();
 					subst_rvalue_map.restore();
