@@ -9,7 +9,7 @@ design. Storing them as ``Const`` strings in each object's ``attributes``
 dictionary duplicates them many times over, and every merge of two objects
 builds a new, longer string. Such attributes are instead interned per
 ``Design`` and stored outside the ``attributes`` dictionary, behind a small
-handle. So far the only one is ``src``.
+handle. So far these are ``src``, ``hdlname`` and ``scopename``.
 
 A ``src`` value is a set of source locations. Each location is an
 ``IdString`` in the design's ``TwinePool``: the file name is a leaf twine and
@@ -23,8 +23,7 @@ Every ``AttrObject`` holds a 32-bit ``SrcRef`` index into that pool, or
 ``SrcRef::Null`` when it has no source location.
 
 Passes move metadata between objects with one of two operations. An object
-that replaces another takes over its metadata and becomes the sole carrier of
-its identity:
+that replaces another takes over its metadata and carries its identity:
 
 .. code-block:: cpp
 
@@ -42,7 +41,7 @@ twin:
    module->remove(remove_cell);
 
 For ``src``, a transfer copies the source's locations and absorbing adds them
-to the target's.
+to the target's. Names are covered below.
 
 When a pass builds a new object out of others, it merges their handles
 instead, as `share` does:
@@ -64,6 +63,31 @@ Sets are garbage collected in ``opt_clean``. Like an ``IdString``, a ``SrcRef`` 
 the design is not a root, so it must not be kept across passes. A ``SrcRef``
 used with the wrong design or after its set was collected is caught by the
 checks described in :doc:`provenance`.
+
+Names
+^^^^^
+
+``hdlname`` and ``scopename`` live in a per-``Design`` ``MetaPool``. Every
+``AttrObject`` holds a 32-bit ``MetaRef`` into it, or ``MetaRef::Null``. The
+block it refers to holds the object's identity, a scope and a name, plus the
+names and scopes it absorbed from other objects. Like ``SrcPool``, ``MetaPool``
+inherits from ``HashConsPool``, so equal blocks are stored once.
+
+A scope is a chain of twines in the design's ``TwinePool``: ``a b`` is the
+suffix `` b`` on the leaf ``a``, so all names in one scope share it. Every
+chain starts at an empty root twine, so a single-element ``hdlname``, such as a
+module's original name, is a name in the root scope. The name is a suffix on
+its scope that holds only the last element.
+
+An identity with a name renders as the ``hdlname`` attribute, and one without
+renders as ``scopename``, so frontends and backends still see the two
+attributes as before. Absorbed names have no attribute and are not written out.
+
+A transfer replaces the target's identity with the source's and keeps the
+target's old identity among its absorbed names. Absorbing adds the source's
+identity and absorbed names to the target's absorbed names. The parts of a
+split object, such as the bits of a sliced flip-flop, each carry the identity,
+since the HDL has no object for a part.
 
 Migration from ``src`` attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -110,6 +134,24 @@ re-interns source locations into the target design; elsewhere, use
 .. code-block:: cpp
 
    dst->set_src(dst_design->srcs().copy_from(src_design->srcs(), src->src()));
+
+``hdlname`` and ``scopename`` are not in ``attributes`` anymore either.
+``has_attribute`` still works for them, but ``get_string_attribute`` and
+``set_string_attribute`` assert. Use ``get_hdlname_attribute()`` and
+``set_hdlname_attribute()`` on ``Module``, ``Wire``, ``Memory``, ``Cell`` and
+``Process``, or ``Design::get_hdlname``, ``set_hdlname``, ``get_scopename`` and
+``set_scopename`` for any ``AttrObject``:
+
+.. code-block:: diff
+
+   -scope = cell->get_string_attribute(ID(scopename));
+   +scope = design->get_scopename(cell);
+
+Copying a whole ``attributes`` dictionary no longer copies the names along with
+it. Pair the copy with ``transfer_metadata`` or ``absorb_metadata``. A frontend
+that fills ``attributes`` generically calls
+``Design::import_metadata_attributes(obj)`` afterwards, and a backend that
+writes all attributes also writes ``Design::metadata_attributes(obj)``.
 
 Python helpers
 ^^^^^^^^^^^^^^
