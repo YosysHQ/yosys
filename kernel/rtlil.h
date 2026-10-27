@@ -639,7 +639,9 @@ public:
 
 namespace RTLIL {
 	inline constexpr IdString interned_attributes[] = {ID::src, ID::hdlname, ID::scopename};
-	bool is_interned_attribute(IdString id);
+	inline constexpr bool is_interned_attribute(IdString id) {
+		return std::ranges::find(interned_attributes, id) != std::end(interned_attributes);
+	}
 }
 
 struct RTLIL::AttrObject
