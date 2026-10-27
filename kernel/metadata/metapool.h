@@ -67,6 +67,7 @@ struct MetaPool : TwineBackedPool<MetaPool, MetaBlock, MetaRef> {
 
 	static uint64_t hash_node(const MetaBlock &n);
 
+	NameSetPool &sets() { return sets_; }
 	const NameSetPool &sets() const { return sets_; }
 
 	void clone_from(const MetaPool &other);
@@ -82,6 +83,11 @@ struct MetaPool : TwineBackedPool<MetaPool, MetaBlock, MetaRef> {
 	MetaRef transfer(MetaRef target, MetaRef source);
 	MetaRef absorb(MetaRef target, MetaRef source);
 	MetaRef copy_from(const MetaPool &other, MetaRef ref);
+	MetaRef adopt(MetaBlock block);
+	MetaRef place(size_t idx, MetaBlock block);
+	using HashConsPool<MetaPool, MetaBlock, MetaRef>::finish_placement;
+	MetaRef find(MetaBlock block) const;
+	std::string serial(MetaRef ref) const;
 
 	void root_members(const Marks &live_metas, pool<IdString> &live_twines) const;
 
@@ -97,6 +103,7 @@ private:
 	IdString extend(IdString root, IdString path, std::string_view name);
 	IdString add_path(IdString root, std::span<const std::string> names);
 	MetaRef intern(MetaBlock block);
+	static MetaRef tagged(MetaRef ref, const MetaBlock &block);
 };
 
 YOSYS_NAMESPACE_END

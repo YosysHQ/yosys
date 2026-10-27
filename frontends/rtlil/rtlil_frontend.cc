@@ -49,6 +49,7 @@ struct RTLILFrontendWorker {
 	RTLIL::Module *current_module;
 	dict<RTLIL::IdString, RTLIL::Const> attrbuf;
 	SrcRef pending_src = SrcRef::Null;
+	MetaRef pending_meta = MetaRef::Null;
 	std::vector<std::vector<RTLIL::SwitchRule*>*> switch_stack;
 	std::vector<RTLIL::CaseRule*> case_stack;
 
@@ -68,6 +69,17 @@ struct RTLILFrontendWorker {
 
 	dict<size_t, SrcRef> src_remap;
 	dict<size_t, std::vector<size_t>> src_descs;
+
+	bool preserve_nameset_ids = false;
+	dict<size_t, NameSetRef> nameset_remap;
+	dict<size_t, std::vector<size_t>> nameset_descs;
+
+	struct BlockDesc {
+		std::optional<size_t> scope, hdlname, hdlnames, scopes;
+	};
+	bool preserve_block_ids = false;
+	dict<size_t, MetaRef> block_remap;
+	dict<size_t, BlockDesc> block_descs;
 
 
 
@@ -522,6 +534,8 @@ struct RTLILFrontendWorker {
 		RTLIL::Const c = parse_const();
 		if (id == ID::src)
 			pending_src = parse_src(c.decode_string());
+		else if (is_metadata_handle(id, c))
+			pending_meta = materialize_file_block(parse_handle(c.decode_string().substr(1), "metadata"));
 		else
 			attrbuf.insert({std::move(id), std::move(c)});
 		expect_eol();
@@ -541,10 +555,29 @@ struct RTLILFrontendWorker {
 		return design->srcs().adopt({&member, 1});
 	}
 
+	bool is_metadata_handle(IdString id, const RTLIL::Const &value)
+	{
+		if (!(value.flags & RTLIL::CONST_FLAG_STRING))
+			return false;
+		std::string text = value.decode_string();
+		return !text.empty() && text[0] == '#' && design->twines().str(id) == "\\metadata";
+	}
+
+	size_t parse_handle(std::string_view text, const char *what)
+	{
+		size_t id = 0;
+		auto [ptr, ec] = std::from_chars(text.data(), text.data() + text.size(), id);
+		if (ec != std::errc() || ptr != text.data() + text.size())
+			error("Malformed %s reference %s at line %d", what, text, line_num);
+		return id;
+	}
+
 	void apply_attrs(RTLIL::AttrObject *obj)
 	{
 		obj->set_src(pending_src);
 		pending_src = SrcRef::Null;
+		obj->set_meta(pending_meta);
+		pending_meta = MetaRef::Null;
 		import_attributes(design, obj, std::move(attrbuf));
 		attrbuf.clear();
 	}
@@ -605,6 +638,134 @@ struct RTLILFrontendWorker {
 			preserve_src_ids = false;
 		}
 		src_descs.clear();
+		expect_eol();
+	}
+
+	NameSetRef materialize_file_nameset(size_t id)
+	{
+		auto rit = nameset_remap.find(id);
+		if (rit != nameset_remap.end())
+			return rit->second;
+		auto dit = nameset_descs.find(id);
+		if (dit == nameset_descs.end())
+			error("Unknown nameset reference %zu at line %d", id, line_num);
+		std::vector<IdString> members;
+		for (size_t c : dit->second)
+			members.push_back(materialize_file_twine(c));
+		NameSetPool &sets = design->metas().sets();
+		std::span<const IdString> span{members};
+		NameSetRef ref = preserve_nameset_ids && sets.find_members(span) == NameSetRef::Null
+				? sets.place(id, span)
+				: sets.adopt(span);
+		nameset_remap[id] = ref;
+		return ref;
+	}
+
+	MetaRef materialize_file_block(size_t id)
+	{
+		auto rit = block_remap.find(id);
+		if (rit != block_remap.end())
+			return rit->second;
+		auto dit = block_descs.find(id);
+		if (dit == block_descs.end())
+			error("Unknown metadata reference #%zu at line %d", id, line_num);
+		const BlockDesc &desc = dit->second;
+		MetaBlock block;
+		if (desc.scope)
+			block.scope = materialize_file_twine(*desc.scope);
+		if (desc.hdlname)
+			block.hdlname = materialize_file_twine(*desc.hdlname);
+		if (desc.hdlnames)
+			block.absorbed_hdlnames = materialize_file_nameset(*desc.hdlnames);
+		if (desc.scopes)
+			block.absorbed_scopes = materialize_file_nameset(*desc.scopes);
+		MetaPool &metas = design->metas();
+		MetaRef ref = preserve_block_ids && metas.find(block) == MetaRef::Null
+				? metas.place(id, block)
+				: metas.adopt(block);
+		block_remap[id] = ref;
+		return ref;
+	}
+
+	void parse_namesets()
+	{
+		expect_eol();
+		while (!try_parse_keyword("end")) {
+			if (!try_parse_keyword("set"))
+				error("Expected `set` inside namesets block, got `%s'.", error_token());
+			std::vector<size_t> &members = nameset_descs[parse_integer()];
+			while (!try_parse_eol())
+				members.push_back(parse_integer());
+		}
+		std::vector<size_t> ordered_ids;
+		for (auto &it : nameset_descs)
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		NameSetPool &sets = design->metas().sets();
+		preserve_nameset_ids = sets.size() == 0 && !ordered_ids.empty()
+				&& dense_enough(ordered_ids.back(), ordered_ids.size());
+		for (size_t id : ordered_ids)
+			materialize_file_nameset(id);
+		if (preserve_nameset_ids) {
+			sets.finish_placement();
+			preserve_nameset_ids = false;
+		}
+		nameset_descs.clear();
+		expect_eol();
+	}
+
+	void parse_blocks()
+	{
+		expect_eol();
+		while (!try_parse_keyword("end")) {
+			if (!try_parse_keyword("block"))
+				error("Expected `block` inside blocks block, got `%s'.", error_token());
+			BlockDesc &desc = block_descs[parse_integer()];
+			while (!try_parse_eol()) {
+				if (try_parse_keyword("scope"))
+					desc.scope = parse_integer();
+				else if (try_parse_keyword("hdlname"))
+					desc.hdlname = parse_integer();
+				else if (try_parse_keyword("hdlnames"))
+					desc.hdlnames = parse_integer();
+				else if (try_parse_keyword("scopes"))
+					desc.scopes = parse_integer();
+				else
+					error("Unexpected field `%s' in metadata block.", error_token());
+			}
+		}
+		std::vector<size_t> ordered_ids;
+		for (auto &it : block_descs)
+			ordered_ids.push_back(it.first);
+		std::sort(ordered_ids.begin(), ordered_ids.end());
+		MetaPool &metas = design->metas();
+		preserve_block_ids = metas.size() == 0 && !ordered_ids.empty()
+				&& dense_enough(ordered_ids.back(), ordered_ids.size());
+		for (size_t id : ordered_ids)
+			materialize_file_block(id);
+		if (preserve_block_ids) {
+			metas.finish_placement();
+			preserve_block_ids = false;
+		}
+		block_descs.clear();
+		expect_eol();
+	}
+
+	void parse_metadata()
+	{
+		expect_eol();
+		while (!try_parse_keyword("end")) {
+			if (try_parse_keyword("twines"))
+				parse_twines();
+			else if (try_parse_keyword("srcs"))
+				parse_srcs();
+			else if (try_parse_keyword("namesets"))
+				parse_namesets();
+			else if (try_parse_keyword("blocks"))
+				parse_blocks();
+			else
+				error("Unexpected section `%s' in metadata block.", error_token());
+		}
 		expect_eol();
 	}
 
@@ -744,20 +905,6 @@ struct RTLILFrontendWorker {
 			preserve_twine_ids = false;
 		}
 		twine_descs.clear();
-		expect_eol();
-	}
-
-	void parse_metadata()
-	{
-		expect_eol();
-		while (!try_parse_keyword("end")) {
-			if (try_parse_keyword("twines"))
-				parse_twines();
-			else if (try_parse_keyword("srcs"))
-				parse_srcs();
-			else
-				error("Unexpected section `%s' in metadata block.", error_token());
-		}
 		expect_eol();
 	}
 
@@ -1172,6 +1319,8 @@ struct RTLILFrontendWorker {
 		twine_parser_holds.clear();
 		twine_remap.clear();
 		src_remap.clear();
+		nameset_remap.clear();
+		block_remap.clear();
 	}
 };
 

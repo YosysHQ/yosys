@@ -194,22 +194,43 @@ and ``Process`` returns the design's pool, which offers ``add``, ``merge``,
 RTLIL
 ^^^^^
 
-`write_rtlil` refers to source locations instead of spelling them out. A
-single location is written as ``@<twine>``, a reference into the ``twines``
-section. A set of several locations is written as ``$<set>``, a reference
-into a ``srcs`` section of the ``metadata`` block, with one ``set <set> <twine>...`` line per set:
+`write_rtlil` refers to metadata instead of spelling it out. Everything it
+refers to is written once, in a ``metadata`` section after ``autoidx``, which
+holds a ``twines`` section, a ``srcs`` section of location sets, a
+``namesets`` section of absorbed name sets and a ``blocks`` section of
+metadata blocks:
 
 .. code-block:: text
 
    metadata
+     twines
+       root 1031 "top"
+       suffix 1064 1031 " u_and"
+       ...
+     end
      srcs
        set 0 1055 1056
      end
+     namesets
+       set 0 1064
+     end
+     blocks
+       block 1 scope 1031
+       block 2 hdlnames 0
+     end
    end
-   ...
+
+A single source location is written as ``@<twine>`` and a set of several as
+``$<set>``. An object's metadata block is written as ``#<block>`` on a
+``metadata`` attribute, followed by its names as a comment:
+
+.. code-block:: text
+
      attribute \src "$0"  # top.v:3.5-3.9|top.v:4.5-4.9
      attribute \src "@1055"  # top.v:3.5-3.9
+     attribute \metadata "#1"  # scopename "top"
+     attribute \metadata "#2"  # absorbed "top u_and"
 
-`read_rtlil` still accepts plain location strings, so older RTLIL files can
-be read in. :yoscrypt:`write_rtlil -readable` writes plain strings for older Yosys
-versions.
+`read_rtlil` still accepts plain ``src``, ``hdlname`` and ``scopename``
+strings, so older RTLIL files can be read in. :yoscrypt:`write_rtlil -readable` writes
+plain strings for older Yosys versions and drops absorbed names.

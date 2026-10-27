@@ -100,6 +100,12 @@ Ref TwineSetPool<Derived, Ref>::copy_from(const Derived &other, Ref ref) {
 }
 
 template<typename Derived, typename Ref>
+std::string TwineSetPool<Derived, Ref>::serial(Ref ref) const {
+	this->check_owned(ref);
+	return std::to_string(ref.raw());
+}
+
+template<typename Derived, typename Ref>
 void TwineSetPool<Derived, Ref>::root_members(const Marks &live, pool<IdString> &live_twines) const {
 	for (Ref ref : live)
 		for (IdString member : (*this)[ref].members())
