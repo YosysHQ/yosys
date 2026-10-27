@@ -68,6 +68,7 @@ void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Inst
 void detail::CutSideWalker::clear()
 {
 	mod_walkers_.clear();
+	top_port_pin_by_bit_.clear();
 }
 
 void detail::CutSideWalker::walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier)
@@ -127,9 +128,18 @@ void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::Po
 const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker)
 {
 	const Netlist::Instance *top = view_.top();
-	if (bit.wire == nullptr || bit.wire->port_id == 0 || walker.module != view_.module(top))
+	if (bit.wire == nullptr || walker.module != view_.module(top))
 		return nullptr;
-	return view_.pin(top, detail::unescapedName(bit.wire->name), bit.offset);
+	if (bit.wire->port_id != 0)
+		return view_.pin(top, detail::unescapedName(bit.wire->name), bit.offset);
+	if (top_port_pin_by_bit_.empty()) {
+		for (const Netlist::Pin *port : top->pins) {
+			RTLIL::IdString port_id = detail::escapedPortId(view_.design(), nullptr, walker.module, view_.shape(port).name);
+			RTLIL::Wire *wire = walker.module->wire(port_id);
+			top_port_pin_by_bit_.emplace(walker.sigmap(RTLIL::SigBit(wire, port->bit)), port);
+		}
+	}
+	return top_port_pin_by_bit_.at(walker.sigmap(bit), nullptr);
 }
 
 void NetView::resolve(const std::vector<TrackedRef *> &refs)

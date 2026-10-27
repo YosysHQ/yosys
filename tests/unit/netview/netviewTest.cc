@@ -966,6 +966,24 @@ TEST_F(NetViewTest, unprotectKeepsTheAnchors)
 	EXPECT_EQ(cell.objects, std::vector<const void *>{next->instance(u_inv2)});
 }
 
+TEST_F(NetViewTest, portBarrierFindsItsPortBySignal)
+{
+	NetView view;
+	view.build(d);
+	TrackedRef port{TrackedRef::ObjectKind::Port};
+	port.objects = {view.pin(view.top(), "q", 1)};
+	view.closeEpoch({&port}, Protection::Barriers);
+	// abc9 puts a wire between the barrier and the port, splitnets drops the anchors
+	Wire *w = top->addWire("\\w");
+	top->connect(w, SigBit(q, 1));
+	top->cell("\\netview_anchor$1")->setPort(ID::A, w);
+	q->attributes.clear();
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&port});
+	EXPECT_EQ(port.objects, std::vector<const void *>{next->pin(next->top(), "q", 1)});
+}
+
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
 {
 	// splitnets copies the hdlname of a flat vector to each bit

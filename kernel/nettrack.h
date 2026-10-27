@@ -209,6 +209,7 @@ private:
 	const NetView &view_;
 	const BarrierStore &barriers_;
 	std::map<RTLIL::Module *, ModWalker> mod_walkers_;
+	dict<RTLIL::SigBit, const Netlist::Pin *> top_port_pin_by_bit_; // by top SigMap bit
 };
 
 // The anchors of the objects of a ref at the epoch end
