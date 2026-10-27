@@ -8,6 +8,7 @@ module \top
   attribute \max 2147483647
   attribute \over 32'10000000000000000000000000000000
   attribute \neg 32's11111111111111111111111111111011
+  attribute \min 32's10000000000000000000000000000000
   attribute \narrow 8'00000001
   attribute \undef 32'x
   attribute \str "abcd"
@@ -19,6 +20,7 @@ module \top
     parameter \W 5
     parameter \H 32'10000000000000000000000000000000
     parameter signed \N 32's11111111111111111111111111111011
+    parameter signed \M 32's10000000000000000000000000000000
     connect \x \a
   end
   connect \e 5
@@ -32,6 +34,7 @@ write_verilog -defaultparams temp/write_verilog_unsized.v
 ! grep -qF "(* max = 2147483647 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* over = 32'd2147483648 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* neg = -5 *)" temp/write_verilog_unsized.v
+! grep -qF "(* min = 32'sh80000000 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* undef = 32'hxxxxxxxx *)" temp/write_verilog_unsized.v
 ! grep -qF "(* str = \"abcd\" *)" temp/write_verilog_unsized.v
@@ -39,6 +42,7 @@ write_verilog -defaultparams temp/write_verilog_unsized.v
 ! grep -qF ".W(5)" temp/write_verilog_unsized.v
 ! grep -qF ".H(32'd2147483648)" temp/write_verilog_unsized.v
 ! grep -qF ".N(-5)" temp/write_verilog_unsized.v
+! grep -qF ".M(32'sh80000000)" temp/write_verilog_unsized.v
 ! grep -qF "assign e = 32'd5;" temp/write_verilog_unsized.v
 ! grep -qF "assign c = { a, 32'h00000005, a };" temp/write_verilog_unsized.v
 
@@ -84,6 +88,6 @@ endmodule
 EOT
 write_verilog -noattr -noexpr temp/write_verilog_unsized_intmin.v
 ! grep -qF ".WIDTH(32)" temp/write_verilog_unsized_intmin.v
-! grep -qF ".ARST_VALUE(-32'sd2147483648)" temp/write_verilog_unsized_intmin.v
+! grep -qF ".ARST_VALUE(32'sh80000000)" temp/write_verilog_unsized_intmin.v
 design -reset
 read_verilog -icells temp/write_verilog_unsized_intmin.v

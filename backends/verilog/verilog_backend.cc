@@ -281,7 +281,9 @@ struct VerilogWriter
 					if (data[i] == State::S1)
 						val |= 1 << (i - offset);
 				}
-				if (use_unsized_decimal(kind) && (val >= 0 || (set_signed && val != INT32_MIN)))
+				if (set_signed && val == INT32_MIN)
+					goto dump_hex;
+				if (use_unsized_decimal(kind) && (set_signed || val >= 0))
 					f << stringf("%d", val);
 				else if (set_signed && val < 0)
 					f << stringf("-32'sd%u", -val);
