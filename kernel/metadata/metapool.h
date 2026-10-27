@@ -94,7 +94,8 @@ private:
 	void absorb_identity(MetaBlock &into, const MetaBlock &from);
 	void absorb_sets(MetaBlock &into, const MetaBlock &from);
 	IdString root();
-	IdString extend(IdString scope, std::string_view name);
+	IdString extend(IdString root, IdString path, std::string_view name);
+	IdString add_path(IdString root, std::span<const std::string> names);
 	MetaRef intern(MetaBlock block);
 };
 

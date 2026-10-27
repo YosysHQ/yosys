@@ -73,10 +73,17 @@ IdString MetaPool::root() {
 	return twines.add(TwineSpec{TwineSpec::Root{std::string()}});
 }
 
-IdString MetaPool::extend(IdString scope, std::string_view name) {
-	if (scope == root())
-		return twines.add(scope, name);
-	return twines.add(scope, " " + std::string(name));
+IdString MetaPool::extend(IdString root, IdString path, std::string_view name) {
+	if (path == root)
+		return twines.add(path, name);
+	return twines.add(path, " " + std::string(name));
+}
+
+IdString MetaPool::add_path(IdString root, std::span<const std::string> names) {
+	IdString path = root;
+	for (auto &name : names)
+		path = extend(root, path, name);
+	return path;
 }
 
 MetaRef MetaPool::intern(MetaBlock block) {
@@ -115,11 +122,9 @@ MetaRef MetaPool::with_hdlname(MetaRef ref, std::string_view path) {
 			block.scope = block.hdlname = IdString();
 		return intern(std::move(block));
 	}
-	IdString scope = root();
-	for (size_t i = 0; i + 1 < elems.size(); i++)
-		scope = extend(scope, elems[i]);
-	block.scope = scope;
-	block.hdlname = extend(scope, elems.back());
+	IdString root = this->root();
+	block.scope = add_path(root, std::span(elems).first(elems.size() - 1));
+	block.hdlname = extend(root, block.scope, elems.back());
 	return intern(std::move(block));
 }
 
@@ -128,13 +133,7 @@ MetaRef MetaPool::with_scopename(MetaRef ref, std::string_view path) {
 	if (!block.hdlname.empty())
 		return ref;
 	std::vector<std::string> elems = split_tokens(std::string(path), " ");
-	IdString scope;
-	if (!elems.empty()) {
-		scope = root();
-		for (auto &elem : elems)
-			scope = extend(scope, elem);
-	}
-	block.scope = scope;
+	block.scope = elems.empty() ? IdString() : add_path(root(), elems);
 	return intern(std::move(block));
 }
 
