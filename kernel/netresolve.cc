@@ -53,8 +53,9 @@ void detail::HitIndex::clear()
 	barrier_by_cut_bit.clear();
 }
 
-detail::CutSideWalker::CutSideWalker(const NetView &view) : view_(view) {}
+detail::CutSideWalker::CutSideWalker(const NetView &view, const BarrierStore &barriers) : view_(view), barriers_(barriers) {}
 
+// A cut side ends at the cut side of another barrier
 void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const void *> &out)
 {
 	WalkTarget target = WalkTarget::Loads;
@@ -71,11 +72,14 @@ void detail::CutSideWalker::clear()
 
 void detail::CutSideWalker::walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier)
 {
+	CutWireSide cut_side = CutWireSide::OffCutWire;
+	if ((walk.target == WalkTarget::Drivers) == barriers_.hasMark(barrier, BarrierMark::CutOnA))
+		cut_side = CutWireSide::OnCutWire;
 	RTLIL::SigBit start = barrier->getPort(detail::barrierPortToward(walk.target))[0];
-	walkSignal(walk, barrier, start);
+	walkSignal(walk, barrier, start, cut_side);
 }
 
-void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit)
+void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, CutWireSide cut_side)
 {
 	RTLIL::Module *module = from->module;
 	const ModWalker &walker = mod_walkers_.try_emplace(module, module->design, module).first->second;
@@ -91,9 +95,18 @@ void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell
 			continue;
 		if (at.cell->type != ID($barrier))
 			walkUser(walk, at);
-		else if ((at.port == ID::A) != (walk.target == WalkTarget::Drivers))
+		else if (entersBarrier(walk, at, cut_side))
 			walkBarrier(walk, at.cell);
 	}
+}
+
+// Toward the target, and not into the cut wire of a barrier from the cut wire
+bool detail::CutSideWalker::entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, CutWireSide cut_side) const
+{
+	bool at_a = at.port == ID::A;
+	if (at_a == (walk.target == WalkTarget::Drivers))
+		return false;
+	return !(cut_side == CutWireSide::OnCutWire && at_a == barriers_.hasMark(at.cell, BarrierMark::CutOnA));
 }
 
 void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at)

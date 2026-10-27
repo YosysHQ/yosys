@@ -3,6 +3,7 @@
 // - rebuild    ViewBuilder builds the view, HitIndex notes where the anchors landed in it
 // - resolve    Resolver turns the hits into objects, CutSideWalker walks from a barrier to the pins on its cut side
 // Rules:
+// - a ref resolves to its own cut side only (CutSideWalker)
 // - identity is the signal plus the name at the epoch end (ScopePaths)
 // - a removed hierarchical pin is the leaf set that OpenSTA takes for it
 
@@ -81,6 +82,11 @@ constexpr std::string_view owned_marker_prefix = "\\netview_";
 enum class IdLookup : uint8_t {
 	FindOnly,
 	AddIfMissing
+};
+
+enum class CutWireSide : uint8_t {
+	OnCutWire,
+	OffCutWire
 };
 
 // Where an object of a ref was, on a cell or wire
@@ -190,16 +196,18 @@ struct ScopePaths {
 // The leaf pins on the cut side of a barrier, across chains of barriers
 class CutSideWalker {
 public:
-	explicit CutSideWalker(const NetView &view);
+	CutSideWalker(const NetView &view, const BarrierStore &barriers);
 	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const void *> &out);
 	void clear();
 private:
 	void walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier);
-	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit);
+	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, CutWireSide cut_side);
+	bool entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, CutWireSide cut_side) const;
 	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at);
 	const Netlist::Pin *topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker);
 
 	const NetView &view_;
+	const BarrierStore &barriers_;
 	std::map<RTLIL::Module *, ModWalker> mod_walkers_;
 };
 

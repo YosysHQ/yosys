@@ -4,7 +4,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-NetView::NetView() : walker_(*this) {}
+NetView::NetView() : walker_(*this, epoch_.barriers) {}
 
 NetView::~NetView()
 {
