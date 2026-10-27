@@ -637,11 +637,6 @@ RTLIL::Const RTLIL::Const::extract(int offset, int len, RTLIL::State padding) co
 }
 #undef check /* check(condition) for Const */
 
-bool RTLIL::is_interned_attribute(RTLIL::IdString id)
-{
-	return id == ID::src || id == ID::hdlname || id == ID::scopename;
-}
-
 bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 {
 	if (id == ID::src)
