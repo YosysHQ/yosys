@@ -424,6 +424,7 @@ public:
 	void spacer();
 	void push();
 	void pop();
+	void log_lines(std::string_view text, LogSeverity severity = LogSeverity::Info);
 
 	void reset_stack();
 
@@ -485,7 +486,10 @@ inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	logger().formatted_string(LogSeverity::Info, LogSourceLocation{}, {}, fmt.format_string(), fmt.format(args...));
 }
 
-void log_lines(std::string_view text);
+inline void log_lines(std::string_view text, LogSeverity severity = LogSeverity::Info)
+{
+	logger().log_lines(text, severity);
+}
 
 template <typename... Args>
 inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)

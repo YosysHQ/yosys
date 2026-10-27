@@ -2258,7 +2258,7 @@ struct MemoryLibMapPass : public Pass {
 				if (!map.logic_ok) {
 					if (map.cfgs.empty()) {
 						log_debug("Rejected candidates for mapping memory %s.%s:\n", module, mem.memid.unescape());
-						log_debug("%s", map.rejected_cfg_debug_msgs);
+						log_lines(map.rejected_cfg_debug_msgs, LogSeverity::Debug);
 						log_error("no valid mapping found for memory %s.%s\n", module, mem.memid.unescape());
 					}
 					idx = 0;

@@ -588,12 +588,13 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 	return "\"" + value.decode_string() + "\"";
 }
 
-void log_lines(std::string_view text)
+void LogManager::log_lines(std::string_view text, LogSeverity severity)
 {
+	log_assert(severity == LogSeverity::Debug || severity == LogSeverity::Comment || severity == LogSeverity::Info);
 	while (!text.empty()) {
 		size_t pos = text.find('\n');
 		std::string_view line = text.substr(0, pos);
-		log("%s\n", line);
+		logger().formatted_string(severity, LogSourceLocation{}, {}, "%s\n", std::string(line) + "\n");
 		if (pos == std::string_view::npos)
 			break;
 		text = text.substr(pos + 1);
