@@ -98,7 +98,7 @@ PRIVATE_NAMESPACE_BEGIN
 struct VerilogConfig
 {
 	bool verbose = false, norename = false, noattr = false, attr2comment = false, noexpr = false, nodec = false, nohex = false, nostr = false,
-	  extmem = false, defparam = false, decimal = false, nodec_attr = false, nodec_param = false, siminit = false, systemverilog = false, simple_lhs = false,
+	  extmem = false, defparam = false, nodec_attr = false, dec_param = false, siminit = false, systemverilog = false, simple_lhs = false,
 	  noparallelcase = false, default_params = false, blackboxes = false, selected = false;
 	std::string auto_prefix;
 };
@@ -242,17 +242,16 @@ struct VerilogWriter
 		return true;
 	}
 
-	bool use_unsized_decimal(ConstKind kind)
+	bool use_unsized_decimal(ConstKind kind, bool is_signed)
 	{
 		switch (kind) {
 		case ConstKind::Expr:
-			return config.decimal;
 		case ConstKind::Concat:
 			return false;
 		case ConstKind::Attr:
 			return !config.nodec_attr;
 		case ConstKind::Param:
-			return !config.nodec_param;
+			return is_signed || config.dec_param;
 		case ConstKind::Specify:
 			return true;
 		}
@@ -283,7 +282,7 @@ struct VerilogWriter
 				}
 				if (set_signed && val == INT32_MIN)
 					goto dump_hex;
-				if (use_unsized_decimal(kind) && (set_signed || val >= 0))
+				if (use_unsized_decimal(kind, set_signed) && (set_signed || val >= 0))
 					f << stringf("%d", val);
 				else if (set_signed && val < 0)
 					f << stringf("-32'sd%u", -val);
@@ -2650,12 +2649,15 @@ struct VerilogBackend : public Backend {
 		log("        dumped in decimal and without size and radix. This option dumps them\n");
 		log("        with size and radix instead.\n");
 		log("\n");
-		log("    -nodec_param\n");
-		log("        like -nodec_attr, but for parameter values.\n");
+		log("    -dec_param\n");
+		log("        signed 32-bit parameter values between -(2**31-1) and 2**31-1 are by\n");
+		log("        default dumped in decimal and without size and radix. This option\n");
+		log("        also dumps unsigned values between 0 and 2**31-1 this way. This is\n");
+		log("        unsafe: a decimal number without size and radix is signed, so an\n");
+		log("        untyped parameter that receives it becomes signed.\n");
 		log("\n");
 		log("    -decimal\n");
-		log("        dump 32-bit constants in expressions between -(2**31-1) and 2**31-1\n");
-		log("        in decimal and without size and radix.\n");
+		log("        alias for -dec_param.\n");
 		log("\n");
 		log("    -nohex\n");
 		log("        constant values that are compatible with hex output are usually\n");
@@ -2772,12 +2774,8 @@ struct VerilogBackend : public Backend {
 				config.nodec_attr = true;
 				continue;
 			}
-			if (arg == "-nodec_param") {
-				config.nodec_param = true;
-				continue;
-			}
-			if (arg == "-decimal") {
-				config.decimal = true;
+			if (arg == "-dec_param" || arg == "-decimal") {
+				config.dec_param = true;
 				continue;
 			}
 			if (arg == "-siminit") {

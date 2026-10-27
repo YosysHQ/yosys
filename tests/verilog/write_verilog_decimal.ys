@@ -8,7 +8,7 @@ endmodule
 EOT
 write_verilog -noattr -decimal temp/write_verilog_decimal.v
 ! grep -qF "a + 32'd4294967295;" temp/write_verilog_decimal.v
-! grep -qF "a + 5;" temp/write_verilog_decimal.v
+! grep -qF "a + 32'd5;" temp/write_verilog_decimal.v
 
 design -stash gold
 read_verilog temp/write_verilog_decimal.v

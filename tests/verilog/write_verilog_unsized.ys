@@ -21,6 +21,7 @@ module \top
     parameter \H 32'10000000000000000000000000000000
     parameter signed \N 32's11111111111111111111111111111011
     parameter signed \M 32's10000000000000000000000000000000
+    parameter signed \S 32's00000000000000000000000000000111
     connect \x \a
   end
   connect \e 5
@@ -38,8 +39,9 @@ write_verilog -defaultparams temp/write_verilog_unsized.v
 ! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* undef = 32'hxxxxxxxx *)" temp/write_verilog_unsized.v
 ! grep -qF "(* str = \"abcd\" *)" temp/write_verilog_unsized.v
-! grep -qF "parameter PD = 7;" temp/write_verilog_unsized.v
-! grep -qF ".W(5)" temp/write_verilog_unsized.v
+! grep -qF "parameter PD = 32'd7;" temp/write_verilog_unsized.v
+! grep -qF ".W(32'd5)" temp/write_verilog_unsized.v
+! grep -qF ".S(7)" temp/write_verilog_unsized.v
 ! grep -qF ".H(32'd2147483648)" temp/write_verilog_unsized.v
 ! grep -qF ".N(-5)" temp/write_verilog_unsized.v
 ! grep -qF ".M(32'sh80000000)" temp/write_verilog_unsized.v
@@ -49,20 +51,23 @@ write_verilog -defaultparams temp/write_verilog_unsized.v
 write_verilog -defaultparams -nodec_attr temp/write_verilog_unsized_nodec_attr.v
 ! grep -qF "(* one = 32'd1 *)" temp/write_verilog_unsized_nodec_attr.v
 ! grep -qF "(* neg = -32'sd5 *)" temp/write_verilog_unsized_nodec_attr.v
-! grep -qF "parameter PD = 7;" temp/write_verilog_unsized_nodec_attr.v
-! grep -qF ".W(5)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF ".S(7)" temp/write_verilog_unsized_nodec_attr.v
 
-write_verilog -defaultparams -nodec_param temp/write_verilog_unsized_nodec_param.v
-! grep -qF "(* one = 1 *)" temp/write_verilog_unsized_nodec_param.v
-! grep -qF "parameter PD = 32'd7;" temp/write_verilog_unsized_nodec_param.v
-! grep -qF ".W(32'd5)" temp/write_verilog_unsized_nodec_param.v
-! grep -qF ".N(-32'sd5)" temp/write_verilog_unsized_nodec_param.v
+write_verilog -defaultparams -dec_param temp/write_verilog_unsized_dec_param.v
+! grep -qF "(* one = 1 *)" temp/write_verilog_unsized_dec_param.v
+! grep -qF "parameter PD = 7;" temp/write_verilog_unsized_dec_param.v
+! grep -qF ".W(5)" temp/write_verilog_unsized_dec_param.v
+! grep -qF ".H(32'd2147483648)" temp/write_verilog_unsized_dec_param.v
+! grep -qF ".N(-5)" temp/write_verilog_unsized_dec_param.v
+! grep -qF "assign e = 32'd5;" temp/write_verilog_unsized_dec_param.v
 
 write_verilog -defparam temp/write_verilog_unsized_defparam.v
-! grep -qF "defparam u.W = 5;" temp/write_verilog_unsized_defparam.v
+! grep -qF "defparam u.W = 32'd5;" temp/write_verilog_unsized_defparam.v
+! grep -qF "defparam u.S = 7;" temp/write_verilog_unsized_defparam.v
 
 write_verilog -decimal temp/write_verilog_unsized_decimal.v
-! grep -qF "assign e = 5;" temp/write_verilog_unsized_decimal.v
+! grep -qF ".W(5)" temp/write_verilog_unsized_decimal.v
+! grep -qF "assign e = 32'd5;" temp/write_verilog_unsized_decimal.v
 ! grep -qF "assign c = { a, 32'h00000005, a };" temp/write_verilog_unsized_decimal.v
 
 write_verilog -nodec temp/write_verilog_unsized_nodec.v
