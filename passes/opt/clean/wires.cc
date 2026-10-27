@@ -82,10 +82,7 @@ struct ExactCellWires {
 
 int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 {
-	int count = w->attributes.size();
-	count -= w->attributes.count(ID::hdlname);
-	count -= w->attributes.count(ID::scopename);
-	return count;
+	return w->attributes.size();
 }
 
 // Should we pick `s2` over `s1` to represent a signal?

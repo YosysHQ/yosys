@@ -1356,6 +1356,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 		}
+		design->import_metadata_attributes(module);
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			const auto& node = ast->children[i];
 			if (node->type == AST_WIRE || node->type == AST_MEMORY)
@@ -1386,6 +1387,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				continue;
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 		}
+		design->import_metadata_attributes(module);
 		for (const auto& node : ast->children)
 			if (node->type == AST_PARAMETER)
 				current_module->avail_parameters(design->twines().add(node->str));

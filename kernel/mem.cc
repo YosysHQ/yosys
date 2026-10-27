@@ -305,6 +305,7 @@ void Mem::emit() {
 				port.cell = module->addCell(NEW_ID, ID($memrd_v2));
 			port.cell->type = ID($memrd_v2);
 			port.cell->attributes = port.attributes;
+			module->design->transfer_metadata(port.cell, &port);
 			port.cell->parameters[ID::MEMID] = memid.str();
 			port.cell->parameters[ID::ABITS] = GetSize(port.addr);
 			port.cell->parameters[ID::WIDTH] = width << port.wide_log2;
@@ -330,6 +331,7 @@ void Mem::emit() {
 				port.cell = module->addCell(NEW_ID, ID($memwr_v2));
 			port.cell->type = ID($memwr_v2);
 			port.cell->attributes = port.attributes;
+			module->design->transfer_metadata(port.cell, &port);
 			if (port.cell->parameters.count(ID::PRIORITY))
 				port.cell->parameters.erase(ID::PRIORITY);
 			port.cell->parameters[ID::MEMID] = memid.str();
@@ -355,6 +357,7 @@ void Mem::emit() {
 				init.cell->type = v2 ? ID($meminit_v2) : ID($meminit);
 			}
 			init.cell->attributes = init.attributes;
+			module->design->transfer_metadata(init.cell, &init);
 			init.cell->parameters[ID::MEMID] = memid.str();
 			init.cell->parameters[ID::ABITS] = GetSize(init.addr);
 			init.cell->parameters[ID::WIDTH] = width;
@@ -575,6 +578,7 @@ namespace {
 				bool is_compat = cell->type == ID($memrd);
 				mrd.cell = cell;
 				mrd.attributes = cell->attributes;
+				module->design->transfer_metadata(&mrd, cell);
 				mrd.clk_enable = cell->parameters.at(ID::CLK_ENABLE).as_bool();
 				mrd.clk_polarity = cell->parameters.at(ID::CLK_POLARITY).as_bool();
 				mrd.clk = cell->getPort(ID::CLK);
@@ -619,6 +623,7 @@ namespace {
 				bool is_compat = cell->type == ID($memwr);
 				mwr.cell = cell;
 				mwr.attributes = cell->attributes;
+				module->design->transfer_metadata(&mwr, cell);
 				mwr.clk_enable = cell->parameters.at(ID::CLK_ENABLE).as_bool();
 				mwr.clk_polarity = cell->parameters.at(ID::CLK_POLARITY).as_bool();
 				mwr.clk = cell->getPort(ID::CLK);
@@ -663,6 +668,7 @@ namespace {
 				MemInit init;
 				init.cell = cell;
 				init.attributes = cell->attributes;
+				module->design->transfer_metadata(&init, cell);
 				auto addr = cell->getPort(ID::ADDR);
 				auto data = cell->getPort(ID::DATA);
 				if (!addr.is_fully_const())

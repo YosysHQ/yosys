@@ -90,8 +90,8 @@ struct UniquifyPass : public Pass {
 					smod->name = newname_ref;
 					cell->type = newname_ref;
 					smod->set_bool_attribute(ID::unique);
-					if (smod->attributes.count(ID::hdlname) == 0)
-						smod->attributes[ID::hdlname] = RTLIL::Const(tmod->name.unescape());
+					if (!smod->has_attribute(ID::hdlname))
+						design->set_hdlname(smod, tmod->name.unescape());
 					design->add(smod);
 
 					did_something = true;

@@ -356,6 +356,7 @@ struct ClkbufmapPass : public Pass {
 				module->swap_names(new_wire, wire);
 				wire->attributes.clear();
 				wire->set_src(SrcRef::Null);
+				wire->set_meta(MetaRef::Null);
 				wire->port_id = 0;
 				wire->port_input = false;
 				wire->port_output = false;

@@ -50,6 +50,7 @@ static void import_ast_attributes(RTLIL::AttrObject *obj, const AstNode *node)
 			node->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
 		obj->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
 	}
+	current_module->design->import_metadata_attributes(obj);
 }
 
 // helper function for creating RTLIL code for unary operations

@@ -134,6 +134,7 @@ struct OptBalanceTreeWorker {
 
 		// Copy attributes from reference cell
 		new_cell->attributes = cell->attributes;
+		module->design->absorb_metadata(new_cell, cell);
 
 		// Create output wire
 		int out_width = cell->getParam(ID::Y_WIDTH).as_int();

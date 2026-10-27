@@ -461,6 +461,7 @@ struct IopadmapPass : public Pass {
 						module->swap_names(new_wire, wire);
 						wire->attributes.clear();
 						wire->set_src(SrcRef::Null);
+						wire->set_meta(MetaRef::Null);
 						cell->setPort(RTLIL::escape_id(portname_pad), RTLIL::SigSpec(new_wire));
 					}
 					if (!widthparam.empty())
@@ -506,6 +507,7 @@ struct IopadmapPass : public Pass {
 				module->swap_names(new_wire, wire);
 				wire->attributes.clear();
 				wire->set_src(SrcRef::Null);
+				wire->set_meta(MetaRef::Null);
 				for (int i = 0; i < wire->width; i++)
 				{
 					SigBit wire_bit(wire, i);

@@ -324,6 +324,7 @@ struct MicrochipDffOptPass : public Pass {
 					log_assert(!"unknown lut size");
 				}
 				lut_cell->attributes = cell_d->attributes;
+				module->design->transfer_metadata(lut_cell, cell_d);
 				Wire *lut_out = module->addWire(NEW_ID);
 				lut_cell->setParam(ID::INIT, final_lut.first);
 				cell->setPort(ID::D, lut_out);

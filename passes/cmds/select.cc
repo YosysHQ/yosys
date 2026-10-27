@@ -104,18 +104,25 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	log_abort();
 }
 
-static bool match_src(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &name_pat, const std::string &value_pat, char match_op)
+static bool match_metadata(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
-	if (obj == nullptr || obj->src() == SrcRef::Null)
+	if (obj == nullptr)
 		return false;
-	if (!patmatch(name_pat.c_str(), "\\src") && !patmatch(name_pat.c_str(), "src"))
-		return false;
-	return match_attr_val(RTLIL::Const(design->get_src_attribute(obj)), value_pat, match_op);
+	if (obj->src() != SrcRef::Null && (patmatch(name_pat.c_str(), "\\src") || patmatch(name_pat.c_str(), "src")) &&
+			match_attr_val(RTLIL::Const(design->get_src_attribute(obj)), value_pat, match_op))
+		return true;
+	for (auto &[name, value] : design->metadata_attributes(obj)) {
+		std::string name_str = design->twines().str(name);
+		if ((patmatch(name_pat.c_str(), name_str.c_str()) || patmatch(name_pat.c_str(), name_str.c_str() + 1)) &&
+				match_attr_val(RTLIL::Const(value), value_pat, match_op))
+			return true;
+	}
+	return false;
 }
 
 static bool match_attr(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
-	if (match_src(design, obj, name_pat, value_pat, match_op))
+	if (match_metadata(design, obj, name_pat, value_pat, match_op))
 		return true;
 	const TwinePool &pool = design->twines();
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {

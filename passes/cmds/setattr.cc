@@ -67,6 +67,10 @@ static void do_setunset(RTLIL::Design *design, RTLIL::AttrObject *obj, const std
 	for (auto &item : list)
 		if (item.name == "\\src")
 			obj->set_src(item.unset ? SrcRef::Null : design->srcs().add(item.value.decode_string()));
+		else if (item.name == "\\hdlname")
+			design->set_hdlname(obj, item.unset ? "" : item.value.decode_string());
+		else if (item.name == "\\scopename")
+			design->set_scopename(obj, item.unset ? "" : item.value.decode_string());
 		else
 			do_setunset(design, obj->attributes, item);
 }

@@ -640,9 +640,12 @@ std::string escape_cxx_string(const std::string &input)
 template<class T>
 std::string get_hdl_name(T *object)
 {
-	if (object->has_attribute(ID::hdlname))
-		return object->get_string_attribute(ID::hdlname);
-	else
+	if (object->has_attribute(ID::hdlname)) {
+		std::string path;
+		for (auto &name : object->get_hdlname_attribute())
+			path += (path.empty() ? "" : " ") + name;
+		return path;
+	} else
 		return object->name.str().substr(1);
 }
 
@@ -928,6 +931,8 @@ struct CxxrtlWorker {
 
 	void dump_attrs(const RTLIL::AttrObject *object)
 	{
+		for (auto &[id, value] : design->metadata_attributes(object))
+			f << indent << "// " << design->twines().str(id) << ": " << value << "\n";
 		for (auto attr : object->attributes) {
 			f << indent << "// " << design->twines().str(attr.first) << ": ";
 			if (attr.second.flags & RTLIL::CONST_FLAG_STRING) {
@@ -2362,8 +2367,9 @@ struct CxxrtlWorker {
 	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
 		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
-		// Inherently necessary to get access to the object, so a waste of space to emit.
-		attributes.erase(ID::hdlname);
+		// hdlname is inherently necessary to get access to the object, so a waste of space to emit.
+		if (object->has_attribute(ID::scopename))
+			attributes[ID::scopename] = design->get_scopename(object);
 		// Internal Yosys attribute that should be removed but isn't.
 		attributes.erase(ID::module_not_derived);
 		if (serialize) {

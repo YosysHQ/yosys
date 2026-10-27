@@ -64,6 +64,7 @@ struct FmcombineWorker
 		Cell *c = module->addCell(cell->name.str() + suffix, cell->type);
 		c->parameters = cell->parameters;
 		c->attributes = cell->attributes;
+		design->transfer_metadata(c, cell);
 
 		if (cell->is_mem_cell())
 			c->parameters[ID::MEMID] = cell->parameters[ID::MEMID].decode_string() + suffix;
@@ -85,6 +86,7 @@ struct FmcombineWorker
 		Cell *c = module->addCell(cell->name.str() + "_combined", sub_worker.combined_type);
 		// c->parameters = cell->parameters;
 		c->attributes = cell->attributes;
+		design->transfer_metadata(c, cell);
 
 		for (auto &conn : cell->connections()) {
 			c->setPort(design->twines().str(conn.first) + "_gold", import_sig(conn.second, "_gold"));
@@ -367,6 +369,7 @@ struct FmcombinePass : public Pass {
 
 		Cell *cell = module->addCell(combined_cell_name, worker.combined_type);
 		cell->attributes = gold_cell->attributes;
+		module->design->transfer_metadata(cell, gold_cell);
 		module->design->absorb_metadata(cell, gate_cell);
 
 		log("Combining cells %s and %s in module %s into new cell %s.\n", gold_cell, gate_cell, module, cell);
