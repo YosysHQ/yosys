@@ -45,6 +45,7 @@ void proc_memwr(RTLIL::Module *mod, RTLIL::Process *proc, dict<std::string, int>
 
 			RTLIL::Cell *cell = mod->addCell(NEW_ID, ID($memwr_v2));
 			cell->attributes = memwr.attributes;
+			mod->design->transfer_metadata(cell, &memwr);
 			cell->setParam(ID::MEMID, Const(memid));
 			cell->setParam(ID::ABITS, GetSize(memwr.address));
 			cell->setParam(ID::WIDTH, GetSize(memwr.data));

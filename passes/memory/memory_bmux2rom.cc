@@ -62,6 +62,7 @@ struct MemoryBmux2RomPass : public Pass {
 				// Ok, let's do it.
 				Mem mem(module, NEW_ID, width, 0, 1 << abits);
 				mem.attributes = cell->attributes;
+				module->design->transfer_metadata(&mem, cell);
 
 				MemInit init;
 				init.addr = 0;

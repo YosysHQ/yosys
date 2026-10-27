@@ -545,6 +545,7 @@ struct RTLILFrontendWorker {
 		obj->set_src(pending_src);
 		pending_src = SrcRef::Null;
 		obj->attributes = std::move(attrbuf);
+		design->import_metadata_attributes(obj);
 	}
 
 	// Heuristic

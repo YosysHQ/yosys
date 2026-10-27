@@ -266,6 +266,7 @@ struct TechmapWorker
 				if (tpl_w->get_bool_attribute(ID::_techmap_special_)) {
 					w->attributes.clear();
 					w->set_src(SrcRef::Null);
+					w->set_meta(MetaRef::Null);
 				}
 				if (w->has_attribute(ID::src))
 					design->absorb_metadata(w, src_cell);
@@ -430,6 +431,8 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
+			if (techmap_replace_cell && !c->meta().has_hdlname() && !c->meta().has_scopename())
+				c->set_meta(design->metas().transfer(c->meta(), src_cell->meta()));
 			design->absorb_metadata(c, src_cell);
 
 			if (techmap_replace_cell) {

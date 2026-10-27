@@ -83,6 +83,8 @@ public:
 
 	std::string compare_attributes(const RTLIL::AttrObject *a, const RTLIL::AttrObject *b)
 	{
+		if (mod_a->design->metadata_attributes(a) != mod_b->design->metadata_attributes(b))
+			return "hdlname or scopename mismatch";
 		for (const auto &it : a->attributes) {
 			IdString in_b = bridge.a_to_b(it.first);
 			if (b->attributes.count(in_b) == 0)

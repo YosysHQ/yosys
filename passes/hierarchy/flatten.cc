@@ -112,8 +112,9 @@ struct FlattenWorker
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	{
+		RTLIL::Design *design = cell->module->design;
 		if (!create_scopeinfo && object->has_attribute(ID::src))
-			cell->module->design->absorb_metadata(object, cell);
+			object->set_src(design->srcs().merge(object->src(), cell->src()));
 
 		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
 		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
@@ -123,18 +124,18 @@ struct FlattenWorker
 				new_hdlname += ' ';
 
 				if (object->has_attribute(ID::hdlname)) {
-					new_hdlname += object->get_string_attribute(ID(hdlname));
+					new_hdlname += design->get_hdlname(object);
 				} else {
 					new_hdlname += cell->twines().unescaped_str(orig_object_name);
 				}
-				object->set_string_attribute(ID(hdlname), new_hdlname);
+				design->set_hdlname(object, new_hdlname);
 			} else if (object->has_attribute(ID(scopename))) {
 				std::string new_scopename = cell_hdlname;
 				new_scopename += ' ';
-				new_scopename += object->get_string_attribute(ID(scopename));
-				object->set_string_attribute(ID(scopename), new_scopename);
+				new_scopename += design->get_scopename(object);
+				design->set_scopename(object, new_scopename);
 			} else if (create_scopename) {
-				object->set_string_attribute(ID::scopename, cell_scopename);
+				design->set_scopename(object, cell_scopename);
 			}
 		}
 	}
@@ -145,7 +146,7 @@ struct FlattenWorker
 
 		if (cell->name.isPublic()) {
 			log_assert(!cell->name.empty());
-			cell_hdlname = cell->has_attribute(ID::hdlname) ? cell->get_string_attribute(ID(hdlname)) : cell->name.unescape();
+			cell_hdlname = cell->has_attribute(ID::hdlname) ? design->get_hdlname(cell) : cell->name.unescape();
 			cell_scopename = create_scopename ? cell->name.unescape() : std::string();
 		}
 
@@ -332,17 +333,18 @@ struct FlattenWorker
 			scopeinfo->setParam(ID::TYPE, RTLIL::Const("module"));
 
 			for (auto const &attr : cell->attributes)
-			{
-				if (attr.first == ID::hdlname)
-					scopeinfo->attributes.insert(attr);
-				else
-					scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
-			}
+				scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
 			if (cell->src() != SrcRef::Null)
 				scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_src")), RTLIL::Const(cell->get_src_attribute()));
+			if (cell->has_attribute(ID::hdlname))
+				design->set_hdlname(scopeinfo, design->get_hdlname(cell));
+			if (cell->has_attribute(ID::scopename))
+				scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_scopename")), RTLIL::Const(design->get_scopename(cell)));
 
 			for (auto const &attr : tpl->attributes)
 				scopeinfo->attributes.emplace(design->twines().add(stringf("\\module_%s", design->twines().unescaped_str(attr.first))), attr.second);
+			for (auto const &[name, value] : design->metadata_attributes(tpl))
+				scopeinfo->attributes.emplace(design->twines().add(stringf("\\module_%s", design->twines().unescaped_str(name))), RTLIL::Const(value));
 			if (tpl->src() != SrcRef::Null)
 				scopeinfo->attributes.emplace(design->twines().add("\\module_src"), RTLIL::Const(tpl->get_src_attribute()));
 

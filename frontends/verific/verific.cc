@@ -1582,7 +1582,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	}
 	import_attributes(module, nl, nl);
 	if (module->name.isPublic())
-		module->set_string_attribute(ID::hdlname, nl->CellBaseName());
+		module->design->set_hdlname(module, nl->CellBaseName());
 	module->set_string_attribute(ID(library), nl->Owner()->Owner()->Name());
 #ifdef VERIFIC_VHDL_SUPPORT
 	if (nl->IsFromVhdl()) {
