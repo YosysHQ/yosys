@@ -61,8 +61,8 @@ TEST(MetaPoolTest, TransferMovesIdentity)
 	MetaRef moved = metas.transfer(target, source);
 
 	EXPECT_EQ(metas.hdlname(moved), "a s");
-	ASSERT_EQ(metas[moved].absorbed_hdlnames.size(), 1u);
-	EXPECT_EQ(metas[moved].absorbed_hdlnames[0], metas[target].hdlname);
+	ASSERT_EQ(metas.sets()[metas[moved].absorbed_hdlnames].members().size(), 1u);
+	EXPECT_EQ(metas.sets()[metas[moved].absorbed_hdlnames].members()[0], metas[target].hdlname);
 	EXPECT_EQ(metas.transfer(MetaRef::Null, source), source);
 }
 
@@ -76,10 +76,10 @@ TEST(MetaPoolTest, AbsorbKeepsIdentity)
 	MetaRef absorbed = metas.absorb(metas.absorb(target, source), scope);
 
 	EXPECT_EQ(metas.hdlname(absorbed), "t");
-	ASSERT_EQ(metas[absorbed].absorbed_hdlnames.size(), 1u);
-	EXPECT_EQ(metas[absorbed].absorbed_hdlnames[0], metas[source].hdlname);
-	ASSERT_EQ(metas[absorbed].absorbed_scopes.size(), 1u);
-	EXPECT_EQ(metas[absorbed].absorbed_scopes[0], metas[scope].scope);
+	ASSERT_EQ(metas.sets()[metas[absorbed].absorbed_hdlnames].members().size(), 1u);
+	EXPECT_EQ(metas.sets()[metas[absorbed].absorbed_hdlnames].members()[0], metas[source].hdlname);
+	ASSERT_EQ(metas.sets()[metas[absorbed].absorbed_scopes].members().size(), 1u);
+	EXPECT_EQ(metas.sets()[metas[absorbed].absorbed_scopes].members()[0], metas[scope].scope);
 	EXPECT_EQ(metas.absorb(absorbed, source), absorbed);
 }
 
@@ -92,7 +92,7 @@ TEST(MetaPoolTest, CopyFromReinterns)
 	MetaRef copied = b.copy_from(a, ref);
 
 	EXPECT_EQ(b.hdlname(copied), "a b");
-	EXPECT_EQ(b[copied].absorbed_scopes.size(), 1u);
+	EXPECT_EQ(b.sets()[b[copied].absorbed_scopes].members().size(), 1u);
 }
 
 YOSYS_NAMESPACE_END

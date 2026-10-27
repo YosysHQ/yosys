@@ -1,38 +1,72 @@
 #include "kernel/metadata/metapool.h"
-#include "kernel/metadata/twinebacked_impl.h"
-
-#include <algorithm>
+#include "kernel/metadata/twineset_impl.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 template struct HashConsPool<MetaPool, MetaBlock, MetaRef>;
 template struct TwineBackedPool<MetaPool, MetaBlock, MetaRef>;
+template struct HashConsPool<NameSetPool, TwineSet, NameSetRef>;
+template struct TwineBackedPool<NameSetPool, TwineSet, NameSetRef>;
+template struct TwineSetPool<NameSetPool, NameSetRef>;
 
 static IdString canonical(IdString ref) {
 	return ref.untag().stamped(0);
 }
 
-static void canonicalize(std::vector<IdString> &members) {
-	for (IdString &member : members)
-		member = canonical(member);
-	std::sort(members.begin(), members.end());
-	members.erase(std::unique(members.begin(), members.end()), members.end());
-}
-
-static void insert_all(std::vector<IdString> &into, const std::vector<IdString> &from) {
-	into.insert(into.end(), from.begin(), from.end());
+static void canonicalize(MetaBlock &block) {
+	block.scope = canonical(block.scope);
+	block.hdlname = canonical(block.hdlname);
+	block.absorbed_hdlnames = block.absorbed_hdlnames.unstamped();
+	block.absorbed_scopes = block.absorbed_scopes.unstamped();
 }
 
 uint64_t MetaPool::hash_node(const MetaBlock &n) {
 	Hasher h;
 	h.eat(n.scope);
 	h.eat(n.hdlname);
-	for (IdString member : n.absorbed_hdlnames)
-		h.eat(member);
-	h.eat(IdString());
-	for (IdString member : n.absorbed_scopes)
-		h.eat(member);
+	h.eat(n.absorbed_hdlnames.raw());
+	h.eat(n.absorbed_scopes.raw());
 	return h.yield();
+}
+
+void MetaPool::clone_from(const MetaPool &other) {
+	TwineBackedPool::clone_from(other);
+	sets_.clone_from(other.sets_);
+}
+
+void MetaPool::clear() {
+	TwineBackedPool::clear();
+	sets_.clear();
+}
+
+NameSetPool::Marks MetaPool::absorbed_sets(const Marks &live_metas) const {
+	NameSetPool::Marks sets;
+	for (MetaRef ref : live_metas) {
+		const MetaBlock &block = (*this)[ref];
+		if (block.absorbed_hdlnames != NameSetRef::Null)
+			sets.insert(block.absorbed_hdlnames);
+		if (block.absorbed_scopes != NameSetRef::Null)
+			sets.insert(block.absorbed_scopes);
+	}
+	return sets;
+}
+
+size_t MetaPool::gc(const Marks &live_metas) {
+	NameSetPool::Marks live_sets = absorbed_sets(live_metas);
+	size_t erased = TwineBackedPool::gc(live_metas);
+	return erased + sets_.gc(live_sets);
+}
+
+void MetaPool::absorb_identity(MetaBlock &into, const MetaBlock &from) {
+	if (!from.hdlname.empty())
+		into.absorbed_hdlnames = sets_.with_member(into.absorbed_hdlnames, from.hdlname);
+	else if (!from.scope.empty())
+		into.absorbed_scopes = sets_.with_member(into.absorbed_scopes, from.scope);
+}
+
+void MetaPool::absorb_sets(MetaBlock &into, const MetaBlock &from) {
+	into.absorbed_hdlnames = sets_.merge(into.absorbed_hdlnames, from.absorbed_hdlnames);
+	into.absorbed_scopes = sets_.merge(into.absorbed_scopes, from.absorbed_scopes);
 }
 
 IdString MetaPool::root() {
@@ -46,14 +80,12 @@ IdString MetaPool::extend(IdString scope, std::string_view name) {
 }
 
 MetaRef MetaPool::intern(MetaBlock block) {
-	block.scope = canonical(block.scope);
-	block.hdlname = canonical(block.hdlname);
-	canonicalize(block.absorbed_hdlnames);
-	canonicalize(block.absorbed_scopes);
+	canonicalize(block);
 	if (!block.hdlname.empty())
-		std::erase(block.absorbed_hdlnames, block.hdlname);
+		block.absorbed_hdlnames = sets_.without_member(block.absorbed_hdlnames, block.hdlname);
 	else if (!block.scope.empty())
-		std::erase(block.absorbed_scopes, block.scope);
+		block.absorbed_scopes = sets_.without_member(block.absorbed_scopes, block.scope);
+	canonicalize(block);
 	if (block.is_dead())
 		return MetaRef::Null;
 	uint32_t tag = !block.hdlname.empty() ? MetaRef::HDLNAME_BIT
@@ -120,17 +152,13 @@ MetaRef MetaPool::transfer(MetaRef target, MetaRef source) {
 	if (target == MetaRef::Null || target == source)
 		return source;
 	MetaBlock block = (*this)[target];
-	if (!block.hdlname.empty())
-		block.absorbed_hdlnames.push_back(block.hdlname);
-	else if (!block.scope.empty())
-		block.absorbed_scopes.push_back(block.scope);
+	absorb_identity(block, block);
 	block.scope = block.hdlname = IdString();
 	if (source != MetaRef::Null) {
 		const MetaBlock &from = (*this)[source];
 		block.scope = from.scope;
 		block.hdlname = from.hdlname;
-		insert_all(block.absorbed_hdlnames, from.absorbed_hdlnames);
-		insert_all(block.absorbed_scopes, from.absorbed_scopes);
+		absorb_sets(block, from);
 	}
 	return intern(std::move(block));
 }
@@ -140,12 +168,8 @@ MetaRef MetaPool::absorb(MetaRef target, MetaRef source) {
 		return target;
 	MetaBlock block = target == MetaRef::Null ? MetaBlock{} : (*this)[target];
 	const MetaBlock &from = (*this)[source];
-	if (!from.hdlname.empty())
-		block.absorbed_hdlnames.push_back(from.hdlname);
-	else if (!from.scope.empty())
-		block.absorbed_scopes.push_back(from.scope);
-	insert_all(block.absorbed_hdlnames, from.absorbed_hdlnames);
-	insert_all(block.absorbed_scopes, from.absorbed_scopes);
+	absorb_identity(block, from);
+	absorb_sets(block, from);
 	return intern(std::move(block));
 }
 
@@ -156,10 +180,8 @@ MetaRef MetaPool::copy_from(const MetaPool &other, MetaRef ref) {
 	MetaBlock block;
 	block.scope = twines.copy_from(other.twines, from.scope);
 	block.hdlname = twines.copy_from(other.twines, from.hdlname);
-	for (IdString member : from.absorbed_hdlnames)
-		block.absorbed_hdlnames.push_back(twines.copy_from(other.twines, member));
-	for (IdString member : from.absorbed_scopes)
-		block.absorbed_scopes.push_back(twines.copy_from(other.twines, member));
+	block.absorbed_hdlnames = sets_.copy_from(other.sets_, from.absorbed_hdlnames);
+	block.absorbed_scopes = sets_.copy_from(other.sets_, from.absorbed_scopes);
 	return intern(std::move(block));
 }
 
@@ -170,21 +192,15 @@ void MetaPool::root_members(const Marks &live_metas, pool<IdString> &live_twines
 			live_twines.insert(block.scope);
 		if (!block.hdlname.empty())
 			live_twines.insert(block.hdlname);
-		for (IdString member : block.absorbed_hdlnames)
-			live_twines.insert(member);
-		for (IdString member : block.absorbed_scopes)
-			live_twines.insert(member);
 	}
+	sets_.root_members(absorbed_sets(live_metas), live_twines);
 }
 
 void MetaPool::dump(MetaRef ref, std::ostream &os) const {
 	const MetaBlock &block = (*this)[ref];
-	os << "Meta[scope @" << block.scope.raw() << ", hdlname @" << block.hdlname.raw();
-	for (IdString member : block.absorbed_hdlnames)
-		os << ", absorbed @" << member.raw();
-	for (IdString member : block.absorbed_scopes)
-		os << ", absorbed scope @" << member.raw();
-	os << "]";
+	os << "Meta[scope @" << block.scope.raw() << ", hdlname @" << block.hdlname.raw()
+		<< ", absorbed hdlnames $" << block.absorbed_hdlnames.raw()
+		<< ", absorbed scopes $" << block.absorbed_scopes.raw() << "]";
 }
 
 YOSYS_NAMESPACE_END

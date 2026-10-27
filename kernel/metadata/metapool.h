@@ -1,7 +1,7 @@
 #ifndef YOSYS_METAPOOL_H
 #define YOSYS_METAPOOL_H
 
-#include "kernel/metadata/twinebacked.h"
+#include "kernel/metadata/twineset.h"
 
 #include <string>
 #include <string_view>
@@ -49,10 +49,12 @@ template<> struct hash_ops<MetaRef> {
 struct MetaBlock {
 	IdString scope;
 	IdString hdlname;
-	std::vector<IdString> absorbed_hdlnames;
-	std::vector<IdString> absorbed_scopes;
+	NameSetRef absorbed_hdlnames;
+	NameSetRef absorbed_scopes;
 
-	bool is_dead() const { return scope.empty() && absorbed_hdlnames.empty() && absorbed_scopes.empty(); }
+	bool is_dead() const {
+		return scope.empty() && absorbed_hdlnames == NameSetRef::Null && absorbed_scopes == NameSetRef::Null;
+	}
 
 	bool operator==(const MetaBlock &other) const {
 		return scope == other.scope && hdlname == other.hdlname
@@ -61,9 +63,15 @@ struct MetaBlock {
 };
 
 struct MetaPool : TwineBackedPool<MetaPool, MetaBlock, MetaRef> {
-	using TwineBackedPool::TwineBackedPool;
+	explicit MetaPool(TwinePool &twines) : TwineBackedPool(twines), sets_(twines) {}
 
 	static uint64_t hash_node(const MetaBlock &n);
+
+	const NameSetPool &sets() const { return sets_; }
+
+	void clone_from(const MetaPool &other);
+	void clear();
+	size_t gc(const Marks &live_metas);
 
 	std::string hdlname(MetaRef ref) const;
 	std::string scopename(MetaRef ref) const;
@@ -80,6 +88,11 @@ struct MetaPool : TwineBackedPool<MetaPool, MetaBlock, MetaRef> {
 	void dump(MetaRef ref, std::ostream &os = std::cout) const;
 
 private:
+	NameSetPool sets_;
+
+	NameSetPool::Marks absorbed_sets(const Marks &live_metas) const;
+	void absorb_identity(MetaBlock &into, const MetaBlock &from);
+	void absorb_sets(MetaBlock &into, const MetaBlock &from);
 	IdString root();
 	IdString extend(IdString scope, std::string_view name);
 	MetaRef intern(MetaBlock block);

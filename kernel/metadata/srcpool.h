@@ -1,7 +1,7 @@
 #ifndef YOSYS_SRCPOOL_H
 #define YOSYS_SRCPOOL_H
 
-#include "kernel/metadata/twinebacked.h"
+#include "kernel/metadata/twineset.h"
 
 #include <span>
 #include <string>
@@ -20,6 +20,7 @@ struct SrcRef {
 private:
 	template<typename, typename, typename> friend struct HashConsPool;
 	template<typename, typename, typename> friend struct TwineBackedPool;
+	template<typename, typename> friend struct TwineSetPool;
 	friend struct SrcPool;
 
 	explicit constexpr SrcRef(size_t val) : value((uint32_t) val) {}
@@ -41,47 +42,18 @@ template<> struct hash_ops<SrcRef> {
 };
 }
 
-struct SrcSet {
-	SrcSet() = default;
-	explicit SrcSet(std::vector<IdString> members) : members_(std::move(members)) {}
-
-	bool is_dead() const { return members_.empty(); }
-	const std::vector<IdString> &members() const { return members_; }
-
-	bool operator==(const SrcSet &other) const { return members_ == other.members_; }
-
-private:
-	std::vector<IdString> members_;
-};
-
-struct SrcPool : TwineBackedPool<SrcPool, SrcSet, SrcRef> {
-	using TwineBackedPool::TwineBackedPool;
-
-	static uint64_t hash_node(const SrcSet &n);
+struct SrcPool : TwineSetPool<SrcPool, SrcRef> {
+	using TwineSetPool::TwineSetPool;
 
 	SrcRef add(std::string_view text);
 	SrcRef add(const std::string &file, const std::string &tail);
-	SrcRef merge(std::span<const SrcRef> refs);
-	SrcRef merge(SrcRef a, SrcRef b);
-	SrcRef adopt(std::span<const IdString> members);
-	SrcRef place(size_t idx, std::span<const IdString> members);
-	using HashConsPool::finish_placement;
-	SrcRef find_members(std::span<const IdString> members) const;
-	SrcRef copy_from(const SrcPool &other, SrcRef ref);
 
 	std::string str(SrcRef ref) const;
 	std::string serial(SrcRef ref) const;
 	pool<std::string> leaves(SrcRef ref) const;
 
-	void root_members(const Marks &live_srcs, pool<IdString> &live_twines) const;
-
-	void dump(SrcRef ref, std::ostream &os = std::cout) const;
-	void dump(std::ostream &os = std::cout) const;
-
 private:
 	IdString add_location(std::string_view location);
-	static void canonicalize_members(std::vector<IdString> &members);
-	SrcRef intern(std::vector<IdString> members);
 };
 
 YOSYS_NAMESPACE_END

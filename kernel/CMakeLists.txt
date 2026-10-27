@@ -63,6 +63,8 @@ yosys_core(kernel
 	metadata/srcpool.h
 	metadata/twinebacked.h
 	metadata/twinebacked_impl.h
+	metadata/twineset.h
+	metadata/twineset_impl.h
 	modtools.h
 	newcelltypes.h
 	pattern.h
@@ -152,6 +154,8 @@ yosys_core(kernel
 		metadata/srcpool.h
 		metadata/twinebacked.h
 		metadata/twinebacked_impl.h
+		metadata/twineset.h
+		metadata/twineset_impl.h
 		qcsat.h
 		register.h
 		rtlil.h
