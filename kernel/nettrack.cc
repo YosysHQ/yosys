@@ -359,7 +359,7 @@ void detail::BarrierWriter::protectCell(const Netlist::Instance *inst, uint32_t 
 			anchorPinBarrier(pin, ref_index);
 		return;
 	}
-	view_.cell(inst)->set_bool_attribute(ID::keep_hierarchy);
+	detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep_hierarchy);
 }
 
 void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_index)
@@ -534,10 +534,12 @@ void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object,
 
 void detail::removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object)
 {
-	RTLIL::IdString marker = detail::ownedMarkerId(design, ID::keep, IdLookup::FindOnly);
-	if (object->get_bool_attribute(marker)) {
-		object->attributes.erase(ID::keep);
-		object->attributes.erase(marker);
+	for (RTLIL::IdString attr : {ID::keep, ID::keep_hierarchy}) {
+		RTLIL::IdString marker = detail::ownedMarkerId(design, attr, IdLookup::FindOnly);
+		if (object->get_bool_attribute(marker)) {
+			object->attributes.erase(attr);
+			object->attributes.erase(marker);
+		}
 	}
 	if (object->has_attribute(ID::scopename) && object->get_string_attribute(ID::scopename).empty())
 		object->attributes.erase(ID::scopename);
