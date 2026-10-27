@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "kernel/metapool.h"
+#include "kernel/metadata/metapool.h"
 
 YOSYS_NAMESPACE_BEGIN
 

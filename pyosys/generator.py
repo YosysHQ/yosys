@@ -178,8 +178,8 @@ pyosys_headers = [
         [PyosysClass("CellType", hash_expr="s.type"), PyosysClass("CellTypes")],
     ),
     PyosysHeader("kernel/consteval.h", [PyosysClass("ConstEval")]),
-    PyosysHeader("kernel/srcpool.h", [PyosysClass("SrcRef")]),
-    PyosysHeader("kernel/metapool.h", [PyosysClass("MetaRef")]),
+    PyosysHeader("kernel/metadata/srcpool.h", [PyosysClass("SrcRef")]),
+    PyosysHeader("kernel/metadata/metapool.h", [PyosysClass("MetaRef")]),
     PyosysHeader(
         "kernel/register.h",
         [

@@ -23,8 +23,8 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 #include "kernel/twine.h"
-#include "kernel/srcpool.h"
-#include "kernel/metapool.h"
+#include "kernel/metadata/srcpool.h"
+#include "kernel/metadata/metapool.h"
 
 #include <deque>
 #include <string_view>
