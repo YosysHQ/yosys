@@ -120,26 +120,39 @@ struct ConstEvalAig
 
 		RTLIL::Cell *cell = sig2driver.at(output);
 		RTLIL::SigBit sig_a = cell->getPort(ID::A);
-		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
-											   // that may occur does so here, and
-											   // not mid insertion (below)
-		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
-		if (!inputs.count(sig_a))
-			compute_deps(sig_a, inputs);
+
+		bool contains_a = std::all_of(sig2deps[output].begin(), sig2deps[output].end(), [&](SigBit bit) {
+			return sig2deps[sig_a].count(bit) > 0;
+		});
+
+		if (!contains_a) {
+			// Reserve so that any invalidation that may occur does so here, and not mid insertion (below)
+			sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size());
+
+			sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
+			if (!inputs.count(sig_a))
+				compute_deps(sig_a, inputs);
+		}
 
 		if (cell->type == ID($_AND_)) {
 			RTLIL::SigSpec sig_b = cell->getPort(ID::B);
-			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
-												   // that may occur does so here, and
-												   // not mid insertion (below)
-			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
 
-			if (!inputs.count(sig_b))
-				compute_deps(sig_b, inputs);
+			bool contains_b = std::all_of(sig2deps[output].begin(), sig2deps[output].end(), [&](SigBit bit) {
+				return sig2deps[sig_b].count(bit) > 0;
+			});
+
+			if (!contains_b) {
+				// Reserve so that any invalidation that may occur does so here, and not mid insertion (below)
+				sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size());
+
+				sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+				if (!inputs.count(sig_b))
+					compute_deps(sig_b, inputs);
+			}
 		}
-		else if (cell->type == ID($_NOT_)) {
+		else if (cell->type != ID($_NOT_)) {
+			log_abort();
 		}
-		else log_abort();
 	}
 
 	bool eval(RTLIL::Cell *cell)
