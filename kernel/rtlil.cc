@@ -689,6 +689,18 @@ void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject
 		target->set_src(merged);
 }
 
+void RTLIL::Design::transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
+{
+	target->set_src(source->src());
+}
+
+void RTLIL::Design::absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
+{
+	SrcRef merged = srcs_.merge(target->src(), source->src());
+	if (merged != SrcRef::Null)
+		target->set_src(merged);
+}
+
 namespace {
 	void copy_src_into(const RTLIL::AttrObject *src, const RTLIL::Design *src_design,
 			RTLIL::AttrObject *dst, RTLIL::Design *dst_design)
