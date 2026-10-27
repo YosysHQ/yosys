@@ -999,7 +999,12 @@ RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
-	return is_string ? RTLIL::Const(str) : RTLIL::Const(bits);
+	if (is_string)
+		return RTLIL::Const(str);
+	RTLIL::Const val(bits);
+	if (is_signed)
+		val.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return val;
 }
 
 RTLIL::Const AstNode::asParaConst() const
@@ -1013,8 +1018,6 @@ RTLIL::Const AstNode::asParaConst() const
 	}
 
 	RTLIL::Const val = asAttrConst();
-	if (is_signed)
-		val.flags |= RTLIL::CONST_FLAG_SIGNED;
 	if (is_unsized)
 		val.flags |= RTLIL::CONST_FLAG_UNSIZED;
 	return val;
