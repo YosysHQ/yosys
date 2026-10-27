@@ -790,7 +790,7 @@ size_t RTLIL::Design::gc_twines()
 			live.insert(ref);
 	};
 	SrcPool::Marks live_srcs;
-	std::vector<MetaRef> live_metas;
+	MetaPool::Marks live_metas;
 
 	auto src_root = [&](SrcRef ref) {
 		if (ref != SrcRef::Null)
@@ -802,7 +802,7 @@ size_t RTLIL::Design::gc_twines()
 			root(attr.first);
 		src_root(obj->src());
 		if (obj->meta() != MetaRef::Null)
-			live_metas.push_back(obj->meta());
+			live_metas.insert(obj->meta());
 	});
 
 	for (auto &[_, module] : modules_)

@@ -1,18 +1,12 @@
 #include "kernel/metadata/metapool.h"
-#include "kernel/hashcons_impl.h"
-#include "kernel/log.h"
+#include "kernel/metadata/twinebacked_impl.h"
 
 #include <algorithm>
 
 YOSYS_NAMESPACE_BEGIN
 
 template struct HashConsPool<MetaPool, MetaBlock, MetaRef>;
-
-struct MetaEq {
-	const MetaPool &pool;
-	const MetaBlock &node;
-	bool operator()(MetaRef ref) const { return pool[ref] == node; }
-};
+template struct TwineBackedPool<MetaPool, MetaBlock, MetaRef>;
 
 static IdString canonical(IdString ref) {
 	return ref.untag().stamped(0);
@@ -27,18 +21,6 @@ static void canonicalize(std::vector<IdString> &members) {
 
 static void insert_all(std::vector<IdString> &into, const std::vector<IdString> &from) {
 	into.insert(into.end(), from.begin(), from.end());
-}
-
-void MetaPool::clone_from(const MetaPool &other) {
-	log_assert(twines.shares_index_space_with(other.twines));
-	HashConsPool::operator=(static_cast<const HashConsPool &>(other));
-}
-
-void MetaPool::clear() {
-	backing.clear();
-	free_list.clear();
-	std::fill(table.begin(), table.end(), MetaRef());
-	index_entries = 0;
 }
 
 uint64_t MetaPool::hash_node(const MetaBlock &n) {
@@ -76,10 +58,9 @@ MetaRef MetaPool::intern(MetaBlock block) {
 		return MetaRef::Null;
 	uint32_t tag = !block.hdlname.empty() ? MetaRef::HDLNAME_BIT
 		: !block.scope.empty() ? MetaRef::SCOPENAME_BIT : 0;
-	MetaRef found = find_hashed(hash_node(block), MetaEq{*this, block});
-	if (found == MetaRef::Null)
-		found = add_inner(std::move(block));
-	return MetaRef(found.raw() | tag);
+	MetaRef ref = intern_node(std::move(block));
+	ref.value |= tag;
+	return ref;
 }
 
 std::string MetaPool::hdlname(MetaRef ref) const {
@@ -182,7 +163,7 @@ MetaRef MetaPool::copy_from(const MetaPool &other, MetaRef ref) {
 	return intern(std::move(block));
 }
 
-void MetaPool::root_members(const std::vector<MetaRef> &live_metas, pool<IdString> &live_twines) const {
+void MetaPool::root_members(const Marks &live_metas, pool<IdString> &live_twines) const {
 	for (MetaRef ref : live_metas) {
 		const MetaBlock &block = (*this)[ref];
 		if (!block.scope.empty())
@@ -194,10 +175,6 @@ void MetaPool::root_members(const std::vector<MetaRef> &live_metas, pool<IdStrin
 		for (IdString member : block.absorbed_scopes)
 			live_twines.insert(member);
 	}
-}
-
-size_t MetaPool::gc(const std::vector<MetaRef> &live_metas) {
-	return HashConsPool::gc(live_metas);
 }
 
 void MetaPool::dump(MetaRef ref, std::ostream &os) const {

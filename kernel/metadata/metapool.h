@@ -1,8 +1,7 @@
 #ifndef YOSYS_METAPOOL_H
 #define YOSYS_METAPOOL_H
 
-#include "kernel/hashcons.h"
-#include "kernel/twine.h"
+#include "kernel/metadata/twinebacked.h"
 
 #include <string>
 #include <string_view>
@@ -22,6 +21,7 @@ struct MetaRef {
 
 private:
 	template<typename, typename, typename> friend struct HashConsPool;
+	template<typename, typename, typename> friend struct TwineBackedPool;
 	friend struct MetaPool;
 
 	explicit constexpr MetaRef(size_t val) : value((uint32_t) val) {}
@@ -33,6 +33,9 @@ private:
 	static constexpr uint32_t SCOPENAME_BIT = uint32_t{1} << 30;
 	static constexpr uint32_t TAG_MASK = HDLNAME_BIT | SCOPENAME_BIT;
 	uint32_t value;
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+	uint32_t serial = 0;
+#endif
 };
 
 inline constexpr MetaRef MetaRef::Null{};
@@ -57,27 +60,10 @@ struct MetaBlock {
 	}
 };
 
-struct MetaPool : HashConsPool<MetaPool, MetaBlock, MetaRef> {
-	static constexpr size_t STATIC_COUNT = 0;
-
-	explicit MetaPool(TwinePool &twines) : twines(twines) {}
-
-	MetaPool(const MetaPool &) = delete;
-	MetaPool(MetaPool &&) = delete;
-	MetaPool &operator=(const MetaPool &) = delete;
-	MetaPool &operator=(MetaPool &&) = delete;
-
-	const MetaBlock &operator[](MetaRef ref) const { return HashConsPool::operator[](ref); }
-
-	void clone_from(const MetaPool &other);
+struct MetaPool : TwineBackedPool<MetaPool, MetaBlock, MetaRef> {
+	using TwineBackedPool::TwineBackedPool;
 
 	static uint64_t hash_node(const MetaBlock &n);
-
-	template<typename F>
-	static void for_each_child(const MetaBlock&, F&&) {}
-
-	using HashConsPool::size;
-	void clear();
 
 	std::string hdlname(MetaRef ref) const;
 	std::string scopename(MetaRef ref) const;
@@ -89,14 +75,11 @@ struct MetaPool : HashConsPool<MetaPool, MetaBlock, MetaRef> {
 	MetaRef absorb(MetaRef target, MetaRef source);
 	MetaRef copy_from(const MetaPool &other, MetaRef ref);
 
-	void root_members(const std::vector<MetaRef> &live_metas, pool<IdString> &live_twines) const;
-	size_t gc(const std::vector<MetaRef> &live_metas);
+	void root_members(const Marks &live_metas, pool<IdString> &live_twines) const;
 
 	void dump(MetaRef ref, std::ostream &os = std::cout) const;
 
 private:
-	TwinePool &twines;
-
 	IdString root();
 	IdString extend(IdString scope, std::string_view name);
 	MetaRef intern(MetaBlock block);
