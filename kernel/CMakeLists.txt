@@ -61,6 +61,7 @@ yosys_core(kernel
 	netbuild.cc
 	netlist.cc
 	netlist.h
+	netresolve.cc
 	nettrack.cc
 	nettrack.h
 	netview.cc
