@@ -1683,8 +1683,8 @@ module CC_FIFO_40K (
 	 end
 
 	always @(*) begin
-		fifo_wraddr = {wr_pointer[tp-1:0], {(15-tp){1'b0}}};
-		fifo_rdaddr = {rd_pointer[tp-1:0], {(15-tp){1'b0}}};
+		fifo_wraddr = wr_pointer[tp-1:0] * B_WIDTH;
+		fifo_rdaddr = rd_pointer[tp-1:0] * A_WIDTH;
 
 		rdaddr = {rd_pointer[tp], rd_pointer_int[tp-1:0]};
 		wraddr = {{(15-tp){1'b0}}, wr_pointer[tp], wr_pointer_int[tp:0]};
