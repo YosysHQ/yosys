@@ -1281,7 +1281,7 @@ bool VerificImporter::import_netlist_instance_cells(Instance *inst, RTLIL::IdStr
 		current_case = &proc->root_case;
 
 		RTLIL::SwitchRule *sw = new RTLIL::SwitchRule;
-		sw->adopt_src_from(proc);
+		module->design->absorb_metadata(sw, proc);
 		sw->signal = sig_select;
 		sw->signal_src = src;
 		current_case->switches.push_back(sw);

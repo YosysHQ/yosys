@@ -718,7 +718,7 @@ struct ShareWorker
 		if (c1->type.in(ID($memrd), ID($memrd_v2)))
 		{
 			RTLIL::Cell *supercell = module->addCell(NEW_ID, c1);
-			module->design->merge_src(supercell, c2);
+			module->design->absorb_metadata(supercell, c2);
 			RTLIL::SigSpec addr1 = c1->getPort(ID::ADDR);
 			RTLIL::SigSpec addr2 = c2->getPort(ID::ADDR);
 			if (GetSize(addr1) < GetSize(addr2))

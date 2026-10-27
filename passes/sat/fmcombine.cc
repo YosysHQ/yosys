@@ -367,7 +367,7 @@ struct FmcombinePass : public Pass {
 
 		Cell *cell = module->addCell(combined_cell_name, worker.combined_type);
 		cell->attributes = gold_cell->attributes;
-		module->design->merge_src(cell, gate_cell);
+		module->design->absorb_metadata(cell, gate_cell);
 
 		log("Combining cells %s and %s in module %s into new cell %s.\n", gold_cell, gate_cell, module, cell);
 
