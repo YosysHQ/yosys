@@ -485,6 +485,8 @@ inline void log(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 	logger().formatted_string(LogSeverity::Info, LogSourceLocation{}, {}, fmt.format_string(), fmt.format(args...));
 }
 
+void log_lines(std::string_view text);
+
 template <typename... Args>
 inline void log_comment(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
