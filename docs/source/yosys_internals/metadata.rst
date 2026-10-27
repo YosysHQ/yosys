@@ -22,18 +22,30 @@ per-``Design`` ``SrcPool``. Like ``TwinePool``, ``SrcPool`` inherits from
 Every ``AttrObject`` holds a 32-bit ``SrcRef`` index into that pool, or
 ``SrcRef::Null`` when it has no source location.
 
-When a pass folds one object into another, the one it keeps takes on the
-source locations of both:
+Passes move metadata between objects with one of two operations. An object
+that replaces another takes over its metadata and becomes the sole carrier of
+its identity:
 
 .. code-block:: cpp
-   :caption: Merging source locations in `opt_merge`
+
+   design->transfer_metadata(new_obj, old_obj);
+
+An object that takes in others without replacing them absorbs their metadata
+as a non-unique use, as the cell that `opt_merge` keeps absorbs its removed
+twin:
+
+.. code-block:: cpp
+   :caption: Absorbing metadata in `opt_merge`
    :name: srcpool_merge
 
-   module->design->merge_src(keep_cell, remove_cell);
+   module->design->absorb_metadata(keep_cell, remove_cell);
    module->remove(remove_cell);
 
-When it builds a new object out of others, it merges their handles instead, as
-`share` does:
+For ``src``, a transfer copies the source's locations and absorbing adds them
+to the target's.
+
+When a pass builds a new object out of others, it merges their handles
+instead, as `share` does:
 
 .. code-block:: cpp
 
@@ -72,12 +84,12 @@ instead:
 .. code-block:: diff
 
    -new_cell->set_src_attribute(cell->get_src_attribute());
-   +new_cell->adopt_src_from(cell);
+   +design->transfer_metadata(new_cell, cell);
 
 .. code-block:: diff
 
    -cell->add_strpool_attribute(ID::src, other->get_strpool_attribute(ID::src));
-   +design->merge_src(cell, other);
+   +design->absorb_metadata(cell, other);
 
 ``get_src_attribute()`` on ``Module``, ``Wire``, ``Memory``, ``Cell`` and
 ``Process``, or ``Design::get_src_attribute(obj)`` for any ``AttrObject``,

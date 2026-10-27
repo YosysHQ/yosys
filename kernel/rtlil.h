@@ -1329,6 +1329,8 @@ public:
 	std::string get_src_attribute(const RTLIL::AttrObject *obj) const { return srcs_.str(obj->src()); }
 	pool<std::string> src_leaves(const RTLIL::AttrObject *obj) const { return srcs_.leaves(obj->src()); }
 	void merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
+	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
+	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 
 	size_t gc_twines();
 
