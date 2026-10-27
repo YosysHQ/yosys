@@ -291,8 +291,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 {
 	log("Importing module %s from JSON tree.\n", modname);
 
-	Module *module = new RTLIL::Module;
-	module->design = design;
+	Module *module = new RTLIL::Module(design);
 	module->name = design->twines().add(RTLIL::escape_id(modname));
 
 	if (design->module(module->name))
@@ -589,9 +588,8 @@ void json_import(Design *design, string &modname, JsonNode *node)
 		{
 			JsonNode *memory_node = memory_node_it.second;
 
-			RTLIL::Memory *mem = new RTLIL::Memory;
+			RTLIL::Memory *mem = new RTLIL::Memory(module);
 			mem->name = design->twines().add(RTLIL::escape_id(memory_node_it.first));
-			mem->module = module;
 
 			if (memory_node->type != 'D')
 				log_error("JSON memory node '%s' is not a dictionary.\n", mem->name.unescape());

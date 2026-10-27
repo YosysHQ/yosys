@@ -23,17 +23,113 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::map<std::string, RTLIL::Design*> saved_designs;
-std::vector<RTLIL::Design*> pushed_designs;
+std::map<std::string, std::unique_ptr<RTLIL::Design>> saved_designs;
+std::vector<std::unique_ptr<RTLIL::Design>> pushed_designs;
+
+static std::unique_ptr<RTLIL::Design> snapshot(RTLIL::Design *design)
+{
+	auto copy = std::make_unique<RTLIL::Design>();
+	design->clone_into(copy.get());
+	return copy;
+}
+
+static void copy_modules(RTLIL::Design *dst, const std::vector<RTLIL::Module*> &modules, const std::string &as_name)
+{
+	if (!as_name.empty() && modules.size() > 1)
+		log_cmd_error("Only one module can be selected in combination with -as.\n");
+
+	for (auto mod : modules)
+	{
+		std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
+		IdString trg_ref = dst->twines().add(trg_name);
+
+		if (dst->module(trg_ref) != nullptr)
+			dst->remove(dst->module(trg_ref));
+
+		mod->clone(dst, trg_ref);
+	}
+}
+
+static void import_design(RTLIL::Design *src, RTLIL::Design *dst, std::vector<RTLIL::Module*> modules,
+		const std::string &as_name)
+{
+	std::vector<RTLIL::Module*> candidates;
+	for (auto module : modules)
+	{
+		if (module->get_bool_attribute(ID::top)) {
+			candidates.clear();
+			candidates.push_back(module);
+			break;
+		}
+		if (!module->get_blackbox_attribute())
+			candidates.push_back(module);
+	}
+
+	if (GetSize(candidates) == 1)
+		modules = std::move(candidates);
+
+	std::string prefix = RTLIL::escape_id(as_name);
+	IdString as_name_ref = dst->twines().add(prefix);
+
+	pool<Module*> queue;
+	dict<IdString, IdString> done;
+
+	if (dst->module(as_name_ref) != nullptr)
+		dst->remove(dst->module(as_name_ref));
+
+	if (GetSize(modules) != 1)
+		log_cmd_error("No top module found in source design.\n");
+
+	for (auto mod : modules)
+	{
+		log("Importing %s as %s.\n", mod, PooledName(dst, as_name_ref).unescape());
+
+		RTLIL::Module *t = mod->clone(dst, as_name_ref);
+		t->attributes.erase(ID::top);
+
+		queue.insert(t);
+		done[mod->name] = as_name_ref;
+	}
+
+	while (!queue.empty())
+	{
+		pool<Module*> old_queue;
+		old_queue.swap(queue);
+
+		for (auto mod : old_queue)
+		for (auto cell : mod->cells())
+		{
+			Module *fmod = src->module(src->twines().find(dst->twines().str(cell->type)));
+
+			if (fmod == nullptr)
+				continue;
+
+			if (done.count(cell->type) == 0)
+			{
+				IdString trg_ref = dst->twines().add(
+						TwineSpec::Suffix{as_name_ref, "." + cell->type.unescape()});
+
+				log("Importing %s as %s.\n", fmod, PooledName(dst, trg_ref).unescape());
+
+				if (dst->module(trg_ref) != nullptr)
+					dst->remove(dst->module(trg_ref));
+
+				RTLIL::Module *t = fmod->clone(dst, trg_ref);
+				t->attributes.erase(ID::top);
+
+				queue.insert(t);
+				done[cell->type] = trg_ref;
+			}
+
+			cell->type = done.at(cell->type);
+		}
+	}
+}
 
 struct DesignPass : public Pass {
 	DesignPass() : Pass("design", "save, restore and reset current design") { }
 	void on_shutdown() override {
-		for (auto &it : saved_designs)
-			delete it.second;
 		saved_designs.clear();
-		for (auto &it : pushed_designs)
-			delete it;
 		pushed_designs.clear();
 	}
 	void help() override
@@ -42,7 +138,8 @@ struct DesignPass : public Pass {
 		log("\n");
 		log("    design -reset\n");
 		log("\n");
-		log("Clear the current design.\n");
+		log("Clear the current design. This also restarts the numbering of generated\n");
+		log("names.\n");
 		log("\n");
 		log("\n");
 		log("    design -save <name>\n");
@@ -105,18 +202,22 @@ struct DesignPass : public Pass {
 		log("\n");
 
 	}
+	enum class Mode { None, Reset, ResetVlog, Push, PushCopy, Pop, Save, Stash, Load, CopyFrom, CopyTo, Import, Delete };
+
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		bool got_mode = false;
-		bool reset_mode = false;
-		bool reset_vlog_mode = false;
-		bool push_mode = false;
-		bool push_copy_mode = false;
-		bool pop_mode = false;
-		bool import_mode = false;
-		RTLIL::Design *copy_from_design = NULL, *copy_to_design = NULL;
-		std::string save_name, load_name, as_name, delete_name;
-		std::vector<RTLIL::Module*> copy_src_modules;
+		static const std::map<std::string, Mode> flag_modes = {
+			{"-reset", Mode::Reset}, {"-reset-vlog", Mode::ResetVlog},
+			{"-push", Mode::Push}, {"-push-copy", Mode::PushCopy}, {"-pop", Mode::Pop},
+		};
+		static const std::map<std::string, Mode> named_modes = {
+			{"-save", Mode::Save}, {"-stash", Mode::Stash}, {"-load", Mode::Load},
+			{"-copy-from", Mode::CopyFrom}, {"-copy-to", Mode::CopyTo},
+			{"-import", Mode::Import}, {"-delete", Mode::Delete},
+		};
+
+		Mode mode = Mode::None;
+		std::string name, as_name;
 
 		if (!design)
 			log_cmd_error("No default design.\n");
@@ -124,93 +225,48 @@ struct DesignPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			std::string arg = args[argidx];
-			if (!got_mode && args[argidx] == "-reset") {
-				got_mode = true;
-				reset_mode = true;
+			const std::string &arg = args[argidx];
+			bool has_value = argidx+1 < args.size();
+			if (mode == Mode::None && flag_modes.count(arg)) {
+				mode = flag_modes.at(arg);
 				continue;
 			}
-			if (!got_mode && args[argidx] == "-reset-vlog") {
-				got_mode = true;
-				reset_vlog_mode = true;
+			if (mode == Mode::None && named_modes.count(arg) && has_value) {
+				mode = named_modes.at(arg);
+				name = args[++argidx];
 				continue;
 			}
-			if (!got_mode && args[argidx] == "-push") {
-				got_mode = true;
-				push_mode = true;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-push-copy") {
-				got_mode = true;
-				push_copy_mode = true;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-pop") {
-				got_mode = true;
-				pop_mode = true;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-save" && argidx+1 < args.size()) {
-				got_mode = true;
-				save_name = args[++argidx];
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-stash" && argidx+1 < args.size()) {
-				got_mode = true;
-				save_name = args[++argidx];
-				reset_mode = true;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-load" && argidx+1 < args.size()) {
-				got_mode = true;
-				load_name = args[++argidx];
-				if (saved_designs.count(load_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", load_name);
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-copy-from" && argidx+1 < args.size()) {
-				got_mode = true;
-				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
-				copy_from_design = saved_designs.at(args[argidx]);
-				copy_to_design = design;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-copy-to" && argidx+1 < args.size()) {
-				got_mode = true;
-				if (saved_designs.count(args[++argidx]) == 0)
-					saved_designs[args[argidx]] = new RTLIL::Design;
-				copy_to_design = saved_designs.at(args[argidx]);
-				copy_from_design = design;
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-import" && argidx+1 < args.size()) {
-				got_mode = true;
-				import_mode = true;
-				if (saved_designs.count(args[++argidx]) == 0)
-					log_cmd_error("No saved design '%s' found!\n", args[argidx]);
-				copy_from_design = saved_designs.at(args[argidx]);
-				copy_to_design = design;
-				as_name = args[argidx];
-				continue;
-			}
-			if (copy_from_design != NULL && args[argidx] == "-as" && argidx+1 < args.size()) {
+			bool copying = mode == Mode::CopyFrom || mode == Mode::CopyTo || mode == Mode::Import;
+			if (copying && arg == "-as" && has_value) {
 				as_name = args[++argidx];
-				continue;
-			}
-			if (!got_mode && args[argidx] == "-delete" && argidx+1 < args.size()) {
-				got_mode = true;
-				delete_name = args[++argidx];
-				if (saved_designs.count(delete_name) == 0)
-					log_cmd_error("No saved design '%s' found!\n", delete_name);
 				continue;
 			}
 			break;
 		}
 
-		if (copy_from_design != NULL)
+		bool reads_saved = mode == Mode::Load || mode == Mode::CopyFrom || mode == Mode::Import || mode == Mode::Delete;
+		if (reads_saved && saved_designs.count(name) == 0)
+			log_cmd_error("No saved design '%s' found!\n", name);
+
+		RTLIL::Design *copy_from_design = nullptr, *copy_to_design = nullptr;
+		if (mode == Mode::CopyFrom || mode == Mode::Import) {
+			copy_from_design = saved_designs.at(name).get();
+			copy_to_design = design;
+		}
+		if (mode == Mode::CopyTo) {
+			auto &saved = saved_designs[name];
+			if (!saved)
+				saved = std::make_unique<RTLIL::Design>();
+			copy_from_design = design;
+			copy_to_design = saved.get();
+		}
+		if (mode == Mode::Import && as_name.empty())
+			as_name = name;
+
+		std::vector<RTLIL::Module*> copy_src_modules;
+		if (copy_from_design != nullptr)
 		{
-			if (copy_from_design != design && argidx == args.size() && !import_mode)
+			if (copy_from_design != design && argidx == args.size() && mode != Mode::Import)
 				cmd_error(args, argidx, "Missing selection.");
 
 			if (argidx != args.size()) {
@@ -223,179 +279,59 @@ struct DesignPass : public Pass {
 			for (auto mod : copy_from_design->selected_modules(RTLIL::SELECT_WHOLE_CMDERR, RTLIL::SB_ALL))
 				copy_src_modules.push_back(mod);
 
-			if (import_mode) {
-				std::vector<RTLIL::Module*> candidates;
-				for (auto module : copy_src_modules)
-				{
-					if (module->get_bool_attribute(ID::top)) {
-						candidates.clear();
-						candidates.push_back(module);
-						break;
-					}
-					if (!module->get_blackbox_attribute())
-						candidates.push_back(module);
-				}
-
-				if (GetSize(candidates) == 1)
-					copy_src_modules = std::move(candidates);
-			}
-
 			copy_from_design->pop_selection();
 		}
 
 		extra_args(args, argidx, design, false);
 
-		if (!got_mode)
+		if (mode == Mode::None)
 			cmd_error(args, argidx, "Missing mode argument.");
 
-		if (pop_mode && pushed_designs.empty())
+		if (mode == Mode::Pop && pushed_designs.empty())
 			log_cmd_error("No pushed designs.\n");
 
-		if (import_mode)
-		{
-			std::string prefix = RTLIL::escape_id(as_name);
-			IdString as_name_ref = copy_to_design->twines().add(prefix);
-
-			pool<Module*> queue;
-			dict<IdString, IdString> done;
-
-			if (copy_to_design->module(as_name_ref) != nullptr)
-				copy_to_design->remove(copy_to_design->module(as_name_ref));
-
-			if (GetSize(copy_src_modules) != 1)
-				log_cmd_error("No top module found in source design.\n");
-
-			for (auto mod : copy_src_modules)
-			{
-				log("Importing %s as %s.\n", mod, PooledName(design, as_name_ref).unescape());
-
-				RTLIL::Module *t = mod->clone(copy_to_design, as_name_ref);
-				t->attributes.erase(ID::top);
-
-				queue.insert(t);
-				done[mod->name] = as_name_ref;
-			}
-
-			while (!queue.empty() && copy_from_design)
-			{
-				pool<Module*> old_queue;
-				old_queue.swap(queue);
-
-				for (auto mod : old_queue)
-				for (auto cell : mod->cells())
-				{
-					Module *fmod = copy_from_design->module(
-							copy_from_design->twines().find(copy_to_design->twines().str(cell->type)));
-
-					if (fmod == nullptr)
-						continue;
-
-					if (done.count(cell->type) == 0)
-					{
-						IdString trg_ref = copy_to_design->twines().add(
-								TwineSpec::Suffix{as_name_ref, "." + cell->type.unescape()});
-
-						log("Importing %s as %s.\n", fmod, PooledName(copy_to_design, trg_ref).unescape());
-
-						if (copy_to_design->module(trg_ref) != nullptr)
-							copy_to_design->remove(copy_to_design->module(trg_ref));
-
-						RTLIL::Module *t = fmod->clone(copy_to_design, trg_ref);
-						t->attributes.erase(ID::top);
-
-						queue.insert(t);
-						done[cell->type] = trg_ref;
-					}
-
-					cell->type = done.at(cell->type);
-				}
-			}
-		}
-		else
-		if (copy_to_design != NULL)
-		{
-			if (!as_name.empty() && copy_src_modules.size() > 1)
-				log_cmd_error("Only one module can be selected in combination with -as.\n");
-
-			for (auto mod : copy_src_modules)
-			{
-				std::string trg_name = as_name.empty() ? mod->name.str() : RTLIL::escape_id(as_name);
-				IdString trg_ref = copy_to_design->twines().add(trg_name);
-
-				if (copy_to_design->module(trg_ref) != nullptr)
-					copy_to_design->remove(copy_to_design->module(trg_ref));
-
-				mod->clone(copy_to_design, trg_ref);
-			}
-		}
-
-		if (!save_name.empty() || push_mode || push_copy_mode)
-		{
-			RTLIL::Design *design_copy = new RTLIL::Design;
-
-			design->clone_into(design_copy);
-
-			design_copy->selection_stack = design->selection_stack;
-			for (auto &sel : design_copy->selection_stack)
-				sel.current_design = design_copy;
-			design_copy->selection_vars = design->selection_vars;
-			design_copy->selected_active_module = design->selected_active_module;
-
-			if (saved_designs.count(save_name))
-				delete saved_designs.at(save_name);
-
-			if (push_mode || push_copy_mode)
-				pushed_designs.push_back(design_copy);
-			else
-				saved_designs[save_name] = design_copy;
-		}
-
-		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
-		{
-			for (auto mod : design->modules().to_vector())
-				design->remove(mod);
-
-			design->selection_stack.clear();
-			design->selection_vars.clear();
-			design->selected_active_module.clear();
-
-			design->push_full_selection();
-		}
-
-		if (reset_mode || reset_vlog_mode || !load_name.empty() || push_mode || pop_mode)
-		{
-			design->verilog_packages.clear();
-			design->verilog_globals.clear();
-			design->verilog_defines->clear();
-		}
-
-		if (reset_mode || !load_name.empty() || push_mode || pop_mode)
-			design->twines() = TwinePool();
-
-		if (!load_name.empty() || pop_mode)
-		{
-			RTLIL::Design *saved_design = pop_mode ? pushed_designs.back() : saved_designs.at(load_name);
-
-			saved_design->clone_into(design);
-
-			design->selection_stack = saved_design->selection_stack;
-			for (auto &sel : design->selection_stack)
-				sel.current_design = design;
-			design->selection_vars = saved_design->selection_vars;
-			design->selected_active_module = saved_design->selected_active_module;
-
-			if (pop_mode) {
-				delete saved_design;
-				pushed_designs.pop_back();
-			}
-		}
-
-		if (!delete_name.empty())
-		{
-			auto it = saved_designs.find(delete_name);
-			log_assert(it != saved_designs.end());
-			delete it->second;
-			saved_designs.erase(it);
+		switch (mode) {
+		case Mode::Reset:
+			design->reset();
+			break;
+		case Mode::ResetVlog:
+			design->reset_verilog_state();
+			break;
+		case Mode::Push:
+			pushed_designs.push_back(snapshot(design));
+			design->reset();
+			break;
+		case Mode::PushCopy:
+			pushed_designs.push_back(snapshot(design));
+			break;
+		case Mode::Pop:
+			design->reset();
+			pushed_designs.back()->clone_into(design);
+			pushed_designs.pop_back();
+			break;
+		case Mode::Save:
+			saved_designs[name] = snapshot(design);
+			break;
+		case Mode::Stash:
+			saved_designs[name] = snapshot(design);
+			design->reset();
+			break;
+		case Mode::Load:
+			design->reset();
+			saved_designs.at(name)->clone_into(design);
+			break;
+		case Mode::CopyFrom:
+		case Mode::CopyTo:
+			copy_modules(copy_to_design, copy_src_modules, as_name);
+			break;
+		case Mode::Import:
+			import_design(copy_from_design, copy_to_design, copy_src_modules, as_name);
+			break;
+		case Mode::Delete:
+			saved_designs.erase(name);
+			break;
+		case Mode::None:
+			log_abort();
 		}
 	}
 } DesignPass;

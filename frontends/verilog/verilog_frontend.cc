@@ -495,6 +495,8 @@ struct VerilogFrontend : public Frontend {
 
 		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename);
 
+		AST::DesignScope design_scope(design);
+
 		log("Parsing %s%s input from `%s' to AST representation.\n",
 				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
 

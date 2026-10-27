@@ -1560,7 +1560,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 
 				// create the indirection wire
 				std::stringstream sstr;
-				sstr << "$indirect$" << ref->name.str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+				sstr << "$indirect$" << ref->name.str() << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx();
 				std::string tmp_str = sstr.str();
 				add_wire_for_ref(location, ref, tmp_str);
 
@@ -2563,7 +2563,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			std::swap(data_range_left, data_range_right);
 
 		std::stringstream sstr;
-		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+		sstr << "$mem2bits$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx();
 		std::string wire_id = sstr.str();
 
 		auto wire_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, data_range_left, true), mkconst_int(location, data_range_right, true)));
@@ -3344,7 +3344,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 			auto wire_tmp_owned = std::make_unique<AstNode>(location, AST_WIRE, std::make_unique<AstNode>(location, AST_RANGE, mkconst_int(location, width_hint-1, true), mkconst_int(location, 0, true)));
 			auto wire_tmp = wire_tmp_owned.get();
-			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+			wire_tmp->str = stringf("$splitcmplxassign$%s:%d$%d", RTLIL::encode_filename(*location.begin.filename), location.begin.line, ast_autoidx());
 			current_scope[wire_tmp->str] = wire_tmp;
 			current_ast_mod->children.push_back(std::move(wire_tmp_owned));
 			wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
@@ -3591,7 +3591,7 @@ skip_dynamic_range_lvalue_expansion:;
 									mkconst_int(location, 0, true)));
 							auto wire_tmp = wire_tmp_owned.get();
 							wire_tmp->str = stringf("$assignpattern$%s:%d$%d",
-								RTLIL::encode_filename(*location.begin.filename), location.begin.line, autoidx++);
+								RTLIL::encode_filename(*location.begin.filename), location.begin.line, ast_autoidx());
 							current_scope[wire_tmp->str] = wire_tmp;
 							current_ast_mod->children.push_back(std::move(wire_tmp_owned));
 							wire_tmp->set_attribute(ID::nosync, AstNode::mkconst_int(location, 1, false));
@@ -3646,7 +3646,7 @@ skip_dynamic_range_lvalue_expansion:;
 			input_error("Insufficient number of array indices for %s.\n", RTLIL::unescape_id(str));
 
 		std::stringstream sstr;
-		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+		sstr << "$memwr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx();
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA", id_en = sstr.str() + "_EN";
 
 		int mem_width, mem_size, addr_bits;
@@ -3846,7 +3846,7 @@ skip_dynamic_range_lvalue_expansion:;
 		{
 			if (str == "\\$initstate")
 			{
-				int myidx = autoidx++;
+				int myidx = ast_autoidx();
 
 				auto wire_owned = std::make_unique<AstNode>(location, AST_WIRE);
 				auto* wire = wire_owned.get();
@@ -3908,7 +3908,7 @@ skip_dynamic_range_lvalue_expansion:;
 					goto apply_newNode;
 				}
 
-				int myidx = autoidx++;
+				int myidx = ast_autoidx();
 				AstNode* outreg = nullptr;
 
 				for (int i = 0; i < num_steps; i++)
@@ -4364,7 +4364,7 @@ skip_dynamic_range_lvalue_expansion:;
 
 
 		std::stringstream sstr;
-		sstr << str << "$func$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++) << '.';
+		sstr << str << "$func$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx() << '.';
 		std::string prefix = sstr.str();
 
 		auto* decl = current_scope[str];
@@ -5587,7 +5587,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 			children[0]->children[0]->children[0]->type != AST_CONSTANT)
 	{
 		std::stringstream sstr;
-		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+		sstr << "$mem2reg_wr$" << children[0]->str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx();
 		std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 		int mem_width, mem_size, addr_bits;
@@ -5706,7 +5706,7 @@ bool AstNode::mem2reg_as_needed_pass2(pool<AstNode*> &mem2reg_set, AstNode *mod,
 		else
 		{
 			std::stringstream sstr;
-			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << (autoidx++);
+			sstr << "$mem2reg_rd$" << str << "$" << RTLIL::encode_filename(*location.begin.filename) << ":" << location.begin.line << "$" << ast_autoidx();
 			std::string id_addr = sstr.str() + "_ADDR", id_data = sstr.str() + "_DATA";
 
 			int mem_width, mem_size, addr_bits;

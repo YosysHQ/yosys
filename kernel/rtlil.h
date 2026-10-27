@@ -30,6 +30,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// Magic number, ensures all hashes collide for unhashable objects
+// because they have no owner that could capture PRNG "hasher" state
+static constexpr Hasher::hash_t LARGE_HASHIDX_COLLIDER = 0;
+
 namespace RTLIL
 {
 	enum State : unsigned char {
@@ -1248,14 +1252,7 @@ struct RTLIL::Selection
 
 struct RTLIL::Monitor
 {
-	Hasher::hash_t hashidx_;
-	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
-
-	Monitor() {
-		static unsigned int hashidx_count = 123456789;
-		hashidx_count = mkhash_xorshift(hashidx_count);
-		hashidx_ = hashidx_count;
-	}
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(LARGE_HASHIDX_COLLIDER); return h; }
 
 	virtual ~Monitor() { }
 	virtual void notify_module_add(RTLIL::Module*) { }
@@ -1304,8 +1301,9 @@ inline constexpr bool is_name_string_v =
 
 struct RTLIL::Design
 {
-	Hasher::hash_t hashidx_;
-	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
+	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(LARGE_HASHIDX_COLLIDER); return h; }
+
+	Hasher::hash_t next_hashidx() { return hashidx_counter_ = mkhash_xorshift(hashidx_counter_); }
 
 	pool<RTLIL::Monitor*> monitors;
 	dict<std::string, std::string> scratchpad;
@@ -1336,6 +1334,9 @@ public:
 
 	Design();
 	~Design();
+
+	void reset();
+	void reset_verilog_state();
 
 	RTLIL::ObjRange<RTLIL::Module*, IdString> modules();
 	RTLIL::Module *module(RTLIL::IdString name);
@@ -1485,9 +1486,14 @@ public:
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
 
-	static std::map<unsigned int, RTLIL::Design*> *get_all_designs(void);
+	static std::vector<RTLIL::Design*> *get_all_designs(void);
 
 	std::string to_rtlil_str(bool only_selected = true) const;
+
+private:
+	// Starting value for the PRNG "hasher"
+	static constexpr Hasher::hash_t HASHIDX_SEED = 123456789;
+	Hasher::hash_t hashidx_counter_ = HASHIDX_SEED;
 };
 
 struct RTLIL::Module : public RTLIL::AttrObject
@@ -1524,7 +1530,7 @@ public:
 	dict<RTLIL::IdString, RTLIL::Memory*> memories;
 	dict<RTLIL::IdString, RTLIL::Process*> processes;
 
-	Module();
+	explicit Module(RTLIL::Design *design);
 	virtual ~Module();
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail = false);
 	virtual RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, const dict<RTLIL::IdString, RTLIL::Module*> &interfaces, const dict<RTLIL::IdString, RTLIL::IdString> &modports, bool mayfail = false);
@@ -1931,9 +1937,6 @@ public:
 	YS_NAME_FWD(Oai3Gate) YS_NAME_FWD(Aoi4Gate) YS_NAME_FWD(Oai4Gate)
 
 	std::string to_rtlil_str() const;
-#ifdef YOSYS_ENABLE_PYTHON
-	static std::map<unsigned int, RTLIL::Module*> *get_all_modules(void);
-#endif
 };
 
 struct RTLIL::Wire : public RTLIL::AttrObject
@@ -1946,7 +1949,7 @@ struct RTLIL::Wire : public RTLIL::AttrObject
 protected:
 	// use module->addWire() and module->remove() to create or destroy wires
 	friend struct RTLIL::Module;
-	Wire();
+	explicit Wire(RTLIL::Module *module);
 	~Wire();
 
 	friend struct RTLIL::Design;
@@ -1986,9 +1989,6 @@ public:
 
 	std::string to_rtlil_str() const;
 
-#ifdef YOSYS_ENABLE_PYTHON
-	static std::map<unsigned int, RTLIL::Wire*> *get_all_wires(void);
-#endif
 };
 
 inline int GetSize(RTLIL::Wire *wire) {
@@ -2000,7 +2000,7 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	Hasher::hash_t hashidx_;
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(hashidx_); return h; }
 
-	Memory();
+	explicit Memory(RTLIL::Module *module);
 	~Memory();
 
 	RTLIL::Module *module = nullptr;
@@ -2011,9 +2011,6 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	RTLIL::MemoryNameId name;
 
 	int width, start_offset, size;
-#ifdef YOSYS_ENABLE_PYTHON
-	static std::map<unsigned int, RTLIL::Memory*> *get_all_memorys(void);
-#endif
 
 	std::string to_rtlil_str() const;
 };
@@ -2033,7 +2030,7 @@ public:
 protected:
 	// use module->addCell() and module->remove() to create or destroy cells
 	friend struct RTLIL::Module;
-	Cell();
+	explicit Cell(RTLIL::Module *module);
 	~Cell();
 
 public:
@@ -2087,9 +2084,6 @@ public:
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
 
-#ifdef YOSYS_ENABLE_PYTHON
-	static std::map<unsigned int, RTLIL::Cell*> *get_all_cells(void);
-#endif
 
 	bool has_memid() const;
 	bool is_mem_cell() const;
@@ -2157,7 +2151,7 @@ struct RTLIL::Process : public RTLIL::AttrObject
 protected:
 	// use module->addProcess() and module->remove() to create or destroy processes
 	friend struct RTLIL::Module;
-	Process();
+	explicit Process(RTLIL::Module *module);
 	~Process();
 
 public:
@@ -2170,7 +2164,7 @@ public:
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
-	RTLIL::Process *clone() const;
+	RTLIL::Process *clone(RTLIL::Module *module) const;
 
 	std::string to_rtlil_str() const;
 };
