@@ -35,6 +35,15 @@ template <typename T> struct IdMap {
 	T fallback = T();
 };
 
+// A list of values per key, empty for a missing key
+template <typename K, typename V> struct ListMap {
+	void add(const K &key, V value) { data[key].push_back(value); }
+	const std::vector<V> &get(const K &key) const { return data.at(key, none); }
+	void clear() { data.clear(); }
+	dict<K, std::vector<V>> data;
+	std::vector<V> none;
+};
+
 struct Netlist
 {
 	struct Instance;
@@ -62,6 +71,7 @@ struct Netlist
 	struct Instance {
 		enum class Kind : uint8_t {
 			Hierarchy,    // module occurrence
+			Image,        // protect barrier in the view
 			LibraryLeaf,  // cell of a library type, shapes shared per type
 			InternalLeaf  // host-internal cell, shapes per instance
 		};
@@ -78,6 +88,7 @@ struct Netlist
 		std::vector<Pin *> pins;
 		std::vector<Instance *> children;
 		bool isLeaf() const;
+		bool isImage() const;
 	};
 
 	struct Pin {

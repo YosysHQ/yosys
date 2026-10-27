@@ -4,6 +4,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+NetView::NetView() : walker_(*this) {}
+
 NetView::~NetView()
 {
 	unregisterMonitor();
@@ -17,6 +19,11 @@ bool NetView::built() const
 NetView::Instance *NetView::top() const
 {
 	return top_;
+}
+
+RTLIL::Design *NetView::design() const
+{
+	return design_;
 }
 
 std::array<size_t, 3> NetView::counts() const
@@ -347,9 +354,8 @@ void NetView::clearTables()
 	shapes_.clear();
 	scope_contents_.clear();
 	index_.clear();
-	hits_.clear();
-	cuts_.clear();
-	walkers_.clear();
+	hit_index_.clear();
+	walker_.clear();
 }
 
 std::unique_ptr<NetView> NetView::retire()
@@ -371,11 +377,7 @@ std::unique_ptr<NetView> NetView::retire()
 		net.terms = {};
 	}
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
-	next->anchor_table_ = std::move(anchor_table_);
-	next->barrier_table_ = std::move(barrier_table_);
-	next->barrier_marks_ = std::move(barrier_marks_);
-	next->barrier_count_ = barrier_count_;
-	next->epoch_names_ = std::move(epoch_names_);
+	next->epoch_ = std::move(epoch_);
 	return next;
 }
 
@@ -495,11 +497,6 @@ RTLIL::Module *NetView::module(const Instance *scope) const
 	return index_.instance_rtlil.get(scope->id).module;
 }
 
-bool NetView::isBarrier(const Instance *inst) const
-{
-	return !inst->isLeaf() && !isTop(inst) && module(inst) == nullptr;
-}
-
 NetView::Instance *NetView::instance(const RTLIL::Cell *cell, const Instance *scope) const
 {
 	const std::vector<Instance *> &all = index_.instances_by_cell.get(cell->hashidx_);
@@ -568,6 +565,21 @@ std::vector<NetView::Net *> NetView::constNets(Net::Const value) const
 			nets.push_back(net);
 	}
 	return nets;
+}
+
+bool NetView::isRegister(const Instance *inst) const
+{
+	if (leaf_model_ != nullptr && leaf_model_->isRegister(*inst))
+		return true;
+	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+}
+
+bool NetView::isClockPin(const Pin *pin) const
+{
+	if (leaf_model_ != nullptr && leaf_model_->isClockPin(*pin))
+		return true;
+	const std::string &name = shape(pin).name;
+	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)

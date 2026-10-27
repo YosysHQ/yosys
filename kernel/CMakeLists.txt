@@ -62,6 +62,7 @@ yosys_core(kernel
 	netlist.cc
 	netlist.h
 	nettrack.cc
+	nettrack.h
 	netview.cc
 	netview.h
 	newcelltypes.h
@@ -148,6 +149,7 @@ yosys_core(kernel
 		macc.h
 		modtools.h
 		netlist.h
+		nettrack.h
 		netview.h
 		mem.h
 		qcsat.h

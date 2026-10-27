@@ -88,8 +88,7 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 	if (cell != nullptr) {
 		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
 		index.instances_by_cell.add(cell->hashidx_, inst);
-		for (const Anchor &anchor : view_.anchorsOf(cell))
-			view_.hits_[anchor.ref].push_back({anchor, inst, nullptr, anchor.scope == view_.cellScope(inst)});
+		view_.hit_index_.noteInstance(view_, view_.epoch_, inst);
 	}
 	if (module != nullptr)
 		index.scopes_by_module.add(module, inst);
@@ -101,7 +100,7 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
-		if (cell->type == ID($barrier) && view_.hasMark(cell, MarkImage)) {
+		if (cell->type == ID($barrier) && view_.epoch_.barriers.hasMark(cell, BarrierMark::Image)) {
 			addImageInstance(cell, scope);
 			continue;
 		}
@@ -113,7 +112,7 @@ void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *s
 			buildScope(view_.module(inst), inst);
 	}
 	for (RTLIL::Cell *cell : module->cells())
-		view_.indexBarrier(cell, scope);
+		view_.hit_index_.noteBarrier(view_, view_.epoch_, cell, scope);
 	registerWires(module, scope);
 }
 
@@ -149,7 +148,7 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 void detail::ViewBuilder::addImageInstance(RTLIL::Cell *cell, Netlist::Instance *scope)
 {
 	Netlist::Instance *inst = newInstance(cell, nullptr, scope);
-	inst->kind = Netlist::Instance::Kind::Hierarchy;
+	inst->kind = Netlist::Instance::Kind::Image;
 	NetView::PortShapes &shapes = view_.shapes_.shape_store.emplace_back();
 	detail::cellTypePortShapes(cell, shapes);
 	inst->ports = &shapes;
@@ -233,7 +232,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 				continue;
 			if (canon.wire != nullptr) {
 				view_.index_.net_rtlil[net->id].wire_bits.push_back(bit);
-				view_.addNetHits(net, bit);
+				view_.hit_index_.noteWireBit(view_, view_.epoch_, net, bit);
 			}
 			if (!pub)
 				continue;
@@ -262,11 +261,11 @@ SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const
 {
 	for (RTLIL::Cell *cell : module->cells()) {
-		if (cell->type != ID($barrier) || view_.hasMark(cell, MarkImage))
+		if (cell->type != ID($barrier) || view_.epoch_.barriers.hasMark(cell, BarrierMark::Image))
 			continue;
 		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
-			// Cell order doesn't matter here
+			// Barriers join no constant, so the cell order does not change this
 			if (sigmap(a[b]).wire == nullptr || sigmap(y[b]).wire == nullptr)
 				continue;
 			// The second bit stays the root, so a cut wire never names a net

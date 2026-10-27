@@ -9,6 +9,11 @@ bool Netlist::Instance::isLeaf() const
 	return kind == Kind::LibraryLeaf || kind == Kind::InternalLeaf;
 }
 
+bool Netlist::Instance::isImage() const
+{
+	return kind == Kind::Image;
+}
+
 bool Netlist::PortShape::scalar() const
 {
 	return width == 1 && !vector;

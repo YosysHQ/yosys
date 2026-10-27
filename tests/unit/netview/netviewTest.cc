@@ -820,10 +820,10 @@ TEST_F(NetViewTest, anchorFindsEachFoundObject)
 	ensurePasses();
 	NetView view;
 	view.build(d);
-	NetView::Found outer{NetView::Found::Kind::Cell}, inner{NetView::Found::Kind::Cell};
+	TrackedRef outer{TrackedRef::ObjectKind::Cell}, inner{TrackedRef::ObjectKind::Cell};
 	outer.objects = {view.instance(u_inv0), view.instance(u_inv2)};
 	inner.objects = {view.instance(i1), view.instance(i2)};
-	view.anchor({&outer, &inner});
+	view.closeEpoch({&outer, &inner}, Protection::AnchorsOnly);
 	Pass::call(d, "flatten");
 	std::unique_ptr<NetView> next = view.retire();
 	next->build(d);
@@ -842,9 +842,9 @@ TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
 	u_sub2->setPort(ID(a), in);
 	NetView view;
 	view.build(d);
-	NetView::Found ref{NetView::Found::Kind::Pin};
+	TrackedRef ref{TrackedRef::ObjectKind::Pin};
 	ref.objects = {view.instance(i1, view.instance(u_sub2))->pins[0]};
-	view.anchor({&ref});
+	view.closeEpoch({&ref}, Protection::AnchorsOnly);
 	std::unique_ptr<NetView> next = view.retire();
 	next->build(d);
 	next->resolve({&ref});
@@ -872,9 +872,9 @@ TEST_F(NetViewTest, flattenCopyOfAKeptCellKeepsItsPath)
 	top->addCell("\\m2", "\\mid")->setPort(ID(a), in);
 	NetView view;
 	view.build(d);
-	NetView::Found ref{NetView::Found::Kind::Pin};
+	TrackedRef ref{TrackedRef::ObjectKind::Pin};
 	ref.objects = {view.instance(i1, view.instance(mid->cell("\\s"), view.instance(m1)))->pins[0]};
-	view.anchor({&ref});
+	view.closeEpoch({&ref}, Protection::AnchorsOnly);
 	Pass::call(d, "flatten");
 	std::unique_ptr<NetView> next = view.retire();
 	next->build(d);
@@ -887,20 +887,20 @@ TEST_F(NetViewTest, clockPinKeepsAnImage)
 {
 	NetView view;
 	view.build(d);
-	NetView::Found ref{NetView::Found::Kind::Pin};
-	ref.image = true;
+	TrackedRef ref{TrackedRef::ObjectKind::Pin};
+	ref.request.wants_image = true;
 	ref.objects = {view.instance(u_sub)->pins[0]};
-	view.protect({&ref});
+	view.closeEpoch({&ref}, Protection::Barriers);
 	view.invalidateCheck();
 	EXPECT_FALSE(view.valid());
 	std::unique_ptr<NetView> next = view.retire();
 	next->build(d);
 	next->resolve({&ref});
-	ASSERT_EQ(ref.image_a.size(), 1u);
-	ASSERT_EQ(ref.image_y.size(), 1u);
-	const Netlist::Pin *a = static_cast<const Netlist::Pin *>(ref.image_a[0]);
-	const Netlist::Pin *y = static_cast<const Netlist::Pin *>(ref.image_y[0]);
-	EXPECT_TRUE(next->isBarrier(a->inst));
+	ASSERT_EQ(ref.result.image_a_pins.size(), 1u);
+	ASSERT_EQ(ref.result.image_y_pins.size(), 1u);
+	const Netlist::Pin *a = static_cast<const Netlist::Pin *>(ref.result.image_a_pins[0]);
+	const Netlist::Pin *y = static_cast<const Netlist::Pin *>(ref.result.image_y_pins[0]);
+	EXPECT_TRUE(a->inst->isImage());
 	EXPECT_EQ(next->dir(a), Netlist::Dir::Input);
 	EXPECT_EQ(a->net, next->instance(u_sub)->pins[0]->term->net);
 	EXPECT_EQ(y->net, next->instance(i1)->pins[0]->net);
@@ -910,11 +910,11 @@ TEST_F(NetViewTest, clockPinKeepsAnImage)
 	std::vector<const void *> loads = {next->instance(i1)->pins[0], next->instance(i2)->pins[0]};
 	std::sort(loads.begin(), loads.end());
 	EXPECT_EQ(ref.objects, loads);
-	EXPECT_TRUE(ref.inside);
-	NetView::Found image{NetView::Found::Kind::Pin};
+	EXPECT_TRUE(ref.result.found_as_leaf_pins);
+	TrackedRef image{TrackedRef::ObjectKind::Pin};
 	image.objects = {a};
-	next->anchor({&image});
-	EXPECT_TRUE(image.image_pin);
+	next->closeEpoch({&image}, Protection::AnchorsOnly);
+	EXPECT_TRUE(image.facts.is_image_pin);
 }
 
 TEST_F(NetViewTest, protectFindsAPinAfterFlatten)
@@ -922,10 +922,10 @@ TEST_F(NetViewTest, protectFindsAPinAfterFlatten)
 	ensurePasses();
 	NetView view;
 	view.build(d);
-	NetView::Found ref{NetView::Found::Kind::Pin}, net{NetView::Found::Kind::Net};
+	TrackedRef ref{TrackedRef::ObjectKind::Pin}, net{TrackedRef::ObjectKind::Net};
 	ref.objects = {view.instance(i1)->pins[0]};
 	net.objects = {view.instance(u_inv0)->pins[0]->net};
-	view.protect({&ref, &net});
+	view.closeEpoch({&ref, &net}, Protection::Barriers);
 	EXPECT_TRUE(view.valid());
 	Pass::call(d, "flatten");
 	Cell *old = top->cell("\\u_sub.i1");
@@ -949,9 +949,9 @@ TEST_F(NetViewTest, unprotectKeepsTheAnchors)
 	ensurePasses();
 	NetView view;
 	view.build(d);
-	NetView::Found cell{NetView::Found::Kind::Cell};
+	TrackedRef cell{TrackedRef::ObjectKind::Cell};
 	cell.objects = {view.instance(u_inv2)};
-	view.protect({&cell});
+	view.closeEpoch({&cell}, Protection::Barriers);
 	EXPECT_TRUE(u_inv2->get_bool_attribute(ID::keep));
 	EXPECT_EQ(top->cells().size(), 5u); // a barrier at each pin
 	EXPECT_NE(top->cell("\\netview_anchor$1"), nullptr);
