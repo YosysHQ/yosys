@@ -38,6 +38,7 @@ struct TwineSetPool : TwineBackedPool<Derived, TwineSet, Ref> {
 	using HashConsPool<Derived, TwineSet, Ref>::finish_placement;
 	Ref find_members(std::span<const IdString> members) const;
 	Ref copy_from(const Derived &other, Ref ref);
+	std::string serial(Ref ref) const;
 
 	void root_members(const Marks &live, pool<IdString> &live_twines) const;
 

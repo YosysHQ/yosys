@@ -53,11 +53,6 @@ std::string SrcPool::str(SrcRef ref) const {
 	return out;
 }
 
-std::string SrcPool::serial(SrcRef ref) const {
-	check_owned(ref);
-	return std::to_string(ref.raw());
-}
-
 pool<std::string> SrcPool::leaves(SrcRef ref) const {
 	pool<std::string> out;
 	if (ref == SrcRef::Null)

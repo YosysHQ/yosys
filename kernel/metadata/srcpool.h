@@ -49,7 +49,6 @@ struct SrcPool : TwineSetPool<SrcPool, SrcRef> {
 	SrcRef add(const std::string &file, const std::string &tail);
 
 	std::string str(SrcRef ref) const;
-	std::string serial(SrcRef ref) const;
 	pool<std::string> leaves(SrcRef ref) const;
 
 private:

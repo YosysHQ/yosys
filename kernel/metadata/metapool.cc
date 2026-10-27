@@ -95,11 +95,40 @@ MetaRef MetaPool::intern(MetaBlock block) {
 	canonicalize(block);
 	if (block.is_dead())
 		return MetaRef::Null;
-	uint32_t tag = !block.hdlname.empty() ? MetaRef::HDLNAME_BIT
+	MetaRef ref = intern_node(block);
+	return tagged(ref, block);
+}
+
+MetaRef MetaPool::tagged(MetaRef ref, const MetaBlock &block) {
+	if (ref == MetaRef::Null)
+		return ref;
+	ref.value |= !block.hdlname.empty() ? MetaRef::HDLNAME_BIT
 		: !block.scope.empty() ? MetaRef::SCOPENAME_BIT : 0;
-	MetaRef ref = intern_node(std::move(block));
-	ref.value |= tag;
 	return ref;
+}
+
+MetaRef MetaPool::adopt(MetaBlock block) {
+	return intern(std::move(block));
+}
+
+MetaRef MetaPool::place(size_t idx, MetaBlock block) {
+	canonicalize(block);
+	if (block.is_dead())
+		return MetaRef::Null;
+	MetaRef ref = stamp(HashConsPool::place(idx, block));
+	return tagged(ref, block);
+}
+
+MetaRef MetaPool::find(MetaBlock block) const {
+	canonicalize(block);
+	if (block.is_dead())
+		return MetaRef::Null;
+	return tagged(find_node(block), block);
+}
+
+std::string MetaPool::serial(MetaRef ref) const {
+	check_owned(ref);
+	return std::to_string(ref.untag().raw());
 }
 
 std::string MetaPool::hdlname(MetaRef ref) const {
