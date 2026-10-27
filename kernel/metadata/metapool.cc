@@ -1,4 +1,4 @@
-#include "kernel/metapool.h"
+#include "kernel/metadata/metapool.h"
 #include "kernel/hashcons_impl.h"
 #include "kernel/log.h"
 
