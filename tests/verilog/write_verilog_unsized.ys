@@ -1,6 +1,7 @@
 ! mkdir -p temp
 
 read_rtlil <<EOT
+attribute \mattr 1
 module \top
   parameter \PD 32'00000000000000000000000000000111
   attribute \one 1
@@ -30,6 +31,7 @@ end
 EOT
 
 write_verilog -defaultparams temp/write_verilog_unsized.v
+! grep -qF "(* mattr =  1  *)" temp/write_verilog_unsized.v
 ! grep -qF "(* one = 1 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* zero = 0 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* max = 2147483647 *)" temp/write_verilog_unsized.v
@@ -71,6 +73,7 @@ write_verilog -decimal temp/write_verilog_unsized_decimal.v
 ! grep -qF "assign c = { a, 32'h00000005, a };" temp/write_verilog_unsized_decimal.v
 
 write_verilog -nodec temp/write_verilog_unsized_nodec.v
+! grep -qF "(* mattr = 32'h00000001 *)" temp/write_verilog_unsized_nodec.v
 ! grep -qF "(* one = 32'h00000001 *)" temp/write_verilog_unsized_nodec.v
 ! grep -qF ".W(32'h00000005)" temp/write_verilog_unsized_nodec.v
 

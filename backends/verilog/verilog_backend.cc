@@ -457,6 +457,8 @@ struct VerilogWriter
 			return;
 		if (config.attr2comment)
 			as_comment = true;
+		if (config.nodec)
+			modattr = false;
 		for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 			if (it->first == ID::single_bit_vector) continue;
 			if (it->first == ID::init && regattr) continue;
