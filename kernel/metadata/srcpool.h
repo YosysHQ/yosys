@@ -1,8 +1,7 @@
 #ifndef YOSYS_SRCPOOL_H
 #define YOSYS_SRCPOOL_H
 
-#include "kernel/hashcons.h"
-#include "kernel/twine.h"
+#include "kernel/metadata/twinebacked.h"
 
 #include <span>
 #include <string>
@@ -20,6 +19,7 @@ struct SrcRef {
 
 private:
 	template<typename, typename, typename> friend struct HashConsPool;
+	template<typename, typename, typename> friend struct TwineBackedPool;
 	friend struct SrcPool;
 
 	explicit constexpr SrcRef(size_t val) : value((uint32_t) val) {}
@@ -54,41 +54,10 @@ private:
 	std::vector<IdString> members_;
 };
 
-struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
-	static constexpr size_t STATIC_COUNT = 0;
-
-	struct Marks {
-		bool insert(SrcRef ref);
-		bool empty() const { return refs.empty(); }
-		std::vector<SrcRef>::const_iterator begin() const { return refs.begin(); }
-		std::vector<SrcRef>::const_iterator end() const { return refs.end(); }
-
-	private:
-		std::vector<SrcRef> refs;
-		std::vector<bool> seen;
-	};
-
-	explicit SrcPool(TwinePool &twines) : twines(twines) {}
-
-	SrcPool(const SrcPool &) = delete;
-	SrcPool(SrcPool &&) = delete;
-	SrcPool &operator=(const SrcPool &) = delete;
-	SrcPool &operator=(SrcPool &&) = delete;
-
-	const SrcSet &operator[](SrcRef ref) const {
-		check_owned(ref);
-		return HashConsPool::operator[](ref);
-	}
-
-	void clone_from(const SrcPool &other);
+struct SrcPool : TwineBackedPool<SrcPool, SrcSet, SrcRef> {
+	using TwineBackedPool::TwineBackedPool;
 
 	static uint64_t hash_node(const SrcSet &n);
-
-	template<typename F>
-	static void for_each_child(const SrcSet&, F&&) {}
-
-	using HashConsPool::size;
-	void clear();
 
 	SrcRef add(std::string_view text);
 	SrcRef add(const std::string &file, const std::string &tail);
@@ -105,17 +74,11 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	pool<std::string> leaves(SrcRef ref) const;
 
 	void root_members(const Marks &live_srcs, pool<IdString> &live_twines) const;
-	size_t gc(const Marks &live_srcs);
 
 	void dump(SrcRef ref, std::ostream &os = std::cout) const;
 	void dump(std::ostream &os = std::cout) const;
 
 private:
-	TwinePool &twines;
-
-	SrcRef stamp(SrcRef ref) const;
-	void check_owned(SrcRef ref) const;
-
 	IdString add_location(std::string_view location);
 	static void canonicalize_members(std::vector<IdString> &members);
 	SrcRef intern(std::vector<IdString> members);

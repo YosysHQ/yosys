@@ -1,59 +1,15 @@
 #include "kernel/metadata/srcpool.h"
-#include "kernel/hashcons_impl.h"
-#include "kernel/log.h"
+#include "kernel/metadata/twinebacked_impl.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 template struct HashConsPool<SrcPool, SrcSet, SrcRef>;
+template struct TwineBackedPool<SrcPool, SrcSet, SrcRef>;
 
 template<typename T> concept Ordered = requires(T a) { a < a; };
 template<typename T> concept Indexable = requires(T a) { a.raw(); };
 static_assert(!Ordered<SrcRef> && !Indexable<SrcRef>);
 static_assert(Ordered<IdString> && Indexable<IdString>);
-
-bool SrcPool::Marks::insert(SrcRef ref) {
-	size_t idx = ref.raw();
-	if (idx >= seen.size())
-		seen.resize(idx + 1);
-	if (seen[idx])
-		return false;
-	seen[idx] = true;
-	refs.push_back(ref);
-	return true;
-}
-
-SrcRef SrcPool::stamp(SrcRef ref) const {
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-	if (ref != SrcRef::Null)
-		ref.serial = (uint32_t) twines.serial_;
-#endif
-	return ref;
-}
-
-void SrcPool::check_owned([[maybe_unused]] SrcRef ref) const {
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-	log_assert(ref.serial == 0 || ref.serial == twines.serial_);
-	log_assert(is_live(ref));
-#endif
-}
-
-struct SrcEq {
-	const SrcPool &pool;
-	const SrcSet &node;
-	bool operator()(SrcRef ref) const { return pool[ref] == node; }
-};
-
-void SrcPool::clone_from(const SrcPool &other) {
-	log_assert(twines.shares_index_space_with(other.twines));
-	HashConsPool::operator=(static_cast<const HashConsPool &>(other));
-}
-
-void SrcPool::clear() {
-	backing.clear();
-	free_list.clear();
-	std::fill(table.begin(), table.end(), SrcRef());
-	index_entries = 0;
-}
 
 uint64_t SrcPool::hash_node(const SrcSet &n) {
 	Hasher h;
@@ -119,8 +75,7 @@ SrcRef SrcPool::find_members(std::span<const IdString> members) const {
 	canonicalize_members(canon);
 	if (canon.empty())
 		return SrcRef::Null;
-	SrcSet node{std::move(canon)};
-	return stamp(find_hashed(hash_node(node), SrcEq{*this, node}));
+	return find_node(SrcSet{std::move(canon)});
 }
 
 SrcRef SrcPool::copy_from(const SrcPool &other, SrcRef ref) {
@@ -167,10 +122,6 @@ void SrcPool::root_members(const Marks &live_srcs, pool<IdString> &live_twines) 
 			live_twines.insert(member);
 }
 
-size_t SrcPool::gc(const Marks &live_srcs) {
-	return HashConsPool::gc(live_srcs);
-}
-
 void SrcPool::dump(SrcRef ref, std::ostream &os) const {
 	os << "Set[";
 	bool first = true;
@@ -206,11 +157,7 @@ SrcRef SrcPool::intern(std::vector<IdString> members) {
 	canonicalize_members(members);
 	if (members.empty())
 		return SrcRef::Null;
-	SrcSet node{std::move(members)};
-	SrcRef found = find_hashed(hash_node(node), SrcEq{*this, node});
-	if (found != SrcRef::Null)
-		return stamp(found);
-	return stamp(add_inner(std::move(node)));
+	return intern_node(SrcSet{std::move(members)});
 }
 
 YOSYS_NAMESPACE_END
