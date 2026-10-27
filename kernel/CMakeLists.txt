@@ -58,6 +58,8 @@ yosys_core(kernel
 	macc.h
 	mem.cc
 	mem.h
+	metapool.cc
+	metapool.h
 	modtools.h
 	newcelltypes.h
 	pattern.h
@@ -145,6 +147,7 @@ yosys_core(kernel
 		macc.h
 		modtools.h
 		mem.h
+		metapool.h
 		qcsat.h
 		register.h
 		rtlil.h
