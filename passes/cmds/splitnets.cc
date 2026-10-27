@@ -61,7 +61,7 @@ struct SplitnetsWorker
 		new_wire->port_output = wire->port_output;
 		new_wire->start_offset = wire->start_offset + offset;
 
-		new_wire->adopt_src_from(wire);
+		module->design->absorb_metadata(new_wire, wire);
 
 		auto it = wire->attributes.find(ID::hdlname);
 		if (it != wire->attributes.end())

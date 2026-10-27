@@ -5896,7 +5896,7 @@ RTLIL::CaseRule *RTLIL::CaseRule::clone() const
 	new_caserule->compare = compare;
 	new_caserule->actions = actions;
 	new_caserule->attributes = attributes;
-	new_caserule->adopt_src_from(this);
+	new_caserule->set_src(src());
 	new_caserule->compare_src = compare_src;
 	for (auto &it : switches)
 		new_caserule->switches.push_back(it->clone());
@@ -5919,7 +5919,7 @@ RTLIL::SwitchRule *RTLIL::SwitchRule::clone() const
 	RTLIL::SwitchRule *new_switchrule = new RTLIL::SwitchRule;
 	new_switchrule->signal = signal;
 	new_switchrule->attributes = attributes;
-	new_switchrule->adopt_src_from(this);
+	new_switchrule->set_src(src());
 	new_switchrule->signal_src = signal_src;
 	for (auto &it : cases)
 		new_switchrule->cases.push_back(it->clone());
@@ -5948,7 +5948,7 @@ RTLIL::Process *RTLIL::Process::clone(RTLIL::Module *module) const
 	RTLIL::Process *new_proc = new RTLIL::Process(module);
 
 	new_proc->attributes = attributes;
-	new_proc->adopt_src_from(this);
+	new_proc->set_src(src());
 
 	RTLIL::CaseRule *rc_ptr = root_case.clone();
 	new_proc->root_case = *rc_ptr;

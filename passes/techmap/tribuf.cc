@@ -145,7 +145,7 @@ struct TribufWorker {
 						std::string name = stringf("$tribuf_conflict$%s", cell->name.unescape());
 						auto assert_cell = module->addAssert(name, module->Not(NEW_ID, conflict), SigSpec(true));
 
-						assert_cell->adopt_src_from(cell);
+						module->design->absorb_metadata(assert_cell, cell);
 						assert_cell->set_bool_attribute(ID::keep);
 
 						module->design->scratchpad_set_bool("tribuf.added_something", true);

@@ -113,7 +113,7 @@ struct FlattenWorker
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	{
 		if (!create_scopeinfo && object->has_attribute(ID::src))
-			cell->module->design->merge_src(object, cell);
+			cell->module->design->absorb_metadata(object, cell);
 
 		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
 		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
