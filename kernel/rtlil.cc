@@ -682,13 +682,6 @@ string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 	return value;
 }
 
-void RTLIL::Design::merge_src(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
-{
-	SrcRef merged = srcs_.merge(target->src(), source->src());
-	if (merged != SrcRef::Null)
-		target->set_src(merged);
-}
-
 void RTLIL::Design::transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
 	target->set_src(source->src());
