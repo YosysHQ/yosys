@@ -890,18 +890,18 @@ struct SvaFsm
 		log("      deterministic encoding:\n");
 		for (auto &it : dnodes)
 		{
-			log("        dnode {");
+			std::string message;
 			for (int i = 0; i < GetSize(it.first); i++)
-				log("%s%d", i ? "," : "", it.first[i]);
-			log("}:%s\n", GetSize(it.first) == 1 && it.first[0] == startNode ? " [start]" : "");
+				message += stringf("%s%d", i ? "," : "", it.first[i]);
+			log("        dnode {%s}:%s\n", message, GetSize(it.first) == 1 && it.first[0] == startNode ? " [start]" : "");
 
 			log("          ctrl %s\n", log_signal(it.second.ctrl));
 
 			for (auto &edge : it.second.edges) {
-				log("          edge %s -> {", log_signal(edge.second));
+				std::string message;
 				for (int i = 0; i < GetSize(edge.first); i++)
-					log("%s%d", i ? "," : "", edge.first[i]);
-				log("}\n");
+					message += stringf("%s%d", i ? "," : "", edge.first[i]);
+				log("          edge %s -> {%s}\n", log_signal(edge.second), message);
 			}
 
 			for (auto &value : it.second.accept)

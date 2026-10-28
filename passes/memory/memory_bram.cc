@@ -44,6 +44,14 @@ struct rules_t
 		int groups, abits, dbits, init;
 		vector<int> ports, wrmode, enable, transp, clocks, clkpol;
 
+		static std::string int_list_str(const vector<int> &values)
+		{
+			std::string str;
+			for (int v : values)
+				str += stringf("%4d", v);
+			return str;
+		}
+
 		void dump_config() const
 		{
 			log("      bram %s # variant %d\n", name.unescape(), variant);
@@ -52,12 +60,12 @@ struct rules_t
 			log("        dbits %d\n", dbits);
 			log("        groups %d\n", groups);
 
-			log("        ports "); for (int v : ports)  log("%4d", v); log("\n");
-			log("        wrmode"); for (int v : wrmode) log("%4d", v); log("\n");
-			log("        enable"); for (int v : enable) log("%4d", v); log("\n");
-			log("        transp"); for (int v : transp) log("%4d", v); log("\n");
-			log("        clocks"); for (int v : clocks) log("%4d", v); log("\n");
-			log("        clkpol"); for (int v : clkpol) log("%4d", v); log("\n");
+			log("        ports %s\n", int_list_str(ports));
+			log("        wrmode%s\n", int_list_str(wrmode));
+			log("        enable%s\n", int_list_str(enable));
+			log("        transp%s\n", int_list_str(transp));
+			log("        clocks%s\n", int_list_str(clocks));
+			log("        clkpol%s\n", int_list_str(clkpol));
 			log("      endbram\n");
 		}
 

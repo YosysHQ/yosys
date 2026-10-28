@@ -2582,7 +2582,7 @@ struct CxxrtlWorker {
 		dec_indent();
 
 		log_debug("Debug information statistics for module `%s':\n", module);
-		log_debug("  Scopes: %zu", count_scopes);
+		log_debug("  Scopes: %zu\n", count_scopes);
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
 		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
 		log_debug("      Undriven:     %zu (incl. inputs)\n", count_undriven);

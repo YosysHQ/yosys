@@ -154,7 +154,8 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		if (ret != 0) {
 			log_warning("ABC: merged SCL conversion failed, falling back to liberty format\n");
 			if (!abc_output.empty()) {
-				log("ABC: conversion output:\n%s", abc_output.c_str());
+				log("ABC: conversion output:\n");
+				log_lines(abc_output);
 			}
 			remove(temp_scl.c_str());
 			return "";

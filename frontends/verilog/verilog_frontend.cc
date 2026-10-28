@@ -512,8 +512,11 @@ struct VerilogFrontend : public Frontend {
 		parse_state.lexin = f;
 		if (!flag_nopp) {
 			code_after_preproc = frontend_verilog_preproc(*f, filename, defines_map, *design->verilog_defines, include_dirs, parse_mode);
-			if (flag_ppdump)
-				log("-- Verilog code after preprocessor --\n%s-- END OF DUMP --\n", code_after_preproc);
+			if (flag_ppdump) {
+				log("-- Verilog code after preprocessor --\n");
+				log_lines(code_after_preproc);
+				log("-- END OF DUMP --\n");
+			}
 			parse_state.lexin = new std::istringstream(code_after_preproc);
 		}
 
