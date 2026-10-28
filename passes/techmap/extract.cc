@@ -703,7 +703,7 @@ struct ExtractPass : public Pass {
 					message += stringf(" %s", RTLIL::unescape_id(node.nodeId));
 				log("%s\n", message);
 				for (auto &it : result.matchesPerGraph)
-					log("  matches in %s: %d\n", haystack_map.at(it.first)->name.unescape(), it.second);
+					log("  matches in %s: %d\n", haystack_map.at(it.first), it.second);
 
 				RTLIL::Module *mod = haystack_map.at(result.graphId);
 				std::set<RTLIL::Cell*> cells;

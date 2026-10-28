@@ -1026,7 +1026,7 @@ struct StatPass : public Pass {
 				first_module = false;
 			} else {
 				log("\n");
-				log("=== %s%s ===\n", mod->name.unescape(), mod->is_selected_whole() ? "" : " (partially selected)");
+				log("=== %s%s ===\n", mod, mod->is_selected_whole() ? "" : " (partially selected)");
 				log("\n");
 				data.log_data(mod->name, false, has_area, hierarchy_mode);
 			}

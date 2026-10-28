@@ -327,7 +327,7 @@ void remove_mems(RTLIL::Module* mod, const MemAnalysis& mem_analysis, bool verbo
 			continue;
 		IdString id = mod->twines().add(it.first);
 		if (verbose)
-			log_debug("  removing unused memory `%s'.\n", mod->memories.at(id)->name.unescape());
+			log_debug("  removing unused memory `%s'.\n", mod->memories.at(id));
 		delete mod->memories.at(id);
 		mod->memories.erase(id);
 	}
