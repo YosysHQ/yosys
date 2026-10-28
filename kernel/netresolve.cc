@@ -176,6 +176,8 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 	ref.objects = resolveObjects(hits, ref);
 	bool hier = ref.facts.isHierarchicalPin() && !ref.objects.empty();
 	ref.result.found_as_leaf_pins = hier && static_cast<const Netlist::Pin *>(ref.objects[0])->inst->isLeaf();
+	if (ref.kind == TrackedRef::ObjectKind::Cell)
+		ref.result.port_renames = portRenames(hits, ref.objects);
 }
 
 std::vector<const void *> detail::Resolver::resolveObjects(const std::vector<AnchorHit> &hits, TrackedRef &ref)
@@ -218,22 +220,55 @@ void detail::Resolver::collectLoadsBeyondAndImagePins(const std::vector<AnchorHi
 std::vector<const void *> detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	std::vector<const void *> pins;
-	std::vector<const Netlist::Instance *> renamed;
+	std::vector<const Netlist::Instance *> renamed, renamed_leaves;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Pin)) {
 		const Netlist::Pin *pin = view_.pin(hit->instance, hit->anchor.port, hit->anchor.bit);
-		if (pin != nullptr)
-			pins.push_back(pin);
-		else if (!hit->instance->isLeaf())
+		if (pin == nullptr && hit->instance->isLeaf())
+			renamed_leaves.push_back(hit->instance);
+		else if (pin == nullptr)
 			renamed.push_back(hit->instance);
+		else if (hit->instance->isLeaf())
+			ref.result.exact_pins.push_back(pin);
+		else
+			pins.push_back(pin);
 	}
 	if (!ref.result.image_a_pins.empty())
 		pins.clear();
 	if (!pins.empty())
 		return pins;
 	pins = cutSidePinsOfHits(hits);
+	if (!renamed_leaves.empty())
+		ref.result.exact_pins = pinsBehindNewLogic(renamed_leaves, pins);
 	if (!renamed.empty())
 		return detail::hierPinsAbove(renamed, pins);
+	if (pins.empty())
+		return ref.result.exact_pins;
 	return detail::uniqueSorted(pins);
+}
+
+// Leaf cells whose port a pass renamed (dfflibmap maps C to CK)
+std::vector<const void *> detail::Resolver::pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const void *> &cut) const
+{
+	std::vector<const void *> found;
+	std::vector<const void *> todo = cut;
+	pool<const Netlist::Instance *> seen;
+	while (!todo.empty()) {
+		const Netlist::Pin *pin = static_cast<const Netlist::Pin *>(todo.back());
+		todo.pop_back();
+		if (std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
+			found.push_back(pin);
+		else if (pin->inst->isLeaf() && !view_.isRegister(pin->inst) && seen.insert(pin->inst).second)
+			addOutputLoads(pin->inst, todo);
+	}
+	return detail::uniqueSorted(found);
+}
+
+void detail::Resolver::addOutputLoads(const Netlist::Instance *inst, std::vector<const void *> &loads) const
+{
+	for (const Netlist::Pin *out : inst->pins) {
+		if (out->net != nullptr && view_.dir(out) == Netlist::Dir::Output)
+			loads.insert(loads.end(), out->net->pins.begin(), out->net->pins.end());
+	}
 }
 
 std::vector<const void *> detail::Resolver::resolveCell(const std::vector<AnchorHit> &hits)
@@ -340,6 +375,22 @@ std::vector<const void *> detail::Resolver::resolveNet(const std::vector<AnchorH
 			nets.push_back(netInScope(static_cast<const Netlist::Pin *>(pin)->net, hit->anchor.net_scope_path));
 	}
 	return detail::uniqueSorted(nets);
+}
+
+// dfflibmap renames C to CK, abc swaps inputs
+std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHit> &hits, const std::vector<const void *> &cells)
+{
+	std::vector<PortRename> renames;
+	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
+		std::vector<const void *> pins;
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, pins);
+		for (const void *object : pins) {
+			const Netlist::Pin *pin = static_cast<const Netlist::Pin *>(object);
+			if (std::find(cells.begin(), cells.end(), pin->inst) != cells.end())
+				renames.push_back({hit->anchor.port, view_.shape(pin).name, pin->inst});
+		}
+	}
+	return renames;
 }
 
 Netlist::Dir detail::pinDirOfTarget(WalkTarget target)

@@ -291,6 +291,12 @@ void detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_ind
 {
 	if (view_.isTop(pin->inst))
 		return;
+	int outputs = 0;
+	for (const Netlist::Pin *other : pin->inst->pins)
+		outputs += view_.isDriver(other);
+	// Every path from an input of a cell with one output passes that output
+	if (pin->inst->isLeaf() && ref.request.isolate_cell && outputs > 1)
+		isolateCell(pin->inst);
 	if (pin->inst->isLeaf())
 		return protectLeafPin(pin, ref_index);
 	protectHierPin(pin, ref_index, ref.request.wants_image);

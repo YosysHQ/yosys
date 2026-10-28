@@ -850,6 +850,7 @@ TEST_F(NetViewTest, resolveTakesItsOwnOccurrence)
 	next->resolve({&ref});
 	ASSERT_EQ(ref.objects.size(), 1u);
 	EXPECT_EQ(static_cast<const Netlist::Pin *>(ref.objects[0])->inst->parent, next->instance(u_sub2));
+	EXPECT_EQ(ref.result.exact_pins, ref.objects);
 	top->rename(u_sub2, "\\u_other");
 	std::unique_ptr<NetView> last = next->retire();
 	last->build(d);

@@ -33,6 +33,12 @@ enum class WalkTarget : uint8_t {
 	Loads
 };
 
+struct PortRename {
+	std::string old_port;
+	std::string new_port;
+	const void *cell; // of the new port
+};
+
 struct TrackedRef {
 	enum class ObjectKind : uint8_t {
 		Pin,
@@ -43,6 +49,7 @@ struct TrackedRef {
 
 	// Req of the consumer
 	struct Request {
+		bool isolate_cell = false;          // of a leaf pin, keep each path through its cell
 		bool wants_image = false;           // protect makes its barrier an image
 		const void *top_port_pin = nullptr; // of a port by name, set before resolve
 	};
@@ -56,10 +63,12 @@ struct TrackedRef {
 	};
 
 	struct Result {
+		std::vector<const void *> exact_pins = {};   // the leaf pin itself, objects holds the pins on its cut side
 		std::vector<const void *> loads_beyond = {}; // beyond its barrier, or beyond the outputs of a cell
 		std::vector<const void *> image_a_pins = {};
 		std::vector<const void *> image_y_pins = {};
 		std::vector<const void *> through_pins = {}; // of a net in its old scope
+		std::vector<PortRename> port_renames = {};
 		bool found_as_leaf_pins = false; // a hierarchical pin found as its leaf pins inside
 	};
 
@@ -269,12 +278,15 @@ private:
 	std::vector<const void *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
 	void collectLoadsBeyondAndImagePins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const void *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<const void *> pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const void *> &cut) const;
+	void addOutputLoads(const Netlist::Instance *inst, std::vector<const void *> &loads) const;
 	std::vector<const void *> resolveCell(const std::vector<AnchorHit> &hits);
 	std::vector<const void *> resolvePort(const std::vector<AnchorHit> &hits, const void *top_port_pin);
 	void collectTopPorts(const Netlist::Net *net, std::vector<const void *> &pins) const;
 	std::vector<const void *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
 	std::vector<const void *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<PortRename> portRenames(const std::vector<AnchorHit> &hits, const std::vector<const void *> &cells);
 private:
 	const NetView &view_;
 	const HitIndex &hit_index_;
