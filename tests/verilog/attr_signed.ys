@@ -1,0 +1,21 @@
+! mkdir -p temp
+
+read_verilog <<EOT
+module top;
+	(* a = -5 *) wire a;
+	(* b = 32'sd1 *) wire b;
+	(* c = 32'd1 *) wire c;
+	(* d = 1 *) wire d;
+	(* e = 8'sd3 *) wire e;
+endmodule
+EOT
+
+write_verilog -nodec_attr temp/attr_signed.v
+! grep -qF "(* a = -32'sd5 *)" temp/attr_signed.v
+! grep -qF "(* b = 32'sd1 *)" temp/attr_signed.v
+! grep -qF "(* c = 32'd1 *)" temp/attr_signed.v
+! grep -qF "(* d = 32'sd1 *)" temp/attr_signed.v
+! grep -qF "(* e = 8'sh03 *)" temp/attr_signed.v
+
+write_verilog temp/attr_signed_default.v
+! grep -qF "(* a = -5 *)" temp/attr_signed_default.v

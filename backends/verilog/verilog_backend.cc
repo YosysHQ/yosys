@@ -98,9 +98,17 @@ PRIVATE_NAMESPACE_BEGIN
 struct VerilogConfig
 {
 	bool verbose = false, norename = false, noattr = false, attr2comment = false, noexpr = false, nodec = false, nohex = false, nostr = false,
-	  extmem = false, defparam = false, decimal = false, siminit = false, systemverilog = false, simple_lhs = false,
+	  extmem = false, defparam = false, nodec_attr = false, dec_param = false, siminit = false, systemverilog = false, simple_lhs = false,
 	  noparallelcase = false, default_params = false, blackboxes = false, selected = false;
 	std::string auto_prefix;
+};
+
+enum class ConstKind {
+	Expr, // any context not listed below
+	Concat, // a part of {...}, where unsized literals are not allowed
+	Attr,
+	Param,
+	Specify, // specify path delays and timing check limits
 };
 
 struct VerilogWriter
@@ -234,7 +242,23 @@ struct VerilogWriter
 		return true;
 	}
 
-	void dump_const(std::ostream &f, const RTLIL::Const &data, int width = -1, int offset = 0, bool no_decimal = false, bool escape_comment = false)
+	bool use_unsized_decimal(ConstKind kind, bool is_signed)
+	{
+		switch (kind) {
+		case ConstKind::Expr:
+		case ConstKind::Concat:
+			return false;
+		case ConstKind::Attr:
+			return !config.nodec_attr;
+		case ConstKind::Param:
+			return is_signed || config.dec_param;
+		case ConstKind::Specify:
+			return true;
+		}
+		log_abort();
+	}
+
+	void dump_const(std::ostream &f, const RTLIL::Const &data, ConstKind kind, int width = -1, int offset = 0, bool escape_comment = false)
 	{
 		bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 		if (width < 0)
@@ -247,7 +271,7 @@ struct VerilogWriter
 		if (config.nostr)
 			goto dump_hex;
 		if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.size()) {
-			if (width == 32 && !no_decimal && !config.nodec) {
+			if (width == 32 && kind != ConstKind::Concat && !config.nodec) {
 				int32_t val = 0;
 				for (int i = offset+width-1; i >= offset; i--) {
 					log_assert(i < (int)data.size());
@@ -256,7 +280,9 @@ struct VerilogWriter
 					if (data[i] == State::S1)
 						val |= 1 << (i - offset);
 				}
-				if (config.decimal)
+				if (set_signed && val == INT32_MIN)
+					goto dump_hex;
+				if (use_unsized_decimal(kind, set_signed) && (set_signed || val >= 0))
 					f << stringf("%d", val);
 				else if (set_signed && val < 0)
 					f << stringf("-32'sd%u", -val);
@@ -375,14 +401,14 @@ struct VerilogWriter
 		if (gotinit) {
 			Const initval = initval_bits.build();
 			f << " = ";
-			dump_const(f, initval);
+			dump_const(f, initval, ConstKind::Expr);
 		}
 	}
 
-	void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, bool no_decimal = false)
+	void dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk, ConstKind kind)
 	{
 		if (chunk.wire == NULL) {
-			dump_const(f, chunk.data, chunk.width, chunk.offset, no_decimal);
+			dump_const(f, chunk.data, kind, chunk.width, chunk.offset);
 		} else {
 			if (chunk.width == chunk.wire->width && chunk.offset == 0) {
 				f << stringf("%s", id(chunk.wire->name));
@@ -412,14 +438,14 @@ struct VerilogWriter
 			return;
 		}
 		if (sig.is_chunk()) {
-			dump_sigchunk(f, sig.as_chunk());
+			dump_sigchunk(f, sig.as_chunk(), ConstKind::Expr);
 		} else {
 			f << stringf("{ ");
 			auto chunks = sig.chunks();
 			for (auto it = chunks.rbegin(); it != chunks.rend(); ++it) {
 				if (it != chunks.rbegin())
 					f << stringf(", ");
-				dump_sigchunk(f, *it, true);
+				dump_sigchunk(f, *it, ConstKind::Concat);
 			}
 			f << stringf(" }");
 		}
@@ -431,6 +457,8 @@ struct VerilogWriter
 			return;
 		if (config.attr2comment)
 			as_comment = true;
+		if (config.nodec)
+			modattr = false;
 		for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 			if (it->first == ID::single_bit_vector) continue;
 			if (it->first == ID::init && regattr) continue;
@@ -441,7 +469,7 @@ struct VerilogWriter
 			else if (modattr && (it->second == State::S1 || it->second == Const(1)))
 				f << stringf(" 1 ");
 			else
-				dump_const(f, it->second, -1, 0, false, as_comment);
+				dump_const(f, it->second, ConstKind::Attr, -1, 0, as_comment);
 			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 		}
 	}
@@ -449,7 +477,7 @@ struct VerilogWriter
 	void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
 	{
 		f << stringf("%sparameter %s = ", indent.c_str(), id_of(id_string).c_str());
-		dump_const(f, parameter);
+		dump_const(f, parameter, ConstKind::Param);
 		f << ";\n";
 	}
 
@@ -491,7 +519,7 @@ struct VerilogWriter
 			f << stringf("%s" "reg%s%s %s", indent, sign, range, id(wire->name));
 			if (wire->attributes.count(ID::init)) {
 				f << stringf(" = ");
-				dump_const(f, wire->attributes.at(ID::init));
+				dump_const(f, wire->attributes.at(ID::init), ConstKind::Expr);
 			}
 			f << stringf(";\n");
 		} else
@@ -583,7 +611,7 @@ struct VerilogWriter
 							} else {
 								f << stringf("%s" "  %s[%d][%d:%d] = ", indent, mem_id, i + start, j, start_j);
 							}
-							dump_const(f, init.data.extract(i*mem.width+start_j, width));
+							dump_const(f, init.data.extract(i*mem.width+start_j, width), ConstKind::Expr);
 							f << stringf(";\n");
 						}
 					}
@@ -1146,7 +1174,7 @@ struct VerilogWriter
 			}
 			switch (arg.type) {
 				case VerilogFmtArg::STRING:
-					dump_const(f, RTLIL::Const(arg.str));
+					dump_const(f, RTLIL::Const(arg.str), ConstKind::Expr);
 					break;
 				case VerilogFmtArg::INTEGER:
 					f << (arg.signed_ ? "$signed(" : "$unsigned(");
@@ -1621,7 +1649,7 @@ struct VerilogWriter
 			f << stringf("%s" "assign ", indent);
 			dump_sigspec(f, cell->getPort(ID::Y));
 			f << stringf(" = ");
-			dump_const(f, cell->parameters.at(ID::LUT));
+			dump_const(f, cell->parameters.at(ID::LUT), ConstKind::Expr);
 			f << stringf(" >> ");
 			dump_attributes(f, "", cell->attributes, " ");
 			dump_sigspec(f, cell->getPort(ID::A));
@@ -1704,14 +1732,14 @@ struct VerilogWriter
 						{
 							sig_set_name = next_auto_id();
 							f << stringf("%s" "wire %s = ", indent, sig_set_name);
-							dump_const(f, ff.sig_set[i].data);
+							dump_const(f, ff.sig_set[i].data, ConstKind::Expr);
 							f << stringf(";\n");
 						}
 						if (ff.sig_clr[i].wire == NULL)
 						{
 							sig_clr_name = next_auto_id();
 							f << stringf("%s" "wire %s = ", indent, sig_clr_name);
-							dump_const(f, ff.sig_clr[i].data);
+							dump_const(f, ff.sig_clr[i].data, ConstKind::Expr);
 							f << stringf(";\n");
 						}
 					} else if (ff.has_arst) {
@@ -1719,7 +1747,7 @@ struct VerilogWriter
 						{
 							sig_arst_name = next_auto_id();
 							f << stringf("%s" "wire %s = ", indent, sig_arst_name);
-							dump_const(f, ff.sig_arst[0].data);
+							dump_const(f, ff.sig_arst[0].data, ConstKind::Expr);
 							f << stringf(";\n");
 						}
 					} else if (ff.has_aload) {
@@ -1727,7 +1755,7 @@ struct VerilogWriter
 						{
 							sig_aload_name = next_auto_id();
 							f << stringf("%s" "wire %s = ", indent, sig_aload_name);
-							dump_const(f, ff.sig_aload[0].data);
+							dump_const(f, ff.sig_aload[0].data, ConstKind::Expr);
 							f << stringf(";\n");
 						}
 					}
@@ -1921,24 +1949,19 @@ struct VerilogWriter
 				dump_sigspec(f, cell->getPort(ID::DST));
 			}
 
-			bool bak_decimal = config.decimal;
-			config.decimal = 1;
-
 			f << ") = (";
-			dump_const(f, cell->getParam(ID::T_RISE_MIN));
+			dump_const(f, cell->getParam(ID::T_RISE_MIN), ConstKind::Specify);
 			f << ":";
-			dump_const(f, cell->getParam(ID::T_RISE_TYP));
+			dump_const(f, cell->getParam(ID::T_RISE_TYP), ConstKind::Specify);
 			f << ":";
-			dump_const(f, cell->getParam(ID::T_RISE_MAX));
+			dump_const(f, cell->getParam(ID::T_RISE_MAX), ConstKind::Specify);
 			f << ", ";
-			dump_const(f, cell->getParam(ID::T_FALL_MIN));
+			dump_const(f, cell->getParam(ID::T_FALL_MIN), ConstKind::Specify);
 			f << ":";
-			dump_const(f, cell->getParam(ID::T_FALL_TYP));
+			dump_const(f, cell->getParam(ID::T_FALL_TYP), ConstKind::Specify);
 			f << ":";
-			dump_const(f, cell->getParam(ID::T_FALL_MAX));
+			dump_const(f, cell->getParam(ID::T_FALL_MAX), ConstKind::Specify);
 			f << ");\n";
-
-			config.decimal = bak_decimal;
 
 			f << stringf("%s" "endspecify\n", indent);
 			return true;
@@ -1970,27 +1993,23 @@ struct VerilogWriter
 				dump_sigspec(f, cell->getPort(ID::DST_EN));
 			}
 
-			bool bak_decimal = config.decimal;
-			config.decimal = 1;
-
 			f << ", ";
-			dump_const(f, cell->getParam(ID::T_LIMIT_MIN));
+			dump_const(f, cell->getParam(ID::T_LIMIT_MIN), ConstKind::Specify);
 			f << ": ";
-			dump_const(f, cell->getParam(ID::T_LIMIT_TYP));
+			dump_const(f, cell->getParam(ID::T_LIMIT_TYP), ConstKind::Specify);
 			f << ": ";
-			dump_const(f, cell->getParam(ID::T_LIMIT_MAX));
+			dump_const(f, cell->getParam(ID::T_LIMIT_MAX), ConstKind::Specify);
 
 			if (spec_type == "$setuphold" || spec_type == "$recrem" || spec_type == "$fullskew") {
 				f << ", ";
-				dump_const(f, cell->getParam(ID::T_LIMIT2_MIN));
+				dump_const(f, cell->getParam(ID::T_LIMIT2_MIN), ConstKind::Specify);
 				f << ": ";
-				dump_const(f, cell->getParam(ID::T_LIMIT2_TYP));
+				dump_const(f, cell->getParam(ID::T_LIMIT2_TYP), ConstKind::Specify);
 				f << ": ";
-				dump_const(f, cell->getParam(ID::T_LIMIT2_MAX));
+				dump_const(f, cell->getParam(ID::T_LIMIT2_MAX), ConstKind::Specify);
 			}
 
 			f << ");\n";
-			config.decimal = bak_decimal;
 
 			f << stringf("%s" "endspecify\n", indent);
 			return true;
@@ -2078,7 +2097,7 @@ struct VerilogWriter
 					f << stringf(",");
 				f << stringf("\n%s  .%s(", indent, id_of(it->first));
 				if (it->second.size() > 0)
-					dump_const(f, it->second);
+					dump_const(f, it->second, ConstKind::Param);
 				f << stringf(")");
 			}
 			f << stringf("\n%s" ")", indent);
@@ -2119,7 +2138,7 @@ struct VerilogWriter
 		if (config.defparam && cell->parameters.size() > 0) {
 			for (auto it = cell->parameters.begin(); it != cell->parameters.end(); ++it) {
 				f << stringf("%sdefparam %s.%s = ", indent, cell_name, id_of(it->first));
-				dump_const(f, it->second);
+				dump_const(f, it->second, ConstKind::Param);
 				f << stringf(";\n");
 			}
 		}
@@ -2627,8 +2646,20 @@ struct VerilogBackend : public Backend {
 		log("        not bit pattern. This option deactivates this feature and instead\n");
 		log("        will write out all constants in binary.\n");
 		log("\n");
+		log("    -nodec_attr\n");
+		log("        32-bit attribute values between -(2**31-1) and 2**31-1 are by default\n");
+		log("        dumped in decimal and without size and radix. This option dumps them\n");
+		log("        with size and radix instead.\n");
+		log("\n");
+		log("    -dec_param\n");
+		log("        signed 32-bit parameter values between -(2**31-1) and 2**31-1 are by\n");
+		log("        default dumped in decimal and without size and radix. This option\n");
+		log("        also dumps unsigned values between 0 and 2**31-1 this way. This is\n");
+		log("        unsafe: a decimal number without size and radix is signed, so an\n");
+		log("        untyped parameter that receives it becomes signed.\n");
+		log("\n");
 		log("    -decimal\n");
-		log("        dump 32-bit constants in decimal and without size and radix\n");
+		log("        alias for -dec_param.\n");
 		log("\n");
 		log("    -nohex\n");
 		log("        constant values that are compatible with hex output are usually\n");
@@ -2741,8 +2772,12 @@ struct VerilogBackend : public Backend {
 				config.default_params = true;
 				continue;
 			}
-			if (arg == "-decimal") {
-				config.decimal = true;
+			if (arg == "-nodec_attr") {
+				config.nodec_attr = true;
+				continue;
+			}
+			if (arg == "-dec_param" || arg == "-decimal") {
+				config.dec_param = true;
 				continue;
 			}
 			if (arg == "-siminit") {
