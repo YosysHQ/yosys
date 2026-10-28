@@ -160,7 +160,7 @@ struct AbcSigVal {
 };
 
 // REUSE_YOSYS_ABC_PROCESSES only works when ABC is built with ENABLE_READLINE.
-#if defined(__linux__) && defined(YOSYS_ENABLE_SPAWN) && defined(YOSYS_ENABLE_READLINE)
+#if defined(__linux__) && defined(YOSYS_ENABLE_SPAWN) && defined(YOSYS_ENABLE_READLINE) && !YOSYS_LINK_ABC
 #define REUSE_YOSYS_ABC_PROCESSES
 #endif
 
