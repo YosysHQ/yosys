@@ -575,7 +575,7 @@ struct FirrtlWorker
 			// If a wire has initial data, issue a warning since FIRRTL doesn't currently support it.
 			if (wire->attributes.count(ID::init)) {
 				log_warning("Initial value (%s) for (%s.%s) not supported\n",
-							wire->attributes.at(ID::init).as_string().c_str(),
+							wire->attributes.at(ID::init).as_string(),
 							module, wire);
 			}
 			if (wire->port_id)

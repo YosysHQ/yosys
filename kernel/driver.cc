@@ -749,8 +749,8 @@ int main(int argc, char **argv)
 				std::chrono::steady_clock::now() - wall_clock_start).count();
 
 		log("End of script. Logfile hash: %s%stime: %.2fs, user: %.2fs, system: %.2fs%s\n", hash,
-				stats_divider.c_str(), wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
+				stats_divider, wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo);
 #endif
 		log("%s\n", yosys_maybe_version());
 
@@ -773,7 +773,7 @@ int main(int argc, char **argv)
 			log("Time spent:\n");
 			for (auto it = timedat.rbegin(); it != timedat.rend(); it++) {
 				log("%5d%% %5d calls %8.3f sec %s\n", int(100*std::get<0>(*it) / total_ns),
-						std::get<1>(*it), std::get<0>(*it) / 1000000000.0, std::get<2>(*it).c_str());
+						std::get<1>(*it), std::get<0>(*it) / 1000000000.0, std::get<2>(*it));
 			}
 		}
 		else

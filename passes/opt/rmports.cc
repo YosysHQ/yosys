@@ -161,7 +161,7 @@ struct RmportsPassPass : public Pass {
 			if(removed_ports.find(cell->type) == removed_ports.end())
 			{
 				// log("  Not touching instance \"%s\" because we didn't remove any ports from module \"%s\"\n",
-				//	cell->name.c_str(), cell->type.c_str());
+				//	cell->name, cell->type);
 				continue;
 			}
 

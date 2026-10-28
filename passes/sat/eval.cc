@@ -191,7 +191,7 @@ struct VlogHammerReporter
 				}
 				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
 						int(i), log_signal(solution_bit), log_signal(expected_bit),
-						sat_bits.c_str(), rtl_bits.c_str(), expected_y.size()-i-1, "");
+						sat_bits, rtl_bits, expected_y.size()-i-1, "");
 			}
 		}
 
@@ -429,7 +429,7 @@ struct EvalPass : public Pass {
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
-						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
+						mod1_name, mod2_name, checker.counter);
 				return;
 			}
 			if (args[argidx] == "-vloghammer_report" && argidx+5 == args.size()) {
@@ -469,7 +469,7 @@ struct EvalPass : public Pass {
 				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second);
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
+						it.first, log_signal(lhs), lhs.size(), it.second, log_signal(rhs), rhs.size());
 			ce.set(lhs, rhs.as_const());
 		}
 

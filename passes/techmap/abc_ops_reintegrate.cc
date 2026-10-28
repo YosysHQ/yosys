@@ -47,7 +47,7 @@ inline IdString ref_from_token(RTLIL::Design *design, const std::string &tok)
 {
 	IdString ref = design->twines().ref_from_token(tok);
 	if (ref == IdString::Null)
-		log_error("Bad map file: '%s' is not a live name reference of this yosys run.\n", tok.c_str());
+		log_error("Bad map file: '%s' is not a live name reference of this yosys run.\n", tok);
 	return ref;
 }
 

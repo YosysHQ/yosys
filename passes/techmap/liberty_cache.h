@@ -61,7 +61,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	for (const std::string &liberty_file : sorted_files) {
 		struct stat liberty_stat;
 		if (stat(liberty_file.c_str(), &liberty_stat) != 0) {
-			log_error("ABC: cannot stat liberty file: %s\n", liberty_file.c_str());
+			log_error("ABC: cannot stat liberty file: %s\n", liberty_file);
 			return "";
 		}
 		hash_input += liberty_file + "|";
@@ -84,7 +84,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	// Check if merged SCL exists and is newer than all liberty files
 	if (stat(merged_scl.c_str(), &scl_stat) == 0) {
 		if (scl_stat.st_mtime >= newest_mtime) {
-			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl, liberty_files.size());
 			need_convert = false;
 		}
 	}
@@ -93,7 +93,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		ScopedFileLock scl_lock(merged_scl + ".lock");
 		// Recheck under the lock: another process may have built the cache while we waited.
 		if (stat(merged_scl.c_str(), &scl_stat) == 0 && scl_stat.st_mtime >= newest_mtime) {
-			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl.c_str(), liberty_files.size());
+			log("ABC: using cached merged SCL: %s (%zu files)\n", merged_scl, liberty_files.size());
 			return merged_scl;
 		}
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
@@ -105,7 +105,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		FILE *f = fopen(script_path.c_str(), "w");
 
 		if (f == NULL) {
-			log_warning("ABC: cannot open %s for writing, falling back to liberty format\n", script_path.c_str());
+			log_warning("ABC: cannot open %s for writing, falling back to liberty format\n", script_path);
 			return "";
 		}
 
@@ -164,7 +164,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		std::error_code rename_ec;
 		std::filesystem::rename(temp_scl, merged_scl, rename_ec);
 		if (rename_ec) {
-			log_warning("ABC: failed to rename %s to %s, falling back to liberty format\n", temp_scl.c_str(), merged_scl.c_str());
+			log_warning("ABC: failed to rename %s to %s, falling back to liberty format\n", temp_scl, merged_scl);
 			remove(temp_scl.c_str());
 			return "";
 		}

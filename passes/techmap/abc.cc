@@ -934,8 +934,8 @@ struct abc_output_filter
 		int pi, po;
 		if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
 			state.logs.log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-					pi, state.pi_map.count(pi) ? state.pi_map.at(pi).c_str() : "???",
-					po, state.po_map.count(po) ? state.po_map.at(po).c_str() : "???");
+					pi, state.pi_map.count(pi) ? state.pi_map.at(pi) : "???",
+					po, state.po_map.count(po) ? state.po_map.at(po) : "???");
 			return;
 		}
 
@@ -1026,7 +1026,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 	run_abc.per_run_tempdir_name += proc_program_prefix() + "yosys-abc-XXXXXX";
 	run_abc.per_run_tempdir_name = make_temp_dir(run_abc.per_run_tempdir_name);
 	log_header(design, "Extracting gate netlist of module `%s' to `%s/input.blif'..\n",
-			module->name, replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir).c_str());
+			module->name, replace_tempdir(run_abc.per_run_tempdir_name, config.global_tempdir_name, run_abc.per_run_tempdir_name, config.show_tempdir));
 
 	run_abc.abc_script = stringf("read_blif \"%s/input.blif\"; ", run_abc.per_run_tempdir_name);
 
@@ -1469,7 +1469,7 @@ void emit_global_input_files(const AbcConfig &config)
 		std::string buffer = stringf("%s/lutdefs.txt", config.global_tempdir_name.c_str());
 		FILE *f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 		for (int i = 0; i < GetSize(config.lut_costs); i++)
 			fprintf(f, "%d %d.00 1.00\n", i+1, config.lut_costs.at(i));
 		fclose(f);
@@ -1479,7 +1479,7 @@ void emit_global_input_files(const AbcConfig &config)
 		std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name.c_str());
 		FILE *f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
-			log_error("Opening %s for writing failed: %s\n", buffer.c_str(), strerror(errno));
+			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
 		fprintf(f, "GATE ZERO    1 Y=CONST0;\n");
 		fprintf(f, "GATE ONE     1 Y=CONST1;\n");
 		fprintf(f, "GATE BUF    %d Y=A;                  PIN * NONINV  1 999 1 0 1 0\n", cell_cost.at(ID($_BUF_)));

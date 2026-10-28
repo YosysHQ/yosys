@@ -188,7 +188,7 @@ void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::s
 	help();
 
 	log_cmd_error("Command syntax error: %s\n> %s\n> %*s^\n",
-			msg.c_str(), command_text.c_str(), error_pos, "");
+			msg, command_text, error_pos, "");
 }
 
 void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select)

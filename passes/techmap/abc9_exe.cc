@@ -158,8 +158,8 @@ struct abc9_output_filter
 		//int pi, po;
 		//if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
 		//	log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-		//			pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-		//			po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+		//			pi, pi_map.count(pi) ? pi_map.at(pi) : "???",
+		//			po, po_map.count(po) ? po_map.at(po) : "???");
 		//	return;
 		//}
 

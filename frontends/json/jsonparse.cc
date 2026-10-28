@@ -390,7 +390,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON port node '%s' has invalid '%s' bit string value on bit %d.\n",
-								PooledName(design, port_ref).unescape(), bitval_node->data_string.c_str(), i);
+								PooledName(design, port_ref).unescape(), bitval_node->data_string, i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -474,7 +474,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON netname node '%s' has invalid '%s' bit string value on bit %d.\n",
-								PooledName(design, net_ref).unescape(), bitval_node->data_string.c_str(), i);
+								PooledName(design, net_ref).unescape(), bitval_node->data_string, i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -553,7 +553,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 							sig.append(State::Sz);
 						else
 							log_error("JSON cells node '%s' connection '%s' has invalid '%s' bit string value on bit %d.\n",
-									PooledName(design, cell_ref).unescape(), PooledName(design, conn_ref).unescape(), bitval_node->data_string.c_str(), i);
+									PooledName(design, cell_ref).unescape(), PooledName(design, conn_ref).unescape(), bitval_node->data_string, i);
 					} else
 					if (bitval_node->type == 'N') {
 						int bitidx = bitval_node->data_number;

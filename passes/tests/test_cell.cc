@@ -1124,7 +1124,7 @@ struct TestCellPass : public Pass {
 					charcount += GetSize(ID::str(it.first));
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
-						args[argidx].c_str(), cell_type_list.c_str());
+						args[argidx], cell_type_list);
 			}
 
 			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), arg_type) == 0)
@@ -1172,7 +1172,7 @@ struct TestCellPass : public Pass {
 								}
 						if (is_unconverted) {
 							// skip unconverted cells
-							log_warning("Skipping %s\n", ID::str(cell_type).c_str());
+							log_warning("Skipping %s\n", ID::str(cell_type));
 							delete design;
 							break;
 						} else {
@@ -1222,14 +1222,14 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								log_debug("Correct upper bound for %s: %d <= %d\n", design->twines().str(cell_type).c_str(), num_cells, num_cells_estimate);
+								log_debug("Correct upper bound for %s: %d <= %d\n", design->twines().str(cell_type), num_cells, num_cells_estimate);
 							} else {
 								failed++;
 								if (worst_abs < num_cells - num_cells_estimate) {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", design->twines().str(cell_type).c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", design->twines().str(cell_type), num_cells, num_cells_estimate);
 							}
 						}
 					}
@@ -1239,7 +1239,7 @@ struct TestCellPass : public Pass {
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "
 					    "with worst offender being by %d (%.1f%%)\n",
-					    ID::str(cell_type).c_str(), 100 * (float)failed / (float)num_iter,
+					    ID::str(cell_type), 100 * (float)failed / (float)num_iter,
 						worst_abs, 100 * worst_rel);
 			}
 		}

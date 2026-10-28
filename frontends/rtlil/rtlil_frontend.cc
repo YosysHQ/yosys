@@ -442,15 +442,15 @@ struct RTLILFrontendWorker {
 		if (design->has(module_name)) {
 			RTLIL::Module *existing_mod = design->module(module_name);
 			if (!flag_overwrite && (flag_lib || (attrbuf.count(ID::blackbox) && attrbuf.at(ID::blackbox).as_bool()))) {
-				log("Ignoring blackbox re-definition of module %s.\n", design->twines().str(module_name).c_str());
+				log("Ignoring blackbox re-definition of module %s.\n", design->twines().str(module_name));
 				delete_current_module = true;
 			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 				error("RTLIL error: redefinition of module %s.", design->twines().str(module_name).c_str());
 			} else if (flag_nooverwrite) {
-				log("Ignoring re-definition of module %s.\n", design->twines().str(module_name).c_str());
+				log("Ignoring re-definition of module %s.\n", design->twines().str(module_name));
 				delete_current_module = true;
 			} else {
-				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", design->twines().str(module_name).c_str());
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", design->twines().str(module_name));
 				design->remove(existing_mod);
 			}
 		}
@@ -675,7 +675,7 @@ struct RTLILFrontendWorker {
 				IdString wire_name = *name;
 				if (current_module->wire(wire_name) != nullptr) {
 					if (flag_legalize) {
-						log("Legalizing redefinition of wire %s.\n", design->twines().str(wire_name).c_str());
+						log("Legalizing redefinition of wire %s.\n", design->twines().str(wire_name));
 						pool<RTLIL::Wire*> wires = {current_module->wire(wire_name)};
 						current_module->remove(wires);
 					} else
@@ -743,7 +743,7 @@ struct RTLILFrontendWorker {
 				mem_name = *name;
 				if (current_module->memories.count(mem_name) != 0) {
 					if (flag_legalize) {
-						log("Legalizing redefinition of memory %s.\n", design->twines().str(mem_name).c_str());
+						log("Legalizing redefinition of memory %s.\n", design->twines().str(mem_name));
 						current_module->remove(current_module->memories.at(mem_name));
 					} else
 						error("RTLIL error: redefinition of memory %s.", design->twines().str(mem_name).c_str());
@@ -809,7 +809,7 @@ struct RTLILFrontendWorker {
 					cell_name_ref = design->twines().add(new_name_str);
 					++suffix;
 				} while (current_module->cell(cell_name_ref) != nullptr);
-				log("Legalizing redefinition of cell %s by renaming to %s.\n", base.c_str(), new_name_str.c_str());
+				log("Legalizing redefinition of cell %s by renaming to %s.\n", base, new_name_str);
 			} else
 				error("RTLIL error: redefinition of cell %s.", design->twines().str(cell_name_ref).c_str());
 		}
@@ -843,7 +843,7 @@ struct RTLILFrontendWorker {
 				IdString port_name = parse_twine();
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
-						log("Legalizing redefinition of cell port %s.\n", design->twines().str(port_name).c_str());
+						log("Legalizing redefinition of cell port %s.\n", design->twines().str(port_name));
 					else
 						error("RTLIL error: redefinition of cell port %s.", design->twines().str(port_name).c_str());
 				}
@@ -949,7 +949,7 @@ struct RTLILFrontendWorker {
 
 		if (current_module->processes.count(proc_name) != 0) {
 			if (flag_legalize) {
-				log("Legalizing redefinition of process %s.\n", design->twines().str(proc_name).c_str());
+				log("Legalizing redefinition of process %s.\n", design->twines().str(proc_name));
 				current_module->remove(current_module->processes.at(proc_name));
 			} else
 				error("RTLIL error: redefinition of process %s.", design->twines().str(proc_name).c_str());

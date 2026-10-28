@@ -464,7 +464,7 @@ struct statdata_t {
 		if (print_area) {
 			if (print_hierarchical) {
 				log(" %s %s %s %s %s%s\n", count_global_str, area_global_str, count_local_str,
-				    area_local_str.c_str(), indent.c_str(), name.c_str());
+				    area_local_str, indent, name);
 			} else if (print_global_only) {
 				log(" %s %s %s%s\n", count_global_str, area_global_str, indent, name);
 			} else {

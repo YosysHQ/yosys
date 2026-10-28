@@ -643,7 +643,7 @@ void LogManager::check_expected()
 		if (item.current_count != item.expected_count) {
 			warn_regexes.clear();
 			log_error("Expected %s pattern '%s' found %d time(s), instead of %d time(s) !\n",
-				kind.c_str(), pattern.c_str(), item.current_count, item.expected_count);
+				kind, pattern, item.current_count, item.expected_count);
 		}
 	};
 

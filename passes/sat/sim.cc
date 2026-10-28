@@ -253,11 +253,11 @@ struct SimInstance
 
 		if (module->get_blackbox_attribute(true))
 			log_error("Cannot simulate blackbox module %s (instantiated at %s).\n",
-					  module->name.unescape(), hiername().c_str());
+					  module->name.unescape(), hiername());
 
 		if (module->has_processes())
 			log_error("Found processes in simulation hierarchy (in module %s at %s). Run 'proc' first.\n",
-					  module, hiername().c_str());
+					  module, hiername());
 
 		if (parent) {
 			log_assert(parent->children.count(instance) == 0);
@@ -1268,7 +1268,7 @@ struct SimInstance
 				issue_count++;
 				any_undriven_found = true;
 				std::string wire_name = scope + "." + wire->name.unescape();
-				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name.c_str(), log_signal(undriven));
+				log_warning("Input trace contains undriven signal `%s` (%s).\n", wire_name, log_signal(undriven));
 			}
 		}
 

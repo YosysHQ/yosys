@@ -985,7 +985,7 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), m_name.c_str());
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module->name.unescape(), cell->name.unescape(), m_name);
 					cell->type = cell->twines().add(m_name);
 					cell->parameters.clear();
 				}
@@ -996,7 +996,7 @@ struct TechmapWorker
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), cell->type.unescape(), tpl->name.unescape());
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, module->name.unescape(), cell->name.unescape(), cell->type.unescape(), tpl->name.unescape());
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}
@@ -1328,7 +1328,7 @@ struct TechmapPass : public Pass {
 			std::string maps = "";
 			for (auto &m : i.second)
 				maps += stringf(" %s", PooledName(map, m).unescape());
-			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps.c_str());
+			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps);
 		}
 		log_debug("\n");
 

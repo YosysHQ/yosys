@@ -498,13 +498,13 @@ struct VerilogFrontend : public Frontend {
 		AST::DesignScope design_scope(design);
 
 		log("Parsing %s%s input from `%s' to AST representation.\n",
-				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename.c_str());
+				parse_mode.formal ? "formal " : "", parse_mode.sv ? "SystemVerilog" : "Verilog", filename);
 
 		if (flag_relative_share) {
 			auto share_path = proc_share_dirname();
 			if (filename.substr(0, share_path.length()) == share_path)
 				filename = std::string("+/") + filename.substr(share_path.length());
-			log("new filename %s\n", filename.c_str());
+			log("new filename %s\n", filename);
 		}
 		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
 		std::string code_after_preproc;
