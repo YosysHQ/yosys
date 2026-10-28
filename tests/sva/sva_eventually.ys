@@ -21,6 +21,7 @@ logger -expect warning "sva_s_eventually .* is currently unsupported in this con
 verific -import -sva-continue-on-err top
 logger -check-expected
 
+# even if there is a mux in the way
 design -reset
 verific -formal << EOT
 module top (input clk, rst);

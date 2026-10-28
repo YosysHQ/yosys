@@ -987,7 +987,7 @@ struct VerificSvaImporter
 	bool mode_cover = false;
 	bool mode_trigger = false;
 
-	Instance *net_to_ast_driver(Net *n)
+	Instance *net_to_ast_driver(Net *n, bool include_mux = false)
 	{
 		if (n == nullptr)
 			return nullptr;
@@ -1001,7 +1001,8 @@ struct VerificSvaImporter
 			return nullptr;
 
 		if (!verific_sva_prims.count(inst->Type()))
-			return nullptr;
+			if (!include_mux || inst->Type() != PRIM_MUX)
+				return nullptr;
 
 		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
 				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE ||
@@ -1525,7 +1526,16 @@ struct VerificSvaImporter
 
 	bool eventually_property(Net *&net, SigBit &trig)
 	{
-		Instance *inst = net_to_ast_driver(net);
+		Instance *inst = net_to_ast_driver(net, true);
+
+		if (inst->Type() == PRIM_MUX) {
+			// TODO does this need to be recursive?
+			Instance *input1 = get_ast_input1(inst);
+			if (input1 != nullptr)
+				inst = input1;
+			else
+				inst = get_ast_input2(inst);
+		}
 
 		if (inst == nullptr)
 			return false;
