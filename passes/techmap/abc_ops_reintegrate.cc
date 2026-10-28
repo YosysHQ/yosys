@@ -34,7 +34,7 @@ struct Remapper
 
 	std::string name(const std::string &abc9_name) const
 	{
-		return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str() + 1);
+		return stringf("$abc$%d$%s", map_autoidx, abc9_name.substr(1));
 	}
 
 	IdString operator()(IdString n) const

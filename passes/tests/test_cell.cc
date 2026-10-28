@@ -1180,7 +1180,7 @@ struct TestCellPass : public Pass {
 							suffix = "aag";
 						}
 					}
-					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, ID::str(cell_type).c_str()+1, i, suffix));
+					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, ID::str(cell_type).substr(1), i, suffix));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);

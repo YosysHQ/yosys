@@ -596,7 +596,7 @@ struct ExtractPass : public Pass {
 				{
 					if (!saved_designs.count(filename.substr(1))) {
 						delete map;
-						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
+						log_cmd_error("Can't saved design `%s'.\n", filename.substr(1));
 					}
 					RTLIL::Design *saved = saved_designs.at(filename.substr(1)).get();
 					for (auto mod : saved->modules())

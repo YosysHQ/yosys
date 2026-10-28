@@ -2263,7 +2263,7 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 	case AST_FCALL: {
 			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
 			{
-				string myid = stringf("%s$%d", str.c_str() + 1, ast_autoidx());
+				string myid = stringf("%s$%d", str.substr(1), ast_autoidx());
 				int width = width_hint;
 
 				if (GetSize(children) > 1)

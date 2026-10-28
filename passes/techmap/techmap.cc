@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
 void apply_prefix(const std::string &prefix, std::string &id)
 {
 	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix, id.c_str()+1);
+		id = stringf("%s.%s", prefix, id.substr(1));
 	else
 		id = stringf("$techmap%s.%s", prefix, id);
 }
@@ -1272,7 +1272,7 @@ struct TechmapPass : public Pass {
 				if (fn.compare(0, 1, "%") == 0) {
 					if (!saved_designs.count(fn.substr(1))) {
 						delete map;
-						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
+						log_cmd_error("Can't open saved design `%s'.\n", fn.substr(1));
 					}
 					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
