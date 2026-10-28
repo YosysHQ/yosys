@@ -1830,7 +1830,7 @@ struct Aiger2Backend : Backend {
 				col = 0;
 			}
 			col += name.size() + 2;
-			message += stringf("%s, ", name.c_str());
+			message += stringf("%s, ", name);
 		}
 		if (!message.empty())
 			log("    %s\n", message);
@@ -1854,7 +1854,7 @@ struct Aiger2Backend : Backend {
 				col = 0;
 			}
 			col += name.size() + 2;
-			message += stringf("%s, ", name.c_str());
+			message += stringf("%s, ", name);
 		}
 		if (!message.empty())
 			log("    %s\n", message);

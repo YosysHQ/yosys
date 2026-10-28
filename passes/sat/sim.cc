@@ -1102,7 +1102,7 @@ struct SimInstance
 				int output_id = trace_index.second.first;
 				int index = trace_index.first;
 				register_signal(
-						stringf("%s[%d]", signal_name.c_str(), (index + mdb.mem->start_offset)).c_str(),
+						stringf("%s[%d]", signal_name, (index + mdb.mem->start_offset)).c_str(),
 						mdb.mem->width, nullptr, output_id, true);
 			}
 

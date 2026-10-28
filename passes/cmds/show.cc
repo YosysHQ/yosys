@@ -504,7 +504,7 @@ struct ShowWorker
 
 			std::string label_string = stringf("{{%s}|%s\\n%s|{%s}}", in_label,
 											   findLabel(cell->name.str()), escape(cell->type.str()),
-											   out_label.c_str());
+											   out_label);
 
 			std::string code;
 			for (auto &conn : cell->connections()) {

@@ -60,7 +60,7 @@ namespace pyosys {
 			return "<IdString Null>";
 		if (!name_renderable(n))
 			return stringf("<IdString #%zu%s>", n.ref().untag().raw(), n.ref().isPublic() ? " public" : "");
-		return stringf("<IdString %s>", n.str().c_str());
+		return stringf("<IdString %s>", n.str());
 	}
 
 	static py::ssize_t name_hash(const RTLIL::PooledName &n)

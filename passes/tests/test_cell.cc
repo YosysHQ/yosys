@@ -723,7 +723,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			if (vlog_file.is_open()) {
 				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
-						vlog_pattern_info.c_str(), gold_wire, GetSize(gold_outval), gold_outval.as_string().c_str(), gold_wire, gold_wire);
+						vlog_pattern_info, gold_wire, GetSize(gold_outval), gold_outval.as_string(), gold_wire, gold_wire);
 				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
 				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
 			}
@@ -1117,10 +1117,10 @@ struct TestCellPass : public Pass {
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += stringf("\n%s", ID::str(it.first).c_str());
+						cell_type_list += stringf("\n%s", ID::str(it.first));
 						charcount = 0;
 					} else
-						cell_type_list += stringf(" %s", ID::str(it.first).c_str());
+						cell_type_list += stringf(" %s", ID::str(it.first));
 					charcount += GetSize(ID::str(it.first));
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",

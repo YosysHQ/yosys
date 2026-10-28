@@ -218,10 +218,10 @@ QbfSolutionType call_qbf_solver(RTLIL::Module *mod, const QbfSolveOptions &opt, 
 	const std::string yosys_smtbmc_exe = proc_self_dirname() + "yosys-smtbmc";
 	const std::string smtbmc_warning = "z3: WARNING:";
 	const std::string smtbmc_cmd = stringf("\"%s\" -s %s %s -t 1 -g --binary %s %s/problem%d.smt2 2>&1",
-			yosys_smtbmc_exe.c_str(), opt.get_solver_name().c_str(),
+			yosys_smtbmc_exe, opt.get_solver_name(),
 			(opt.timeout != 0? stringf("--timeout %d", opt.timeout) : ""),
-			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : "").c_str(),
-			tempdir_name.c_str(), iter_num);
+			(opt.dump_final_smt2? "--dump-smt2 " + opt.dump_final_smt2_file : ""),
+			tempdir_name, iter_num);
 
 	std::string smt2_command = "write_smt2 -stbv -wires ";
 	for (auto &solver_opt : opt.solver_options)

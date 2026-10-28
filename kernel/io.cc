@@ -425,7 +425,7 @@ std::string make_user_tmpdir(const std::string& name)
 #if defined(_WIN32) || defined(__wasi__)
 	std::string dirname = get_base_tmpdir() + "/" + name;
 #else
-	std::string dirname = stringf("%s/%s-%u", get_base_tmpdir().c_str(), name.c_str(), (unsigned)geteuid());
+	std::string dirname = stringf("%s/%s-%u", get_base_tmpdir(), name, (unsigned)geteuid());
 #endif
 	return make_private_directory(dirname) ? dirname : "";
 }

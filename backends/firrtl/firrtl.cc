@@ -273,11 +273,11 @@ void emit_extmodule(FirrtlNames &names, RTLIL::Cell *cell, RTLIL::Module *mod_in
 		}
 
 		const std::string portDecl = stringf("%s%s %s: UInt<%d> %s\n",
-			indent.c_str(),
+			indent,
 			wire->port_input ? "input" : "output",
 			wireName,
 			wire->width,
-			wireFileinfo.c_str()
+			wireFileinfo
 		);
 
 		f << portDecl;
@@ -583,7 +583,7 @@ struct FirrtlWorker
 				if (wire->port_input && wire->port_output)
 					log_error("Module port %s.%s is inout!\n", module, wire);
 				port_decls.push_back(stringf("%s%s %s: UInt<%d> %s\n", indent, wire->port_input ? "input" : "output",
-						wireName, wire->width, wireFileinfo.c_str()));
+						wireName, wire->width, wireFileinfo));
 			}
 			else
 			{
@@ -973,8 +973,8 @@ struct FirrtlWorker
 					std::string dshr = stringf("dshr(%s, %s)", a_expr, b_string);
 					expr = stringf("mux(%s < 0, %s, %s)",
 									 b_string,
-									 dshl.c_str(),
-									 dshr.c_str()
+									 dshl,
+									 dshr
 									 );
 				} else {
 					expr = stringf("dshr(%s, %s)", a_expr, b_string);

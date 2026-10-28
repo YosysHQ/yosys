@@ -786,7 +786,7 @@ int main(int argc, char **argv)
 					break;
 				}
 				message += stringf("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
-						std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
+						std::get<1>(*it), std::get<2>(*it), int(std::get<0>(*it) / 1000000000));
 			}
 			message += out_count ? "" : " no commands executed";
 			log("%s\n", message);

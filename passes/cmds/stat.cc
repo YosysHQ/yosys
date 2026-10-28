@@ -622,7 +622,7 @@ struct statdata_t {
 					    json_line(local_num_cells_by_type.count(it.first) ? local_num_cells_by_type.at(it.first) : 0,
 						      local_area_cells_by_type.count(it.first) ? local_area_cells_by_type.at(it.first) : 0, it.second,
 						      area_cells_by_type.at(it.first))
-					      .c_str());
+					      );
 					first_line = false;
 				}
 			json += "\n";
@@ -636,7 +636,7 @@ struct statdata_t {
 					json += stringf("            %s: %s", json11::Json(RTLIL::unescape_id(it.first)).dump(),
 					    json_line(0, 0, it.second,
 						      submodules_area_by_type.count(it.first) ? submodules_area_by_type.at(it.first) : 0)
-					      .c_str());
+					      );
 					first_line = false;
 				}
 			json += "\n";

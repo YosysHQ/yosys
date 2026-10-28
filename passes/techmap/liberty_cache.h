@@ -55,7 +55,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	if (!abc_exe.empty()) {
 		struct stat abc_stat;
 		if (stat(abc_exe.c_str(), &abc_stat) == 0)
-			hash_input += stringf("|abc:%s:%lld:%lld", abc_exe.c_str(), (long long)abc_stat.st_mtime, (long long)abc_stat.st_size);
+			hash_input += stringf("|abc:%s:%lld:%lld", abc_exe, (long long)abc_stat.st_mtime, (long long)abc_stat.st_size);
 	}
 
 	for (const std::string &liberty_file : sorted_files) {
@@ -77,7 +77,7 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 	for (char c : hash_input)
 		hash = hash * 31 + c;
 
-	std::string merged_scl = stringf("%s/yosys_merged_%08x.scl", cache_dir.c_str(), hash);
+	std::string merged_scl = stringf("%s/yosys_merged_%08x.scl", cache_dir, hash);
 	bool need_convert = true;
 	struct stat scl_stat;
 
@@ -98,10 +98,10 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		}
 		// read_lib -X cell1 -X cell2 file1 ; read_lib -X cell1 -X cell2 -m file2 ; ... ; write_scl merged.scl
 		// Concurrent writers cannot corrupt each other even when running without the lock.
-		std::string temp_scl = stringf("%s.%u.tmp", merged_scl.c_str(), get_process_id());
+		std::string temp_scl = stringf("%s.%u.tmp", merged_scl, get_process_id());
 
 #ifdef YOSYS_LINK_ABC
-		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x_%u.script", cache_dir.c_str(), hash, get_process_id());
+		std::string script_path = stringf("%s/yosys_merged_scl_convert_%08x_%u.script", cache_dir, hash, get_process_id());
 		FILE *f = fopen(script_path.c_str(), "w");
 
 		if (f == NULL) {
@@ -142,12 +142,12 @@ inline std::string convert_liberty_files_to_merged_scl(const std::vector<std::st
 		bool first = true;
 
 		for (const std::string &liberty_file : liberty_files) {
-			abc_script += stringf("read_lib %s%s-w \\\"%s\\\" ; ", dont_use_args.c_str(), first ? "" : "-m ", liberty_file.c_str());
+			abc_script += stringf("read_lib %s%s-w \\\"%s\\\" ; ", dont_use_args, first ? "" : "-m ", liberty_file);
 			first = false;
 		}
 
-		abc_script += stringf("write_scl \\\"%s\\\"", temp_scl.c_str());
-		std::string cmd = stringf("\"%s\" -c \"%s\" 2>&1", abc_exe.c_str(), abc_script.c_str());
+		abc_script += stringf("write_scl \\\"%s\\\"", temp_scl);
+		std::string cmd = stringf("\"%s\" -c \"%s\" 2>&1", abc_exe, abc_script);
 		std::string abc_output;
 		int ret = run_command(cmd, [&abc_output](const std::string &line) { abc_output += line + "\n"; });
 

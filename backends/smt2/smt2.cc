@@ -451,7 +451,7 @@ struct Smt2Worker
 			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
-				get_id(module), idcounter, get_id(module), processed_expr.c_str(), log_signal(bit)));
+				get_id(module), idcounter, get_id(module), processed_expr, log_signal(bit)));
 		register_bool(bit, idcounter++);
 		recursive_cells.erase(cell);
 	}
@@ -502,11 +502,11 @@ struct Smt2Worker
 
 		if (type == 'b') {
 			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
-					get_id(module), idcounter, get_id(module), processed_expr.c_str(), log_signal(sig_y)));
+					get_id(module), idcounter, get_id(module), processed_expr, log_signal(sig_y)));
 			register_boolvec(sig_y, idcounter++);
 		} else {
 			decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-					get_id(module), idcounter, get_id(module), GetSize(sig_y), processed_expr.c_str(), log_signal(sig_y)));
+					get_id(module), idcounter, get_id(module), GetSize(sig_y), processed_expr, log_signal(sig_y)));
 			register_bv(sig_y, idcounter++);
 		}
 
@@ -533,7 +533,7 @@ struct Smt2Worker
 			log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 		decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) Bool %s) ; %s\n",
-				get_id(module), idcounter, get_id(module), processed_expr.c_str(), log_signal(sig_y)));
+				get_id(module), idcounter, get_id(module), processed_expr, log_signal(sig_y)));
 		register_boolvec(sig_y, idcounter++);
 		recursive_cells.erase(cell);
 	}
@@ -748,14 +748,14 @@ struct Smt2Worker
 
 				for (int i = 0; i < GetSize(sig_s); i++)
 					processed_expr = stringf("(ite %s %s %s)", get_bool(sig_s[i]),
-							get_bv(sig_b.extract(i*width, width)).c_str(), processed_expr.c_str());
+							get_bv(sig_b.extract(i*width, width)), processed_expr);
 
 				if (verbose)
 					log("%*s-> import cell: %s\n", 2+2*GetSize(recursive_cells), "", cell);
 
 				RTLIL::SigSpec sig = sigmap(cell->getPort(ID::Y));
 				decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-						get_id(module), idcounter, get_id(module), width, processed_expr.c_str(), log_signal(sig)));
+						get_id(module), idcounter, get_id(module), width, processed_expr, log_signal(sig)));
 				register_bv(sig, idcounter++);
 				recursive_cells.erase(cell);
 				return;
@@ -803,7 +803,7 @@ struct Smt2Worker
 			{
 				makebits(memstate, mem->width*mem->size, get_id(mem->memid));
 				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (_ BitVec %d) (|%s| state))\n",
-						get_id(module), get_id(mem->memid), get_id(module), mem->width*mem->size, memstate.c_str()));
+						get_id(module), get_id(mem->memid), get_id(module), mem->width*mem->size, memstate));
 
 				for (int i = 0; i < GetSize(mem->rd_ports); i++)
 				{
@@ -817,7 +817,7 @@ struct Smt2Worker
 								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr, log_signal(addr_sig)));
 
 					std::string read_expr = "#b";
 					for (int k = 0; k < mem->width; k++)
@@ -825,11 +825,11 @@ struct Smt2Worker
 
 					for (int k = 0; k < mem->size; k++)
 						read_expr = stringf("(ite (= (|%s_m:R%dA %s| state) #b%s) ((_ extract %d %d) (|%s| state))\n  %s)",
-								get_id(module), i, get_id(mem->memid), Const(k+mem->start_offset, abits).as_string().c_str(),
-								mem->width*(k+1)-1, mem->width*k, memstate.c_str(), read_expr.c_str());
+								get_id(module), i, get_id(mem->memid), Const(k+mem->start_offset, abits).as_string(),
+								mem->width*(k+1)-1, mem->width*k, memstate, read_expr);
 
 					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d)\n  %s) ; %s\n",
-							get_id(module), idcounter, get_id(module), mem->width, read_expr.c_str(), log_signal(port.data)));
+							get_id(module), idcounter, get_id(module), mem->width, read_expr, log_signal(port.data)));
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), mem->width, get_id(module), idcounter));
@@ -841,13 +841,13 @@ struct Smt2Worker
 			{
 				if (statedt)
 					dtmembers.push_back(stringf("  (|%s| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-							memstate.c_str(), abits, mem->width, get_id(mem->memid)));
+							memstate, abits, mem->width, get_id(mem->memid)));
 				else
 					decls.push_back(stringf("(declare-fun |%s| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-							memstate.c_str(), get_id(module), abits, mem->width, get_id(mem->memid)));
+							memstate, get_id(module), abits, mem->width, get_id(mem->memid)));
 
 				decls.push_back(stringf("(define-fun |%s_m %s| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) (|%s| state))\n",
-						get_id(module), get_id(mem->memid), get_id(module), abits, mem->width, memstate.c_str()));
+						get_id(module), get_id(mem->memid), get_id(module), abits, mem->width, memstate));
 
 				for (int i = 0; i < GetSize(mem->rd_ports); i++)
 				{
@@ -861,10 +861,10 @@ struct Smt2Worker
 								"Call \"memory\" with -nordff to avoid this error.\n", i, log_signal(port.data), mem->memid.unescape(), module);
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr, log_signal(addr_sig)));
 
 					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s| state) (|%s_m:R%dA %s| state))) ; %s\n",
-							get_id(module), idcounter, get_id(module), mem->width, memstate.c_str(), get_id(module), i, get_id(mem->memid), log_signal(port.data)));
+							get_id(module), idcounter, get_id(module), mem->width, memstate, get_id(module), i, get_id(mem->memid), log_signal(port.data)));
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), mem->width, get_id(module), idcounter));
@@ -1037,7 +1037,7 @@ struct Smt2Worker
 					if (!comments.empty())
 						out_decls.insert(out_decls.end(), comments.begin(), comments.end());
 					out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) (_ BitVec %d) %s)\n",
-							get_id(module), get_id(wire), get_id(module), GetSize(sig), sig_bv.c_str()));
+							get_id(module), get_id(wire), get_id(module), GetSize(sig), sig_bv));
 					if (wire->port_input)
 						ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
 								get_id(module), get_id(wire), get_id(module), get_id(wire)));
@@ -1051,13 +1051,13 @@ struct Smt2Worker
 					for (int i = 0; i < GetSize(sig); i++) {
 						if (GetSize(sig) > 1) {
 							out_decls.push_back(stringf("(define-fun |%s_n %s %d| ((state |%s_s|)) Bool %s)\n",
-									get_id(module), get_id(wire), i, get_id(module), sig_bool[i].c_str()));
+									get_id(module), get_id(wire), i, get_id(module), sig_bool[i]));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s %d| state) (|%s_n %s %d| other_state))",
 										get_id(module), get_id(wire), i, get_id(module), get_id(wire), i));
 						} else {
 							out_decls.push_back(stringf("(define-fun |%s_n %s| ((state |%s_s|)) Bool %s)\n",
-									get_id(module), get_id(wire), get_id(module), sig_bool[i].c_str()));
+									get_id(module), get_id(wire), get_id(module), sig_bool[i]));
 							if (wire->port_input)
 								ex_input_eq.push_back(stringf("  (= (|%s_n %s| state) (|%s_n %s| other_state))",
 										get_id(module), get_id(wire), get_id(module), get_id(wire)));
@@ -1145,10 +1145,10 @@ struct Smt2Worker
 
 				if (cell->type == ID($cover))
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (and %s %s)) ; %s\n",
-							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+							get_id(module), postfix, id, get_id(module), name_a, name_en, get_id(cell)));
 				else
 					decls.push_back(stringf("(define-fun |%s_%c %d| ((state |%s_s|)) Bool (or %s (not %s))) ; %s\n",
-							get_id(module), postfix, id, get_id(module), name_a.c_str(), name_en.c_str(), get_id(cell)));
+							get_id(module), postfix, id, get_id(module), name_a, name_en, get_id(cell)));
 
 				if (cell->type == ID($assert))
 					assert_list.push_back(stringf("(|%s_a %d| state)", get_id(module), id));
@@ -1177,7 +1177,7 @@ struct Smt2Worker
 				log_assert(m != nullptr);
 
 				hier.push_back(stringf("  (= (|%s_is| state) (|%s_is| %s))\n",
-						get_id(module), get_id(cell->type), cell_state.c_str()));
+						get_id(module), get_id(cell->type), cell_state));
 
 				for (auto &conn : cell->connections())
 				{
@@ -1189,11 +1189,11 @@ struct Smt2Worker
 
 					if (bvmode || GetSize(w) == 1) {
 						hier.push_back(stringf("  (= %s (|%s_n %s| %s)) ; %s.%s\n", (GetSize(w) > 1 ? get_bv(sig) : get_bool(sig)),
-								get_id(cell->type), get_id(w), cell_state.c_str(), get_id(cell->type), get_id(w)));
+								get_id(cell->type), get_id(w), cell_state, get_id(cell->type), get_id(w)));
 					} else {
 						for (int i = 0; i < GetSize(w); i++)
 							hier.push_back(stringf("  (= %s (|%s_n %s %d| %s)) ; %s.%s[%d]\n", get_bool(sig[i]),
-									get_id(cell->type), get_id(w), i, cell_state.c_str(), get_id(cell->type), get_id(w), i));
+									get_id(cell->type), get_id(w), i, cell_state, get_id(cell->type), get_id(w), i));
 					}
 				}
 			}
@@ -1277,29 +1277,29 @@ struct Smt2Worker
 						std::string mask = get_bv(port.en);
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+								get_id(module), i, get_id(mem->memid), get_id(module), abits, addr, log_signal(addr_sig)));
 						addr = stringf("(|%s_m:W%dA %s| state)", get_id(module), i, get_id(mem->memid));
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dD %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, data.c_str(), log_signal(port.data)));
+								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, data, log_signal(port.data)));
 						data = stringf("(|%s_m:W%dD %s| state)", get_id(module), i, get_id(mem->memid));
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dM %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, mask.c_str(), log_signal(port.en)));
+								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, mask, log_signal(port.en)));
 						mask = stringf("(|%s_m:W%dM %s| state)", get_id(module), i, get_id(mem->memid));
 
 						std::string data_expr;
 
 						for (int k = mem->size-1; k >= 0; k--) {
 							std::string new_data = stringf("(bvor (bvand %s %s) (bvand ((_ extract %d %d) (|%s#%d#%d| state)) (bvnot %s)))",
-									data.c_str(), mask.c_str(), mem->width*(k+1)-1, mem->width*k, get_id(module), arrayid, i, mask.c_str());
+									data, mask, mem->width*(k+1)-1, mem->width*k, get_id(module), arrayid, i, mask);
 							data_expr += stringf("\n  (ite (= %s #b%s) %s ((_ extract %d %d) (|%s#%d#%d| state)))",
-									addr.c_str(), Const(k+mem->start_offset, abits).as_string().c_str(), new_data.c_str(),
+									addr, Const(k+mem->start_offset, abits).as_string(), new_data,
 									mem->width*(k+1)-1, mem->width*k, get_id(module), arrayid, i);
 						}
 
 						decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (_ BitVec %d) (concat%s)) ; %s\n",
-								get_id(module), arrayid, i+1, get_id(module), mem->width*mem->size, data_expr.c_str(), get_id(mem->memid)));
+								get_id(module), arrayid, i+1, get_id(module), mem->width*mem->size, data_expr, get_id(mem->memid)));
 					}
 				}
 				else
@@ -1307,10 +1307,10 @@ struct Smt2Worker
 					if (has_async_wr) {
 						if (statedt)
 							dtmembers.push_back(stringf("  (|%s| (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-									initial_memstate.c_str(), abits, mem->width, get_id(mem->memid)));
+									initial_memstate, abits, mem->width, get_id(mem->memid)));
 						else
 							decls.push_back(stringf("(declare-fun |%s| (|%s_s|) (Array (_ BitVec %d) (_ BitVec %d))) ; %s\n",
-									initial_memstate.c_str(), get_id(module), abits, mem->width, get_id(mem->memid)));
+									initial_memstate, get_id(module), abits, mem->width, get_id(mem->memid)));
 					}
 
 					for (int i = 0; i < GetSize(mem->wr_ports); i++)
@@ -1324,26 +1324,26 @@ struct Smt2Worker
 						std::string mask = get_bv(port.en);
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), abits, addr.c_str(), log_signal(addr_sig)));
+								get_id(module), i, get_id(mem->memid), get_id(module), abits, addr, log_signal(addr_sig)));
 						addr = stringf("(|%s_m:W%dA %s| state)", get_id(module), i, get_id(mem->memid));
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dD %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, data.c_str(), log_signal(port.data)));
+								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, data, log_signal(port.data)));
 						data = stringf("(|%s_m:W%dD %s| state)", get_id(module), i, get_id(mem->memid));
 
 						decls.push_back(stringf("(define-fun |%s_m:W%dM %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
-								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, mask.c_str(), log_signal(port.en)));
+								get_id(module), i, get_id(mem->memid), get_id(module), mem->width, mask, log_signal(port.en)));
 						mask = stringf("(|%s_m:W%dM %s| state)", get_id(module), i, get_id(mem->memid));
 
 						data = stringf("(bvor (bvand %s %s) (bvand (select (|%s#%d#%d| state) %s) (bvnot %s)))",
-								data.c_str(), mask.c_str(), get_id(module), arrayid, i, addr.c_str(), mask.c_str());
+								data, mask, get_id(module), arrayid, i, addr, mask);
 
 						string empty_mask(mem->width, '0');
 
 						decls.push_back(stringf("(define-fun |%s#%d#%d| ((state |%s_s|)) (Array (_ BitVec %d) (_ BitVec %d)) "
 								"(ite (= %s #b%s) (|%s#%d#%d| state) (store (|%s#%d#%d| state) %s %s))) ; %s\n",
 								get_id(module), arrayid, i+1, get_id(module), abits, mem->width,
-								mask.c_str(), empty_mask.c_str(), get_id(module), arrayid, i, get_id(module), arrayid, i, addr.c_str(), data.c_str(), get_id(mem->memid)));
+								mask, empty_mask, get_id(module), arrayid, i, get_id(module), arrayid, i, addr, data, get_id(mem->memid)));
 					}
 				}
 
@@ -1382,8 +1382,8 @@ struct Smt2Worker
 							/* FIXME */;
 						else
 							init_list.push_back(stringf("(= (bvand (select (|%s#%d#0| state) #b%s) #b%s) #b%s) ; %s[%d]",
-									get_id(module), arrayid, Const(i, abits).as_string().c_str(),
-									initmask.as_string().c_str(), initword.as_string().c_str(), get_id(mem->memid), i));
+									get_id(module), arrayid, Const(i, abits).as_string(),
+									initmask.as_string(), initword.as_string(), get_id(mem->memid), i));
 					}
 				}
 			}
@@ -1415,7 +1415,7 @@ struct Smt2Worker
 				}
 			}
 			decls.push_back(stringf("(define-fun |%s_ex_state_eq| ((state |%s_s|) (other_state |%s_s|)) Bool %s)\n",
-				get_id(module), get_id(module), get_id(module), expr.c_str()));
+				get_id(module), get_id(module), get_id(module), expr));
 
 			expr = ex_input_eq.empty() ? "true" : "(and";
 			if (!ex_input_eq.empty()) {
@@ -1428,7 +1428,7 @@ struct Smt2Worker
 				}
 			}
 			decls.push_back(stringf("(define-fun |%s_ex_input_eq| ((state |%s_s|) (other_state |%s_s|)) Bool %s)\n",
-				get_id(module), get_id(module), get_id(module), expr.c_str()));
+				get_id(module), get_id(module), get_id(module), expr));
 		}
 
 		string assert_expr = assert_list.empty() ? "true" : "(and";
@@ -1442,7 +1442,7 @@ struct Smt2Worker
 			}
 		}
 		decls.push_back(stringf("(define-fun |%s_a| ((state |%s_s|)) Bool %s)\n",
-				get_id(module), get_id(module), assert_expr.c_str()));
+				get_id(module), get_id(module), assert_expr));
 
 		string assume_expr = assume_list.empty() ? "true" : "(and";
 		if (!assume_list.empty()) {
@@ -1455,7 +1455,7 @@ struct Smt2Worker
 			}
 		}
 		decls.push_back(stringf("(define-fun |%s_u| ((state |%s_s|)) Bool %s)\n",
-				get_id(module), get_id(module), assume_expr.c_str()));
+				get_id(module), get_id(module), assume_expr));
 
 		string init_expr = init_list.empty() ? "true" : "(and";
 		if (!init_list.empty()) {
@@ -1468,7 +1468,7 @@ struct Smt2Worker
 			}
 		}
 		decls.push_back(stringf("(define-fun |%s_i| ((state |%s_s|)) Bool %s)\n",
-				get_id(module), get_id(module), init_expr.c_str()));
+				get_id(module), get_id(module), init_expr));
 	}
 
 	void write(std::ostream &f)

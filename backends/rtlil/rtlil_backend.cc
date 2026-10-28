@@ -57,7 +57,7 @@ static std::string twine_cmt(const RTLIL::Design *design, IdString ref, DumpMode
 {
 	if (mode != DumpMode::Replayable || ID::is_static(ref))
 		return "";
-	return stringf("  # %s", design->twines().str(ref).c_str());
+	return stringf("  # %s", design->twines().str(ref));
 }
 
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
@@ -193,9 +193,9 @@ void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk,
 	if (chunk.width == chunk.wire->width && chunk.offset == 0)
 		f << name;
 	else if (chunk.width == 1)
-		f << stringf("%s [%d]", name.c_str(), chunk.offset);
+		f << stringf("%s [%d]", name, chunk.offset);
 	else
-		f << stringf("%s [%d:%d]", name.c_str(), chunk.offset+chunk.width-1, chunk.offset);
+		f << stringf("%s [%d:%d]", name, chunk.offset+chunk.width-1, chunk.offset);
 }
 
 void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint, DumpMode mode)
@@ -218,7 +218,7 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 	dump_attributes(f, indent, wire, design, mode);
 	if (wire->known_driver()) {
 		f << stringf("%s" "# driver %s %s\n", indent,
-				wire->driverCell()->name, design->twines().str(wire->driverPort()).c_str());
+				wire->driverCell()->name, design->twines().str(wire->driverPort()));
 	}
 	f << stringf("%s" "wire ", indent);
 	if (wire->width != 1)

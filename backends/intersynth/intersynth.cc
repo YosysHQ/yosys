@@ -153,7 +153,7 @@ struct IntersynthBackend : public Backend {
 							wire->name.unescape(), wire->width, wire->port_input ? "*" : "",
 							wire->port_input ? "input" : "output", wire->name.unescape(), wire->width, wire->name.unescape()));
 					netlists_code += stringf("node %s %s PORT %s\n", wire->name.unescape(), wire->name.unescape(),
-							netname(conntypes_code, celltypes_code, constcells_code, sigmap(wire)).c_str());
+							netname(conntypes_code, celltypes_code, constcells_code, sigmap(wire)));
 				}
 			}
 

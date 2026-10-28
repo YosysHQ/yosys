@@ -1041,7 +1041,7 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 			merged_scl = convert_liberty_files_to_merged_scl(config.liberty_files, run_abc.dont_use_args, config.exe_file);
 		}
 		if (!merged_scl.empty()) {
-			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+			run_abc.abc_script += stringf("read_scl \"%s\" ; ", merged_scl);
 		} else if(!config.liberty_files.empty()) {
 			if (!config.abc_liberty_args.empty()) {
 				log("ABC: abc_liberty_args provided, using liberty format\n");
@@ -1466,7 +1466,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 void emit_global_input_files(const AbcConfig &config)
 {
 	if (!config.lut_costs.empty()) {
-		std::string buffer = stringf("%s/lutdefs.txt", config.global_tempdir_name.c_str());
+		std::string buffer = stringf("%s/lutdefs.txt", config.global_tempdir_name);
 		FILE *f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
 			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
@@ -1476,7 +1476,7 @@ void emit_global_input_files(const AbcConfig &config)
 	} else {
 		auto &cell_cost = config.cmos_cost ? CellCosts::cmos_gate_cost() : CellCosts::default_gate_cost();
 
-		std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name.c_str());
+		std::string buffer = stringf("%s/stdcells.genlib", config.global_tempdir_name);
 		FILE *f = fopen(buffer.c_str(), "wt");
 		if (f == nullptr)
 			log_error("Opening %s for writing failed: %s\n", buffer, strerror(errno));
@@ -1599,7 +1599,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				continue;
 			}
 			if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::Y}) {
 					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
@@ -1609,7 +1609,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				continue;
 			}
 			if (c->type.in(ID(MUX), ID(NMUX))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
 					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
@@ -1650,7 +1650,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				continue;
 			}
 			if (c->type.in(ID(AOI3), ID(OAI3))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
 					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
@@ -1660,7 +1660,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				continue;
 			}
 			if (c->type.in(ID(AOI4), ID(OAI4))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape().c_str()));
+				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
 				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
 					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);

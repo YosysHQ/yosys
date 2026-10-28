@@ -448,7 +448,7 @@ struct VerilogWriter
 
 	void dump_parameter(std::ostream &f, std::string indent, RTLIL::IdString id_string, RTLIL::Const parameter)
 	{
-		f << stringf("%sparameter %s = ", indent.c_str(), id_of(id_string).c_str());
+		f << stringf("%sparameter %s = ", indent, id_of(id_string));
 		dump_const(f, parameter);
 		f << ";\n";
 	}
