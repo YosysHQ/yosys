@@ -143,16 +143,16 @@ struct IntersynthBackend : public Backend {
 				log_error("Can't generate a netlist for a module with unprocessed memories or processes!\n");
 
 			std::set<std::string> constcells_code;
-			netlists_code += stringf("# Netlist of module %s\n", module->name.unescape());
-			netlists_code += stringf("netlist %s\n", module->name.unescape());
+			netlists_code += stringf("# Netlist of module %s\n", module);
+			netlists_code += stringf("netlist %s\n", module);
 
 			// Module Ports: "std::set<string> celltypes_code" prevents duplicate top level ports
 			for (auto wire : module->wires()) {
 				if (wire->port_input || wire->port_output) {
 					celltypes_code.insert(stringf("celltype !%s b%d %sPORT\n" "%s %s %d %s PORT\n",
-							wire->name.unescape(), wire->width, wire->port_input ? "*" : "",
-							wire->port_input ? "input" : "output", wire->name.unescape(), wire->width, wire->name.unescape()));
-					netlists_code += stringf("node %s %s PORT %s\n", wire->name.unescape(), wire->name.unescape(),
+							wire, wire->width, wire->port_input ? "*" : "",
+							wire->port_input ? "input" : "output", wire, wire->width, wire));
+					netlists_code += stringf("node %s %s PORT %s\n", wire, wire,
 							netname(conntypes_code, celltypes_code, constcells_code, sigmap(wire)));
 				}
 			}
@@ -166,7 +166,7 @@ struct IntersynthBackend : public Backend {
 					log_error("Found unknown cell type %s in module!\n", cell->type.unescape());
 
 				celltype_code = stringf("celltype %s", cell->type.unescape());
-				node_code = stringf("node %s %s", cell->name.unescape(), cell->type.unescape());
+				node_code = stringf("node %s %s", cell, cell->type.unescape());
 				for (auto &port : cell->connections()) {
 					RTLIL::SigSpec sig = sigmap(port.second);
 					if (sig.size() != 0) {

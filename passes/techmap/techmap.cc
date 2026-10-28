@@ -975,7 +975,7 @@ struct TechmapWorker
 
 				if (extern_mode && !in_recursion)
 				{
-					std::string m_name = stringf("$extern:%s", tpl->name.unescape());
+					std::string m_name = stringf("$extern:%s", tpl);
 
 					if (!design->module(design->twines().add(m_name)))
 					{
@@ -991,7 +991,7 @@ struct TechmapWorker
 				}
 				else
 				{
-					auto msg = stringf("Using template %s for cells of type %s.", tpl->name.unescape(), cell->type.unescape());
+					auto msg = stringf("Using template %s for cells of type %s.", tpl, cell->type.unescape());
 					if (!log_msg_cache.count(msg)) {
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);

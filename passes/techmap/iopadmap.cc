@@ -433,7 +433,7 @@ struct IopadmapPass : public Pass {
 						SigBit wire_bit(wire, i);
 
 						RTLIL::Cell *cell = module->addCell(
-							module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
+							module->uniquify(stringf("$iopadmap$%s.%s", module, wire)),
 							module->twines().add(RTLIL::escape_id(celltype)));
 						cell->setPort(RTLIL::escape_id(portname_int), wire_bit);
 
@@ -449,7 +449,7 @@ struct IopadmapPass : public Pass {
 				else
 				{
 					RTLIL::Cell *cell = module->addCell(
-						module->uniquify(stringf("$iopadmap$%s.%s", module->name.unescape(), wire->name.unescape())),
+						module->uniquify(stringf("$iopadmap$%s.%s", module, wire)),
 						module->twines().add(RTLIL::escape_id(celltype)));
 					cell->setPort(RTLIL::escape_id(portname_int), RTLIL::SigSpec(wire));
 

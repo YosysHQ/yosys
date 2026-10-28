@@ -698,7 +698,7 @@ struct ExtractPass : public Pass {
 			{
 				log("\n");
 				log("Frequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				std::string message = stringf("  primary match in %s:", haystack_map.at(result.graphId)->name.unescape());
+				std::string message = stringf("  primary match in %s:", haystack_map.at(result.graphId));
 				for (auto &node : result.nodes)
 					message += stringf(" %s", RTLIL::unescape_id(node.nodeId));
 				log("%s\n", message);
@@ -722,7 +722,7 @@ struct ExtractPass : public Pass {
 							wires.insert(chunk.wire);
 				}
 
-				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits));
+				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId), result.totalMatchesAfterLimits));
 
 				for (auto wire : wires) {
 					RTLIL::Wire *newWire = newMod->addWire(map->twines().copy_from(design->twines(), wire->name), wire->width);
