@@ -4859,6 +4859,8 @@ replace_fcall_later:;
 		case AST_CAST_SIZE:
 			if (children.at(0)->type == AST_CONSTANT && children.at(1)->type == AST_CONSTANT) {
 				int width = children[0]->bitsAsConst().as_int();
+				if (width <= 0)
+					input_error("Static cast with zero or negative size!\n");
 				RTLIL::Const val;
 				if (children[1]->is_unsized)
 					val = children[1]->bitsAsUnsizedConst(width);
