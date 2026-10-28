@@ -109,6 +109,7 @@ struct SigSnippets
 struct SnippetSwCache
 {
 	dict<RTLIL::SwitchRule*, pool<RTLIL::SigBit>> full_case_bits_cache;
+	dict<RTLIL::SwitchRule*, bool> exhaustive_cache;
 	dict<RTLIL::SwitchRule*, pool<int>> cache;
 	const SigSnippets *snippets;
 	int current_snippet;
@@ -318,6 +319,51 @@ const pool<SigBit> &get_full_case_bits(SnippetSwCache &swcache, RTLIL::SwitchRul
 	return swcache.full_case_bits_cache.at(sw);
 }
 
+// true if the cases cover every value of the switch signal (unlike full_case, which may be asserted by the user)
+static bool switch_is_exhaustive(RTLIL::SwitchRule *sw)
+{
+	for (auto cs : sw->cases)
+		if (cs->compare.empty())
+			return true;
+
+	int width = GetSize(sw->signal);
+	if (width == 0)
+		return false;
+
+	bool fully_defined = true;
+	for (auto bit : sw->signal)
+		if (bit.wire == NULL)
+			fully_defined = false;
+	for (auto cs : sw->cases)
+		for (auto &pat : cs->compare)
+			if (!pat.is_fully_def())
+				fully_defined = false;
+
+	if (fully_defined) {
+		if (width >= 32)
+			return false;
+		pool<RTLIL::SigSpec> values;
+		for (auto cs : sw->cases)
+			for (auto &pat : cs->compare)
+				values.insert(pat);
+		return GetSize(values) == (1 << width);
+	}
+
+	BitPatternPool pool(sw->signal);
+	for (auto cs : sw->cases)
+		for (auto &pat : cs->compare)
+			if (pat.is_fully_const())
+				pool.take(pat);
+	return pool.empty();
+}
+
+bool get_switch_is_exhaustive(SnippetSwCache &swcache, RTLIL::SwitchRule *sw)
+{
+	if (!swcache.exhaustive_cache.count(sw))
+		swcache.exhaustive_cache[sw] = switch_is_exhaustive(sw);
+	return swcache.exhaustive_cache.at(sw);
+}
+
 RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, dict<RTLIL::SwitchRule*, bool> &swpara,
 		RTLIL::CaseRule *cs, const RTLIL::SigSpec &sig, const RTLIL::SigSpec &defval, bool ifxmode)
 {
@@ -393,25 +439,32 @@ RTLIL::SigSpec signal_to_mux_tree(RTLIL::Module *mod, SnippetSwCache &swcache, d
 			if (full_case_bits.count(sig[i]))
 				result[i] = State::Sx;
 
-		// For full_case switches, if a majority of arms assign the same value to a bit
-		// (via direct actions), use that as the else-branch seed instead of Sx. This
-		// lets proc_mux skip generating mux cells for arms that produce the dominant value.
-		if (!full_case_bits.empty() && !sw->cases.empty()) {
-			int n = GetSize(sw->cases);
-			std::vector<dict<SigBit, int>> counts(GetSize(sig));
+		// the default is unreachable for an exhaustive switch, so use the most common arm value instead of Sx
+		if (!full_case_bits.empty() && !ifxmode && get_switch_is_exhaustive(swcache, sw)) {
+			std::vector<RTLIL::SigSpec> arm_values;
+			dict<RTLIL::SigSpec, int> counts;
 			for (auto cs2 : sw->cases) {
-				RTLIL::SigSpec probe = RTLIL::SigSpec(RTLIL::State::Sx, sig.size());
+				RTLIL::SigSpec value = result;
 				for (auto &action : cs2->actions)
-					sig.replace(action.first, action.second, &probe);
-				for (int i = 0; i < GetSize(sig); i++)
-					if (full_case_bits.count(sig[i]) && probe[i] != RTLIL::State::Sx)
-						counts[i][probe[i]]++;
+					sig.replace(action.first, action.second, &value);
+				bool fully_assigned = true;
+				for (int i = 0; i < GetSize(sig); i++) {
+					if (!full_case_bits.count(sig[i]))
+						value[i] = result[i];
+					else if (value[i] == RTLIL::State::Sx)
+						fully_assigned = false;
+				}
+				if (fully_assigned) {
+					arm_values.push_back(value);
+					counts[value]++;
+				}
 			}
-			for (int i = 0; i < GetSize(sig); i++) {
-				if (!full_case_bits.count(sig[i])) continue;
-				for (auto &kv : counts[i])
-					if (kv.second * 2 > n) { result[i] = kv.first; break; }
-			}
+			int best_count = 1;
+			for (auto &value : arm_values)
+				if (counts.at(value) > best_count) {
+					best_count = counts.at(value);
+					result = value;
+				}
 		}
 
 		// evaluate in reverse order to give the first entry the top priority
