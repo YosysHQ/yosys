@@ -7,3 +7,4 @@ EOT
 
 logger -expect warning "Unsupported Verific primitive .* of type sva_expect" 1
 verific -import -k top
+logger -check-expected
