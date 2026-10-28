@@ -646,6 +646,18 @@ struct RTLILFrontendWorker {
 		expect_eol();
 	}
 
+	void parse_metadata()
+	{
+		expect_eol();
+		while (!try_parse_keyword("end")) {
+			if (try_parse_keyword("twines"))
+				parse_twines();
+			else
+				error("Unexpected section `%s' in metadata block.", error_token());
+		}
+		expect_eol();
+	}
+
 	void parse_parameter()
 	{
 		IdString id = parse_twine();
@@ -1045,8 +1057,8 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
-			if (try_parse_keyword("twines")) {
-				parse_twines();
+			if (try_parse_keyword("metadata")) {
+				parse_metadata();
 				continue;
 			}
 			error("Unexpected token: %s", error_token());
