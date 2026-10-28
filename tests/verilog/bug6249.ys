@@ -36,3 +36,11 @@ EOT
 prep -top top
 chformal -lower
 sat -verify -enable_undef -set-def-inputs -prove-asserts -show-all
+
+design -reset
+logger -expect error "Static cast with zero or negative size!" 1
+read_verilog -sv <<EOT
+module top(output [7:0] y);
+	assign y = (-1)'(1);
+endmodule
+EOT
