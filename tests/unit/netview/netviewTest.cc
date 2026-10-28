@@ -1068,6 +1068,26 @@ TEST_F(NetViewTest, loopOfNewBuffersEnds)
 	EXPECT_EQ(ref.objects, std::vector<const void *>{next->instance(u_inv2)->pins[0]});
 }
 
+TEST_F(NetViewTest, newBufferKeepsTheDriverPartOfANet)
+{
+	Wire *n = top->addWire("\\n");
+	top->connect(n, d0);
+	NetView view;
+	view.build(d);
+	TrackedRef net{TrackedRef::ObjectKind::Net};
+	net.objects = {view.instance(u_inv0)->pins[1]->net};
+	view.closeEpoch({&net}, Protection::Barriers);
+	// insbuf makes the connection a buffer
+	top->new_connections({{tie, State::S0}});
+	Cell *buf = top->addCell("$buf", ID($_BUF_));
+	buf->setPort(ID::A, d0);
+	buf->setPort(ID::Y, n);
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&net});
+	EXPECT_EQ(net.objects, std::vector<const void *>{next->instance(u_sub)->pins[0]->net});
+}
+
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
 {
 	// splitnets copies the hdlname of a flat vector to each bit

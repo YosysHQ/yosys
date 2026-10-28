@@ -369,12 +369,44 @@ const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const 
 	return net;
 }
 
+// The net that drives a net through a buffer that a pass made
+const Netlist::Net *detail::Resolver::newBufferInput(const Netlist::Net *net) const
+{
+	for (const Netlist::Pin *pin : net->pins) {
+		if (!view_.isNewBuffer(pin->inst) || !view_.isDriver(pin))
+			continue;
+		for (const Netlist::Pin *input : pin->inst->pins) {
+			if (input != pin && input->net != nullptr)
+				return input->net;
+		}
+	}
+	return nullptr;
+}
+
+// insbuf splits a net with buffers, so the parts that no other part drives keep its
+// meaning, and the part that drives them all when there are several
+std::vector<const void *> detail::Resolver::bufferSplitRoots(const pool<const Netlist::Net *> &parts) const
+{
+	std::vector<const void *> roots;
+	for (const Netlist::Net *part : parts) {
+		if (!parts.count(newBufferInput(part)))
+			roots.push_back(part);
+	}
+	if (roots.size() < 2)
+		return roots;
+	for (const void *&root : roots) {
+		while (const Netlist::Net *input = newBufferInput(static_cast<const Netlist::Net *>(root)))
+			root = input;
+	}
+	return detail::uniqueSorted(roots);
+}
+
 std::vector<const void *> detail::Resolver::resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
-	std::vector<const void *> nets;
 	pool<const void *> outer;
+	pool<const Netlist::Net *> parts;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Net)) {
-		nets.push_back(hit->net);
+		parts.insert(hit->net);
 		bool in_old_scope = paths_.scopePath(hit->net->scope) == hit->anchor.net_scope_path;
 		if (in_old_scope || !outer.insert(hit->net).second)
 			continue;
@@ -383,8 +415,9 @@ std::vector<const void *> detail::Resolver::resolveNet(const std::vector<AnchorH
 		if (inside.size() < hit->net->pins.size())
 			through_pins.insert(through_pins.end(), inside.begin(), inside.end());
 	}
-	if (!nets.empty())
-		return detail::uniqueSorted(nets);
+	if (!parts.empty())
+		return bufferSplitRoots(parts);
+	std::vector<const void *> nets;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const void *> pins;
 		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
