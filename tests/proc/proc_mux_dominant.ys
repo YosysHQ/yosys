@@ -39,6 +39,7 @@ proc
 select -assert-count 2 t:$eq
 select -assert-count 1 t:$logic_not
 select -assert-count 1 t:$pmux
+sat -set s 2'b11 -set-def-inputs -enable_undef -prove-x y 3'bxxx -verify
 
 design -reset
 read_rtlil proc_mux_dominant.il
