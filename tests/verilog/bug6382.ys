@@ -1,0 +1,54 @@
+design -reset
+read_verilog -formal -sv <<EOT
+module top();
+	localparam B = 1;
+	localparam int unsigned W = 8;
+	localparam int P = 255;
+
+	wire [7:0] a  = 8'hAC;
+	wire [3:0] in = 4'd5;
+
+	wire [32:0] x1  = 33'(1 << 31);
+	wire [32:0] x2  = 33'(1'b1 << 31);
+	wire [32:0] x3  = 33'(B << 31);
+	wire [32:0] x4  = 33'((1 << 31) - 1);
+	wire [9:0]  x5  = 10'(4'hF * 6'hA);
+	wire [63:0] x6  = byte'(a);
+	wire [7:0] x7  = W'(5) + 8'hff;
+	wire [7:0] x8  = 8'(5) + 8'hff;
+	wire [7:0] x9  = W'(5) + W'(P);
+	wire [7:0] x10 = 8'(3) - W'(5);
+	wire [7:0] x11 = 8'(-1) + 8'd1;
+	wire [7:0] x12 = -W'(5);
+	wire [7:0] x13 = ~W'(5);
+	wire [7:0] x14 = W'(in) + 8'hff;
+	wire [8:0] x15 = W'(5) + 8'hff;
+
+	// reference values from icarus verilog
+	always @* begin
+		// 6331
+		assert(x1  == 33'h0_8000_0000);
+		assert(x2  == 33'h0_8000_0000);
+		assert(x3  == 33'h0_8000_0000);
+		assert(x4  == 33'h0_7fff_ffff);
+		assert(x5  == 10'd150);
+
+		// 6401
+		assert(x6  == 64'hFFFF_FFFF_FFFF_FFAC);
+
+		// 6332
+		assert(x7  == 8'h04);
+		assert(x8  == 8'h04);
+		assert(x9  == 8'h04);
+		assert(x10 == 8'hfe);
+		assert(x11 == 8'd0);
+		assert(x12 == 8'hfb);
+		assert(x13 == 8'hfa);
+		assert(x14 == 8'h04);
+		assert(x15 == 9'h104);
+	end
+endmodule
+EOT
+prep -top top
+chformal -lower
+sat -verify -enable_undef -set-def-inputs -prove-asserts -show-all
