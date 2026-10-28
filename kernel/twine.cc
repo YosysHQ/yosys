@@ -53,7 +53,7 @@ std::string ID::unescaped_str(IdString ref) {
 	return static_names[idx.raw()];
 }
 
-TwineSpec::TwineSpec(Leaf v) : data(std::move(v)) {}
+TwineSpec::TwineSpec(Root v) : data(std::move(v)) {}
 TwineSpec::TwineSpec(Suffix v) : data(std::move(v)) {}
 TwineSpec::TwineSpec(AutoSuffix v) : data(std::move(v)) {}
 
@@ -230,8 +230,8 @@ void TwinePool::dump(IdString ref, std::ostream& os) const {
 	case TwineNode::Kind::Dead:
 		os << "Dead()";
 		break;
-	case TwineNode::Kind::Leaf:
-		os << "Leaf(\"" << twine.text() << "\")";
+	case TwineNode::Kind::Root:
+		os << "Root(\"" << twine.text() << "\")";
 		break;
 	case TwineNode::Kind::Suffix:
 		os << "Suffix(prefix: ";
@@ -255,7 +255,7 @@ void TwinePool::append_str(IdString ref, std::string& out) const {
 	case TwineNode::Kind::Suffix:
 		append_str(twine.prefix(), out);
 		[[fallthrough]];
-	case TwineNode::Kind::Leaf:
+	case TwineNode::Kind::Root:
 		out += twine.text();
 		break;
 	}
@@ -299,8 +299,8 @@ IdString TwinePool::find(std::string_view name) const {
 
 IdString TwinePool::find(TwineSpec t) const {
 	log_assert(!std::holds_alternative<TwineSpec::AutoSuffix>(t.data));
-	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
-		return stamp(find_content(TwineNode::NO_PREFIX, leaf->s));
+	if (auto *root = std::get_if<TwineSpec::Root>(&t.data))
+		return stamp(find_content(TwineNode::NO_PREFIX, root->s));
 	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
 	return stamp(find_content((uint32_t)sfx.prefix.untag().raw(), sfx.tail).tag(sfx.prefix.isPublic()));
 }
@@ -308,8 +308,8 @@ IdString TwinePool::find(TwineSpec t) const {
 IdString TwinePool::add(TwineSpec t) {
 	if (auto *ap = std::get_if<TwineSpec::AutoSuffix>(&t.data))
 		return add(auto_prefix(ap->prefix), ap->tail + std::to_string(next_autoidx()));
-	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
-		return stamp(intern(TwineNode::NO_PREFIX, leaf->s));
+	if (auto *root = std::get_if<TwineSpec::Root>(&t.data))
+		return stamp(intern(TwineNode::NO_PREFIX, root->s));
 	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
 	return add(sfx.prefix, sfx.tail);
 }
@@ -415,7 +415,7 @@ TwineSegments::TwineSegments(const TwinePool &pool, IdString ref)
 			push(t.text());
 			cur = t.prefix();
 			continue;
-		case TwineNode::Kind::Leaf:
+		case TwineNode::Kind::Root:
 			push(t.text());
 			break;
 		case TwineNode::Kind::Dead:
@@ -555,7 +555,7 @@ int TwinePool::compare_by_name(IdString a, IdString b) const
 	if (a.isPublic() == b.isPublic()) {
 		const TwineNode &ta = (*this)[a.untag()];
 		const TwineNode &tb = (*this)[b.untag()];
-		if (ta.is_leaf() && tb.is_leaf())
+		if (ta.is_root() && tb.is_root())
 			return ta.text().compare(tb.text());
 		if (ta.is_suffix() && tb.is_suffix() && ta.prefix() == tb.prefix())
 			return ta.text().compare(tb.text());

@@ -54,7 +54,7 @@ struct RTLILFrontendWorker {
 	std::vector<IdString> twine_parser_holds;
 
 	struct TwineDesc {
-		enum Kind { Leaf, Suffix } kind;
+		enum Kind { Root, Suffix } kind;
 		std::string text;
 		size_t parent = 0;
 		bool materializing = false;
@@ -523,8 +523,8 @@ struct RTLILFrontendWorker {
 				continue;
 			const TwineDesc &desc = twine_descs.at(id);
 			IdString found;
-			if (desc.kind == TwineDesc::Leaf)
-				found = design->twines().find(TwineSpec{TwineSpec::Leaf{desc.text}});
+			if (desc.kind == TwineDesc::Root)
+				found = design->twines().find(TwineSpec{TwineSpec::Root{desc.text}});
 			else
 				found = design->twines().find(TwineSpec{TwineSpec::Suffix{
 						IdString(desc.parent), desc.text}});
@@ -556,8 +556,8 @@ struct RTLILFrontendWorker {
 		desc.materializing = true;
 		IdString ref;
 		switch (desc.kind) {
-		case TwineDesc::Leaf:
-			ref = design->twines().add(TwineSpec::Leaf{desc.text});
+		case TwineDesc::Root:
+			ref = design->twines().add(TwineSpec::Root{desc.text});
 			break;
 		case TwineDesc::Suffix:
 			ref = design->twines().add(TwineSpec::Suffix{
@@ -604,10 +604,10 @@ struct RTLILFrontendWorker {
 		while (true) {
 			if (try_parse_keyword("end"))
 				break;
-			if (try_parse_keyword("leaf")) {
+			if (try_parse_keyword("root")) {
 				size_t file_id = parse_integer();
 				TwineDesc &desc = twine_descs[file_id];
-				desc.kind = TwineDesc::Leaf;
+				desc.kind = TwineDesc::Root;
 				desc.text = parse_string();
 				expect_eol();
 				continue;
@@ -621,7 +621,7 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
-			error("Expected `leaf` or `suffix` inside twines block, got `%s'.",
+			error("Expected `root` or `suffix` inside twines block, got `%s'.",
 					error_token());
 		}
 		std::vector<size_t> ordered_ids;

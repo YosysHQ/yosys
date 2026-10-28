@@ -1,10 +1,10 @@
 autoidx 1
 metadata
   twines
-    leaf 1054 "everything"
+    root 1054 "everything"
     suffix 1055 1054 ".a"
     suffix 1056 1054 ".b"
-    leaf 1057 "tiny"
+    root 1057 "tiny"
   end
 end
 module $pub@1057  # \tiny

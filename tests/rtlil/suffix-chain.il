@@ -1,7 +1,7 @@
 autoidx 1
 metadata
   twines
-    leaf 1054 "home"
+    root 1054 "home"
     suffix 1055 1054 ".repo"
     suffix 1056 1055 ".chain"
     suffix 1057 1056 ".in"

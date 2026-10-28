@@ -147,8 +147,8 @@ static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool
 	for (IdString id : ids) {
 		const TwineNode &n = design->twines()[id];
 		switch (n.kind()) {
-		case TwineNode::Kind::Leaf:
-			f << stringf("    leaf %zu ", id.raw());
+		case TwineNode::Kind::Root:
+			f << stringf("    root %zu ", id.raw());
 			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
 			break;

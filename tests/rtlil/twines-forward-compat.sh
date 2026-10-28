@@ -8,7 +8,7 @@ cat > temp/moved-static.il <<EOF
 autoidx 1
 metadata
   twines
-    leaf 42 "A"
+    root 42 "A"
     suffix 999999 42 ".sub"
   end
 end
@@ -24,9 +24,9 @@ cat > temp/stale-dynamic.il <<EOF
 autoidx 1
 metadata
   twines
-    leaf 3 "everything"
+    root 3 "everything"
     suffix 4 3 ".sub"
-    leaf 5 "tiny"
+    root 5 "tiny"
   end
 end
 module \$pub@5
@@ -39,4 +39,4 @@ grep -q '# \\tiny' temp/stale-dynamic-out.il
 grep -q '# \\everything.sub' temp/stale-dynamic-out.il
 
 ${YOSYS} -p "read_rtlil temp/moved-static.il; write_rtlil temp/roundtrip.il"
-grep -q 'leaf .* "A"' temp/roundtrip.il
+grep -q 'root .* "A"' temp/roundtrip.il
