@@ -1551,7 +1551,16 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_S_EVENTUALLY || inst->Type() == PRIM_SVA_EVENTUALLY)
 		{
 			if (mode_cover || mode_trigger)
-				parser_error(inst);
+				parser_error("Unsupported eventually cover", inst);
+
+			// check for bounded eventually
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+			int sva_low = atoi(sva_low_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			if (sva_low != 0 || !sva_inf)
+				parser_error("Unsupported bounded eventually", inst);
 
 			net = inst->GetInput();
 			clocking.cond_net = nullptr;

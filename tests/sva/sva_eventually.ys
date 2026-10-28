@@ -1,48 +1,39 @@
 # cover statements are not currently compatible with eventually properties
-verific -formal << EOT
-module top (input clk, rst);
-    cover property (@(posedge clk) disable iff (rst) s_eventually 1'b0);
-endmodule
-EOT
+verific -formal sva_eventually.sv
 
-logger -expect warning "sva_s_eventually .* is currently unsupported in this context" 1
-verific -import -sva-continue-on-err top
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_immediate
 logger -check-expected
 
 design -reset
-verific -formal << EOT
-module top (input clk, rst);
-    always @(posedge clk)
-        cover property (disable iff (rst) s_eventually 1'b0);
-endmodule
-EOT
+verific -formal sva_eventually.sv
 
-logger -expect warning "sva_s_eventually .* is currently unsupported in this context" 1
-verific -import -sva-continue-on-err top
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_mixed
 logger -check-expected
 
 # even if there is a mux in the way
 design -reset
-verific -formal << EOT
-module top (input clk, rst);
-    always @(posedge clk)
-        if (!rst)
-            cover property (s_eventually 1'b0);
-endmodule
-EOT
+verific -formal sva_eventually.sv
 
-logger -expect warning "sva_s_eventually .* is currently unsupported in this context" 1
-verific -import -sva-continue-on-err top
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_sequential
+logger -check-expected
+
+# asserts import fine, regardless of nesting
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_immediate
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_sequential
 logger -check-expected
 
 # bounded eventually properties are not currently supported
 design -reset
-verific -formal << EOT
-module top (input clk);
-    assert property (@(posedge clk) s_eventually [1:4] 1'b0);
-endmodule
-EOT
+verific -formal sva_eventually.sv
 
-logger -expect warning "sva_s_eventually .* is currently unsupported in this context" 1
-verific -import -sva-continue-on-err top
+logger -expect warning "Unsupported bounded eventually" 1
+verific -import -sva-continue-on-err assert_bounded
 logger -check-expected
