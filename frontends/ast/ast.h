@@ -40,6 +40,14 @@ namespace AST
 	inline IdString intern_attr_name(std::string_view name) { return ast_name_pool().add(name); }
 	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
 
+	struct DesignScope {
+		explicit DesignScope(RTLIL::Design *design);
+		~DesignScope();
+	private:
+		RTLIL::Design *prev;
+	};
+	int ast_autoidx();
+
 	// all node types, type2str() must be extended
 	// whenever a new node type is added here
 	enum AstNodeType
@@ -403,6 +411,8 @@ namespace AST
 	// parametric modules are supported directly by the AST library
 	// therefore we need our own derivate of RTLIL::Module with overloaded virtual functions
 	struct AstModule : RTLIL::Module {
+		using RTLIL::Module::Module;
+
 		std::unique_ptr<AstNode> ast;
 		bool nolatches, nomeminit, nomem2reg, mem2reg, noblackbox, lib, nowb, noopt, icells, pwires, autowire;
 		RTLIL::IdString derive(RTLIL::Design *design, const dict<RTLIL::IdString, RTLIL::Const> &parameters, bool mayfail) override;

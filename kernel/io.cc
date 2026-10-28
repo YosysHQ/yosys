@@ -379,7 +379,7 @@ bool make_private_directory(const std::string& dirname)
 {
 #if defined(_WIN32) || defined(__wasi__)
 	if (!create_directory(dirname)) {
-		log_warning("Cannot create the directory %s\n", dirname.c_str());
+		log_warning("Cannot create the directory %s\n", dirname);
 		return false;
 	}
 	return true;
@@ -398,20 +398,20 @@ bool make_private_directory(const std::string& dirname)
 	}
 
 	if (err != EEXIST) {
-		log_warning("Cannot create the directory %s: %s\n", dirname.c_str(), strerror(err));
+		log_warning("Cannot create the directory %s: %s\n", dirname, strerror(err));
 		return false;
 	}
 
 	// Do not use a leftover that isn't ours
 	struct stat st;
 	if (lstat(dirname.c_str(), &st) != 0 || !S_ISDIR(st.st_mode) || st.st_uid != geteuid()) {
-		log_warning("%s is not a directory of this user\n", dirname.c_str());
+		log_warning("%s is not a directory of this user\n", dirname);
 		return false;
 	}
 	// Repair the mode if something changed it
 	mode_t mode = st.st_mode & 0777;
 	if (((mode & S_IRWXU) != S_IRWXU || (mode & (S_IWGRP | S_IWOTH)) != 0) && chmod(dirname.c_str(), 0700) != 0) {
-		log_warning("Cannot make the directory %s private: %s\n", dirname.c_str(), strerror(errno));
+		log_warning("Cannot make the directory %s private: %s\n", dirname, strerror(errno));
 		return false;
 	}
 
@@ -425,7 +425,7 @@ std::string make_user_tmpdir(const std::string& name)
 #if defined(_WIN32) || defined(__wasi__)
 	std::string dirname = get_base_tmpdir() + "/" + name;
 #else
-	std::string dirname = stringf("%s/%s-%u", get_base_tmpdir().c_str(), name.c_str(), (unsigned)geteuid());
+	std::string dirname = stringf("%s/%s-%u", get_base_tmpdir(), name, (unsigned)geteuid());
 #endif
 	return make_private_directory(dirname) ? dirname : "";
 }
@@ -689,12 +689,12 @@ ScopedFileLock::ScopedFileLock(const std::string &path)
 			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 			NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (h == INVALID_HANDLE_VALUE) {
-		log_warning("Cannot open lock file %s, proceeding without lock\n", path.c_str());
+		log_warning("Cannot open lock file %s, proceeding without lock\n", path);
 		return;
 	}
 	OVERLAPPED ov = {};
 	if (!LockFileEx(h, LOCKFILE_EXCLUSIVE_LOCK, 0, MAXDWORD, MAXDWORD, &ov)) {
-		log_warning("Cannot lock %s, proceeding without lock\n", path.c_str());
+		log_warning("Cannot lock %s, proceeding without lock\n", path);
 		CloseHandle(h);
 		return;
 	}
@@ -716,13 +716,13 @@ ScopedFileLock::ScopedFileLock(const std::string &path)
 	if (fd < 0)
 		fd = open(path.c_str(), O_RDONLY | O_CLOEXEC);
 	if (fd < 0) {
-		log_warning("Cannot open lock file %s, proceeding without lock\n", path.c_str());
+		log_warning("Cannot open lock file %s, proceeding without lock\n", path);
 		return;
 	}
 	int ret;
 	while ((ret = flock(fd, LOCK_EX)) != 0 && errno == EINTR);
 	if (ret != 0)
-		log_warning("Cannot lock %s, proceeding without lock\n", path.c_str());
+		log_warning("Cannot lock %s, proceeding without lock\n", path);
 }
 
 ScopedFileLock::~ScopedFileLock()

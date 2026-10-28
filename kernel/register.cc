@@ -188,7 +188,7 @@ void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::s
 	help();
 
 	log_cmd_error("Command syntax error: %s\n> %s\n> %*s^\n",
-			msg.c_str(), command_text.c_str(), error_pos, "");
+			msg, command_text, error_pos, "");
 }
 
 void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select)
@@ -1111,7 +1111,7 @@ struct HelpPass : public Pass {
 				auto help_cell = cell_help_messages.get(args[1]);
 				if (is_code_getter(args[1])) {
 						log("\n");
-						log("%s\n", help_cell.code);
+						log_lines(help_cell.code);
 				} else {
 					log("\n");
 					log("    %s %s\n", help_cell.name, help_cell.ports);
@@ -1124,7 +1124,7 @@ struct HelpPass : public Pass {
 							if (line != "::") log("%s\n", line);
 						}
 					} else if (help_cell.desc.length()) {
-						log("%s\n", help_cell.desc);
+						log_lines(help_cell.desc);
 					} else {
 						log("No help message for this cell type found.\n");
 					}

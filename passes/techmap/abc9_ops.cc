@@ -168,8 +168,8 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 {
 	auto r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = new Design;
-	Design *unmap_design = r.first->second;
+		r.first->second = std::make_unique<Design>();
+	Design *unmap_design = r.first->second.get();
 
 	// Keep track of derived versions of modules that we haven't used, to prevent these being used for unwanted techmaps later on.
 	pool<IdString> unused_derived;
@@ -286,13 +286,13 @@ void prep_bypass(RTLIL::Design *design)
 {
 	auto r = saved_designs.emplace("$abc9_map", nullptr);
 	if (r.second)
-		r.first->second = new Design;
-	Design *map_design = r.first->second;
+		r.first->second = std::make_unique<Design>();
+	Design *map_design = r.first->second.get();
 
 	r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = new Design;
-	Design *unmap_design = r.first->second;
+		r.first->second = std::make_unique<Design>();
+	Design *unmap_design = r.first->second.get();
 
 	pool<IdString> processed;
 	for (auto module : design->selected_modules())
@@ -494,7 +494,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->name.unescape(), cell->type.unescape());
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell, cell->type.unescape());
 			}
 			modules_sel.select(inst_module);
 		}
@@ -543,7 +543,7 @@ void prep_dff_submod(RTLIL::Design *design)
 
 void prep_dff_unmap(RTLIL::Design *design)
 {
-	Design *unmap_design = saved_designs.at("$abc9_unmap");
+	Design *unmap_design = saved_designs.at("$abc9_unmap").get();
 
 	for (auto module : design->modules()) {
 		if (!module->get_bool_attribute(ID::abc9_flop) || module->get_bool_attribute(ID::abc9_box))
@@ -881,8 +881,8 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	auto r = saved_designs.emplace("$abc9_holes", nullptr);
 	if (r.second)
-		r.first->second = new Design;
-	RTLIL::Design *holes_design = r.first->second;
+		r.first->second = std::make_unique<Design>();
+	RTLIL::Design *holes_design = r.first->second.get();
 	log_assert(holes_design);
 	RTLIL::Module *holes_module = holes_design->addModule(translate(holes_design, design, module->name));
 	log_assert(holes_module);

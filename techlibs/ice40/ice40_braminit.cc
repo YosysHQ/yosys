@@ -101,7 +101,7 @@ static void run_ice40_braminit(Module *module)
 				if (!*nptr || *endptr) {
 					log("Can not parse %s `%s` for %s.\n",
 						set_cursor ? "address" : "value",
-						nptr, token.c_str()
+						nptr, token
 					);
 					continue;
 				}

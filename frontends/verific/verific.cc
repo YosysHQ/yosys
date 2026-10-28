@@ -245,7 +245,7 @@ RTLIL::SigBit VerificImporter::net_map_at(Net *net)
 {
 	if (net->IsExternalTo(netlist))
 		log_error("Found external reference to '%s.%s' in netlist '%s', please use -flatten or -extnets.\n",
-				get_full_netlist_name(net->Owner()).c_str(), net->Name(), get_full_netlist_name(netlist).c_str());
+				get_full_netlist_name(net->Owner()), net->Name(), get_full_netlist_name(netlist));
 
 	return net_map.at(net);
 }
@@ -267,7 +267,7 @@ RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
 	std::string s = stringf("$verific$%s", obj->Name());
 	if (obj->Linefile())
 		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
-	s += stringf("$%d", autoidx++);
+	s += stringf("$%d", module->twines().next_autoidx());
 	return module->twines().add(std::move(s));
 }
 
@@ -1509,7 +1509,7 @@ void VerificImporter::recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memor
 				cell->parameters[ID::MEMID] = RTLIL::Const(memory->name.str());
 				cell->parameters[ID::ABITS] = 32;
 				cell->parameters[ID::WIDTH] = memory->width;
-				cell->parameters[ID::PRIORITY] = RTLIL::Const(autoidx-1);
+				cell->parameters[ID::PRIORITY] = RTLIL::Const(module->twines().autoidx()-1);
 			}
 			memory->start_offset = min(memory->start_offset, next_idx);
 			memory->size = max(memory->size, next_idx);
@@ -1561,8 +1561,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		return;
 	}
 
-	module = new RTLIL::Module;
-	module->design = design;
+	module = new RTLIL::Module(design);
 	module->name = module_id;
 	design->add(module);
 
@@ -1817,7 +1816,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		RTLIL::Wire *wire = module->addWire(wire_name);
 
 		if (verific_verbose)
-			log("  importing net %s as %s.\n", net->Name(), wire->name.unescape());
+			log("  importing net %s as %s.\n", net->Name(), wire);
 		import_attributes(wire->attributes, net, nl, 1);
 
 		net_map[net] = wire;
@@ -1841,7 +1840,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 
 			if (verific_verbose)
-				log("  importing netbus %s as %s.\n", netbus->Name(), wire->name.unescape());
+				log("  importing netbus %s as %s.\n", netbus->Name(), wire);
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 			wire->upto = netbus->IsUp();
 			MapIter mibus;
@@ -3803,19 +3802,19 @@ struct VerificPass : public Pass {
 
 				synth_family = args[argidx++];
 			} else if (argidx < GetSize(args) && args[argidx][0] == '-') {
-				log_cmd_error("Unknown option `%s'.\n", args[argidx].c_str());
+				log_cmd_error("Unknown option `%s'.\n", args[argidx]);
 			}
 			auto target_it = target_register.find(synth_target);
 			if (target_it == target_register.end())
-				log_cmd_error("Unknown target '%s'.\n", synth_target.c_str());
+				log_cmd_error("Unknown target '%s'.\n", synth_target);
 
 			auto family_it = target_it->second.families.find(synth_family);
 			if (family_it == target_it->second.families.end()) {
 				if (synth_family.empty())
-					log_cmd_error("Family must be specified for target '%s'.\n", synth_target.c_str());
+					log_cmd_error("Family must be specified for target '%s'.\n", synth_target);
 				else
 					log_cmd_error("Unknown family '%s' for target '%s'.\n",
-							synth_family.c_str(), synth_target.c_str());
+							synth_family, synth_target);
 			}
 
 			bool flag_lib = true;

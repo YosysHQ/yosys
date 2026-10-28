@@ -832,8 +832,8 @@ void Writer::print_impl(const char *fmt, vector<std::function<void()>> &fns)
 				size_t index = strtoul(p, &pe, 10);
 				if(*pe != '}')
 					log_error("invalid format string: expected {<number>}, {} or {{, got \"%s\": \"%s\"\n",
-						quote_fmt(std::string(p - 1, pe - p + 2).c_str()).c_str(),
-						quote_fmt(fmt).c_str());
+						quote_fmt(std::string(p - 1, pe - p + 2).c_str()),
+						quote_fmt(fmt));
 				if(p == pe)
 					index = next_index;
 				else

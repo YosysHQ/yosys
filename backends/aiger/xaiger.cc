@@ -395,8 +395,8 @@ struct XAigerWriter
 
 		struct sort_by_port_id {
 			bool operator()(const RTLIL::SigBit& a, const RTLIL::SigBit& b) const {
-				return a.wire->port_id < b.wire->port_id ||
-				    (a.wire->port_id == b.wire->port_id && a.offset < b.offset);
+				return std::tie(a.wire->port_id, a.wire->name, a.offset) <
+				    std::tie(b.wire->port_id, b.wire->name, b.offset);
 			}
 		};
 		input_bits.sort(sort_by_port_id());
@@ -642,7 +642,7 @@ struct XAigerWriter
 			RTLIL::Design *holes_design;
 			auto it = saved_designs.find("$abc9_holes");
 			if (it != saved_designs.end())
-				holes_design = it->second;
+				holes_design = it->second.get();
 			else
 				holes_design = nullptr;
 			RTLIL::Module *holes_module = holes_design ?

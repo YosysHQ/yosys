@@ -116,11 +116,12 @@ modules.
 Autoindex statements
 ^^^^^^^^^^^^^^^^^^^^
 
-The autoindex statement sets the global autoindex value used by Yosys when it
-needs to generate a unique name, e.g. ``flattenN``. The N part is filled with
-the value of the global autoindex value, which is subsequently incremented. This
-global has to be dumped into RTLIL, otherwise e.g. dumping and running a pass
-would have different properties than just running a pass on a warm design.
+The autoindex statement raises the design's autoindex value used by Yosys when
+it needs to generate a unique name, e.g. ``flattenN``. The N part is filled with
+the autoindex value, which is subsequently incremented. Each design has its own
+autoindex value. It has to be dumped into RTLIL, otherwise e.g. dumping and
+running a pass would have different properties than just running a pass on a
+warm design.
 
 .. code:: BNF
 

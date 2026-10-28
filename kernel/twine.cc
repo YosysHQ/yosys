@@ -124,13 +124,6 @@ TwineNode &TwineNode::operator=(TwineNode &&other) noexcept
 	return *this;
 }
 
-std::string TwineSpec::content_str() const {
-	if (auto *leaf = std::get_if<Leaf>(&data))
-		return leaf->s;
-	auto &autosfx = std::get<AutoSuffix>(data);
-	return *autosfx.prefix + autosfx.tail;
-}
-
 static std::pair<std::string_view, bool> unescape_name(std::string_view name) {
 	if (!name.empty() && name[0] == '\\')
 		return {name.substr(1), true};
@@ -144,11 +137,13 @@ static void check_name(std::string_view name) {
 			log_error("Found control character or space (0x%02x) in string '%s' which is not allowed in RTLIL identifiers\n", ch, std::string(name));
 }
 
-TwinePool::TwinePool() : serial_(next_serial()) {}
+TwinePool::TwinePool() : serial_(next_serial()), autoidx_(1) {}
 TwinePool::TwinePool(const TwinePool& other)
-	: HashConsPool(other), auto_prefixes(other.auto_prefixes), serial_(next_serial()) {}
+	: HashConsPool(other), auto_prefixes(other.auto_prefixes), serial_(next_serial()),
+	  autoidx_(other.autoidx_) {}
 TwinePool::TwinePool(TwinePool&& other)
-	: HashConsPool(std::move(other)), auto_prefixes(std::move(other.auto_prefixes)), serial_(next_serial()) {}
+	: HashConsPool(std::move(other)), auto_prefixes(std::move(other.auto_prefixes)), serial_(next_serial()),
+	  autoidx_(other.autoidx_) {}
 
 TwinePool& TwinePool::operator=(const TwinePool& other) {
 	if (this == &other)
@@ -156,6 +151,7 @@ TwinePool& TwinePool::operator=(const TwinePool& other) {
 	HashConsPool::operator=(other);
 	auto_prefixes = other.auto_prefixes;
 	serial_ = next_serial();
+	autoidx_ = other.autoidx_;
 	return *this;
 }
 
@@ -165,8 +161,23 @@ TwinePool& TwinePool::operator=(TwinePool&& other) {
 	HashConsPool::operator=(std::move(other));
 	auto_prefixes = std::move(other.auto_prefixes);
 	serial_ = next_serial();
+	autoidx_ = other.autoidx_;
 	return *this;
 }
+
+void TwinePool::reset() {
+	*this = TwinePool();
+}
+
+int TwinePool::next_autoidx() {
+	return autoidx_++;
+}
+
+int TwinePool::autoidx() const { return autoidx_; }
+
+void TwinePool::ensure_autoidx(int v) { autoidx_ = std::max(autoidx_, v); }
+
+size_t TwinePool::serial() const { return serial_; }
 
 bool TwinePool::owns(IdString ref) const {
 	return ref.serial() == 0 || ref.serial() == serial_;
@@ -287,8 +298,7 @@ IdString TwinePool::find(std::string_view name) const {
 }
 
 IdString TwinePool::find(TwineSpec t) const {
-	if (std::holds_alternative<TwineSpec::AutoSuffix>(t.data))
-		return stamp(find_content(TwineNode::NO_PREFIX, t.content_str()));
+	log_assert(!std::holds_alternative<TwineSpec::AutoSuffix>(t.data));
 	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
 		return stamp(find_content(TwineNode::NO_PREFIX, leaf->s));
 	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
@@ -297,7 +307,7 @@ IdString TwinePool::find(TwineSpec t) const {
 
 IdString TwinePool::add(TwineSpec t) {
 	if (auto *ap = std::get_if<TwineSpec::AutoSuffix>(&t.data))
-		return add(auto_prefix(ap->prefix), ap->tail);
+		return add(auto_prefix(ap->prefix), ap->tail + std::to_string(next_autoidx()));
 	if (auto *leaf = std::get_if<TwineSpec::Leaf>(&t.data))
 		return stamp(intern(TwineNode::NO_PREFIX, leaf->s));
 	const TwineSpec::Suffix &sfx = std::get<TwineSpec::Suffix>(t.data);
@@ -326,6 +336,7 @@ IdString TwinePool::add(std::string_view s) {
 }
 
 IdString TwinePool::copy_from(const TwinePool& src, IdString ref) {
+	ensure_autoidx(src.autoidx());
 	IdString found = find_from(src, ref);
 	if (found != IdString::Null || ref == IdString::Null)
 		return found;

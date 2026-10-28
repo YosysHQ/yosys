@@ -1,0 +1,53 @@
+read_verilog -icells <<EOT
+module top(input a, b, output y, z);
+  wire w, v;
+  (* keep *) \$_NOT_ k1 (.A(a), .Y(w));
+  (* keep *) \$_NOT_ k2 (.A(w), .Y(y));
+  \$_NOT_ n1 (.A(b), .Y(v));
+  \$_NOT_ n2 (.A(v), .Y(z));
+endmodule
+EOT
+opt_expr
+select -assert-count 3 t:$_NOT_
+select -assert-count 1 c:k2
+select -assert-none c:n2
+
+design -reset
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire \w
+  wire output 2 \y
+  attribute \keep 1
+  cell $not \k1
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \a
+    connect \Y \w
+  end
+  attribute \keep 1
+  cell $not \k2
+    parameter \A_SIGNED 0
+    parameter \A_WIDTH 1
+    parameter \Y_WIDTH 1
+    connect \A \w
+    connect \Y \y
+  end
+end
+EOT
+opt_expr
+select -assert-count 2 t:$not
+
+design -reset
+read_verilog -icells <<EOT
+module top(output o);
+  wire a, b, c;
+  (* keep *) \$_NOT_ i1 (.A(a), .Y(b));
+  (* keep *) \$_NOT_ i2 (.A(b), .Y(c));
+  (* keep *) \$_NOT_ i3 (.A(c), .Y(a));
+  assign o = a;
+endmodule
+EOT
+opt
+select -assert-count 3 t:$_NOT_

@@ -60,7 +60,7 @@ namespace pyosys {
 			return "<IdString Null>";
 		if (!name_renderable(n))
 			return stringf("<IdString #%zu%s>", n.ref().untag().raw(), n.ref().isPublic() ? " public" : "");
-		return stringf("<IdString %s>", n.str().c_str());
+		return stringf("<IdString %s>", n.str());
 	}
 
 	static py::ssize_t name_hash(const RTLIL::PooledName &n)
@@ -103,25 +103,17 @@ namespace pyosys {
 
 	struct PyName {
 		RTLIL::PooledName name;
-		unsigned int design = 0;
+		size_t pool_serial = 0;
 	};
-
-	static unsigned int design_of(const TwinePool *pool)
-	{
-		if (pool != nullptr)
-			for (auto &[hashidx, design] : *RTLIL::Design::get_all_designs())
-				if (&design->twines() == pool)
-					return hashidx;
-		return 0;
-	}
 
 	static bool alive(const PyName &n)
 	{
 		if (n.name.pool() == nullptr)
 			return true;
-		auto designs = RTLIL::Design::get_all_designs();
-		auto it = designs->find(n.design);
-		return it != designs->end() && &it->second->twines() == n.name.pool();
+		for (auto *design : *RTLIL::Design::get_all_designs())
+			if (&design->twines() == n.name.pool())
+				return design->twines().serial() == n.pool_serial;
+		return false;
 	}
 
 	static const RTLIL::PooledName &live(const PyName &n)
@@ -192,7 +184,7 @@ public:
 
 	static handle cast(const Yosys::RTLIL::PooledName &src, return_value_policy, handle)
 	{
-		return pybind11::cast(pyosys::PyName{src, pyosys::design_of(src.pool())}).release();
+		return pybind11::cast(pyosys::PyName{src, src.pool() ? src.pool()->serial() : 0}).release();
 	}
 };
 

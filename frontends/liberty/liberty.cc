@@ -428,7 +428,7 @@ void parse_type_map(std::map<std::string, std::tuple<int, int, bool>> &type_map,
 
 		if (bit_width != (std::max(bit_from, bit_to) - std::min(bit_from, bit_to) + 1))
 			log_error("Incompatible array type '%s': bit_width=%d, bit_from=%d, bit_to=%d.\n",
-					type_name.c_str(), bit_width, bit_from, bit_to);
+					type_name, bit_width, bit_from, bit_to);
 
 		type_map[type_name] = std::tuple<int, int, bool>(bit_width, std::min(bit_from, bit_to), upto);
 	next_type:;
@@ -562,8 +562,7 @@ struct LibertyFrontend : public Frontend {
 			std::map<std::string, std::tuple<int, int, bool>> type_map = global_type_map;
 			parse_type_map(type_map, cell);
 
-			RTLIL::Module *module = new RTLIL::Module;
-			module->design = design;
+			RTLIL::Module *module = new RTLIL::Module(design);
 			std::string cell_name = RTLIL::escape_id(cell->args.at(0));
 			IdString cell_name_ref = design->twines().add(cell_name);
 			module->name = cell_name_ref;
@@ -633,7 +632,7 @@ struct LibertyFrontend : public Frontend {
 
 					if (!bus_type_node || !type_map.count(bus_type_node->value))
 						log_error("Unknown or unsupported type for bus interface %s on cell %s.\n",
-								node->args.at(0).c_str(), RTLIL::unescape_id(cell_name));
+								node->args.at(0), RTLIL::unescape_id(cell_name));
 
 					int bus_type_width = std::get<0>(type_map.at(bus_type_node->value));
 					int bus_type_offset = std::get<1>(type_map.at(bus_type_node->value));

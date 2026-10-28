@@ -44,6 +44,14 @@ struct rules_t
 		int groups, abits, dbits, init;
 		vector<int> ports, wrmode, enable, transp, clocks, clkpol;
 
+		static std::string int_list_str(const vector<int> &values)
+		{
+			std::string str;
+			for (int v : values)
+				str += stringf("%4d", v);
+			return str;
+		}
+
 		void dump_config() const
 		{
 			log("      bram %s # variant %d\n", name.unescape(), variant);
@@ -52,12 +60,12 @@ struct rules_t
 			log("        dbits %d\n", dbits);
 			log("        groups %d\n", groups);
 
-			log("        ports "); for (int v : ports)  log("%4d", v); log("\n");
-			log("        wrmode"); for (int v : wrmode) log("%4d", v); log("\n");
-			log("        enable"); for (int v : enable) log("%4d", v); log("\n");
-			log("        transp"); for (int v : transp) log("%4d", v); log("\n");
-			log("        clocks"); for (int v : clocks) log("%4d", v); log("\n");
-			log("        clkpol"); for (int v : clkpol) log("%4d", v); log("\n");
+			log("        ports %s\n", int_list_str(ports));
+			log("        wrmode%s\n", int_list_str(wrmode));
+			log("        enable%s\n", int_list_str(enable));
+			log("        transp%s\n", int_list_str(transp));
+			log("        clocks%s\n", int_list_str(clocks));
+			log("        clkpol%s\n", int_list_str(clkpol));
 			log("      endbram\n");
 		}
 
@@ -719,21 +727,21 @@ grow_read_ports:;
 		for (auto it : match.min_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), match.name.unescape());
+						it.first, match.name.unescape());
 			if (match_properties[it.first] >= it.second)
 				continue;
 			log("    Rule for bram type %s rejected: requirement 'min %s %d' not met.\n",
-					match.name.unescape(), it.first.c_str(), it.second);
+					match.name.unescape(), it.first, it.second);
 			return false;
 		}
 		for (auto it : match.max_limits) {
 			if (!match_properties.count(it.first))
 				log_error("Unknown property '%s' in match rule for bram type %s.\n",
-						it.first.c_str(), match.name.unescape());
+						it.first, match.name.unescape());
 			if (match_properties[it.first] <= it.second)
 				continue;
 			log("    Rule for bram type %s rejected: requirement 'max %s %d' not met.\n",
-					match.name.unescape(), it.first.c_str(), it.second);
+					match.name.unescape(), it.first, it.second);
 			return false;
 		}
 
@@ -769,7 +777,7 @@ grow_read_ports:;
 					ss << "=\"" << value.decode_string() << "\"";
 
 				log("    Rule for bram type %s rejected: requirement 'attribute %s ...' not met.\n",
-						match.name.unescape(), ss.str().c_str());
+						match.name.unescape(), ss.str());
 				return false;
 			}
 		}
@@ -1094,11 +1102,11 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					continue;
 				if (!match_properties.count(it.first))
 					log_error("Unknown property '%s' in match rule for bram type %s.\n",
-							it.first.c_str(), match.name.unescape());
+							it.first, match.name.unescape());
 				if (match_properties[it.first] >= it.second)
 					continue;
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'min %s %d' not met.\n",
-						i+1, bram.name.unescape(), bram.variant, it.first.c_str(), it.second);
+						i+1, bram.name.unescape(), bram.variant, it.first, it.second);
 				goto next_match_rule;
 			}
 
@@ -1107,11 +1115,11 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 					continue;
 				if (!match_properties.count(it.first))
 					log_error("Unknown property '%s' in match rule for bram type %s.\n",
-							it.first.c_str(), match.name.unescape());
+							it.first, match.name.unescape());
 				if (match_properties[it.first] <= it.second)
 					continue;
 				log("    Rule #%d for bram type %s (variant %d) rejected: requirement 'max %s %d' not met.\n",
-						i+1, bram.name.unescape(), bram.variant, it.first.c_str(), it.second);
+						i+1, bram.name.unescape(), bram.variant, it.first, it.second);
 				goto next_match_rule;
 			}
 
@@ -1147,7 +1155,7 @@ void handle_memory(Mem &mem, const rules_t &rules, FfInitVals *initvals)
 						ss << "=\"" << value.decode_string() << "\"";
 
 					log("    Rule for bram type %s (variant %d) rejected: requirement 'attribute %s ...' not met.\n",
-							bram.name.unescape(), bram.variant, ss.str().c_str());
+							bram.name.unescape(), bram.variant, ss.str());
 					goto next_match_rule;
 				}
 			}

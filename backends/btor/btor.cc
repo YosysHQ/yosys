@@ -125,7 +125,7 @@ struct BtorWorker
 	{
 		if (srcsym_taken(src)) {
 			for (int i = 1;; i++) {
-				string s = stringf("%s-%d", src.c_str(), i);
+				string s = stringf("%s-%d", src, i);
 				if (!srcsym_taken(s)) {
 					src = s;
 					break;

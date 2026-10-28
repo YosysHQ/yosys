@@ -440,12 +440,12 @@ struct SynthIce40Pass : public ScriptPass
 					run(stringf("opt_clean -purge"),
 							"                                 (vpr mode)");
 					run(stringf("write_blif -attr -cname -conn -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
+							help_mode ? "<file-name>" : blif_file),
 							" (vpr mode)");
 				}
 				if (!vpr)
 					run(stringf("write_blif -gates -attr -param %s",
-							help_mode ? "<file-name>" : blif_file.c_str()),
+							help_mode ? "<file-name>" : blif_file),
 							"       (non-vpr mode)");
 			}
 		}

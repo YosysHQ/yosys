@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
 void apply_prefix(const std::string &prefix, std::string &id)
 {
 	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix, id.c_str()+1);
+		id = stringf("%s.%s", prefix, id.substr(1));
 	else
 		id = stringf("$techmap%s.%s", prefix, id);
 }
@@ -207,7 +207,7 @@ struct TechmapWorker
 
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
-				module->rename(cell, stringf("$techmap%d", autoidx++) + cell->name.str());
+				module->rename(cell, stringf("$techmap%d", module->twines().next_autoidx()) + cell->name.str());
 				break;
 			}
 
@@ -300,7 +300,7 @@ struct TechmapWorker
 				w = map_port(tpl, design, portname);
 			if (w == nullptr || w->port_id == 0) {
 				if (!portname.isPublic())
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell->name.unescape(), tpl->name.unescape());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell, tpl);
 				continue;
 			}
 
@@ -799,7 +799,7 @@ struct TechmapWorker
 							auto &data = it.second.front();
 
 							if (!data.value.is_fully_const())
-								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire->name.unescape(), log_signal(data.value));
+								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire, log_signal(data.value));
 
 							techmap_wire_names.erase(it.first);
 
@@ -929,7 +929,7 @@ struct TechmapWorker
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
-									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire->name.unescape(), log_signal(it2.value));
+									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire, log_signal(it2.value));
 						techmap_wire_names.erase(it.first);
 					}
 
@@ -975,7 +975,7 @@ struct TechmapWorker
 
 				if (extern_mode && !in_recursion)
 				{
-					std::string m_name = stringf("$extern:%s", tpl->name.unescape());
+					std::string m_name = stringf("$extern:%s", tpl);
 
 					if (!design->module(design->twines().add(m_name)))
 					{
@@ -985,18 +985,18 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), m_name.c_str());
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module, cell, m_name);
 					cell->type = cell->twines().add(m_name);
 					cell->parameters.clear();
 				}
 				else
 				{
-					auto msg = stringf("Using template %s for cells of type %s.", tpl->name.unescape(), cell->type.unescape());
+					auto msg = stringf("Using template %s for cells of type %s.", tpl, cell->type.unescape());
 					if (!log_msg_cache.count(msg)) {
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), cell->type.unescape(), tpl->name.unescape());
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), tpl);
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}
@@ -1272,9 +1272,9 @@ struct TechmapPass : public Pass {
 				if (fn.compare(0, 1, "%") == 0) {
 					if (!saved_designs.count(fn.substr(1))) {
 						delete map;
-						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
+						log_cmd_error("Can't open saved design `%s'.\n", fn.substr(1));
 					}
-					auto saved = saved_designs.at(fn.substr(1));
+					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
 							mod->clone(map);
@@ -1328,7 +1328,7 @@ struct TechmapPass : public Pass {
 			std::string maps = "";
 			for (auto &m : i.second)
 				maps += stringf(" %s", PooledName(map, m).unescape());
-			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps.c_str());
+			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps);
 		}
 		log_debug("\n");
 

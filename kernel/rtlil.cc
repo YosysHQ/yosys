@@ -1014,26 +1014,45 @@ void RTLIL::Selection::clear()
 RTLIL::Design::Design()
   : verilog_defines (new define_map_t)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
-
 	refcount_modules_ = 0;
 	selected_active_module.clear();
 	push_full_selection();
 
-	RTLIL::Design::get_all_designs()->insert(std::pair<unsigned int, RTLIL::Design*>(hashidx_, this));
+	RTLIL::Design::get_all_designs()->push_back(this);
 }
 
 RTLIL::Design::~Design()
 {
 	for (auto &pr : modules_)
 		delete pr.second;
-	RTLIL::Design::get_all_designs()->erase(hashidx_);
+	auto &all_designs = *RTLIL::Design::get_all_designs();
+	all_designs.erase(std::find(all_designs.begin(), all_designs.end(), this));
 }
 
-static std::map<unsigned int, RTLIL::Design*> all_designs;
-std::map<unsigned int, RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
+void RTLIL::Design::reset()
+{
+	for (auto mod : modules().to_vector())
+		remove(mod);
+
+	selection_stack.clear();
+	selection_vars.clear();
+	selected_active_module.clear();
+
+	twines_.reset();
+	hashidx_counter_ = HASHIDX_SEED;
+	reset_verilog_state();
+	push_full_selection();
+}
+
+void RTLIL::Design::reset_verilog_state()
+{
+	verilog_packages.clear();
+	verilog_globals.clear();
+	verilog_defines->clear();
+}
+
+static std::vector<RTLIL::Design*> all_designs;
+std::vector<RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
 {
 	return &all_designs;
 }
@@ -1073,9 +1092,8 @@ RTLIL::Module *RTLIL::Design::addModule(RTLIL::IdString name)
 		log_error("Attempted to add new module named '%s', but a module by that name already exists\n", twines_.str(name));
 	log_assert(refcount_modules_ == 0);
 
-	RTLIL::Module *module = new RTLIL::Module;
+	RTLIL::Module *module = new RTLIL::Module(this);
 	modules_[name] = module;
-	module->design = this;
 	module->name = name;
 
 	for (auto mon : monitors)
@@ -1225,6 +1243,14 @@ void RTLIL::Design::clone_into(RTLIL::Design *dst) const
 	dst->twines_ = twines_;
 	for (auto it = modules_.rbegin(); it != modules_.rend(); ++it)
 		it->second->clone(dst);
+
+	dst->selection_stack = selection_stack;
+	for (auto &sel : dst->selection_stack)
+		sel.current_design = dst;
+	dst->selection_vars = selection_vars;
+	for (auto &[name, sel] : dst->selection_vars)
+		sel.current_design = dst;
+	dst->selected_active_module = selected_active_module;
 }
 
 bool RTLIL::Design::selected_module(IdString mod_name) const
@@ -1349,19 +1375,13 @@ std::vector<RTLIL::Module*> RTLIL::Design::selected_modules(RTLIL::SelectPartial
 	return result;
 }
 
-RTLIL::Module::Module()
+RTLIL::Module::Module(RTLIL::Design *design)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = design->next_hashidx();
 
-	design = nullptr;
+	this->design = design;
 	refcount_wires_ = 0;
 	refcount_cells_ = 0;
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Module::get_all_modules()->insert(std::pair<unsigned int, RTLIL::Module*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Module::~Module()
@@ -1374,18 +1394,7 @@ RTLIL::Module::~Module()
 		delete pr.second;
 	for (auto &pr : processes)
 		delete pr.second;
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Module::get_all_modules()->erase(hashidx_);
-#endif
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Module*> all_modules;
-std::map<unsigned int, RTLIL::Module*> *RTLIL::Module::get_all_modules(void)
-{
-	return &all_modules;
-}
-#endif
 
 void RTLIL::Module::makeblackbox()
 {
@@ -2649,8 +2658,7 @@ void RTLIL::Module::cloneInto(RTLIL::Module *new_mod) const
 
 RTLIL::Module *RTLIL::Module::clone() const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = design;
+	RTLIL::Module *new_mod = new RTLIL::Module(design);
 	new_mod->name = name;
 	cloneInto(new_mod);
 	return new_mod;
@@ -2658,8 +2666,7 @@ RTLIL::Module *RTLIL::Module::clone() const
 
 RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst) const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = dst;
+	RTLIL::Module *new_mod = new RTLIL::Module(dst);
 	new_mod->name = dst->twines().copy_from(design->twines(), name);
 	cloneInto(new_mod);
 	dst->add(new_mod);
@@ -2668,8 +2675,7 @@ RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst) const
 
 RTLIL::Module *RTLIL::Module::clone(RTLIL::Design *dst, IdString target_name) const
 {
-	RTLIL::Module *new_mod = new RTLIL::Module;
-	new_mod->design = dst;
+	RTLIL::Module *new_mod = new RTLIL::Module(dst);
 	new_mod->name = target_name;
 	cloneInto(new_mod);
 	dst->add(new_mod);
@@ -2806,7 +2812,7 @@ void RTLIL::Module::remove(const pool<RTLIL::Wire*> &wires)
 		void operator()(RTLIL::SigSpec &sig) {
 			sig.rewrite_wires([this](RTLIL::Wire *&wire) {
 				if (wires_p->count(wire))
-					wire = module->addWire(stringf("$delete_wire$%d", (int)autoidx++), wire->width);
+					wire = module->addWire(stringf("$delete_wire$%d", module->twines().next_autoidx()), wire->width);
 			});
 		}
 
@@ -3073,7 +3079,7 @@ RTLIL::Wire *RTLIL::Module::addWire(RTLIL::IdString name, int width)
 {
 	log_assert(design);
 	log_assert(width >= 0 && width < RTLIL::WIDTH_LIMIT);
-	RTLIL::Wire *wire = new RTLIL::Wire;
+	RTLIL::Wire *wire = new RTLIL::Wire(this);
 	wire->width = width;
 	wire->name = name;
 	add(wire);
@@ -3100,7 +3106,7 @@ RTLIL::Wire *RTLIL::Module::addWire(IdString name, const RTLIL::Wire *other)
 RTLIL::Cell *RTLIL::Module::addCell(IdString name, IdString type)
 {
 	log_assert(design);
-	RTLIL::Cell *cell = new RTLIL::Cell;
+	RTLIL::Cell *cell = new RTLIL::Cell(this);
 	cell->type = type;
 	cell->name = name;
 	add(cell);
@@ -3133,8 +3139,7 @@ RTLIL::Cell *RTLIL::Module::addCell(IdString name, const RTLIL::Cell *other)
 RTLIL::Memory *RTLIL::Module::addMemory(IdString name)
 {
 	log_assert(design);
-	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->module = this;
+	RTLIL::Memory *mem = new RTLIL::Memory(this);
 	mem->name = name;
 	memories[name] = mem;
 	return mem;
@@ -3143,8 +3148,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name)
 RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *other)
 {
 	log_assert(design);
-	RTLIL::Memory *mem = new RTLIL::Memory;
-	mem->module = this;
+	RTLIL::Memory *mem = new RTLIL::Memory(this);
 	mem->name = name;
 	mem->width = other->width;
 	mem->start_offset = other->start_offset;
@@ -3158,7 +3162,7 @@ RTLIL::Memory *RTLIL::Module::addMemory(IdString name, const RTLIL::Memory *othe
 RTLIL::Process *RTLIL::Module::addProcess(IdString name)
 {
 	log_assert(design);
-	RTLIL::Process *proc = new RTLIL::Process;
+	RTLIL::Process *proc = new RTLIL::Process(this);
 	proc->name = name;
 	add(proc);
 	return proc;
@@ -3167,7 +3171,7 @@ RTLIL::Process *RTLIL::Module::addProcess(IdString name)
 RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Process *other)
 {
 	log_assert(design);
-	RTLIL::Process *proc = other->clone();
+	RTLIL::Process *proc = other->clone(this);
 	proc->name = name;
 	const RTLIL::Design *src_design = other->module ? other->module->design : nullptr;
 	if (src_design && src_design != design) {
@@ -4170,13 +4174,10 @@ std::string RTLIL::Module::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Wire::Wire()
+RTLIL::Wire::Wire(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
-	module = nullptr;
 	width = 1;
 	start_offset = 0;
 	port_id = 0;
@@ -4184,17 +4185,10 @@ RTLIL::Wire::Wire()
 	port_output = false;
 	upto = false;
 	is_signed = false;
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Wire::get_all_wires()->insert(std::pair<unsigned int, RTLIL::Wire*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Wire::~Wire()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Wire::get_all_wires()->erase(hashidx_);
-#endif
 }
 
 std::string RTLIL::Wire::to_rtlil_str() const
@@ -4204,26 +4198,13 @@ std::string RTLIL::Wire::to_rtlil_str() const
 	return f.str();
 }
 
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Wire*> all_wires;
-std::map<unsigned int, RTLIL::Wire*> *RTLIL::Wire::get_all_wires(void)
+RTLIL::Memory::Memory(RTLIL::Module *module) : module(module)
 {
-	return &all_wires;
-}
-#endif
-
-RTLIL::Memory::Memory()
-{
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
 	width = 1;
 	start_offset = 0;
 	size = 0;
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Memory::get_all_memorys()->insert(std::pair<unsigned int, RTLIL::Memory*>(hashidx_, this));
-#endif
 }
 
 std::string RTLIL::Memory::to_rtlil_str() const
@@ -4233,11 +4214,9 @@ std::string RTLIL::Memory::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Process::Process() : module(nullptr)
+RTLIL::Process::Process(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 }
 
 std::string RTLIL::Process::to_rtlil_str() const
@@ -4247,25 +4226,16 @@ std::string RTLIL::Process::to_rtlil_str() const
 	return f.str();
 }
 
-RTLIL::Cell::Cell() : module(nullptr)
+RTLIL::Cell::Cell(RTLIL::Module *module) : module(module)
 {
-	static unsigned int hashidx_count = 123456789;
-	hashidx_count = mkhash_xorshift(hashidx_count);
-	hashidx_ = hashidx_count;
+	hashidx_ = module->design->next_hashidx();
 
 	// log("#memtrace# %p\n", this);
 	memhasher();
-
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Cell::get_all_cells()->insert(std::pair<unsigned int, RTLIL::Cell*>(hashidx_, this));
-#endif
 }
 
 RTLIL::Cell::~Cell()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Cell::get_all_cells()->erase(hashidx_);
-#endif
 }
 
 std::string RTLIL::Cell::to_rtlil_str() const
@@ -4274,14 +4244,6 @@ std::string RTLIL::Cell::to_rtlil_str() const
 	RTLIL_BACKEND::dump_cell(f, "", this, design(), RTLIL_BACKEND::DumpMode::Readable);
 	return f.str();
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Cell*> all_cells;
-std::map<unsigned int, RTLIL::Cell*> *RTLIL::Cell::get_all_cells(void)
-{
-	return &all_cells;
-}
-#endif
 
 bool RTLIL::Cell::hasPort(RTLIL::IdString portname) const
 {
@@ -5923,9 +5885,9 @@ RTLIL::Process::~Process()
 		delete *it;
 }
 
-RTLIL::Process *RTLIL::Process::clone() const
+RTLIL::Process *RTLIL::Process::clone(RTLIL::Module *module) const
 {
-	RTLIL::Process *new_proc = new RTLIL::Process;
+	RTLIL::Process *new_proc = new RTLIL::Process(module);
 
 	new_proc->attributes = attributes;
 
@@ -5942,16 +5904,5 @@ RTLIL::Process *RTLIL::Process::clone() const
 
 RTLIL::Memory::~Memory()
 {
-#ifdef YOSYS_ENABLE_PYTHON
-	RTLIL::Memory::get_all_memorys()->erase(hashidx_);
-#endif
 }
-
-#ifdef YOSYS_ENABLE_PYTHON
-static std::map<unsigned int, RTLIL::Memory*> all_memorys;
-std::map<unsigned int, RTLIL::Memory*> *RTLIL::Memory::get_all_memorys(void)
-{
-	return &all_memorys;
-}
-#endif
 YOSYS_NAMESPACE_END

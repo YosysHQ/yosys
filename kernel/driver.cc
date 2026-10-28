@@ -342,8 +342,6 @@ int main(int argc, char **argv)
 	options.add_options("developer")
 		("X,trace", "enable tracing of core data structure changes. for debugging")
 		("M,randomize-pointers", "will slightly randomize allocated pointer addresses. for debugging")
-		("autoidx", "start counting autoidx up from <seed>",
-			cxxopts::value<uint64_t>(), "<idx>")
 		("A,abort", "will call abort() at the end of the script. for debugging")
 		("x,experimental", "do not print warnings for the experimental <feature>",
 			cxxopts::value<std::vector<std::string>>(), "<feature>")
@@ -499,10 +497,6 @@ int main(int argc, char **argv)
 		if (result.count("perffile")) perffile = result["perffile"].as<std::string>();
 		if (result.count("infile")) {
 			frontend_files = result["infile"].as<std::vector<std::string>>();
-		}
-		if (result.count("autoidx")) {
-			int idx = result["autoidx"].as<uint64_t>();
-			autoidx = idx;
 		}
 
 		if (!is_colored(stdout) || !is_colored(stderr)) {
@@ -676,9 +670,9 @@ int main(int argc, char **argv)
 	}
 
 	yosys_design->check();
-	for (auto it : saved_designs)
+	for (auto &it : saved_designs)
 		it.second->check();
-	for (auto it : pushed_designs)
+	for (auto &it : pushed_designs)
 		it->check();
 
 	if (!depsfile.empty())
@@ -755,8 +749,8 @@ int main(int argc, char **argv)
 				std::chrono::steady_clock::now() - wall_clock_start).count();
 
 		log("End of script. Logfile hash: %s%stime: %.2fs, user: %.2fs, system: %.2fs%s\n", hash,
-				stats_divider.c_str(), wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
-				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo.c_str());
+				stats_divider, wall_seconds, ru_buffer.ru_utime.tv_sec + 1e-6 * ru_buffer.ru_utime.tv_usec,
+				ru_buffer.ru_stime.tv_sec + 1e-6 * ru_buffer.ru_stime.tv_usec, meminfo);
 #endif
 		log("%s\n", yosys_maybe_version());
 
@@ -779,7 +773,7 @@ int main(int argc, char **argv)
 			log("Time spent:\n");
 			for (auto it = timedat.rbegin(); it != timedat.rend(); it++) {
 				log("%5d%% %5d calls %8.3f sec %s\n", int(100*std::get<0>(*it) / total_ns),
-						std::get<1>(*it), std::get<0>(*it) / 1000000000.0, std::get<2>(*it).c_str());
+						std::get<1>(*it), std::get<0>(*it) / 1000000000.0, std::get<2>(*it));
 			}
 		}
 		else
@@ -792,7 +786,7 @@ int main(int argc, char **argv)
 					break;
 				}
 				message += stringf("%s %d%% %dx %s (%d sec)", out_count ? "," : "", int(100*std::get<0>(*it) / total_ns),
-						std::get<1>(*it), std::get<2>(*it).c_str(), int(std::get<0>(*it) / 1000000000));
+						std::get<1>(*it), std::get<2>(*it), int(std::get<0>(*it) / 1000000000));
 			}
 			message += out_count ? "" : " no commands executed";
 			log("%s\n", message);

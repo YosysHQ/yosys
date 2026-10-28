@@ -130,6 +130,9 @@ global_denylist = frozenset(
         "log_verific_callback",
         # incomplete type
         "yosys_get_tcl_interp",
+        # owning containers
+        "saved_designs",
+        "pushed_designs",
     }
 )
 name_lookup_methods = frozenset(
@@ -235,7 +238,7 @@ pyosys_headers = [
             PyosysClass(
                 "Design",
                 name_pool=True,
-                string_expr="std::to_string(s.hashidx_)",
+                string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
             ),
@@ -354,8 +357,7 @@ class PyosysWrapperGenerator(object):
                     for header in self.headers:
                         header_path = __yosys_root__ / header.name
                         parsed = parse_file(header_path, options=preprocessor_opts)
-                        global_namespace = parsed.namespace
-                        self.process_namespace(header, global_namespace)
+                        self.process_namespace(header, parsed.namespace)
                 else:
                     self.f.write(line)
 
@@ -846,6 +848,10 @@ class PyosysWrapperGenerator(object):
     ):
         for name, subns in ns.namespaces.items():
             self.process_namespace(header, subns, (*namespace_components, name))
+
+        for enum in ns.enums:
+            self.process_enum(enum, namespace_components)
+
         if len(namespace_components) and (len(ns.functions) + len(ns.variables)):
             # TODO: Not essential but maybe move namespace usage into
             # process_function for consistency?
@@ -858,8 +864,6 @@ class PyosysWrapperGenerator(object):
             for variable in ns.variables:
                 self.process_variable(variable)
             print(f"\t\t}}", file=self.f)
-        for enum in ns.enums:
-            self.process_enum(enum, namespace_components)
         for cls in ns.classes:
             pqname = cls.class_decl.typename
             declared_name_str = pqname.segments[-1].format()

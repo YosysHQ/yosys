@@ -120,26 +120,39 @@ struct ConstEvalAig
 
 		RTLIL::Cell *cell = sig2driver.at(output);
 		RTLIL::SigBit sig_a = cell->getPort(ID::A);
-		sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size()); // Reserve so that any invalidation
-											   // that may occur does so here, and
-											   // not mid insertion (below)
-		sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
-		if (!inputs.count(sig_a))
-			compute_deps(sig_a, inputs);
+
+		bool contains_a = std::all_of(sig2deps[output].begin(), sig2deps[output].end(), [&](SigBit bit) {
+			return sig2deps[sig_a].count(bit) > 0;
+		});
+
+		if (!contains_a) {
+			// Reserve so that any invalidation that may occur does so here, and not mid insertion (below)
+			sig2deps[sig_a].reserve(sig2deps[sig_a].size() + sig2deps[output].size());
+
+			sig2deps[sig_a].insert(sig2deps[output].begin(), sig2deps[output].end());
+			if (!inputs.count(sig_a))
+				compute_deps(sig_a, inputs);
+		}
 
 		if (cell->type == ID($_AND_)) {
 			RTLIL::SigSpec sig_b = cell->getPort(ID::B);
-			sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size()); // Reserve so that any invalidation
-												   // that may occur does so here, and
-												   // not mid insertion (below)
-			sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
 
-			if (!inputs.count(sig_b))
-				compute_deps(sig_b, inputs);
+			bool contains_b = std::all_of(sig2deps[output].begin(), sig2deps[output].end(), [&](SigBit bit) {
+				return sig2deps[sig_b].count(bit) > 0;
+			});
+
+			if (!contains_b) {
+				// Reserve so that any invalidation that may occur does so here, and not mid insertion (below)
+				sig2deps[sig_b].reserve(sig2deps[sig_b].size() + sig2deps[output].size());
+
+				sig2deps[sig_b].insert(sig2deps[output].begin(), sig2deps[output].end());
+				if (!inputs.count(sig_b))
+					compute_deps(sig_b, inputs);
+			}
 		}
-		else if (cell->type == ID($_NOT_)) {
+		else if (cell->type != ID($_NOT_)) {
+			log_abort();
 		}
-		else log_abort();
 	}
 
 	bool eval(RTLIL::Cell *cell)
@@ -208,13 +221,12 @@ eval_end:
 };
 
 AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename)
-	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), aiger_autoidx(autoidx++)
+	: design(design), f(f), clk_name(clk_name), map_filename(map_filename), aiger_autoidx(design->twines().next_autoidx())
 {
-	module = new RTLIL::Module;
-	module->design = design;
+	module = new RTLIL::Module(design);
 	module->name = module_name;
 	if (design->module(module->name))
-		log_error("Duplicate definition of module %s!\n", module->name.unescape());
+		log_error("Duplicate definition of module %s!\n", module);
 }
 
 void AigerReader::parse_aiger()
@@ -346,7 +358,7 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 		aiger_wires[literal] = wire;
 		return wire;
 	}
-	log_debug2("Creating %s\n", wire_name.c_str());
+	log_debug2("Creating %s\n", wire_name);
 	wire = module->addWire(wire_name);
 	wire->port_input = wire->port_output = false;
 	aiger_wires[literal] = wire;
@@ -372,7 +384,7 @@ RTLIL::Wire* AigerReader::createWireIfNotExists(RTLIL::Module *module, unsigned 
 	if (wire_inv_existed && module->cell(wire_inv->name))
 		return wire;
 
-	log_debug2("Creating %s = ~$aiger%d$%d\n", wire_name.c_str(), aiger_autoidx, variable);
+	log_debug2("Creating %s = ~$aiger%d$%d\n", wire_name, aiger_autoidx, variable);
 	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), wire_inv, wire);
 
 	return wire;
@@ -529,7 +541,7 @@ void AigerReader::parse_xaiger()
 				log_assert(cellID < cellNum);
 				MappingCell &mapping_cell = mapping_cells.at(cellID);
 
-				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, design->twines().unescaped_str(mapping_cell.out).c_str(), rootNodeID);
+				log_debug2("M: instanceID=%u cellID=%u outPort=%s rootNodeID=%u\n", i, cellID, design->twines().unescaped_str(mapping_cell.out), rootNodeID);
 
 				RTLIL::Wire *output_sig = createWireIfNotExists(module, rootNodeID);
 				log_assert(output_sig);
@@ -552,7 +564,7 @@ void AigerReader::parse_xaiger()
 
 				for (unsigned j = 0; j < mapping_cell.ins.size(); ++j) {
 					auto nodeID = parse_xaiger_literal(f);
-					log_debug("M:    inPort=%s nodeID=%u\n", design->twines().unescaped_str(mapping_cell.ins.at(j)).c_str(), nodeID);
+					log_debug("M:    inPort=%s nodeID=%u\n", design->twines().unescaped_str(mapping_cell.ins.at(j)), nodeID);
 					RTLIL::Wire *input_sig = createWireIfNotExists(module, nodeID);
 					cell->setPort(mapping_cell.ins.at(j), input_sig);
 				}
@@ -645,7 +657,7 @@ void AigerReader::parse_aiger_ascii()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug2("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name);
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;
@@ -770,7 +782,7 @@ void AigerReader::parse_aiger_binary()
 	if (L > 0 && !clk_name.empty()) {
 		clk_wire = module->wire(clk_name);
 		log_assert(!clk_wire);
-		log_debug2("Creating %s\n", clk_name.c_str());
+		log_debug2("Creating %s\n", clk_name);
 		clk_wire = module->addWire(clk_name);
 		clk_wire->port_input = true;
 		clk_wire->port_output = false;

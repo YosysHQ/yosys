@@ -402,7 +402,7 @@ struct PropagateWorker
 					sigmap.apply(bit);
 					if (replaced_clk_bits.count(bit))
 						log_error("derived signal %s driven by %s (%s) from module %s is used as clock, derived clocks are only supported with clk2fflogic.\n",
-								log_signal(bit), cell->name.unescape(), cell->type.unescape(), module);
+								log_signal(bit), cell, cell->type.unescape(), module);
 				}
 			}
 		}

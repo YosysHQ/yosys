@@ -35,9 +35,9 @@ void DeferredLogs::flush()
 {
 	for (auto &m : logs)
 		if (m.error)
-			YOSYS_NAMESPACE_PREFIX log_error("%s", m.text.c_str());
+			YOSYS_NAMESPACE_PREFIX log_error("%s", m.text);
 		else
-			YOSYS_NAMESPACE_PREFIX log("%s", m.text.c_str());
+			YOSYS_NAMESPACE_PREFIX log("%s", m.text);
 }
 
 int ThreadPool::pool_size(int reserved_cores, int max_worker_threads)

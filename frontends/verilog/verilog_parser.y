@@ -321,7 +321,7 @@
 
 			// create a unique name for the genvar
 			std::string old_str = decl->str;
-			std::string new_str = stringf("$genfordecl$%d$%s", autoidx++, old_str);
+			std::string new_str = stringf("$genfordecl$%d$%s", ast_autoidx(), old_str);
 
 			// rename and move the genvar declaration to the containing description
 			decl->str = new_str;
@@ -576,8 +576,8 @@
 %left TOK_PLUS TOK_MINUS
 %left TOK_ASTER TOK_SLASH TOK_PERC
 %right OP_POW
-%precedence OP_CAST
 %precedence UNARY_OPS
+%precedence OP_CAST
 
 %define parse.error detailed
 %define parse.lac full
@@ -1326,7 +1326,7 @@ specify_item:
 		auto cell_owned = std::make_unique<AstNode>(@$, AST_CELL);
 		auto cell = cell_owned.get();
 		extra->ast_stack.back()->children.push_back(std::move(cell_owned));
-		cell->str = stringf("$specify$%d", autoidx++);
+		cell->str = stringf("$specify$%d", ast_autoidx());
 		cell->children.push_back(std::make_unique<AstNode>(@$, AST_CELLTYPE));
 		cell->children.back()->str = target->dat ? "$specify3" : "$specify2";
 		SET_AST_NODE_LOC(cell, en_expr.get() ? @1 : @2, @10);
@@ -1412,7 +1412,7 @@ specify_item:
 		auto cell_owned = std::make_unique<AstNode>(@$, AST_CELL);
 		auto cell = cell_owned.get();
 		extra->ast_stack.back()->children.push_back(std::move(cell_owned));
-		cell->str = stringf("$specify$%d", autoidx++);
+		cell->str = stringf("$specify$%d", ast_autoidx());
 		cell->children.push_back(std::make_unique<AstNode>(@$, AST_CELLTYPE));
 		cell->children.back()->str = "$specrule";
 		SET_AST_NODE_LOC(cell, @1, @14);
@@ -2792,7 +2792,7 @@ for_initialization:
 		// inject a wrapping block to declare the loop variable and
 		// contain the current loop
 		auto wrapper = std::make_unique<AstNode>(@$, AST_BLOCK);
-		wrapper->str = "$fordecl_block$" + std::to_string(autoidx++);
+		wrapper->str = "$fordecl_block$" + std::to_string(ast_autoidx());
 		wrapper->children.push_back(std::move(wire));
 		wrapper->children.push_back(std::move(loop));
 		parent->children.back() = std::move(wrapper);
@@ -2837,7 +2837,7 @@ behavioral_stmt:
 		    for (auto& child : node->children)
 			if (child->type == AST_WIRE || child->type == AST_MEMORY || child->type == AST_PARAMETER
 				|| child->type == AST_LOCALPARAM || child->type == AST_TYPEDEF) {
-			    node->str = "$unnamed_block$" + std::to_string(autoidx++);
+			    node->str = "$unnamed_block$" + std::to_string(ast_autoidx());
 			    break;
 			}
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @2, @8);
@@ -2850,7 +2850,7 @@ behavioral_stmt:
 		extra->ast_stack.back()->children.push_back(std::move($7));
 	} TOK_SEMICOL simple_behavioral_stmt TOK_RPAREN {
 		AstNode* block = extra->pushChild(std::make_unique<AstNode>(@$, AST_BLOCK));
-		block->str = "$for_loop$" + std::to_string(autoidx++);
+		block->str = "$for_loop$" + std::to_string(ast_autoidx());
 	} behavioral_stmt {
 		SET_AST_NODE_LOC(extra->ast_stack.back(), @13, @13);
 		extra->ast_stack.pop_back();

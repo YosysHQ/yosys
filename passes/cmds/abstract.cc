@@ -498,7 +498,7 @@ struct AbstractPass : public Pass {
 							log_cmd_error("Enable wire %s not found in module %s\n", enable_name, mod->name);
 						if (GetSize(enable_wire) != 1)
 							log_cmd_error("Enable wire %s must have width 1 but has width %d in module %s\n",
-									enable_name.c_str(), GetSize(enable_wire), mod->name);
+									enable_name, GetSize(enable_wire), mod->name);
 						enable_logic = { enable_wire, enable == Enable::ActiveHigh };
 					} break;
 					case Enable::Initstates: {

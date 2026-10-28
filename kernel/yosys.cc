@@ -81,7 +81,6 @@ extern "C" PyObject* PyInit_pyosys();
 
 YOSYS_NAMESPACE_BEGIN
 
-Autoidx autoidx(1);
 int yosys_xtrace = 0;
 bool yosys_write_versions = true;
 const char* yosys_maybe_version() {
@@ -121,16 +120,6 @@ Multithreading::Multithreading() {
 Multithreading::~Multithreading() {
 	log_assert(active_);
 	active_ = false;
-}
-
-void Autoidx::ensure_at_least(int v) {
-	log_assert(!Multithreading::active());
-	value = std::max(value, v);
-}
-
-int Autoidx::operator++(int) {
-	log_assert(!Multithreading::active());
-	return value++;
 }
 
 void memhasher_on()
@@ -352,7 +341,7 @@ const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool new
 		str += stringf("(%d) ", recursion_counter);
 	str += "yosys";
 	if (!design->selected_active_module.empty())
-		str += stringf(" [%s]", RTLIL::unescape_id(design->twines().str(design->selected_active_module)).c_str());
+		str += stringf(" [%s]", RTLIL::unescape_id(design->twines().str(design->selected_active_module)));
 	if (!design->full_selection()) {
 		if (design->selected_active_module.empty())
 			str += "*";
