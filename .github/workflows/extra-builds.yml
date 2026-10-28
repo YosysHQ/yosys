@@ -90,10 +90,10 @@ jobs:
           submodules: true
           persist-credentials: false
 
-      - name: Setup MSYS2 (MINGW64)
+      - name: Setup MSYS2 (UCRT64)
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: true
 
           install: >-
@@ -103,15 +103,15 @@ jobs:
             gawk
             diffutils
             make
-            mingw-w64-x86_64-toolchain
-            mingw-w64-x86_64-cmake
-            mingw-w64-x86_64-gtest
-            mingw-w64-x86_64-pkgconf
-            mingw-w64-x86_64-python
-            mingw-w64-x86_64-tcl
-            mingw-w64-x86_64-libffi
-            mingw-w64-x86_64-git
-            mingw-w64-x86_64-ccache
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-gtest
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-tcl
+            mingw-w64-ucrt-x86_64-libffi
+            mingw-w64-ucrt-x86_64-git
+            mingw-w64-ucrt-x86_64-ccache
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2.23
