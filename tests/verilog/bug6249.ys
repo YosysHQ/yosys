@@ -1,0 +1,46 @@
+design -reset
+read_verilog -formal -sv <<EOT
+module top(input [3:0] x, input p);
+	localparam int unsigned W = 4;
+	localparam int unsigned UW = 8;
+	localparam int SW = 8;
+
+	wire [7:0] x1  = -8'(16);
+	wire [7:0] x2  = ~8'(16);
+	wire [0:0] x3  = !8'(16);
+	wire [7:0] x4  = -8'(4'd3);
+	wire [7:0] x5  = p ? -(W+4)'(16) : (W+4)'(16);
+	wire [7:0] x6  = 8'(x) + -8'(16);
+	wire [7:0] x7  = -UW'(5);
+	wire [7:0] x8  = -SW'(5);
+	wire [7:0] x9  = -8'(5);
+	wire [7:0] x10 = ~UW'(5);
+	wire [0:0] x11 = !UW'(0);
+
+	// reference values from icarus verilog
+	always @* begin
+		assert(x1  == 8'd240);
+		assert(x2  == 8'd239);
+		assert(x3  == 1'b0);
+		assert(x4  == 8'd253);
+		assert(x5  == (p ? 8'd240 : 8'd16));
+		assert(x6  == ({4'b0, x} + 8'd240));
+		assert(x7  == 8'hfb);
+		assert(x8  == 8'hfb);
+		assert(x9  == 8'hfb);
+		assert(x10 == 8'hfa);
+		assert(x11 == 1'b1);
+	end
+endmodule
+EOT
+prep -top top
+chformal -lower
+sat -verify -enable_undef -set-def-inputs -prove-asserts -show-all
+
+design -reset
+logger -expect error "Static cast with zero or negative size!" 1
+read_verilog -sv <<EOT
+module top(output [7:0] y);
+	assign y = (-1)'(1);
+endmodule
+EOT
