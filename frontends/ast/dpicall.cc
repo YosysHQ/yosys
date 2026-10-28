@@ -46,7 +46,7 @@ static ffi_fptr resolve_fn (std::string symbol_name)
 
 		if (symbol == nullptr)
 			log_error("unable to resolve '%s': can't find symbol `%s' in plugin `%s'\n",
-					symbol_name.c_str(), real_symbol_name.c_str(), plugin_name.c_str());
+					symbol_name, real_symbol_name, plugin_name);
 
 		return (ffi_fptr) symbol;
 	}

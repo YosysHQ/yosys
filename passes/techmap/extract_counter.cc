@@ -542,8 +542,8 @@ void counter_worker(
 			extract_value = *sa.begin();
 			log("  Signal %s declared at %s has COUNT_EXTRACT = %s\n",
 				port_wire,
-				count_reg_src.c_str(),
-				extract_value.c_str());
+				count_reg_src,
+				extract_value);
 
 			if(extract_value == "FORCE")
 				force_extract = true;
@@ -553,7 +553,7 @@ void counter_worker(
 			{}	//default
 			else
 				log_error("  Illegal COUNT_EXTRACT value %s (must be one of FORCE, NO, AUTO)\n",
-					extract_value.c_str());
+					extract_value);
 		}
 	}
 
@@ -697,7 +697,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", cell->name.unescape(), PooledName(load.cell->module, load.port).unescape());
+		log("    Counter has parallel output to cell %s port %s\n", cell, PooledName(load.cell->module, load.port).unescape());
 	}
 	if(extract.has_pout)
 	{
@@ -726,13 +726,13 @@ void counter_worker(
 	}
 	log("  Found %d-bit (%s) %s counter %s (counting %s %d) for register %s, declared at %s\n",
 		extract.width,
-		reset_type.c_str(),
+		reset_type,
 		extract.count_is_up ? "up" : "down",
-		countname.c_str(),
+		countname,
 		extract.count_is_up ? "to" : "from",
 		extract.count_value,
 		extract.rwire->name.unescape(),
-		count_reg_src.c_str());
+		count_reg_src);
 
 	//Optimize the counter
 	//If we have no parallel output, and we have redundant bits, shrink us

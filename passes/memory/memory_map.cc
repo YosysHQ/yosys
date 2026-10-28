@@ -137,7 +137,7 @@ struct MemoryMapWorker
 				if (!found) {
 					if (cell_attr.flags & RTLIL::CONST_FLAG_STRING) {
 						log("Not mapping memory %s in module %s (attribute %s is set to \"%s\").\n",
-								mem.memid, module->name, attr.first, cell_attr.decode_string().c_str());
+								mem.memid, module->name, attr.first, cell_attr.decode_string());
 					} else {
 						log("Not mapping memory %s in module %s (attribute %s is set to %d).\n",
 								mem.memid, module->name, attr.first, cell_attr.as_int());

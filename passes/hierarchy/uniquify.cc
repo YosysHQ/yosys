@@ -84,7 +84,7 @@ struct UniquifyPass : public Pass {
 					if (tmod->get_bool_attribute(ID::unique) && newname_ref == tmod->name)
 						continue;
 
-					log("Creating module %s from %s.\n", RTLIL::unescape_id(newname), tmod->name.unescape());
+					log("Creating module %s from %s.\n", RTLIL::unescape_id(newname), tmod);
 
 					auto smod = tmod->clone();
 					smod->name = newname_ref;

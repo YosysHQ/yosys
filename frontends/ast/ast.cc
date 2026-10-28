@@ -1524,12 +1524,12 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 					log_file_error(child->location.to_loc(), "Re-definition of module `%s'!\n", child->str);
 				} else if (nooverwrite) {
 					log("Ignoring re-definition of module `%s' at %s.\n",
-							child->str.c_str(), child->loc_string().c_str());
+							child->str, child->loc_string());
 					continue;
 				} else {
 					log("Replacing existing%s module `%s' at %s.\n",
 							existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "",
-							child->str.c_str(), child->loc_string().c_str());
+							child->str, child->loc_string());
 					design->remove(existing_mod);
 				}
 			}
@@ -1801,7 +1801,7 @@ RTLIL::IdString AstModule::derive(RTLIL::Design *design, const dict<RTLIL::IdStr
 				new_subcell->set_bool_attribute(ID::is_interface);
 			}
 			else {
-				log_error("No port with matching name found (%s) in %s. Stopping\n", mod->twines().str(intf.first).c_str(), modname);
+				log_error("No port with matching name found (%s) in %s. Stopping\n", mod->twines().str(intf.first), modname);
 			}
 		}
 

@@ -158,12 +158,12 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	auto &tw = mod->twines();
 
 	if (sel && !sel->selected(mod)) {
-		log("  Skipping module %s as it is not selected.\n", mod->name.unescape());
+		log("  Skipping module %s as it is not selected.\n", mod);
 		return false;
 	}
 
 	if (mod->processes.size() > 0) {
-		log("  Skipping module %s as it contains unprocessed processes.\n", mod->name.unescape());
+		log("  Skipping module %s as it contains unprocessed processes.\n", mod);
 		return false;
 	}
 
@@ -596,7 +596,7 @@ struct ExtractPass : public Pass {
 				{
 					if (!saved_designs.count(filename.substr(1))) {
 						delete map;
-						log_cmd_error("Can't saved design `%s'.\n", filename.c_str()+1);
+						log_cmd_error("Can't saved design `%s'.\n", filename.substr(1));
 					}
 					RTLIL::Design *saved = saved_designs.at(filename.substr(1)).get();
 					for (auto mod : saved->modules())
@@ -680,7 +680,7 @@ struct ExtractPass : public Pass {
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
-					log("  new cell: %s\n", new_cell->name.unescape());
+					log("  new cell: %s\n", new_cell);
 				}
 			}
 		}
@@ -698,12 +698,12 @@ struct ExtractPass : public Pass {
 			{
 				log("\n");
 				log("Frequent SubCircuit with %d nodes and %d matches:\n", int(result.nodes.size()), result.totalMatchesAfterLimits);
-				std::string message = stringf("  primary match in %s:", haystack_map.at(result.graphId)->name.unescape());
+				std::string message = stringf("  primary match in %s:", haystack_map.at(result.graphId));
 				for (auto &node : result.nodes)
 					message += stringf(" %s", RTLIL::unescape_id(node.nodeId));
 				log("%s\n", message);
 				for (auto &it : result.matchesPerGraph)
-					log("  matches in %s: %d\n", haystack_map.at(it.first)->name.unescape(), it.second);
+					log("  matches in %s: %d\n", haystack_map.at(it.first), it.second);
 
 				RTLIL::Module *mod = haystack_map.at(result.graphId);
 				std::set<RTLIL::Cell*> cells;
@@ -722,7 +722,7 @@ struct ExtractPass : public Pass {
 							wires.insert(chunk.wire);
 				}
 
-				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId)->name.unescape(), result.totalMatchesAfterLimits));
+				RTLIL::Module *newMod = map->addModule(stringf("\\needle%05d_%s_%dx", needleCounter++, haystack_map.at(result.graphId), result.totalMatchesAfterLimits));
 
 				for (auto wire : wires) {
 					RTLIL::Wire *newWire = newMod->addWire(map->twines().copy_from(design->twines(), wire->name), wire->width);

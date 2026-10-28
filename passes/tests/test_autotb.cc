@@ -141,7 +141,7 @@ static void autotest(std::ostream &f, RTLIL::Design *design, int num_iter, int s
 		for (auto wire : mod->wires()) {
 			if (wire->port_output || wire->port_input)
 				f << stringf("\t.%s(%s)%s\n", id(wire->name.str()),
-						idy("sig", mod->name.str(), wire->name.str()).c_str(), --count_ports ? "," : "");
+						idy("sig", mod->name.str(), wire->name.str()), --count_ports ? "," : "");
 		}
 		f << stringf(");\n\n");
 

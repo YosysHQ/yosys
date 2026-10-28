@@ -1050,7 +1050,7 @@ struct VerificSvaImporter
 		}
 
 		parser_error(stringf("%sVerific SVA primitive %s (%s) is currently unsupported in this context",
-				msg.c_str(), inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+				msg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
 	dict<Net*, bool> check_expression_cache;

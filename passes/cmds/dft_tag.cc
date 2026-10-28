@@ -98,7 +98,7 @@ struct DftTagWorker {
 		}
 
 		for (auto cell : overwrite_cells) {
-			log_debug("Applying $overwrite_tag %s for signal %s\n", cell->name.unescape(), log_signal(cell->getPort(ID::A)));
+			log_debug("Applying $overwrite_tag %s for signal %s\n", cell, log_signal(cell->getPort(ID::A)));
 			SigSpec orig_signal = cell->getPort(ID::A);
 			SigSpec interposed_signal = divert_users(orig_signal);
 			auto *set_tag_cell = module->addSetTag(NEW_ID, cell->getParam(ID::TAG).decode_string(), orig_signal, cell->getPort(ID::SET), cell->getPort(ID::CLR), interposed_signal);

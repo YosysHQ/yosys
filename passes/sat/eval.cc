@@ -191,7 +191,7 @@ struct VlogHammerReporter
 				}
 				log_error("Found error in SAT model: y[%d] = %s, should be %s:\n   SAT: %s\n   RTL: %s\n        %*s^\n",
 						int(i), log_signal(solution_bit), log_signal(expected_bit),
-						sat_bits.c_str(), rtl_bits.c_str(), expected_y.size()-i-1, "");
+						sat_bits, rtl_bits, expected_y.size()-i-1, "");
 			}
 		}
 
@@ -273,14 +273,14 @@ struct VlogHammerReporter
 				}
 
 				if (module->wire(ID(y)) == nullptr)
-					log_error("No output wire (y) found in module %s!\n", module->name.unescape());
+					log_error("No output wire (y) found in module %s!\n", module);
 
 				RTLIL::SigSpec sig(module->wire(ID(y)));
 				RTLIL::SigSpec undef;
 
 				while (!ce.eval(sig, undef)) {
 					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", module, log_signal(sig), log_signal(undef));
-					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), module->name.unescape());
+					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), module);
 					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
 
@@ -292,7 +292,7 @@ struct VlogHammerReporter
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.size() > 0) {
 					if (rtl_sig.size() != sig.size())
-						log_error("Output (y) has a different width in module %s compared to rtl!\n", module->name.unescape());
+						log_error("Output (y) has a different width in module %s compared to rtl!\n", module);
 					for (int i = 0; i < GetSize(sig); i++)
 						if (rtl_sig[i] == RTLIL::State::Sx)
 							sig[i] = RTLIL::State::Sx;
@@ -325,9 +325,9 @@ struct VlogHammerReporter
 			for (auto mod : modules) {
 				RTLIL::Wire *port = mod->wire(esc_name);
 				if (port == nullptr)
-					log_error("Can't find input %s in module %s!\n", name, mod->name.unescape());
+					log_error("Can't find input %s in module %s!\n", name, mod);
 				if (!port->port_input || port->port_output)
-					log_error("Wire %s in module %s is not an input!\n", name, mod->name.unescape());
+					log_error("Wire %s in module %s is not an input!\n", name, mod);
 				if (width >= 0 && width != port->width)
 					log_error("Port %s has different sizes in the different modules!\n", name);
 				width = port->width;
@@ -429,7 +429,7 @@ struct EvalPass : public Pass {
 				if (checker.errors > 0)
 					log_cmd_error("Modules are not equivalent!\n");
 				log("Verified %s = %s (using brute-force check on %d cases).\n",
-						mod1_name.c_str(), mod2_name.c_str(), checker.counter);
+						mod1_name, mod2_name, checker.counter);
 				return;
 			}
 			if (args[argidx] == "-vloghammer_report" && argidx+5 == args.size()) {
@@ -469,7 +469,7 @@ struct EvalPass : public Pass {
 				log_cmd_error("Right-hand-side set expression `%s' is not constant.\n", it.second);
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						it.first.c_str(), log_signal(lhs), lhs.size(), it.second.c_str(), log_signal(rhs), rhs.size());
+						it.first, log_signal(lhs), lhs.size(), it.second, log_signal(rhs), rhs.size());
 			ce.set(lhs, rhs.as_const());
 		}
 

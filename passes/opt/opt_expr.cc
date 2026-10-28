@@ -2249,7 +2249,7 @@ skip_alu_split:
 				if (replace || remove)
 				{
 					log_debug("Replacing %s cell `%s' (implementing %s) with %s.\n",
-							cell->type.unescape(), cell, condition.c_str(), replacement.c_str());
+							cell->type.unescape(), cell, condition, replacement);
 					if (replace)
 						module->connect(cell->getPort(ID::Y), replace_sig);
 					module->remove(cell);

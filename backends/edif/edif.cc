@@ -209,9 +209,9 @@ struct EdifBackend : public Backend {
 				top_module_name = module->name.str();
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", module->name.unescape());
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in EDIF backend!\n", module);
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", module->name.unescape());
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in EDIF backend!\n", module);
 
 			for (auto cell : module->cells())
 			{
@@ -324,7 +324,7 @@ struct EdifBackend : public Backend {
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first->name.unescape());
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first);
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}

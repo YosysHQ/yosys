@@ -723,7 +723,7 @@ static void run_eval_test(RTLIL::Design *design, bool verbose, bool nosat, std::
 
 			if (vlog_file.is_open()) {
 				vlog_file << stringf("      $display(\"[%s] %s expected: %%b, expr: %%b, noexpr: %%b\", %d'b%s, %s_expr, %s_noexpr);\n",
-						vlog_pattern_info.c_str(), gold_wire, GetSize(gold_outval), gold_outval.as_string().c_str(), gold_wire, gold_wire);
+						vlog_pattern_info, gold_wire, GetSize(gold_outval), gold_outval.as_string(), gold_wire, gold_wire);
 				vlog_file << stringf("      if (%s_expr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
 				vlog_file << stringf("      if (%s_noexpr !== %d'b%s) begin $display(\"ERROR\"); $finish; end\n", gold_wire, GetSize(gold_outval), gold_outval.as_string());
 			}
@@ -1117,14 +1117,14 @@ struct TestCellPass : public Pass {
 				int charcount = 100;
 				for (auto &it : cell_types) {
 					if (charcount > 60) {
-						cell_type_list += stringf("\n%s", ID::str(it.first).c_str());
+						cell_type_list += stringf("\n%s", ID::str(it.first));
 						charcount = 0;
 					} else
-						cell_type_list += stringf(" %s", ID::str(it.first).c_str());
+						cell_type_list += stringf(" %s", ID::str(it.first));
 					charcount += GetSize(ID::str(it.first));
 				}
 				log_cmd_error("The cell type `%s' is currently not supported. Try one of these:%s\n",
-						args[argidx].c_str(), cell_type_list.c_str());
+						args[argidx], cell_type_list);
 			}
 
 			if (std::count(selected_cell_types.begin(), selected_cell_types.end(), arg_type) == 0)
@@ -1172,7 +1172,7 @@ struct TestCellPass : public Pass {
 								}
 						if (is_unconverted) {
 							// skip unconverted cells
-							log_warning("Skipping %s\n", ID::str(cell_type).c_str());
+							log_warning("Skipping %s\n", ID::str(cell_type));
 							delete design;
 							break;
 						} else {
@@ -1180,7 +1180,7 @@ struct TestCellPass : public Pass {
 							suffix = "aag";
 						}
 					}
-					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, ID::str(cell_type).c_str()+1, i, suffix));
+					Pass::call(design, stringf("%s %s_%s_%05d.%s", writer, write_prefix, ID::str(cell_type).substr(1), i, suffix));
 				} else if (edges) {
 					Pass::call(design, "dump gold");
 					run_edges_test(design, verbose);
@@ -1222,14 +1222,14 @@ struct TestCellPass : public Pass {
 							// Expected to run once
 							int num_cells_estimate = costs.get(uut);
 							if (num_cells <= num_cells_estimate) {
-								log_debug("Correct upper bound for %s: %d <= %d\n", design->twines().str(cell_type).c_str(), num_cells, num_cells_estimate);
+								log_debug("Correct upper bound for %s: %d <= %d\n", design->twines().str(cell_type), num_cells, num_cells_estimate);
 							} else {
 								failed++;
 								if (worst_abs < num_cells - num_cells_estimate) {
 									worst_abs = num_cells - num_cells_estimate;
 									worst_rel = (float)(num_cells - num_cells_estimate) / (float)num_cells_estimate;
 								}
-								log_warning("Upper bound violated for %s: %d > %d\n", design->twines().str(cell_type).c_str(), num_cells, num_cells_estimate);
+								log_warning("Upper bound violated for %s: %d > %d\n", design->twines().str(cell_type), num_cells, num_cells_estimate);
 							}
 						}
 					}
@@ -1239,7 +1239,7 @@ struct TestCellPass : public Pass {
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "
 					    "with worst offender being by %d (%.1f%%)\n",
-					    ID::str(cell_type).c_str(), 100 * (float)failed / (float)num_iter,
+					    ID::str(cell_type), 100 * (float)failed / (float)num_iter,
 						worst_abs, 100 * worst_rel);
 			}
 		}

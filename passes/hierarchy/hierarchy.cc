@@ -114,7 +114,7 @@ void generate(RTLIL::Design *design, const std::vector<std::string> &celltypes, 
 					log("  port %d: %s [%d:0] %s\n", d.index, d.input ? d.output ? "inout" : "input" : "output", portwidths[d.portname]-1, RTLIL::unescape_id(d.portname));
 					goto found_matching_decl;
 				}
-			log_error("Can't match port %s.\n", RTLIL::unescape_id(portname).c_str());
+			log_error("Can't match port %s.\n", RTLIL::unescape_id(portname));
 		found_matching_decl:;
 			portnames.erase(portname);
 		}
@@ -278,7 +278,7 @@ struct IFExpander
 			IdString signal_name2_ref = AST::intern_hier_name(&design, signal_name2);
 			if(module.wire(signal_name2_ref) == nullptr) {
 				log_error("Could not find signal '%s' in '%s'\n",
-					  signal_name2.c_str(), module.name.unescape());
+					  signal_name2, module.name.unescape());
 			}
 			else {
 				RTLIL::Wire *wire_in_parent = module.wire(signal_name2_ref);
@@ -393,7 +393,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	if (cell_type[0] == '$') {
 		if (check && !yosys_celltypes.cell_known(cell.type))
 			log_error("Cell type `%s' referenced in module `%s' in cell `%s' is neither a known internal cell type nor part of the design.\n",
-			          cell_type.c_str(), parent.name, cell.name);
+			          cell_type, parent.name, cell.name);
 		return nullptr;
 	}
 
@@ -414,7 +414,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 			RTLIL::Module *mod = design.module(cell.type);
 			if (!mod)
 				log_error("File `%s' from libdir does not declare module `%s'.\n",
-				          filename.c_str(), cell_type.c_str());
+				          filename, cell_type);
 			return mod;
 		}
 	}
@@ -422,7 +422,7 @@ RTLIL::Module *get_module(RTLIL::Design                  &design,
 	// We couldn't find the module anywhere. Complain if check is set.
 	if (check)
 		log_error("Module `%s' referenced in module `%s' in cell `%s' is not part of the design.\n",
-		          cell_type.c_str(), parent.name.str().data(), cell.name);
+		          cell_type, parent.name.str().data(), cell.name);
 
 	return nullptr;
 }
