@@ -697,7 +697,7 @@ void counter_worker(
 	//Hook up any parallel outputs
 	for(auto load : extract.pouts)
 	{
-		log("    Counter has parallel output to cell %s port %s\n", cell->name.unescape(), PooledName(load.cell->module, load.port).unescape());
+		log("    Counter has parallel output to cell %s port %s\n", cell, PooledName(load.cell->module, load.port).unescape());
 	}
 	if(extract.has_pout)
 	{

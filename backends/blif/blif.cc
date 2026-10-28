@@ -718,9 +718,9 @@ struct BlifBackend : public Backend {
 				continue;
 
 			if (module->processes.size() != 0)
-				log_error("Found unmapped processes in module %s: unmapped processes are not supported in BLIF backend!\n", module->name.unescape());
+				log_error("Found unmapped processes in module %s: unmapped processes are not supported in BLIF backend!\n", module);
 			if (module->memories.size() != 0)
-				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", module->name.unescape());
+				log_error("Found unmapped memories in module %s: unmapped memories are not supported in BLIF backend!\n", module);
 
 			if (design->twines().name_equal(module->name, escaped_top_name)) {
 				BlifDumper::dump(*f, module, design, config);

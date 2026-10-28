@@ -494,7 +494,7 @@ void prep_dff(RTLIL::Design *design)
 				// be instantiating the derived module which will have had any parameters constant-propagated.
 				// This task is expected to be performed by `abc9_ops -prep_hier`, but it looks like it failed to do so for this design.
 				// Please file a bug report!
-				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell->name.unescape(), cell->type.unescape());
+				log_error("Not expecting parameters on cell '%s' instantiating module '%s' marked (* abc9_flop *)\n", cell, cell->type.unescape());
 			}
 			modules_sel.select(inst_module);
 		}

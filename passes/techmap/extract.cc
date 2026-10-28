@@ -158,12 +158,12 @@ bool module2graph(SubCircuit::Graph &graph, RTLIL::Module *mod, bool constports,
 	auto &tw = mod->twines();
 
 	if (sel && !sel->selected(mod)) {
-		log("  Skipping module %s as it is not selected.\n", mod->name.unescape());
+		log("  Skipping module %s as it is not selected.\n", mod);
 		return false;
 	}
 
 	if (mod->processes.size() > 0) {
-		log("  Skipping module %s as it contains unprocessed processes.\n", mod->name.unescape());
+		log("  Skipping module %s as it contains unprocessed processes.\n", mod);
 		return false;
 	}
 
@@ -680,7 +680,7 @@ struct ExtractPass : public Pass {
 					}
 					RTLIL::Cell *new_cell = replace(needle_map.at(result.needleGraphId), haystack_map.at(result.haystackGraphId), result);
 					design->select(haystack_map.at(result.haystackGraphId), new_cell);
-					log("  new cell: %s\n", new_cell->name.unescape());
+					log("  new cell: %s\n", new_cell);
 				}
 			}
 		}

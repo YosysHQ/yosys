@@ -273,14 +273,14 @@ struct VlogHammerReporter
 				}
 
 				if (module->wire(ID(y)) == nullptr)
-					log_error("No output wire (y) found in module %s!\n", module->name.unescape());
+					log_error("No output wire (y) found in module %s!\n", module);
 
 				RTLIL::SigSpec sig(module->wire(ID(y)));
 				RTLIL::SigSpec undef;
 
 				while (!ce.eval(sig, undef)) {
 					// log_error("Evaluation of y in module %s failed: sig=%s, undef=%s\n", module, log_signal(sig), log_signal(undef));
-					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), module->name.unescape());
+					log_warning("Setting signal %s in module %s to undef.\n", log_signal(undef), module);
 					ce.set(undef, RTLIL::Const(RTLIL::State::Sx, undef.size()));
 				}
 
@@ -292,7 +292,7 @@ struct VlogHammerReporter
 					sat_check(module, recorded_set_vars, recorded_set_vals, sig, true);
 				} else if (rtl_sig.size() > 0) {
 					if (rtl_sig.size() != sig.size())
-						log_error("Output (y) has a different width in module %s compared to rtl!\n", module->name.unescape());
+						log_error("Output (y) has a different width in module %s compared to rtl!\n", module);
 					for (int i = 0; i < GetSize(sig); i++)
 						if (rtl_sig[i] == RTLIL::State::Sx)
 							sig[i] = RTLIL::State::Sx;
@@ -325,9 +325,9 @@ struct VlogHammerReporter
 			for (auto mod : modules) {
 				RTLIL::Wire *port = mod->wire(esc_name);
 				if (port == nullptr)
-					log_error("Can't find input %s in module %s!\n", name, mod->name.unescape());
+					log_error("Can't find input %s in module %s!\n", name, mod);
 				if (!port->port_input || port->port_output)
-					log_error("Wire %s in module %s is not an input!\n", name, mod->name.unescape());
+					log_error("Wire %s in module %s is not an input!\n", name, mod);
 				if (width >= 0 && width != port->width)
 					log_error("Port %s has different sizes in the different modules!\n", name);
 				width = port->width;

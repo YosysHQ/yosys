@@ -1816,7 +1816,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		RTLIL::Wire *wire = module->addWire(wire_name);
 
 		if (verific_verbose)
-			log("  importing net %s as %s.\n", net->Name(), wire->name.unescape());
+			log("  importing net %s as %s.\n", net->Name(), wire);
 		import_attributes(wire->attributes, net, nl, 1);
 
 		net_map[net] = wire;
@@ -1840,7 +1840,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			RTLIL::Wire *wire = module->addWire(wire_name, netbus->Size());
 
 			if (verific_verbose)
-				log("  importing netbus %s as %s.\n", netbus->Name(), wire->name.unescape());
+				log("  importing netbus %s as %s.\n", netbus->Name(), wire);
 			wire->start_offset = min(netbus->LeftIndex(), netbus->RightIndex());
 			wire->upto = netbus->IsUp();
 			MapIter mibus;

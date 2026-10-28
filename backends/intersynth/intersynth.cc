@@ -133,11 +133,11 @@ struct IntersynthBackend : public Backend {
 
 			if (selected && !design->selected_whole_module(module->name)) {
 				if (design->selected_module(module->name))
-					log_cmd_error("Can't handle partially selected module %s!\n", module->name.unescape());
+					log_cmd_error("Can't handle partially selected module %s!\n", module);
 				continue;
 			}
 
-			log("Generating netlist %s.\n", module->name.unescape());
+			log("Generating netlist %s.\n", module);
 
 			if (module->memories.size() != 0 || module->processes.size() != 0)
 				log_error("Can't generate a netlist for a module with unprocessed memories or processes!\n");

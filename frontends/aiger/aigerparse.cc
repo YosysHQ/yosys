@@ -226,7 +226,7 @@ AigerReader::AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString
 	module = new RTLIL::Module(design);
 	module->name = module_name;
 	if (design->module(module->name))
-		log_error("Duplicate definition of module %s!\n", module->name.unescape());
+		log_error("Duplicate definition of module %s!\n", module);
 }
 
 void AigerReader::parse_aiger()

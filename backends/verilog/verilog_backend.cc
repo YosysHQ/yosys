@@ -2572,7 +2572,7 @@ struct VerilogWriter
 				continue;
 			if (config.selected && !design->selected_whole_module(module->name)) {
 				if (design->selected_module(module->name))
-					log_cmd_error("Can't handle partially selected module %s!\n", module->name.unescape());
+					log_cmd_error("Can't handle partially selected module %s!\n", module);
 				continue;
 			}
 			log("Dumping module `%s'.\n", module->name);

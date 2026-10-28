@@ -656,12 +656,12 @@ struct ShowWorker
 					continue;
 				} else
 				if (module->cells().size() == 0 && module->connections().empty() && module->processes.empty()) {
-					log("Skipping empty module %s.\n", module->name.unescape());
+					log("Skipping empty module %s.\n", module);
 					continue;
 				} else
-					log("Dumping module %s to page %d.\n", module->name.unescape(), ++page_counter);
+					log("Dumping module %s to page %d.\n", module, ++page_counter);
 			} else
-				log("Dumping selected parts of module %s to page %d.\n", module->name.unescape(), ++page_counter);
+				log("Dumping selected parts of module %s to page %d.\n", module, ++page_counter);
 			handle_module();
 		}
 	}

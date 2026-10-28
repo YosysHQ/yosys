@@ -1879,7 +1879,7 @@ struct Smt2Backend : public Backend {
 			not_ready_yet:;
 			}
 			if (sorted_modules_idx == sorted_modules.size())
-				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first->name.unescape());
+				log_error("Cyclic dependency between modules found! Cycle includes module %s.\n", module_deps.begin()->first);
 			while (sorted_modules_idx < sorted_modules.size())
 				module_deps.erase(sorted_modules.at(sorted_modules_idx++));
 		}

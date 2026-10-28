@@ -300,7 +300,7 @@ struct TechmapWorker
 				w = map_port(tpl, design, portname);
 			if (w == nullptr || w->port_id == 0) {
 				if (!portname.isPublic())
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell->name.unescape(), tpl->name.unescape());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell, tpl);
 				continue;
 			}
 
@@ -799,7 +799,7 @@ struct TechmapWorker
 							auto &data = it.second.front();
 
 							if (!data.value.is_fully_const())
-								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire->name.unescape(), log_signal(data.value));
+								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire, log_signal(data.value));
 
 							techmap_wire_names.erase(it.first);
 
@@ -929,7 +929,7 @@ struct TechmapWorker
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
-									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire->name.unescape(), log_signal(it2.value));
+									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire, log_signal(it2.value));
 						techmap_wire_names.erase(it.first);
 					}
 
@@ -985,7 +985,7 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module->name.unescape(), cell->name.unescape(), m_name);
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module, cell, m_name);
 					cell->type = cell->twines().add(m_name);
 					cell->parameters.clear();
 				}
@@ -996,7 +996,7 @@ struct TechmapWorker
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, module->name.unescape(), cell->name.unescape(), cell->type.unescape(), tpl->name.unescape());
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), tpl);
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}

@@ -70,7 +70,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto cell : mod->selected_cells()) {
-				log("%s%s\n", get_indent_str(indent), cell->name.unescape());
+				log("%s%s\n", get_indent_str(indent), cell);
 				indent += 2;
 				for (auto &it : cell->attributes)
 					log_const(PooledName(design, it.first), it.second, indent);
@@ -78,7 +78,7 @@ struct PrintAttrsPass : public Pass {
 			}
 
 			for (auto wire : mod->selected_wires()) {
-				log("%s%s\n", get_indent_str(indent), wire->name.unescape());
+				log("%s%s\n", get_indent_str(indent), wire);
 				indent += 2;
 				for (auto &it : wire->attributes)
 					log_const(PooledName(design, it.first), it.second, indent);
