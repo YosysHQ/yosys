@@ -593,6 +593,16 @@ bool NetView::isNewBuffer(const Instance *inst) const
 	return buffer && !epoch_.snapshot.cell_paths.count(paths.scopePath(inst));
 }
 
+// The loads inside hierarchical pins
+void NetView::loadsBehindPins(const std::vector<const void *> &pins, std::vector<const void *> &out) const
+{
+	for (const void *object : pins) {
+		const Pin *pin = static_cast<const Pin *>(object);
+		if (pin->term != nullptr)
+			innerPins(pin->term->net, WalkTarget::Loads, out);
+	}
+}
+
 uint64_t detail::mix64(uint64_t state, uint64_t value)
 {
 	uint64_t z = state + value + 0x9e3779b97f4a7c15;

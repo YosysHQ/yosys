@@ -24,6 +24,17 @@ bool TrackedRef::AnchorFacts::isHierarchicalPin() const
 	return hier_dir != Netlist::Dir::Unknown;
 }
 
+// A pass put logic before the leaf pin
+bool TrackedRef::isBehindNewLogic() const
+{
+	return !result.exact_pins.empty() && result.exact_pins != objects;
+}
+
+bool TrackedRef::removedButLoadsKept() const
+{
+	return kind == ObjectKind::Cell && objects.empty() && !result.loads_beyond.empty();
+}
+
 bool detail::BarrierMarks::has(BarrierMark mark) const
 {
 	return (bits & (1 << int(mark))) != 0;

@@ -205,6 +205,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	void clearAnchors(RTLIL::Design *design);
 	void resolve(const std::vector<TrackedRef *> &refs);
 	void innerPins(const Net *net, WalkTarget target, std::vector<const void *> &out) const;
+	void loadsBehindPins(const std::vector<const void *> &pins, std::vector<const void *> &out) const;
 
 	Instance *top() const;
 	std::array<size_t, 3> counts() const;

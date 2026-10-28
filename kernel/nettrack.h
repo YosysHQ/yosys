@@ -77,6 +77,9 @@ struct TrackedRef {
 	AnchorFacts facts = {};
 	std::vector<const void *> objects = {}; // set before the epoch end, resolve finds them again
 	Result result = {};
+
+	bool isBehindNewLogic() const;
+	bool removedButLoadsKept() const;
 };
 
 namespace detail {
