@@ -2239,12 +2239,6 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 		}
 #endif
 
-		if (!mode_keep && verific_sva_prims.count(inst->Type())) {
-			if (verific_verbose)
-				log("    skipping SVA cell in non k-mode\n");
-			continue;
-		}
-
 		if (inst->Type() == PRIM_HDL_ASSERTION)
 		{
 			SigBit cond = net_map_at(inst->GetInput());
@@ -2257,13 +2251,22 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			continue;
 		}
 
-		if (inst->IsPrimitive())
+		if (verific_sva_prims.count(inst->Type()) && inst->Type() != PRIM_SVA_EXPECT)
 		{
 			if (!mode_keep)
-				log_error("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
-
-			if (!verific_sva_prims.count(inst->Type()))
-				log_warning("%sUnsupported Verific primitive %s of type %s\n", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
+			{
+				if (verific_verbose)
+					log("    skipping SVA cell in non k-mode\n");
+				continue;
+			}
+		}
+		else if (inst->IsPrimitive())
+		{
+			auto msg = stringf("%sUnsupported Verific primitive %s of type %s", announce_src_location(inst), inst->Name(), inst->View()->Owner()->Name());
+			if (!mode_keep)
+				log_error("%s\n", msg);
+			else
+				log_warning("%s\n", msg);
 		}
 
 	import_verific_cells:

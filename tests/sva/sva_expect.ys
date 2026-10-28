@@ -1,0 +1,9 @@
+verific -formal << EOT
+module top (input clk, a);
+    always @(posedge clk)
+        expect (a);
+endmodule
+EOT
+
+logger -expect warning "Unsupported Verific primitive .* of type sva_expect" 1
+verific -import -k top
