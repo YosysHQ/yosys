@@ -93,6 +93,11 @@ enum class IdLookup : uint8_t {
 	AddIfMissing
 };
 
+enum class BufferRule : uint8_t {
+	StopAtNewBuffer,
+	PassNewBuffer
+};
+
 enum class CutWireSide : uint8_t {
 	OnCutWire,
 	OffCutWire
@@ -149,11 +154,14 @@ struct AnchorHit {
 struct CutSideWalkState {
 	const Netlist::Instance *scope;
 	WalkTarget target;
+	BufferRule buffer_rule;
 	std::vector<const void *> &reached_pins;
+	pool<const RTLIL::Cell *> visited_cells = {};
 };
 
 struct EpochSnapshot {
 	dict<uint32_t, std::string> cell_names;
+	pool<std::string> cell_paths;
 	void take(const NetView &view, const std::deque<Netlist::Instance> &instances);
 	void clear();
 };
@@ -202,17 +210,18 @@ struct ScopePaths {
 	std::string cellScopePath(const Netlist::Instance *inst) const;
 };
 
-// The leaf pins on the cut side of a barrier, across chains of barriers
+// The leaf pins on the cut side of a barrier, across chains of barriers and new buffers
 class CutSideWalker {
 public:
 	CutSideWalker(const NetView &view, const BarrierStore &barriers);
-	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const void *> &out);
+	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, BufferRule rule, std::vector<const void *> &out);
 	void clear();
 private:
 	void walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier);
 	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, CutWireSide cut_side);
 	bool entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, CutWireSide cut_side) const;
-	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at);
+	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at, CutWireSide cut_side);
+	void walkNewBuffer(CutSideWalkState &walk, const ModWalker::PortBit &at, CutWireSide cut_side);
 	const Netlist::Pin *topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker);
 
 	const NetView &view_;
@@ -275,7 +284,7 @@ public:
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
 	std::vector<const void *> resolveObjects(const std::vector<AnchorHit> &hits, TrackedRef &ref);
-	std::vector<const void *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
+	std::vector<const void *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule);
 	void collectLoadsBeyondAndImagePins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const void *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const void *> pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const void *> &cut) const;

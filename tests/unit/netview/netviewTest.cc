@@ -662,6 +662,7 @@ struct NoLeafModel : Netlist::LeafCellModel {
 	bool ports(const Netlist::Instance &, std::vector<Netlist::PortShape> &) override { return false; }
 	bool isRegister(const Netlist::Instance &) override { return false; }
 	bool isClockPin(const Netlist::Pin &) override { return false; }
+	bool isBuffer(const Netlist::Instance &) override { return false; }
 };
 
 TEST_F(NetViewTest, unmodeledLeafTakesTheHostPorts)
@@ -1015,6 +1016,56 @@ TEST_F(NetViewTest, netBarrierFindsTheNetOfItsScope)
 	next->build(d);
 	next->resolve({&net});
 	EXPECT_EQ(net.objects, std::vector<const void *>{next->instance(u_inv2)->pins[0]->net});
+}
+
+TEST_F(NetViewTest, newBufferKeepsTheLoadsBeyond)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	TrackedRef ref{TrackedRef::ObjectKind::Pin};
+	ref.objects = {view.pin(view.instance(u_sub), "y", 0)};
+	view.closeEpoch({&ref}, Protection::Barriers);
+	// a buffer in the module, flatten copies it in the same epoch
+	Cell *barrier = sub->cell("\\netview_anchor$1");
+	Wire *w = sub->addWire("\\w");
+	Cell *inner = sub->addCell("$inner", ID($_BUF_));
+	inner->setPort(ID::A, w);
+	inner->setPort(ID::Y, barrier->getPort(ID::Y));
+	barrier->setPort(ID::Y, w);
+	Pass::call(d, "flatten");
+	// insbuf puts a buffer on a connection
+	Wire *b = top->addWire("\\b");
+	u_inv2->setPort(ID(A), b);
+	Cell *buf = top->addCell("$buf", ID($_BUF_));
+	buf->setPort(ID::A, p);
+	buf->setPort(ID::Y, b);
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	EXPECT_EQ(ref.result.loads_beyond, std::vector<const void *>{next->instance(u_inv2)->pins[0]});
+}
+
+TEST_F(NetViewTest, loopOfNewBuffersEnds)
+{
+	NetView view;
+	view.build(d);
+	TrackedRef ref{TrackedRef::ObjectKind::Pin};
+	ref.objects = {view.instance(u_inv2)->pins[0]};
+	view.closeEpoch({&ref}, Protection::Barriers);
+	// a pass puts a loop of buffers on the cut wire
+	SigBit cut = u_inv2->getPort(ID(A));
+	Wire *b = top->addWire("\\b");
+	Cell *b1 = top->addCell("$b1", ID($_BUF_));
+	b1->setPort(ID::A, cut);
+	b1->setPort(ID::Y, b);
+	Cell *b2 = top->addCell("$b2", ID($_BUF_));
+	b2->setPort(ID::A, b);
+	b2->setPort(ID::Y, cut);
+	std::unique_ptr<NetView> next = view.retire();
+	next->build(d);
+	next->resolve({&ref});
+	EXPECT_EQ(ref.objects, std::vector<const void *>{next->instance(u_inv2)->pins[0]});
 }
 
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)

@@ -224,6 +224,7 @@ struct NetView final : public Netlist, public RTLIL::Monitor
 	// Leaf facts, the model first
 	bool isRegister(const Instance *inst) const;
 	bool isClockPin(const Pin *pin) const;
+	bool isNewBuffer(const Instance *inst) const;
 
 	// RTLIL::Monitor: every event marks the view for a re-check
 	void notify_module_add(RTLIL::Module *module) override;

@@ -582,6 +582,17 @@ bool NetView::isClockPin(const Pin *pin) const
 	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
 }
 
+// insbuf puts a buffer on a connection, a new cell has neither its object nor
+// its path at the epoch end, so a copy that flatten made has the source path
+bool NetView::isNewBuffer(const Instance *inst) const
+{
+	if (!inst->isLeaf() || epoch_.snapshot.cell_names.count(cell(inst)->hashidx_))
+		return false;
+	bool buffer = cell(inst)->type == ID($_BUF_) || (leaf_model_ != nullptr && leaf_model_->isBuffer(*inst));
+	detail::ScopePaths paths = {*this, epoch_.snapshot};
+	return buffer && !epoch_.snapshot.cell_paths.count(paths.scopePath(inst));
+}
+
 uint64_t detail::mix64(uint64_t state, uint64_t value)
 {
 	uint64_t z = state + value + 0x9e3779b97f4a7c15;

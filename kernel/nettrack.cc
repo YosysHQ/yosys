@@ -84,19 +84,23 @@ void NetView::clearAnchors(RTLIL::Design *design)
 	}
 }
 
+// Names before paths, in instance order
 void detail::EpochSnapshot::take(const NetView &view, const std::deque<Netlist::Instance> &instances)
 {
 	clear();
+	ScopePaths paths = {view, *this};
 	for (const Netlist::Instance &inst : instances) {
 		if (inst.parent == nullptr)
 			continue;
 		cell_names[view.cell(&inst)->hashidx_] = detail::ownInstanceName(&inst);
+		cell_paths.insert(paths.scopePath(&inst));
 	}
 }
 
 void detail::EpochSnapshot::clear()
 {
 	cell_names.clear();
+	cell_paths.clear();
 }
 
 void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
@@ -232,7 +236,7 @@ void detail::AnchorWriter::anchorDriversOfImage(const Netlist::Pin *pin, uint32_
 	if (view_.dir(pin) != Netlist::Dir::Input)
 		return;
 	std::vector<const void *> drivers;
-	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, drivers);
+	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const void *driver : drivers)
 		write(driver, ref_index, ref, Protection::AnchorsOnly);
 	ref.facts.moved_to_drivers = !drivers.empty();

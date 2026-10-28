@@ -140,6 +140,7 @@ struct Netlist
 		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
 		virtual bool isRegister(const Instance &inst) = 0;
 		virtual bool isClockPin(const Pin &pin) = 0;
+		virtual bool isBuffer(const Instance &inst) = 0;
 	};
 
 	static Dir portDir(bool input, bool output);
