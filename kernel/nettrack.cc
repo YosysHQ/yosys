@@ -4,6 +4,8 @@ YOSYS_NAMESPACE_BEGIN
 
 bool TrackedRef::Origin::isHierarchicalPin() const { return hier_pin_dir != Netlist::PortDir::Unknown; }
 
+bool TrackedRef::isBehindNewLogic() const { return !result.own_pins.empty() && result.own_pins != pins; }
+
 bool TrackedRef::removedButLoadsKept() const { return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty(); }
 
 NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}

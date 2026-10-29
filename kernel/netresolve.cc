@@ -120,6 +120,7 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 		break;
 	case TrackedRef::Kind::Instance:
 		ref.instances = resolveCell(hits);
+		ref.result.port_renames = portRenames(hits, ref.instances);
 		break;
 	case TrackedRef::Kind::Net:
 		ref.nets = resolveNet(hits, ref);
@@ -158,22 +159,54 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 std::vector<const Netlist::Pin *> detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	std::vector<const Netlist::Pin *> pins;
-	std::vector<const Netlist::Instance *> renamed;
+	std::vector<const Netlist::Instance *> renamed, renamed_leaves;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Pin)) {
 		const Netlist::Pin *pin = hit->instance->findPin(hit->anchor.port, hit->anchor.bit);
-		if (pin != nullptr)
-			pins.push_back(pin);
-		else if (!hit->instance->isLeaf())
+		if (pin == nullptr && hit->instance->isLeaf())
+			renamed_leaves.push_back(hit->instance);
+		else if (pin == nullptr)
 			renamed.push_back(hit->instance);
+		else if (hit->instance->isLeaf())
+			ref.result.own_pins.push_back(pin);
+		else
+			pins.push_back(pin);
 	}
 	if (!ref.result.barrier_a_pins.empty())
 		pins.clear();
 	if (!pins.empty())
 		return pins;
 	pins = cutSidePinsOfHits(hits, BufferRule::StopAtNewBuffer);
+	if (!renamed_leaves.empty())
+		ref.result.own_pins = pinsBehindNewLogic(renamed_leaves, pins);
 	if (!renamed.empty())
 		return detail::hierPinsAbove(renamed, pins);
+	if (pins.empty())
+		return ref.result.own_pins;
 	return detail::uniqueSorted(pins);
+}
+
+std::vector<const Netlist::Pin *> detail::Resolver::pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &cut) const
+{
+	std::vector<const Netlist::Pin *> found;
+	std::vector<const Netlist::Pin *> todo = cut;
+	pool<const Netlist::Instance *> seen;
+	while (!todo.empty()) {
+		const Netlist::Pin *pin = todo.back();
+		todo.pop_back();
+		if (std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
+			found.push_back(pin);
+		else if (pin->inst->isLeaf() && !view_.isRegister(pin->inst) && seen.insert(pin->inst).second)
+			addOutputLoads(pin->inst, todo);
+	}
+	return detail::uniqueSorted(found);
+}
+
+void detail::Resolver::addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const
+{
+	for (const Netlist::Pin *out : inst->pins) {
+		if (out->net != nullptr && out->dir() == Netlist::PortDir::Output)
+			loads.insert(loads.end(), out->net->pins.begin(), out->net->pins.end());
+	}
 }
 
 std::vector<const Netlist::Instance *> detail::Resolver::resolveCell(const std::vector<AnchorHit> &hits)
@@ -332,6 +365,21 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 			nets.push_back(netInScope(pin->net, hit->anchor.net_scope_path));
 	}
 	return detail::uniqueSorted(nets);
+}
+
+// dfflibmap renames C to CK, abc swaps inputs
+std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &insts)
+{
+	std::vector<PortRename> renames;
+	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
+		std::vector<const Netlist::Pin *> pins;
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
+		for (const Netlist::Pin *pin : pins) {
+			if (std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
+				renames.push_back({hit->anchor.port, pin->port().name, pin->inst});
+		}
+	}
+	return renames;
 }
 
 std::vector<const detail::AnchorHit *> detail::hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role)

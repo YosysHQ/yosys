@@ -22,6 +22,12 @@ struct TrackData;
 
 enum class TrackMode : uint8_t { AnchorsOnly, Barriers };
 
+struct PortRename {
+	std::string old_port;
+	std::string new_port;
+	const Netlist::Instance *inst;
+};
+
 struct TrackedRef {
 	enum class Kind : uint8_t {
 		Pin,
@@ -44,10 +50,12 @@ struct TrackedRef {
 	};
 
 	struct Result {
+		std::vector<const Netlist::Pin *> own_pins = {};
 		std::vector<const Netlist::Pin *> loads_beyond = {};
 		std::vector<const Netlist::Pin *> barrier_a_pins = {};
 		std::vector<const Netlist::Pin *> barrier_y_pins = {};
 		std::vector<const Netlist::Pin *> old_scope_pins = {};
+		std::vector<PortRename> port_renames = {};
 		bool flattened_hier_pin = false;
 	};
 
@@ -59,6 +67,7 @@ struct TrackedRef {
 	std::vector<const Netlist::Net *> nets = {};
 	Result result = {};
 public:
+	bool isBehindNewLogic() const;
 	bool removedButLoadsKept() const;
 };
 

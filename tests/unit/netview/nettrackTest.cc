@@ -50,6 +50,7 @@ TEST_F(NetTrackTest, resolveTakesItsOwnOccurrence)
 	tracker.resolve(*next, {&ref});
 	ASSERT_EQ(ref.pins.size(), 1u);
 	EXPECT_EQ(ref.pins[0]->inst->parent, topChild(*next, u_sub2));
+	EXPECT_EQ(ref.result.own_pins, ref.pins);
 	top->rename(u_sub2, "\\u_other");
 	std::unique_ptr<NetView> last = nextView(*next, d);
 	tracker.resolve(*last, {&ref});

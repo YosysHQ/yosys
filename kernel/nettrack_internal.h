@@ -188,6 +188,8 @@ private:
 	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<const Netlist::Pin *> pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &cut) const;
+	void addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const;
 	std::vector<const Netlist::Instance *> resolveCell(const std::vector<AnchorHit> &hits);
 	std::vector<const Netlist::Pin *> resolvePort(const std::vector<AnchorHit> &hits, uint32_t ref_index);
 	std::vector<const Netlist::Pin *> namedTopPins(uint32_t ref_index) const;
@@ -198,6 +200,7 @@ private:
 	const Netlist::Net *newBufferRoot(const Netlist::Net *net) const;
 	std::vector<const Netlist::Net *> bufferSplitRoots(const pool<const Netlist::Net *> &parts) const;
 	std::vector<const Netlist::Net *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<PortRename> portRenames(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &insts);
 private:
 	const NetView &view_;
 	const TrackData &data_;
