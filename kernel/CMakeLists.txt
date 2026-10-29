@@ -61,9 +61,9 @@ yosys_core(kernel
 	netbuild.cc
 	netlist.cc
 	netlist.h
-	nettrack.cc
 	netview.cc
 	netview.h
+	netview_internal.h
 	newcelltypes.h
 	pattern.h
 	qcsat.cc
