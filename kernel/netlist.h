@@ -1,10 +1,4 @@
-// Netlist: the records of a read-only, bit-level, unfolded netlist and their helpers
-// Objects:
-// - Instance  one occurrence of a cell or module, the top is an instance
-//             with no parent, hierarchical instances own a scope of nets
-// - Pin       one bit of one port of one instance
-// - Net       one electrical node in one scope
-// - Term      where a net meets its scope's boundary
+// Netlist: the records of a read-only, bit-level, unfolded netlist
 
 #ifndef NETLIST_H
 #define NETLIST_H
@@ -16,6 +10,20 @@
 #include <vector>
 
 YOSYS_NAMESPACE_BEGIN
+
+struct NetView;
+
+namespace Netlist
+{
+
+struct Instance;
+struct Pin;
+struct Net;
+struct Term;
+
+enum class PortDir : uint8_t { Unknown, Input, Output, Inout };
+
+enum class WalkTarget : uint8_t { Drivers, Loads };
 
 template <typename T> struct IdMap {
 	T &operator[](uint32_t id)
@@ -35,100 +43,85 @@ template <typename T> struct IdMap {
 	T fallback = T();
 };
 
-struct Netlist
-{
-	struct Instance;
-	struct Pin;
-	struct Net;
-	struct Term;
-
-	enum class Dir : uint8_t {
-		Unknown,
-		Input,
-		Output,
-		Inout
-	};
-
-	struct PortShape {
-		std::string name; // unescaped
-		int width;
-		int from;
-		int to;
-		Dir dir;
-		bool vector = false; // declared with a range
-		bool scalar() const;
-	};
-
-	struct Instance {
-		std::string name;                 // local name, unescaped
-		std::vector<std::string> hdlpath; // source path when flattened
-		std::string type;                 // cell type or module name, unescaped
-		std::string master;               // display name of the master (e.g. the pre-uniquify module)
-		Instance *parent;
-		uint32_t id;
-		bool leaf;
-		bool internal;
-		const std::vector<PortShape> *ports;
-		std::vector<Pin *> pins;
-		std::vector<Instance *> children;
-	};
-
-	struct Pin {
-		Instance *inst;
-		Net *net;   // net on the instance's outer side
-		Term *term; // boundary into the instance's scope
-		uint32_t id;
-		uint32_t port;
-		int bit;
-		mutable uint32_t user = 0; // the consumer's value, 0 after each build
-	};
-
-	struct Net {
-		enum class Const : uint8_t {
-			None,
-			Zero,
-			One
-		};
-
-		Instance *scope;
-		uint32_t id;
-		Const constant;
-		std::vector<Pin *> pins;   // pins inside the scope on this net
-		std::vector<Term *> terms; // boundary terms whose inner net is this
-	};
-
-	struct Term {
-		Pin *pin;
-		Net *net;
-		uint32_t id;
-	};
-
-	struct NetName {
-		std::string wire;
-		int index;
-		bool scalar;
-		std::vector<std::string> hdlpath = {}; // source path of a flattened wire
-		bool operator==(const NetName &) const = default;
-	};
-
-	struct Alias {
-		NetName name;
-		Net *net;
-	};
-
-	// Leaf port shapes from a consumer with a richer library (liberty)
-	struct PortModel {
-		virtual ~PortModel();
-		virtual bool ports(const Instance &inst, std::vector<PortShape> &out) = 0;
-	};
-
-	static Dir portDir(bool input, bool output);
-	bool isTop(const Instance *inst) const;
-	const PortShape &shape(const Pin *pin) const;
-	Dir dir(const Pin *pin) const;
-	int hdlIndex(const Pin *pin) const;
-	bool isDriver(const Pin *pin) const;
+struct Port {
+	std::string name; // unescaped
+	int width = 0;
+	int from = 0; // [from:to] as declared
+	int to = 0;
+	PortDir dir = PortDir::Unknown;
+	bool vector = false;	     // declared with a range
+	bool scalar() const;	     // one bit, declared without a range
+	int hdlIndex(int bit) const; // the declared index of a bit
 };
+
+struct Instance {
+	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
+
+	std::string name;		  // local name, unescaped
+	std::string type;		  // cell type or module name, unescaped
+	std::string hdl_type;		  // the source module name before uniquify, else type
+	std::vector<std::string> hdlpath; // source path of a flattened cell
+	Kind kind;
+	uint32_t id;
+	Instance *parent;
+	const NetView *view; // the owner
+	const std::vector<Port> *ports;
+	std::vector<Pin *> pins;
+	std::vector<Instance *> children;
+public:
+	bool isTop() const;
+	bool isLeaf() const;
+	Pin *findPin(const std::string &port, int bit) const;
+};
+
+struct Pin {
+	Instance *inst;
+	Net *net;   // the net outside, in the scope of the parent
+	Term *term; // boundary into the instance's scope
+	uint32_t id;
+	uint32_t port_index; // in inst->ports
+	int bit;
+	mutable uint32_t user = 0; // the consumer's value, 0 after each build
+public:
+	const Port &port() const;
+	PortDir dir() const;
+	int hdlIndex() const;
+	bool isDriver() const;
+};
+
+struct Net {
+	enum class Const : uint8_t { None, Zero, One };
+
+	Instance *scope;
+	uint32_t id;
+	Const constant;
+	std::vector<Pin *> pins;   // the pins in the scope on this net
+	std::vector<Term *> terms; // the inside ends on this net
+};
+
+struct Term {
+	Pin *pin;
+	Net *net;
+	uint32_t id;
+};
+
+struct NetName {
+	std::string wire;
+	int index;
+	bool scalar;
+	std::vector<std::string> hdlpath = {}; // source path of a flattened wire
+public:
+	bool operator==(const NetName &) const = default;
+};
+
+struct NetAlias {
+	NetName name;
+	Net *net;
+};
+
+PortDir portDir(bool input, bool output);
+
+} // namespace Netlist
 
 YOSYS_NAMESPACE_END
 
