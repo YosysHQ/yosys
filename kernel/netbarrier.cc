@@ -4,7 +4,8 @@
 //   Instance  each pin of a gate, the clock pins of a register
 //   TopPort   a bit of a top bus port
 //   Net       the leaf drivers
-// A barrier cuts a pin off its net with a cut wire
+// A barrier cuts a pin off its net with a cut wire, CutSideWalker walks from a
+// barrier to the leaf pins on its cut side
 
 #include "kernel/nettrack_internal.h"
 
@@ -284,6 +285,91 @@ void detail::BarrierWriter::collectLeafDrivers(const Netlist::Net *net, pool<con
 	}
 	for (const Netlist::Term *term : net->terms)
 		collectLeafDrivers(term->pin->net, seen, drivers);
+}
+
+detail::CutSideWalker::CutSideWalker(const NetView &view, const TrackData &data) : view_(view), data_(data) {}
+
+// A cut side ends at the cut side of another barrier
+void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const Netlist::Pin *> &out)
+{
+	Netlist::WalkTarget target = Netlist::WalkTarget::Loads;
+	if (side == Anchor::Side::A)
+		target = Netlist::WalkTarget::Drivers;
+	CutSideWalkState walk = {scope, target, out};
+	walkBarrier(walk, barrier);
+}
+
+void detail::CutSideWalker::walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier)
+{
+	if (!walk.visited_cells.insert(barrier).second)
+		return;
+	bool on_cut_wire = (walk.target == Netlist::WalkTarget::Drivers) == data_.barriers.marks(barrier).cut_on_a;
+	RTLIL::SigBit start = barrier->getPort(detail::barrierPortToward(walk.target))[0];
+	walkSignal(walk, barrier, start, on_cut_wire);
+}
+
+void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, bool on_cut_wire)
+{
+	RTLIL::Module *module = from->module;
+	const ModWalker &walker = mod_walkers_.try_emplace(module, module->design, module).first->second;
+	if (const Netlist::Pin *port = topPortPinOf(bit, walker)) {
+		walk.reached_pins.push_back(port);
+		return;
+	}
+	pool<ModWalker::PortBit> users;
+	walker.get_drivers(users, walker.sigmap(bit));
+	walker.get_consumers(users, walker.sigmap(bit));
+	for (const ModWalker::PortBit &at : users) {
+		if (at.cell == from)
+			continue;
+		if (at.cell->type != ID($barrier))
+			walkUser(walk, at);
+		else if (entersBarrier(walk, at, on_cut_wire))
+			walkBarrier(walk, at.cell);
+	}
+}
+
+// Toward the target, and not into the cut wire of a barrier from the cut wire
+bool detail::CutSideWalker::entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire) const
+{
+	bool at_a = at.port == ID::A;
+	if (at_a == (walk.target == Netlist::WalkTarget::Drivers))
+		return false;
+	return !(on_cut_wire && at_a == data_.barriers.marks(at.cell).cut_on_a);
+}
+
+void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at)
+{
+	const Netlist::Instance *inst = view_.instance(at.cell, walk.scope);
+	if (inst == nullptr)
+		return;
+	const Netlist::Pin *pin = inst->findPin(detail::unescapedName({at.cell->module, at.port}), at.offset);
+	if (pin == nullptr)
+		return;
+	bool toward_target = pin->isDriver() == (walk.target == Netlist::WalkTarget::Drivers);
+	if (pin->inst->isLeaf() && toward_target)
+		walk.reached_pins.push_back(pin);
+	else if (!pin->inst->isLeaf() && pin->term != nullptr) {
+		std::vector<Netlist::Pin *> leaves = view_.leafPins(pin->term->net, walk.target);
+		walk.reached_pins.insert(walk.reached_pins.end(), leaves.begin(), leaves.end());
+	}
+}
+
+const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker)
+{
+	const Netlist::Instance *top = view_.top();
+	if (bit.wire == nullptr || walker.module != view_.module(top))
+		return nullptr;
+	if (bit.wire->port_id != 0)
+		return top->findPin(detail::unescapedName(bit.wire->name), bit.offset);
+	if (top_port_pin_by_bit_.empty()) {
+		for (const Netlist::Pin *port : top->pins) {
+			RTLIL::IdString port_id = detail::escapedPortId(view_.design(), nullptr, walker.module, port->port().name);
+			RTLIL::Wire *wire = walker.module->wire(port_id);
+			top_port_pin_by_bit_.emplace(walker.sigmap(RTLIL::SigBit(wire, port->bit)), port);
+		}
+	}
+	return top_port_pin_by_bit_.at(walker.sigmap(bit), nullptr);
 }
 
 // netview_<attr> marks our attr

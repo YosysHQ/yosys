@@ -2,6 +2,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+bool TrackedRef::Origin::isHierarchicalPin() const { return hier_pin_dir != Netlist::PortDir::Unknown; }
+
+bool TrackedRef::removedButLoadsKept() const { return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty(); }
+
 NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
 NetTracker::~NetTracker() = default;
@@ -12,12 +16,13 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	detail::TrackData &data = *data_;
 	data.clearAnchors(view.design());
 	data.snapshot.take(view);
-	detail::AnchorWriter anchors(view, data);
+	detail::CutSideWalker walker(view, data);
+	detail::AnchorWriter anchors(view, data, walker);
 	detail::BarrierWriter barriers(view, data);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++) {
 		TrackedRef &ref = *refs[ref_index];
 		for (size_t at = 0; at < detail::objectCount(ref); at++) {
-			anchors.write(ref_index, ref, at);
+			anchors.write(ref_index, ref, at, mode);
 			if (mode == TrackMode::Barriers)
 				barriers.protect(ref_index, ref, at);
 		}
@@ -117,9 +122,9 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 
 void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }
 
-detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data) : view_(view), data_(data) {}
+detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker) : view_(view), data_(data), walker_(walker) {}
 
-void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at)
+void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, TrackMode mode)
 {
 	switch (ref.kind) {
 	case TrackedRef::Kind::Net:
@@ -130,21 +135,50 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at)
 	}
 	case TrackedRef::Kind::TopPort:
 		data_.top_ports_by_ref.add(ref_index, {ref.pins[at]->port().name, ref.pins[at]->hdlIndex()});
-		return anchorPin(ref.pins[at], ref_index);
+		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	case TrackedRef::Kind::Pin:
-		return anchorPin(ref.pins[at], ref_index);
+		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	}
 }
 
-void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index)
+void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
 {
 	if (pin->inst->isTop()) {
 		if (pin->term != nullptr)
 			anchorWires(pin->term->net, ref_index);
 		return;
 	}
+	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)
+		return anchorBarrierInstancePin(pin, ref_index, ref, mode);
+	if (!pin->inst->isLeaf()) {
+		ref.origin.hier_pin_dir = Netlist::PortDir::Input;
+		if (pin->dir() == Netlist::PortDir::Output)
+			ref.origin.hier_pin_dir = Netlist::PortDir::Output;
+	}
 	Anchor anchor = {Anchor::Role::Pin, ref_index, data_.snapshot.cellScopePath(view_, pin->inst), pin->port().name, pin->bit, "", false};
 	anchorCell(pin->inst, anchor);
+}
+
+void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
+{
+	ref.origin.on_barrier_instance = true;
+	if (mode == TrackMode::AnchorsOnly)
+		return anchorDriversOfBarrierInstance(pin, ref_index, ref);
+	Anchor anchor = {Anchor::Role::Pin, ref_index, "", pin->port().name, pin->bit, "", false, Anchor::Side::Y};
+	std::string path = data_.snapshot.scopePath(view_, pin->inst->parent);
+	detail::recordBarrierAnchor(view_, data_.barriers, view_.cell(pin->inst), path, anchor);
+}
+
+// unprotect removes the Barrier instance, a ref of its A pin moves to the drivers, a ref of its Y pin takes no anchor
+void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref)
+{
+	if (pin->dir() != Netlist::PortDir::Input)
+		return;
+	std::vector<const Netlist::Pin *> drivers;
+	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, drivers);
+	for (const Netlist::Pin *driver : drivers)
+		anchorPin(driver, ref_index, ref, TrackMode::AnchorsOnly);
+	ref.origin.anchored_on_drivers = !drivers.empty();
 }
 
 void detail::AnchorWriter::anchorCell(const Netlist::Instance *inst, Anchor anchor)

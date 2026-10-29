@@ -1,9 +1,11 @@
 #ifndef NETTRACK_INTERNAL_H
 #define NETTRACK_INTERNAL_H
 
+#include "kernel/modtools.h"
 #include "kernel/nettrack.h"
 #include "kernel/netview_internal.h"
 
+#include <map>
 #include <optional>
 #include <string_view>
 
@@ -88,6 +90,8 @@ struct AnchorHit {
 	const Netlist::Instance *instance; // of a cell anchor
 	const Netlist::Net *net;	         // of a wire anchor
 	bool in_own_scope;
+	const RTLIL::Cell *barrier = nullptr; // of a barrier anchor
+	const Netlist::Instance *barrier_scope = nullptr;
 };
 
 struct HitIndex {
@@ -96,6 +100,7 @@ struct HitIndex {
 private:
 	void noteScope(const Netlist::Instance *scope);
 	void noteInstance(const Netlist::Instance *inst);
+	void noteBarrier(const RTLIL::Cell *cell, const Netlist::Instance *scope);
 	void noteWires(const Netlist::Instance *scope);
 	dict<RTLIL::SigBit, const Netlist::Net *> netsOfWireBits(const Netlist::Instance *scope) const;
 	void noteWireBit(const Netlist::Net *net, const RTLIL::SigBit &bit);
@@ -105,17 +110,43 @@ private:
 	Netlist::IdMap<std::vector<AnchorHit>> hits_by_ref_;
 };
 
-struct AnchorWriter {
-	AnchorWriter(const NetView &view, TrackData &data);
-	void write(uint32_t ref_index, TrackedRef &ref, size_t at);
+struct CutSideWalkState {
+	const Netlist::Instance *scope;
+	Netlist::WalkTarget target;
+	std::vector<const Netlist::Pin *> &reached_pins;
+	pool<const RTLIL::Cell *> visited_cells = {};
+};
+
+struct CutSideWalker {
+	CutSideWalker(const NetView &view, const TrackData &data);
+	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const Netlist::Pin *> &out);
 private:
-	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index);
+	void walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier);
+	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, bool on_cut_wire);
+	bool entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire) const;
+	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at);
+	const Netlist::Pin *topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker);
+private:
+	const NetView &view_;
+	const TrackData &data_;
+	std::map<RTLIL::Module *, ModWalker> mod_walkers_;
+	dict<RTLIL::SigBit, const Netlist::Pin *> top_port_pin_by_bit_; // by top SigMap bit
+};
+
+struct AnchorWriter {
+	AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker);
+	void write(uint32_t ref_index, TrackedRef &ref, size_t at, TrackMode mode);
+private:
+	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode);
+	void anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode);
+	void anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref);
 	void anchorCell(const Netlist::Instance *inst, Anchor anchor);
 	void anchorWires(const Netlist::Net *net, uint32_t ref_index);
 	bool markIfShared(RTLIL::AttrObject *object, RTLIL::Module *module);
 private:
 	const NetView &view_;
 	TrackData &data_;
+	CutSideWalker &walker_;
 };
 
 struct BarrierWriter {
@@ -145,20 +176,24 @@ private:
 };
 
 struct Resolver {
-	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index);
+	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
-	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits);
+	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
+	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Instance *> resolveCell(const std::vector<AnchorHit> &hits);
 	std::vector<const Netlist::Pin *> resolvePort(const std::vector<AnchorHit> &hits, uint32_t ref_index);
 	std::vector<const Netlist::Pin *> namedTopPins(uint32_t ref_index) const;
 	void collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const;
 	std::vector<const Netlist::Pin *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
+	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
 	std::vector<const Netlist::Net *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 private:
 	const NetView &view_;
 	const TrackData &data_;
 	const HitIndex &hit_index_;
+	CutSideWalker &walker_;
 };
 
 // Checkpoint
@@ -188,6 +223,7 @@ std::string barrierScopePath(const std::string &path, const RTLIL::Cell *barrier
 
 // Resolve
 std::vector<const AnchorHit *> hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role);
+std::vector<const Netlist::Pin *> hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves);
 const Netlist::Pin *findTopPort(const Netlist::Instance *top, const TopPortName &name);
 
 template <typename T> std::vector<T> uniqueSorted(std::vector<T> objects)
