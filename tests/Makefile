@@ -94,6 +94,7 @@ MK_TEST_DIRS += ./slang/basic/svtypes
 MK_TEST_DIRS += ./slang/basic/various
 MK_TEST_DIRS += ./slang/basic/verific
 MK_TEST_DIRS += ./slang/basic/verilog
+#MK_TEST_DIRS += ./slang/formal/riscv-formal-dmem-check
 MK_TEST_DIRS += ./slang/fpga/analogdevices
 MK_TEST_DIRS += ./slang/fpga/ecp5
 MK_TEST_DIRS += ./slang/fpga/fabulous
