@@ -132,6 +132,17 @@ Installing all prerequisites:
       pkg install bison cmake-core flex readline gawk libffi graphviz \
          pkgconf python311 tcl-wrapper
 
+.. tab:: Nix
+
+   .. code:: console
+
+      nix-shell
+
+   enters a shell with all prerequisites, using the nixpkgs revision pinned in
+   ``flake.lock``.  To have direnv load it automatically, put ``use nix`` in
+   ``.envrc``.  ``nix develop`` gives the same shell, but first copies the source
+   tree including all submodules into the Nix store.
+
 .. tab:: Cygwin
 
    Use the following command to install all prerequisites, or select these
