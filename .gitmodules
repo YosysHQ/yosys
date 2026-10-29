@@ -24,3 +24,7 @@
 	path = libs/symfpu
 	url = https://github.com/YosysHQ/symfpu
 	branch = floatWithStatusFlags
+[submodule "property-ir"]
+	path = libs/property-ir
+	url = https://github.com/YosysHQ/property-ir
+	branch = jix-cpp
