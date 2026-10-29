@@ -6,18 +6,24 @@ NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
 NetTracker::~NetTracker() = default;
 
-void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode)
+void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode)
 {
 	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
 	data.clearAnchors(view.design());
 	data.snapshot.take(view);
 	detail::AnchorWriter anchors(view, data);
+	detail::BarrierWriter barriers(view, data);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++) {
 		TrackedRef &ref = *refs[ref_index];
-		for (size_t at = 0; at < detail::objectCount(ref); at++)
+		for (size_t at = 0; at < detail::objectCount(ref); at++) {
 			anchors.write(ref_index, ref, at);
+			if (mode == TrackMode::Barriers)
+				barriers.protect(ref_index, ref, at);
+		}
 	}
+	if (mode == TrackMode::Barriers && !barriers.madeNewBarrierInstance())
+		view.markUpToDate();
 }
 
 void NetTracker::clear(RTLIL::Design *design) { data_->clearAnchors(design); }
@@ -39,6 +45,7 @@ size_t detail::objectCount(const TrackedRef &ref)
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
 {
 	anchors.clear();
+	barriers.clearAnchors();
 	top_ports_by_ref.clear();
 	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
 	if (id == RTLIL::IdString::Null)

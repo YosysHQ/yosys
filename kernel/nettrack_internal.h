@@ -4,6 +4,7 @@
 #include "kernel/nettrack.h"
 #include "kernel/netview_internal.h"
 
+#include <optional>
 #include <string_view>
 
 YOSYS_NAMESPACE_BEGIN
@@ -11,12 +12,16 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail
 {
 
+constexpr std::string_view anchor_prefix = "netview_anchor";
+constexpr std::string_view anchor_attr = "\\netview_anchor";
 constexpr std::string_view ref_attr = "\\netview_ref";
+constexpr std::string_view owned_marker_prefix = "\\netview_";
 
 enum class IdLookup : uint8_t { FindOnly, AddIfMissing };
 
 struct Anchor {
-	enum class Role : uint8_t { Pin, Cell, Net };
+	enum class Role : uint8_t { Pin, Cell, Net, Barrier };
+	enum class Side : uint8_t { None, A, Y };
 
 	Role role;
 	uint32_t ref_index;
@@ -25,6 +30,13 @@ struct Anchor {
 	int bit;
 	std::string net_scope_path; // of the scope that holds the wire
 	bool in_shared_module;
+	Side side = Side::None;
+};
+
+struct BarrierMarks {
+	bool cut_on_a = false;	       // the cut wire is on A, at an output
+	bool port_cut = false;	       // the cut side holds all uses of a port bit
+	bool keep_as_instance = false; // a Barrier instance in the view, keeps a hierarchical pin
 };
 
 struct TopPortName {
@@ -50,9 +62,22 @@ public:
 	void clear();
 };
 
+struct BarrierStore {
+	ListMap<int, Anchor> anchors_by_barrier;
+	dict<int, BarrierMarks> marks_by_barrier;
+	int last_barrier_id = 0;
+public:
+	int nextId();
+	BarrierMarks marks(const RTLIL::Cell *barrier) const;
+	void setMarks(const RTLIL::Cell *barrier, const BarrierMarks &marks);
+	RTLIL::IdString cutPort(const RTLIL::Cell *barrier) const;
+	void clearAnchors();
+};
+
 struct TrackData {
 	Snapshot snapshot;
 	AnchorStore anchors;
+	BarrierStore barriers;
 	ListMap<uint32_t, TopPortName> top_ports_by_ref;
 public:
 	void clearAnchors(RTLIL::Design *design);
@@ -93,6 +118,32 @@ private:
 	TrackData &data_;
 };
 
+struct BarrierWriter {
+	BarrierWriter(const NetView &view, TrackData &data);
+	void protect(uint32_t ref_index, const TrackedRef &ref, size_t at);
+	bool madeNewBarrierInstance() const;
+private:
+	void protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref);
+	void protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
+	void protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance);
+	void protectPort(const Netlist::Pin *pin, uint32_t ref_index);
+	void protectCell(const Netlist::Instance *inst, uint32_t ref_index);
+	void protectNet(const Netlist::Net *net, uint32_t ref_index);
+	void isolateCell(const Netlist::Instance *inst);
+	void anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
+	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
+	RTLIL::Cell *ensureBarrierAtPort(const Netlist::Pin *pin);
+	RTLIL::Cell *findPortBarrier(RTLIL::Module *module, const RTLIL::SigBit &bit) const;
+	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks);
+	void markWiresKeep(const Netlist::Net *net);
+	void collectLeafDrivers(const Netlist::Net *net, pool<const Netlist::Net *> &seen, std::vector<const Netlist::Pin *> &drivers) const;
+private:
+	const NetView &view_;
+	TrackData &data_;
+	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
+	bool made_new_barrier_instance_ = false; // the view changed
+};
+
 struct Resolver {
 	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
@@ -116,14 +167,24 @@ size_t objectCount(const TrackedRef &ref);
 // Ids
 RTLIL::IdString attrId(RTLIL::Design *design, std::string_view name, IdLookup lookup);
 RTLIL::IdString refAttrId(RTLIL::Design *design, IdLookup lookup);
+RTLIL::IdString ownedMarkerId(RTLIL::Design *design, RTLIL::IdString attr, IdLookup lookup);
 
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);
+void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
+
+// Barriers
+RTLIL::Wire *addCutWire(RTLIL::Module *module);
+std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
+void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
+void replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
+RTLIL::IdString barrierPortToward(Netlist::WalkTarget target);
 
 // Scope paths
 bool hasOwnScope(const RTLIL::AttrObject *object);
 std::vector<std::string> ownScopeParts(const RTLIL::AttrObject *object);
 std::string withOwnScope(const std::string &path, const RTLIL::AttrObject *object);
+std::string barrierScopePath(const std::string &path, const RTLIL::Cell *barrier);
 
 // Resolve
 std::vector<const AnchorHit *> hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role);
