@@ -1528,6 +1528,9 @@ struct VerificSvaImporter
 	{
 		Instance *inst = net_to_ast_driver(net, true);
 
+		if (inst == nullptr)
+			return false;
+
 		if (inst->Type() == PRIM_MUX) {
 			// TODO does this need to be recursive?
 			Instance *input1 = get_ast_input1(inst);
@@ -1535,10 +1538,10 @@ struct VerificSvaImporter
 				inst = input1;
 			else
 				inst = get_ast_input2(inst);
-		}
 
-		if (inst == nullptr)
-			return false;
+			if (inst == nullptr)
+				return false;
+		}
 
 		if (clocking.cond_net != nullptr) {
 			trig = importer->net_map_at(clocking.cond_net);
