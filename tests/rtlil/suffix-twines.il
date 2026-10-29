@@ -1,9 +1,11 @@
 autoidx 1
-twines
-  leaf 1054 "everything"
-  suffix 1055 1054 ".a"
-  suffix 1056 1054 ".b"
-  leaf 1057 "tiny"
+metadata
+  twines
+    root 1054 "everything"
+    suffix 1055 1054 ".a"
+    suffix 1056 1054 ".b"
+    root 1057 "tiny"
+  end
 end
 module $pub@1057  # \tiny
   wire input 1 $pub@1055  # \everything.a

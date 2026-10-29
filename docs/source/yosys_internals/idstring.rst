@@ -213,9 +213,9 @@ convert it with ``str()`` while the design is still alive if you want that.
 RTLIL
 ^^^^^
 
-There is a new ``twines`` section in the RTLIL textual format. Older RTLIL
-versions can still be read in, but older Yosys versions won't be able to read
-this format.
+There is a new ``metadata`` section in the RTLIL textual format, holding a
+``twines`` section. Older RTLIL versions can still be read in, but older Yosys
+versions won't be able to read this format.
 
 To write out RTLIL in a format compatible with older
 Yosys versions, use ``write_rtlil -readable``. This will discards only
