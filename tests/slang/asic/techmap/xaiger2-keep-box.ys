@@ -1,0 +1,20 @@
+# abc9_box driving only a keep wire
+read_slang --allow-use-before-declare --ignore-timing --std latest -specify <<EOT
+(* abc9_box, blackbox *)
+module box(input i, output o);
+	specify
+		(i => o) = 10;
+	endspecify
+endmodule
+
+module top(input d, output y);
+	(* keep *) wire a;
+	box b (.i(d), .o(a));
+	assign y = ~d;
+endmodule
+EOT
+opt_clean
+abc9 -lut 4
+opt_clean
+select -assert-count 1 top/t:box
+select -assert-count 1 top/w:a %ci1 top/t:box %i

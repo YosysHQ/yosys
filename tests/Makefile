@@ -81,6 +81,11 @@ MK_TEST_DIRS += ./check_mem
 MK_TEST_DIRS += ./write_verilog
 MK_TEST_DIRS += ./symfpu
 
+MK_TEST_DIRS += ./slang/asic/abc_new
+MK_TEST_DIRS += ./slang/asic/abc_new/librelane
+MK_TEST_DIRS += ./slang/asic/abc_new/openroad
+MK_TEST_DIRS += ./slang/asic/liberty
+MK_TEST_DIRS += ./slang/asic/techmap
 MK_TEST_DIRS += ./slang/basic
 MK_TEST_DIRS += ./slang/basic/opt
 MK_TEST_DIRS += ./slang/basic/peepopt
