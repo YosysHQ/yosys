@@ -25,6 +25,7 @@ template <typename K, typename V> struct ListMap {
 };
 
 struct Fingerprint;
+uint64_t mix64(uint64_t state, uint64_t value);
 bool designAlive(const RTLIL::Design *design);
 RTLIL::Module *topModule(RTLIL::Design *design);
 
