@@ -1,0 +1,10 @@
+logger -expect error "can only be called with constant arguments" 1
+read_verilog <<EOT
+module top(input [7:0] a, output [7:0] y);
+    function [7:0] f;
+        input [7:0] x;
+        real r;
+    endfunction
+    assign y = f(a);
+endmodule
+EOT

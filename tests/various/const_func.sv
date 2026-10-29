@@ -62,6 +62,48 @@ module top(out);
     localparam signed Y = $floor(W / X);
     localparam signed Z = negate($floor(W / X));
 
+    function automatic real scaled;
+        input real factor;
+        input integer inp;
+        scaled = inp;
+        scaled = scaled * factor;
+    endfunction
+    localparam signed Q = $rtoi(scaled(0.25, W) * 10.0);
+
+    function automatic [7:0] truncated;
+        input real k;
+        truncated = k * 16.0;
+        truncated[3:0] = k * 4.0;
+    endfunction
+    localparam signed T = truncated(2.25);
+
+    function automatic integer counted;
+        input real k;
+        counted = 0;
+        repeat (k) counted = counted + 1;
+    endfunction
+    localparam signed C = counted(3.6);
+
+    function automatic real from_byte;
+        input [7:0] x;
+        from_byte = x;
+    endfunction
+    localparam integer B = $rtoi(from_byte(200));
+
+    function automatic real diff;
+        input integer a, b;
+        diff = a - b;
+    endfunction
+    localparam real D = diff(1, 3);
+
+    function automatic real identity;
+        input real k;
+        real zero;
+        identity = k + zero;
+    endfunction
+    localparam integer I = $rtoi(identity(8'd200));
+    localparam real J = identity(-4);
+
     always_comb begin
         assert(a1 == 0);
         assert(a2 == 0);
@@ -82,5 +124,12 @@ module top(out);
 
         assert(Y == 3);
         assert(Z == ~3);
+        assert(Q == 25);
+        assert(T == 41);
+        assert(C == 4);
+        assert(B == 200);
+        assert(D == -2.0);
+        assert(I == 200);
+        assert(J == -4.0);
     end
 endmodule

@@ -1014,6 +1014,13 @@ wire_type_token:
 		extra->astbuf3->is_signed = true;
 		extra->astbuf3->range_left = 31;
 		extra->astbuf3->range_right = 0;
+	} |
+	TOK_REAL {
+		// A real only survives constant function evaluation, so a design can
+		// never carry one as a signal.
+		if (!extra->current_function_or_task || extra->current_function_or_task->type != AST_FUNCTION)
+			err_at_loc(@$, "real is only supported for function arguments and variables.");
+		extra->astbuf3->children.push_back(std::make_unique<AstNode>(@$, AST_REALVALUE));
 	};
 
 net_type:
@@ -1193,6 +1200,9 @@ func_return_type:
 	} |
 	integer_atom_type opt_signedness_default_signed {
 		$$ = makeRange(@$, $1 - 1, 0, $2);
+	} |
+	TOK_REAL {
+		$$ = std::make_unique<AstNode>(@$, AST_REALVALUE);
 	};
 
 opt_type_vec:
@@ -2151,6 +2161,8 @@ wire_name:
 		if ($2 != nullptr) {
 			if (node->is_input || node->is_output)
 				err_at_loc(@2, "input/output/inout ports cannot have unpacked dimensions.");
+			if (!node->children.empty() && node->children.at(0)->type == AST_REALVALUE)
+				err_at_loc(@2, "real variables cannot have unpacked dimensions.");
 			if (!extra->astbuf2 && !node->is_custom_type) {
 				addRange(node.get(), 0, 0, false);
 			}
