@@ -269,6 +269,45 @@ const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const 
 	return net;
 }
 
+const Netlist::Net *detail::Resolver::newBufferInput(const Netlist::Net *net) const
+{
+	for (const Netlist::Pin *pin : net->pins) {
+		if (!detail::isNewBuffer(view_, data_.snapshot, pin->inst) || !pin->isDriver())
+			continue;
+		for (const Netlist::Pin *input : pin->inst->pins) {
+			if (input != pin && input->net != nullptr)
+				return input->net;
+		}
+	}
+	return nullptr;
+}
+
+const Netlist::Net *detail::Resolver::newBufferRoot(const Netlist::Net *net) const
+{
+	pool<const Netlist::Net *> seen = {net};
+	while (const Netlist::Net *input = newBufferInput(net)) {
+		if (!seen.insert(input).second)
+			break;
+		net = input;
+	}
+	return net;
+}
+
+// insbuf splits a net with buffers, so the parts that no other part drives keep its meaning, and the part that drives them all when there are several
+std::vector<const Netlist::Net *> detail::Resolver::bufferSplitRoots(const pool<const Netlist::Net *> &parts) const
+{
+	std::vector<const Netlist::Net *> roots;
+	for (const Netlist::Net *part : parts) {
+		if (!parts.count(newBufferInput(part)))
+			roots.push_back(part);
+	}
+	if (roots.size() < 2)
+		return roots;
+	for (const Netlist::Net *&root : roots)
+		root = newBufferRoot(root);
+	return detail::uniqueSorted(roots);
+}
+
 std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	pool<const Netlist::Net *> outer;
@@ -284,7 +323,7 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 			old_scope_pins.insert(old_scope_pins.end(), inside.begin(), inside.end());
 	}
 	if (!parts.empty())
-		return detail::uniqueSorted(std::vector<const Netlist::Net *>(parts.begin(), parts.end()));
+		return bufferSplitRoots(parts);
 	std::vector<const Netlist::Net *> nets;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> pins;

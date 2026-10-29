@@ -232,6 +232,53 @@ TEST_F(NetProtectTest, loopOfNewBuffersEnds)
 	EXPECT_EQ(ref.pins, std::vector<const Netlist::Pin *>{topChild(*next, u_inv2)->pins[0]});
 }
 
+TEST_F(NetProtectTest, newBufferKeepsTheDriverPartOfANet)
+{
+	Wire *n = top->addWire("\\n");
+	top->connect(n, d0);
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef net{TrackedRef::Kind::Net};
+	net.nets = {topChild(view, u_inv0)->pins[1]->net};
+	tracker.checkpoint(view, {&net}, TrackMode::Barriers);
+	// insbuf makes the connection a buffer
+	top->new_connections({{tie, State::S0}});
+	Cell *buf = top->addCell("$buf", ID($_BUF_));
+	buf->setPort(ID::A, d0);
+	buf->setPort(ID::Y, n);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&net});
+	EXPECT_EQ(net.nets, std::vector<const Netlist::Net *>{topChild(*next, u_sub)->pins[0]->net});
+}
+
+TEST_F(NetProtectTest, ringOfNewBuffersOnAPartEnds)
+{
+	Wire *n = top->addWire("\\n");
+	top->connect(n, d0);
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef net{TrackedRef::Kind::Net};
+	net.nets = {topChild(view, u_inv0)->pins[1]->net};
+	tracker.checkpoint(view, {&net}, TrackMode::Barriers);
+	// n gets its own driver, a ring of new buffers drives d0
+	top->new_connections({{tie, State::S0}});
+	Cell *inv = top->addCell("$inv", ID(INV));
+	inv->setPort(ID(A), in);
+	inv->setPort(ID(Y), n);
+	Wire *x = top->addWire("\\x");
+	Cell *r1 = top->addCell("$r1", ID($_BUF_));
+	r1->setPort(ID::A, d0);
+	r1->setPort(ID::Y, x);
+	Cell *r2 = top->addCell("$r2", ID($_BUF_));
+	r2->setPort(ID::A, x);
+	r2->setPort(ID::Y, d0);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&net});
+	EXPECT_FALSE(net.nets.empty());
+}
+
 // insbuf puts a buffer between a top input and its barrier, a pass renames the port
 TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 {

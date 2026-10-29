@@ -194,6 +194,9 @@ private:
 	void collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const;
 	std::vector<const Netlist::Pin *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
+	const Netlist::Net *newBufferInput(const Netlist::Net *net) const;
+	const Netlist::Net *newBufferRoot(const Netlist::Net *net) const;
+	std::vector<const Netlist::Net *> bufferSplitRoots(const pool<const Netlist::Net *> &parts) const;
 	std::vector<const Netlist::Net *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 private:
 	const NetView &view_;
