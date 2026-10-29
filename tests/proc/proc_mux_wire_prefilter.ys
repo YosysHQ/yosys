@@ -1,0 +1,33 @@
+read_verilog -sv << EOT
+module gate(
+	input sel,
+	input [7:0] a, b, c, d, e,
+	output reg [7:0] y,
+	output reg [7:0] z
+);
+	always @* begin
+		y = a;
+		z = b;
+		if (sel) begin
+			{y[3:0], z[3:0]} = {c[3:0], d[3:0]};
+			z[7:4] = e[7:4];
+		end
+		y[3:0] = b[3:0];
+	end
+endmodule
+
+module gold(
+	input sel,
+	input [7:0] a, b, c, d, e,
+	output [7:0] y,
+	output [7:0] z
+);
+	assign y = {a[7:4], b[3:0]};
+	assign z = sel ? {e[7:4], d[3:0]} : b;
+endmodule
+EOT
+
+proc gate
+opt gate
+miter -equiv -flatten -make_assert -make_outputs gold gate miter
+sat -verify -set-def-inputs -prove-asserts miter
