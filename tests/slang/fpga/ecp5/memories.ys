@@ -1,0 +1,307 @@
+# ================================ RAM ================================
+# RAM bits <= 18K; Data width <= 36; Address width <= 9: -> DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-count 9 t:TRELLIS_DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "Block_RAM" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD # any case works
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD
+select -assert-count 9 t:TRELLIS_DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 180 t:TRELLIS_FF
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 180 t:TRELLIS_FF
+
+# RAM bits <= 18K; Data width <= 18; Address width <= 10: -> DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 11 -set DATA_WIDTH 9 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 12 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 13 -set DATA_WIDTH 2 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 14 -set DATA_WIDTH 1 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-count 5 t:TRELLIS_DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "block_ram" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "Block_RAM" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:DP16KD # any case works
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set ram_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-count 5 t:TRELLIS_DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 90 t:TRELLIS_FF
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:DP16KD # requested FFRAM explicitly
+select -assert-count 90 t:TRELLIS_FF
+
+# RAM bits <= 64; Data width <= 4; Address width <= 4: -> DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:TRELLIS_DPR16X4
+
+## With parameters
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "distributed" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 1 t:TRELLIS_DPR16X4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set syn_ramstyle "registers" m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:TRELLIS_DPR16X4 # requested FFRAM explicitly
+select -assert-count 68 t:TRELLIS_FF
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 4 -set DATA_WIDTH 4 sync_ram_sdp
+hierarchy -top sync_ram_sdp
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_ram_sdp; cd sync_ram_sdp
+select -assert-count 0 t:TRELLIS_DPR16X4 # requested FFRAM explicitly
+select -assert-count 68 t:TRELLIS_FF
+
+# ================================ ROM ================================
+# ROM bits <= 18K; Data width <= 36; Address width <= 9: -> DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-min 18 t:LUT4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+setattr -set syn_romstyle "logic" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 18 t:LUT4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 36 sync_rom
+hierarchy -top sync_rom
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 18 t:LUT4
+
+# ROM bits <= 18K; Data width <= 18; Address width <= 10: -> DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 10 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+## With parameters
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # too inefficient
+select -assert-min 9 t:LUT4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+setattr -set syn_romstyle "ebr" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 2 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+setattr -set rom_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 1 t:DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+setattr -set syn_romstyle "logic" m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 9 t:LUT4
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockrom.v
+opt_clean
+chparam -set ADDRESS_WIDTH 3 -set DATA_WIDTH 18 sync_rom
+hierarchy -top sync_rom
+setattr -set logic_block 1 m:memory
+synth_ecp5 -top sync_rom; cd sync_rom
+select -assert-count 0 t:DP16KD # requested LUTROM explicitly
+select -assert-min 9 t:LUT4
+
+# ============================== TDP RAM ==============================
+# RAM bits <= 18K; Data width <= 18x2; Address width <= 9: -> DP16KD
+
+design -reset; read_slang --allow-use-before-declare --ignore-timing --std latest  -defer ../common/blockram.v
+opt_clean
+chparam -set ADDRESS_WIDTH 9 -set DATA_WIDTH 18 sync_ram_tdp
+hierarchy -top sync_ram_tdp
+synth_ecp5 -top sync_ram_tdp; cd sync_ram_tdp
+select -assert-count 1 t:DP16KD
+select -assert-none t:LUT4
