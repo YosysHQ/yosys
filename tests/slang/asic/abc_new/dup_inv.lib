@@ -1,0 +1,21 @@
+/* https://github.com/YosysHQ/yosys/issues/5445 */
+library(demo) {
+  cell(INV) {
+    area: 3;
+    pin(A) { direction: input; }
+    pin(Y) { direction: output;
+              function: "!A"; }
+  }
+  cell(DFFRQN) {
+    area: 18;
+    ff(IQN, IQNN) { clocked_on: "CK";
+                    next_state: "!D";
+                    preset : "!RN"; }
+    pin(CK) { direction: input;
+                 clock: true; }
+    pin(D)  { direction: input; }
+    pin(RN) { direction: input; }
+    pin(QN) { direction: output;
+              function: "IQN"; }
+  }
+}

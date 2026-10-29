@@ -1,0 +1,11 @@
+# https://github.com/librelane/librelane/blob/f24e0ea5db2260719e9a0c7d51d07db74a87fa23/librelane/scripts/pyosys/construct_abc_script.py
+
+&st
+&dch
+&nf
+
+&st
+&syn2
+&if -g -K 6
+&synch2
+&nf
