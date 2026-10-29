@@ -40,6 +40,11 @@ struct NetView final {
 		bool operator==(const Counts &) const = default;
 	};
 
+	struct ScopeNames {
+		std::vector<Netlist::OwnedName> names; // by path, then bit
+		size_t shared = 0;		       // nets that share their canonical name with an earlier net
+	};
+
 	NetView();
 	~NetView();
 	NetView(const NetView &) = delete;
@@ -63,6 +68,9 @@ struct NetView final {
 	Netlist::NetName name(const Netlist::Net *net) const;
 	const std::vector<Netlist::NetAlias> &aliases(const Netlist::Instance *scope) const;
 	std::vector<Netlist::Pin *> leafPins(const Netlist::Net *net, Netlist::WalkTarget target) const;
+	std::vector<std::string> childNames(const Netlist::Instance *scope) const;
+	ScopeNames netNames(const Netlist::Instance *scope) const;
+	std::string bodyKey(const Netlist::Instance *scope) const;
 
 	RTLIL::Cell *cell(const Netlist::Instance *inst) const;
 	RTLIL::Module *module(const Netlist::Instance *scope) const;

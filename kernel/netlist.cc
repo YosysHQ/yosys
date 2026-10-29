@@ -23,6 +23,13 @@ Netlist::Pin *Netlist::Instance::findPin(const std::string &port, int bit) const
 	return nullptr;
 }
 
+std::string Netlist::Instance::localName() const
+{
+	if (hdlpath.empty())
+		return name;
+	return Netlist::joinPath(hdlpath);
+}
+
 const Netlist::Port &Netlist::Pin::port() const { return (*inst->ports)[port_index]; }
 
 Netlist::PortDir Netlist::Pin::dir() const { return port().dir; }
@@ -48,6 +55,24 @@ Netlist::PortDir Netlist::portDir(bool input, bool output)
 	if (output)
 		return PortDir::Output;
 	return PortDir::Unknown;
+}
+
+std::string Netlist::NetName::path() const
+{
+	if (hdlpath.empty())
+		return wire;
+	return Netlist::joinPath(hdlpath);
+}
+
+std::string Netlist::joinPath(const std::vector<std::string> &parts)
+{
+	std::string path;
+	for (const std::string &part : parts) {
+		if (!path.empty() && !part.empty())
+			path += "/";
+		path += part;
+	}
+	return path;
 }
 
 YOSYS_NAMESPACE_END

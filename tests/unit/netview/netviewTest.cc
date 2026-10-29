@@ -766,4 +766,110 @@ TEST(NetViewSplitTest, splitUptoBitKeepsItsIndex)
 	EXPECT_EQ(name.index, 0);
 }
 
+TEST_F(NetViewTest, childNamesAreUniqueInTheScope)
+{
+	Cell *k = top->addCell("\\k", ID(INV));
+	k->set_hdlname_attribute({"u", "x"});
+	Cell *b = top->addCell("\\b", ID(INV));
+	b->set_hdlname_attribute({"u", "x"});
+	Cell *r = top->addCell("\\r", ID(INV));
+	r->set_hdlname_attribute({"k"});
+	Cell *v = top->addCell("\\v", ID(INV));
+	v->set_hdlname_attribute({"v", "y"});
+	NetView view;
+	view.build(d);
+	std::vector<std::string> names = view.childNames(view.top());
+	ASSERT_EQ(names.size(), view.top()->children.size());
+	dict<const Cell *, std::string> by_cell;
+	for (size_t i = 0; i < names.size(); i++)
+		by_cell[view.cell(view.top()->children[i])] = names[i];
+	EXPECT_EQ(by_cell.at(k), "k");
+	EXPECT_EQ(by_cell.at(b), "b");
+	EXPECT_EQ(by_cell.at(r), "r");
+	EXPECT_EQ(by_cell.at(v), "v/y");
+	EXPECT_EQ(by_cell.at(u_sub), "u_sub");
+}
+
+static std::string pathText(const Netlist::NetName &name)
+{
+	if (name.scalar)
+		return name.path();
+	return name.path() + "[" + std::to_string(name.index) + "]";
+}
+
+TEST(NetViewNameTest, netNamesHaveOneOwner)
+{
+	Design design;
+	addInv(&design, "\\INV");
+	Module *m = design.addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	Wire *i = m->addWire(ID(i));
+	i->port_input = true;
+	Wire *v = m->addWire("\\v", 2);
+	v->port_output = true;
+	m->fixup_ports();
+	Wire *ux = m->addWire("\\u/x");
+	Wire *y = m->addWire(ID(y));
+	y->set_hdlname_attribute({"u", "x"});
+	m->connect(m->addWire("\\w"), i);
+	m->connect(m->addWire("\\tie"), State::S0);
+	Cell *c1 = m->addCell("\\c1", ID(INV));
+	c1->setPort(ID(A), i);
+	c1->setPort(ID(Y), ux);
+	Cell *c2 = m->addCell("\\c2", ID(INV));
+	c2->setPort(ID(A), ux);
+	c2->setPort(ID(Y), y);
+	Cell *c3 = m->addCell("\\c3", ID(INV));
+	c3->setPort(ID(A), y);
+	c3->setPort(ID(Y), SigBit(v, 0));
+	NetView view;
+	view.build(&design);
+	Netlist::Net *i_net = topChild(view, c1)->pins[0]->net;
+	Netlist::Net *ux_net = topChild(view, c1)->pins[1]->net;
+	Netlist::Net *y_net = topChild(view, c2)->pins[1]->net;
+	Netlist::Net *v0_net = topChild(view, c3)->pins[1]->net;
+	Netlist::Net *v1_net = view.top()->findPin("v", 1)->term->net;
+	Netlist::Net *zero = view.constNets(Netlist::Net::Const::Zero).at(0);
+
+	NetView::ScopeNames names = view.netNames(view.top());
+	std::vector<std::tuple<std::string, Netlist::Net *, bool>> got;
+	for (const Netlist::OwnedName &owned : names.names)
+		got.emplace_back(pathText(owned.name), owned.net, owned.canonical);
+	std::vector<std::tuple<std::string, Netlist::Net *, bool>> expected = {
+	  {"i", i_net, true},	  {"tie", zero, false}, {"u/x", ux_net, true}, {"v[0]", v0_net, true},
+	  {"v[1]", v1_net, true}, {"w", i_net, false},	{"y", y_net, false},
+	};
+	EXPECT_EQ(got, expected);
+	EXPECT_EQ(names.shared, 1u); // y lost u/x to the smaller wire u/x
+}
+
+TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
+{
+	addWrapper(d, "\\S1", "\\i", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\S2", "\\i", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\S3", "\\j", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\W1", "\\c", "\\S1", false)->set_string_attribute(ID::hdlname, "W");
+	addWrapper(d, "\\W2", "\\c", "\\S3", false)->set_string_attribute(ID::hdlname, "W");
+	addWrapper(d, "\\W3", "\\c", "\\S2", false)->set_string_attribute(ID::hdlname, "W");
+	std::vector<Cell *> wrappers;
+	for (int n = 1; n <= 3; n++) {
+		Cell *cell = top->addCell(stringf("\\w%d", n), stringf("\\W%d", n));
+		cell->setPort(ID(a), in);
+		wrappers.push_back(cell);
+	}
+	NetView view;
+	view.build(d);
+	std::vector<std::string> keys;
+	std::vector<std::string> child_keys;
+	for (Cell *cell : wrappers) {
+		Netlist::Instance *scope = topChild(view, cell);
+		keys.push_back(view.bodyKey(scope));
+		child_keys.push_back(view.bodyKey(scope->children.at(0)));
+	}
+	EXPECT_EQ(child_keys[0], child_keys[2]);
+	EXPECT_NE(child_keys[0], child_keys[1]);
+	EXPECT_EQ(keys[0], keys[2]);
+	EXPECT_NE(keys[0], keys[1]); // only the body of c differs
+}
+
 YOSYS_NAMESPACE_END

@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <map>
+#include <optional>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
@@ -21,7 +22,21 @@ RTLIL::Module *topModule(RTLIL::Design *design);
 
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
-uint64_t countInstances(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, uint64_t> &counts);
+
+struct RecordCounts {
+	uint64_t instances = 0;
+	uint64_t pins = 0;
+	uint64_t nets = 0;
+
+      public:
+	void add(const RecordCounts &other);
+	bool fitIds() const;
+};
+
+RecordCounts countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, RecordCounts> &counts);
+uint64_t portBits(RTLIL::Module *module);
+uint64_t wireBits(RTLIL::Module *module);
+uint64_t cellPinBits(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
 bool checkUniquified(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, std::string &reason);
 bool checkModule(RTLIL::Module *module, std::string &reason);
@@ -43,6 +58,7 @@ bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 Netlist::PortDir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, CellTypeTable table);
 
 // Names
+using NameKey = std::pair<std::string, std::optional<int>>;
 using NetNameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
 
 enum class WireOrigin : uint8_t {
@@ -66,6 +82,16 @@ bool trailingIndex(std::string_view name, int &index);
 Netlist::NetName netName(const RTLIL::SigBit &bit, WireOrigin origin);
 NetNameRank netNameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
+NameKey nameKey(const Netlist::NetName &name);
+bool beats(const Netlist::OwnedName &claim, const Netlist::OwnedName &owner);
+void claimName(std::map<NameKey, Netlist::OwnedName> &owners, const Netlist::OwnedName &claim);
+bool useOwnNames(const Netlist::Instance *scope, std::vector<std::string> &names);
+
+// Body keys
+void addKeyField(std::string &line, std::string_view text);
+void addNetFields(std::string &line, const NetView &view, const Netlist::Net *net);
+std::string portLine(const Netlist::Port &port);
+std::string pinLine(std::string head, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net);
 
 // Walks
 Netlist::PortDir pinDirOfTarget(Netlist::WalkTarget target);
@@ -130,6 +156,16 @@ struct RtlilIndex {
 	void clear();
 };
 
+struct BodyKeys {
+	dict<std::string, uint32_t> numbers;	// by key, from 1
+	Netlist::IdMap<uint32_t> scope_numbers; // by instance id, 0 if not known
+      public:
+	std::string key(const NetView &view, const Netlist::Instance *scope);
+	uint32_t number(const NetView &view, const Netlist::Instance *scope);
+	void addChildLines(std::vector<std::string> &lines, const NetView &view, const Netlist::Instance *child, const std::string &name);
+	void clear();
+};
+
 struct ScopeContents {
 	std::vector<Netlist::Net *> nets;
 	std::vector<Netlist::NetAlias> aliases;
@@ -171,6 +207,7 @@ struct ViewData {
 	PortStore ports;
 	RtlilIndex index;
 	std::unordered_map<const Netlist::Instance *, ScopeContents> scope_contents;
+	BodyKeys body_keys; // a cache of NetView::bodyKey
 	ChangeDetector watch;
 	const ScopeContents &scopeContents(const Netlist::Instance *scope) const;
 	void clearTables();

@@ -72,6 +72,7 @@ public:
 	bool isTop() const;
 	bool isLeaf() const;
 	Pin *findPin(const std::string &port, int bit) const;
+	std::string localName() const;
 };
 
 struct Pin {
@@ -111,6 +112,7 @@ struct NetName {
 	bool scalar;
 	std::vector<std::string> hdlpath = {}; // source path of a flattened wire
 public:
+	std::string path() const;
 	bool operator==(const NetName &) const = default;
 };
 
@@ -119,7 +121,14 @@ struct NetAlias {
 	Net *net;
 };
 
+struct OwnedName {
+	NetName name;
+	Net *net;
+	bool canonical;
+};
+
 PortDir portDir(bool input, bool output);
+std::string joinPath(const std::vector<std::string> &parts);
 
 } // namespace Netlist
 
