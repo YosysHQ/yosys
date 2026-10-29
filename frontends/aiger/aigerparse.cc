@@ -636,30 +636,6 @@ void AigerReader::parse_xaiger()
 				log("%u -> %u\n", i, entry);
 				equivalences.push_back(entry);
 			}
-
-			/* {
-				RTLIL::Cell* cell = module->cell(stringf("$lut$aiger%d$%d", aiger_autoidx, i));
-				if (!cell) continue;
-
-				if (entry == ~0u) { // i is not equivalent to any other node.
-					if (cell->has_attribute(ID::abc9_src)) {
-						cell->attributes.erase(ID::abc9_src);
-					}
-					continue;
-				} else if (i == 0) { // the zero node is always equivalent, but not useful
-					continue;
-				}
-
-				// TODO: standard cell handling means looking for the output port instead of hardcoding it.
-				log_assert(cell->hasPort(ID::Y));
-
-				auto y = cell->getPort(ID::Y);
-				log_assert(y.size() == 1);
-				log_assert(y.is_wire());
-				auto y_wire = y.as_wire();
-				y_wire->attributes[ID::abc9_equiv] = entry;
-				log("%s -> %s: %s = %d\n", cell->name, y_wire->name, ID::abc9_equiv, entry);
-			}*/
 		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
 			uint32_t dataSize = parse_xaiger_literal(f);
