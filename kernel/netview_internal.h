@@ -56,6 +56,8 @@ bool isInternalType(RTLIL::IdString type);
 bool isTransparentType(RTLIL::IdString type);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
+constexpr std::string_view cut_attr = "\\netview_cut";
+bool isCutWire(const RTLIL::Wire *wire);
 
 // Ports
 enum class CellTypeTable : uint8_t { Static, Yosys };
@@ -227,12 +229,15 @@ struct ViewData {
 };
 
 struct ViewBuilder {
-	ViewBuilder(const NetView &view, ViewData &data);
+	ViewBuilder(const NetView &view, ViewData &data, const pool<const RTLIL::Cell *> *barrier_instances);
 	void build(RTLIL::Module *top);
 private:
 	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
 	void buildScope(RTLIL::Module *module, Netlist::Instance *scope);
 	void makePins(Netlist::Instance *inst);
+	bool isBarrierInstance(const RTLIL::Cell *cell) const;
+	void addBarrierInstance(RTLIL::Cell *cell, Netlist::Instance *scope);
+	Netlist::Net *newBarrierNet(Netlist::Instance *scope, int bit, bool scalar);
 	bool yosysPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out) const;
 	const std::vector<Netlist::Port> *portsFor(Netlist::Instance *inst, RTLIL::Module *sub);
 	bool leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out);
@@ -250,6 +255,7 @@ private:
 private:
 	const NetView &view_;
 	ViewData &data_;
+	const pool<const RTLIL::Cell *> *barrier_instances_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
 	std::map<const RTLIL::Module *, dict<std::string, int>> hdlname_counts_; // wires per hdlname
 };

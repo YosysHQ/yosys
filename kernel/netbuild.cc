@@ -2,7 +2,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-detail::ViewBuilder::ViewBuilder(const NetView &view, ViewData &data) : view_(view), data_(data) {}
+detail::ViewBuilder::ViewBuilder(const NetView &view, ViewData &data, const pool<const RTLIL::Cell *> *barrier_instances)
+    : view_(view), data_(data), barrier_instances_(barrier_instances)
+{
+}
 
 void detail::ViewBuilder::build(RTLIL::Module *top)
 {
@@ -108,6 +111,10 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(module)) {
+		if (isBarrierInstance(cell)) {
+			addBarrierInstance(cell, scope);
+			continue;
+		}
 		if (detail::isTransparentType(cell->type))
 			continue;
 		Netlist::Instance *inst = newInstance(cell, detail::childModule(data_.design, cell), scope);
@@ -144,6 +151,41 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 				makeTerm(pin, inner_net);
 		}
 	}
+}
+
+bool detail::ViewBuilder::isBarrierInstance(const RTLIL::Cell *cell) const
+{
+	return cell->type == ID($barrier) && barrier_instances_ != nullptr && barrier_instances_->count(cell);
+}
+
+void detail::ViewBuilder::addBarrierInstance(RTLIL::Cell *cell, Netlist::Instance *scope)
+{
+	Netlist::Instance *inst = newInstance(cell, nullptr, scope);
+	inst->kind = Netlist::Instance::Kind::Barrier;
+	std::vector<Netlist::Port> &ports = data_.ports.lists.emplace_back();
+	detail::cellTypePorts(cell, ports);
+	inst->ports = &ports;
+	int width = GetSize(cell->getPort(ID::Y));
+	std::vector<Netlist::Net *> inner;
+	for (int b = 0; b < width; b++)
+		inner.push_back(newBarrierNet(inst, b, width == 1));
+	for (uint32_t p = 0; p < ports.size(); p++) {
+		RTLIL::SigSpec sig = cell->getPort(detail::escapedPortId(data_.design, cell, nullptr, ports[p].name));
+		for (int b = 0; b < width && b < sig.size(); b++) {
+			Netlist::Pin *pin = makePin(inst, p, b, findOrMakeNet(scope, sig[b]));
+			makeTerm(pin, inner[b]);
+		}
+	}
+}
+
+Netlist::Net *detail::ViewBuilder::newBarrierNet(Netlist::Instance *scope, int bit, bool scalar)
+{
+	Netlist::Net *net = data_.records.newNet();
+	net->scope = scope;
+	net->constant = Netlist::Net::Const::None;
+	data_.index.net_rtlil[net->id].name = {"Y", bit, scalar};
+	data_.scope_contents[scope].nets.push_back(net);
+	return net;
 }
 
 Netlist::Pin *detail::ViewBuilder::makePin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net)
@@ -227,14 +269,18 @@ SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const
 {
 	for (RTLIL::Cell *cell : module->cells()) {
-		if (cell->type != ID($barrier))
+		if (cell->type != ID($barrier) || isBarrierInstance(cell))
 			continue;
 		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
 			// Barriers join no constant, so the cell order does not change this
 			if (sigmap(a[b]).wire == nullptr || sigmap(y[b]).wire == nullptr)
 				continue;
-			sigmap.add(y[b], a[b]);
+			// The second bit stays the root, so a cut wire never names a net
+			if (detail::isCutWire(a[b].wire))
+				sigmap.add(a[b], y[b]);
+			else
+				sigmap.add(y[b], a[b]);
 		}
 	}
 }
@@ -308,5 +354,7 @@ Netlist::Net *detail::ViewBuilder::findOrMakeTieNet(Netlist::Instance *scope, co
 	data_.scope_contents[scope].setTieNet(value, net);
 	return net;
 }
+
+bool detail::isCutWire(const RTLIL::Wire *wire) { return wire->get_bool_attribute(wire->module->design->twines().find(detail::cut_attr)); }
 
 YOSYS_NAMESPACE_END

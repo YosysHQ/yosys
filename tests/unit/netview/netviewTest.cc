@@ -728,6 +728,21 @@ TEST_F(NetViewTest, connectAndInputPortAreTransparent)
 	EXPECT_EQ(driven, topChild(view, u_sub)->pins[0]->net);
 }
 
+TEST_F(NetViewTest, cutWireNamesNoNet)
+{
+	Wire *cut = top->addWire("$cut");
+	cut->set_bool_attribute(d->twines().add("\\netview_cut"));
+	Wire *post = top->addWire("$post");
+	u_inv0->setPort(ID(Y), cut);
+	top->addBarrier("$b", cut, post);
+	u_sub->setPort(ID(a), post);
+	NetView view;
+	view.build(d);
+	Netlist::Net *driven = topChild(view, u_inv0)->pins[1]->net;
+	EXPECT_EQ(driven, topChild(view, u_sub)->pins[0]->net);
+	EXPECT_EQ(view.name(driven).wire, "$post");
+}
+
 TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
 {
 	Wire *c = top->addWire(ID(c));

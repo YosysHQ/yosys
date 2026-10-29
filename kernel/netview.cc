@@ -241,6 +241,9 @@ detail::RecordCounts detail::countRecords(RTLIL::Design *design, RTLIL::Module *
 	count.nets = std::min<uint64_t>(detail::wireBits(module) + 2, UINT32_MAX);
 	for (RTLIL::Cell *cell : module->cells()) {
 		RecordCounts cell_count = {1, detail::cellPinBits(design, cell), 0};
+		// A $barrier can be an instance with a net per bit
+		if (cell->type == ID($barrier))
+			cell_count.nets = cell_count.pins;
 		if (RTLIL::Module *sub = detail::childModule(design, cell))
 			cell_count.add(detail::countRecords(design, sub, counts));
 		count.add(cell_count);
@@ -368,7 +371,7 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	data_->library = options.library;
 	// A leaf type without ports errors out halfway, drop the partial view
 	try {
-		detail::ViewBuilder(*this, *data_).build(detail::topModule(design));
+		detail::ViewBuilder(*this, *data_, options.barrier_instances).build(detail::topModule(design));
 	} catch (...) {
 		clear();
 		throw;

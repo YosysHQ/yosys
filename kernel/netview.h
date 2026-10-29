@@ -2,6 +2,7 @@
 // - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
+// - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -31,6 +32,7 @@ struct ViewData;
 struct NetView final {
 	struct BuildOptions {
 		Netlist::CellLibrary *library = nullptr;
+		const pool<const RTLIL::Cell *> *barrier_instances = nullptr;
 	};
 
 	struct Counts {

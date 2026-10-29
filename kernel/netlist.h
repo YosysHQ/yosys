@@ -55,7 +55,7 @@ struct Port {
 };
 
 struct Instance {
-	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
+	enum class Kind : uint8_t { Module, LibraryCell, InternalCell, Barrier };
 
 	std::string name;		  // local name, unescaped
 	std::string type;		  // cell type or module name, unescaped
