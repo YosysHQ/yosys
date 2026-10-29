@@ -1,0 +1,17 @@
+read_slang --std latest <<EOF
+module top ();
+    always_comb begin
+        label1: cover(0);
+        label2: cover(0);
+    end
+endmodule
+EOF
+opt_clean
+
+hierarchy -top top
+proc
+setattr -set keep 1 t:$check
+chformal -lower
+clean
+opt_merge
+select -assert-count 2 t:$cover

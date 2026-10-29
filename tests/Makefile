@@ -81,6 +81,14 @@ MK_TEST_DIRS += ./check_mem
 MK_TEST_DIRS += ./write_verilog
 MK_TEST_DIRS += ./symfpu
 
+MK_TEST_DIRS += ./slang/basic
+MK_TEST_DIRS += ./slang/basic/opt
+MK_TEST_DIRS += ./slang/basic/peepopt
+MK_TEST_DIRS += ./slang/basic/proc
+MK_TEST_DIRS += ./slang/basic/svtypes
+MK_TEST_DIRS += ./slang/basic/various
+MK_TEST_DIRS += ./slang/basic/verific
+MK_TEST_DIRS += ./slang/basic/verilog
 all: vanilla-test
 
 # makefile-./ is a dummy string, not a directory
