@@ -1,0 +1,81 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module sub(input a, output q);
+  assign q = ~a;
+endmodule
+(* whitebox *)
+module top(input a, output q);
+  wire b;
+  sub inst(.a(a), .q(b));
+  assign q = ~b;
+endmodule
+EOF
+select -assert-count 1 =top/t:$not
+select -assert-count 1 =top/t:sub*
+select -assert-count 1 =sub*/t:$not
+select -assert-mod-count 1 =top =A:whitebox %i
+select -assert-none =A:blackbox
+
+verilog_flag:
+design -reset
+read_verilog -lib <<EOF
+module sub(input a, output q);
+  assign q = ~a;
+endmodule
+(* whitebox *)
+module top(input a, output q);
+  wire b;
+  sub inst(.a(a), .q(b));
+  assign q = ~b;
+endmodule
+EOF
+select -assert-count 1 =top/t:$not
+select -assert-count 1 =top/t:sub*
+select -assert-mod-count 1 =top =A:whitebox %i
+select -assert-none =top =A:blackbox %i
+select -assert-mod-count 1 =sub* =A:blackbox %i
+select -assert-none =sub* =A:whitebox %i
+select -assert-none =sub*/t:$not
+
+slang_default:
+design -reset
+read_slang --keep-hierarchy <<EOF
+module sub(input a, output q);
+  assign q = ~a;
+endmodule
+(* whitebox *)
+module top(input a, output q);
+  wire b;
+  sub inst(.a(a), .q(b));
+  assign q = ~b;
+endmodule
+EOF
+opt_clean
+select -assert-count 1 =top/t:$not
+select -assert-count 1 =top/t:sub*
+select -assert-count 1 =sub*/t:$not
+select -assert-mod-count 1 =top =A:whitebox %i
+select -assert-none =A:blackbox
+
+slang_flag:
+design -reset
+read_slang --lib --keep-hierarchy <<EOF
+module sub(input a, output q);
+  assign q = ~a;
+endmodule
+(* whitebox *)
+module top(input a, output q);
+  wire b;
+  sub inst(.a(a), .q(b));
+  assign q = ~b;
+endmodule
+EOF
+opt_clean
+select -assert-count 1 =top/t:$not
+select -assert-count 1 =top/t:sub*
+select -assert-mod-count 1 =top =A:whitebox %i
+select -assert-none =top =A:blackbox %i
+select -assert-mod-count 1 =sub* =A:blackbox %i
+select -assert-none =sub* =A:whitebox %i
+select -assert-none =sub*/t:$not
