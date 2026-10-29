@@ -78,7 +78,13 @@ struct NetView final {
 	const std::vector<Netlist::Instance *> &scopes(const RTLIL::Module *module) const;
 	const std::vector<RTLIL::SigBit> &wireBits(const Netlist::Net *net) const;
 
-      private:
+	void retire();
+	bool retired() const;
+	bool owns(const Netlist::Instance *inst) const;
+	bool owns(const Netlist::Pin *pin) const;
+	bool owns(const Netlist::Net *net) const;
+	bool owns(const Netlist::Term *term) const;
+private:
 	std::unique_ptr<detail::ViewData> data_;
 };
 

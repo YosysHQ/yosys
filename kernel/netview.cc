@@ -360,7 +360,7 @@ void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
 
 void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 {
-	log_assert(!built());
+	log_assert(!built() && !retired());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
@@ -384,6 +384,7 @@ void NetView::clear()
 	data_->design = nullptr;
 	data_->top = nullptr;
 	data_->library = nullptr;
+	data_->retired = false;
 	data_->records.clear();
 	data_->clearTables();
 }
@@ -396,6 +397,26 @@ void detail::ViewData::clearTables()
 	body_keys.clear();
 }
 
+void NetView::retire()
+{
+	data_->watch.disarm();
+	data_->design = nullptr;
+	data_->top = nullptr;
+	data_->library = nullptr;
+	data_->retired = true;
+	data_->clearTables();
+	data_->records.dropContents();
+}
+
+bool NetView::retired() const { return data_->retired; }
+
+bool NetView::owns(const Netlist::Instance *inst) const { return inst != nullptr && inst->view == this; }
+
+bool NetView::owns(const Netlist::Pin *pin) const { return pin != nullptr && owns(pin->inst); }
+
+bool NetView::owns(const Netlist::Net *net) const { return net != nullptr && owns(net->scope); }
+
+bool NetView::owns(const Netlist::Term *term) const { return term != nullptr && owns(term->pin); }
 Netlist::Instance *detail::RecordStore::newInstance()
 {
 	Netlist::Instance *inst = &instances.emplace_back();
@@ -424,6 +445,22 @@ Netlist::Term *detail::RecordStore::newTerm()
 	return term;
 }
 
+void detail::RecordStore::dropContents()
+{
+	for (Netlist::Instance &inst : instances) {
+		inst.pins = {};
+		inst.children = {};
+		inst.name = {};
+		inst.hdlpath = {};
+		inst.type = {};
+		inst.hdl_type = {};
+		inst.ports = nullptr;
+	}
+	for (Netlist::Net &net : nets) {
+		net.pins = {};
+		net.terms = {};
+	}
+}
 void detail::RecordStore::clear()
 {
 	instances.clear();
