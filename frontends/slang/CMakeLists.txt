@@ -44,4 +44,6 @@ yosys_frontend(slang
 		${CMAKE_CURRENT_BINARY_DIR}
 	LIBRARIES
 		$<${YOSYS_ENABLE_SLANG}:slang::slang>
+	REQUIRES
+		rewriter
 )
