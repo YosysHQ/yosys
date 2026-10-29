@@ -88,6 +88,44 @@ TEST_F(NetProtectTest, protectFindsAPinAfterFlatten)
 	EXPECT_EQ(ref.pins[0]->port().name, "A");
 }
 
+TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef cell{TrackedRef::Kind::Instance};
+	cell.instances = {topChild(view, u_inv2)};
+	tracker.checkpoint(view, {&cell}, TrackMode::Barriers);
+	EXPECT_TRUE(u_inv2->get_bool_attribute(ID::keep));
+	EXPECT_EQ(barriersOf(top).size(), 2u); // a barrier at each pin
+	tracker.unprotect(d);
+	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
+	EXPECT_EQ(top->cells().size(), 3u);
+	view.recheck();
+	EXPECT_FALSE(view.upToDate());
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&cell});
+	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{topChild(*next, u_inv2)});
+}
+
+// rename -hide gives the barriers new names, unprotect finds them by their id
+TEST_F(NetProtectTest, unprotectRemovesRenamedBarriers)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef cell{TrackedRef::Kind::Instance};
+	cell.instances = {topChild(view, u_inv2)};
+	tracker.checkpoint(view, {&cell}, TrackMode::Barriers);
+	ASSERT_EQ(barriersOf(top).size(), 2u);
+	Pass::call(d, "rename -hide t:$barrier");
+	tracker.unprotect(d);
+	EXPECT_TRUE(barriersOf(top).empty());
+	EXPECT_EQ(top->cells().size(), 3u);
+}
+
 TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 {
 	NetView view;

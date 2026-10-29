@@ -72,6 +72,7 @@ struct NetTracker final {
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
 	void clear(RTLIL::Design *design);
 
+	void unprotect(RTLIL::Design *design);
 	pool<const RTLIL::Cell *> barrierInstances(RTLIL::Design *design) const;
 private:
 	std::unique_ptr<detail::TrackData> data_;

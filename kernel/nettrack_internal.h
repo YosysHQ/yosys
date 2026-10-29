@@ -73,6 +73,7 @@ public:
 	BarrierMarks marks(const RTLIL::Cell *barrier) const;
 	void setMarks(const RTLIL::Cell *barrier, const BarrierMarks &marks);
 	RTLIL::IdString cutPort(const RTLIL::Cell *barrier) const;
+	void clearMarks();
 	void clearAnchors();
 };
 
@@ -207,10 +208,13 @@ RTLIL::IdString ownedMarkerId(RTLIL::Design *design, RTLIL::IdString attr, IdLoo
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);
 void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
+void removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object);
+void removeTrackingMarks(RTLIL::Design *design);
 
 // Barriers
 RTLIL::Wire *addCutWire(RTLIL::Module *module);
 std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
+RTLIL::Selection trackedBarriers(RTLIL::Design *design);
 void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
 void replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
 RTLIL::IdString barrierPortToward(Netlist::WalkTarget target);

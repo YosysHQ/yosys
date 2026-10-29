@@ -8,8 +8,17 @@
 // barrier to the leaf pins on its cut side
 
 #include "kernel/nettrack_internal.h"
+#include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN
+
+// optbarriers runs as a pass, so a pass hook of the consumer sees it
+void NetTracker::unprotect(RTLIL::Design *design)
+{
+	Pass::call_on_selection(design, detail::trackedBarriers(design), "optbarriers -remove");
+	data_->barriers.clearMarks();
+	detail::removeTrackingMarks(design);
+}
 
 pool<const RTLIL::Cell *> NetTracker::barrierInstances(RTLIL::Design *design) const
 {
@@ -45,6 +54,8 @@ RTLIL::IdString detail::BarrierStore::cutPort(const RTLIL::Cell *barrier) const
 		return ID::A;
 	return ID::Y;
 }
+
+void detail::BarrierStore::clearMarks() { marks_by_barrier.clear(); }
 
 void detail::BarrierStore::clearAnchors() { anchors_by_barrier.clear(); }
 
@@ -372,7 +383,7 @@ const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit
 	return top_port_pin_by_bit_.at(walker.sigmap(bit), nullptr);
 }
 
-// netview_<attr> marks our attr
+// netview_<attr> marks our attr, removeOwnedMarks removes only that one
 RTLIL::IdString detail::ownedMarkerId(RTLIL::Design *design, RTLIL::IdString attr, IdLookup lookup)
 {
 	std::string name = std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
@@ -385,6 +396,33 @@ void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object,
 		return;
 	object->set_bool_attribute(attr);
 	object->set_bool_attribute(detail::ownedMarkerId(design, attr, IdLookup::AddIfMissing));
+}
+
+void detail::removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object)
+{
+	for (RTLIL::IdString attr : {ID::keep, ID::keep_hierarchy}) {
+		RTLIL::IdString marker = detail::ownedMarkerId(design, attr, IdLookup::FindOnly);
+		if (object->get_bool_attribute(marker)) {
+			object->attributes.erase(attr);
+			object->attributes.erase(marker);
+		}
+	}
+	if (object->has_attribute(ID::scopename) && object->get_string_attribute(ID::scopename).empty())
+		object->attributes.erase(ID::scopename);
+}
+
+// The cut marks of wires, our keep marks and empty scopenames
+void detail::removeTrackingMarks(RTLIL::Design *design)
+{
+	RTLIL::IdString cut = detail::attrId(design, detail::cut_attr, IdLookup::FindOnly);
+	for (RTLIL::Module *module : design->modules()) {
+		for (RTLIL::Wire *wire : module->wires()) {
+			wire->attributes.erase(cut);
+			detail::removeOwnedMarks(design, wire);
+		}
+		for (RTLIL::Cell *cell : module->cells())
+			detail::removeOwnedMarks(design, cell);
+	}
 }
 
 RTLIL::Wire *detail::addCutWire(RTLIL::Module *module)
@@ -406,6 +444,19 @@ std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)
 	if (at == std::string::npos)
 		return std::nullopt;
 	return atoi(text.c_str() + at + marker.size());
+}
+
+// The barriers of the tracking by their id, also after rename -hide
+RTLIL::Selection detail::trackedBarriers(RTLIL::Design *design)
+{
+	RTLIL::Selection selection = RTLIL::Selection::EmptySelection(design);
+	for (RTLIL::Module *module : design->modules()) {
+		for (RTLIL::Cell *cell : module->cells()) {
+			if (cell->type == ID($barrier) && detail::barrierIdOf(cell))
+				selection.select(module, cell);
+		}
+	}
+	return selection;
 }
 
 void detail::recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor)
