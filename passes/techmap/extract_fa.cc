@@ -584,11 +584,11 @@ struct ExtractFaPass : public Pass {
 				config.verbose = true;
 				continue;
 			}
-			if (args[argidx] == "-d" && argidx+2 < args.size()) {
+			if (args[argidx] == "-d" && argidx+1 < args.size()) {
 				config.maxdepth = atoi(args[++argidx].c_str());
 				continue;
 			}
-			if (args[argidx] == "-b" && argidx+2 < args.size()) {
+			if (args[argidx] == "-b" && argidx+1 < args.size()) {
 				config.maxbreadth = atoi(args[++argidx].c_str());
 				continue;
 			}
