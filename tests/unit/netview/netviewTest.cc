@@ -448,6 +448,13 @@ TEST(NetViewNameTest, flattenNamesGiveSourcePath)
 	EXPECT_TRUE(hdlpathOfName("$flatten\\u1").empty());
 }
 
+// u_$x is a legal Verilog name, the default '.' separates first
+TEST(NetViewNameTest, flattenPathPrefersTheDefaultDot)
+{
+	EXPECT_EQ(hdlpathOfName("$flatten\\u_$x.$y"), (std::vector<std::string>{"u_$x", "$y"}));
+	EXPECT_EQ(hdlpathOfName("$flatten\\u_$x.\\v.$y"), (std::vector<std::string>{"u_$x", "v", "$y"}));
+}
+
 TEST(NetViewNameTest, publicNamesAreUnescaped)
 {
 	Design design;
@@ -558,6 +565,21 @@ TEST_F(NetViewTest, typeNotInLibraryTakesTheYosysPorts)
 	EXPECT_EQ(ports[1].name, "Y");
 }
 
+TEST_F(NetViewTest, unknownTypeWithALibraryIsAnErrorIfConnected)
+{
+	top->addCell("\\u_tap0", "\\TAP");
+	NoCellLibrary library;
+	NetView view;
+	view.build(d, {&library});
+	EXPECT_TRUE(topChild(view, top->cell("\\u_tap0"))->pins.empty());
+
+	view.clear();
+	top->addCell("\\u_tap1", "\\TAP")->setPort("\\A", in);
+	auto scope = logger().error_throw_scope();
+	EXPECT_THROW(view.build(d, {&library}), log_cmd_error_exception);
+	EXPECT_FALSE(view.built());
+}
+
 TEST_F(NetViewTest, directEditsNeedRecheck)
 {
 	Cell *u_spare = top->addCell("\\u_spare", ID(INV)); // no connections
@@ -582,6 +604,19 @@ TEST_F(NetViewTest, directEditsNeedRecheck)
 	view.build(d);
 	top->rename(d0, "\\renamed");
 	EXPECT_TRUE(view.upToDate());
+	view.recheck();
+	EXPECT_FALSE(view.upToDate());
+}
+
+TEST_F(NetViewTest, renameIntoAFreedTwineSlotIsStale)
+{
+	NetView view;
+	view.build(d);
+	size_t old_key = u_inv2->name.ref().eq_key();
+	top->rename(u_inv2, "\\tmp_name");
+	d->gc_twines();
+	top->rename(u_inv2, "\\b_new");
+	ASSERT_EQ(u_inv2->name.ref().eq_key(), old_key);
 	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 }
@@ -693,6 +728,42 @@ TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
 	NetView view;
 	view.build(d);
 	EXPECT_EQ(view.name(topChild(view, c)->pins[0]->net), (Netlist::NetName{"u.w[1]", 1, false, {"u", "w"}}));
+}
+
+TEST(NetViewSplitTest, splitUptoBitKeepsItsIndex)
+{
+	ensurePasses();
+	Design design;
+	addInv(&design, "\\INV");
+	Module *sub = design.addModule("\\vsub");
+	Wire *a = sub->addWire(ID(a));
+	a->port_input = true;
+	sub->fixup_ports();
+	Wire *w = sub->addWire("\\w", 2);
+	w->upto = true; // [0:1], offset 1 is w[0]
+	Cell *i0 = sub->addCell("\\i0", ID(INV));
+	i0->setPort(ID(A), a);
+	i0->setPort(ID(Y), SigBit(w, 0));
+	Cell *i1 = sub->addCell("\\i1", ID(INV));
+	i1->setPort(ID(A), a);
+	i1->setPort(ID(Y), SigBit(w, 1));
+	Cell *c = sub->addCell("\\c", ID(INV));
+	c->setPort(ID(A), SigBit(w, 1));
+	Module *top = design.addModule(ID(top));
+	top->set_bool_attribute(ID::top);
+	Wire *in = top->addWire("\\in");
+	in->port_input = true;
+	top->fixup_ports();
+	top->addCell("\\u", "\\vsub")->setPort(ID(a), in);
+	Pass::call(&design, "flatten");
+	Pass::call(&design, "splitnets");
+	NetView view;
+	view.build(&design);
+	Cell *flat_c = top->cell("\\u.c");
+	ASSERT_NE(flat_c, nullptr);
+	Netlist::NetName name = view.name(topChild(view, flat_c)->pins[0]->net);
+	EXPECT_EQ(name.wire, "u.w[0]");
+	EXPECT_EQ(name.index, 0);
 }
 
 YOSYS_NAMESPACE_END

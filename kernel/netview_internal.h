@@ -50,12 +50,19 @@ enum class WireOrigin : uint8_t {
 	SplitFromVector // splitnets made it of a vector bit
 };
 
+enum class SeparatorRule : uint8_t {
+	DefaultDot, // '.'
+	AnyChar
+};
+
 std::string unescapedName(RTLIL::PooledName id);
 RTLIL::IdString escapedPortId(const RTLIL::Design *design, const RTLIL::Cell *cell, const RTLIL::Module *sub, const std::string &name);
 bool isVector(const RTLIL::Wire *wire);
 std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
 std::vector<std::string> flattenPath(std::string_view name);
 size_t flattenSeparator(std::string_view name);
+size_t findSeparator(std::string_view name, SeparatorRule rule);
+bool trailingIndex(std::string_view name, int &index);
 Netlist::NetName netName(const RTLIL::SigBit &bit, WireOrigin origin);
 NetNameRank netNameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
@@ -179,7 +186,7 @@ struct ViewBuilder {
 	void makePins(Netlist::Instance *inst);
 	bool yosysPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out) const;
 	const std::vector<Netlist::Port> *portsFor(Netlist::Instance *inst, RTLIL::Module *sub);
-	void leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out);
+	bool leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out);
 	Netlist::Pin *makePin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net);
 	void makeTerm(Netlist::Pin *pin, Netlist::Net *inner_net);
 	Netlist::Net *newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);

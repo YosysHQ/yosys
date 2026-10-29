@@ -2,6 +2,8 @@
 #include "kernel/newcelltypes.h"
 #include "kernel/register.h"
 
+#include <charconv>
+
 YOSYS_NAMESPACE_BEGIN
 
 Netlist::CellLibrary::~CellLibrary() = default;
@@ -64,15 +66,42 @@ std::vector<std::string> detail::flattenPath(std::string_view name)
 	return parts;
 }
 
-// A char not a letter or digit, then the next scope ('\') or the private name ('$')
+// The default '.' first, so a name part can hold other chars (u_$x)
 size_t detail::flattenSeparator(std::string_view name)
 {
+	size_t dot = detail::findSeparator(name, SeparatorRule::DefaultDot);
+	if (dot != std::string_view::npos)
+		return dot;
+	return detail::findSeparator(name, SeparatorRule::AnyChar);
+}
+
+// A separator char, then the next scope ('\') or the private name ('$')
+size_t detail::findSeparator(std::string_view name, SeparatorRule rule)
+{
 	for (size_t i = 1; i + 1 < name.size(); i++) {
-		bool sep = !isalnum(static_cast<unsigned char>(name[i]));
+		bool sep = name[i] == '.';
+		if (rule == SeparatorRule::AnyChar)
+			sep = !isalnum(static_cast<unsigned char>(name[i]));
 		if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
 			return i;
 	}
 	return std::string_view::npos;
+}
+
+// The N of a name that ends in [N]
+bool detail::trailingIndex(std::string_view name, int &index)
+{
+	size_t open = name.rfind('[');
+	if (open == std::string_view::npos || !name.ends_with(']'))
+		return false;
+	const char *first = name.data() + open + 1;
+	const char *last = name.data() + name.size() - 1;
+	int value = 0;
+	auto [end, error] = std::from_chars(first, last, value);
+	if (error != std::errc() || end != last)
+		return false;
+	index = value;
+	return true;
 }
 
 bool detail::isTransparentType(RTLIL::IdString type) { return type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo)); }
@@ -96,8 +125,12 @@ bool detail::isVector(const RTLIL::Wire *wire) { return wire->width > 1 || wire-
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit, WireOrigin origin)
 {
 	RTLIL::Wire *wire = bit.wire;
+	std::string name = detail::unescapedName(wire->name);
 	bool scalar = !detail::isVector(wire) && origin == WireOrigin::Declared;
-	return {detail::unescapedName(wire->name), wire->to_hdl_index(bit.offset), scalar, detail::sourcePath(wire, wire->name.str())};
+	int index = wire->to_hdl_index(bit.offset);
+	if (origin == WireOrigin::SplitFromVector && wire->width == 1)
+		detail::trailingIndex(name, index);
+	return {name, index, scalar, detail::sourcePath(wire, wire->name.str())};
 }
 
 Netlist::Port detail::wirePort(RTLIL::Wire *wire)
@@ -541,7 +574,7 @@ struct detail::Fingerprint {
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {
 	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name);
+		fp.eat(module->name.str());
 		fp.eat(module->hashidx_);
 		bool blackbox = module->get_blackbox_attribute();
 		fp.eat(blackbox);
@@ -572,7 +605,7 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 
 void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 {
-	fp.eat(wire->name);
+	fp.eat(wire->name.str());
 	fp.eat(wire->hashidx_);
 	fp.eat(wire->width);
 	fp.eat(wire->start_offset);
@@ -587,12 +620,12 @@ void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 
 void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
 {
-	fp.eat(cell->name);
+	fp.eat(cell->name.str());
 	fp.eat(cell->hashidx_);
-	fp.eat(cell->type);
+	fp.eat(cell->type.str());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
 	for (const auto &[port, sig] : cell->connections()) {
-		fp.eat(port);
+		fp.eat(RTLIL::PooledName(cell->module, port).str());
 		fp.eat(sig);
 	}
 }

@@ -35,25 +35,30 @@ const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instanc
 	}
 
 	std::vector<Netlist::Port> &ports = store.lists.emplace_back();
+	bool known = true;
 	if (sub != nullptr)
 		detail::modulePorts(sub, ports);
 	else
-		leafPorts(inst, ports);
+		known = leafPorts(inst, ports);
 
-	if (shared)
+	// Each cell of an unknown type checks its own connections
+	if (shared && known)
 		store.lists_by_library_type[inst->type] = &ports;
 	return &ports;
 }
 
-void detail::ViewBuilder::leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out)
+bool detail::ViewBuilder::leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out)
 {
 	Netlist::CellLibrary *library = data_.library;
 	if (library != nullptr && library->ports(*inst, out))
-		return;
-	if (!yosysPorts(inst, out) && library == nullptr)
+		return true;
+	bool known = yosysPorts(inst, out);
+	bool connected = !view_.cell(inst)->connections().empty();
+	if (!known && (library == nullptr || connected))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
 	if (library != nullptr)
 		data_.ports.types_not_in_library.insert(inst->type);
+	return known;
 }
 
 Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent)
