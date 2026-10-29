@@ -2,55 +2,77 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-Netlist::PortModel::~PortModel() {}
+bool Netlist::Port::scalar() const { return width == 1 && !vector; }
 
-bool Netlist::PortShape::scalar() const
+int Netlist::Port::hdlIndex(int bit) const
 {
-	return width == 1 && !vector;
+	if (from < to)
+		return to - bit;
+	return to + bit;
 }
 
-Netlist::Dir Netlist::portDir(bool input, bool output)
+bool Netlist::Instance::isTop() const { return parent == nullptr; }
+bool Netlist::Instance::isLeaf() const { return kind == Kind::LibraryCell || kind == Kind::InternalCell; }
+
+Netlist::Pin *Netlist::Instance::findPin(const std::string &port, int bit) const
+{
+	for (Pin *pin : pins) {
+		if (pin->port().name == port && pin->bit == bit)
+			return pin;
+	}
+	return nullptr;
+}
+
+std::string Netlist::Instance::localName() const
+{
+	if (hdlpath.empty())
+		return name;
+	return Netlist::joinPath(hdlpath);
+}
+
+const Netlist::Port &Netlist::Pin::port() const { return (*inst->ports)[port_index]; }
+
+Netlist::PortDir Netlist::Pin::dir() const { return port().dir; }
+
+int Netlist::Pin::hdlIndex() const { return port().hdlIndex(bit); }
+
+bool Netlist::Pin::isDriver() const
+{
+	PortDir d = dir();
+	bool output = d == PortDir::Output || d == PortDir::Inout;
+	bool input = d == PortDir::Input || d == PortDir::Inout;
+	if (inst->isTop())
+		return input; // a top input drives the design
+	return output && inst->isLeaf();
+}
+
+Netlist::PortDir Netlist::portDir(bool input, bool output)
 {
 	if (input && output)
-		return Dir::Inout;
+		return PortDir::Inout;
 	if (input)
-		return Dir::Input;
+		return PortDir::Input;
 	if (output)
-		return Dir::Output;
-	return Dir::Unknown;
+		return PortDir::Output;
+	return PortDir::Unknown;
 }
 
-bool Netlist::isTop(const Instance *inst) const
+std::string Netlist::NetName::path() const
 {
-	return inst->parent == nullptr;
+	if (hdlpath.empty())
+		return wire;
+	return Netlist::joinPath(hdlpath);
 }
 
-const Netlist::PortShape &Netlist::shape(const Pin *pin) const
+std::string Netlist::joinPath(const std::vector<std::string> &parts)
 {
-	return (*pin->inst->ports)[pin->port];
-}
-
-Netlist::Dir Netlist::dir(const Pin *pin) const
-{
-	return shape(pin).dir;
-}
-
-int Netlist::hdlIndex(const Pin *pin) const
-{
-	const PortShape &s = shape(pin);
-	if (s.from < s.to)
-		return s.to - pin->bit;
-	return s.to + pin->bit;
-}
-
-bool Netlist::isDriver(const Pin *pin) const
-{
-	Dir d = dir(pin);
-	bool output = d == Dir::Output || d == Dir::Inout;
-	bool input = d == Dir::Input || d == Dir::Inout;
-	if (isTop(pin->inst))
-		return input; // a top input drives the design
-	return output && pin->inst->leaf;
+	std::string path;
+	for (const std::string &part : parts) {
+		if (!path.empty() && !part.empty())
+			path += "/";
+		path += part;
+	}
+	return path;
 }
 
 YOSYS_NAMESPACE_END
