@@ -73,11 +73,16 @@ void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *s
 {
 	for (const Netlist::Instance *child : scope->children) {
 		cell_names[view.cell(child)->hashidx_] = child->localName();
+		cell_paths.insert(scopePath(view, child));
 		takeScope(view, child);
 	}
 }
 
-void detail::Snapshot::clear() { cell_names.clear(); }
+void detail::Snapshot::clear()
+{
+	cell_names.clear();
+	cell_paths.clear();
+}
 
 std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
 {
@@ -175,7 +180,7 @@ void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pi
 	if (pin->dir() != Netlist::PortDir::Input)
 		return;
 	std::vector<const Netlist::Pin *> drivers;
-	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, drivers);
+	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const Netlist::Pin *driver : drivers)
 		anchorPin(driver, ref_index, ref, TrackMode::AnchorsOnly);
 	ref.origin.anchored_on_drivers = !drivers.empty();

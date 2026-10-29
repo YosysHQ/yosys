@@ -21,6 +21,8 @@ constexpr std::string_view owned_marker_prefix = "\\netview_";
 
 enum class IdLookup : uint8_t { FindOnly, AddIfMissing };
 
+enum class BufferRule : uint8_t { StopAtNewBuffer, PassNewBuffer };
+
 struct Anchor {
 	enum class Role : uint8_t { Pin, Cell, Net, Barrier };
 	enum class Side : uint8_t { None, A, Y };
@@ -48,6 +50,7 @@ struct TopPortName {
 
 struct Snapshot {
 	dict<uint32_t, std::string> cell_names; // by cell hashidx_
+	pool<std::string> cell_paths;
 public:
 	void take(const NetView &view);
 	void takeScope(const NetView &view, const Netlist::Instance *scope);
@@ -114,18 +117,20 @@ private:
 struct CutSideWalkState {
 	const Netlist::Instance *scope;
 	Netlist::WalkTarget target;
+	BufferRule buffer_rule;
 	std::vector<const Netlist::Pin *> &reached_pins;
 	pool<const RTLIL::Cell *> visited_cells = {};
 };
 
 struct CutSideWalker {
 	CutSideWalker(const NetView &view, const TrackData &data);
-	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const Netlist::Pin *> &out);
+	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, BufferRule rule, std::vector<const Netlist::Pin *> &out);
 private:
 	void walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier);
 	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, bool on_cut_wire);
 	bool entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire) const;
-	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at);
+	void walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire);
+	void walkNewBuffer(CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire);
 	const Netlist::Pin *topPortPinOf(const RTLIL::SigBit &bit, const ModWalker &walker);
 private:
 	const NetView &view_;
@@ -180,7 +185,7 @@ struct Resolver {
 	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
-	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
+	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Instance *> resolveCell(const std::vector<AnchorHit> &hits);
@@ -229,6 +234,7 @@ std::string barrierScopePath(const std::string &path, const RTLIL::Cell *barrier
 std::vector<const AnchorHit *> hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role);
 std::vector<const Netlist::Pin *> hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves);
 const Netlist::Pin *findTopPort(const Netlist::Instance *top, const TopPortName &name);
+bool isNewBuffer(const NetView &view, const Snapshot &snapshot, const Netlist::Instance *inst);
 
 template <typename T> std::vector<T> uniqueSorted(std::vector<T> objects)
 {

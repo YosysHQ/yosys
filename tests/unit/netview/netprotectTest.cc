@@ -181,4 +181,78 @@ TEST_F(NetProtectTest, netBarrierFindsTheNetOfItsScope)
 	EXPECT_EQ(net.nets, std::vector<const Netlist::Net *>{topChild(*next, u_inv2)->pins[0]->net});
 }
 
+TEST_F(NetProtectTest, newBufferKeepsTheLoadsBeyond)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Pin};
+	ref.pins = {topChild(view, u_sub)->findPin("y", 0)};
+	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
+	// a buffer in the module, flatten copies it before the next resolve
+	ASSERT_EQ(barriersOf(sub).size(), 1u);
+	Cell *barrier = barriersOf(sub)[0];
+	Wire *w = sub->addWire("\\w");
+	Cell *inner = sub->addCell("$inner", ID($_BUF_));
+	inner->setPort(ID::A, w);
+	inner->setPort(ID::Y, barrier->getPort(ID::Y));
+	barrier->setPort(ID::Y, w);
+	Pass::call(d, "flatten");
+	// insbuf puts a buffer on a connection
+	Wire *b = top->addWire("\\b");
+	u_inv2->setPort(ID(A), b);
+	Cell *buf = top->addCell("$buf", ID($_BUF_));
+	buf->setPort(ID::A, p);
+	buf->setPort(ID::Y, b);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&ref});
+	EXPECT_EQ(ref.result.loads_beyond, std::vector<const Netlist::Pin *>{topChild(*next, u_inv2)->pins[0]});
+}
+
+TEST_F(NetProtectTest, loopOfNewBuffersEnds)
+{
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Pin};
+	ref.pins = {topChild(view, u_inv2)->pins[0]};
+	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
+	// a pass puts a loop of buffers on the cut wire
+	SigBit cut = u_inv2->getPort(ID(A));
+	Wire *b = top->addWire("\\b");
+	Cell *b1 = top->addCell("$b1", ID($_BUF_));
+	b1->setPort(ID::A, cut);
+	b1->setPort(ID::Y, b);
+	Cell *b2 = top->addCell("$b2", ID($_BUF_));
+	b2->setPort(ID::A, b);
+	b2->setPort(ID::Y, cut);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&ref});
+	EXPECT_EQ(ref.pins, std::vector<const Netlist::Pin *>{topChild(*next, u_inv2)->pins[0]});
+}
+
+// insbuf puts a buffer between a top input and its barrier, a pass renames the port
+TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
+{
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef port{TrackedRef::Kind::TopPort};
+	port.pins = {view.top()->findPin("q", 1)};
+	tracker.checkpoint(view, {&port}, TrackMode::Barriers);
+	Wire *w = top->addWire("\\w");
+	Cell *buf = top->addCell("$buf", ID($_BUF_));
+	buf->setPort(ID::A, SigBit(q, 1));
+	buf->setPort(ID::Y, w);
+	ASSERT_EQ(barriersOf(top).size(), 1u);
+	barriersOf(top)[0]->setPort(ID::A, w);
+	q->attributes.clear();
+	top->rename(q, "\\q_renamed");
+	top->fixup_ports();
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&port});
+	EXPECT_EQ(port.pins, std::vector<const Netlist::Pin *>{next->top()->findPin("q_renamed", 1)});
+}
+
 YOSYS_NAMESPACE_END

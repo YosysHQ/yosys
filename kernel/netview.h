@@ -22,6 +22,7 @@ struct CellLibrary {
 	virtual bool ports(const Instance &inst, std::vector<Port> &out) = 0;
 	virtual bool isRegister(const Instance &inst);
 	virtual bool isClockPin(const Pin &pin);
+	virtual bool isBuffer(const Instance &inst);
 };
 
 } // namespace Netlist
@@ -85,6 +86,7 @@ struct NetView final {
 
 	bool isRegister(const Netlist::Instance *inst) const;
 	bool isClockPin(const Netlist::Pin *pin) const;
+	bool isBuffer(const Netlist::Instance *inst) const;
 
 	void retire();
 	bool retired() const;

@@ -14,6 +14,15 @@ void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &r
 		resolver.resolve(ref_index, *refs[ref_index]);
 }
 
+bool NetTracker::isNewBuffer(const NetView &view, const Netlist::Instance *inst) const { return detail::isNewBuffer(view, data_->snapshot, inst); }
+
+bool detail::isNewBuffer(const NetView &view, const Snapshot &snapshot, const Netlist::Instance *inst)
+{
+	if (!inst->isLeaf() || snapshot.cell_names.count(view.cell(inst)->hashidx_))
+		return false;
+	return view.isBuffer(inst) && !snapshot.cell_paths.count(snapshot.scopePath(view, inst));
+}
+
 detail::HitIndex::HitIndex(const NetView &view, const TrackData &data) : view_(view), data_(data) { noteScope(view.top()); }
 
 const std::vector<detail::AnchorHit> &detail::HitIndex::hitsOf(uint32_t ref_index) const { return hits_by_ref_.get(ref_index); }
@@ -120,11 +129,11 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 	ref.result.flattened_hier_pin = hier && ref.pins[0]->inst->isLeaf();
 }
 
-std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std::vector<AnchorHit> &hits)
+std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule)
 {
 	std::vector<const Netlist::Pin *> pins;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier))
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, pins);
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, rule, pins);
 	return pins;
 }
 
@@ -137,7 +146,7 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		if (of_cell && hit->anchor.side != Anchor::Side::A)
 			continue;
-		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, ref.result.loads_beyond);
+		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, BufferRule::StopAtNewBuffer, ref.result.loads_beyond);
 		const Netlist::Instance *inst = view_.instance(hit->barrier, hit->barrier_scope);
 		if (inst == nullptr || inst->isLeaf())
 			continue;
@@ -161,7 +170,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePin(const std::vector
 		pins.clear();
 	if (!pins.empty())
 		return pins;
-	pins = cutSidePinsOfHits(hits);
+	pins = cutSidePinsOfHits(hits, BufferRule::StopAtNewBuffer);
 	if (!renamed.empty())
 		return detail::hierPinsAbove(renamed, pins);
 	return detail::uniqueSorted(pins);
@@ -174,7 +183,7 @@ std::vector<const Netlist::Instance *> detail::Resolver::resolveCell(const std::
 		cells.push_back(hit->instance);
 	if (!cells.empty())
 		return cells;
-	for (const Netlist::Pin *pin : cutSidePinsOfHits(hits))
+	for (const Netlist::Pin *pin : cutSidePinsOfHits(hits, BufferRule::PassNewBuffer))
 		cells.push_back(pin->inst);
 	return detail::uniqueSorted(cells);
 }
@@ -186,7 +195,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePort(const std::vecto
 		nets.push_back(hit->net);
 	std::vector<const Netlist::Pin *> pins;
 	if (nets.empty()) {
-		for (const Netlist::Pin *pin : cutSidePinsOfHits(hits)) {
+		for (const Netlist::Pin *pin : cutSidePinsOfHits(hits, BufferRule::PassNewBuffer)) {
 			if (pin->inst->isTop())
 				pins.push_back(pin);
 			else
@@ -279,7 +288,7 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 	std::vector<const Netlist::Net *> nets;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> pins;
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, pins);
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 		for (const Netlist::Pin *pin : pins)
 			nets.push_back(netInScope(pin->net, hit->anchor.net_scope_path));
 	}

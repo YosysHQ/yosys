@@ -301,12 +301,14 @@ void detail::BarrierWriter::collectLeafDrivers(const Netlist::Net *net, pool<con
 detail::CutSideWalker::CutSideWalker(const NetView &view, const TrackData &data) : view_(view), data_(data) {}
 
 // A cut side ends at the cut side of another barrier
-void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, std::vector<const Netlist::Pin *> &out)
+void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, BufferRule rule, std::vector<const Netlist::Pin *> &out)
 {
 	Netlist::WalkTarget target = Netlist::WalkTarget::Loads;
 	if (side == Anchor::Side::A)
 		target = Netlist::WalkTarget::Drivers;
-	CutSideWalkState walk = {scope, target, out};
+	if (target == Netlist::WalkTarget::Loads)
+		rule = BufferRule::PassNewBuffer;
+	CutSideWalkState walk = {scope, target, rule, out};
 	walkBarrier(walk, barrier);
 }
 
@@ -334,7 +336,7 @@ void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell
 		if (at.cell == from)
 			continue;
 		if (at.cell->type != ID($barrier))
-			walkUser(walk, at);
+			walkUser(walk, at, on_cut_wire);
 		else if (entersBarrier(walk, at, on_cut_wire))
 			walkBarrier(walk, at.cell);
 	}
@@ -349,7 +351,7 @@ bool detail::CutSideWalker::entersBarrier(const CutSideWalkState &walk, const Mo
 	return !(on_cut_wire && at_a == data_.barriers.marks(at.cell).cut_on_a);
 }
 
-void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at)
+void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire)
 {
 	const Netlist::Instance *inst = view_.instance(at.cell, walk.scope);
 	if (inst == nullptr)
@@ -358,11 +360,24 @@ void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::Po
 	if (pin == nullptr)
 		return;
 	bool toward_target = pin->isDriver() == (walk.target == Netlist::WalkTarget::Drivers);
-	if (pin->inst->isLeaf() && toward_target)
+	bool passes_buffers = walk.buffer_rule == BufferRule::PassNewBuffer;
+	if (toward_target && passes_buffers && detail::isNewBuffer(view_, data_.snapshot, inst))
+		walkNewBuffer(walk, at, on_cut_wire);
+	else if (pin->inst->isLeaf() && toward_target)
 		walk.reached_pins.push_back(pin);
 	else if (!pin->inst->isLeaf() && pin->term != nullptr) {
 		std::vector<Netlist::Pin *> leaves = view_.leafPins(pin->term->net, walk.target);
 		walk.reached_pins.insert(walk.reached_pins.end(), leaves.begin(), leaves.end());
+	}
+}
+
+void detail::CutSideWalker::walkNewBuffer(CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire)
+{
+	if (!walk.visited_cells.insert(at.cell).second)
+		return;
+	for (const auto &[port, sig] : at.cell->connections()) {
+		if (port != at.port && GetSize(sig) == 1)
+			walkSignal(walk, at.cell, sig[0], on_cut_wire);
 	}
 }
 

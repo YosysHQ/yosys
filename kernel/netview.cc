@@ -12,6 +12,8 @@ bool Netlist::CellLibrary::isRegister(const Instance &) { return false; }
 
 bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
 
+bool Netlist::CellLibrary::isBuffer(const Instance &) { return false; }
+
 NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
 
 NetView::~NetView() = default;
@@ -834,6 +836,11 @@ bool NetView::isClockPin(const Netlist::Pin *pin) const
 		return true;
 	const std::string &name = pin->port().name;
 	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+}
+
+bool NetView::isBuffer(const Netlist::Instance *inst) const
+{
+	return cell(inst)->type == ID($_BUF_) || (data_->library != nullptr && data_->library->isBuffer(*inst));
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)

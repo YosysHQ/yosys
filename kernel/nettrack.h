@@ -74,6 +74,8 @@ struct NetTracker final {
 
 	void unprotect(RTLIL::Design *design);
 	pool<const RTLIL::Cell *> barrierInstances(RTLIL::Design *design) const;
+
+	bool isNewBuffer(const NetView &view, const Netlist::Instance *inst) const;
 private:
 	std::unique_ptr<detail::TrackData> data_;
 };
