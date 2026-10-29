@@ -94,6 +94,15 @@ MK_TEST_DIRS += ./slang/basic/svtypes
 MK_TEST_DIRS += ./slang/basic/various
 MK_TEST_DIRS += ./slang/basic/verific
 MK_TEST_DIRS += ./slang/basic/verilog
+MK_TEST_DIRS += ./slang/fpga/analogdevices
+MK_TEST_DIRS += ./slang/fpga/ecp5
+MK_TEST_DIRS += ./slang/fpga/fabulous
+MK_TEST_DIRS += ./slang/fpga/gatemate
+MK_TEST_DIRS += ./slang/fpga/gowin
+MK_TEST_DIRS += ./slang/fpga/ice40
+MK_TEST_DIRS += ./slang/fpga/machxo2
+MK_TEST_DIRS += ./slang/fpga/quicklogic/qlf_k6n10f
+MK_TEST_DIRS += ./slang/fpga/xilinx
 all: vanilla-test
 
 # makefile-./ is a dummy string, not a directory
