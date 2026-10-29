@@ -1,0 +1,37 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(output [3:0] q);
+  assign q = 2 + 3;
+endmodule
+EOF
+select -assert-none t:$add
+
+verilog_flag:
+design -reset
+read_verilog -noopt <<EOF
+module top(output [3:0] q);
+  assign q = 2 + 3;
+endmodule
+EOF
+select -assert-count 1 t:$add
+
+slang_default:
+design -reset
+read_slang --no-proc <<EOF
+module top(output [3:0] q);
+  assign q = 2 + 3;
+endmodule
+EOF
+opt_clean
+select -assert-none t:$add
+
+slang_flag:
+design -reset
+read_slang --noopt --no-proc <<EOF
+module top(output [3:0] q);
+  assign q = 2 + 3;
+endmodule
+EOF
+opt_clean
+select -assert-count 1 t:$add

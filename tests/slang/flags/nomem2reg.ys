@@ -1,0 +1,45 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(input a, d, output q);
+  reg mem [0:1];
+  always @* mem[a] = d;
+  assign q = mem[0];
+endmodule
+EOF
+select -assert-none m:mem
+
+verilog_flag:
+design -reset
+read_verilog -nomem2reg <<EOF
+module top(input a, d, output q);
+  reg mem [0:1];
+  always @* mem[a] = d;
+  assign q = mem[0];
+endmodule
+EOF
+select -assert-count 1 m:mem
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input a, d, output q);
+  reg mem [0:1];
+  always @* mem[a] = d;
+  assign q = mem[0];
+endmodule
+EOF
+opt_clean
+select -assert-none m:mem
+
+slang_flag:
+design -reset
+read_slang --nomem2reg <<EOF
+module top(input a, d, output q);
+  reg mem [0:1];
+  always @* mem[a] = d;
+  assign q = mem[0];
+endmodule
+EOF
+opt_clean
+select -assert-count 1 m:mem

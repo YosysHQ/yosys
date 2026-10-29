@@ -1,0 +1,37 @@
+verilog_default:
+design -reset
+read_verilog <<EOF
+module top(input a, output q);
+  assign q = a;
+endmodule
+EOF
+select -assert-none A:marker
+
+verilog_flag:
+design -reset
+read_verilog -setattr marker <<EOF
+module top(input a, output q);
+  assign q = a;
+endmodule
+EOF
+select -assert-any A:marker
+
+slang_default:
+design -reset
+read_slang <<EOF
+module top(input a, output q);
+  assign q = a;
+endmodule
+EOF
+opt_clean
+select -assert-none A:marker
+
+slang_flag:
+design -reset
+read_slang --setattr marker <<EOF
+module top(input a, output q);
+  assign q = a;
+endmodule
+EOF
+opt_clean
+select -assert-any A:marker

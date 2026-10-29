@@ -1,0 +1,49 @@
+verilog_default:
+design -reset
+
+read_verilog <<EOF
+module top(input a, output q);
+  assign q = ~a;
+  specify
+    (a => q) = 1;
+  endspecify
+endmodule
+EOF
+select -assert-none =*/t:$specify2 =*/t:$specify3 =*/t:$specrule
+
+verilog_flag:
+design -reset
+read_verilog -specify tests/slang/flags/specify.v
+proc
+opt_clean
+select -assert-count 14 =*/t:$specify2
+select -assert-count 7 =*/t:$specify3
+select -assert-count 10 =*/t:$specrule
+
+verilog_lib:
+design -reset
+read_verilog -lib -specify tests/slang/flags/specify.v
+select -assert-count 14 =*/t:$specify2
+select -assert-count 7 =*/t:$specify3
+select -assert-count 10 =*/t:$specrule
+
+slang_default:
+design -reset
+read_slang --keep-hierarchy tests/slang/flags/specify.v
+opt_clean
+select -assert-none =*/t:$specify2 =*/t:$specify3 =*/t:$specrule
+
+slang_flag:
+design -reset
+read_slang --keep-hierarchy --specify tests/slang/flags/specify.v
+opt_clean
+select -assert-count 14 =*/t:$specify2
+select -assert-count 7 =*/t:$specify3
+select -assert-count 10 =*/t:$specrule
+
+slang_lib:
+design -reset
+read_slang --keep-hierarchy --lib --specify tests/slang/flags/specify.v
+select -assert-count 14 =*/t:$specify2
+select -assert-count 7 =*/t:$specify3
+select -assert-count 10 =*/t:$specrule
