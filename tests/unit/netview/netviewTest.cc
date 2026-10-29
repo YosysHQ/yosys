@@ -23,7 +23,7 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_NE(iinv0->kind, Netlist::Instance::Kind::InternalCell);
 	EXPECT_EQ(isub->parent, t);
 	EXPECT_EQ(view.module(isub), sub);
-	EXPECT_EQ(view.scope(sub), isub);
+	EXPECT_EQ(view.scopes(sub), std::vector<Netlist::Instance *>{isub});
 	EXPECT_EQ(view.cell(iinv0), u_inv0);
 	EXPECT_EQ(iinv0->type, "INV");
 	EXPECT_EQ(isub->children.size(), 2u);
@@ -48,7 +48,7 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(isub->findPin("y", 4), nullptr);
 	ASSERT_NE(y0->term, nullptr);
 	EXPECT_EQ(y0->term->net->scope, isub);
-	EXPECT_EQ(y0->term->net, view.instance(i1)->pins[1]->net);
+	EXPECT_EQ(y0->term->net, view.instance(i1, topChild(view, u_sub))->pins[1]->net);
 	EXPECT_EQ(isub->pins[2]->net, nullptr); // y[1] unconnected
 	ASSERT_NE(isub->pins[2]->term, nullptr);
 }
@@ -125,7 +125,7 @@ TEST_F(NetViewTest, instancesFollowCreationOrderDepthFirst)
 	NetView view;
 	view.build(d);
 	Netlist::Instance *isub = topChild(view, u_sub);
-	std::vector<Netlist::Instance *> order = {topChild(view, u_inv0), isub, view.instance(i1), view.instance(i2),
+	std::vector<Netlist::Instance *> order = {topChild(view, u_inv0), isub, view.instance(i1, isub), view.instance(i2, isub),
 						  topChild(view, u_inv2)};
 	for (size_t i = 0; i < order.size(); i++)
 		EXPECT_EQ(order[i]->id, i + 1) << order[i]->name;
@@ -230,8 +230,7 @@ TEST_F(NetViewTest, buildableReasons)
 	sub->remove(sub->processes.at(d->twines().find("\\proc")));
 
 	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
-	EXPECT_FALSE(NetView::buildable(d, reason));
-	EXPECT_NE(reason.find("(run uniquify)"), std::string::npos) << reason;
+	EXPECT_TRUE(NetView::buildable(d, reason)) << reason;
 	top->remove(u_sub2);
 	Cell *self = sub->addCell("\\self", "\\sub");
 	EXPECT_FALSE(NetView::buildable(d, reason));
@@ -243,6 +242,43 @@ TEST_F(NetViewTest, buildableReasons)
 	EXPECT_NE(reason.find("no top"), std::string::npos);
 }
 
+TEST_F(NetViewTest, sharedModuleUnfolds)
+{
+	sub->connect(SigBit(y, 1), State::S1);
+	Cell *u_sub2 = top->addCell("\\u_sub2", "\\sub");
+	u_sub2->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	Netlist::Instance *first = view.instance(i1, topChild(view, u_sub));
+	Netlist::Instance *second = view.instance(i1, topChild(view, u_sub2));
+	ASSERT_NE(first, nullptr);
+	ASSERT_NE(second, nullptr);
+	EXPECT_NE(first->parent, second->parent);
+	EXPECT_EQ(view.cell(first), i1);
+	EXPECT_EQ(view.cell(second), i1);
+	EXPECT_EQ(view.module(first->parent), sub);
+	EXPECT_EQ(view.scopes(sub).size(), 2u);
+
+	Netlist::Net *net = second->pins[0]->net;
+	EXPECT_NE(first->pins[0]->net, net);
+	EXPECT_EQ(net->scope, second->parent);
+	EXPECT_EQ(second->parent->pins[0]->term->net, net);
+	EXPECT_EQ(second->parent->pins[0]->net, topChild(view, u_inv0)->pins[0]->net);
+	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
+	EXPECT_EQ(view.wireBits(first->pins[0]->net), std::vector<SigBit>{SigBit(a)});
+	for (const Netlist::NetAlias &alias : view.aliases(second->parent))
+		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
+	std::vector<Netlist::Net *> ones = view.constNets(Netlist::Net::Const::One);
+	ASSERT_EQ(ones.size(), 2u);
+	EXPECT_NE(ones[0]->scope, ones[1]->scope);
+	for (Netlist::Net *one : ones)
+		EXPECT_TRUE(one->scope == first->parent || one->scope == second->parent);
+
+	// The instance of a cell in each scope
+	EXPECT_EQ(view.instance(i1, first->parent), first);
+	EXPECT_EQ(view.instance(i1, second->parent), second);
+	EXPECT_EQ(view.instance(i1, view.top()), nullptr);
+}
 TEST_F(NetViewTest, selectionDoesNotMatter)
 {
 	NetView view;
@@ -872,4 +908,33 @@ TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
 	EXPECT_NE(keys[0], keys[1]); // only the body of c differs
 }
 
+static bool idsFit(int mids, bool pins, std::string &reason)
+{
+	Design design;
+	Module *leaf = design.addModule("\\leaf");
+	Wire *wide = leaf->addWire("\\w", 65536);
+	if (pins) {
+		wide->port_input = true;
+		leaf->fixup_ports();
+		leaf->set_bool_attribute(ID::blackbox);
+	}
+	Module *mid = design.addModule("\\mid");
+	for (int n = 0; n < 256; n++)
+		mid->addCell(stringf("\\l%d", n), "\\leaf");
+	Module *m = design.addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	for (int n = 0; n < mids; n++)
+		m->addCell(stringf("\\m%d", n), "\\mid");
+	return NetView::buildable(&design, reason);
+}
+
+TEST(NetViewBuildableTest, buildableRefusesPinAndNetIdOverflow)
+{
+	for (bool pins : {true, false}) {
+		std::string reason;
+		EXPECT_TRUE(idsFit(255, pins, reason)) << reason;
+		EXPECT_FALSE(idsFit(256, pins, reason)) << pins;
+		EXPECT_NE(reason.find("32-bit"), std::string::npos) << reason;
+	}
+}
 YOSYS_NAMESPACE_END
