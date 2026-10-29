@@ -197,6 +197,7 @@ struct ChangeDetector final : public RTLIL::Monitor {
 	void disarm();
 	void noteEvent();
 	bool isStale() const;
+	void refresh();
 	void notify_module_add(RTLIL::Module *module) override;
 	void notify_module_del(RTLIL::Module *module) override;
 	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &new_sig) override;

@@ -8,6 +8,10 @@ YOSYS_NAMESPACE_BEGIN
 
 Netlist::CellLibrary::~CellLibrary() = default;
 
+bool Netlist::CellLibrary::isRegister(const Instance &) { return false; }
+
+bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
+
 NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
 
 NetView::~NetView() = default;
@@ -817,6 +821,21 @@ std::string detail::pinLine(std::string head, const NetView &view, const Netlist
 	return head;
 }
 
+bool NetView::isRegister(const Netlist::Instance *inst) const
+{
+	if (data_->library != nullptr && data_->library->isRegister(*inst))
+		return true;
+	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+}
+
+bool NetView::isClockPin(const Netlist::Pin *pin) const
+{
+	if (data_->library != nullptr && data_->library->isClockPin(*pin))
+		return true;
+	const std::string &name = pin->port().name;
+	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+}
+
 uint64_t detail::mix64(uint64_t state, uint64_t value)
 {
 	uint64_t z = state + value + 0x9e3779b97f4a7c15;
@@ -944,6 +963,13 @@ bool detail::ChangeDetector::isStale() const
 	return stale_;
 }
 
+void detail::ChangeDetector::refresh()
+{
+	fingerprint_ = computeFingerprint();
+	maybe_changed_ = false;
+	stale_ = false;
+}
+
 uint64_t detail::ChangeDetector::computeFingerprint() const
 {
 	detail::Fingerprint fp;
@@ -976,6 +1002,12 @@ bool NetView::upToDate() const
 	if (!built())
 		return false;
 	return !data_->watch.isStale();
+}
+
+void NetView::markUpToDate()
+{
+	log_assert(built());
+	data_->watch.refresh();
 }
 
 YOSYS_NAMESPACE_END
