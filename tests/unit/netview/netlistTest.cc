@@ -6,7 +6,7 @@ YOSYS_NAMESPACE_BEGIN
 
 TEST(IdMapTest, growsAndFallsBack)
 {
-	IdMap<int> map;
+	Netlist::IdMap<int> map;
 	map.fallback = -1;
 	map[5] = 7;
 	EXPECT_EQ(map.get(5), 7);
