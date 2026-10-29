@@ -1,7 +1,9 @@
 yosys_gtest(netview
 	netlistTest.cc
+	nettrackTest.cc
+	netviewHelpers.h
 	netviewTest.cc
 	COMPONENTS
 		flatten
-		optbarriers
+		splitnets
 )
