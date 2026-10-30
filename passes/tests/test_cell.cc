@@ -1152,7 +1152,8 @@ struct TestCellPass : public Pass {
 			for (int i = 0; i < num_iter; i++)
 			{
 				Cell* uut = nullptr;
-				RTLIL::Design *design = new RTLIL::Design;
+				RTLIL::Design uut_design;
+				RTLIL::Design *design = &uut_design;
 				if (cell_type == ID(rtlil))
 					Frontend::frontend_call(design, NULL, std::string(), "rtlil " + rtlil_file);
 				else
@@ -1173,7 +1174,6 @@ struct TestCellPass : public Pass {
 						if (is_unconverted) {
 							// skip unconverted cells
 							log_warning("Skipping %s\n", ID::str(cell_type));
-							delete design;
 							break;
 						} else {
 							writer = "write_aiger -ascii";
@@ -1234,7 +1234,6 @@ struct TestCellPass : public Pass {
 						}
 					}
 				}
-				delete design;
 			}
 			if (check_cost && failed) {
 				log_warning("Cell type %s cost underestimated in %.1f%% cases "

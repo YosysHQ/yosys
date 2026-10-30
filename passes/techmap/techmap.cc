@@ -1264,16 +1264,15 @@ struct TechmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Design *map = new RTLIL::Design;
+		RTLIL::Design map_design;
+		RTLIL::Design *map = &map_design;
 		if (map_files.empty()) {
 			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
-					if (!saved_designs.count(fn.substr(1))) {
-						delete map;
+					if (!saved_designs.count(fn.substr(1)))
 						log_cmd_error("Can't open saved design `%s'.\n", fn.substr(1));
-					}
 					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
@@ -1355,7 +1354,6 @@ struct TechmapPass : public Pass {
 		}
 
 		log("No more expansions possible.\n");
-		delete map;
 
 		log_pop();
 	}
