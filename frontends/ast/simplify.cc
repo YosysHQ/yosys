@@ -1775,6 +1775,20 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			children.insert(children.begin(), std::move(node));
 		}
 
+		// The cast is an assignment to an [N-1:0] packed variable (IEEE 1800-2017 6.24.1): like a right-hand side, the
+		// operand is evaluated at max(N, its own width) with its own signedness, not self-determined (which folded a
+		// constant operand at its own width before the fold of the cast resized the result). As for AST_ASSIGN.
+		while (!children[0]->basic_prep && children[0]->simplify(true, stage, -1, false))
+			did_something = true;
+		if (children[0]->type == AST_CONSTANT) {
+			while (!children[1]->basic_prep && children[1]->simplify(false, stage, -1, false))
+				did_something = true;
+			children[1]->detectSignWidth(width_hint, sign_hint);
+			width_hint = max(width_hint, children[0]->bitsAsConst().as_int());
+			child_0_is_self_determined = true;
+			reset_width_after_children = true;
+		} else
+			children_are_self_determined = true;
 		detect_width_simple = true;
 		children_are_self_determined = true;
 		break;
