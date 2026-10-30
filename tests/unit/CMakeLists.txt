@@ -26,6 +26,7 @@ if (GTest_FOUND)
 
 	add_subdirectory(cmds)
 	add_subdirectory(kernel)
+	add_subdirectory(netview)
 	add_subdirectory(opt)
 	add_subdirectory(techmap)
 
