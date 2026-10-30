@@ -63,11 +63,6 @@
 - Slang eagerly elaborates so calling hierarchy seems to not do much, some tests pass when its removed
 	- [tests/slang/asic/techmap/clkbufmap.ys]
 
-## Non-Issues
-
-- `--noopt`
-- Tests to do with the specific names of wires, slang names differently but these don't really seem to be about slang, and the failures aren't  blocking real use cases
-
 ## No Idea
 
 - [basic/various/box_derive.ys]
@@ -76,6 +71,10 @@
 - [fpga/gatemate/fsm.ys]
 - [basic/various/submod.ys]
 - [basic/various/dynamic_part_select.ys]
+
+## Other
+
+ - `(* anyseq *)` / `(* anyconst *)` are working on a private branch of svelab but is blocked by the rewriter implementation
 
 # Detailed Taxonomy
 
