@@ -2,6 +2,7 @@
 // - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
+// - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -19,6 +20,8 @@ namespace Netlist
 struct CellLibrary {
 	virtual ~CellLibrary();
 	virtual bool ports(const Instance &inst, std::vector<Port> &out) = 0;
+	virtual bool isRegister(const Instance &inst);
+	virtual bool isClockPin(const Pin &pin);
 };
 
 } // namespace Netlist
@@ -31,6 +34,7 @@ struct ViewData;
 struct NetView final {
 	struct BuildOptions {
 		Netlist::CellLibrary *library = nullptr;
+		const pool<const RTLIL::Cell *> *barrier_instances = nullptr;
 	};
 
 	struct Counts {
@@ -60,6 +64,7 @@ struct NetView final {
 
 	bool upToDate() const;
 	void recheck();
+	void markUpToDate();
 
 	Counts counts() const;
 
@@ -77,6 +82,9 @@ struct NetView final {
 	Netlist::Instance *instance(const RTLIL::Cell *cell, const Netlist::Instance *scope) const;
 	const std::vector<Netlist::Instance *> &scopes(const RTLIL::Module *module) const;
 	const std::vector<RTLIL::SigBit> &wireBits(const Netlist::Net *net) const;
+
+	bool isRegister(const Netlist::Instance *inst) const;
+	bool isClockPin(const Netlist::Pin *pin) const;
 
 	void retire();
 	bool retired() const;
