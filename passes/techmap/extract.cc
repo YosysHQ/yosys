@@ -585,19 +585,17 @@ struct ExtractPass : public Pass {
 		if (map_filenames.empty() && mine_outfile.empty())
 			log_cmd_error("Missing option -map <verilog_or_rtlil_file> or -mine <output_rtlil_file>.\n");
 
-		RTLIL::Design *map = nullptr;
+		RTLIL::Design map_design;
+		RTLIL::Design *map = &map_design;
 
 		if (!mine_mode)
 		{
-			map = new RTLIL::Design;
 			for (auto &filename : map_filenames)
 			{
 				if (filename.compare(0, 1, "%") == 0)
 				{
-					if (!saved_designs.count(filename.substr(1))) {
-						delete map;
+					if (!saved_designs.count(filename.substr(1)))
 						log_cmd_error("Can't saved design `%s'.\n", filename.substr(1));
-					}
 					RTLIL::Design *saved = saved_designs.at(filename.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->has(map->twines().find_from(saved->twines(), mod->name)))
@@ -608,10 +606,8 @@ struct ExtractPass : public Pass {
 					std::ifstream f;
 					rewrite_filename(filename);
 					f.open(filename.c_str());
-					if (f.fail()) {
-						delete map;
+					if (f.fail())
 						log_cmd_error("Can't open map file `%s'.\n", filename);
-					}
 					Frontend::frontend_call(map, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 					f.close();
 
@@ -691,8 +687,6 @@ struct ExtractPass : public Pass {
 			log_header(design, "Running miner from SubCircuit library.\n");
 			solver.mine(results, mine_cells_min, mine_cells_max, mine_min_freq, mine_limit_mod);
 
-			map = new RTLIL::Design;
-
 			int needleCounter = 0;
 			for (auto &result: results)
 			{
@@ -754,7 +748,6 @@ struct ExtractPass : public Pass {
 			f.close();
 		}
 
-		delete map;
 		log_pop();
 	}
 } ExtractPass;

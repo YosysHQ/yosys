@@ -86,6 +86,7 @@ class PyosysClass:
         wrapping.
     :param name_pool: Whether this class's methods resolve names through its
         design's ``TwinePool``.
+    :param shared: Whether Python holds this class through a ``std::shared_ptr``.
     """
 
     name: str
@@ -98,6 +99,8 @@ class PyosysClass:
     denylist: FrozenSet[str] = frozenset({})
 
     name_pool: bool = False
+
+    shared: bool = False
 
 
 @dataclass
@@ -190,7 +193,6 @@ pyosys_headers = [
                 denylist=frozenset({"bits", "bitvectorize"}),
             ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("SelectedMember"),
             PyosysClass("Selection"),
             # PyosysClass("Monitor"), # Virtual methods, manually bridged
             PyosysClass("CaseRule"),
@@ -233,11 +235,15 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
-                denylist=frozenset({"Pow"}),  # has no implementation
+                denylist=frozenset({
+                    "Pow",  # has no implementation
+                    "selected_members",  # bound manually to keep names tied to the design
+                }),
             ),
             PyosysClass(
                 "Design",
                 name_pool=True,
+                shared=True,
                 string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
@@ -630,7 +636,7 @@ class PyosysWrapperGenerator(object):
 
         call = f"self.{function_basename}({', '.join(call_args)})"
         if self.is_idstring(function.return_type):
-            body = f"-> RTLIL::PooledName {{ return pyosys::pooled_name(self, {call}); }}"
+            body = f"-> pyosys::PyName {{ return pyosys::pooled_name(self, {call}); }}"
         else:
             body = f"-> decltype(auto) {{ return {call}; }}"
         return f"[]({', '.join(lambda_params)}) {body}"
@@ -780,6 +786,8 @@ class PyosysWrapperGenerator(object):
         tpl_args = [basename]
         if metadata.ref_only:
             tpl_args.append(f"std::unique_ptr<{basename}, py::nodelete>")
+        elif metadata.shared:
+            tpl_args.append(f"std::shared_ptr<{basename}>")
         print(
             f'\t\t{{using namespace {declaration_namespace}; py::class_<{", ".join(tpl_args)}>(m, "{basename}")',
             file=self.f,
