@@ -1299,7 +1299,7 @@ inline constexpr bool is_name_string_v =
 #define YS_NAME_FWD(_func) YS_NAME_FWD_POOL(_func, design->twines())
 #define YS_NAME_FWD_2ND(_func) YS_NAME_FWD_2ND_POOL(_func, design->twines())
 
-struct RTLIL::Design
+struct RTLIL::Design : std::enable_shared_from_this<RTLIL::Design>
 {
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(LARGE_HASHIDX_COLLIDER); return h; }
 

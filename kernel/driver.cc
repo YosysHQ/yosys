@@ -664,7 +664,7 @@ int main(int argc, char **argv)
 #endif
 	} else {
 		if (run_shell)
-			shell(yosys_design);
+			shell(yosys_design.get());
 		else
 			run_backend(output_filename, backend_command);
 	}

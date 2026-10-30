@@ -211,7 +211,7 @@ struct CellmatchPass : Pass {
 
 		auto r = saved_designs.emplace("$cellmatch", nullptr);
 		if (r.second)
-			r.first->second = std::make_unique<Design>();
+			r.first->second = std::make_shared<Design>();
 		Design *map_design = r.first->second.get();
 
 		for (auto m : d->selected_whole_modules_warn(/* visit whiteboxes */derive_luts)) {

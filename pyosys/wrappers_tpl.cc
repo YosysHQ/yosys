@@ -588,7 +588,7 @@ namespace pyosys {
 		bind_name_map_view<RTLIL::Memory *>(m, "NameMemoryView", false);
 		bind_name_map_view<RTLIL::Process *>(m, "NameProcessView", false);
 
-		auto design_cls = py::reinterpret_borrow<py::class_<RTLIL::Design>>(m.attr("Design"));
+		auto design_cls = py::reinterpret_borrow<py::class_<RTLIL::Design, std::shared_ptr<RTLIL::Design>>>(m.attr("Design"));
 		def_name_dict<RTLIL::Design>(design_cls, "modules_", &RTLIL::Design::modules_, false);
 		design_cls
 			.def("id_add", &design_id_add, py::arg("name"))

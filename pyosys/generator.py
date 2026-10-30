@@ -86,6 +86,7 @@ class PyosysClass:
         wrapping.
     :param name_pool: Whether this class's methods resolve names through its
         design's ``TwinePool``.
+    :param shared: Whether Python holds this class through a ``std::shared_ptr``.
     """
 
     name: str
@@ -98,6 +99,8 @@ class PyosysClass:
     denylist: FrozenSet[str] = frozenset({})
 
     name_pool: bool = False
+
+    shared: bool = False
 
 
 @dataclass
@@ -238,6 +241,7 @@ pyosys_headers = [
             PyosysClass(
                 "Design",
                 name_pool=True,
+                shared=True,
                 string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
                 denylist=frozenset({"selected_whole_modules"}),  # deprecated
@@ -780,6 +784,8 @@ class PyosysWrapperGenerator(object):
         tpl_args = [basename]
         if metadata.ref_only:
             tpl_args.append(f"std::unique_ptr<{basename}, py::nodelete>")
+        elif metadata.shared:
+            tpl_args.append(f"std::shared_ptr<{basename}>")
         print(
             f'\t\t{{using namespace {declaration_namespace}; py::class_<{", ".join(tpl_args)}>(m, "{basename}")',
             file=self.f,
