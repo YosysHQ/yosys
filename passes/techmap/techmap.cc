@@ -108,7 +108,6 @@ static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString na
 
 struct TechmapWorker
 {
-	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	dict<RTLIL::Module*, bool> techmap_do_cache;
 	pool<RTLIL::Module*> module_queue;
@@ -587,9 +586,10 @@ struct TechmapWorker
 
 							if (extmapper_name == "simplemap") {
 								log("Creating %s with simplemap.\n", extmapper_module);
-								if (simplemap_mappers.count(extmapper_cell->type) == 0)
+								SimplemapFn mapper = simplemap_mapper(extmapper_cell->type);
+								if (mapper == nullptr)
 									log_error("No simplemap mapper for cell type %s found!\n", extmapper_cell->type.unescape());
-								simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
+								mapper(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
 
@@ -635,9 +635,10 @@ struct TechmapWorker
 						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), extmapper_name);
 
 						if (extmapper_name == "simplemap") {
-							if (simplemap_mappers.count(cell->type) == 0)
+							SimplemapFn mapper = simplemap_mapper(cell->type);
+							if (mapper == nullptr)
 								log_error("No simplemap mapper for cell type %s found!\n", cell->type.unescape());
-							simplemap_mappers.at(cell->type)(module, cell);
+							mapper(module, cell);
 						}
 
 						if (extmapper_name == "maccmap") {
@@ -1206,7 +1207,6 @@ struct TechmapPass : public Pass {
 		log_push();
 
 		TechmapWorker worker;
-		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
