@@ -102,17 +102,15 @@ void detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_ind
 	protectHierPin(pin, ref_index, ref.hints.keep_as_instance);
 }
 
-// A driver also cuts its first input, so opt_merge merges no cell into it
+// A driver also cuts its first connected input, so opt_merge merges no cell into it
 void detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
 	anchorPinBarrier(pin, ref_index, net_scope_path);
 	if (!pin->isDriver())
 		return;
 	for (const Netlist::Pin *input : pin->inst->pins) {
-		if (!input->isDriver()) {
-			ensureBarrierAtPin(input);
+		if (input->dir() == Netlist::PortDir::Input && ensureBarrierAtPin(input) != nullptr)
 			return;
-		}
 	}
 }
 

@@ -144,6 +144,30 @@ TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 	EXPECT_TRUE(cell.removedButLoadsKept());
 }
 
+// A liberty power pin comes first and has no direction
+struct PowerPinLibrary : Netlist::CellLibrary {
+	bool ports(const Netlist::Instance &inst, std::vector<Netlist::Port> &out) override
+	{
+		if (inst.type != "INV")
+			return false;
+		out = {{"VDD", 1}, {"A", 1, 0, 0, Netlist::PortDir::Input}, {"Y", 1, 0, 0, Netlist::PortDir::Output}};
+		return true;
+	}
+};
+
+TEST_F(NetProtectTest, driverCutsItsFirstInputAfterAPowerPin)
+{
+	PowerPinLibrary library;
+	NetView view;
+	view.build(d, {&library});
+	NetTracker tracker;
+	TrackedRef driver{TrackedRef::Kind::Pin};
+	driver.pins = {topChild(view, u_inv2)->findPin("Y", 0)};
+	tracker.checkpoint(view, {&driver}, TrackMode::Barriers);
+	EXPECT_EQ(barriersOf(top).size(), 2u);
+	EXPECT_NE(u_inv2->getPort(ID(A)).as_wire(), p);
+}
+
 // The name finds no port, the barrier finds it by its signal
 TEST_F(NetProtectTest, portBarrierFindsItsPortBySignal)
 {
