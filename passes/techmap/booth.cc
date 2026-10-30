@@ -68,6 +68,7 @@ struct BoothPassWorker {
 	RTLIL::Module *module;
 	SigMap sigmap;
 	int booth_counter;
+	int cpa_id = 0;
 	bool lowpower = false;
 	bool mapped_cpa = false;
 
@@ -683,7 +684,6 @@ struct BoothPassWorker {
 	*/
 	void BuildCPA(RTLIL::Module *module, SigSpec s_vec, SigSpec c_vec, SigSpec result)
 	{
-		static int cpa_id;
 		cpa_id++;
 
 		log_assert(c_vec.size() == s_vec.size());
