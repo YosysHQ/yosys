@@ -96,10 +96,10 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 	index.instance_rtlil[inst->id] = {cell, module};
 	if (cell != nullptr) {
 		inst->hdlpath = detail::sourcePath(cell, cell->name.str());
-		index.instances_by_cell[cell->hashidx_] = inst;
+		index.instances_by_cell.add(cell->hashidx_, inst);
 	}
 	if (module != nullptr)
-		index.scopes_by_module[module] = inst;
+		index.scopes_by_module.add(module, inst);
 	if (parent != nullptr)
 		parent->children.push_back(inst);
 	return inst;
@@ -195,7 +195,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 			RTLIL::SigBit canon = sigmap(bit);
 			Netlist::Net *net = nullptr;
 			if (canon.wire != nullptr)
-				net = data_.index.nets_by_bit.at(detail::bitKey(canon), nullptr);
+				net = data_.index.nets_by_scope_bit.get(scope, canon);
 			else if (pub)
 				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
@@ -272,9 +272,9 @@ detail::WireOrigin detail::ViewBuilder::wireOrigin(const RTLIL::Wire *wire)
 
 Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
 {
-	dict<uint64_t, Netlist::Net *> &nets = data_.index.nets_by_bit;
+	NetsByScopeBit &nets = data_.index.nets_by_scope_bit;
 	if (bit.wire != nullptr) {
-		if (Netlist::Net *net = nets.at(detail::bitKey(bit), nullptr))
+		if (Netlist::Net *net = nets.get(scope, bit))
 			return net;
 	}
 	RTLIL::SigBit canon = bit;
@@ -286,14 +286,14 @@ Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const
 			return nullptr; // x/z: unconnected
 		net = findOrMakeTieNet(scope, canon);
 	} else {
-		net = nets.at(detail::bitKey(canon), nullptr);
+		net = nets.get(scope, canon);
 		if (net == nullptr) {
 			net = newNet(scope, canon);
-			nets[detail::bitKey(canon)] = net;
+			nets.set(scope, canon, net);
 		}
 	}
 	if (bit.wire != nullptr && bit != canon)
-		nets[detail::bitKey(bit)] = net;
+		nets.set(scope, bit, net);
 	return net;
 }
 

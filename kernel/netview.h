@@ -1,5 +1,5 @@
 // NetView: the Netlist of an RTLIL design
-// - Instances  one per cell, depth first in statement order
+// - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 
@@ -74,8 +74,8 @@ struct NetView final {
 
 	RTLIL::Cell *cell(const Netlist::Instance *inst) const;
 	RTLIL::Module *module(const Netlist::Instance *scope) const;
-	Netlist::Instance *instance(const RTLIL::Cell *cell) const;
-	Netlist::Instance *scope(const RTLIL::Module *module) const;
+	Netlist::Instance *instance(const RTLIL::Cell *cell, const Netlist::Instance *scope) const;
+	const std::vector<Netlist::Instance *> &scopes(const RTLIL::Module *module) const;
 	const std::vector<RTLIL::SigBit> &wireBits(const Netlist::Net *net) const;
 
       private:

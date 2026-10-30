@@ -294,23 +294,6 @@ bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<R
 	return true;
 }
 
-// A module that two cells use needs uniquify
-bool detail::checkUniquified(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, std::string &reason)
-{
-	for (RTLIL::Cell *cell : module->cells()) {
-		RTLIL::Module *sub = detail::childModule(design, cell);
-		if (sub == nullptr)
-			continue;
-		if (!used.insert(sub).second) {
-			reason = stringf("module %s is used more than once (run uniquify)", sub);
-			return false;
-		}
-		if (!detail::checkUniquified(design, sub, used, reason))
-			return false;
-	}
-	return true;
-}
-
 bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 {
 	RTLIL::Module *top = detail::topModule(design);
@@ -321,9 +304,6 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	pool<RTLIL::Module *> seen = {top};
 	pool<RTLIL::Module *> open;
 	if (!detail::checkHierarchy(design, top, seen, open, reason))
-		return false;
-	pool<RTLIL::Module *> once = {top};
-	if (!detail::checkUniquified(design, top, once, reason))
 		return false;
 	dict<RTLIL::Module *, detail::RecordCounts> counts;
 	detail::RecordCounts count = detail::countRecords(design, top, counts);
@@ -466,7 +446,7 @@ void detail::PortStore::clear()
 std::vector<std::string> detail::RtlilIndex::scopeModuleNames() const
 {
 	std::vector<std::string> names;
-	for (const auto &[module, scope] : scopes_by_module)
+	for (const auto &[module, occurrences] : scopes_by_module.data)
 		names.push_back(module->name);
 	return names;
 }
@@ -477,7 +457,7 @@ void detail::RtlilIndex::clear()
 	scopes_by_module.clear();
 	instance_rtlil.clear();
 	net_rtlil.clear();
-	nets_by_bit.clear();
+	nets_by_scope_bit.clear();
 }
 
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
@@ -512,13 +492,32 @@ void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
 
 uint64_t detail::bitKey(const RTLIL::SigBit &bit) { return uint64_t(bit.wire->hashidx_) << 32 | uint32_t(bit.offset); }
 
+Netlist::Net *detail::NetsByScopeBit::get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const
+{
+	return data.at({scope->id, detail::bitKey(bit)}, nullptr);
+}
+
+void detail::NetsByScopeBit::set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net)
+{
+	data[{scope->id, detail::bitKey(bit)}] = net;
+}
+
+void detail::NetsByScopeBit::clear() { data.clear(); }
+
 RTLIL::Cell *NetView::cell(const Netlist::Instance *inst) const { return data_->index.instance_rtlil.get(inst->id).cell; }
 
 RTLIL::Module *NetView::module(const Netlist::Instance *scope) const { return data_->index.instance_rtlil.get(scope->id).module; }
 
-Netlist::Instance *NetView::instance(const RTLIL::Cell *cell) const { return data_->index.instances_by_cell.at(cell->hashidx_, nullptr); }
+Netlist::Instance *NetView::instance(const RTLIL::Cell *cell, const Netlist::Instance *scope) const
+{
+	for (Netlist::Instance *inst : data_->index.instances_by_cell.get(cell->hashidx_)) {
+		if (inst->parent == scope)
+			return inst;
+	}
+	return nullptr;
+}
 
-Netlist::Instance *NetView::scope(const RTLIL::Module *module) const { return data_->index.scopes_by_module.at(module, nullptr); }
+const std::vector<Netlist::Instance *> &NetView::scopes(const RTLIL::Module *module) const { return data_->index.scopes_by_module.get(module); }
 
 const std::vector<RTLIL::SigBit> &NetView::wireBits(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).wire_bits; }
 

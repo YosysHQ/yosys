@@ -89,7 +89,7 @@ inline void ensurePasses()
 	}
 }
 
-inline Netlist::Instance *topChild(const NetView &view, const Cell *cell) { return view.instance(cell); }
+inline Netlist::Instance *topChild(const NetView &view, const Cell *cell) { return view.instance(cell, view.top()); }
 
 YOSYS_NAMESPACE_END
 
