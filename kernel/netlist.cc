@@ -30,7 +30,11 @@ std::string Netlist::Instance::localName() const
 	return Netlist::joinPath(hdlpath);
 }
 
-const Netlist::Port &Netlist::Pin::port() const { return (*inst->ports)[port_index]; }
+const Netlist::Port &Netlist::Pin::port() const
+{
+	log_assert(inst->ports != nullptr);
+	return (*inst->ports)[port_index];
+}
 
 Netlist::PortDir Netlist::Pin::dir() const { return port().dir; }
 

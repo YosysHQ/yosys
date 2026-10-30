@@ -360,7 +360,7 @@ void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
 
 void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 {
-	log_assert(!built());
+	log_assert(!built() && !retired());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
@@ -384,6 +384,7 @@ void NetView::clear()
 	data_->design = nullptr;
 	data_->top = nullptr;
 	data_->library = nullptr;
+	data_->retired = false;
 	data_->records.clear();
 	data_->clearTables();
 }
@@ -396,6 +397,26 @@ void detail::ViewData::clearTables()
 	body_keys.clear();
 }
 
+void NetView::retire()
+{
+	data_->watch.disarm();
+	data_->design = nullptr;
+	data_->top = nullptr;
+	data_->library = nullptr;
+	data_->retired = true;
+	data_->clearTables();
+	data_->records.dropContents();
+}
+
+bool NetView::retired() const { return data_->retired; }
+
+bool NetView::owns(const Netlist::Instance *inst) const { return inst != nullptr && inst->view == this; }
+
+bool NetView::owns(const Netlist::Pin *pin) const { return pin != nullptr && owns(pin->inst); }
+
+bool NetView::owns(const Netlist::Net *net) const { return net != nullptr && owns(net->scope); }
+
+bool NetView::owns(const Netlist::Term *term) const { return term != nullptr && owns(term->pin); }
 Netlist::Instance *detail::RecordStore::newInstance()
 {
 	Netlist::Instance *inst = &instances.emplace_back();
@@ -424,6 +445,22 @@ Netlist::Term *detail::RecordStore::newTerm()
 	return term;
 }
 
+void detail::RecordStore::dropContents()
+{
+	for (Netlist::Instance &inst : instances) {
+		inst.pins = {};
+		inst.children = {};
+		inst.name = {};
+		inst.hdlpath = {};
+		inst.type = {};
+		inst.hdl_type = {};
+		inst.ports = nullptr;
+	}
+	for (Netlist::Net &net : nets) {
+		net.pins = {};
+		net.terms = {};
+	}
+}
 void detail::RecordStore::clear()
 {
 	instances.clear();
@@ -777,15 +814,37 @@ std::string detail::pinLine(std::string head, const NetView &view, const Netlist
 	return head;
 }
 
+uint64_t detail::mix64(uint64_t state, uint64_t value)
+{
+	uint64_t z = state + value + 0x9e3779b97f4a7c15;
+	z = (z ^ z >> 30) * 0xbf58476d1ce4e5b9;
+	z = (z ^ z >> 27) * 0x94d049bb133111eb;
+	return z ^ z >> 31;
+}
+
 struct detail::Fingerprint {
-	Hasher lo, hi;
-	Fingerprint() { hi.force(0x9e3779b9); }
-	template <typename T> void eat(const T &value)
+	uint64_t state = 0;
+	void eat(uint64_t value) { state = detail::mix64(state, value); }
+	void eat(uint32_t high, uint32_t low) { eat(uint64_t(high) << 32 | low); }
+	void eat(const std::string &text)
 	{
-		lo.eat(value);
-		hi.eat(value);
+		eat(text.size());
+		for (size_t at = 0; at < text.size(); at += 8) {
+			uint64_t chunk = 0;
+			memcpy(&chunk, text.data() + at, std::min<size_t>(8, text.size() - at));
+			eat(chunk);
+		}
 	}
-	uint64_t yield() const { return uint64_t(hi.yield()) << 32 | lo.yield(); }
+	void eat(const RTLIL::SigSpec &sig)
+	{
+		for (RTLIL::SigBit bit : sig) {
+			if (bit.wire != nullptr)
+				eat(detail::bitKey(bit));
+			else
+				eat(uint64_t(bit.data) + 8);
+		}
+	}
+	uint64_t yield() const { return state; }
 };
 
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
@@ -812,8 +871,11 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
-	for (const RTLIL::SigSig &conn : module->connections())
-		fp.eat(conn);
+	for (const auto &[lhs, rhs] : module->connections()) {
+		fp.eat(GetSize(lhs));
+		fp.eat(lhs);
+		fp.eat(rhs);
+	}
 	for (RTLIL::Wire *wire : module->wires())
 		detail::hashWire(fp, wire);
 	for (RTLIL::Cell *cell : module->cells())
@@ -822,17 +884,13 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 
 void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 {
+	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
+	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
 	fp.eat(wire->name.str());
 	fp.eat(wire->hashidx_);
-	fp.eat(wire->width);
-	fp.eat(wire->start_offset);
-	fp.eat(wire->upto);
-	fp.eat(wire->port_id);
-	fp.eat(wire->port_input);
-	fp.eat(wire->port_output);
-	fp.eat(wire->get_bool_attribute(ID::keep));
+	fp.eat(wire->width, wire->start_offset);
+	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
-	fp.eat(wire->has_attribute(ID::single_bit_vector));
 }
 
 void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
@@ -843,6 +901,7 @@ void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
 	fp.eat(cell->get_string_attribute(ID::hdlname));
 	for (const auto &[port, sig] : cell->connections()) {
 		fp.eat(RTLIL::PooledName(cell->module, port).str());
+		fp.eat(GetSize(sig));
 		fp.eat(sig);
 	}
 }

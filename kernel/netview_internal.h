@@ -25,6 +25,7 @@ template <typename K, typename V> struct ListMap {
 };
 
 struct Fingerprint;
+uint64_t mix64(uint64_t state, uint64_t value);
 bool designAlive(const RTLIL::Design *design);
 RTLIL::Module *topModule(RTLIL::Design *design);
 
@@ -35,8 +36,7 @@ struct RecordCounts {
 	uint64_t instances = 0;
 	uint64_t pins = 0;
 	uint64_t nets = 0;
-
-      public:
+public:
 	void add(const RecordCounts &other);
 	bool fitIds() const;
 };
@@ -120,12 +120,12 @@ struct RecordStore {
 	uint32_t next_pin_id = 1;
 	uint32_t next_net_id = 1;
 	uint32_t next_term_id = 1;
-
-      public:
+public:
 	Netlist::Instance *newInstance();
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
 	Netlist::Term *newTerm();
+	void dropContents();
 	void clear();
 };
 
@@ -155,8 +155,7 @@ struct NetsByScopeBit {
 	Netlist::Net *get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const;
 	void set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net);
 	void clear();
-
-      public:
+public:
 	dict<std::pair<uint32_t, uint64_t>, Netlist::Net *> data;
 };
 
@@ -166,16 +165,15 @@ struct RtlilIndex {
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
 	NetsByScopeBit nets_by_scope_bit;
-
-      public:
+public:
 	std::vector<std::string> scopeModuleNames() const;
 	void clear();
 };
 
 struct BodyKeys {
-	dict<std::string, uint32_t> numbers;	// by key, from 1
+	dict<std::string, uint32_t> numbers;  	// by key, from 1
 	Netlist::IdMap<uint32_t> scope_numbers; // by instance id, 0 if not known
-      public:
+public:
 	std::string key(const NetView &view, const Netlist::Instance *scope);
 	uint32_t number(const NetView &view, const Netlist::Instance *scope);
 	void addChildLines(std::vector<std::string> &lines, const NetView &view, const Netlist::Instance *child, const std::string &name);
@@ -203,11 +201,9 @@ struct ChangeDetector final : public RTLIL::Monitor {
 	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &conn) override;
 	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &conns) override;
 	void notify_blackout(RTLIL::Module *module) override;
-
-      private:
+private:
 	uint64_t computeFingerprint() const;
-
-      private:
+private:
 	RTLIL::Design *design_ = nullptr;
 	uint64_t fingerprint_ = 0;
 	std::vector<std::string> watched_module_names_;
@@ -219,6 +215,7 @@ struct ViewData {
 	RTLIL::Design *design = nullptr;
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
+	bool retired = false;
 	RecordStore records;
 	PortStore ports;
 	RtlilIndex index;
@@ -232,8 +229,7 @@ struct ViewData {
 struct ViewBuilder {
 	ViewBuilder(const NetView &view, ViewData &data);
 	void build(RTLIL::Module *top);
-
-      private:
+private:
 	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
 	void buildScope(RTLIL::Module *module, Netlist::Instance *scope);
 	void makePins(Netlist::Instance *inst);
@@ -251,8 +247,7 @@ struct ViewBuilder {
 	void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const;
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	Netlist::Net *findOrMakeTieNet(Netlist::Instance *scope, const RTLIL::SigBit &canon);
-
-      private:
+private:
 	const NetView &view_;
 	ViewData &data_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
