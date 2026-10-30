@@ -1724,6 +1724,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		break;
 
 	case AST_CAST_SIZE: {
+		bool is_type_cast = children[0]->type == AST_WIRE;
 		if (children[0]->type == AST_WIRE) {
 			int width = 1;
 			std::unique_ptr<AstNode> node;
@@ -1754,7 +1755,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					if (template_node->children.size() > 0 && template_node->children[0]->type == AST_RANGE)
 						width = range_width(this, template_node->children[0].get());
 					child->delete_children();
-					node = mkconst_int(child->location, width, true);
+					node = mkconst_int(child->location, width, template_node->is_signed);
 					break;
 				}
 
@@ -1762,7 +1763,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				case AST_UNION: {
 					child->delete_children();
 					width = size_packed_struct(template_node, 0);
-					node = mkconst_int(child->location, width, false);
+					node = mkconst_int(child->location, width, template_node->is_signed);
 					break;
 				}
 
@@ -1775,8 +1776,29 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			children.insert(children.begin(), std::move(node));
 		}
 
+		while (!children[0]->basic_prep && children[0]->simplify(true, stage, -1, false))
+			did_something = true;
+		if (children[0]->type == AST_CONSTANT) {
+			while (!children[1]->basic_prep && children[1]->simplify(false, stage, -1, false))
+				did_something = true;
+			children[1]->detectSignWidth(width_hint, sign_hint);
+			width_hint = max(width_hint, children[0]->bitsAsConst().as_int());
+			child_0_is_self_determined = true;
+			reset_width_after_children = true;
+		} else
+			children_are_self_determined = true;
+
 		detect_width_simple = true;
-		children_are_self_determined = true;
+		// if is typecast, grab signedness from the signedness of the type
+		if (is_type_cast) {
+			type = children[0]->is_signed ? AST_TO_SIGNED : AST_TO_UNSIGNED;
+			auto cast = std::make_unique<AstNode>(location, AST_CAST_SIZE);
+			cast->children.swap(children);
+			children.push_back(std::move(cast));
+			fixup_hierarchy_flags();
+			children_are_self_determined = true;
+			did_something = true;
+		}
 		break;
 	}
 
