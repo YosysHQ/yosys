@@ -294,6 +294,14 @@ void prep_bypass(RTLIL::Design *design)
 		r.first->second = std::make_unique<Design>();
 	Design *unmap_design = r.first->second.get();
 
+	// The ports that at least one cell of each type connects
+	dict<IdString, pool<IdString>> connected_ports;
+	for (auto module : design->selected_modules())
+		for (auto cell : module->cells())
+			for (const auto &conn : cell->connections())
+				if (GetSize(conn.second))
+					connected_ports[cell->type].insert(conn.first);
+
 	pool<IdString> processed;
 	for (auto module : design->selected_modules())
 		for (auto cell : module->cells()) {
@@ -437,18 +445,30 @@ void prep_bypass(RTLIL::Design *design)
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, translate(map_design, cell->module->design, cell->type));
 			auto bypass_cell = map_module->addCell(NEW_ID, map_module->twines().add(cell->type.str() + "_$abc9_byp"));
-			for (const auto &conn : cell->connections()) {
-				auto port = map_module->wire(translate(map_design, design, conn.first));
-				if (cell->input(conn.first)) {
-					replace_cell->setPort(translate(map_design, design, conn.first), port);
-					if (bypass_module->wire(conn.first))
-						bypass_cell->setPort(translate(map_design, design, conn.first), port);
+			// The rule is used for every cell of this type: connect the
+			//   ports of this cell, then those that only other cells of
+			//   this type connect
+			auto &used = connected_ports[cell->type];
+			std::vector<IdString> port_names;
+			for (const auto &conn : cell->connections())
+				port_names.push_back(conn.first);
+			for (auto port_name : inst_module->ports)
+				if (!cell->hasPort(port_name) && used.count(port_name))
+					port_names.push_back(port_name);
+			for (auto port_name : port_names) {
+				auto port_wire = inst_module->wire(port_name);
+				auto port = map_module->wire(translate(map_design, design, port_name));
+				if (port_wire->port_input) {
+					replace_cell->setPort(translate(map_design, design, port_name), port);
+					if (bypass_module->wire(port_name))
+						bypass_cell->setPort(translate(map_design, design, port_name), port);
 				}
-				if (cell->output(conn.first)) {
-					bypass_cell->setPort(translate(map_design, design, conn.first), port);
-					auto n = "$abc9byp$" + design->twines().str(conn.first);
-					auto w = map_module->addWire(n, GetSize(conn.second));
-					replace_cell->setPort(translate(map_design, design, conn.first), w);
+				if (port_wire->port_output) {
+					bypass_cell->setPort(translate(map_design, design, port_name), port);
+					auto n = "$abc9byp$" + design->twines().str(port_name);
+					// Zero width if no cell of this type connects it, as for .DPO()
+					auto w = map_module->addWire(n, used.count(port_name) ? port_wire->width : 0);
+					replace_cell->setPort(translate(map_design, design, port_name), w);
 					bypass_cell->setPort(n, w);
 				}
 			}
