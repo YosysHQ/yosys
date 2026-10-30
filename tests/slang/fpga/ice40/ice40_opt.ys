@@ -1,3 +1,5 @@
+read_verilog -icells -lib +/ice40/abc9_model.v +/ice40/cells_sim.v
+
 read_slang --icells --formal <<EOT
 module top(input CI, I0, output [1:0] CO, output O);
     wire A = 1'b0, B = 1'b0;
@@ -22,7 +24,7 @@ endmodule
 EOT
 opt_clean
 
-read_slang --icells --lib +/ice40/abc9_model.v +/ice40/cells_sim.v
+#read_slang --icells --lib +/ice40/abc9_model.v +/ice40/cells_sim.v
 opt_clean
 equiv_opt -assert -map +/ice40/abc9_model.v -map +/ice40/cells_sim.v ice40_opt
 design -load postopt

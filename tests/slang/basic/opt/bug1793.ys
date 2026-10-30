@@ -1,7 +1,7 @@
 # rmports: remove output ports which are driven internally but unused by all instances
 # https://github.com/YosysHQ/yosys/issues/1793
 
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module sub(input a, input z, output x, output y);
   assign x = a;
   assign y = ~a;
@@ -15,27 +15,27 @@ opt_clean
 hierarchy -top top
 design -save simple
 
-select -assert-count 2 sub/o:*
-select -assert-count 2 sub/i:*
+select -assert-count 2 sub*/o:*
+select -assert-count 2 sub*/i:*
 rmports
 hierarchy -check
-select -assert-count 0 sub/o:y
-select -assert-count 1 sub/w:y
-select -assert-count 1 sub/o:*
-select -assert-count 1 sub/i:a
-select -assert-count 1 sub/i:*
+select -assert-count 0 sub*/o:y
+select -assert-count 1 sub*/w:y
+select -assert-count 1 sub*/o:*
+select -assert-count 1 sub*/i:a
+select -assert-count 1 sub*/i:*
 select -assert-count 1 top/o:*
 select -assert-count 1 top/i:*
 
 # a parent outside the selection is cleaned up as well
 design -load simple
-rmports sub
-select -assert-count 1 sub/o:*
+rmports sub*
+select -assert-count 1 sub*/o:*
 hierarchy -check
 
 # an output is kept when any instance uses it
 design -reset
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module sub(input a, output x, output y);
   assign x = a;
   assign y = ~a;
@@ -50,11 +50,11 @@ opt_clean
 hierarchy -top top
 rmports
 hierarchy -check
-select -assert-count 2 sub/o:*
+select -assert-count 2 sub*/o:*
 
 # a cell which is not derived yet names its ports $1, $2, etc
 design -reset
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module sub(input as, output xs, input bs, output ys, input cs);
   assign xs = as & bs;
   assign ys = as ^ cs;
@@ -70,11 +70,11 @@ EOT
 opt_clean
 rmports
 hierarchy -check -top top
-select -assert-count 2 sub/o:*
+select -assert-count 2 sub*/o:*
 
 # a box parent is never selected, but should also be cleaned up
 design -reset
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module sub(input a, output x, output y);
   assign x = a;
   assign y = ~a;
@@ -96,12 +96,12 @@ rename -hide mid/w:dead
 setattr -mod -set whitebox 1 mid
 select -clear
 rmports
-select -assert-count 1 sub/o:*
+select -assert-count 1 sub*/o:*
 hierarchy -check
 
 # no module has the top attribute, so driven outputs stay
 design -reset
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module sub(input a, output x, output y);
   assign x = a;
   assign y = ~a;
@@ -119,23 +119,23 @@ opt_clean
 design -save roots
 
 rmports
-select -assert-count 2 sub/o:*
+select -assert-count 2 sub*/o:*
 rmports -purge
 hierarchy -check
-select -assert-count 1 sub/o:x
+select -assert-count 1 sub*/o:x
 
 design -load roots
 delete use2
 rmports
-select -assert-count 2 sub/o:*
+select -assert-count 2 sub*/o:*
 hierarchy -top use1
 rmports
 hierarchy -check
-select -assert-count 1 sub/o:x
+select -assert-count 1 sub*/o:x
 
 # repro
 design -reset
-read_slang --std latest <<EOT
+read_slang --best-effort-hierarchy --std latest <<EOT
 module TOP(a, b, y);
   input [3:0] a, b;
   output [2:0] y;
@@ -159,7 +159,7 @@ rmports
 hierarchy -check
 clean -purge
 
-select -assert-count 3 sub/o:*
-select -assert-count 8 sub/i:*
+select -assert-count 3 sub*/o:*
+select -assert-count 8 sub*/i:*
 select -assert-count 3 TOP/o:*
 select -assert-count 8 TOP/i:*

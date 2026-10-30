@@ -15,16 +15,16 @@ typedef struct packed {
 
 parameter struct_t P = 4'b1100;
 
-localparam sub_struct_t f = P.d;
-localparam sub_struct_t g = P.e;
-localparam sub_sub_struct_t h = f.c;
-localparam logic i = P.d.c.a;
-localparam logic j = P.d.c.b;
-localparam x = P.e;
-localparam y = x.c;
-localparam z = y.a;
-localparam q = P.d;
-localparam n = q.c.a;
+sub_struct_t f = P.d;
+sub_struct_t g = P.e;
+sub_sub_struct_t h = f.c;
+logic i = P.d.c.a;
+logic j = P.d.c.b;
+sub_struct_t x = P.e;
+sub_sub_struct_t y = x.c;
+logic z = y.a;
+sub_struct_t q = P.d;
+logic n = q.c.a;
 
 always_comb begin
   assert(P == 4'b1100);

@@ -1,4 +1,4 @@
-read_slang --allow-use-before-declare --ignore-timing --std latest << EOT
+read_slang --empty-blackboxes --best-effort-hierarchy --allow-use-before-declare --ignore-timing --std latest << EOT
 module ibuf ((* iopad_external_pin *) input i, output o); endmodule
 module obuf (input i, (* iopad_external_pin *) output o); endmodule
 module obuft (input i, input oe, (* iopad_external_pin *) output o); endmodule
@@ -151,7 +151,7 @@ select -assert-count 2 k/t:iobuf
 # Check that \init attributes get moved from output buffer
 #   to buffer input
 design -reset
-read_slang --allow-use-before-declare --ignore-timing --std latest << EOT
+read_slang --empty-blackboxes --best-effort-hierarchy --allow-use-before-declare --ignore-timing --std latest << EOT
 module obuf (input i, (* iopad_external_pin *) output o); endmodule
 module obuft (input i, input oe, (* iopad_external_pin *) output o); endmodule
 module iobuf (input i, input oe, output o, (* iopad_external_pin *) inout io); endmodule

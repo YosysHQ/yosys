@@ -1,4 +1,4 @@
-read_slang --std latest <<EOT
+read_slang --std latest --no-proc <<EOT
 module top;
 parameter DATADEPTH=2;
 parameter DATAWIDTH=1;

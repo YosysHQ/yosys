@@ -1,4 +1,4 @@
-read_slang --std latest typedef_struct_port.sv
+read_slang --std latest --best-effort-hierarchy typedef_struct_port.sv
 opt_clean
 setattr -mod -unset top
 hierarchy; proc; opt; async2sync

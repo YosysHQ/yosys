@@ -3,8 +3,8 @@
 # classic abc with the librelane "@STRATEGY@" script, -constr, -D
 read_liberty -lib ../openroad/cm_test_cells.lib
 read_liberty -lib ../openroad/sm_test_cells.lib
-read_slang --allow-use-before-declare --ignore-timing --std latest spm.v
-hierarchy -top spm -chparam bits 8
+read_slang --allow-use-before-declare --ignore-timing --std latest -G bits=8 spm.v
+hierarchy -top spm
 proc
 flatten
 opt

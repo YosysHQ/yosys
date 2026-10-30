@@ -5,7 +5,7 @@ assign y = {a,1'b0} + 1'b1;
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 equiv_opt -assert opt_expr -fine
@@ -21,7 +21,7 @@ assign y = {a,1'b1} + 1'b1;
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 select -assert-count 1 t:$alu
@@ -35,7 +35,7 @@ assign y = {a,1'b1} - 1'b1;
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -50,7 +50,7 @@ assign y = {a,3'b101} - 1'b1;
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 equiv_opt -assert opt_expr -fine
 design -load postopt
@@ -65,7 +65,7 @@ assign y = {a,3'b101} - 1'b1;
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 equiv_opt -assert opt_expr -fine
@@ -81,7 +81,7 @@ assign y = -{a[1], 2'b10, a[0]};
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 equiv_opt -assert opt -fine
@@ -99,7 +99,7 @@ assign y = {a[3:2], 1'b1, a[1:0]} + {b[2], 2'b11, b[1:0]};
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 equiv_opt -assert opt -fine
@@ -118,7 +118,7 @@ assign y = {a[3:2], 1'b0, a[1:0]} + {b[3:2], 1'b0, b[1:0]};
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 alumacc
 equiv_opt -assert opt -fine
@@ -142,7 +142,7 @@ $alu #(
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 equiv_opt -assert opt
 design -load postopt
@@ -163,7 +163,7 @@ $alu #(
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 equiv_opt -assert opt
 design -load postopt
@@ -184,7 +184,7 @@ $alu #(
 endmodule
 EOT
 proc
-opt_clean
+opt_clean; wreduce
 
 equiv_opt -assert opt
 design -load postopt

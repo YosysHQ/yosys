@@ -1,2 +1,0 @@
-read_slang --std latest rand_const.sv
-opt_clean

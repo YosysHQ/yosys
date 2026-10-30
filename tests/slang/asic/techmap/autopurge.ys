@@ -1,5 +1,9 @@
 # https://github.com/YosysHQ/yosys/issues/1381
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
+(* blackbox *)
+module foobar(input i, output o, input j);
+endmodule
+
 module sub(input i, output o, (* techmap_autopurge *) input j);
 foobar f(i, o, j);
 endmodule
@@ -29,6 +33,10 @@ check -assert
 # https://github.com/YosysHQ/yosys/issues/1391
 design -reset
 read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
+(* blackbox *)
+module foobar(input i, output o, input j);
+endmodule
+
 module sub(input i, output o, (* techmap_autopurge *) input [1:0] j);
 foobar f(i, o, j);
 endmodule
@@ -55,7 +63,7 @@ techmap -map %techmap
 hierarchy
 check -assert
 
-read_slang --allow-use-before-declare --ignore-timing --std latest -overwrite <<EOT
+read_slang --allow-use-before-declare --ignore-timing --std latest <<EOT
 module top(input i, output o);
 wire j;
 sub s0(i, o, j);
@@ -65,3 +73,4 @@ opt_clean
 
 techmap -map %techmap
 hierarchy
+check -assert

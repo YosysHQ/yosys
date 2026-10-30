@@ -4,10 +4,9 @@ module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
-proc
-opt_clean
-logger -expect warning "Latch inferred for signal" 1
 
+logger -expect warning "Latch inferred for signal" 1
+proc
 logger -check-expected
 
 design -reset
@@ -18,8 +17,6 @@ module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
-proc
-opt_clean
 logger -expect-no-warnings
 proc -latches info
 logger -check-expected
@@ -32,8 +29,6 @@ module top(input g, d, output reg q);
 always_latch if (g) q <= d;
 endmodule
 EOT
-proc
-opt_clean
 logger -expect-no-warnings
 logger -expect log "Latch inferred for signal .* from always_latch process" 1
 proc -latches error
@@ -48,7 +43,5 @@ module top(input g, rn, d, output reg q);
 always @* if (~rn) q <= 0; else if (g) q <= d;
 endmodule
 EOT
-proc
-opt_clean
 logger -expect error "Latch inferred for signal" 1
 proc -latches error

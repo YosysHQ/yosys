@@ -1,5 +1,10 @@
 read_slang --allow-use-before-declare --ignore-timing --std latest << EOT
 
+(* blackbox *)
+module namedsub (input i, output o);
+parameter name = "";
+endmodule
+
 module sub (input i, output o);
 parameter _TECHMAP_CELLNAME_ = "";
 namedsub #(.name(_TECHMAP_CELLNAME_)) _TECHMAP_REPLACE_ (i, o);
@@ -7,18 +12,12 @@ endmodule
 
 EOT
 opt_clean
-
 design -stash map
 
 read_slang --allow-use-before-declare --ignore-timing --std latest << EOT
 
 (* blackbox *)
 module sub (input i, output o);
-endmodule
-
-(* blackbox *)
-module namedsub (input i, output o);
-parameter name = "";
 endmodule
 
 module top(input [3:0] i, output [3:0] o);
