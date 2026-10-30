@@ -5,47 +5,61 @@ module top();
 	localparam int unsigned W = 8;
 	localparam int P = 255;
 
+	typedef logic signed [7:0] signed_byte;
+	typedef logic [7:0] unsigned_byte;
+	typedef struct packed signed { logic [7:0] value; } signed_struct;
+
 	wire [7:0] a  = 8'hAC;
 	wire [3:0] in = 4'd5;
 
-	wire [32:0] x1  = 33'(1 << 31);
-	wire [32:0] x2  = 33'(1'b1 << 31);
-	wire [32:0] x3  = 33'(B << 31);
-	wire [32:0] x4  = 33'((1 << 31) - 1);
-	wire [9:0]  x5  = 10'(4'hF * 6'hA);
-	wire [63:0] x6  = byte'(a);
-	wire [7:0] x7  = W'(5) + 8'hff;
-	wire [7:0] x8  = 8'(5) + 8'hff;
-	wire [7:0] x9  = W'(5) + W'(P);
-	wire [7:0] x10 = 8'(3) - W'(5);
-	wire [7:0] x11 = 8'(-1) + 8'd1;
-	wire [7:0] x12 = -W'(5);
-	wire [7:0] x13 = ~W'(5);
-	wire [7:0] x14 = W'(in) + 8'hff;
-	wire [8:0] x15 = W'(5) + 8'hff;
+	wire [32:0] shift_unsized = 33'(1 << 31);
+	wire [32:0] shift_sized = 33'(1'b1 << 31);
+	wire [32:0] shift_parameter = 33'(B << 31);
+	wire [32:0] shift_subtract = 33'((1 << 31) - 1);
+	wire [9:0] multiply_widened = 10'(4'hF * 6'hA);
+
+	wire [7:0] add_parameter_width = W'(5) + 8'hff;
+	wire [7:0] add_literal_width = 8'(5) + 8'hff;
+	wire [7:0] add_cast_parameters = W'(5) + W'(P);
+	wire [7:0] subtract_mixed_widths = 8'(3) - W'(5);
+	wire [7:0] add_negative = 8'(-1) + 8'd1;
+	wire [7:0] negate_cast = -W'(5);
+	wire [7:0] complement_cast = ~W'(5);
+	wire [7:0] add_cast_signal = W'(in) + 8'hff;
+	wire [8:0] add_widened = W'(5) + 8'hff;
+
+	wire [63:0] byte_signed = byte'(a);
+	wire [63:0] typedef_signed = signed_byte'(a);
+	wire [63:0] typedef_unsigned = unsigned_byte'($signed(a));
+	wire [63:0] struct_signed = signed_struct'(a);
+	wire [63:0] shortint_widened = shortint'(a);
 
 	// reference values from icarus verilog
 	always @* begin
 		// 6331
-		assert(x1  == 33'h0_8000_0000);
-		assert(x2  == 33'h0_8000_0000);
-		assert(x3  == 33'h0_8000_0000);
-		assert(x4  == 33'h0_7fff_ffff);
-		assert(x5  == 10'd150);
+		assert(shift_unsized == 33'h0_8000_0000);
+		assert(shift_sized == 33'h0_8000_0000);
+		assert(shift_parameter == 33'h0_8000_0000);
+		assert(shift_subtract == 33'h0_7fff_ffff);
+		assert(multiply_widened == 10'd150);
 
 		// 6401
-		assert(x6  == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(byte_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(typedef_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(typedef_unsigned == 64'hAC);
+		assert(struct_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(shortint_widened == 64'hAC);
 
 		// 6332
-		assert(x7  == 8'h04);
-		assert(x8  == 8'h04);
-		assert(x9  == 8'h04);
-		assert(x10 == 8'hfe);
-		assert(x11 == 8'd0);
-		assert(x12 == 8'hfb);
-		assert(x13 == 8'hfa);
-		assert(x14 == 8'h04);
-		assert(x15 == 9'h104);
+		assert(add_parameter_width == 8'h04);
+		assert(add_literal_width == 8'h04);
+		assert(add_cast_parameters == 8'h04);
+		assert(subtract_mixed_widths == 8'hfe);
+		assert(add_negative == 8'd0);
+		assert(negate_cast == 8'hfb);
+		assert(complement_cast == 8'hfa);
+		assert(add_cast_signal == 8'h04);
+		assert(add_widened == 9'h104);
 	end
 endmodule
 EOT
