@@ -45,6 +45,10 @@ else()
 			endforeach()
 		endforeach()
 	endif()
+
+	if ("systemverilog" IN_LIST YOSYS_VERIFIC_FEATURES)
+		target_link_libraries(verific INTERFACE property_ir)
+	endif()
 endif()
 
 yosys_frontend(verific

@@ -81,6 +81,8 @@ using namespace Verific;
 #endif
 
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
+#include "property_ir/emitter.h"
+
 PRIVATE_NAMESPACE_BEGIN
 
 // Non-deterministic FSM
@@ -1888,6 +1890,130 @@ struct VerificSvaImporter
 	}
 };
 
+struct VerificPIRImporter
+{
+	VerificImporter *importer = nullptr;
+	Instance *root;
+
+	void import()
+	{
+		// ?
+		std::ostringstream output;
+		property_ir::SExprPrinter printer{output};
+
+		log("  [new] %s says hello! (%d)\n", root->Name(), root->Type());
+
+		property_ir::ClkPropExpr result = parse_property(root->GetInput());
+		property_ir::emit(printer, result);
+		log("%s\n", output.str());
+	}
+
+	property_ir::ClkSeqExpr parse_sequence([[maybe_unused]]Net *net)
+	{
+		return property_ir::clk_seq_no_match();
+	}
+
+
+	property_ir::ClkPropExpr parse_property(Net *net)
+	{
+		log_assert(net != nullptr);
+		auto type = PRIM_END;
+		auto *inst = net->Driver();
+		if (inst != nullptr && !net->IsMultipleDriven())
+			type = inst->Type();
+
+		using namespace property_ir;
+		switch (type) {
+			case PRIM_SVA_AT:
+			{
+				std::shared_ptr<VerificClocking> new_clocking(new VerificClocking(importer, net));
+				return parse_property(new_clocking->body_net);
+			}
+			case PRIM_SVA_OVERLAPPED_IMPLICATION:
+				return clk_prop_overlapped_implication(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_NON_OVERLAPPED_IMPLICATION:
+				return clk_prop_non_overlapped_implication(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_OVERLAPPED_FOLLOWED_BY:
+				return clk_prop_overlapped_followed_by(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY:
+				return clk_prop_non_overlapped_followed_by(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_NOT:
+				return clk_prop_not(parse_property(inst->GetInput()));
+			case PRIM_SVA_AND:
+				return clk_prop_and(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_OR:
+				return clk_prop_or(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_IMPLIES:
+				return clk_prop_implies(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_IFF:
+				return clk_prop_iff(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_NEXTTIME:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				int sva_low = atoi(sva_low_s);
+				log_error("PRIM_SVA_NEXTTIME [%d]\n", sva_low);
+				// return clk_prop_nexttime(sva_low, parse_property(inst->GetInput()));
+			}
+			case PRIM_SVA_S_NEXTTIME:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				int sva_low = atoi(sva_low_s);
+				log_error("PRIM_SVA_S_NEXTTIME [%d]\n", sva_low);
+				// return clk_prop_strong_nexttime(sva_low, parse_property(inst->GetInput()));
+			}
+			case PRIM_SVA_STRONG:
+				return clk_prop_strong(parse_sequence(inst->GetInput()));
+			case PRIM_SVA_WEAK:
+				return clk_prop_weak(parse_sequence(inst->GetInput()));
+			case PRIM_SVA_IF:
+				log_error("PRIM_SVA_IF\n");
+			case PRIM_SVA_UNTIL:
+				return clk_prop_until(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_S_UNTIL:
+				return clk_prop_strong_until(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_UNTIL_WITH:
+				return clk_prop_until_with(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_S_UNTIL_WITH:
+				return clk_prop_strong_until_with(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
+			case PRIM_SVA_EVENTUALLY:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				auto *sva_high_s = inst->GetAttValue("sva:high");
+
+				int sva_low = atoi(sva_low_s);
+				int sva_high = atoi(sva_high_s);
+				log_error("PRIM_SVA_EVENTUALLY [%d:%d]\n", sva_low, sva_high);
+				// return clk_prop_eventually(?, parse_property(inst->GetInput()));
+			}
+			case PRIM_SVA_S_EVENTUALLY:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				auto *sva_high_s = inst->GetAttValue("sva:high");
+
+				int sva_low = atoi(sva_low_s);
+				int sva_high = atoi(sva_high_s);
+				bool sva_inf = !strcmp(sva_high_s, "$");
+				if (sva_low == 0 && sva_inf)
+					return clk_prop_strong_eventually(parse_property(inst->GetInput()));
+				else
+					log_error("PRIM_SVA_S_EVENTUALLY [%d:%d]\n", sva_low, sva_high);
+					// return clk_prop_strong_eventually_ranged(?, parse_property(inst->GetInput()));
+			}
+			case PRIM_SVA_ACCEPT_ON:
+				log_error("PRIM_SVA_ACCEPT_ON\n");
+			case PRIM_SVA_REJECT_ON:
+				log_error("PRIM_SVA_REJECT_ON\n");
+			case PRIM_SVA_SYNC_ACCEPT_ON:
+				log_error("PRIM_SVA_SYNC_ACCEPT_ON\n");
+			case PRIM_SVA_SYNC_REJECT_ON:
+				log_error("PRIM_SVA_SYNC_REJECT_ON\n");
+			default:
+				auto seq = parse_sequence(net);
+				return clk_prop_clk_seq(seq);
+		}
+	}
+};
+
 void verific_import_sva_assert(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
@@ -1895,6 +2021,11 @@ void verific_import_sva_assert(VerificImporter *importer, Instance *inst)
 	worker.root = inst;
 	worker.mode_assert = true;
 	worker.import();
+
+	VerificPIRImporter pir_worker;
+	pir_worker.importer = importer;
+	pir_worker.root = inst;
+	pir_worker.import();
 }
 
 void verific_import_sva_assume(VerificImporter *importer, Instance *inst)
