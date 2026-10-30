@@ -193,7 +193,6 @@ pyosys_headers = [
                 denylist=frozenset({"bits", "bitvectorize"}),
             ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("SelectedMember"),
             PyosysClass("Selection"),
             # PyosysClass("Monitor"), # Virtual methods, manually bridged
             PyosysClass("CaseRule"),
@@ -236,7 +235,10 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
-                denylist=frozenset({"Pow"}),  # has no implementation
+                denylist=frozenset({
+                    "Pow",  # has no implementation
+                    "selected_members",  # bound manually to keep names tied to the design
+                }),
             ),
             PyosysClass(
                 "Design",
@@ -634,7 +636,7 @@ class PyosysWrapperGenerator(object):
 
         call = f"self.{function_basename}({', '.join(call_args)})"
         if self.is_idstring(function.return_type):
-            body = f"-> RTLIL::PooledName {{ return pyosys::pooled_name(self, {call}); }}"
+            body = f"-> pyosys::PyName {{ return pyosys::pooled_name(self, {call}); }}"
         else:
             body = f"-> decltype(auto) {{ return {call}; }}"
         return f"[]({', '.join(lambda_params)}) {body}"

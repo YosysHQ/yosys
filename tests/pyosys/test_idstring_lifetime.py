@@ -30,3 +30,11 @@ for holder in (external_idstring_holder_0, external_idstring_holder_1):
 	except RuntimeError:
 		pass
 assert str(d.top_module().name) == "\\spm"
+
+before_reset = d.top_module().name
+ys.run_pass("design -reset", d)
+try:
+	str(before_reset)
+	assert False, "expected RuntimeError"
+except RuntimeError:
+	pass
