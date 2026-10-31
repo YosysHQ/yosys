@@ -1,6 +1,7 @@
 #include "netviewHelpers.h"
 
 #include "kernel/nettrack.h"
+#include "kernel/sigtools.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -370,17 +371,20 @@ TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
 	view.build(d);
 	TrackedRef in_sub{TrackedRef::Kind::Pin}, in_top{TrackedRef::Kind::Pin}, again{TrackedRef::Kind::Pin};
 	in_sub.pins = {view.instance(i1, topChild(view, u_sub))->pins[0]};
+	IdString id_attr;
 	std::unique_ptr<NetView> next;
 	{
 		NetTracker first;
 		first.checkpoint(view, {&in_sub}, TrackMode::Barriers);
+		id_attr = d->twines().find("\\netview_anchor");
+		Cell *read_back = barriersOf(sub)[0];
+		read_back->attributes[id_attr] = Const(read_back->attributes.at(id_attr).as_int() + 1);
 		next = nextView(view, first, d);
 	}
 	NetTracker second;
 	in_top.pins = {topChild(*next, u_inv2)->pins[0]};
 	again.pins = {topChild(*next, u_inv0)->pins[0]};
 	second.checkpoint(*next, {&in_top, &again}, TrackMode::Barriers);
-	IdString id_attr = d->twines().find("\\netview_anchor");
 	std::vector<Cell *> barriers = barriersOf(top);
 	ASSERT_EQ(barriers.size(), 2u);
 	ASSERT_EQ(barriersOf(sub).size(), 1u);
@@ -446,6 +450,61 @@ TEST_F(NetProtectTest, inoutPinsKeepTheirCells)
 	EXPECT_TRUE(b->get_bool_attribute(ID::keep));
 	Pass::call(d, "flatten");
 	ASSERT_EQ(top->cell("\\u_m")->type, m->name); // a flattened u_m leaves a $scopeinfo cell u_m
+}
+
+TEST_F(NetProtectTest, portCutsOfABusKeepPinBarriers)
+{
+	Cell *g1 = top->addCell("\\g1", ID(INV));
+	g1->setPort(ID(A), SigBit(q, 1));
+	Cell *g2 = top->addCell("\\g2", ID(INV));
+	g2->setPort(ID(A), SigBit(q, 2));
+	TrackedView t(d);
+	std::vector<TrackedRef> refs = {pinRef({t.child(g1)->pins[0]})};
+	for (int bit = 0; bit < 4; bit++)
+		refs.push_back(pinRef({t.view->top()->findPin("q", bit)}, TrackedRef::Kind::TopPort));
+	refs.push_back(pinRef({t.child(g2)->pins[0]}));
+	std::vector<TrackedRef *> ref_ptrs;
+	for (TrackedRef &ref : refs)
+		ref_ptrs.push_back(&ref);
+	t.checkpoint(ref_ptrs);
+	ASSERT_EQ(barriersOf(top).size(), 6u);
+	int on_q = 0;
+	for (Cell *barrier : barriersOf(top))
+		on_q += barrier->getPort(ID::A)[0].wire == q;
+	EXPECT_EQ(on_q, 4);
+}
+
+TEST_F(NetProtectTest, droppedRefLosesItsProtection)
+{
+	TrackedView t(d);
+	TrackedRef cell{TrackedRef::Kind::Instance}, pin = pinRef({t.child(u_inv0)->pins[0]});
+	cell.instances = {t.child(u_inv2)};
+	t.checkpoint({&cell, &pin});
+	ASSERT_EQ(barriersOf(top).size(), 3u);
+	t.checkpoint({&pin});
+	EXPECT_EQ(barriersOf(top).size(), 1u);
+	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
+	SigMap sigmap(top);
+	EXPECT_EQ(sigmap(u_inv2->getPort(ID(A))), sigmap(p));
+}
+
+TEST_F(NetProtectTest, refsOnFlattenCopiesOfABarrierKeepOnlyThem)
+{
+	ensurePasses();
+	top->addCell("\\u_sub2", "\\sub")->setPort(ID(a), in);
+	top->addCell("\\u_sub3", "\\sub")->setPort(ID(a), in);
+	TrackedView t(d);
+	TrackedRef pin = pinRef({t.child(u_sub)->pins[0]});
+	pin.hints.keep_as_instance = true;
+	t.checkpoint({&pin});
+	Pass::call(d, "flatten");
+	t.next({});
+	std::vector<Cell *> copies = barriersOf(top);
+	ASSERT_EQ(copies.size(), 3u);
+	TrackedRef on_copy = pinRef({t.child(copies[0])->findPin("A", 0)}), cell{TrackedRef::Kind::Instance};
+	cell.instances = {t.child(copies[1])};
+	t.checkpoint({&on_copy, &cell});
+	EXPECT_EQ(barriersOf(top).size(), 2u);
 }
 
 TEST_F(NetProtectTest, barrierOfAnEarlierTrackerKeepsTheDriver)

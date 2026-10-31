@@ -74,7 +74,7 @@ struct BarrierStore {
 	ListMap<int, Anchor> anchors_by_barrier;
 	pool<const RTLIL::Cell *> anchored_barriers;
 	dict<int, BarrierMarks> marks_by_barrier;
-	int last_barrier_id = 0;
+	static inline int last_barrier_id = 0;
 public:
 	int nextId();
 	void skipIdsInUse(RTLIL::Design *design);
@@ -169,7 +169,9 @@ private:
 struct BarrierWriter {
 	BarrierWriter(const NetView &view, TrackData &data);
 	void protect(uint32_t ref_index, const TrackedRef &ref, size_t at);
-	bool madeNewBarrierInstance() const;
+	void cutPorts();
+	void removeUnusedBarriers();
+	bool changedView() const;
 private:
 	void protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref);
 	void protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
@@ -182,7 +184,10 @@ private:
 	void keepUncutPin(const Netlist::Pin *pin, uint32_t ref_index);
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
 	RTLIL::Cell *ensureBarrierAtPort(const Netlist::Pin *pin);
-	RTLIL::Cell *findPortBarrier(RTLIL::Module *module, const RTLIL::SigBit &bit) const;
+	void noteBarrier(RTLIL::Cell *barrier);
+	RTLIL::Cell *useBarrier(RTLIL::Cell *barrier);
+	bool isUnusedBarrier(const RTLIL::Cell *cell) const;
+	void removeBarrier(RTLIL::Cell *barrier);
 	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks);
 	void markWiresKeep(const Netlist::Net *net);
 	void collectLeafDrivers(const Netlist::Net *net, pool<const Netlist::Net *> &seen, std::vector<const Netlist::Pin *> &drivers) const;
@@ -190,7 +195,11 @@ private:
 	const NetView &view_;
 	TrackData &data_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
-	bool made_new_barrier_instance_ = false; // the view changed
+	dict<RTLIL::SigBit, RTLIL::Cell *> port_barrier_by_bit_;
+	dict<RTLIL::Module *, dict<RTLIL::SigBit, RTLIL::SigBit>> cut_by_port_bit_;
+	pool<const RTLIL::Cell *> new_port_barriers_;
+	pool<const RTLIL::Cell *> used_barriers_;
+	bool changed_view_ = false;
 };
 
 struct Resolver {
@@ -233,7 +242,9 @@ RTLIL::IdString ownedMarkerId(RTLIL::Design *design, RTLIL::IdString attr, IdLoo
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);
 void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
-void removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object);
+void removeOwnedKeeps(RTLIL::Design *design);
+void removeOwnedAttribute(RTLIL::AttrObject *object, RTLIL::IdString attr, RTLIL::IdString marker);
+void removeEmptyScopename(RTLIL::AttrObject *object);
 void removeTrackingMarks(RTLIL::Design *design);
 
 // Barriers
@@ -242,7 +253,7 @@ std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
 BarrierMarks writtenMarks(const RTLIL::Cell *barrier);
 RTLIL::Selection trackedBarriers(RTLIL::Design *design);
 void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
-void replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
+void replaceBitsInModule(RTLIL::Module *module, const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, const pool<const RTLIL::Cell *> &skip);
 RTLIL::IdString barrierPortToward(Netlist::WalkTarget target);
 
 // Scope paths

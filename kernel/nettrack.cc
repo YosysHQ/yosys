@@ -20,8 +20,10 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	detail::TrackData &data = *data_;
 	data.bind(view.design());
 	data.clearAnchors(view.design());
-	if (mode == TrackMode::Barriers)
+	if (mode == TrackMode::Barriers) {
 		data.barriers.skipIdsInUse(view.design());
+		detail::removeOwnedKeeps(view.design());
+	}
 	data.snapshot.take(view);
 	detail::CutSideWalker walker(view, data);
 	detail::AnchorWriter anchors(view, data, walker);
@@ -34,7 +36,11 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 				barriers.protect(ref_index, ref, at);
 		}
 	}
-	if (mode == TrackMode::Barriers && !barriers.madeNewBarrierInstance())
+	if (mode != TrackMode::Barriers)
+		return;
+	barriers.cutPorts();
+	barriers.removeUnusedBarriers();
+	if (!barriers.changedView())
 		view.markUpToDate();
 }
 
