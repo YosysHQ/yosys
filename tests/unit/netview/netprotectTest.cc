@@ -326,6 +326,29 @@ TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 	EXPECT_EQ(port.pins, std::vector<const Netlist::Pin *>{next->top()->findPin("q_renamed", 1)});
 }
 
+TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
+{
+	NetView view;
+	view.build(d);
+	NetTracker first, second;
+	TrackedRef in_sub{TrackedRef::Kind::Pin}, in_top{TrackedRef::Kind::Pin}, again{TrackedRef::Kind::Pin};
+	in_sub.pins = {view.instance(i1, topChild(view, u_sub))->pins[0]};
+	first.checkpoint(view, {&in_sub}, TrackMode::Barriers);
+	std::unique_ptr<NetView> next = nextView(view, first, d);
+	in_top.pins = {topChild(*next, u_inv2)->pins[0]};
+	again.pins = {topChild(*next, u_inv0)->pins[0]};
+	second.checkpoint(*next, {&in_top, &again}, TrackMode::Barriers);
+	IdString id_attr = d->twines().find("\\netview_anchor");
+	std::vector<Cell *> barriers = barriersOf(top);
+	ASSERT_EQ(barriers.size(), 2u);
+	ASSERT_EQ(barriersOf(sub).size(), 1u);
+	barriers.push_back(barriersOf(sub)[0]);
+	pool<int> ids;
+	for (Cell *barrier : barriers)
+		ids.insert(barrier->attributes.at(id_attr).as_int());
+	EXPECT_EQ(ids.size(), 3u);
+}
+
 TEST_F(NetProtectTest, inoutPinIsALoadBeyondABarrier)
 {
 	Module *bidi = d->addModule("\\BIDI");

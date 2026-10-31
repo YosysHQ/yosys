@@ -34,6 +34,17 @@ pool<const RTLIL::Cell *> NetTracker::barrierInstances(RTLIL::Design *design) co
 
 int detail::BarrierStore::nextId() { return ++last_barrier_id; }
 
+void detail::BarrierStore::skipIdsInUse(RTLIL::Design *design)
+{
+	last_barrier_id = std::max(last_barrier_id, detail::keySeed(design));
+	for (RTLIL::Module *module : design->modules()) {
+		for (RTLIL::Cell *cell : module->cells()) {
+			if (cell->type == ID($barrier))
+				last_barrier_id = std::max(last_barrier_id, detail::barrierIdOf(cell).value_or(0));
+		}
+	}
+}
+
 detail::BarrierMarks detail::BarrierStore::marks(const RTLIL::Cell *barrier) const
 {
 	std::optional<int> id = detail::barrierIdOf(barrier);
@@ -260,8 +271,12 @@ RTLIL::Cell *detail::BarrierWriter::findPortBarrier(RTLIL::Module *module, const
 
 RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks)
 {
-	int id = data_.barriers.nextId();
-	RTLIL::IdString name = module->twines().add(stringf("\\%s$%d", detail::anchor_prefix, id));
+	int id = 0;
+	RTLIL::IdString name;
+	do {
+		id = data_.barriers.nextId();
+		name = module->twines().add(stringf("\\%s$%d", detail::anchor_prefix, id));
+	} while (module->count_id(name) != 0);
 	RTLIL::Cell *barrier = module->addCell(name, ID($barrier));
 	barrier->set_bool_attribute(ID::keep);
 	detail::ensureScopename(barrier);

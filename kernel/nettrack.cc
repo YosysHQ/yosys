@@ -19,6 +19,8 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
 	data.clearAnchors(view.design());
+	if (mode == TrackMode::Barriers)
+		data.barriers.skipIdsInUse(view.design());
 	data.snapshot.take(view);
 	detail::CutSideWalker walker(view, data);
 	detail::AnchorWriter anchors(view, data, walker);
@@ -108,10 +110,8 @@ std::string detail::Snapshot::cellScopePath(const NetView &view, const Netlist::
 void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
 {
 	RTLIL::IdString id = detail::refAttrId(design, IdLookup::AddIfMissing);
-	if (!object->has_attribute(id)) {
-		object->attributes[id] = RTLIL::Const(int(anchors_by_ref_attr.size()));
-		anchors_by_ref_attr.emplace_back();
-	}
+	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
+		object->attributes[id] = RTLIL::Const(detail::newRefValue(design));
 	anchors_by_ref_attr[object->attributes.at(id).as_int()].push_back(anchor);
 }
 
@@ -123,10 +123,29 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
 	if (!object->has_attribute(id))
 		return none;
-	size_t index = object->attributes.at(id).as_int();
-	if (index >= anchors_by_ref_attr.size())
-		return none;
-	return anchors_by_ref_attr[index];
+	return anchors_by_ref_attr.at(object->attributes.at(id).as_int(), none);
+}
+
+int detail::newRefValue(RTLIL::Design *design)
+{
+	static int last_value = detail::keySeed(design);
+	log_assert(last_value < INT_MAX);
+	return ++last_value;
+}
+
+int detail::keySeed(RTLIL::Design *design)
+{
+	static std::optional<int> seed;
+	if (seed)
+		return *seed;
+	uint64_t hash = 0;
+	for (RTLIL::Module *module : design->modules()) {
+		hash += detail::designModuleHash(module);
+		for (RTLIL::Cell *cell : module->cells())
+			hash += detail::cellHash(cell);
+	}
+	seed = int(hash >> 34); // 30 bits, 2^30 keys stay free below INT_MAX
+	return *seed;
 }
 
 void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }
@@ -140,6 +159,7 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 		return anchorWires(ref.nets[at], ref_index);
 	case TrackedRef::Kind::Instance: {
 		const Netlist::Instance *inst = ref.instances[at];
+		log_assert(!inst->isTop());
 		return anchorCell(inst, {Anchor::Role::Cell, ref_index, data_.snapshot.cellScopePath(view_, inst), "", 0, "", false});
 	}
 	case TrackedRef::Kind::TopPort:

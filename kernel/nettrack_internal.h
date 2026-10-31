@@ -59,7 +59,7 @@ public:
 };
 
 struct AnchorStore {
-	std::vector<std::vector<Anchor>> anchors_by_ref_attr;
+	dict<int, std::vector<Anchor>> anchors_by_ref_attr; // by attribute value
 public:
 	void append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor);
 	const std::vector<Anchor> &anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const;
@@ -72,6 +72,7 @@ struct BarrierStore {
 	int last_barrier_id = 0;
 public:
 	int nextId();
+	void skipIdsInUse(RTLIL::Design *design);
 	BarrierMarks marks(const RTLIL::Cell *barrier) const;
 	void setMarks(const RTLIL::Cell *barrier, const BarrierMarks &marks);
 	RTLIL::IdString cutPort(const RTLIL::Cell *barrier) const;
@@ -209,6 +210,8 @@ private:
 
 // Checkpoint
 size_t objectCount(const TrackedRef &ref);
+int newRefValue(RTLIL::Design *design);
+int keySeed(RTLIL::Design *design);
 
 // Ids
 RTLIL::IdString attrId(RTLIL::Design *design, std::string_view name, IdLookup lookup);

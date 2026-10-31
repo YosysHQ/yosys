@@ -43,6 +43,8 @@ void detail::HitIndex::noteScope(const Netlist::Instance *scope)
 void detail::HitIndex::noteInstance(const Netlist::Instance *inst)
 {
 	for (const Anchor &anchor : data_.anchors.anchorsOf(view_.design(), view_.cell(inst))) {
+		if (anchor.role != Anchor::Role::Cell && anchor.role != Anchor::Role::Pin)
+			continue;
 		bool in_own_scope = anchor.scope_path == data_.snapshot.cellScopePath(view_, inst);
 		hits_by_ref_[anchor.ref_index].push_back({anchor, inst, nullptr, in_own_scope});
 	}
@@ -95,7 +97,7 @@ dict<RTLIL::SigBit, const Netlist::Net *> detail::HitIndex::netsOfWireBits(const
 void detail::HitIndex::noteWireBit(const Netlist::Net *net, const RTLIL::SigBit &bit)
 {
 	for (const Anchor &anchor : data_.anchors.anchorsOf(view_.design(), bit.wire)) {
-		if (anchor.bit != bit.offset)
+		if (anchor.role != Anchor::Role::Net || anchor.bit != bit.offset)
 			continue;
 		bool in_own_scope = anchor.scope_path == detail::withOwnScope(data_.snapshot.scopePath(view_, net->scope), bit.wire);
 		hits_by_ref_[anchor.ref_index].push_back({anchor, nullptr, net, in_own_scope});

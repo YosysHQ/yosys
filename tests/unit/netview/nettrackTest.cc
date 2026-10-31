@@ -113,6 +113,51 @@ TEST_F(NetTrackTest, clearForgetsTheAnchors)
 	EXPECT_TRUE(cell.instances.empty());
 }
 
+// design -load brings back the attributes of an earlier checkpoint
+TEST_F(NetTrackTest, anchorsOfAnotherCheckpointNameNothing)
+{
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef first{TrackedRef::Kind::Instance}, second{TrackedRef::Kind::Instance};
+	first.instances = {topChild(view, u_inv0)};
+	second.instances = {topChild(view, u_inv2)};
+	tracker.checkpoint(view, {&first, &second}, TrackMode::AnchorsOnly);
+	IdString ref_attr = d->twines().find("\\netview_ref");
+	Const u_inv0_value = u_inv0->attributes.at(ref_attr);
+	Const u_inv2_value = u_inv2->attributes.at(ref_attr);
+	tracker.checkpoint(view, {&second, &first}, TrackMode::AnchorsOnly);
+	u_inv0->attributes[ref_attr] = u_inv0_value;
+	u_inv2->attributes[ref_attr] = u_inv2_value;
+	std::unique_ptr<NetView> next = nextView(view, d);
+	tracker.resolve(*next, {&second, &first});
+	EXPECT_TRUE(second.instances.empty());
+	EXPECT_TRUE(first.instances.empty());
+}
+
+// design -load moves autoidx back, the loaded u_inv0 holds the anchor of the first checkpoint
+TEST_F(NetTrackTest, loadedDesignKeepsItsOwnCheckpoint)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	Pass::call(d, "design -save netview_before");
+	TrackedRef first{TrackedRef::Kind::Instance}, second{TrackedRef::Kind::Instance};
+	first.instances = {topChild(view, u_inv0)};
+	tracker.checkpoint(view, {&first}, TrackMode::AnchorsOnly);
+	Pass::call(d, "design -save netview_first");
+	Pass::call(d, "design -load netview_before");
+	std::unique_ptr<NetView> next = nextView(view, d);
+	Module *loaded = d->module(ID(top));
+	second.instances = {topChild(*next, loaded->cell("\\u_inv2"))};
+	tracker.checkpoint(*next, {&second}, TrackMode::AnchorsOnly);
+	Pass::call(d, "design -load netview_first");
+	std::unique_ptr<NetView> last = nextView(*next, d);
+	tracker.resolve(*last, {&second});
+	EXPECT_TRUE(second.instances.empty());
+}
+
 using NetTrackDeathTest = NetTrackTest;
 
 // The delete of an unconnected cell fires no monitor event
