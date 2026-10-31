@@ -18,6 +18,7 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	view.recheck();
 	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
+	data.bind(view.design());
 	data.clearAnchors(view.design());
 	if (mode == TrackMode::Barriers)
 		data.barriers.skipIdsInUse(view.design());
@@ -37,7 +38,11 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 		view.markUpToDate();
 }
 
-void NetTracker::clear(RTLIL::Design *design) { data_->clearAnchors(design); }
+void NetTracker::clear(RTLIL::Design *design)
+{
+	data_->bind(design);
+	data_->clearAnchors(design);
+}
 
 size_t detail::objectCount(const TrackedRef &ref)
 {
@@ -51,6 +56,18 @@ size_t detail::objectCount(const TrackedRef &ref)
 		return ref.nets.size();
 	}
 	return 0;
+}
+
+detail::TrackData::TrackData() : serial(++last_serial) { live_serials.insert(serial); }
+
+detail::TrackData::~TrackData() { live_serials.erase(serial); }
+
+void detail::TrackData::bind(RTLIL::Design *design) const
+{
+	int owner = design->scratchpad_get_int(std::string(detail::tracker_key), 0);
+	if (owner != serial && live_serials.count(owner))
+		log_error("NetTracker: the design has another tracker, a second tracker would remove its anchors, keeps and barriers.\n");
+	design->scratchpad_set_int(std::string(detail::tracker_key), serial);
 }
 
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
@@ -146,6 +163,18 @@ int detail::keySeed(RTLIL::Design *design)
 	}
 	seed = int(hash >> 34); // 30 bits, 2^30 keys stay free below INT_MAX
 	return *seed;
+}
+
+void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObject *object, uint32_t ref_index, const Netlist::Pin *pin)
+{
+	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
+		return;
+	for (Anchor &anchor : anchors_by_ref_attr.at(object->attributes.at(id).as_int())) {
+		bool same_pin = anchor.port == pin->port().name && anchor.bit == pin->bit;
+		if (anchor.role == Anchor::Role::Pin && anchor.ref_index == ref_index && same_pin)
+			anchor.uncut = true;
+	}
 }
 
 void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }

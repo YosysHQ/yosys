@@ -175,4 +175,20 @@ TEST_F(NetTrackDeathTest, checkpointRefusesAStaleView)
 	EXPECT_EXIT(tracker.checkpoint(view, {&ref}, TrackMode::AnchorsOnly), ::testing::ExitedWithCode(1), "");
 }
 
+// Two trackers on one design remove the anchors, keeps and barriers of each other
+TEST_F(NetTrackDeathTest, secondTrackerOnADesignIsRefused)
+{
+	NetView view;
+	view.build(d);
+	NetTracker first, second;
+	first.checkpoint(view, {}, TrackMode::AnchorsOnly);
+	// the sink is in the child process of the death test only
+	EXPECT_EXIT(
+	  {
+		  logger().add_sink<StderrLogSink>(true);
+		  second.checkpoint(view, {}, TrackMode::AnchorsOnly);
+	  },
+	  ::testing::ExitedWithCode(1), "another tracker");
+}
+
 YOSYS_NAMESPACE_END

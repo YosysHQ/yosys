@@ -27,6 +27,44 @@ static std::vector<Cell *> barriersOf(Module *module)
 	return barriers;
 }
 
+static Cell *addBidiCell(Design *design, Module *parent, const SigSpec &signal)
+{
+	Module *bidi = design->addModule("\\BIDI");
+	Wire *io = bidi->addWire("\\IO");
+	io->port_input = true;
+	io->port_output = true;
+	bidi->fixup_ports();
+	bidi->set_bool_attribute(ID::blackbox);
+	Cell *b = parent->addCell("\\b", "\\BIDI");
+	b->setPort("\\IO", signal);
+	return b;
+}
+
+using Pins = std::vector<const Netlist::Pin *>;
+
+static TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::Kind::Pin)
+{
+	TrackedRef ref{kind};
+	ref.pins = pins;
+	return ref;
+}
+
+struct TrackedView {
+	Design *design;
+	std::unique_ptr<NetView> view = std::make_unique<NetView>();
+	NetTracker tracker;
+
+	explicit TrackedView(Design *design) : design(design) { view->build(design); }
+	Netlist::Instance *child(const Cell *cell) const { return topChild(*view, cell); }
+	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs, TrackMode::Barriers); }
+	// The view after a pass, the refs resolved in it
+	void next(const std::vector<TrackedRef *> &refs)
+	{
+		view = nextView(*view, tracker, design);
+		tracker.resolve(*view, refs);
+	}
+};
+
 TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 {
 	NetView view;
@@ -330,11 +368,15 @@ TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
 {
 	NetView view;
 	view.build(d);
-	NetTracker first, second;
 	TrackedRef in_sub{TrackedRef::Kind::Pin}, in_top{TrackedRef::Kind::Pin}, again{TrackedRef::Kind::Pin};
 	in_sub.pins = {view.instance(i1, topChild(view, u_sub))->pins[0]};
-	first.checkpoint(view, {&in_sub}, TrackMode::Barriers);
-	std::unique_ptr<NetView> next = nextView(view, first, d);
+	std::unique_ptr<NetView> next;
+	{
+		NetTracker first;
+		first.checkpoint(view, {&in_sub}, TrackMode::Barriers);
+		next = nextView(view, first, d);
+	}
+	NetTracker second;
 	in_top.pins = {topChild(*next, u_inv2)->pins[0]};
 	again.pins = {topChild(*next, u_inv0)->pins[0]};
 	second.checkpoint(*next, {&in_top, &again}, TrackMode::Barriers);
@@ -351,14 +393,7 @@ TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
 
 TEST_F(NetProtectTest, inoutPinIsALoadBeyondABarrier)
 {
-	Module *bidi = d->addModule("\\BIDI");
-	Wire *io = bidi->addWire("\\IO");
-	io->port_input = true;
-	io->port_output = true;
-	bidi->fixup_ports();
-	bidi->set_bool_attribute(ID::blackbox);
-	Cell *b = top->addCell("\\b", "\\BIDI");
-	b->setPort("\\IO", d0);
+	Cell *b = addBidiCell(d, top, d0);
 	NetView view;
 	view.build(d);
 	NetTracker tracker;
@@ -391,6 +426,77 @@ TEST_F(NetProtectTest, protectKeepsTheNetName)
 	std::unique_ptr<NetView> next = nextView(view, tracker, d);
 	const Netlist::Net *after = topChild(*next, u_sub)->pins[0]->net;
 	EXPECT_EQ(next->name(after), (Netlist::NetName{"bus", 1, false}));
+}
+
+TEST_F(NetProtectTest, inoutPinsKeepTheirCells)
+{
+	ensurePasses();
+	Cell *b = addBidiCell(d, top, d0);
+	Module *m = d->addModule("\\m");
+	Wire *io = m->addWire("\\io");
+	io->port_input = io->port_output = true;
+	m->fixup_ports();
+	m->addCell("\\b", "\\BIDI")->setPort("\\IO", io);
+	top->addCell("\\u_m", "\\m")->setPort("\\io", d0);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(b)->pins[0], t.child(top->cell("\\u_m"))->pins[0]});
+	t.checkpoint({&ref});
+	EXPECT_TRUE(barriersOf(top).empty());
+	EXPECT_EQ(b->getPort(d->twines().find("\\IO")), SigSpec(d0));
+	EXPECT_TRUE(b->get_bool_attribute(ID::keep));
+	Pass::call(d, "flatten");
+	ASSERT_EQ(top->cell("\\u_m")->type, m->name); // a flattened u_m leaves a $scopeinfo cell u_m
+}
+
+TEST_F(NetProtectTest, barrierOfAnEarlierTrackerKeepsTheDriver)
+{
+	{
+		TrackedView earlier(d);
+		TrackedRef first = pinRef({earlier.child(u_inv0)->findPin("Y", 0)});
+		earlier.checkpoint({&first});
+	}
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv0)->findPin("Y", 0)});
+	t.checkpoint({&ref});
+	EXPECT_EQ(barriersOf(top).size(), 2u); // the cut of Y and of the first input
+	// a pass renews the cell
+	Cell *renewed = top->addCell("$renewed", ID(INV));
+	renewed->setPort(ID(A), u_inv0->getPort(ID(A)));
+	renewed->setPort(ID(Y), u_inv0->getPort(ID(Y)));
+	top->remove(u_inv0);
+	t.next({&ref});
+	EXPECT_EQ(ref.pins, Pins{t.child(renewed)->findPin("Y", 0)});
+}
+
+TEST_F(NetProtectTest, staleCutMarkTakesABarrier)
+{
+	ensurePasses();
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv2)->pins[0]});
+	t.checkpoint({&ref});
+	Pass::call(d, "optbarriers -remove");
+	ASSERT_TRUE(barriersOf(top).empty());
+	Wire *stale = u_inv2->getPort(ID(A)).as_wire();
+	t.next({});
+	ref.pins = {t.child(u_inv2)->pins[0]};
+	t.checkpoint({&ref});
+	EXPECT_EQ(barriersOf(top).size(), 1u);
+	EXPECT_FALSE(stale->has_attribute(d->twines().find("\\netview_cut")));
+}
+
+TEST_F(NetProtectTest, loadOnTheCutWireOfADriverTakesItsOwnBarrier)
+{
+	TrackedView t(d);
+	TrackedRef driver = pinRef({t.child(u_inv0)->findPin("Y", 0)});
+	t.checkpoint({&driver});
+	Cell *g = top->addCell("\\g", ID(INV));
+	g->setPort(ID(A), u_inv0->getPort(ID(Y)));
+	t.next({});
+	driver.pins = {t.child(u_inv0)->findPin("Y", 0)};
+	TrackedRef load = pinRef({t.child(g)->findPin("A", 0)});
+	t.checkpoint({&driver, &load});
+	t.next({&driver, &load});
+	EXPECT_EQ(load.pins, Pins{t.child(g)->findPin("A", 0)});
 }
 
 YOSYS_NAMESPACE_END

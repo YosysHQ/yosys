@@ -15,6 +15,7 @@ YOSYS_NAMESPACE_BEGIN
 // optbarriers runs as a pass, so a pass hook of the consumer sees it
 void NetTracker::unprotect(RTLIL::Design *design)
 {
+	data_->bind(design);
 	Pass::call_on_selection(design, detail::trackedBarriers(design), "optbarriers -remove");
 	data_->barriers.clearMarks();
 	detail::removeTrackingMarks(design);
@@ -50,7 +51,9 @@ detail::BarrierMarks detail::BarrierStore::marks(const RTLIL::Cell *barrier) con
 	std::optional<int> id = detail::barrierIdOf(barrier);
 	if (!id)
 		return {};
-	return marks_by_barrier.at(*id, BarrierMarks());
+	if (marks_by_barrier.count(*id))
+		return marks_by_barrier.at(*id);
+	return detail::writtenMarks(barrier);
 }
 
 void detail::BarrierStore::setMarks(const RTLIL::Cell *barrier, const BarrierMarks &marks)
@@ -68,7 +71,11 @@ RTLIL::IdString detail::BarrierStore::cutPort(const RTLIL::Cell *barrier) const
 
 void detail::BarrierStore::clearMarks() { marks_by_barrier.clear(); }
 
-void detail::BarrierStore::clearAnchors() { anchors_by_barrier.clear(); }
+void detail::BarrierStore::clearAnchors()
+{
+	anchors_by_barrier.clear();
+	anchored_barriers.clear();
+}
 
 detail::BarrierWriter::BarrierWriter(const NetView &view, TrackData &data) : view_(view), data_(data)
 {
@@ -128,6 +135,8 @@ void detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref
 void detail::BarrierWriter::protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPort(pin);
+	if (barrier == nullptr && pin->dir() == Netlist::PortDir::Inout)
+		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep_hierarchy);
 	if (barrier == nullptr)
 		return;
 	BarrierMarks marks = data_.barriers.marks(barrier);
@@ -199,7 +208,7 @@ void detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t r
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPin(pin);
 	if (barrier == nullptr)
-		return;
+		return keepUncutPin(pin, ref_index);
 	Anchor::Side cut_side = Anchor::Side::Y;
 	if (pin->isDriver())
 		cut_side = Anchor::Side::A;
@@ -207,21 +216,32 @@ void detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t r
 	detail::recordBarrierAnchor(view_, data_.barriers, barrier, data_.snapshot.scopePath(view_, pin->inst->parent), anchor);
 }
 
+void detail::BarrierWriter::keepUncutPin(const Netlist::Pin *pin, uint32_t ref_index)
+{
+	data_.anchors.markUncut(view_.design(), view_.cell(pin->inst), ref_index, pin);
+	if (pin->dir() == Netlist::PortDir::Inout)
+		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
+}
+
 RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 {
 	RTLIL::Cell *cell = view_.cell(pin->inst);
 	RTLIL::IdString port = detail::escapedPortId(view_.design(), cell, nullptr, pin->port().name);
-	if (cell == nullptr || !cell->hasPort(port) || pin->bit >= GetSize(cell->getPort(port)))
+	if (cell == nullptr || !cell->hasPort(port) || pin->bit >= GetSize(cell->getPort(port)) || pin->dir() == Netlist::PortDir::Inout)
 		return nullptr;
 	RTLIL::SigSpec sig = cell->getPort(port);
 	RTLIL::SigBit bit = sig[pin->bit];
 	if (bit.wire == nullptr)
 		return nullptr;
-	// A port cut holds all uses of the bit, the pin takes its own barrier
 	RTLIL::Cell *existing = barrier_by_cut_bit_.at(bit, nullptr);
-	bool port_cut = existing != nullptr && data_.barriers.marks(existing).port_cut;
-	if (detail::isCutWire(bit.wire) && !port_cut)
-		return existing;
+	bool on_cut_wire = detail::isCutWire(bit.wire);
+	if (on_cut_wire && existing == nullptr) {
+		bit.wire->attributes.erase(detail::attrId(view_.design(), detail::cut_attr, IdLookup::FindOnly));
+	} else if (on_cut_wire) {
+		BarrierMarks marks = data_.barriers.marks(existing);
+		if (!marks.port_cut && marks.cut_on_a == pin->isDriver())
+			return existing;
+	}
 	RTLIL::Wire *cut = detail::addCutWire(cell->module);
 	RTLIL::Cell *barrier;
 	if (pin->isDriver())
@@ -281,6 +301,8 @@ RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, con
 	barrier->set_bool_attribute(ID::keep);
 	detail::ensureScopename(barrier);
 	barrier->attributes[detail::attrId(view_.design(), detail::anchor_attr, IdLookup::AddIfMissing)] = RTLIL::Const(id);
+	RTLIL::IdString marks_id = detail::attrId(view_.design(), detail::marks_attr, IdLookup::AddIfMissing);
+	barrier->attributes[marks_id] = RTLIL::Const(marks.cut_on_a | marks.port_cut << 1);
 	barrier->setParam(ID::WIDTH, 1);
 	barrier->setPort(ID::A, a);
 	barrier->setPort(ID::Y, y);
@@ -474,6 +496,13 @@ std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)
 	return atoi(text.c_str() + at + marker.size());
 }
 
+detail::BarrierMarks detail::writtenMarks(const RTLIL::Cell *barrier)
+{
+	RTLIL::IdString id = detail::attrId(barrier->module->design, detail::marks_attr, IdLookup::FindOnly);
+	int bits = barrier->attributes.at(id, RTLIL::Const(0)).as_int();
+	return {.cut_on_a = (bits & 1) != 0, .port_cut = (bits & 2) != 0};
+}
+
 // The barriers of the tracking by their id, also after rename -hide
 RTLIL::Selection detail::trackedBarriers(RTLIL::Design *design)
 {
@@ -495,6 +524,7 @@ void detail::recordBarrierAnchor(const NetView &view, BarrierStore &barriers, co
 	anchor.scope_path = detail::barrierScopePath(path, barrier);
 	anchor.in_shared_module = view.scopes(barrier->module).size() > 1;
 	barriers.anchors_by_barrier.add(*id, anchor);
+	barriers.anchored_barriers.insert(barrier);
 }
 
 void detail::replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other)

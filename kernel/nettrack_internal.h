@@ -17,6 +17,8 @@ namespace detail
 constexpr std::string_view anchor_prefix = "netview_anchor";
 constexpr std::string_view anchor_attr = "\\netview_anchor";
 constexpr std::string_view ref_attr = "\\netview_ref";
+constexpr std::string_view marks_attr = "\\netview_marks";
+constexpr std::string_view tracker_key = "netview.tracker";
 
 enum class IdLookup : uint8_t { FindOnly, AddIfMissing };
 
@@ -34,6 +36,7 @@ struct Anchor {
 	std::string net_scope_path; // of the scope that holds the wire
 	bool in_shared_module;
 	Side side = Side::None;
+	bool uncut = false; // a leaf pin that got no barrier
 };
 
 struct BarrierMarks {
@@ -63,11 +66,13 @@ struct AnchorStore {
 public:
 	void append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor);
 	const std::vector<Anchor> &anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const;
+	void markUncut(RTLIL::Design *design, const RTLIL::AttrObject *object, uint32_t ref_index, const Netlist::Pin *pin);
 	void clear();
 };
 
 struct BarrierStore {
 	ListMap<int, Anchor> anchors_by_barrier;
+	pool<const RTLIL::Cell *> anchored_barriers;
 	dict<int, BarrierMarks> marks_by_barrier;
 	int last_barrier_id = 0;
 public:
@@ -85,7 +90,13 @@ struct TrackData {
 	AnchorStore anchors;
 	BarrierStore barriers;
 	ListMap<uint32_t, TopPortName> top_ports_by_ref;
+	int serial;
+	static inline int last_serial = 0;
+	static inline pool<int> live_serials;
 public:
+	TrackData();
+	~TrackData();
+	void bind(RTLIL::Design *design) const;
 	void clearAnchors(RTLIL::Design *design);
 };
 
@@ -168,6 +179,7 @@ private:
 	void protectNet(const Netlist::Net *net, uint32_t ref_index);
 	void isolateCell(const Netlist::Instance *inst);
 	void anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
+	void keepUncutPin(const Netlist::Pin *pin, uint32_t ref_index);
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
 	RTLIL::Cell *ensureBarrierAtPort(const Netlist::Pin *pin);
 	RTLIL::Cell *findPortBarrier(RTLIL::Module *module, const RTLIL::SigBit &bit) const;
@@ -227,6 +239,7 @@ void removeTrackingMarks(RTLIL::Design *design);
 // Barriers
 RTLIL::Wire *addCutWire(RTLIL::Module *module);
 std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
+BarrierMarks writtenMarks(const RTLIL::Cell *barrier);
 RTLIL::Selection trackedBarriers(RTLIL::Design *design);
 void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
 void replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
