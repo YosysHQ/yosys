@@ -326,4 +326,48 @@ TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 	EXPECT_EQ(port.pins, std::vector<const Netlist::Pin *>{next->top()->findPin("q_renamed", 1)});
 }
 
+TEST_F(NetProtectTest, inoutPinIsALoadBeyondABarrier)
+{
+	Module *bidi = d->addModule("\\BIDI");
+	Wire *io = bidi->addWire("\\IO");
+	io->port_input = true;
+	io->port_output = true;
+	bidi->fixup_ports();
+	bidi->set_bool_attribute(ID::blackbox);
+	Cell *b = top->addCell("\\b", "\\BIDI");
+	b->setPort("\\IO", d0);
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Instance};
+	ref.instances = {topChild(view, u_inv0)};
+	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	tracker.resolve(*next, {&ref});
+	const Netlist::Pin *b_io = topChild(*next, b)->pins[0];
+	std::vector<const Netlist::Pin *> &loads = ref.result.loads_beyond;
+	EXPECT_NE(std::find(loads.begin(), loads.end(), b_io), loads.end());
+	EXPECT_NE(std::find(loads.begin(), loads.end(), next->instance(i1, topChild(*next, u_sub))->pins[0]), loads.end());
+}
+
+TEST_F(NetProtectTest, protectKeepsTheNetName)
+{
+	Wire *bus = top->addWire("\\bus", 2);
+	Wire *n = top->addWire("$n");
+	u_inv0->setPort(ID(Y), n);
+	top->connect(SigBit(bus, 1), n);
+	u_sub->setPort(ID(a), SigBit(bus, 1));
+	NetView view;
+	view.build(d);
+	const Netlist::Net *net = topChild(view, u_inv0)->pins[1]->net;
+	ASSERT_EQ(view.name(net), (Netlist::NetName{"bus", 1, false}));
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Net};
+	ref.nets = {net};
+	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
+	std::unique_ptr<NetView> next = nextView(view, tracker, d);
+	const Netlist::Net *after = topChild(*next, u_sub)->pins[0]->net;
+	EXPECT_EQ(next->name(after), (Netlist::NetName{"bus", 1, false}));
+}
+
 YOSYS_NAMESPACE_END

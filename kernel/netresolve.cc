@@ -204,7 +204,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::pinsBehindNewLogic(const std
 void detail::Resolver::addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const
 {
 	for (const Netlist::Pin *out : inst->pins) {
-		if (out->net != nullptr && out->dir() == Netlist::PortDir::Output)
+		if (out->net != nullptr && (out->dir() == Netlist::PortDir::Output || out->dir() == Netlist::PortDir::Inout))
 			loads.insert(loads.end(), out->net->pins.begin(), out->net->pins.end());
 	}
 }

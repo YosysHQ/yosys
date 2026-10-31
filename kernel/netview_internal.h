@@ -52,12 +52,15 @@ bool checkIndices(RTLIL::Module *module, std::string &reason);
 void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes);
 
 // Cells
+constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
+
 bool isInternalType(RTLIL::IdString type);
 bool isTransparentType(RTLIL::IdString type);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 constexpr std::string_view cut_attr = "\\netview_cut";
 bool isCutWire(const RTLIL::Wire *wire);
+bool hasUserKeep(const RTLIL::Wire *wire);
 
 // Ports
 enum class CellTypeTable : uint8_t { Static, Yosys };

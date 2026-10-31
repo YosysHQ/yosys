@@ -1,6 +1,6 @@
 // NetView: the Netlist of an RTLIL design
 // - Instances  one per cell occurrence, depth first in statement order
-// - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
+// - Nets       one per SigMap bit, a $barrier joins its A and Y, a constant only from A
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 // - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
 

@@ -17,7 +17,6 @@ namespace detail
 constexpr std::string_view anchor_prefix = "netview_anchor";
 constexpr std::string_view anchor_attr = "\\netview_anchor";
 constexpr std::string_view ref_attr = "\\netview_ref";
-constexpr std::string_view owned_marker_prefix = "\\netview_";
 
 enum class IdLookup : uint8_t { FindOnly, AddIfMissing };
 

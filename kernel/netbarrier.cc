@@ -357,7 +357,7 @@ void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::Po
 	const Netlist::Pin *pin = inst->findPin(detail::unescapedName({at.cell->module, at.port}), at.offset);
 	if (pin == nullptr)
 		return;
-	bool toward_target = pin->isDriver() == (walk.target == Netlist::WalkTarget::Drivers);
+	bool toward_target = detail::pinMatchesTarget(pin, walk.target);
 	bool passes_buffers = walk.buffer_rule == BufferRule::PassNewBuffer;
 	if (toward_target && passes_buffers && detail::isNewBuffer(view_, data_.snapshot, inst))
 		walkNewBuffer(walk, at, on_cut_wire);

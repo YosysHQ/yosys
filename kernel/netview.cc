@@ -518,10 +518,18 @@ detail::NetNameRank detail::netNameRank(const RTLIL::SigBit &bit)
 {
 	const RTLIL::Wire *wire = bit.wire;
 	bool port = wire->port_id != 0;
-	bool keep = wire->get_bool_attribute(ID::keep);
+	bool keep = detail::hasUserKeep(wire);
 	bool pub = wire->name.isPublic();
 	size_t depth = detail::sourcePath(wire, wire->name.str()).size();
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
+}
+
+bool detail::hasUserKeep(const RTLIL::Wire *wire)
+{
+	if (!wire->get_bool_attribute(ID::keep))
+		return false;
+	std::string marker = std::string(detail::owned_marker_prefix) + "keep";
+	return !wire->get_bool_attribute(wire->module->design->twines().find(marker));
 }
 
 // $connect joins its two sides, as a module connection does
@@ -639,6 +647,8 @@ Netlist::PortDir detail::pinDirOfTarget(Netlist::WalkTarget target)
 
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
+	if (pin->dir() == Netlist::PortDir::Inout)
+		return true;
 	if (pin->inst->isLeaf())
 		return pin->isDriver() == (target == Netlist::WalkTarget::Drivers);
 	return pin->dir() == detail::pinDirOfTarget(target);
@@ -827,7 +837,7 @@ bool NetView::isRegister(const Netlist::Instance *inst) const
 {
 	if (data_->library != nullptr && data_->library->isRegister(*inst))
 		return true;
-	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+	return !inst->isTop() && StaticCellTypes::categories.is_ff(cell(inst)->type);
 }
 
 bool NetView::isClockPin(const Netlist::Pin *pin) const
@@ -835,12 +845,12 @@ bool NetView::isClockPin(const Netlist::Pin *pin) const
 	if (data_->library != nullptr && data_->library->isClockPin(*pin))
 		return true;
 	const std::string &name = pin->port().name;
-	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+	return !pin->inst->isTop() && StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
 }
 
 bool NetView::isBuffer(const Netlist::Instance *inst) const
 {
-	return cell(inst)->type == ID($_BUF_) || (data_->library != nullptr && data_->library->isBuffer(*inst));
+	return (!inst->isTop() && cell(inst)->type == ID($_BUF_)) || (data_->library != nullptr && data_->library->isBuffer(*inst));
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)
@@ -914,7 +924,7 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 {
 	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
-	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
+	flags |= detail::hasUserKeep(wire) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
 	fp.eat(wire->name.str());
 	fp.eat(wire->hashidx_);
 	fp.eat(wire->width, wire->start_offset);
