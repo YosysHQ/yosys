@@ -158,42 +158,6 @@ TEST_F(NetViewTest, clearRestartsIds)
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }
 
-TEST_F(NetViewTest, retireKeepsOwners)
-{
-	NetView view;
-	view.build(d);
-	Netlist::Instance *inv = topChild(view, u_inv0);
-	view.retire();
-	EXPECT_TRUE(view.retired());
-	EXPECT_EQ(inv->view, &view);
-	EXPECT_TRUE(view.owns(inv));
-	EXPECT_TRUE(inv->pins.empty());
-	EXPECT_EQ(topChild(view, u_inv0), nullptr);
-}
-
-TEST_F(NetViewTest, retiredViewIsNotBuilt)
-{
-	NetView view;
-	view.build(d);
-	view.retire();
-	EXPECT_FALSE(view.built());
-	EXPECT_FALSE(view.upToDate());
-	EXPECT_EQ(view.top(), nullptr);
-	EXPECT_EQ(view.counts(), NetView::Counts{});
-}
-
-using NetViewDeathTest = NetViewTest;
-
-TEST_F(NetViewDeathTest, retiredPinHasNoPort)
-{
-	NetView view;
-	view.build(d);
-	const Netlist::Pin *pin = topChild(view, u_inv0)->pins[0];
-	view.retire();
-	// log_assert exits with 1, a null pointer read is a signal
-	EXPECT_EXIT((void)pin->port(), ::testing::ExitedWithCode(1), "");
-}
-
 // top: a -> g
 static void addInvTop(Design *design)
 {

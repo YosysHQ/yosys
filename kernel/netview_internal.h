@@ -132,7 +132,6 @@ public:
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
 	Netlist::Term *newTerm();
-	void dropContents();
 	void clear();
 };
 
@@ -224,7 +223,6 @@ struct ViewData {
 	RTLIL::Design *design = nullptr;
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
-	bool retired = false;
 	RecordStore records;
 	PortStore ports;
 	RtlilIndex index;

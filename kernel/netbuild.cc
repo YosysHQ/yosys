@@ -86,7 +86,6 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 		inst->hdl_type = module->get_string_attribute(ID::hdlname);
 
 	inst->parent = parent;
-	inst->view = &view_;
 
 	inst->kind = Netlist::Instance::Kind::Module;
 	if (module == nullptr && detail::isInternalType(type))

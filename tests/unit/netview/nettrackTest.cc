@@ -6,10 +6,10 @@ YOSYS_NAMESPACE_BEGIN
 
 using NetTrackTest = NetViewTest;
 
-// The view after passes, the old view is retired
+// The view after passes, the old view is cleared
 static std::unique_ptr<NetView> nextView(NetView &view, Design *design)
 {
-	view.retire();
+	view.clear();
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->build(design);
 	return next;
