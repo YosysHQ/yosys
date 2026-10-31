@@ -43,6 +43,12 @@ static Cell *addBidiCell(Design *design, Module *parent, const SigSpec &signal)
 
 using Pins = std::vector<const Netlist::Pin *>;
 
+static Pins sortedPins(Pins pins)
+{
+	std::sort(pins.begin(), pins.end());
+	return pins;
+}
+
 static TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::Kind::Pin)
 {
 	TrackedRef ref{kind};
@@ -92,8 +98,7 @@ TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 	EXPECT_EQ(a->term->net, y->term->net);
 	std::vector<const Netlist::Pin *> loads = {next->instance(i1, topChild(*next, u_sub))->pins[0],
 						   next->instance(i2, topChild(*next, u_sub))->pins[0]};
-	std::sort(loads.begin(), loads.end());
-	EXPECT_EQ(ref.pins, loads);
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins(loads));
 	EXPECT_TRUE(ref.result.flattened_hier_pin);
 	TrackedRef on_barrier{TrackedRef::Kind::Pin};
 	on_barrier.pins = {a};
@@ -450,6 +455,8 @@ TEST_F(NetProtectTest, inoutPinsKeepTheirCells)
 	EXPECT_TRUE(b->get_bool_attribute(ID::keep));
 	Pass::call(d, "flatten");
 	ASSERT_EQ(top->cell("\\u_m")->type, m->name); // a flattened u_m leaves a $scopeinfo cell u_m
+	t.next({&ref});
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins({t.child(b)->pins[0], t.child(top->cell("\\u_m"))->pins[0]}));
 }
 
 TEST_F(NetProtectTest, portCutsOfABusKeepPinBarriers)
@@ -486,6 +493,81 @@ TEST_F(NetProtectTest, droppedRefLosesItsProtection)
 	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
 	SigMap sigmap(top);
 	EXPECT_EQ(sigmap(u_inv2->getPort(ID(A))), sigmap(p));
+}
+
+TEST_F(NetProtectTest, pinRefKeepsEachOfItsPins)
+{
+	Cell *u_c = top->addCell("\\u_c", ID(INV));
+	u_c->setPort(ID(A), State::S0);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_c)->pins[0], t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)});
+	t.checkpoint({&ref});
+	t.next({&ref});
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins({t.child(u_c)->pins[0], t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)}));
+	EXPECT_FALSE(ref.isBehindNewLogic());
+	EXPECT_FALSE(ref.result.flattened_hier_pin);
+}
+
+TEST_F(NetProtectTest, ownPinsInAnyOrderAreNotBehindNewLogic)
+{
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv2)->pins[1], t.child(u_inv2)->pins[0]});
+	t.checkpoint({&ref});
+	t.next({&ref});
+	EXPECT_FALSE(ref.isBehindNewLogic());
+	EXPECT_EQ(ref.pins, (Pins{t.child(u_inv2)->pins[0], t.child(u_inv2)->pins[1]}));
+}
+
+TEST_F(NetProtectTest, renamedPortOfAFeedthroughKeepsItsDirection)
+{
+	ensurePasses();
+	Module *feed = d->addModule("\\feed");
+	Wire *feed_b = feed->addWire("\\b");
+	feed_b->port_output = true;
+	Wire *feed_d = feed->addWire("\\d", 2);
+	feed_d->port_input = true;
+	feed->fixup_ports();
+	feed->connect(feed_b, SigBit(feed_d, 1));
+	feed->addCell("\\g", ID(INV))->setPort(ID(A), SigBit(feed_d, 1));
+	Cell *u_f = top->addCell("\\u_f", "\\feed");
+	u_f->setPort("\\d", SigSpec(q).extract(0, 2));
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_f)->findPin("d", 1)});
+	t.checkpoint({&ref});
+	Pass::call(d, "splitnets -ports feed");
+	t.next({&ref});
+	ASSERT_EQ(ref.pins.size(), 1u);
+	EXPECT_EQ(ref.pins[0]->inst, t.child(u_f));
+	EXPECT_EQ(ref.pins[0]->dir(), Netlist::PortDir::Input);
+}
+
+TEST_F(NetProtectTest, pinRefFindsTopPins)
+{
+	Wire *o = top->addWire("\\o");
+	o->port_output = true;
+	top->fixup_ports();
+	top->connect(o, State::S0);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.view->top()->findPin("in", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]});
+	t.checkpoint({&ref});
+	top->rename(in, "\\in2");
+	top->rename(out, "\\in");
+	top->fixup_ports();
+	t.next({&ref});
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins({t.view->top()->findPin("in2", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]}));
+}
+
+TEST_F(NetProtectTest, driverBehindANewBuffer)
+{
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv0)->findPin("Y", 0)});
+	t.checkpoint({&ref});
+	Wire *w = top->addWire("\\w");
+	Cell *buf = top->addBufGate("$buf", w, u_inv0->getPort(ID(Y)));
+	u_inv0->setPort(ID(Y), w);
+	t.next({&ref});
+	EXPECT_EQ(ref.pins, Pins{t.child(buf)->findPin("Y", 0)});
+	EXPECT_TRUE(ref.isBehindNewLogic());
 }
 
 TEST_F(NetProtectTest, refsOnFlattenCopiesOfABarrierKeepOnlyThem)
@@ -556,6 +638,73 @@ TEST_F(NetProtectTest, loadOnTheCutWireOfADriverTakesItsOwnBarrier)
 	t.checkpoint({&driver, &load});
 	t.next({&driver, &load});
 	EXPECT_EQ(load.pins, Pins{t.child(g)->findPin("A", 0)});
+}
+
+TEST_F(NetProtectTest, mixedRefAfterFlatten)
+{
+	ensurePasses();
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.view->top()->findPin("in", 0), t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)});
+	t.checkpoint({&ref});
+	Pass::call(d, "flatten");
+	t.next({&ref});
+	Pins inside = {t.child(top->cell("\\u_sub.i1"))->pins[0], t.child(top->cell("\\u_sub.i2"))->pins[0]};
+	EXPECT_EQ(sortedPins(ref.result.loads_beyond), sortedPins(inside));
+	EXPECT_FALSE(ref.isBehindNewLogic());
+	EXPECT_TRUE(ref.result.flattened_hier_pin);
+}
+
+TEST_F(NetProtectTest, instanceBarrierOfARenamedPortGivesTheLeafPins)
+{
+	ensurePasses();
+	Module *pair = d->addModule("\\pair");
+	Wire *pair_d = pair->addWire("\\d", 2);
+	pair_d->port_input = true;
+	pair->fixup_ports();
+	pair->addCell("\\g", ID(INV))->setPort(ID(A), SigBit(pair_d, 1));
+	Cell *u_p = top->addCell("\\u_p", "\\pair");
+	u_p->setPort("\\d", SigSpec(q).extract(0, 2));
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_p)->findPin("d", 1)}), other = ref;
+	ref.hints.keep_as_instance = true;
+	t.checkpoint({&ref, &other});
+	Pass::call(d, "splitnets -ports pair");
+	t.next({&ref, &other});
+	ASSERT_NE(t.child(u_p)->findPin("d[1]", 0), nullptr);
+	Pins leaf = {t.view->instance(pair->cell("\\g"), t.child(u_p))->pins[0]};
+	EXPECT_EQ(ref.pins, leaf);
+	EXPECT_EQ(other.pins, leaf);
+}
+
+// A pass buffers the feedthrough o2 = in. The wire anchor on o2 is no lost name, the ref of in keeps in only
+TEST_F(NetProtectTest, splitFeedthroughKeepsTheTopPin)
+{
+	Wire *o2 = top->addWire("\\o2");
+	o2->port_output = true;
+	top->fixup_ports();
+	top->connect(o2, in);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.view->top()->findPin("in", 0)});
+	t.checkpoint({&ref});
+	top->new_connections({{tie, State::S0}});
+	Cell *buf = top->addCell("\\buf", ID(INV));
+	buf->setPort(ID(A), in);
+	buf->setPort(ID(Y), o2);
+	t.next({&ref});
+	EXPECT_EQ(ref.pins, Pins{t.view->top()->findPin("in", 0)});
+}
+
+TEST_F(NetProtectTest, flattenedOutputPinKeepsItsLoadsBeyond)
+{
+	ensurePasses();
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_sub)->findPin("y", 0)});
+	t.checkpoint({&ref});
+	Pass::call(d, "flatten");
+	t.next({&ref});
+	t.checkpoint({&ref});
+	t.next({&ref});
+	EXPECT_EQ(ref.result.loads_beyond, Pins{t.child(u_inv2)->pins[0]});
 }
 
 YOSYS_NAMESPACE_END

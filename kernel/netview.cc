@@ -579,6 +579,7 @@ std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 		if (Netlist::Net *net = contents.tieNet(value))
 			nets.push_back(net);
 	}
+	std::sort(nets.begin(), nets.end(), detail::idLess<Netlist::Net>);
 	return nets;
 }
 

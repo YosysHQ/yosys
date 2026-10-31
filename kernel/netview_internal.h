@@ -24,6 +24,8 @@ template <typename K, typename V> struct ListMap {
 	std::vector<V> none;
 };
 
+template <typename T> bool idLess(const T *a, const T *b) { return a->id < b->id; }
+
 struct Fingerprint;
 uint64_t mix64(uint64_t state, uint64_t value);
 bool designAlive(const RTLIL::Design *design);

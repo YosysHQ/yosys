@@ -4,7 +4,11 @@ YOSYS_NAMESPACE_BEGIN
 
 bool TrackedRef::Origin::isHierarchicalPin() const { return hier_pin_dir != Netlist::PortDir::Unknown; }
 
-bool TrackedRef::isBehindNewLogic() const { return !result.own_pins.empty() && result.own_pins != pins; }
+bool TrackedRef::isBehindNewLogic() const
+{
+	pool<const Netlist::Pin *> own(result.own_pins.begin(), result.own_pins.end());
+	return !own.empty() && own != pool<const Netlist::Pin *>(pins.begin(), pins.end());
+}
 
 bool TrackedRef::removedButLoadsKept() const { return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty(); }
 
@@ -198,8 +202,6 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 		return anchorCell(inst, {Anchor::Role::Cell, ref_index, data_.snapshot.cellScopePath(view_, inst), "", 0, "", false});
 	}
 	case TrackedRef::Kind::TopPort:
-		data_.top_ports_by_ref.add(ref_index, {ref.pins[at]->port().name, ref.pins[at]->hdlIndex()});
-		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	case TrackedRef::Kind::Pin:
 		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	}
@@ -208,6 +210,7 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
 {
 	if (pin->inst->isTop()) {
+		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
 		if (pin->term != nullptr)
 			anchorWires(pin->term->net, ref_index);
 		return;

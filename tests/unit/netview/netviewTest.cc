@@ -349,6 +349,21 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(view.instance(i1, second->parent), second);
 	EXPECT_EQ(view.instance(i1, view.top()), nullptr);
 }
+
+TEST_F(NetViewTest, constNetsComeInIdOrder)
+{
+	sub->connect(SigBit(y, 1), State::S1);
+	top->connect(top->addWire("\\one"), State::S1);
+	for (int i = 2; i < 8; i++)
+		top->addCell(stringf("\\u_sub%d", i), "\\sub")->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	std::vector<Netlist::Net *> ones = view.constNets(Netlist::Net::Const::One);
+	ASSERT_EQ(ones.size(), 8u);
+	for (size_t i = 1; i < ones.size(); i++)
+		EXPECT_LT(ones[i - 1]->id, ones[i]->id);
+}
+
 TEST_F(NetViewTest, selectionDoesNotMatter)
 {
 	NetView view;

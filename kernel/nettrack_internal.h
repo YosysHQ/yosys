@@ -209,10 +209,15 @@ private:
 	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
+	std::vector<const Netlist::Pin *> leafCutSides(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &renamed,
+						       std::vector<const Netlist::Pin *> &hier_pins, std::vector<const Netlist::Pin *> &flattened,
+						       Netlist::PortDir dir);
 	std::vector<const Netlist::Pin *> pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &cut) const;
 	void addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const;
 	std::vector<const Netlist::Instance *> resolveCell(const std::vector<AnchorHit> &hits);
 	std::vector<const Netlist::Pin *> resolvePort(const std::vector<AnchorHit> &hits, uint32_t ref_index);
+	void addTopPins(const std::vector<AnchorHit> &hits, uint32_t ref_index, TrackedRef &ref);
+	std::vector<const Netlist::Pin *> topPinsOfRef(const std::vector<AnchorHit> &hits, uint32_t ref_index) const;
 	std::vector<const Netlist::Pin *> namedTopPins(uint32_t ref_index) const;
 	void collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const;
 	std::vector<const Netlist::Pin *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
@@ -264,13 +269,13 @@ std::string barrierScopePath(const std::string &path, const RTLIL::Cell *barrier
 
 // Resolve
 std::vector<const AnchorHit *> hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role);
-std::vector<const Netlist::Pin *> hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves);
+std::vector<const Netlist::Pin *> hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves, Netlist::PortDir dir);
 const Netlist::Pin *findTopPort(const Netlist::Instance *top, const TopPortName &name);
 bool isNewBuffer(const NetView &view, const Snapshot &snapshot, const Netlist::Instance *inst);
 
-template <typename T> std::vector<T> uniqueSorted(std::vector<T> objects)
+template <typename T> std::vector<const T *> uniqueSorted(std::vector<const T *> objects)
 {
-	std::sort(objects.begin(), objects.end());
+	std::sort(objects.begin(), objects.end(), detail::idLess<T>);
 	objects.erase(std::unique(objects.begin(), objects.end()), objects.end());
 	return objects;
 }
