@@ -888,16 +888,10 @@ struct detail::Fingerprint {
 
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {
-	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name.str());
-		fp.eat(module->hashidx_);
-		bool blackbox = module->get_blackbox_attribute();
-		fp.eat(blackbox);
-		if (!blackbox)
-			continue;
-		for (RTLIL::IdString port : module->ports)
-			detail::hashWire(fp, module->wire(port));
-	}
+	uint64_t modules = 0;
+	for (RTLIL::Module *module : design->modules())
+		modules += detail::designModuleHash(module);
+	fp.eat(modules);
 	RTLIL::Module *top = detail::topModule(design);
 	Hasher::hash_t top_idx = 0;
 	if (top != nullptr)
@@ -905,24 +899,52 @@ void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 	fp.eat(top_idx);
 }
 
+uint64_t detail::designModuleHash(RTLIL::Module *module)
+{
+	detail::Fingerprint fp;
+	fp.eat(module->name.str());
+	fp.eat(module->hashidx_);
+	bool blackbox = module->get_blackbox_attribute();
+	fp.eat(blackbox);
+	if (!blackbox)
+		return fp.yield();
+	for (RTLIL::IdString port : module->ports)
+		fp.eat(detail::wireHash(module->wire(port)));
+	return fp.yield();
+}
+
 void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 {
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
+	fp.eat(detail::connectionsHash(module));
+	uint64_t wires = 0;
+	for (RTLIL::Wire *wire : module->wires())
+		wires += detail::wireHash(wire);
+	fp.eat(wires);
+	uint64_t cells = 0;
+	for (RTLIL::Cell *cell : module->cells())
+		cells += detail::cellHash(cell);
+	fp.eat(cells);
+}
+
+uint64_t detail::connectionsHash(RTLIL::Module *module)
+{
+	uint64_t connections = 0;
 	for (const auto &[lhs, rhs] : module->connections()) {
+		detail::Fingerprint fp;
 		fp.eat(GetSize(lhs));
 		fp.eat(lhs);
 		fp.eat(rhs);
+		connections += fp.yield();
 	}
-	for (RTLIL::Wire *wire : module->wires())
-		detail::hashWire(fp, wire);
-	for (RTLIL::Cell *cell : module->cells())
-		detail::hashCell(fp, cell);
+	return connections;
 }
 
-void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
+uint64_t detail::wireHash(RTLIL::Wire *wire)
 {
+	detail::Fingerprint fp;
 	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
 	flags |= detail::hasUserKeep(wire) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
 	fp.eat(wire->name.str());
@@ -930,19 +952,26 @@ void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
 	fp.eat(wire->width, wire->start_offset);
 	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
+	return fp.yield();
 }
 
-void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
+uint64_t detail::cellHash(RTLIL::Cell *cell)
 {
+	detail::Fingerprint fp;
 	fp.eat(cell->name.str());
 	fp.eat(cell->hashidx_);
 	fp.eat(cell->type.str());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
+	uint64_t ports = 0;
 	for (const auto &[port, sig] : cell->connections()) {
-		fp.eat(RTLIL::PooledName(cell->module, port).str());
-		fp.eat(GetSize(sig));
-		fp.eat(sig);
+		detail::Fingerprint port_fp;
+		port_fp.eat(RTLIL::PooledName(cell->module, port).str());
+		port_fp.eat(GetSize(sig));
+		port_fp.eat(sig);
+		ports += port_fp.yield();
 	}
+	fp.eat(ports);
+	return fp.yield();
 }
 
 detail::ChangeDetector::~ChangeDetector() { disarm(); }
@@ -950,6 +979,7 @@ detail::ChangeDetector::~ChangeDetector() { disarm(); }
 void detail::ChangeDetector::arm(RTLIL::Design *design, std::vector<std::string> module_names)
 {
 	design_ = design;
+	twines_serial_ = design->twines().serial();
 	watched_module_names_ = std::move(module_names);
 	fingerprint_ = computeFingerprint();
 	design_->monitors.insert(this);
@@ -961,22 +991,24 @@ void detail::ChangeDetector::disarm()
 	if (design_ != nullptr && detail::designAlive(design_))
 		design_->monitors.erase(this);
 	design_ = nullptr;
+	twines_serial_ = 0;
 	fingerprint_ = 0;
 	watched_module_names_.clear();
 	maybe_changed_ = false;
 	stale_ = false;
 }
 
-void detail::ChangeDetector::noteEvent() { maybe_changed_ = true; }
+void detail::ChangeDetector::noteEvent() const { maybe_changed_ = true; }
 
 bool detail::ChangeDetector::isStale() const
 {
 	if (stale_)
 		return true;
-	if (!maybe_changed_)
-		return false;
+	if (!detail::designAlive(design_) || design_->twines().serial() != twines_serial_)
+		stale_ = true;
+	else if (maybe_changed_)
+		stale_ = computeFingerprint() != fingerprint_;
 	maybe_changed_ = false;
-	stale_ = !detail::designAlive(design_) || computeFingerprint() != fingerprint_;
 	return stale_;
 }
 
@@ -1012,7 +1044,7 @@ void detail::ChangeDetector::notify_connect(RTLIL::Module *, const std::vector<R
 
 void detail::ChangeDetector::notify_blackout(RTLIL::Module *) { noteEvent(); }
 
-void NetView::recheck() { data_->watch.noteEvent(); }
+void NetView::recheck() const { data_->watch.noteEvent(); }
 
 bool NetView::upToDate() const
 {

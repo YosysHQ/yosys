@@ -14,6 +14,8 @@ NetTracker::~NetTracker() = default;
 
 void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode)
 {
+	// Edits without a monitor event make the view stale
+	view.recheck();
 	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
 	data.clearAnchors(view.design());

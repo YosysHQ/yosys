@@ -113,4 +113,21 @@ TEST_F(NetTrackTest, clearForgetsTheAnchors)
 	EXPECT_TRUE(cell.instances.empty());
 }
 
+using NetTrackDeathTest = NetTrackTest;
+
+// The delete of an unconnected cell fires no monitor event
+TEST_F(NetTrackDeathTest, checkpointRefusesAStaleView)
+{
+	Cell *u_spare = top->addCell("\\u_spare", ID(INV));
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Instance};
+	ref.instances = {topChild(view, u_spare)};
+	top->remove(u_spare);
+	EXPECT_TRUE(view.upToDate());
+	// log_assert exits with 1, a write to the freed cell is no exit or a signal
+	EXPECT_EXIT(tracker.checkpoint(view, {&ref}, TrackMode::AnchorsOnly), ::testing::ExitedWithCode(1), "");
+}
+
 YOSYS_NAMESPACE_END

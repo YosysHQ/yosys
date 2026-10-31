@@ -112,9 +112,11 @@ void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vecto
 
 // Fingerprint
 void hashDesign(Fingerprint &fp, RTLIL::Design *design);
+uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
-void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
-void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
+uint64_t connectionsHash(RTLIL::Module *module);
+uint64_t wireHash(RTLIL::Wire *wire);
+uint64_t cellHash(RTLIL::Cell *cell);
 
 struct RecordStore {
 	std::deque<Netlist::Instance> instances;
@@ -198,7 +200,7 @@ struct ChangeDetector final : public RTLIL::Monitor {
 	~ChangeDetector() override;
 	void arm(RTLIL::Design *design, std::vector<std::string> module_names);
 	void disarm();
-	void noteEvent();
+	void noteEvent() const;
 	bool isStale() const;
 	void refresh();
 	void notify_module_add(RTLIL::Module *module) override;
@@ -212,6 +214,7 @@ private:
 private:
 	RTLIL::Design *design_ = nullptr;
 	uint64_t fingerprint_ = 0;
+	size_t twines_serial_ = 0;
 	std::vector<std::string> watched_module_names_;
 	mutable bool maybe_changed_ = false;
 	mutable bool stale_ = false;

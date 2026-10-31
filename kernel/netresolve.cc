@@ -6,6 +6,7 @@ YOSYS_NAMESPACE_BEGIN
 
 void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &refs)
 {
+	view.recheck();
 	log_assert(view.upToDate());
 	detail::HitIndex hit_index(view, *data_);
 	detail::CutSideWalker walker(view, *data_);

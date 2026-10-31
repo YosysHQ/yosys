@@ -64,7 +64,7 @@ struct NetView final {
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void recheck();
+	void recheck() const;
 	void markUpToDate();
 
 	Counts counts() const;

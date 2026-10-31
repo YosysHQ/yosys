@@ -194,6 +194,47 @@ TEST_F(NetViewDeathTest, retiredPinHasNoPort)
 	EXPECT_EXIT((void)pin->port(), ::testing::ExitedWithCode(1), "");
 }
 
+// top: a -> g
+static void addInvTop(Design *design)
+{
+	addInv(design, "\\INV");
+	Module *m = design->addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	m->addWire(ID(a))->port_input = true;
+	m->fixup_ports();
+	m->addCell("\\g", ID(INV))->setPort(ID(A), m->wire(ID(a)));
+}
+
+TEST_F(NetViewTest, resetDesignIsStale)
+{
+	Design *other = new Design;
+	addInvTop(other);
+	NetView view;
+	view.build(other);
+	other->reset();
+	addInvTop(other);
+	view.recheck();
+	EXPECT_FALSE(view.upToDate());
+	view.clear();
+	delete other;
+}
+
+// write_verilog sorts the design, opt_clean reorders the connections
+TEST_F(NetViewTest, orderOfObjectsDoesNotMakeTheViewStale)
+{
+	Wire *alias = top->addWire("\\alias");
+	top->connect(alias, in);
+	NetView view;
+	view.build(d);
+	d->sort();
+	view.recheck();
+	EXPECT_TRUE(view.upToDate());
+	std::vector<SigSig> connections = top->connections();
+	std::reverse(connections.begin(), connections.end());
+	top->new_connections(connections);
+	EXPECT_TRUE(view.upToDate());
+}
+
 TEST_F(NetViewTest, topIsNoRegisterOrBuffer)
 {
 	NetView view;
