@@ -5,7 +5,7 @@
 //               finds the anchors and turns them into objects
 // Rules:
 // - identity is the signal plus the name at the checkpoint
-// - a ref takes the pins on the cut side of its barriers only
+// - a ref takes the pins on the cut side of its barriers
 // - a hierarchical pin that flatten removed resolves to its leaf pins inside: the loads of an input, the drivers of an output
 
 #ifndef NETTRACK_H
@@ -21,6 +21,12 @@ struct TrackData;
 }
 
 enum class TrackMode : uint8_t { AnchorsOnly, Barriers };
+
+struct PortRename {
+	std::string old_port;
+	int old_bit;
+	const Netlist::Pin *pin;
+};
 
 struct TrackedRef {
 	enum class Kind : uint8_t {
@@ -44,10 +50,12 @@ struct TrackedRef {
 	};
 
 	struct Result {
+		std::vector<const Netlist::Pin *> own_pins = {};
 		std::vector<const Netlist::Pin *> loads_beyond = {};
 		std::vector<const Netlist::Pin *> barrier_a_pins = {};
 		std::vector<const Netlist::Pin *> barrier_y_pins = {};
 		std::vector<const Netlist::Pin *> old_scope_pins = {};
+		std::vector<PortRename> port_renames = {};
 		bool flattened_hier_pin = false;
 	};
 
@@ -59,6 +67,7 @@ struct TrackedRef {
 	std::vector<const Netlist::Net *> nets = {};
 	Result result = {};
 public:
+	bool isBehindNewLogic() const;
 	bool removedButLoadsKept() const;
 };
 
@@ -74,6 +83,8 @@ struct NetTracker final {
 
 	void unprotect(RTLIL::Design *design);
 	pool<const RTLIL::Cell *> barrierInstances(RTLIL::Design *design) const;
+
+	bool isNewBuffer(const NetView &view, const Netlist::Instance *inst) const;
 private:
 	std::unique_ptr<detail::TrackData> data_;
 };

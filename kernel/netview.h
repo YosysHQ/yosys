@@ -1,8 +1,9 @@
 // NetView: the Netlist of an RTLIL design
 // - Instances  one per cell occurrence, depth first in statement order
-// - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
+// - Nets       one per SigMap bit, a $barrier joins its A and Y, a constant only from A
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 // - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
+// - Lifetime   records live until clear(), build after clear() restarts the ids
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -22,6 +23,7 @@ struct CellLibrary {
 	virtual bool ports(const Instance &inst, std::vector<Port> &out) = 0;
 	virtual bool isRegister(const Instance &inst);
 	virtual bool isClockPin(const Pin &pin);
+	virtual bool isBuffer(const Instance &inst);
 };
 
 } // namespace Netlist
@@ -63,7 +65,7 @@ struct NetView final {
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void recheck();
+	void recheck() const;
 	void markUpToDate();
 
 	Counts counts() const;
@@ -85,13 +87,8 @@ struct NetView final {
 
 	bool isRegister(const Netlist::Instance *inst) const;
 	bool isClockPin(const Netlist::Pin *pin) const;
+	bool isBuffer(const Netlist::Instance *inst) const;
 
-	void retire();
-	bool retired() const;
-	bool owns(const Netlist::Instance *inst) const;
-	bool owns(const Netlist::Pin *pin) const;
-	bool owns(const Netlist::Net *net) const;
-	bool owns(const Netlist::Term *term) const;
 private:
 	std::unique_ptr<detail::ViewData> data_;
 };

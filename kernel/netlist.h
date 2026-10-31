@@ -11,8 +11,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct NetView;
-
 namespace Netlist
 {
 
@@ -64,7 +62,6 @@ struct Instance {
 	Kind kind;
 	uint32_t id;
 	Instance *parent;
-	const NetView *view; // the owner
 	const std::vector<Port> *ports;
 	std::vector<Pin *> pins;
 	std::vector<Instance *> children;
@@ -82,7 +79,6 @@ struct Pin {
 	uint32_t id;
 	uint32_t port_index; // in inst->ports
 	int bit;
-	mutable uint32_t user = 0; // the consumer's value, 0 after each build
 public:
 	const Port &port() const;
 	PortDir dir() const;

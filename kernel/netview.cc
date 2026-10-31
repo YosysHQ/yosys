@@ -12,6 +12,8 @@ bool Netlist::CellLibrary::isRegister(const Instance &) { return false; }
 
 bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
 
+bool Netlist::CellLibrary::isBuffer(const Instance &) { return false; }
+
 NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
 
 NetView::~NetView() = default;
@@ -367,7 +369,7 @@ void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
 
 void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 {
-	log_assert(!built() && !retired());
+	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
@@ -391,7 +393,6 @@ void NetView::clear()
 	data_->design = nullptr;
 	data_->top = nullptr;
 	data_->library = nullptr;
-	data_->retired = false;
 	data_->records.clear();
 	data_->clearTables();
 }
@@ -404,26 +405,6 @@ void detail::ViewData::clearTables()
 	body_keys.clear();
 }
 
-void NetView::retire()
-{
-	data_->watch.disarm();
-	data_->design = nullptr;
-	data_->top = nullptr;
-	data_->library = nullptr;
-	data_->retired = true;
-	data_->clearTables();
-	data_->records.dropContents();
-}
-
-bool NetView::retired() const { return data_->retired; }
-
-bool NetView::owns(const Netlist::Instance *inst) const { return inst != nullptr && inst->view == this; }
-
-bool NetView::owns(const Netlist::Pin *pin) const { return pin != nullptr && owns(pin->inst); }
-
-bool NetView::owns(const Netlist::Net *net) const { return net != nullptr && owns(net->scope); }
-
-bool NetView::owns(const Netlist::Term *term) const { return term != nullptr && owns(term->pin); }
 Netlist::Instance *detail::RecordStore::newInstance()
 {
 	Netlist::Instance *inst = &instances.emplace_back();
@@ -452,22 +433,6 @@ Netlist::Term *detail::RecordStore::newTerm()
 	return term;
 }
 
-void detail::RecordStore::dropContents()
-{
-	for (Netlist::Instance &inst : instances) {
-		inst.pins = {};
-		inst.children = {};
-		inst.name = {};
-		inst.hdlpath = {};
-		inst.type = {};
-		inst.hdl_type = {};
-		inst.ports = nullptr;
-	}
-	for (Netlist::Net &net : nets) {
-		net.pins = {};
-		net.terms = {};
-	}
-}
 void detail::RecordStore::clear()
 {
 	instances.clear();
@@ -516,10 +481,18 @@ detail::NetNameRank detail::netNameRank(const RTLIL::SigBit &bit)
 {
 	const RTLIL::Wire *wire = bit.wire;
 	bool port = wire->port_id != 0;
-	bool keep = wire->get_bool_attribute(ID::keep);
+	bool keep = detail::hasUserKeep(wire);
 	bool pub = wire->name.isPublic();
 	size_t depth = detail::sourcePath(wire, wire->name.str()).size();
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
+}
+
+bool detail::hasUserKeep(const RTLIL::Wire *wire)
+{
+	if (!wire->get_bool_attribute(ID::keep))
+		return false;
+	std::string marker = std::string(detail::owned_marker_prefix) + "keep";
+	return !wire->get_bool_attribute(wire->module->design->twines().find(marker));
 }
 
 // $connect joins its two sides, as a module connection does
@@ -606,6 +579,7 @@ std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 		if (Netlist::Net *net = contents.tieNet(value))
 			nets.push_back(net);
 	}
+	std::sort(nets.begin(), nets.end(), detail::idLess<Netlist::Net>);
 	return nets;
 }
 
@@ -637,6 +611,8 @@ Netlist::PortDir detail::pinDirOfTarget(Netlist::WalkTarget target)
 
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
+	if (pin->dir() == Netlist::PortDir::Inout)
+		return true;
 	if (pin->inst->isLeaf())
 		return pin->isDriver() == (target == Netlist::WalkTarget::Drivers);
 	return pin->dir() == detail::pinDirOfTarget(target);
@@ -825,7 +801,7 @@ bool NetView::isRegister(const Netlist::Instance *inst) const
 {
 	if (data_->library != nullptr && data_->library->isRegister(*inst))
 		return true;
-	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+	return !inst->isTop() && StaticCellTypes::categories.is_ff(cell(inst)->type);
 }
 
 bool NetView::isClockPin(const Netlist::Pin *pin) const
@@ -833,7 +809,12 @@ bool NetView::isClockPin(const Netlist::Pin *pin) const
 	if (data_->library != nullptr && data_->library->isClockPin(*pin))
 		return true;
 	const std::string &name = pin->port().name;
-	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+	return !pin->inst->isTop() && StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+}
+
+bool NetView::isBuffer(const Netlist::Instance *inst) const
+{
+	return (!inst->isTop() && cell(inst)->type == ID($_BUF_)) || (data_->library != nullptr && data_->library->isBuffer(*inst));
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)
@@ -871,16 +852,10 @@ struct detail::Fingerprint {
 
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {
-	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name.str());
-		fp.eat(module->hashidx_);
-		bool blackbox = module->get_blackbox_attribute();
-		fp.eat(blackbox);
-		if (!blackbox)
-			continue;
-		for (RTLIL::IdString port : module->ports)
-			detail::hashWire(fp, module->wire(port));
-	}
+	uint64_t modules = 0;
+	for (RTLIL::Module *module : design->modules())
+		modules += detail::designModuleHash(module);
+	fp.eat(modules);
 	RTLIL::Module *top = detail::topModule(design);
 	Hasher::hash_t top_idx = 0;
 	if (top != nullptr)
@@ -888,44 +863,79 @@ void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 	fp.eat(top_idx);
 }
 
+uint64_t detail::designModuleHash(RTLIL::Module *module)
+{
+	detail::Fingerprint fp;
+	fp.eat(module->name.str());
+	fp.eat(module->hashidx_);
+	bool blackbox = module->get_blackbox_attribute();
+	fp.eat(blackbox);
+	if (!blackbox)
+		return fp.yield();
+	for (RTLIL::IdString port : module->ports)
+		fp.eat(detail::wireHash(module->wire(port)));
+	return fp.yield();
+}
+
 void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 {
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
+	fp.eat(detail::connectionsHash(module));
+	uint64_t wires = 0;
+	for (RTLIL::Wire *wire : module->wires())
+		wires += detail::wireHash(wire);
+	fp.eat(wires);
+	uint64_t cells = 0;
+	for (RTLIL::Cell *cell : module->cells())
+		cells += detail::cellHash(cell);
+	fp.eat(cells);
+}
+
+uint64_t detail::connectionsHash(RTLIL::Module *module)
+{
+	uint64_t connections = 0;
 	for (const auto &[lhs, rhs] : module->connections()) {
+		detail::Fingerprint fp;
 		fp.eat(GetSize(lhs));
 		fp.eat(lhs);
 		fp.eat(rhs);
+		connections += fp.yield();
 	}
-	for (RTLIL::Wire *wire : module->wires())
-		detail::hashWire(fp, wire);
-	for (RTLIL::Cell *cell : module->cells())
-		detail::hashCell(fp, cell);
+	return connections;
 }
 
-void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
+uint64_t detail::wireHash(RTLIL::Wire *wire)
 {
+	detail::Fingerprint fp;
 	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
-	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
+	flags |= detail::hasUserKeep(wire) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
 	fp.eat(wire->name.str());
 	fp.eat(wire->hashidx_);
 	fp.eat(wire->width, wire->start_offset);
 	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
+	return fp.yield();
 }
 
-void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
+uint64_t detail::cellHash(RTLIL::Cell *cell)
 {
+	detail::Fingerprint fp;
 	fp.eat(cell->name.str());
 	fp.eat(cell->hashidx_);
 	fp.eat(cell->type.str());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
+	uint64_t ports = 0;
 	for (const auto &[port, sig] : cell->connections()) {
-		fp.eat(RTLIL::PooledName(cell->module, port).str());
-		fp.eat(GetSize(sig));
-		fp.eat(sig);
+		detail::Fingerprint port_fp;
+		port_fp.eat(RTLIL::PooledName(cell->module, port).str());
+		port_fp.eat(GetSize(sig));
+		port_fp.eat(sig);
+		ports += port_fp.yield();
 	}
+	fp.eat(ports);
+	return fp.yield();
 }
 
 detail::ChangeDetector::~ChangeDetector() { disarm(); }
@@ -933,6 +943,7 @@ detail::ChangeDetector::~ChangeDetector() { disarm(); }
 void detail::ChangeDetector::arm(RTLIL::Design *design, std::vector<std::string> module_names)
 {
 	design_ = design;
+	twines_serial_ = design->twines().serial();
 	watched_module_names_ = std::move(module_names);
 	fingerprint_ = computeFingerprint();
 	design_->monitors.insert(this);
@@ -944,22 +955,24 @@ void detail::ChangeDetector::disarm()
 	if (design_ != nullptr && detail::designAlive(design_))
 		design_->monitors.erase(this);
 	design_ = nullptr;
+	twines_serial_ = 0;
 	fingerprint_ = 0;
 	watched_module_names_.clear();
 	maybe_changed_ = false;
 	stale_ = false;
 }
 
-void detail::ChangeDetector::noteEvent() { maybe_changed_ = true; }
+void detail::ChangeDetector::noteEvent() const { maybe_changed_ = true; }
 
 bool detail::ChangeDetector::isStale() const
 {
 	if (stale_)
 		return true;
-	if (!maybe_changed_)
-		return false;
+	if (!detail::designAlive(design_) || design_->twines().serial() != twines_serial_)
+		stale_ = true;
+	else if (maybe_changed_)
+		stale_ = computeFingerprint() != fingerprint_;
 	maybe_changed_ = false;
-	stale_ = !detail::designAlive(design_) || computeFingerprint() != fingerprint_;
 	return stale_;
 }
 
@@ -995,7 +1008,7 @@ void detail::ChangeDetector::notify_connect(RTLIL::Module *, const std::vector<R
 
 void detail::ChangeDetector::notify_blackout(RTLIL::Module *) { noteEvent(); }
 
-void NetView::recheck() { data_->watch.noteEvent(); }
+void NetView::recheck() const { data_->watch.noteEvent(); }
 
 bool NetView::upToDate() const
 {

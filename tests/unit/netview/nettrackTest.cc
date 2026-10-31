@@ -6,10 +6,10 @@ YOSYS_NAMESPACE_BEGIN
 
 using NetTrackTest = NetViewTest;
 
-// The view after passes, the old view is retired
+// The view after passes, the old view is cleared
 static std::unique_ptr<NetView> nextView(NetView &view, Design *design)
 {
-	view.retire();
+	view.clear();
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->build(design);
 	return next;
@@ -50,6 +50,7 @@ TEST_F(NetTrackTest, resolveTakesItsOwnOccurrence)
 	tracker.resolve(*next, {&ref});
 	ASSERT_EQ(ref.pins.size(), 1u);
 	EXPECT_EQ(ref.pins[0]->inst->parent, topChild(*next, u_sub2));
+	EXPECT_EQ(ref.result.own_pins, ref.pins);
 	top->rename(u_sub2, "\\u_other");
 	std::unique_ptr<NetView> last = nextView(*next, d);
 	tracker.resolve(*last, {&ref});
@@ -110,6 +111,84 @@ TEST_F(NetTrackTest, clearForgetsTheAnchors)
 	std::unique_ptr<NetView> next = nextView(view, d);
 	tracker.resolve(*next, {&cell});
 	EXPECT_TRUE(cell.instances.empty());
+}
+
+// design -load brings back the attributes of an earlier checkpoint
+TEST_F(NetTrackTest, anchorsOfAnotherCheckpointNameNothing)
+{
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef first{TrackedRef::Kind::Instance}, second{TrackedRef::Kind::Instance};
+	first.instances = {topChild(view, u_inv0)};
+	second.instances = {topChild(view, u_inv2)};
+	tracker.checkpoint(view, {&first, &second}, TrackMode::AnchorsOnly);
+	IdString ref_attr = d->twines().find("\\netview_ref");
+	Const u_inv0_value = u_inv0->attributes.at(ref_attr);
+	Const u_inv2_value = u_inv2->attributes.at(ref_attr);
+	tracker.checkpoint(view, {&second, &first}, TrackMode::AnchorsOnly);
+	u_inv0->attributes[ref_attr] = u_inv0_value;
+	u_inv2->attributes[ref_attr] = u_inv2_value;
+	std::unique_ptr<NetView> next = nextView(view, d);
+	tracker.resolve(*next, {&second, &first});
+	EXPECT_TRUE(second.instances.empty());
+	EXPECT_TRUE(first.instances.empty());
+}
+
+// design -load moves autoidx back, the loaded u_inv0 holds the anchor of the first checkpoint
+TEST_F(NetTrackTest, loadedDesignKeepsItsOwnCheckpoint)
+{
+	ensurePasses();
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	Pass::call(d, "design -save netview_before");
+	TrackedRef first{TrackedRef::Kind::Instance}, second{TrackedRef::Kind::Instance};
+	first.instances = {topChild(view, u_inv0)};
+	tracker.checkpoint(view, {&first}, TrackMode::AnchorsOnly);
+	Pass::call(d, "design -save netview_first");
+	Pass::call(d, "design -load netview_before");
+	std::unique_ptr<NetView> next = nextView(view, d);
+	Module *loaded = d->module(ID(top));
+	second.instances = {topChild(*next, loaded->cell("\\u_inv2"))};
+	tracker.checkpoint(*next, {&second}, TrackMode::AnchorsOnly);
+	Pass::call(d, "design -load netview_first");
+	std::unique_ptr<NetView> last = nextView(*next, d);
+	tracker.resolve(*last, {&second});
+	EXPECT_TRUE(second.instances.empty());
+}
+
+using NetTrackDeathTest = NetTrackTest;
+
+// The delete of an unconnected cell fires no monitor event
+TEST_F(NetTrackDeathTest, checkpointRefusesAStaleView)
+{
+	Cell *u_spare = top->addCell("\\u_spare", ID(INV));
+	NetView view;
+	view.build(d);
+	NetTracker tracker;
+	TrackedRef ref{TrackedRef::Kind::Instance};
+	ref.instances = {topChild(view, u_spare)};
+	top->remove(u_spare);
+	EXPECT_TRUE(view.upToDate());
+	// log_assert exits with 1, a write to the freed cell is no exit or a signal
+	EXPECT_EXIT(tracker.checkpoint(view, {&ref}, TrackMode::AnchorsOnly), ::testing::ExitedWithCode(1), "");
+}
+
+// Two trackers on one design remove the anchors, keeps and barriers of each other
+TEST_F(NetTrackDeathTest, secondTrackerOnADesignIsRefused)
+{
+	NetView view;
+	view.build(d);
+	NetTracker first, second;
+	first.checkpoint(view, {}, TrackMode::AnchorsOnly);
+	// the sink is in the child process of the death test only
+	EXPECT_EXIT(
+	  {
+		  logger().add_sink<StderrLogSink>(true);
+		  second.checkpoint(view, {}, TrackMode::AnchorsOnly);
+	  },
+	  ::testing::ExitedWithCode(1), "another tracker");
 }
 
 YOSYS_NAMESPACE_END

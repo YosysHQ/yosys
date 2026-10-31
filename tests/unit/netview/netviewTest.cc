@@ -144,8 +144,6 @@ TEST_F(NetViewTest, clearRestartsIds)
 {
 	NetView view;
 	view.build(d);
-	const Netlist::Pin *pin = view.top()->pins[0];
-	pin->user = 7; // a consumer writes it through a const pin
 	view.clear();
 	EXPECT_FALSE(view.built());
 	EXPECT_FALSE(view.upToDate());
@@ -153,45 +151,79 @@ TEST_F(NetViewTest, clearRestartsIds)
 	view.build(d);
 	EXPECT_TRUE(view.upToDate());
 	EXPECT_EQ(view.top()->pins[0]->id, 1u);
-	EXPECT_EQ(view.top()->pins[0]->user, 0u);
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }
 
-TEST_F(NetViewTest, retireKeepsOwners)
+// top: a -> g
+static void addInvTop(Design *design)
 {
-	NetView view;
-	view.build(d);
-	Netlist::Instance *inv = topChild(view, u_inv0);
-	view.retire();
-	EXPECT_TRUE(view.retired());
-	EXPECT_EQ(inv->view, &view);
-	EXPECT_TRUE(view.owns(inv));
-	EXPECT_TRUE(inv->pins.empty());
-	EXPECT_EQ(topChild(view, u_inv0), nullptr);
+	addInv(design, "\\INV");
+	Module *m = design->addModule(ID(top));
+	m->set_bool_attribute(ID::top);
+	m->addWire(ID(a))->port_input = true;
+	m->fixup_ports();
+	m->addCell("\\g", ID(INV))->setPort(ID(A), m->wire(ID(a)));
 }
 
-TEST_F(NetViewTest, retiredViewIsNotBuilt)
+TEST_F(NetViewTest, resetDesignIsStale)
 {
+	Design *other = new Design;
+	addInvTop(other);
 	NetView view;
-	view.build(d);
-	view.retire();
-	EXPECT_FALSE(view.built());
+	view.build(other);
+	other->reset();
+	addInvTop(other);
+	view.recheck();
 	EXPECT_FALSE(view.upToDate());
-	EXPECT_EQ(view.top(), nullptr);
-	EXPECT_EQ(view.counts(), NetView::Counts{});
+	view.clear();
+	delete other;
 }
 
-using NetViewDeathTest = NetViewTest;
+// write_verilog sorts the design, opt_clean reorders the connections
+TEST_F(NetViewTest, orderOfObjectsDoesNotMakeTheViewStale)
+{
+	Wire *alias = top->addWire("\\alias");
+	top->connect(alias, in);
+	NetView view;
+	view.build(d);
+	d->sort();
+	view.recheck();
+	EXPECT_TRUE(view.upToDate());
+	std::vector<SigSig> connections = top->connections();
+	std::reverse(connections.begin(), connections.end());
+	top->new_connections(connections);
+	EXPECT_TRUE(view.upToDate());
+}
 
-TEST_F(NetViewDeathTest, retiredPinHasNoPort)
+TEST_F(NetViewTest, topIsNoRegisterOrBuffer)
 {
 	NetView view;
 	view.build(d);
-	const Netlist::Pin *pin = topChild(view, u_inv0)->pins[0];
-	view.retire();
-	// log_assert exits with 1, a null pointer read is a signal
-	EXPECT_EXIT((void)pin->port(), ::testing::ExitedWithCode(1), "");
+	EXPECT_FALSE(view.isRegister(view.top()));
+	EXPECT_FALSE(view.isBuffer(view.top()));
+	EXPECT_FALSE(view.isClockPin(view.top()->pins[0]));
+}
+
+// top: w <- u_bidi.io (bidi: io <- g)
+TEST_F(NetViewTest, walksPassInoutPorts)
+{
+	Module *bidi = d->addModule("\\bidi");
+	Wire *io = bidi->addWire("\\io");
+	io->port_input = true;
+	io->port_output = true;
+	bidi->fixup_ports();
+	Cell *g = bidi->addCell("\\g", ID(INV));
+	g->setPort(ID(Y), io);
+	Wire *w = top->addWire("\\w");
+	Cell *u_bidi = top->addCell("\\u_bidi", "\\bidi");
+	u_bidi->setPort("\\io", w);
+	NetView view;
+	view.build(d);
+	const Netlist::Instance *bidi_inst = topChild(view, u_bidi);
+	Netlist::Pin *driver = view.instance(g, bidi_inst)->pins[1];
+	std::vector<Netlist::Pin *> drivers = view.leafPins(bidi_inst->pins[0]->net, Netlist::WalkTarget::Drivers);
+	EXPECT_EQ(drivers, std::vector<Netlist::Pin *>{driver});
 }
 TEST_F(NetViewTest, namingPrefersKeepThenShallowHdlpath)
 {
@@ -314,6 +346,21 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	EXPECT_EQ(view.instance(i1, second->parent), second);
 	EXPECT_EQ(view.instance(i1, view.top()), nullptr);
 }
+
+TEST_F(NetViewTest, constNetsComeInIdOrder)
+{
+	sub->connect(SigBit(y, 1), State::S1);
+	top->connect(top->addWire("\\one"), State::S1);
+	for (int i = 2; i < 8; i++)
+		top->addCell(stringf("\\u_sub%d", i), "\\sub")->setPort(ID(a), in);
+	NetView view;
+	view.build(d);
+	std::vector<Netlist::Net *> ones = view.constNets(Netlist::Net::Const::One);
+	ASSERT_EQ(ones.size(), 8u);
+	for (size_t i = 1; i < ones.size(); i++)
+		EXPECT_LT(ones[i - 1]->id, ones[i]->id);
+}
+
 TEST_F(NetViewTest, selectionDoesNotMatter)
 {
 	NetView view;
@@ -743,19 +790,46 @@ TEST_F(NetViewTest, cutWireNamesNoNet)
 	EXPECT_EQ(view.name(driven).wire, "$post");
 }
 
-TEST_F(NetViewTest, barrierOnAConstantKeepsItsNet)
+// a protected load pin of a constant: c -> $barrier -> post -> u_inv2
+TEST_F(NetViewTest, barrierFromAConstantIsConstant)
 {
 	Wire *c = top->addWire(ID(c));
 	top->connect(c, State::S1);
-	Cell *barrier = top->addBarrier("$b", c, p);
+	Wire *post = top->addWire("$post");
+	Cell *barrier = top->addBarrier("$b", c, post);
+	u_inv2->setPort(ID(A), post);
 	NetView view;
 	view.build(d);
 	EXPECT_EQ(topChild(view, barrier), nullptr);
 	Netlist::Net *net = topChild(view, u_inv2)->pins[0]->net;
 	ASSERT_NE(net, nullptr);
+	EXPECT_EQ(net->constant, Netlist::Net::Const::One);
+	EXPECT_EQ(view.constNets(Netlist::Net::Const::One), std::vector<Netlist::Net *>{net});
+}
+
+// x on A makes no net, Y keeps its own
+TEST_F(NetViewTest, barrierFromXKeepsTheNet)
+{
+	Wire *post = top->addWire("$post");
+	top->addBarrier("$b", State::Sx, post);
+	u_inv2->setPort(ID(A), post);
+	NetView view;
+	view.build(d);
+	Netlist::Net *net = topChild(view, u_inv2)->pins[0]->net;
+	ASSERT_NE(net, nullptr);
 	EXPECT_EQ(net->constant, Netlist::Net::Const::None);
-	EXPECT_EQ(view.name(net).wire, "p");
-	EXPECT_EQ(net->pins.size(), 2u);
+	EXPECT_EQ(view.name(net).wire, "$post");
+}
+
+// literal 1 on A: 1 -> $barrier -> post -> u_inv2
+TEST_F(NetViewTest, barrierFromALiteralConstantIsConstant)
+{
+	Wire *post = top->addWire("$post");
+	top->addBarrier("$b", State::S1, post);
+	u_inv2->setPort(ID(A), post);
+	NetView view;
+	view.build(d);
+	EXPECT_EQ(topChild(view, u_inv2)->pins[0]->net->constant, Netlist::Net::Const::One);
 }
 
 TEST_F(NetViewTest, barrierOntoAConstantKeepsTheDrivenNet)

@@ -24,6 +24,8 @@ template <typename K, typename V> struct ListMap {
 	std::vector<V> none;
 };
 
+template <typename T> bool idLess(const T *a, const T *b) { return a->id < b->id; }
+
 struct Fingerprint;
 uint64_t mix64(uint64_t state, uint64_t value);
 bool designAlive(const RTLIL::Design *design);
@@ -52,12 +54,15 @@ bool checkIndices(RTLIL::Module *module, std::string &reason);
 void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes);
 
 // Cells
+constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
+
 bool isInternalType(RTLIL::IdString type);
 bool isTransparentType(RTLIL::IdString type);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 constexpr std::string_view cut_attr = "\\netview_cut";
 bool isCutWire(const RTLIL::Wire *wire);
+bool hasUserKeep(const RTLIL::Wire *wire);
 
 // Ports
 enum class CellTypeTable : uint8_t { Static, Yosys };
@@ -109,9 +114,11 @@ void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vecto
 
 // Fingerprint
 void hashDesign(Fingerprint &fp, RTLIL::Design *design);
+uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
-void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
-void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
+uint64_t connectionsHash(RTLIL::Module *module);
+uint64_t wireHash(RTLIL::Wire *wire);
+uint64_t cellHash(RTLIL::Cell *cell);
 
 struct RecordStore {
 	std::deque<Netlist::Instance> instances;
@@ -127,7 +134,6 @@ public:
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
 	Netlist::Term *newTerm();
-	void dropContents();
 	void clear();
 };
 
@@ -195,7 +201,7 @@ struct ChangeDetector final : public RTLIL::Monitor {
 	~ChangeDetector() override;
 	void arm(RTLIL::Design *design, std::vector<std::string> module_names);
 	void disarm();
-	void noteEvent();
+	void noteEvent() const;
 	bool isStale() const;
 	void refresh();
 	void notify_module_add(RTLIL::Module *module) override;
@@ -209,6 +215,7 @@ private:
 private:
 	RTLIL::Design *design_ = nullptr;
 	uint64_t fingerprint_ = 0;
+	size_t twines_serial_ = 0;
 	std::vector<std::string> watched_module_names_;
 	mutable bool maybe_changed_ = false;
 	mutable bool stale_ = false;
@@ -218,7 +225,6 @@ struct ViewData {
 	RTLIL::Design *design = nullptr;
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
-	bool retired = false;
 	RecordStore records;
 	PortStore ports;
 	RtlilIndex index;

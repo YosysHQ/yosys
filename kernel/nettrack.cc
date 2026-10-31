@@ -4,6 +4,12 @@ YOSYS_NAMESPACE_BEGIN
 
 bool TrackedRef::Origin::isHierarchicalPin() const { return hier_pin_dir != Netlist::PortDir::Unknown; }
 
+bool TrackedRef::isBehindNewLogic() const
+{
+	pool<const Netlist::Pin *> own(result.own_pins.begin(), result.own_pins.end());
+	return !own.empty() && own != pool<const Netlist::Pin *>(pins.begin(), pins.end());
+}
+
 bool TrackedRef::removedButLoadsKept() const { return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty(); }
 
 NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
@@ -12,9 +18,16 @@ NetTracker::~NetTracker() = default;
 
 void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode)
 {
+	// Edits without a monitor event make the view stale
+	view.recheck();
 	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
+	data.bind(view.design());
 	data.clearAnchors(view.design());
+	if (mode == TrackMode::Barriers) {
+		data.barriers.skipIdsInUse(view.design());
+		detail::removeOwnedKeeps(view.design());
+	}
 	data.snapshot.take(view);
 	detail::CutSideWalker walker(view, data);
 	detail::AnchorWriter anchors(view, data, walker);
@@ -27,11 +40,19 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 				barriers.protect(ref_index, ref, at);
 		}
 	}
-	if (mode == TrackMode::Barriers && !barriers.madeNewBarrierInstance())
+	if (mode != TrackMode::Barriers)
+		return;
+	barriers.cutPorts();
+	barriers.removeUnusedBarriers();
+	if (!barriers.changedView())
 		view.markUpToDate();
 }
 
-void NetTracker::clear(RTLIL::Design *design) { data_->clearAnchors(design); }
+void NetTracker::clear(RTLIL::Design *design)
+{
+	data_->bind(design);
+	data_->clearAnchors(design);
+}
 
 size_t detail::objectCount(const TrackedRef &ref)
 {
@@ -45,6 +66,18 @@ size_t detail::objectCount(const TrackedRef &ref)
 		return ref.nets.size();
 	}
 	return 0;
+}
+
+detail::TrackData::TrackData() : serial(++last_serial) { live_serials.insert(serial); }
+
+detail::TrackData::~TrackData() { live_serials.erase(serial); }
+
+void detail::TrackData::bind(RTLIL::Design *design) const
+{
+	int owner = design->scratchpad_get_int(std::string(detail::tracker_key), 0);
+	if (owner != serial && live_serials.count(owner))
+		log_error("NetTracker: the design has another tracker, a second tracker would remove its anchors, keeps and barriers.\n");
+	design->scratchpad_set_int(std::string(detail::tracker_key), serial);
 }
 
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
@@ -73,11 +106,16 @@ void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *s
 {
 	for (const Netlist::Instance *child : scope->children) {
 		cell_names[view.cell(child)->hashidx_] = child->localName();
+		cell_paths.insert(scopePath(view, child));
 		takeScope(view, child);
 	}
 }
 
-void detail::Snapshot::clear() { cell_names.clear(); }
+void detail::Snapshot::clear()
+{
+	cell_names.clear();
+	cell_paths.clear();
+}
 
 std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
 {
@@ -99,10 +137,8 @@ std::string detail::Snapshot::cellScopePath(const NetView &view, const Netlist::
 void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
 {
 	RTLIL::IdString id = detail::refAttrId(design, IdLookup::AddIfMissing);
-	if (!object->has_attribute(id)) {
-		object->attributes[id] = RTLIL::Const(int(anchors_by_ref_attr.size()));
-		anchors_by_ref_attr.emplace_back();
-	}
+	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
+		object->attributes[id] = RTLIL::Const(detail::newRefValue(design));
 	anchors_by_ref_attr[object->attributes.at(id).as_int()].push_back(anchor);
 }
 
@@ -114,10 +150,41 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
 	if (!object->has_attribute(id))
 		return none;
-	size_t index = object->attributes.at(id).as_int();
-	if (index >= anchors_by_ref_attr.size())
-		return none;
-	return anchors_by_ref_attr[index];
+	return anchors_by_ref_attr.at(object->attributes.at(id).as_int(), none);
+}
+
+int detail::newRefValue(RTLIL::Design *design)
+{
+	static int last_value = detail::keySeed(design);
+	log_assert(last_value < INT_MAX);
+	return ++last_value;
+}
+
+int detail::keySeed(RTLIL::Design *design)
+{
+	static std::optional<int> seed;
+	if (seed)
+		return *seed;
+	uint64_t hash = 0;
+	for (RTLIL::Module *module : design->modules()) {
+		hash += detail::designModuleHash(module);
+		for (RTLIL::Cell *cell : module->cells())
+			hash += detail::cellHash(cell);
+	}
+	seed = int(hash >> 34); // 30 bits, 2^30 keys stay free below INT_MAX
+	return *seed;
+}
+
+void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObject *object, uint32_t ref_index, const Netlist::Pin *pin)
+{
+	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
+		return;
+	for (Anchor &anchor : anchors_by_ref_attr.at(object->attributes.at(id).as_int())) {
+		bool same_pin = anchor.port == pin->port().name && anchor.bit == pin->bit;
+		if (anchor.role == Anchor::Role::Pin && anchor.ref_index == ref_index && same_pin)
+			anchor.uncut = true;
+	}
 }
 
 void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }
@@ -131,11 +198,10 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 		return anchorWires(ref.nets[at], ref_index);
 	case TrackedRef::Kind::Instance: {
 		const Netlist::Instance *inst = ref.instances[at];
+		log_assert(!inst->isTop());
 		return anchorCell(inst, {Anchor::Role::Cell, ref_index, data_.snapshot.cellScopePath(view_, inst), "", 0, "", false});
 	}
 	case TrackedRef::Kind::TopPort:
-		data_.top_ports_by_ref.add(ref_index, {ref.pins[at]->port().name, ref.pins[at]->hdlIndex()});
-		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	case TrackedRef::Kind::Pin:
 		return anchorPin(ref.pins[at], ref_index, ref, mode);
 	}
@@ -144,6 +210,7 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
 {
 	if (pin->inst->isTop()) {
+		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
 		if (pin->term != nullptr)
 			anchorWires(pin->term->net, ref_index);
 		return;
@@ -175,7 +242,7 @@ void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pi
 	if (pin->dir() != Netlist::PortDir::Input)
 		return;
 	std::vector<const Netlist::Pin *> drivers;
-	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, drivers);
+	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const Netlist::Pin *driver : drivers)
 		anchorPin(driver, ref_index, ref, TrackMode::AnchorsOnly);
 	ref.origin.anchored_on_drivers = !drivers.empty();

@@ -86,7 +86,6 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 		inst->hdl_type = module->get_string_attribute(ID::hdlname);
 
 	inst->parent = parent;
-	inst->view = &view_;
 
 	inst->kind = Netlist::Instance::Kind::Module;
 	if (module == nullptr && detail::isInternalType(type))
@@ -273,11 +272,12 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 			continue;
 		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
-			// Barriers join no constant, so the cell order does not change this
-			if (sigmap(a[b]).wire == nullptr || sigmap(y[b]).wire == nullptr)
+			RTLIL::SigBit a_root = sigmap(a[b]);
+			bool a_has_net = a_root.wire != nullptr || a_root.data == RTLIL::State::S0 || a_root.data == RTLIL::State::S1;
+			if (sigmap(y[b]).wire == nullptr || !a_has_net)
 				continue;
 			// The second bit stays the root, so a cut wire never names a net
-			if (detail::isCutWire(a[b].wire))
+			if (a[b].wire != nullptr && detail::isCutWire(a[b].wire))
 				sigmap.add(a[b], y[b]);
 			else
 				sigmap.add(y[b], a[b]);
