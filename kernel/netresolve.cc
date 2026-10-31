@@ -460,13 +460,15 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 // dfflibmap renames C to CK, abc swaps inputs
 std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &insts)
 {
+	bool same_cells = !detail::hitsOfRole(hits, Anchor::Role::Cell).empty();
 	std::vector<PortRename> renames;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> pins;
 		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 		for (const Netlist::Pin *pin : pins) {
-			if (std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
-				renames.push_back({hit->anchor.port, pin->port().name, pin->inst});
+			bool identity = same_cells && pin->port().name == hit->anchor.port && pin->bit == hit->anchor.bit;
+			if (!identity && std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
+				renames.push_back({hit->anchor.port, hit->anchor.bit, pin});
 		}
 	}
 	return renames;

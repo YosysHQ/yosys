@@ -24,8 +24,8 @@ enum class TrackMode : uint8_t { AnchorsOnly, Barriers };
 
 struct PortRename {
 	std::string old_port;
-	std::string new_port;
-	const Netlist::Instance *inst;
+	int old_bit;
+	const Netlist::Pin *pin;
 };
 
 struct TrackedRef {

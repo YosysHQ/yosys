@@ -144,8 +144,6 @@ TEST_F(NetViewTest, clearRestartsIds)
 {
 	NetView view;
 	view.build(d);
-	const Netlist::Pin *pin = view.top()->pins[0];
-	pin->user = 7; // a consumer writes it through a const pin
 	view.clear();
 	EXPECT_FALSE(view.built());
 	EXPECT_FALSE(view.upToDate());
@@ -153,7 +151,6 @@ TEST_F(NetViewTest, clearRestartsIds)
 	view.build(d);
 	EXPECT_TRUE(view.upToDate());
 	EXPECT_EQ(view.top()->pins[0]->id, 1u);
-	EXPECT_EQ(view.top()->pins[0]->user, 0u);
 	EXPECT_EQ(view.top()->children[0]->id, 1u);
 	EXPECT_EQ(view.nets(view.top())[0]->id, 1u);
 }

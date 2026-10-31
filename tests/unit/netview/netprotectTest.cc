@@ -541,6 +541,42 @@ TEST_F(NetProtectTest, renamedPortOfAFeedthroughKeepsItsDirection)
 	EXPECT_EQ(ref.pins[0]->dir(), Netlist::PortDir::Input);
 }
 
+// u_inv2 keeps its anchor and ports, it has no port renames. A pass maps g(A[1:0], Y) to G2(I[1:0], Y) with the bits
+// of A swapped, the renames of g hold the old and the new bit
+TEST_F(NetProtectTest, portRenamesHoldTheBit)
+{
+	for (auto [type, input] : {std::pair{"\\G", "\\A"}, std::pair{"\\G2", "\\I"}}) {
+		Module *module = d->addModule(type);
+		module->addWire(input, 2)->port_input = true;
+		module->addWire("\\Y")->port_output = true;
+		module->fixup_ports();
+		module->set_bool_attribute(ID::blackbox);
+	}
+	Cell *g = top->addCell("\\g", "\\G");
+	g->setPort(ID(A), SigSpec({p, d0}));
+	g->setPort(ID(Y), top->addWire("\\g_y"));
+	TrackedView t(d);
+	TrackedRef kept{TrackedRef::Kind::Instance}, cell{TrackedRef::Kind::Instance};
+	kept.instances = {t.child(u_inv2)};
+	cell.instances = {t.child(g)};
+	t.checkpoint({&kept, &cell});
+	SigSpec swapped = g->getPort(ID(A))[1];
+	swapped.append(g->getPort(ID(A))[0]);
+	g->unsetPort(ID(A));
+	g->type = d->twines().add("\\G2");
+	g->setPort("\\I", swapped);
+	t.next({&kept, &cell});
+	EXPECT_EQ(kept.instances, std::vector<const Netlist::Instance *>{t.child(u_inv2)});
+	EXPECT_TRUE(kept.result.port_renames.empty());
+	ASSERT_EQ(cell.result.port_renames.size(), 2u);
+	EXPECT_NE(cell.result.port_renames[0].old_bit, cell.result.port_renames[1].old_bit);
+	for (const PortRename &rename : cell.result.port_renames) {
+		EXPECT_EQ(rename.old_port, "A");
+		EXPECT_EQ(rename.pin->port().name, "I");
+		EXPECT_EQ(rename.pin->bit, 1 - rename.old_bit);
+	}
+}
+
 TEST_F(NetProtectTest, pinRefFindsTopPins)
 {
 	Wire *o = top->addWire("\\o");
