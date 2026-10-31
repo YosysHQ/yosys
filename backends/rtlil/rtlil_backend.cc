@@ -131,11 +131,8 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 	}
 }
 
-void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
+static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
 {
-	if (design == nullptr || used.empty())
-		return;
-
 	std::vector<IdString> ids;
 	pool<IdString> closed;
 	for (IdString used_id : used)
@@ -146,17 +143,17 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 		}
 	std::sort(ids.begin(), ids.end());
 
-	f << stringf("twines\n");
+	f << stringf("  twines\n");
 	for (IdString id : ids) {
 		const TwineNode &n = design->twines()[id];
 		switch (n.kind()) {
-		case TwineNode::Kind::Leaf:
-			f << stringf("  leaf %zu ", id.raw());
+		case TwineNode::Kind::Root:
+			f << stringf("    root %zu ", id.raw());
 			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
 			break;
 		case TwineNode::Kind::Suffix:
-			f << stringf("  suffix %zu %zu ", id.raw(), n.prefix().raw());
+			f << stringf("    suffix %zu %zu ", id.raw(), n.prefix().raw());
 			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
 			break;
@@ -164,6 +161,16 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 			break;
 		}
 	}
+	f << stringf("  end\n");
+}
+
+void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used_twines)
+{
+	if (design == nullptr || used_twines.empty())
+		return;
+
+	f << stringf("metadata\n");
+	dump_twines(f, design, used_twines);
 	f << stringf("end\n");
 }
 
@@ -490,7 +497,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (only_selected)
 			f << stringf("\n");
 		f << stringf("autoidx %d\n", design->twines().autoidx());
-		dump_twines(f, design, used_twines);
+		dump_metadata(f, design, used_twines);
 	}
 
 	if (body.tellp() > 0)

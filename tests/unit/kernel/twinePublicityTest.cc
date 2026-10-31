@@ -5,7 +5,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-TEST(TwinePublicityTest, LeafEscape)
+TEST(TwinePublicityTest, RootEscape)
 {
 	TwinePool pool;
 	IdString pub = pool.add(std::string("\\foo"));
@@ -81,12 +81,12 @@ TEST(TwinePublicityTest, LookupTag)
 TEST(TwinePublicityTest, SearchUnifies)
 {
 	TwinePool pool;
-	IdString flat = pool.add(TwineSpec::Leaf{"$abc"});
-	IdString head = pool.add(TwineSpec::Leaf{"$a"});
+	IdString flat = pool.add(TwineSpec::Root{"$abc"});
+	IdString head = pool.add(TwineSpec::Root{"$a"});
 	IdString split = pool.add(TwineSpec::Suffix{head, "bc"});
 
 	ASSERT_EQ(flat, split);
-	EXPECT_TRUE(pool[split].is_leaf());
+	EXPECT_TRUE(pool[split].is_root());
 
 	EXPECT_EQ(pool.find(std::string_view("$abc")), flat);
 	EXPECT_EQ(pool.find(std::string_view("$a")), head);
@@ -95,13 +95,13 @@ TEST(TwinePublicityTest, SearchUnifies)
 TEST(TwinePublicityTest, SearchPublicity)
 {
 	TwinePool pool;
-	IdString priv = pool.add(TwineSpec::Leaf{"sig"});
+	IdString priv = pool.add(TwineSpec::Root{"sig"});
 	IdString pub = pool.add(std::string("\\sig"));
 
 	ASSERT_EQ(priv, pub.untag());
 
 	IdString found_pub = pool.find(std::string_view("\\sig"));
-	IdString found_priv = pool.find(TwineSpec::Leaf{"sig"});
+	IdString found_priv = pool.find(TwineSpec::Root{"sig"});
 
 	EXPECT_TRUE(found_pub.isPublic());
 	EXPECT_FALSE(found_priv.isPublic());
