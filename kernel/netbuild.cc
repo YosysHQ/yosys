@@ -11,20 +11,6 @@ void detail::ViewBuilder::build(RTLIL::Module *top)
 	buildScope(top, data_.top);
 }
 
-bool detail::ViewBuilder::yosysPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out) const
-{
-	RTLIL::Module *mod;
-	if (inst->isTop())
-		mod = view_.module(inst);
-	else
-		mod = data_.design->module(view_.cell(inst)->type);
-	if (mod != nullptr) {
-		detail::modulePorts(mod, out);
-		return true;
-	}
-	return detail::cellTypePorts(view_.cell(inst), out);
-}
-
 const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instance *inst, RTLIL::Module *sub)
 {
 	PortStore &store = data_.ports;
@@ -52,8 +38,13 @@ bool detail::ViewBuilder::leafPorts(const Netlist::Instance *inst, std::vector<N
 	Netlist::CellLibrary *library = data_.library;
 	if (library != nullptr && library->ports(*inst, out))
 		return true;
-	bool known = yosysPorts(inst, out);
-	bool connected = !view_.cell(inst)->connections().empty();
+	RTLIL::Cell *cell = view_.cell(inst);
+	bool known = true;
+	if (RTLIL::Module *blackbox = data_.design->module(cell->type))
+		detail::modulePorts(blackbox, out);
+	else
+		known = detail::cellTypePorts(cell, out);
+	bool connected = !cell->connections().empty();
 	if (!known && (library == nullptr || connected))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
 	if (library != nullptr)
@@ -115,6 +106,7 @@ void detail::ViewBuilder::buildScope(RTLIL::Module *module, Netlist::Instance *s
 		if (!inst->isLeaf())
 			buildScope(view_.module(inst), inst);
 	}
+	detail::nameChildren(scope);
 	registerWires(module, scope);
 }
 
@@ -141,7 +133,7 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 				continue;
 			Netlist::Net *inner_net = findOrMakeNet(inst, RTLIL::SigBit(inner_wire, b));
 			if (inner_net != nullptr)
-				makeTerm(pin, inner_net);
+				setInner(pin, inner_net);
 		}
 	}
 }
@@ -151,7 +143,7 @@ Netlist::Pin *detail::ViewBuilder::makePin(Netlist::Instance *inst, uint32_t por
 	Netlist::Pin *pin = data_.records.newPin();
 	pin->inst = inst;
 	pin->net = net;
-	pin->term = nullptr;
+	pin->inner = nullptr;
 	pin->port_index = port_index;
 	pin->bit = bit;
 	inst->pins.push_back(pin);
@@ -160,13 +152,10 @@ Netlist::Pin *detail::ViewBuilder::makePin(Netlist::Instance *inst, uint32_t por
 	return pin;
 }
 
-void detail::ViewBuilder::makeTerm(Netlist::Pin *pin, Netlist::Net *inner_net)
+void detail::ViewBuilder::setInner(Netlist::Pin *pin, Netlist::Net *inner_net)
 {
-	Netlist::Term *term = data_.records.newTerm();
-	term->pin = pin;
-	term->net = inner_net;
-	pin->term = term;
-	inner_net->terms.push_back(term);
+	pin->inner = inner_net;
+	inner_net->boundary.push_back(pin);
 }
 
 Netlist::Net *detail::ViewBuilder::newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
@@ -206,7 +195,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 				continue;
 
 			// Public wires collapsed into another wire's net (assign aliases) stay reachable under their own names
-			data_.scope_contents[scope].aliases.push_back({detail::netName(bit, wireOrigin(bit.wire)), net});
+			data_.index.net_rtlil[net->id].aliases.push_back(detail::netName(bit, wireOrigin(bit.wire)));
 			// A net is named after its best wire bit
 			if (net->constant == Netlist::Net::Const::None && detail::netNameRank(bit) < detail::netNameRank(nameBit(net)))
 				setNameBit(net, bit);
@@ -299,14 +288,10 @@ Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const
 
 Netlist::Net *detail::ViewBuilder::findOrMakeTieNet(Netlist::Instance *scope, const RTLIL::SigBit &canon)
 {
-	Netlist::Net::Const value = Netlist::Net::Const::Zero;
-	if (canon.data == RTLIL::State::S1)
-		value = Netlist::Net::Const::One;
-	if (Netlist::Net *net = data_.scope_contents[scope].tieNet(value))
-		return net;
-	Netlist::Net *net = newNet(scope, canon);
-	data_.scope_contents[scope].setTieNet(value, net);
-	return net;
+	Netlist::Net *&tie = data_.scope_contents[scope].tie_nets[canon.data == RTLIL::State::S1];
+	if (tie == nullptr)
+		tie = newNet(scope, canon);
+	return tie;
 }
 
 YOSYS_NAMESPACE_END
