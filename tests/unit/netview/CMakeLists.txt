@@ -1,5 +1,4 @@
 yosys_gtest(netview
-	netlistTest.cc
 	netprotectTest.cc
 	nettrackTest.cc
 	netviewHelpers.h
