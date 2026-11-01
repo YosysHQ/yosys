@@ -217,13 +217,11 @@ std::vector<const Netlist::Pin *> detail::Resolver::namedTopPins(uint32_t ref_in
 
 void detail::Resolver::collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const
 {
-	if (net == nullptr)
-		return;
-	for (const Netlist::Term *term : net->terms) {
-		if (term->pin->inst->isTop())
-			pins.push_back(term->pin);
-		else
-			collectTopPorts(term->pin->net, pins);
+	for (const Netlist::Net *above : detail::connectedNets(net, false)) {
+		for (const Netlist::Pin *port : above->boundary) {
+			if (port->inst->isTop())
+				pins.push_back(port);
+		}
 	}
 }
 
@@ -250,11 +248,11 @@ const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const 
 			continue;
 		if (data_.snapshot.scopePath(view_, at->scope) == scope_path)
 			return at;
-		for (const Netlist::Term *term : at->terms)
-			todo.push_back(term->pin->net);
+		for (const Netlist::Pin *port : at->boundary)
+			todo.push_back(port->net);
 		for (const Netlist::Pin *pin : at->pins) {
-			if (pin->term != nullptr)
-				todo.push_back(pin->term->net);
+			if (pin->inner != nullptr)
+				todo.push_back(pin->inner);
 		}
 	}
 	return net;
@@ -311,8 +309,8 @@ std::vector<const Netlist::Pin *> detail::hierPinsAbove(const std::vector<const 
 	std::vector<const Netlist::Pin *> found;
 	for (const Netlist::Pin *leaf : leaves) {
 		const Netlist::Net *net = leaf->net;
-		while (net != nullptr && !net->terms.empty()) {
-			const Netlist::Pin *outer = net->terms.front()->pin;
+		while (net != nullptr && !net->boundary.empty()) {
+			const Netlist::Pin *outer = net->boundary.front();
 			if (std::find(insts.begin(), insts.end(), outer->inst) != insts.end()) {
 				found.push_back(outer);
 				break;

@@ -19,7 +19,6 @@ namespace Netlist
 struct Instance;
 struct Pin;
 struct Net;
-struct Term;
 
 enum class PortDir : uint8_t { Unknown, Input, Output, Inout };
 
@@ -58,6 +57,7 @@ struct Instance {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell, Barrier };
 
 	std::string name;		  // local name, unescaped
+	std::string unique_name;	  // of a child: localName, else name if the localName repeats in the scope
 	std::string type;		  // cell type or module name, unescaped
 	std::string hdl_type;		  // the source module name before uniquify, else type
 	std::vector<std::string> hdlpath; // source path of a flattened cell
@@ -78,7 +78,7 @@ public:
 struct Pin {
 	Instance *inst;
 	Net *net;   // the net outside, in the scope of the parent
-	Term *term; // boundary into the instance's scope
+	Net *inner; // the net inside the instance's scope
 	uint32_t id;
 	uint32_t port_index; // in inst->ports
 	int bit;
@@ -96,14 +96,8 @@ struct Net {
 	Instance *scope;
 	uint32_t id;
 	Const constant;
-	std::vector<Pin *> pins;   // the pins in the scope on this net
-	std::vector<Term *> terms; // the inside ends on this net
-};
-
-struct Term {
-	Pin *pin;
-	Net *net;
-	uint32_t id;
+	std::vector<Pin *> pins;     // the pins in the scope on this net
+	std::vector<Pin *> boundary; // the pins of the scope whose inner net this is
 };
 
 struct NetName {
@@ -114,17 +108,6 @@ struct NetName {
 public:
 	std::string path() const;
 	bool operator==(const NetName &) const = default;
-};
-
-struct NetAlias {
-	NetName name;
-	Net *net;
-};
-
-struct OwnedName {
-	NetName name;
-	Net *net;
-	bool canonical;
 };
 
 PortDir portDir(bool input, bool output);

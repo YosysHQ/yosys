@@ -267,7 +267,7 @@ RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, con
 	RTLIL::Cell *barrier = module->addCell(name, ID($barrier));
 	barrier->set_bool_attribute(ID::keep);
 	detail::ensureScopename(barrier);
-	barrier->attributes[detail::attrId(view_.design(), detail::anchor_attr, IdLookup::AddIfMissing)] = RTLIL::Const(id);
+	barrier->attributes[view_.design()->twines().add(detail::anchor_attr)] = RTLIL::Const(id);
 	barrier->setParam(ID::WIDTH, 1);
 	barrier->setPort(ID::A, a);
 	barrier->setPort(ID::Y, y);
@@ -291,11 +291,11 @@ void detail::BarrierWriter::collectLeafDrivers(const Netlist::Net *net, pool<con
 	for (const Netlist::Pin *pin : net->pins) {
 		if (pin->inst->isLeaf() && pin->isDriver())
 			drivers.push_back(pin);
-		else if (!pin->inst->isLeaf() && pin->term != nullptr)
-			collectLeafDrivers(pin->term->net, seen, drivers);
+		else if (!pin->inst->isLeaf() && pin->inner != nullptr)
+			collectLeafDrivers(pin->inner, seen, drivers);
 	}
-	for (const Netlist::Term *term : net->terms)
-		collectLeafDrivers(term->pin->net, seen, drivers);
+	for (const Netlist::Pin *port : net->boundary)
+		collectLeafDrivers(port->net, seen, drivers);
 }
 
 detail::CutSideWalker::CutSideWalker(const NetView &view, const TrackData &data) : view_(view), data_(data) {}
@@ -360,8 +360,8 @@ void detail::CutSideWalker::walkUser(CutSideWalkState &walk, const ModWalker::Po
 	bool toward_target = pin->isDriver() == (walk.target == Netlist::WalkTarget::Drivers);
 	if (pin->inst->isLeaf() && toward_target)
 		walk.reached_pins.push_back(pin);
-	else if (!pin->inst->isLeaf() && pin->term != nullptr) {
-		std::vector<Netlist::Pin *> leaves = view_.leafPins(pin->term->net, walk.target);
+	else if (!pin->inst->isLeaf() && pin->inner != nullptr) {
+		std::vector<Netlist::Pin *> leaves = view_.leafPins(pin->inner, walk.target);
 		walk.reached_pins.insert(walk.reached_pins.end(), leaves.begin(), leaves.end());
 	}
 }
@@ -384,10 +384,9 @@ const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit
 }
 
 // netview_<attr> marks our attr, removeOwnedMarks removes only that one
-RTLIL::IdString detail::ownedMarkerId(RTLIL::Design *design, RTLIL::IdString attr, IdLookup lookup)
+std::string detail::ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr)
 {
-	std::string name = std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
-	return detail::attrId(design, name, lookup);
+	return std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
 }
 
 void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr)
@@ -395,13 +394,13 @@ void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object,
 	if (object->get_bool_attribute(attr))
 		return;
 	object->set_bool_attribute(attr);
-	object->set_bool_attribute(detail::ownedMarkerId(design, attr, IdLookup::AddIfMissing));
+	object->set_bool_attribute(design->twines().add(detail::ownedMarkerName(design, attr)));
 }
 
 void detail::removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object)
 {
 	for (RTLIL::IdString attr : {ID::keep, ID::keep_hierarchy}) {
-		RTLIL::IdString marker = detail::ownedMarkerId(design, attr, IdLookup::FindOnly);
+		RTLIL::IdString marker = design->twines().find(detail::ownedMarkerName(design, attr));
 		if (object->get_bool_attribute(marker)) {
 			object->attributes.erase(attr);
 			object->attributes.erase(marker);
@@ -414,7 +413,7 @@ void detail::removeOwnedMarks(RTLIL::Design *design, RTLIL::AttrObject *object)
 // The cut marks of wires, our keep marks and empty scopenames
 void detail::removeTrackingMarks(RTLIL::Design *design)
 {
-	RTLIL::IdString cut = detail::attrId(design, detail::cut_attr, IdLookup::FindOnly);
+	RTLIL::IdString cut = design->twines().find(detail::cut_attr);
 	for (RTLIL::Module *module : design->modules()) {
 		for (RTLIL::Wire *wire : module->wires()) {
 			wire->attributes.erase(cut);
@@ -428,14 +427,14 @@ void detail::removeTrackingMarks(RTLIL::Design *design)
 RTLIL::Wire *detail::addCutWire(RTLIL::Module *module)
 {
 	RTLIL::Wire *cut = module->addWire(NEW_ID);
-	cut->set_bool_attribute(detail::attrId(module->design, detail::cut_attr, IdLookup::AddIfMissing));
+	cut->set_bool_attribute(module->design->twines().add(detail::cut_attr));
 	return cut;
 }
 
 // The attribute (rename -hide renames the barrier), else the name (abc9 renews it without attributes lol)
 std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)
 {
-	RTLIL::IdString id = detail::attrId(barrier->module->design, detail::anchor_attr, IdLookup::FindOnly);
+	RTLIL::IdString id = barrier->module->design->twines().find(detail::anchor_attr);
 	if (barrier->has_attribute(id))
 		return barrier->attributes.at(id).as_int();
 	std::string marker = std::string(detail::anchor_prefix) + "$";
