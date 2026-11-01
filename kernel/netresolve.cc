@@ -143,11 +143,11 @@ void detail::Resolver::collectTopPorts(const Netlist::Net *net, std::vector<cons
 {
 	if (net == nullptr)
 		return;
-	for (const Netlist::Term *term : net->terms) {
-		if (term->pin->inst->isTop())
-			pins.push_back(term->pin);
+	for (const Netlist::Pin *port : net->boundary) {
+		if (port->inst->isTop())
+			pins.push_back(port);
 		else
-			collectTopPorts(term->pin->net, pins);
+			collectTopPorts(port->net, pins);
 	}
 }
 

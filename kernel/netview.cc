@@ -66,24 +66,17 @@ std::vector<std::string> detail::flattenPath(std::string_view name)
 	return parts;
 }
 
-// The default '.' first, so a name part can hold other chars (u_$x)
+// A separator char, then the next scope ('\') or the private name ('$')
 size_t detail::flattenSeparator(std::string_view name)
 {
-	size_t dot = detail::findSeparator(name, SeparatorRule::DefaultDot);
-	if (dot != std::string_view::npos)
-		return dot;
-	return detail::findSeparator(name, SeparatorRule::AnyChar);
-}
-
-// A separator char, then the next scope ('\') or the private name ('$')
-size_t detail::findSeparator(std::string_view name, SeparatorRule rule)
-{
-	for (size_t i = 1; i + 1 < name.size(); i++) {
-		bool sep = name[i] == '.';
-		if (rule == SeparatorRule::AnyChar)
-			sep = !isalnum(static_cast<unsigned char>(name[i]));
-		if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
-			return i;
+	for (bool any_char : {false, true}) {
+		for (size_t i = 1; i + 1 < name.size(); i++) {
+			bool sep = name[i] == '.';
+			if (any_char)
+				sep = !isalnum(static_cast<unsigned char>(name[i]));
+			if (sep && (name[i + 1] == '\\' || name[i + 1] == '$'))
+				return i;
+		}
 	}
 	return std::string_view::npos;
 }
@@ -156,10 +149,8 @@ void detail::modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out)
 
 bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out)
 {
-	CellTypeTable table = CellTypeTable::Yosys;
-	if (StaticCellTypes::categories.is_known(cell->type))
-		table = CellTypeTable::Static;
-	if (table == CellTypeTable::Yosys && !yosys_celltypes.cell_known(cell->type))
+	bool static_type = StaticCellTypes::categories.is_known(cell->type);
+	if (!static_type && !yosys_celltypes.cell_known(cell->type))
 		return false;
 
 	// Connected ports carry their width
@@ -168,7 +159,7 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 		ports.emplace_back(port, sig.size());
 
 	// A fresh internal cell gets width 1
-	if (ports.empty() && table == CellTypeTable::Static) {
+	if (ports.empty() && static_type) {
 		for (RTLIL::IdString port : StaticCellTypes::port_info.inputs(cell->type))
 			ports.emplace_back(port, 1);
 		for (RTLIL::IdString port : StaticCellTypes::port_info.outputs(cell->type))
@@ -184,21 +175,22 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 		port.width = width;
 		port.from = width - 1;
 		port.to = 0;
-		port.dir = detail::cellTypePortDir(cell, port_id, table);
+		port.dir = detail::cellTypePortDir(cell, port_id, static_type);
 		out.push_back(port);
 	}
 	return !ports.empty();
 }
 
-Netlist::PortDir detail::cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, CellTypeTable table)
+Netlist::PortDir detail::cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool static_type)
 {
-	if (table == CellTypeTable::Static) {
-		bool input = StaticCellTypes::port_info.inputs(cell->type).contains(port);
-		bool output = StaticCellTypes::port_info.outputs(cell->type).contains(port);
-		return Netlist::portDir(input, output);
+	bool input, output;
+	if (static_type) {
+		input = StaticCellTypes::port_info.inputs(cell->type).contains(port);
+		output = StaticCellTypes::port_info.outputs(cell->type).contains(port);
+	} else {
+		input = yosys_celltypes.cell_input(cell->type, port);
+		output = yosys_celltypes.cell_output(cell->type, port);
 	}
-	bool input = yosys_celltypes.cell_input(cell->type, port);
-	bool output = yosys_celltypes.cell_output(cell->type, port);
 	return Netlist::portDir(input, output);
 }
 
@@ -223,24 +215,24 @@ RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cel
 	return sub;
 }
 
-void detail::RecordCounts::add(const RecordCounts &other)
+void NetView::Counts::add(const Counts &other)
 {
 	instances = std::min<uint64_t>(instances + other.instances, UINT32_MAX);
 	pins = std::min<uint64_t>(pins + other.pins, UINT32_MAX);
 	nets = std::min<uint64_t>(nets + other.nets, UINT32_MAX);
 }
 
-bool detail::RecordCounts::fitIds() const { return instances < UINT32_MAX && pins < UINT32_MAX && nets < UINT32_MAX; }
+bool NetView::Counts::fitIds() const { return instances < UINT32_MAX && pins < UINT32_MAX && nets < UINT32_MAX; }
 
-detail::RecordCounts detail::countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, RecordCounts> &counts)
+NetView::Counts detail::countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, NetView::Counts> &counts)
 {
 	auto it = counts.find(module);
 	if (it != counts.end())
 		return it->second;
-	RecordCounts count;
+	NetView::Counts count;
 	count.nets = std::min<uint64_t>(detail::wireBits(module) + 2, UINT32_MAX);
 	for (RTLIL::Cell *cell : module->cells()) {
-		RecordCounts cell_count = {1, detail::cellPinBits(design, cell), 0};
+		NetView::Counts cell_count = {1, 0, detail::cellPinBits(design, cell)};
 		if (RTLIL::Module *sub = detail::childModule(design, cell))
 			cell_count.add(detail::countRecords(design, sub, counts));
 		count.add(cell_count);
@@ -305,8 +297,8 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	pool<RTLIL::Module *> open;
 	if (!detail::checkHierarchy(design, top, seen, open, reason))
 		return false;
-	dict<RTLIL::Module *, detail::RecordCounts> counts;
-	detail::RecordCounts count = detail::countRecords(design, top, counts);
+	dict<RTLIL::Module *, Counts> counts;
+	Counts count = detail::countRecords(design, top, counts);
 	count.pins += detail::portBits(top);
 	if (!count.fitIds()) {
 		reason = "the unfolded design needs more than the 32-bit object ids hold";
@@ -314,46 +306,37 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	}
 	pool<RTLIL::Module *> blackboxes;
 	for (RTLIL::Module *module : seen) {
-		if (!detail::checkModule(module, reason))
-			return false;
-		detail::addUsedBlackboxes(design, module, blackboxes);
-	}
-	for (RTLIL::Module *blackbox : blackboxes) {
-		if (!detail::checkIndices(blackbox, reason))
+		if (!detail::checkModule(design, module, blackboxes, reason))
 			return false;
 	}
 	return true;
 }
 
-bool detail::checkModule(RTLIL::Module *module, std::string &reason)
+
+bool detail::checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason)
 {
 	if (!module->processes.empty()) {
 		reason = stringf("module %s has processes (run proc)", module);
 		return false;
 	}
+	for (RTLIL::Cell *cell : module->cells()) {
+		RTLIL::Module *type = design->module(cell->type);
+		bool new_blackbox = type != nullptr && type->get_blackbox_attribute() && blackboxes.insert(type).second;
+		if (new_blackbox && !detail::checkIndices(type, reason))
+			return false;
+	}
 	return detail::checkIndices(module, reason);
 }
-
-bool detail::indicesFitInt(const RTLIL::Wire *wire) { return wire->width <= 0 || int64_t(wire->start_offset) + wire->width - 1 <= INT_MAX; }
 
 bool detail::checkIndices(RTLIL::Module *module, std::string &reason)
 {
 	for (RTLIL::Wire *wire : module->wires()) {
-		if (!detail::indicesFitInt(wire)) {
+		if (wire->width > 0 && int64_t(wire->start_offset) + wire->width - 1 > INT_MAX) {
 			reason = stringf("range of wire %s in module %s overflows", wire, module);
 			return false;
 		}
 	}
 	return true;
-}
-
-void detail::addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes)
-{
-	for (RTLIL::Cell *cell : module->cells()) {
-		RTLIL::Module *type = design->module(cell->type);
-		if (type != nullptr && type->get_blackbox_attribute())
-			blackboxes.insert(type);
-	}
 }
 
 void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
@@ -386,15 +369,10 @@ void NetView::clear()
 	data_->library = nullptr;
 	data_->retired = false;
 	data_->records.clear();
-	data_->clearTables();
-}
-
-void detail::ViewData::clearTables()
-{
-	ports.clear();
-	scope_contents.clear();
-	index.clear();
-	body_keys.clear();
+	data_->ports.clear();
+	data_->scope_contents.clear();
+	data_->index.clear();
+	data_->body_keys.keys.clear();
 }
 
 void NetView::retire()
@@ -404,7 +382,10 @@ void NetView::retire()
 	data_->top = nullptr;
 	data_->library = nullptr;
 	data_->retired = true;
-	data_->clearTables();
+	data_->ports.clear();
+	data_->scope_contents.clear();
+	data_->index.clear();
+	data_->body_keys.keys.clear();
 	data_->records.dropContents();
 }
 
@@ -416,7 +397,6 @@ bool NetView::owns(const Netlist::Pin *pin) const { return pin != nullptr && own
 
 bool NetView::owns(const Netlist::Net *net) const { return net != nullptr && owns(net->scope); }
 
-bool NetView::owns(const Netlist::Term *term) const { return term != nullptr && owns(term->pin); }
 Netlist::Instance *detail::RecordStore::newInstance()
 {
 	Netlist::Instance *inst = &instances.emplace_back();
@@ -438,13 +418,6 @@ Netlist::Net *detail::RecordStore::newNet()
 	return net;
 }
 
-Netlist::Term *detail::RecordStore::newTerm()
-{
-	Netlist::Term *term = &terms.emplace_back();
-	term->id = next_term_id++;
-	return term;
-}
-
 void detail::RecordStore::dropContents()
 {
 	for (Netlist::Instance &inst : instances) {
@@ -458,7 +431,7 @@ void detail::RecordStore::dropContents()
 	}
 	for (Netlist::Net &net : nets) {
 		net.pins = {};
-		net.terms = {};
+		net.boundary = {};
 	}
 }
 void detail::RecordStore::clear()
@@ -466,11 +439,9 @@ void detail::RecordStore::clear()
 	instances.clear();
 	pins.clear();
 	nets.clear();
-	terms.clear();
 	next_inst_id = 0;
 	next_pin_id = 1;
 	next_net_id = 1;
-	next_term_id = 1;
 }
 
 void detail::PortStore::clear()
@@ -558,25 +529,16 @@ const std::vector<Netlist::Instance *> &NetView::scopes(const RTLIL::Module *mod
 
 const std::vector<RTLIL::SigBit> &NetView::wireBits(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).wire_bits; }
 
+Netlist::Instance *NetView::instanceById(uint32_t id) const { return detail::recordAt(data_->records.instances, id); }
+
+Netlist::Pin *NetView::pinById(uint32_t id) const { return detail::recordAt(data_->records.pins, id - 1); }
+
+Netlist::Net *NetView::netById(uint32_t id) const { return detail::recordAt(data_->records.nets, id - 1); }
+
 Netlist::NetName NetView::name(const Netlist::Net *net) const
 {
 	log_assert(net->constant == Netlist::Net::Const::None);
 	return data_->index.net_rtlil.get(net->id).name;
-}
-
-Netlist::Net *detail::ScopeContents::tieNet(Netlist::Net::Const value) const
-{
-	if (value == Netlist::Net::Const::One)
-		return one_net;
-	return zero_net;
-}
-
-void detail::ScopeContents::setTieNet(Netlist::Net::Const value, Netlist::Net *net)
-{
-	if (value == Netlist::Net::Const::One)
-		one_net = net;
-	else
-		zero_net = net;
 }
 
 const detail::ScopeContents &detail::ViewData::scopeContents(const Netlist::Instance *scope) const
@@ -590,13 +552,13 @@ const detail::ScopeContents &detail::ViewData::scopeContents(const Netlist::Inst
 
 const std::vector<Netlist::Net *> &NetView::nets(const Netlist::Instance *scope) const { return data_->scopeContents(scope).nets; }
 
-const std::vector<Netlist::NetAlias> &NetView::aliases(const Netlist::Instance *scope) const { return data_->scopeContents(scope).aliases; }
+const std::vector<Netlist::NetName> &NetView::aliases(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).aliases; }
 
 std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 {
 	std::vector<Netlist::Net *> nets;
 	for (const auto &[scope, contents] : data_->scope_contents) {
-		if (Netlist::Net *net = contents.tieNet(value))
+		if (Netlist::Net *net = contents.tie_nets[value == Netlist::Net::Const::One])
 			nets.push_back(net);
 	}
 	return nets;
@@ -616,202 +578,37 @@ void detail::addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, st
 			continue;
 		if (pin->inst->isLeaf())
 			out.push_back(pin);
-		else if (pin->term != nullptr)
-			detail::addLeafPins(pin->term->net, target, out);
+		else if (pin->inner != nullptr)
+			detail::addLeafPins(pin->inner, target, out);
 	}
-}
-
-Netlist::PortDir detail::pinDirOfTarget(Netlist::WalkTarget target)
-{
-	if (target == Netlist::WalkTarget::Drivers)
-		return Netlist::PortDir::Output;
-	return Netlist::PortDir::Input;
 }
 
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
+	bool drivers = target == Netlist::WalkTarget::Drivers;
 	if (pin->inst->isLeaf())
-		return pin->isDriver() == (target == Netlist::WalkTarget::Drivers);
-	return pin->dir() == detail::pinDirOfTarget(target);
+		return pin->isDriver() == drivers;
+	return pin->dir() == (drivers ? Netlist::PortDir::Output : Netlist::PortDir::Input);
 }
 
-std::vector<std::string> NetView::childNames(const Netlist::Instance *scope) const
+// localName, the cell name where the localName repeats in the scope
+void detail::nameChildren(Netlist::Instance *scope)
 {
-	std::vector<std::string> names;
-	for (const Netlist::Instance *child : scope->children)
-		names.push_back(child->localName());
+	for (Netlist::Instance *child : scope->children)
+		child->unique_name = child->localName();
 	bool changed = true;
-	while (changed)
-		changed = detail::useOwnNames(scope, names);
-	return names;
-}
-
-bool detail::useOwnNames(const Netlist::Instance *scope, std::vector<std::string> &names)
-{
-	dict<std::string, int> counts;
-	for (const std::string &name : names)
-		counts[name]++;
-	bool changed = false;
-	for (size_t i = 0; i < names.size(); i++) {
-		const std::string &own = scope->children[i]->name;
-		if (counts.at(names[i]) > 1 && names[i] != own) {
-			names[i] = own;
-			changed = true;
+	while (changed) {
+		dict<std::string, int> counts;
+		for (const Netlist::Instance *child : scope->children)
+			counts[child->unique_name]++;
+		changed = false;
+		for (Netlist::Instance *child : scope->children) {
+			if (counts.at(child->unique_name) > 1 && child->unique_name != child->name) {
+				child->unique_name = child->name;
+				changed = true;
+			}
 		}
 	}
-	return changed;
-}
-
-NetView::ScopeNames NetView::netNames(const Netlist::Instance *scope) const
-{
-	ScopeNames result;
-	std::map<detail::NameKey, Netlist::OwnedName> owners;
-	for (Netlist::Net *net : nets(scope)) {
-		if (net->constant != Netlist::Net::Const::None)
-			continue;
-		Netlist::OwnedName claim = {name(net), net, true};
-		result.shared += owners.count(detail::nameKey(claim.name));
-		detail::claimName(owners, claim);
-	}
-	for (const Netlist::NetAlias &alias : aliases(scope)) {
-		Netlist::NetName by_wire = alias.name;
-		by_wire.hdlpath.clear();
-		detail::claimName(owners, {alias.name, alias.net, false});
-		detail::claimName(owners, {by_wire, alias.net, false});
-	}
-	for (const auto &[key, owner] : owners)
-		result.names.push_back(owner);
-	return result;
-}
-
-detail::NameKey detail::nameKey(const Netlist::NetName &name)
-{
-	if (name.scalar)
-		return {name.path(), std::nullopt};
-	return {name.path(), name.index};
-}
-
-bool detail::beats(const Netlist::OwnedName &claim, const Netlist::OwnedName &owner)
-{
-	if (claim.canonical != owner.canonical)
-		return claim.canonical;
-	return std::tie(claim.name.wire, claim.name.index) < std::tie(owner.name.wire, owner.name.index);
-}
-
-// The first claim of a name owns it until a claim beats it
-void detail::claimName(std::map<NameKey, Netlist::OwnedName> &owners, const Netlist::OwnedName &claim)
-{
-	auto [it, added] = owners.try_emplace(detail::nameKey(claim.name), claim);
-	if (!added && detail::beats(claim, it->second))
-		it->second = claim;
-}
-
-std::string NetView::bodyKey(const Netlist::Instance *scope) const
-{
-	log_assert(built());
-	return data_->body_keys.key(*this, scope);
-}
-
-std::string detail::BodyKeys::key(const NetView &view, const Netlist::Instance *scope)
-{
-	std::vector<std::string> lines;
-	for (const Netlist::Port &port : *scope->ports)
-		lines.push_back(detail::portLine(port));
-	for (const Netlist::Pin *pin : scope->pins) {
-		const Netlist::Net *inner = nullptr;
-		if (pin->term != nullptr)
-			inner = pin->term->net;
-		lines.push_back(detail::pinLine("T", view, pin, inner));
-	}
-	for (const Netlist::Net *net : view.nets(scope)) {
-		std::string line = "N";
-		detail::addNetFields(line, view, net);
-		lines.push_back(line);
-	}
-	std::vector<std::string> names = view.childNames(scope);
-	for (size_t i = 0; i < names.size(); i++)
-		addChildLines(lines, view, scope->children[i], names[i]);
-	std::sort(lines.begin(), lines.end());
-	std::string key;
-	for (const std::string &line : lines)
-		key += line + "\n";
-	scope_numbers[scope->id] = numbers.emplace(key, uint32_t(numbers.size() + 1)).first->second;
-	return key;
-}
-
-uint32_t detail::BodyKeys::number(const NetView &view, const Netlist::Instance *scope)
-{
-	if (scope_numbers.get(scope->id) == 0)
-		key(view, scope);
-	return scope_numbers.get(scope->id);
-}
-
-void detail::BodyKeys::addChildLines(std::vector<std::string> &lines, const NetView &view, const Netlist::Instance *child, const std::string &name)
-{
-	std::string line = "C";
-	detail::addKeyField(line, name);
-	if (child->isLeaf()) {
-		detail::addKeyField(line, child->type);
-	} else {
-		detail::addKeyField(line, child->hdl_type);
-		detail::addKeyField(line, std::to_string(number(view, child)));
-	}
-	lines.push_back(line);
-	std::string head = "c";
-	detail::addKeyField(head, name);
-	for (const Netlist::Pin *pin : child->pins)
-		lines.push_back(detail::pinLine(head, view, pin, pin->net));
-}
-
-void detail::BodyKeys::clear()
-{
-	numbers.clear();
-	scope_numbers.clear();
-}
-
-void detail::addKeyField(std::string &line, std::string_view text)
-{
-	line += ' ';
-	for (char c : text) {
-		if (c == '\\' || c == ' ' || c == '\n')
-			line += '\\';
-		line += c;
-	}
-}
-
-void detail::addNetFields(std::string &line, const NetView &view, const Netlist::Net *net)
-{
-	if (net == nullptr) {
-		detail::addKeyField(line, "-");
-		return;
-	}
-	if (net->constant != Netlist::Net::Const::None) {
-		detail::addKeyField(line, std::to_string(int(net->constant)));
-		return;
-	}
-	Netlist::NetName name = view.name(net);
-	detail::addKeyField(line, "n" + name.path());
-	if (!name.scalar)
-		detail::addKeyField(line, std::to_string(name.index));
-}
-
-std::string detail::portLine(const Netlist::Port &port)
-{
-	std::string line = "P";
-	detail::addKeyField(line, port.name);
-	detail::addKeyField(line, std::to_string(port.width));
-	detail::addKeyField(line, std::to_string(port.from));
-	detail::addKeyField(line, std::to_string(port.to));
-	detail::addKeyField(line, std::to_string(int(port.dir)));
-	return line;
-}
-
-std::string detail::pinLine(std::string head, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net)
-{
-	detail::addKeyField(head, pin->port().name);
-	detail::addKeyField(head, std::to_string(pin->hdlIndex()));
-	detail::addNetFields(head, view, net);
-	return head;
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)
@@ -846,6 +643,82 @@ struct detail::Fingerprint {
 	}
 	uint64_t yield() const { return state; }
 };
+
+uint64_t NetView::bodyKey(const Netlist::Instance *scope) const
+{
+	log_assert(built());
+	return data_->body_keys.key(*this, scope);
+}
+
+uint64_t detail::BodyKeys::key(const NetView &view, const Netlist::Instance *scope)
+{
+	if (uint64_t known = keys.get(scope->id))
+		return known;
+	uint64_t sum = 0;
+	for (const Netlist::Port &port : *scope->ports) {
+		detail::Fingerprint fp;
+		fp.eat(uint64_t('P'));
+		fp.eat(port.name);
+		fp.eat(port.width);
+		fp.eat(port.from);
+		fp.eat(port.to);
+		fp.eat(int(port.dir));
+		sum += fp.yield();
+	}
+	for (const Netlist::Pin *pin : scope->pins)
+		sum += detail::pinHash('T', "", view, pin, pin->inner);
+	for (const Netlist::Net *net : view.nets(scope)) {
+		detail::Fingerprint fp;
+		fp.eat(uint64_t('N'));
+		detail::eatNet(fp, view, net);
+		sum += fp.yield();
+	}
+	for (const Netlist::Instance *child : scope->children) {
+		detail::Fingerprint fp;
+		if (child->isLeaf()) {
+			fp.eat(uint64_t('L'));
+			fp.eat(child->unique_name);
+			fp.eat(child->type);
+		} else {
+			fp.eat(uint64_t('C'));
+			fp.eat(child->unique_name);
+			fp.eat(child->hdl_type);
+			fp.eat(key(view, child));
+		}
+		sum += fp.yield();
+		for (const Netlist::Pin *pin : child->pins)
+			sum += detail::pinHash('c', child->unique_name, view, pin, pin->net);
+	}
+	keys[scope->id] = sum;
+	return sum;
+}
+
+uint64_t detail::pinHash(char tag, const std::string &child, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net)
+{
+	detail::Fingerprint fp;
+	fp.eat(uint64_t(tag));
+	fp.eat(child);
+	fp.eat(pin->port().name);
+	fp.eat(uint64_t(pin->hdlIndex()));
+	detail::eatNet(fp, view, net);
+	return fp.yield();
+}
+
+void detail::eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *net)
+{
+	if (net == nullptr) {
+		fp.eat(uint64_t(3)); // past Const::One
+		return;
+	}
+	if (net->constant != Netlist::Net::Const::None) {
+		fp.eat(uint64_t(net->constant));
+		return;
+	}
+	Netlist::NetName name = view.name(net);
+	fp.eat(name.path());
+	if (!name.scalar)
+		fp.eat(uint64_t(name.index));
+}
 
 void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
 {

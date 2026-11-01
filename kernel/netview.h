@@ -38,11 +38,8 @@ struct NetView final {
 		size_t nets = 0;
 		size_t pins = 0;
 		bool operator==(const Counts &) const = default;
-	};
-
-	struct ScopeNames {
-		std::vector<Netlist::OwnedName> names; // by path, then bit
-		size_t shared = 0;		       // nets that share their canonical name with an earlier net
+		void add(const Counts &other); // saturates at UINT32_MAX
+		bool fitIds() const;
 	};
 
 	NetView();
@@ -66,24 +63,25 @@ struct NetView final {
 	const std::vector<Netlist::Net *> &nets(const Netlist::Instance *scope) const;
 	std::vector<Netlist::Net *> constNets(Netlist::Net::Const value) const;
 	Netlist::NetName name(const Netlist::Net *net) const;
-	const std::vector<Netlist::NetAlias> &aliases(const Netlist::Instance *scope) const;
+	const std::vector<Netlist::NetName> &aliases(const Netlist::Net *net) const; // of the public wire bits on the net
 	std::vector<Netlist::Pin *> leafPins(const Netlist::Net *net, Netlist::WalkTarget target) const;
-	std::vector<std::string> childNames(const Netlist::Instance *scope) const;
-	ScopeNames netNames(const Netlist::Instance *scope) const;
-	std::string bodyKey(const Netlist::Instance *scope) const;
+	uint64_t bodyKey(const Netlist::Instance *scope) const; // equal for equal bodies, a 64-bit hash
 
 	RTLIL::Cell *cell(const Netlist::Instance *inst) const;
 	RTLIL::Module *module(const Netlist::Instance *scope) const;
 	Netlist::Instance *instance(const RTLIL::Cell *cell, const Netlist::Instance *scope) const;
 	const std::vector<Netlist::Instance *> &scopes(const RTLIL::Module *module) const;
 	const std::vector<RTLIL::SigBit> &wireBits(const Netlist::Net *net) const;
+	// nullptr if no record has the id
+	Netlist::Instance *instanceById(uint32_t id) const;
+	Netlist::Pin *pinById(uint32_t id) const;
+	Netlist::Net *netById(uint32_t id) const;
 
 	void retire();
 	bool retired() const;
 	bool owns(const Netlist::Instance *inst) const;
 	bool owns(const Netlist::Pin *pin) const;
 	bool owns(const Netlist::Net *net) const;
-	bool owns(const Netlist::Term *term) const;
 private:
 	std::unique_ptr<detail::ViewData> data_;
 };

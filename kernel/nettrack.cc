@@ -132,8 +132,8 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at)
 void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	if (pin->inst->isTop()) {
-		if (pin->term != nullptr)
-			anchorWires(pin->term->net, ref_index);
+		if (pin->inner != nullptr)
+			anchorWires(pin->inner, ref_index);
 		return;
 	}
 	Anchor anchor = {Anchor::Role::Pin, ref_index, data_.snapshot.cellScopePath(view_, pin->inst), pin->port().name, pin->bit, "", false};
