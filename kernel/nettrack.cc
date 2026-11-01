@@ -50,7 +50,7 @@ size_t detail::objectCount(const TrackedRef &ref)
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
 {
 	anchors.anchors_by_ref_attr.clear();
-	barriers.clearAnchors();
+	barriers.anchors_by_barrier.clear();
 	top_ports_by_ref.clear();
 	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (id == RTLIL::IdString::Null)

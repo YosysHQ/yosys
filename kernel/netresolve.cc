@@ -239,21 +239,9 @@ std::vector<const Netlist::Pin *> detail::Resolver::leafPinsUnderScope(const Net
 
 const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const std::string &scope_path) const
 {
-	pool<const Netlist::Net *> seen;
-	std::vector<const Netlist::Net *> todo = {net};
-	while (!todo.empty()) {
-		const Netlist::Net *at = todo.back();
-		todo.pop_back();
-		if (at == nullptr || !seen.insert(at).second)
-			continue;
-		if (data_.snapshot.scopePath(view_, at->scope) == scope_path)
-			return at;
-		for (const Netlist::Pin *port : at->boundary)
-			todo.push_back(port->net);
-		for (const Netlist::Pin *pin : at->pins) {
-			if (pin->inner != nullptr)
-				todo.push_back(pin->inner);
-		}
+	for (const Netlist::Net *connected : detail::connectedNets(net, true)) {
+		if (data_.snapshot.scopePath(view_, connected->scope) == scope_path)
+			return connected;
 	}
 	return net;
 }

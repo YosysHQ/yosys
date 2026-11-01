@@ -67,10 +67,7 @@ struct BarrierStore {
 public:
 	int nextId();
 	BarrierMarks marks(const RTLIL::Cell *barrier) const;
-	void setMarks(const RTLIL::Cell *barrier, const BarrierMarks &marks);
 	RTLIL::IdString cutPort(const RTLIL::Cell *barrier) const;
-	void clearMarks();
-	void clearAnchors();
 };
 
 struct TrackData {
@@ -164,7 +161,6 @@ private:
 	RTLIL::Cell *findPortBarrier(RTLIL::Module *module, const RTLIL::SigBit &bit) const;
 	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks);
 	void markWiresKeep(const Netlist::Net *net);
-	void collectLeafDrivers(const Netlist::Net *net, pool<const Netlist::Net *> &seen, std::vector<const Netlist::Pin *> &drivers) const;
 private:
 	const NetView &view_;
 	TrackData &data_;
@@ -206,10 +202,10 @@ void removeTrackingMarks(RTLIL::Design *design);
 // Barriers
 RTLIL::Wire *addCutWire(RTLIL::Module *module);
 std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
+std::vector<RTLIL::Cell *> barrierCells(RTLIL::Design *design);
 RTLIL::Selection trackedBarriers(RTLIL::Design *design);
 void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
 void replaceBitInModule(RTLIL::Module *module, const RTLIL::SigBit &bit, const RTLIL::SigBit &other);
-RTLIL::IdString barrierPortToward(Netlist::WalkTarget target);
 
 // Scope paths
 bool hasOwnScope(const RTLIL::AttrObject *object);
