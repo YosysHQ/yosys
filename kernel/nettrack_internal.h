@@ -13,8 +13,6 @@ namespace detail
 
 constexpr std::string_view ref_attr = "\\netview_ref";
 
-enum class IdLookup : uint8_t { FindOnly, AddIfMissing };
-
 struct Anchor {
 	enum class Role : uint8_t { Pin, Cell, Net };
 
@@ -37,7 +35,6 @@ struct Snapshot {
 public:
 	void take(const NetView &view);
 	void takeScope(const NetView &view, const Netlist::Instance *scope);
-	void clear();
 	std::string scopePath(const NetView &view, const Netlist::Instance *scope) const;
 	std::string cellScopePath(const NetView &view, const Netlist::Instance *inst) const;
 };
@@ -47,7 +44,6 @@ struct AnchorStore {
 public:
 	void append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor);
 	const std::vector<Anchor> &anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const;
-	void clear();
 };
 
 struct TrackData {
@@ -112,10 +108,6 @@ private:
 
 // Checkpoint
 size_t objectCount(const TrackedRef &ref);
-
-// Ids
-RTLIL::IdString attrId(RTLIL::Design *design, std::string_view name, IdLookup lookup);
-RTLIL::IdString refAttrId(RTLIL::Design *design, IdLookup lookup);
 
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);

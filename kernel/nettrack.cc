@@ -38,9 +38,9 @@ size_t detail::objectCount(const TrackedRef &ref)
 
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
 {
-	anchors.clear();
+	anchors.anchors_by_ref_attr.clear();
 	top_ports_by_ref.clear();
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (id == RTLIL::IdString::Null)
 		return;
 	for (RTLIL::Module *module : design->modules()) {
@@ -53,7 +53,7 @@ void detail::TrackData::clearAnchors(RTLIL::Design *design)
 
 void detail::Snapshot::take(const NetView &view)
 {
-	clear();
+	cell_names.clear();
 	takeScope(view, view.top());
 }
 
@@ -64,8 +64,6 @@ void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *s
 		takeScope(view, child);
 	}
 }
-
-void detail::Snapshot::clear() { cell_names.clear(); }
 
 std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
 {
@@ -86,7 +84,7 @@ std::string detail::Snapshot::cellScopePath(const NetView &view, const Netlist::
 
 void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
 {
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::AddIfMissing);
+	RTLIL::IdString id = design->twines().add(detail::ref_attr);
 	if (!object->has_attribute(id)) {
 		object->attributes[id] = RTLIL::Const(int(anchors_by_ref_attr.size()));
 		anchors_by_ref_attr.emplace_back();
@@ -99,7 +97,7 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 	static const std::vector<Anchor> none;
 	if (anchors_by_ref_attr.empty())
 		return none;
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (!object->has_attribute(id))
 		return none;
 	size_t index = object->attributes.at(id).as_int();
@@ -107,8 +105,6 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 		return none;
 	return anchors_by_ref_attr[index];
 }
-
-void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }
 
 detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data) : view_(view), data_(data) {}
 
@@ -166,15 +162,6 @@ bool detail::AnchorWriter::markIfShared(RTLIL::AttrObject *object, RTLIL::Module
 	detail::ensureScopename(object);
 	return true;
 }
-
-RTLIL::IdString detail::attrId(RTLIL::Design *design, std::string_view name, IdLookup lookup)
-{
-	if (lookup == IdLookup::AddIfMissing)
-		return design->twines().add(name);
-	return design->twines().find(name);
-}
-
-RTLIL::IdString detail::refAttrId(RTLIL::Design *design, IdLookup lookup) { return detail::attrId(design, detail::ref_attr, lookup); }
 
 // Without -scopename, flatten extends the 'scopename' of a private object only if it has one
 void detail::ensureScopename(RTLIL::AttrObject *object)

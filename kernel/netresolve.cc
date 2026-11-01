@@ -141,13 +141,11 @@ std::vector<const Netlist::Pin *> detail::Resolver::namedTopPins(uint32_t ref_in
 
 void detail::Resolver::collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const
 {
-	if (net == nullptr)
-		return;
-	for (const Netlist::Pin *port : net->boundary) {
-		if (port->inst->isTop())
-			pins.push_back(port);
-		else
-			collectTopPorts(port->net, pins);
+	for (const Netlist::Net *above : detail::connectedNets(net, false)) {
+		for (const Netlist::Pin *port : above->boundary) {
+			if (port->inst->isTop())
+				pins.push_back(port);
+		}
 	}
 }
 

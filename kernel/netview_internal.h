@@ -85,6 +85,7 @@ void eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *net);
 // Walks
 bool pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target);
 void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vector<Netlist::Pin *> &out);
+std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net, bool down);
 
 // Fingerprint
 void hashDesign(Fingerprint &fp, RTLIL::Design *design);
