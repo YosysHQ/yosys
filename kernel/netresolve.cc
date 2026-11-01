@@ -15,8 +15,6 @@ void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &r
 		resolver.resolve(ref_index, *refs[ref_index]);
 }
 
-bool NetTracker::isNewBuffer(const NetView &view, const Netlist::Instance *inst) const { return detail::isNewBuffer(view, data_->snapshot, inst); }
-
 bool detail::isNewBuffer(const NetView &view, const Snapshot &snapshot, const Netlist::Instance *inst)
 {
 	if (!inst->isLeaf() || snapshot.cell_names.count(view.cell(inst)->hashidx_))
@@ -479,7 +477,7 @@ std::vector<const detail::AnchorHit *> detail::hitsOfRole(const std::vector<Anch
 	return {};
 }
 
-// Hierarchical pins of dir or inout whose port splitnets -ports renamed, up from the leaf pins through all terms (a feedthrough has both)
+// Hierarchical pins of dir or inout whose port splitnets -ports renamed, up from the leaf pins through all boundaries (a feedthrough has both)
 std::vector<const Netlist::Pin *> detail::hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves, Netlist::PortDir dir)
 {
 	std::vector<const Netlist::Pin *> found;

@@ -321,7 +321,6 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	return true;
 }
 
-
 bool detail::checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason)
 {
 	if (!module->processes.empty()) {
@@ -460,8 +459,13 @@ bool detail::hasUserKeep(const RTLIL::Wire *wire)
 {
 	if (!wire->get_bool_attribute(ID::keep))
 		return false;
-	std::string marker = std::string(detail::owned_marker_prefix) + "keep";
-	return !wire->get_bool_attribute(wire->module->design->twines().find(marker));
+	RTLIL::Design *design = wire->module->design;
+	return !wire->get_bool_attribute(design->twines().find(detail::ownedMarkerName(design, ID::keep)));
+}
+
+std::string detail::ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr)
+{
+	return std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
 }
 
 // $connect joins its two sides, as a module connection does
@@ -583,7 +587,6 @@ std::vector<const Netlist::Net *> detail::connectedNets(const Netlist::Net *net,
 	return nets;
 }
 
-
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
 	if (pin->dir() == Netlist::PortDir::Inout)
@@ -594,7 +597,6 @@ bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget targe
 	return pin->dir() == (drivers ? Netlist::PortDir::Output : Netlist::PortDir::Input);
 }
 
-// localName, the cell name where the localName repeats in the scope
 void detail::nameChildren(Netlist::Instance *scope)
 {
 	for (Netlist::Instance *child : scope->children)
@@ -682,10 +684,8 @@ uint64_t detail::BodyKeys::key(const NetView &view, const Netlist::Instance *sco
 		detail::Fingerprint fp;
 		fp.eat(uint64_t('P'));
 		fp.eat(port.name);
-		fp.eat(port.width);
-		fp.eat(port.from);
-		fp.eat(port.to);
-		fp.eat(int(port.dir));
+		fp.eat(port.width, port.from);
+		fp.eat(port.to, int(port.dir));
 		sum += fp.yield();
 	}
 	for (const Netlist::Pin *pin : scope->pins)
@@ -743,19 +743,6 @@ void detail::eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *ne
 		fp.eat(uint64_t(name.index));
 }
 
-void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
-{
-	uint64_t modules = 0;
-	for (RTLIL::Module *module : design->modules())
-		modules += detail::designModuleHash(module);
-	fp.eat(modules);
-	RTLIL::Module *top = detail::topModule(design);
-	Hasher::hash_t top_idx = 0;
-	if (top != nullptr)
-		top_idx = top->hashidx_;
-	fp.eat(top_idx);
-}
-
 uint64_t detail::designModuleHash(RTLIL::Module *module)
 {
 	detail::Fingerprint fp;
@@ -775,7 +762,15 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
-	fp.eat(detail::connectionsHash(module));
+	uint64_t connections = 0;
+	for (const auto &[lhs, rhs] : module->connections()) {
+		detail::Fingerprint conn_fp;
+		conn_fp.eat(GetSize(lhs));
+		conn_fp.eat(lhs);
+		conn_fp.eat(rhs);
+		connections += conn_fp.yield();
+	}
+	fp.eat(connections);
 	uint64_t wires = 0;
 	for (RTLIL::Wire *wire : module->wires())
 		wires += detail::wireHash(wire);
@@ -784,19 +779,6 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	for (RTLIL::Cell *cell : module->cells())
 		cells += detail::cellHash(cell);
 	fp.eat(cells);
-}
-
-uint64_t detail::connectionsHash(RTLIL::Module *module)
-{
-	uint64_t connections = 0;
-	for (const auto &[lhs, rhs] : module->connections()) {
-		detail::Fingerprint fp;
-		fp.eat(GetSize(lhs));
-		fp.eat(lhs);
-		fp.eat(rhs);
-		connections += fp.yield();
-	}
-	return connections;
 }
 
 uint64_t detail::wireHash(RTLIL::Wire *wire)
@@ -878,8 +860,16 @@ void detail::ChangeDetector::refresh()
 
 uint64_t detail::ChangeDetector::computeFingerprint() const
 {
+	uint64_t modules = 0;
+	for (RTLIL::Module *module : design_->modules())
+		modules += detail::designModuleHash(module);
+	RTLIL::Module *top = detail::topModule(design_);
 	detail::Fingerprint fp;
-	detail::hashDesign(fp, design_);
+	fp.eat(modules);
+	Hasher::hash_t top_idx = 0;
+	if (top != nullptr)
+		top_idx = top->hashidx_;
+	fp.eat(top_idx);
 	for (const std::string &name : watched_module_names_) {
 		RTLIL::Module *module = design_->module(name);
 		fp.eat(module != nullptr);

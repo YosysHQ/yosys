@@ -233,7 +233,6 @@ int keySeed(RTLIL::Design *design);
 
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);
-std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
 void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
 void removeOwnedKeeps(RTLIL::Design *design);
 void removeOwnedAttribute(RTLIL::AttrObject *object, RTLIL::IdString attr, RTLIL::IdString marker);

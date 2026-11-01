@@ -58,6 +58,7 @@ std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 constexpr std::string_view cut_attr = "\\netview_cut";
 bool isCutWire(const RTLIL::Wire *wire);
 bool hasUserKeep(const RTLIL::Wire *wire);
+std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
 
 // Ports
 Netlist::Port wirePort(RTLIL::Wire *wire);
@@ -95,10 +96,8 @@ void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vecto
 std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net, bool down);
 
 // Fingerprint
-void hashDesign(Fingerprint &fp, RTLIL::Design *design);
 uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
-uint64_t connectionsHash(RTLIL::Module *module);
 uint64_t wireHash(RTLIL::Wire *wire);
 uint64_t cellHash(RTLIL::Cell *cell);
 

@@ -40,12 +40,8 @@ int detail::BarrierStore::nextId()
 void detail::BarrierStore::skipIdsInUse(RTLIL::Design *design)
 {
 	last_barrier_id = std::max(last_barrier_id, detail::keySeed(design));
-	for (RTLIL::Module *module : design->modules()) {
-		for (RTLIL::Cell *cell : module->cells()) {
-			if (cell->type == ID($barrier))
-				last_barrier_id = std::max(last_barrier_id, detail::barrierIdOf(cell).value_or(0));
-		}
-	}
+	for (RTLIL::Cell *cell : detail::barrierCells(design))
+		last_barrier_id = std::max(last_barrier_id, detail::barrierIdOf(cell).value_or(0));
 }
 
 detail::BarrierMarks detail::BarrierStore::marks(const RTLIL::Cell *barrier) const
@@ -280,13 +276,8 @@ void detail::BarrierWriter::cutPorts()
 
 void detail::BarrierWriter::removeUnusedBarriers()
 {
-	for (RTLIL::Module *module : view_.design()->modules()) {
-		std::vector<RTLIL::Cell *> unused;
-		for (RTLIL::Cell *cell : module->cells()) {
-			if (isUnusedBarrier(cell))
-				unused.push_back(cell);
-		}
-		for (RTLIL::Cell *cell : unused)
+	for (RTLIL::Cell *cell : detail::barrierCells(view_.design())) {
+		if (isUnusedBarrier(cell))
 			removeBarrier(cell);
 	}
 }
@@ -444,12 +435,6 @@ const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit
 		}
 	}
 	return top_port_pin_by_bit_.at(walker.sigmap(bit), nullptr);
-}
-
-// netview_<attr> marks our attr, removeOwnedKeeps removes only that one
-std::string detail::ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr)
-{
-	return std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
 }
 
 void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr)
