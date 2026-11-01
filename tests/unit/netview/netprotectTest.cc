@@ -91,11 +91,11 @@ TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 	const Netlist::Pin *y = ref.result.barrier_y_pins[0];
 	EXPECT_TRUE(a->inst->kind == Netlist::Instance::Kind::Barrier);
 	EXPECT_EQ(a->dir(), Netlist::PortDir::Input);
-	EXPECT_EQ(a->net, topChild(*next, u_sub)->pins[0]->term->net);
+	EXPECT_EQ(a->net, topChild(*next, u_sub)->pins[0]->inner);
 	EXPECT_EQ(y->net, next->instance(i1, topChild(*next, u_sub))->pins[0]->net);
 	EXPECT_NE(a->net, y->net);
 	ASSERT_EQ(next->nets(a->inst).size(), 1u);
-	EXPECT_EQ(a->term->net, y->term->net);
+	EXPECT_EQ(a->inner, y->inner);
 	std::vector<const Netlist::Pin *> loads = {next->instance(i1, topChild(*next, u_sub))->pins[0],
 						   next->instance(i2, topChild(*next, u_sub))->pins[0]};
 	EXPECT_EQ(sortedPins(ref.pins), sortedPins(loads));

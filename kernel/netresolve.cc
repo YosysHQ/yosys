@@ -320,10 +320,10 @@ std::vector<const Netlist::Pin *> detail::Resolver::topPinsOfRef(const std::vect
 		anchored.insert(hit->net);
 	std::vector<const Netlist::Pin *> on_anchors;
 	for (const Netlist::Pin *pin : named) {
-		bool unchecked = pin->term == nullptr || pin->term->net->constant != Netlist::Net::Const::None;
-		if (pin->term != nullptr)
-			named_nets.insert(pin->term->net);
-		if (unchecked || anchored.count(pin->term->net))
+		bool unchecked = pin->inner == nullptr || pin->inner->constant != Netlist::Net::Const::None;
+		if (pin->inner != nullptr)
+			named_nets.insert(pin->inner);
+		if (unchecked || anchored.count(pin->inner))
 			on_anchors.push_back(pin);
 	}
 	std::vector<const Netlist::Pin *> lost_names;
@@ -349,13 +349,11 @@ std::vector<const Netlist::Pin *> detail::Resolver::namedTopPins(uint32_t ref_in
 
 void detail::Resolver::collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const
 {
-	if (net == nullptr)
-		return;
-	for (const Netlist::Term *term : net->terms) {
-		if (term->pin->inst->isTop())
-			pins.push_back(term->pin);
-		else
-			collectTopPorts(term->pin->net, pins);
+	for (const Netlist::Net *above : detail::connectedNets(net, false)) {
+		for (const Netlist::Pin *port : above->boundary) {
+			if (port->inst->isTop())
+				pins.push_back(port);
+		}
 	}
 }
 
@@ -373,21 +371,9 @@ std::vector<const Netlist::Pin *> detail::Resolver::leafPinsUnderScope(const Net
 
 const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const std::string &scope_path) const
 {
-	pool<const Netlist::Net *> seen;
-	std::vector<const Netlist::Net *> todo = {net};
-	while (!todo.empty()) {
-		const Netlist::Net *at = todo.back();
-		todo.pop_back();
-		if (at == nullptr || !seen.insert(at).second)
-			continue;
-		if (data_.snapshot.scopePath(view_, at->scope) == scope_path)
-			return at;
-		for (const Netlist::Term *term : at->terms)
-			todo.push_back(term->pin->net);
-		for (const Netlist::Pin *pin : at->pins) {
-			if (pin->term != nullptr)
-				todo.push_back(pin->term->net);
-		}
+	for (const Netlist::Net *connected : detail::connectedNets(net, true)) {
+		if (data_.snapshot.scopePath(view_, connected->scope) == scope_path)
+			return connected;
 	}
 	return net;
 }
@@ -506,8 +492,7 @@ std::vector<const Netlist::Pin *> detail::hierPinsAbove(const std::vector<const 
 		todo.pop_back();
 		if (net == nullptr || !seen.insert(net).second)
 			continue;
-		for (const Netlist::Term *term : net->terms) {
-			const Netlist::Pin *outer = term->pin;
+		for (const Netlist::Pin *outer : net->boundary) {
 			bool target = std::find(insts.begin(), insts.end(), outer->inst) != insts.end();
 			if (!target)
 				todo.push_back(outer->net);

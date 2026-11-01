@@ -82,10 +82,11 @@ void detail::TrackData::bind(RTLIL::Design *design) const
 
 void detail::TrackData::clearAnchors(RTLIL::Design *design)
 {
-	anchors.clear();
-	barriers.clearAnchors();
+	anchors.anchors_by_ref_attr.clear();
+	barriers.anchors_by_barrier.clear();
+	barriers.anchored_barriers.clear();
 	top_ports_by_ref.clear();
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (id == RTLIL::IdString::Null)
 		return;
 	for (RTLIL::Module *module : design->modules()) {
@@ -98,7 +99,8 @@ void detail::TrackData::clearAnchors(RTLIL::Design *design)
 
 void detail::Snapshot::take(const NetView &view)
 {
-	clear();
+	cell_names.clear();
+	cell_paths.clear();
 	takeScope(view, view.top());
 }
 
@@ -109,12 +111,6 @@ void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *s
 		cell_paths.insert(scopePath(view, child));
 		takeScope(view, child);
 	}
-}
-
-void detail::Snapshot::clear()
-{
-	cell_names.clear();
-	cell_paths.clear();
 }
 
 std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
@@ -136,7 +132,7 @@ std::string detail::Snapshot::cellScopePath(const NetView &view, const Netlist::
 
 void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
 {
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::AddIfMissing);
+	RTLIL::IdString id = design->twines().add(detail::ref_attr);
 	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
 		object->attributes[id] = RTLIL::Const(detail::newRefValue(design));
 	anchors_by_ref_attr[object->attributes.at(id).as_int()].push_back(anchor);
@@ -147,7 +143,7 @@ const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design 
 	static const std::vector<Anchor> none;
 	if (anchors_by_ref_attr.empty())
 		return none;
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (!object->has_attribute(id))
 		return none;
 	return anchors_by_ref_attr.at(object->attributes.at(id).as_int(), none);
@@ -177,7 +173,7 @@ int detail::keySeed(RTLIL::Design *design)
 
 void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObject *object, uint32_t ref_index, const Netlist::Pin *pin)
 {
-	RTLIL::IdString id = detail::refAttrId(design, IdLookup::FindOnly);
+	RTLIL::IdString id = design->twines().find(detail::ref_attr);
 	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
 		return;
 	for (Anchor &anchor : anchors_by_ref_attr.at(object->attributes.at(id).as_int())) {
@@ -186,8 +182,6 @@ void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObje
 			anchor.uncut = true;
 	}
 }
-
-void detail::AnchorStore::clear() { anchors_by_ref_attr.clear(); }
 
 detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker) : view_(view), data_(data), walker_(walker) {}
 
@@ -211,8 +205,8 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 {
 	if (pin->inst->isTop()) {
 		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
-		if (pin->term != nullptr)
-			anchorWires(pin->term->net, ref_index);
+		if (pin->inner != nullptr)
+			anchorWires(pin->inner, ref_index);
 		return;
 	}
 	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)
@@ -274,15 +268,6 @@ bool detail::AnchorWriter::markIfShared(RTLIL::AttrObject *object, RTLIL::Module
 	detail::ensureScopename(object);
 	return true;
 }
-
-RTLIL::IdString detail::attrId(RTLIL::Design *design, std::string_view name, IdLookup lookup)
-{
-	if (lookup == IdLookup::AddIfMissing)
-		return design->twines().add(name);
-	return design->twines().find(name);
-}
-
-RTLIL::IdString detail::refAttrId(RTLIL::Design *design, IdLookup lookup) { return detail::attrId(design, detail::ref_attr, lookup); }
 
 // Without -scopename, flatten extends the 'scopename' of a private object only if it has one
 void detail::ensureScopename(RTLIL::AttrObject *object)

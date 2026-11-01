@@ -6,7 +6,6 @@
 
 #include <deque>
 #include <map>
-#include <optional>
 #include <string_view>
 #include <tuple>
 #include <unordered_map>
@@ -26,6 +25,13 @@ template <typename K, typename V> struct ListMap {
 
 template <typename T> bool idLess(const T *a, const T *b) { return a->id < b->id; }
 
+template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
+{
+	if (at < records.size())
+		return &records[at];
+	return nullptr;
+}
+
 struct Fingerprint;
 uint64_t mix64(uint64_t state, uint64_t value);
 bool designAlive(const RTLIL::Design *design);
@@ -34,24 +40,13 @@ RTLIL::Module *topModule(RTLIL::Design *design);
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 
-struct RecordCounts {
-	uint64_t instances = 0;
-	uint64_t pins = 0;
-	uint64_t nets = 0;
-public:
-	void add(const RecordCounts &other);
-	bool fitIds() const;
-};
-
-RecordCounts countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, RecordCounts> &counts);
+NetView::Counts countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, NetView::Counts> &counts);
 uint64_t portBits(RTLIL::Module *module);
 uint64_t wireBits(RTLIL::Module *module);
 uint64_t cellPinBits(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
-bool checkModule(RTLIL::Module *module, std::string &reason);
-bool indicesFitInt(const RTLIL::Wire *wire);
+bool checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
-void addUsedBlackboxes(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes);
 
 // Cells
 constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
@@ -65,24 +60,17 @@ bool isCutWire(const RTLIL::Wire *wire);
 bool hasUserKeep(const RTLIL::Wire *wire);
 
 // Ports
-enum class CellTypeTable : uint8_t { Static, Yosys };
 Netlist::Port wirePort(RTLIL::Wire *wire);
 void modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out);
 bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
-Netlist::PortDir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, CellTypeTable table);
+Netlist::PortDir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool static_type);
 
 // Names
-using NameKey = std::pair<std::string, std::optional<int>>;
 using NetNameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
 
 enum class WireOrigin : uint8_t {
 	Declared,
 	SplitFromVector // splitnets made it of a vector bit
-};
-
-enum class SeparatorRule : uint8_t {
-	DefaultDot, // '.'
-	AnyChar
 };
 
 std::string unescapedName(RTLIL::PooledName id);
@@ -91,26 +79,20 @@ bool isVector(const RTLIL::Wire *wire);
 std::vector<std::string> sourcePath(const RTLIL::AttrObject *object, std::string_view name);
 std::vector<std::string> flattenPath(std::string_view name);
 size_t flattenSeparator(std::string_view name);
-size_t findSeparator(std::string_view name, SeparatorRule rule);
 bool trailingIndex(std::string_view name, int &index);
 Netlist::NetName netName(const RTLIL::SigBit &bit, WireOrigin origin);
 NetNameRank netNameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
-NameKey nameKey(const Netlist::NetName &name);
-bool beats(const Netlist::OwnedName &claim, const Netlist::OwnedName &owner);
-void claimName(std::map<NameKey, Netlist::OwnedName> &owners, const Netlist::OwnedName &claim);
-bool useOwnNames(const Netlist::Instance *scope, std::vector<std::string> &names);
+void nameChildren(Netlist::Instance *scope);
 
 // Body keys
-void addKeyField(std::string &line, std::string_view text);
-void addNetFields(std::string &line, const NetView &view, const Netlist::Net *net);
-std::string portLine(const Netlist::Port &port);
-std::string pinLine(std::string head, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net);
+uint64_t pinHash(char tag, const std::string &child, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net);
+void eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *net);
 
 // Walks
-Netlist::PortDir pinDirOfTarget(Netlist::WalkTarget target);
 bool pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target);
 void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vector<Netlist::Pin *> &out);
+std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net, bool down);
 
 // Fingerprint
 void hashDesign(Fingerprint &fp, RTLIL::Design *design);
@@ -124,16 +106,13 @@ struct RecordStore {
 	std::deque<Netlist::Instance> instances;
 	std::deque<Netlist::Pin> pins;
 	std::deque<Netlist::Net> nets;
-	std::deque<Netlist::Term> terms;
 	uint32_t next_inst_id = 0;
 	uint32_t next_pin_id = 1;
 	uint32_t next_net_id = 1;
-	uint32_t next_term_id = 1;
 public:
 	Netlist::Instance *newInstance();
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
-	Netlist::Term *newTerm();
 	void clear();
 };
 
@@ -157,6 +136,7 @@ struct NetRtlil {
 	RTLIL::SigBit name_bit;
 	Netlist::NetName name; // copied out of RTLIL
 	std::vector<RTLIL::SigBit> wire_bits;
+	std::vector<Netlist::NetName> aliases;
 };
 
 struct NetsByScopeBit {
@@ -179,22 +159,14 @@ public:
 };
 
 struct BodyKeys {
-	dict<std::string, uint32_t> numbers;  	// by key, from 1
-	Netlist::IdMap<uint32_t> scope_numbers; // by instance id, 0 if not known
+	Netlist::IdMap<uint64_t> keys; // by instance id, 0 if not known
 public:
-	std::string key(const NetView &view, const Netlist::Instance *scope);
-	uint32_t number(const NetView &view, const Netlist::Instance *scope);
-	void addChildLines(std::vector<std::string> &lines, const NetView &view, const Netlist::Instance *child, const std::string &name);
-	void clear();
+	uint64_t key(const NetView &view, const Netlist::Instance *scope);
 };
 
 struct ScopeContents {
 	std::vector<Netlist::Net *> nets;
-	std::vector<Netlist::NetAlias> aliases;
-	Netlist::Net *zero_net = nullptr;
-	Netlist::Net *one_net = nullptr;
-	Netlist::Net *tieNet(Netlist::Net::Const value) const;
-	void setTieNet(Netlist::Net::Const value, Netlist::Net *net);
+	Netlist::Net *tie_nets[2] = {}; // by value == Const::One
 };
 
 struct ChangeDetector final : public RTLIL::Monitor {
@@ -232,7 +204,6 @@ struct ViewData {
 	BodyKeys body_keys; // a cache of NetView::bodyKey
 	ChangeDetector watch;
 	const ScopeContents &scopeContents(const Netlist::Instance *scope) const;
-	void clearTables();
 };
 
 struct ViewBuilder {
@@ -245,11 +216,10 @@ private:
 	bool isBarrierInstance(const RTLIL::Cell *cell) const;
 	void addBarrierInstance(RTLIL::Cell *cell, Netlist::Instance *scope);
 	Netlist::Net *newBarrierNet(Netlist::Instance *scope, int bit, bool scalar);
-	bool yosysPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out) const;
 	const std::vector<Netlist::Port> *portsFor(Netlist::Instance *inst, RTLIL::Module *sub);
 	bool leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out);
 	Netlist::Pin *makePin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net);
-	void makeTerm(Netlist::Pin *pin, Netlist::Net *inner_net);
+	void setInner(Netlist::Pin *pin, Netlist::Net *inner_net);
 	Netlist::Net *newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	void registerWires(RTLIL::Module *module, Netlist::Instance *scope);
 	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
