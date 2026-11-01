@@ -32,8 +32,8 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(t->pins.size(), 7u);
 	for (Netlist::Pin *pin : t->pins) {
 		EXPECT_EQ(pin->net, nullptr);
-		ASSERT_NE(pin->term, nullptr);
-		EXPECT_EQ(pin->term->net->scope, t);
+		ASSERT_NE(pin->inner, nullptr);
+		EXPECT_EQ(pin->inner->scope, t);
 	}
 	// ports shared per library type
 	ASSERT_EQ(iinv0->pins.size(), 2u);
@@ -46,11 +46,11 @@ TEST_F(NetViewTest, buildsInstancesPinsNetsTerms)
 	EXPECT_EQ(y0->bit, 0);
 	EXPECT_EQ(isub->findPin("y", 0), y0);
 	EXPECT_EQ(isub->findPin("y", 4), nullptr);
-	ASSERT_NE(y0->term, nullptr);
-	EXPECT_EQ(y0->term->net->scope, isub);
-	EXPECT_EQ(y0->term->net, view.instance(i1, topChild(view, u_sub))->pins[1]->net);
+	ASSERT_NE(y0->inner, nullptr);
+	EXPECT_EQ(y0->inner->scope, isub);
+	EXPECT_EQ(y0->inner, view.instance(i1, topChild(view, u_sub))->pins[1]->net);
 	EXPECT_EQ(isub->pins[2]->net, nullptr); // y[1] unconnected
-	ASSERT_NE(isub->pins[2]->term, nullptr);
+	ASSERT_NE(isub->pins[2]->inner, nullptr);
 }
 
 TEST_F(NetViewTest, hdlIndexDirAndScalar)
@@ -93,10 +93,8 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	EXPECT_EQ(zero->constant, Netlist::Net::Const::Zero);
 	EXPECT_TRUE(view.constNets(Netlist::Net::Const::One).empty());
 	bool found = false;
-	for (const Netlist::NetAlias &alias : view.aliases(t)) {
-		if (alias.name.wire == "tie")
-			found = alias.net == zero;
-	}
+	for (const Netlist::NetName &alias : view.aliases(zero))
+		found = found || alias.wire == "tie";
 	EXPECT_TRUE(found);
 	EXPECT_EQ(topChild(view, u_x)->pins[0]->net, nullptr);
 	Netlist::Net *d0_net = topChild(view, u_inv0)->pins[1]->net;
@@ -213,7 +211,10 @@ TEST(NetViewNamingTest, namingIsIndependentOfWireOrder)
 		view.build(design);
 		Cell *u1 = design->module(ID(top))->cell("\\u1");
 		EXPECT_EQ(view.name(topChild(view, u1)->pins[1]->net), (Netlist::NetName{"pa", 0, true}));
-		EXPECT_EQ(view.aliases(view.top()).size(), 4u); // zz has no net
+		size_t aliases = 0;
+		for (const Netlist::Net *net : view.nets(view.top()))
+			aliases += view.aliases(net).size();
+		EXPECT_EQ(aliases, 4u); // zz has no net
 		view.clear();
 		delete design;
 	}
@@ -262,12 +263,12 @@ TEST_F(NetViewTest, sharedModuleUnfolds)
 	Netlist::Net *net = second->pins[0]->net;
 	EXPECT_NE(first->pins[0]->net, net);
 	EXPECT_EQ(net->scope, second->parent);
-	EXPECT_EQ(second->parent->pins[0]->term->net, net);
+	EXPECT_EQ(second->parent->pins[0]->inner, net);
 	EXPECT_EQ(second->parent->pins[0]->net, topChild(view, u_inv0)->pins[0]->net);
 	EXPECT_EQ(view.nets(first->parent).size(), view.nets(second->parent).size());
 	EXPECT_EQ(view.wireBits(first->pins[0]->net), std::vector<SigBit>{SigBit(a)});
-	for (const Netlist::NetAlias &alias : view.aliases(second->parent))
-		EXPECT_EQ(alias.net->scope, second->parent) << alias.name.wire;
+	for (const Netlist::Net *scope_net : view.nets(second->parent))
+		EXPECT_EQ(scope_net->scope, second->parent);
 	std::vector<Netlist::Net *> ones = view.constNets(Netlist::Net::Const::One);
 	ASSERT_EQ(ones.size(), 2u);
 	EXPECT_NE(ones[0]->scope, ones[1]->scope);
@@ -432,9 +433,9 @@ TEST(NetViewFlatTest, hdlnameBecomesHdlpath)
 	EXPECT_EQ(j->hdlpath, (std::vector<std::string>{"u1", "u2", "j"}));
 	Netlist::Net *mid = i0->pins[1]->net;
 	bool found = false;
-	for (const Netlist::NetAlias &alias : view.aliases(view.top())) {
-		if (alias.name.wire == "u1.mid")
-			found = alias.net == mid && alias.name.hdlpath == std::vector<std::string>{"u1", "mid"};
+	for (const Netlist::NetName &alias : view.aliases(mid)) {
+		if (alias.wire == "u1.mid")
+			found = alias.hdlpath == std::vector<std::string>{"u1", "mid"};
 	}
 	EXPECT_TRUE(found);
 
@@ -542,8 +543,8 @@ TEST_F(NetViewTest, oneBitBusesKeepTheirIndex)
 		buses++;
 		bool bus = port == "z";
 		EXPECT_EQ(pin->port().scalar(), !bus) << port;
-		EXPECT_EQ(view.name(pin->term->net).scalar, !bus) << port;
-		EXPECT_EQ(view.name(pin->term->net).index, port == "s" ? 5 : 0);
+		EXPECT_EQ(view.name(pin->inner).scalar, !bus) << port;
+		EXPECT_EQ(view.name(pin->inner).index, port == "s" ? 5 : 0);
 	}
 	EXPECT_EQ(buses, 2);
 	EXPECT_TRUE(topChild(view, u_inv0)->pins[0]->port().scalar());
@@ -814,69 +815,14 @@ TEST_F(NetViewTest, childNamesAreUniqueInTheScope)
 	v->set_hdlname_attribute({"v", "y"});
 	NetView view;
 	view.build(d);
-	std::vector<std::string> names = view.childNames(view.top());
-	ASSERT_EQ(names.size(), view.top()->children.size());
 	dict<const Cell *, std::string> by_cell;
-	for (size_t i = 0; i < names.size(); i++)
-		by_cell[view.cell(view.top()->children[i])] = names[i];
+	for (const Netlist::Instance *child : view.top()->children)
+		by_cell[view.cell(child)] = child->unique_name;
 	EXPECT_EQ(by_cell.at(k), "k");
 	EXPECT_EQ(by_cell.at(b), "b");
 	EXPECT_EQ(by_cell.at(r), "r");
 	EXPECT_EQ(by_cell.at(v), "v/y");
 	EXPECT_EQ(by_cell.at(u_sub), "u_sub");
-}
-
-static std::string pathText(const Netlist::NetName &name)
-{
-	if (name.scalar)
-		return name.path();
-	return name.path() + "[" + std::to_string(name.index) + "]";
-}
-
-TEST(NetViewNameTest, netNamesHaveOneOwner)
-{
-	Design design;
-	addInv(&design, "\\INV");
-	Module *m = design.addModule(ID(top));
-	m->set_bool_attribute(ID::top);
-	Wire *i = m->addWire(ID(i));
-	i->port_input = true;
-	Wire *v = m->addWire("\\v", 2);
-	v->port_output = true;
-	m->fixup_ports();
-	Wire *ux = m->addWire("\\u/x");
-	Wire *y = m->addWire(ID(y));
-	y->set_hdlname_attribute({"u", "x"});
-	m->connect(m->addWire("\\w"), i);
-	m->connect(m->addWire("\\tie"), State::S0);
-	Cell *c1 = m->addCell("\\c1", ID(INV));
-	c1->setPort(ID(A), i);
-	c1->setPort(ID(Y), ux);
-	Cell *c2 = m->addCell("\\c2", ID(INV));
-	c2->setPort(ID(A), ux);
-	c2->setPort(ID(Y), y);
-	Cell *c3 = m->addCell("\\c3", ID(INV));
-	c3->setPort(ID(A), y);
-	c3->setPort(ID(Y), SigBit(v, 0));
-	NetView view;
-	view.build(&design);
-	Netlist::Net *i_net = topChild(view, c1)->pins[0]->net;
-	Netlist::Net *ux_net = topChild(view, c1)->pins[1]->net;
-	Netlist::Net *y_net = topChild(view, c2)->pins[1]->net;
-	Netlist::Net *v0_net = topChild(view, c3)->pins[1]->net;
-	Netlist::Net *v1_net = view.top()->findPin("v", 1)->term->net;
-	Netlist::Net *zero = view.constNets(Netlist::Net::Const::Zero).at(0);
-
-	NetView::ScopeNames names = view.netNames(view.top());
-	std::vector<std::tuple<std::string, Netlist::Net *, bool>> got;
-	for (const Netlist::OwnedName &owned : names.names)
-		got.emplace_back(pathText(owned.name), owned.net, owned.canonical);
-	std::vector<std::tuple<std::string, Netlist::Net *, bool>> expected = {
-	  {"i", i_net, true},	  {"tie", zero, false}, {"u/x", ux_net, true}, {"v[0]", v0_net, true},
-	  {"v[1]", v1_net, true}, {"w", i_net, false},	{"y", y_net, false},
-	};
-	EXPECT_EQ(got, expected);
-	EXPECT_EQ(names.shared, 1u); // y lost u/x to the smaller wire u/x
 }
 
 TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
@@ -895,8 +841,8 @@ TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
 	}
 	NetView view;
 	view.build(d);
-	std::vector<std::string> keys;
-	std::vector<std::string> child_keys;
+	std::vector<uint64_t> keys;
+	std::vector<uint64_t> child_keys;
 	for (Cell *cell : wrappers) {
 		Netlist::Instance *scope = topChild(view, cell);
 		keys.push_back(view.bodyKey(scope));
