@@ -175,7 +175,7 @@ Netlist::Net *detail::ViewBuilder::newBarrierNet(Netlist::Instance *scope, int b
 	net->scope = scope;
 	net->constant = Netlist::Net::Const::None;
 	data_.index.net_rtlil[net->id].name = {"Y", bit, scalar};
-	data_.scope_contents[scope].nets.push_back(net);
+	data_.scope_contents[scope->id].nets.push_back(net);
 	return net;
 }
 
@@ -211,7 +211,7 @@ Netlist::Net *detail::ViewBuilder::newNet(Netlist::Instance *scope, const RTLIL:
 	data_.index.net_rtlil[net->id].bit = bit;
 	if (bit.wire != nullptr)
 		setNameBit(net, bit);
-	data_.scope_contents[scope].nets.push_back(net);
+	data_.scope_contents[scope->id].nets.push_back(net);
 	return net;
 }
 
@@ -334,7 +334,7 @@ Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const
 
 Netlist::Net *detail::ViewBuilder::findOrMakeTieNet(Netlist::Instance *scope, const RTLIL::SigBit &canon)
 {
-	Netlist::Net *&tie = data_.scope_contents[scope].tie_nets[canon.data == RTLIL::State::S1];
+	Netlist::Net *&tie = data_.scope_contents[scope->id].tie_nets[canon.data == RTLIL::State::S1];
 	if (tie == nullptr)
 		tie = newNet(scope, canon);
 	return tie;

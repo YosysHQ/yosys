@@ -6,8 +6,6 @@ YOSYS_NAMESPACE_BEGIN
 
 void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &refs)
 {
-	view.recheck();
-	log_assert(view.upToDate());
 	detail::HitIndex hit_index(view, *data_);
 	detail::CutSideWalker walker(view, *data_);
 	detail::Resolver resolver(view, *data_, hit_index, walker);
@@ -161,7 +159,7 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 			continue;
 		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, BufferRule::StopAtNewBuffer, ref.result.loads_beyond);
 		const Netlist::Instance *inst = view_.instance(hit->barrier, hit->barrier_scope);
-		if (inst == nullptr || inst->isLeaf())
+		if (inst == nullptr)
 			continue;
 		ref.result.barrier_a_pins.push_back(inst->findPin("A", 0));
 		ref.result.barrier_y_pins.push_back(inst->findPin("Y", 0));
@@ -288,7 +286,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePort(const std::vecto
 				nets.push_back(pin->net);
 		}
 	}
-	for (const Netlist::Net *net : detail::uniqueSorted(nets))
+	for (const Netlist::Net *net : nets)
 		collectTopPorts(net, pins);
 	pins = detail::uniqueSorted(pins);
 	std::vector<const Netlist::Pin *> named = namedTopPins(ref_index);

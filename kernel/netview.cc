@@ -34,11 +34,8 @@ NetView::Counts NetView::counts() const
 
 bool detail::designAlive(const RTLIL::Design *design)
 {
-	for (const RTLIL::Design *other : *RTLIL::Design::get_all_designs()) {
-		if (other == design)
-			return true;
-	}
-	return false;
+	const std::vector<RTLIL::Design *> &designs = *RTLIL::Design::get_all_designs();
+	return std::find(designs.begin(), designs.end(), design) != designs.end();
 }
 
 // A yosys internal cell type (no library cell)
@@ -366,21 +363,13 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	}
 	for (const std::string &type : data_->ports.types_not_in_library)
 		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
-	data_->watch.arm(design, data_->index.scopeModuleNames());
+	data_->twines_serial = design->twines().serial();
+	for (const auto &[module, occurrences] : data_->index.scopes_by_module.data)
+		data_->watched_module_names.push_back(module->name);
+	markUpToDate();
 }
 
-void NetView::clear()
-{
-	data_->watch.disarm();
-	data_->design = nullptr;
-	data_->top = nullptr;
-	data_->library = nullptr;
-	data_->records.clear();
-	data_->ports.clear();
-	data_->scope_contents.clear();
-	data_->index.clear();
-	data_->body_keys.keys.clear();
-}
+void NetView::clear() { *data_ = detail::ViewData(); }
 
 Netlist::Instance *detail::RecordStore::newInstance()
 {
@@ -401,40 +390,6 @@ Netlist::Net *detail::RecordStore::newNet()
 	Netlist::Net *net = &nets.emplace_back();
 	net->id = next_net_id++;
 	return net;
-}
-
-void detail::RecordStore::clear()
-{
-	instances.clear();
-	pins.clear();
-	nets.clear();
-	next_inst_id = 0;
-	next_pin_id = 1;
-	next_net_id = 1;
-}
-
-void detail::PortStore::clear()
-{
-	lists.clear();
-	lists_by_library_type.clear();
-	types_not_in_library.clear();
-}
-
-std::vector<std::string> detail::RtlilIndex::scopeModuleNames() const
-{
-	std::vector<std::string> names;
-	for (const auto &[module, occurrences] : scopes_by_module.data)
-		names.push_back(module->name);
-	return names;
-}
-
-void detail::RtlilIndex::clear()
-{
-	instances_by_cell.clear();
-	scopes_by_module.clear();
-	instance_rtlil.clear();
-	net_rtlil.clear();
-	nets_by_scope_bit.clear();
 }
 
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
@@ -492,8 +447,6 @@ void detail::NetsByScopeBit::set(const Netlist::Instance *scope, const RTLIL::Si
 	data[{scope->id, detail::bitKey(bit)}] = net;
 }
 
-void detail::NetsByScopeBit::clear() { data.clear(); }
-
 RTLIL::Cell *NetView::cell(const Netlist::Instance *inst) const { return data_->index.instance_rtlil.get(inst->id).cell; }
 
 RTLIL::Module *NetView::module(const Netlist::Instance *scope) const { return data_->index.instance_rtlil.get(scope->id).module; }
@@ -523,23 +476,14 @@ Netlist::NetName NetView::name(const Netlist::Net *net) const
 	return data_->index.net_rtlil.get(net->id).name;
 }
 
-const detail::ScopeContents &detail::ViewData::scopeContents(const Netlist::Instance *scope) const
-{
-	static const ScopeContents none;
-	auto it = scope_contents.find(scope);
-	if (it == scope_contents.end())
-		return none;
-	return it->second;
-}
-
-const std::vector<Netlist::Net *> &NetView::nets(const Netlist::Instance *scope) const { return data_->scopeContents(scope).nets; }
+const std::vector<Netlist::Net *> &NetView::nets(const Netlist::Instance *scope) const { return data_->scope_contents.get(scope->id).nets; }
 
 const std::vector<Netlist::NetName> &NetView::aliases(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).aliases; }
 
 std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 {
 	std::vector<Netlist::Net *> nets;
-	for (const auto &[scope, contents] : data_->scope_contents) {
+	for (const detail::ScopeContents &contents : data_->scope_contents.data) {
 		if (Netlist::Net *net = contents.tie_nets[value == Netlist::Net::Const::One])
 			nets.push_back(net);
 	}
@@ -813,65 +757,20 @@ uint64_t detail::cellHash(RTLIL::Cell *cell)
 	return fp.yield();
 }
 
-detail::ChangeDetector::~ChangeDetector() { disarm(); }
-
-void detail::ChangeDetector::arm(RTLIL::Design *design, std::vector<std::string> module_names)
-{
-	design_ = design;
-	twines_serial_ = design->twines().serial();
-	watched_module_names_ = std::move(module_names);
-	fingerprint_ = computeFingerprint();
-	design_->monitors.insert(this);
-}
-
-// A deleted design has no monitors to leave
-void detail::ChangeDetector::disarm()
-{
-	if (design_ != nullptr && detail::designAlive(design_))
-		design_->monitors.erase(this);
-	design_ = nullptr;
-	twines_serial_ = 0;
-	fingerprint_ = 0;
-	watched_module_names_.clear();
-	maybe_changed_ = false;
-	stale_ = false;
-}
-
-void detail::ChangeDetector::noteEvent() const { maybe_changed_ = true; }
-
-bool detail::ChangeDetector::isStale() const
-{
-	if (stale_)
-		return true;
-	if (!detail::designAlive(design_) || design_->twines().serial() != twines_serial_)
-		stale_ = true;
-	else if (maybe_changed_)
-		stale_ = computeFingerprint() != fingerprint_;
-	maybe_changed_ = false;
-	return stale_;
-}
-
-void detail::ChangeDetector::refresh()
-{
-	fingerprint_ = computeFingerprint();
-	maybe_changed_ = false;
-	stale_ = false;
-}
-
-uint64_t detail::ChangeDetector::computeFingerprint() const
+uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names)
 {
 	uint64_t modules = 0;
-	for (RTLIL::Module *module : design_->modules())
+	for (RTLIL::Module *module : design->modules())
 		modules += detail::designModuleHash(module);
-	RTLIL::Module *top = detail::topModule(design_);
+	RTLIL::Module *top = detail::topModule(design);
 	detail::Fingerprint fp;
 	fp.eat(modules);
 	Hasher::hash_t top_idx = 0;
 	if (top != nullptr)
 		top_idx = top->hashidx_;
 	fp.eat(top_idx);
-	for (const std::string &name : watched_module_names_) {
-		RTLIL::Module *module = design_->module(name);
+	for (const std::string &name : module_names) {
+		RTLIL::Module *module = design->module(name);
 		fp.eat(module != nullptr);
 		if (module != nullptr)
 			detail::hashModule(fp, module);
@@ -879,31 +778,18 @@ uint64_t detail::ChangeDetector::computeFingerprint() const
 	return fp.yield();
 }
 
-void detail::ChangeDetector::notify_module_add(RTLIL::Module *) { noteEvent(); }
-
-void detail::ChangeDetector::notify_module_del(RTLIL::Module *) { noteEvent(); }
-
-void detail::ChangeDetector::notify_connect(RTLIL::Cell *, RTLIL::IdString, const RTLIL::SigSpec &, const RTLIL::SigSpec &) { noteEvent(); }
-
-void detail::ChangeDetector::notify_connect(RTLIL::Module *, const RTLIL::SigSig &) { noteEvent(); }
-
-void detail::ChangeDetector::notify_connect(RTLIL::Module *, const std::vector<RTLIL::SigSig> &) { noteEvent(); }
-
-void detail::ChangeDetector::notify_blackout(RTLIL::Module *) { noteEvent(); }
-
-void NetView::recheck() const { data_->watch.noteEvent(); }
-
 bool NetView::upToDate() const
 {
-	if (!built())
+	const detail::ViewData &data = *data_;
+	if (!built() || !detail::designAlive(data.design) || data.design->twines().serial() != data.twines_serial)
 		return false;
-	return !data_->watch.isStale();
+	return detail::designFingerprint(data.design, data.watched_module_names) == data.fingerprint;
 }
 
 void NetView::markUpToDate()
 {
 	log_assert(built());
-	data_->watch.refresh();
+	data_->fingerprint = detail::designFingerprint(data_->design, data_->watched_module_names);
 }
 
 YOSYS_NAMESPACE_END

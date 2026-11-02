@@ -81,7 +81,6 @@ TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 	ref.hints.keep_as_instance = true;
 	ref.pins = {topChild(view, u_sub)->pins[0]};
 	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 	std::unique_ptr<NetView> next = nextView(view, tracker, d);
 	tracker.resolve(*next, {&ref});
@@ -120,7 +119,6 @@ TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
 	tracker.unprotect(d);
 	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
 	EXPECT_EQ(top->cells().size(), 3u);
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 	std::unique_ptr<NetView> next = nextView(view, tracker, d);
 	tracker.resolve(*next, {&cell});

@@ -72,7 +72,6 @@ TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 	NetView view;
 	view.build(other);
 	delete other;
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 }
 

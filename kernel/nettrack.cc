@@ -18,9 +18,6 @@ NetTracker::~NetTracker() = default;
 
 void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode)
 {
-	// Edits without a monitor event make the view stale
-	view.recheck();
-	log_assert(view.upToDate());
 	detail::TrackData &data = *data_;
 	data.bind(view.design());
 	data.clearAnchors(view.design());
@@ -99,8 +96,7 @@ void detail::TrackData::clearAnchors(RTLIL::Design *design)
 
 void detail::Snapshot::take(const NetView &view)
 {
-	cell_names.clear();
-	cell_paths.clear();
+	*this = Snapshot();
 	takeScope(view, view.top());
 }
 
@@ -115,7 +111,7 @@ void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *s
 
 std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
 {
-	if (scope == nullptr || scope->parent == nullptr)
+	if (scope->isTop())
 		return "";
 	std::string own = cell_names.at(view.cell(scope)->hashidx_, scope->localName());
 	return Netlist::joinPath({scopePath(view, scope->parent), own});
@@ -205,8 +201,7 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 {
 	if (pin->inst->isTop()) {
 		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
-		if (pin->inner != nullptr)
-			anchorWires(pin->inner, ref_index);
+		anchorWires(pin->inner, ref_index);
 		return;
 	}
 	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)

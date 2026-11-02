@@ -4,6 +4,7 @@
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 // - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
 // - Lifetime   records live until clear(), build after clear() restarts the ids
+// - Staleness  upToDate() compares a fingerprint of the design with the one of build() or markUpToDate()
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -62,7 +63,6 @@ struct NetView final {
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void recheck() const;
 	void markUpToDate();
 
 	Counts counts() const;

@@ -8,7 +8,6 @@
 #include <map>
 #include <string_view>
 #include <tuple>
-#include <unordered_map>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -100,6 +99,7 @@ uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
 uint64_t wireHash(RTLIL::Wire *wire);
 uint64_t cellHash(RTLIL::Cell *cell);
+uint64_t designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names);
 
 struct RecordStore {
 	std::deque<Netlist::Instance> instances;
@@ -112,7 +112,6 @@ public:
 	Netlist::Instance *newInstance();
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
-	void clear();
 };
 
 // The port lists of the instances
@@ -120,9 +119,6 @@ struct PortStore {
 	std::deque<std::vector<Netlist::Port>> lists;
 	dict<std::string, const std::vector<Netlist::Port> *> lists_by_library_type;
 	pool<std::string> types_not_in_library;
-
-      public:
-	void clear();
 };
 
 struct InstanceRtlil {
@@ -141,7 +137,6 @@ struct NetRtlil {
 struct NetsByScopeBit {
 	Netlist::Net *get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const;
 	void set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net);
-	void clear();
 public:
 	dict<std::pair<uint32_t, uint64_t>, Netlist::Net *> data;
 };
@@ -152,9 +147,6 @@ struct RtlilIndex {
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
 	NetsByScopeBit nets_by_scope_bit;
-public:
-	std::vector<std::string> scopeModuleNames() const;
-	void clear();
 };
 
 struct BodyKeys {
@@ -168,30 +160,6 @@ struct ScopeContents {
 	Netlist::Net *tie_nets[2] = {}; // by value == Const::One
 };
 
-struct ChangeDetector final : public RTLIL::Monitor {
-	~ChangeDetector() override;
-	void arm(RTLIL::Design *design, std::vector<std::string> module_names);
-	void disarm();
-	void noteEvent() const;
-	bool isStale() const;
-	void refresh();
-	void notify_module_add(RTLIL::Module *module) override;
-	void notify_module_del(RTLIL::Module *module) override;
-	void notify_connect(RTLIL::Cell *cell, RTLIL::IdString port, const RTLIL::SigSpec &old_sig, const RTLIL::SigSpec &new_sig) override;
-	void notify_connect(RTLIL::Module *module, const RTLIL::SigSig &conn) override;
-	void notify_connect(RTLIL::Module *module, const std::vector<RTLIL::SigSig> &conns) override;
-	void notify_blackout(RTLIL::Module *module) override;
-private:
-	uint64_t computeFingerprint() const;
-private:
-	RTLIL::Design *design_ = nullptr;
-	uint64_t fingerprint_ = 0;
-	size_t twines_serial_ = 0;
-	std::vector<std::string> watched_module_names_;
-	mutable bool maybe_changed_ = false;
-	mutable bool stale_ = false;
-};
-
 struct ViewData {
 	RTLIL::Design *design = nullptr;
 	Netlist::CellLibrary *library = nullptr;
@@ -199,10 +167,12 @@ struct ViewData {
 	RecordStore records;
 	PortStore ports;
 	RtlilIndex index;
-	std::unordered_map<const Netlist::Instance *, ScopeContents> scope_contents;
+	Netlist::IdMap<ScopeContents> scope_contents; // by scope id
 	BodyKeys body_keys; // a cache of NetView::bodyKey
-	ChangeDetector watch;
-	const ScopeContents &scopeContents(const Netlist::Instance *scope) const;
+	// the design at the build
+	uint64_t fingerprint = 0;
+	size_t twines_serial = 0;
+	std::vector<std::string> watched_module_names;
 };
 
 struct ViewBuilder {

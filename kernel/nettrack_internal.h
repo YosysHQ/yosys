@@ -172,7 +172,6 @@ private:
 	void protectPort(const Netlist::Pin *pin, uint32_t ref_index);
 	void protectCell(const Netlist::Instance *inst, uint32_t ref_index);
 	void protectNet(const Netlist::Net *net, uint32_t ref_index);
-	void isolateCell(const Netlist::Instance *inst);
 	void anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
 	void keepUncutPin(const Netlist::Pin *pin, uint32_t ref_index);
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
