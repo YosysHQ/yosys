@@ -1894,25 +1894,136 @@ struct VerificPIRImporter
 {
 	VerificImporter *importer = nullptr;
 	Instance *root;
+	property_ir::SExprPrinter *printer;
+
+	struct ParserErrorException {
+	};
+
+	[[noreturn]] void parser_error(std::string errmsg)
+	{
+		if (!importer->mode_keep && !importer->mode_sva_continue)
+			log_error("%s", errmsg);
+		log_warning("%s", errmsg);
+		throw ParserErrorException();
+	}
+
+	[[noreturn]] void parser_error(std::string errmsg, linefile_type loc)
+	{
+		parser_error(stringf("%s at %s:%d.\n", errmsg, LineFile::GetFileName(loc), LineFile::GetLineNo(loc)));
+	}
+
+	[[noreturn]] void parser_error(std::string errmsg, Instance *inst)
+	{
+		parser_error(stringf("%s at %s (%s)", errmsg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+	}
+
+	[[noreturn]] void parser_error(Instance *inst)
+	{
+		std::string msg;
+		if (inst->Type() == PRIM_SVA_MATCH_ITEM_TRIGGER || inst->Type() == PRIM_SVA_MATCH_ITEM_ASSIGN)
+		{
+			msg = "SVA sequences with local variable assignments are currently not supported.\n";
+		}
+
+		parser_error(stringf("%sVerific SVA primitive %s (%s) is currently unsupported in this context",
+				msg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
+	}
 
 	void import()
 	{
 		// ?
 		std::ostringstream output;
-		property_ir::SExprPrinter printer{output};
+		printer = new property_ir::SExprPrinter(output);
+		printer->lines();
 
-		log("  [new] %s says hello! (%d)\n", root->Name(), root->Type());
+		log("  [new] %s (%s):\n", root->Name(), root->View()->Owner()->Name());
 
-		property_ir::ClkPropExpr result = parse_property(root->GetInput());
-		property_ir::emit(printer, result);
-		log("%s\n", output.str());
+		using namespace property_ir;
+		ClkPropExpr result = parse_property(root->GetInput());
+		ClkPropId prop(root->Name());
+		// should this be declare-rec?
+		emit(*printer, declare(prop, result));
+		// TODO all the emits should actually be nested in a document
+		// TODO the final assert/cover etc
+		log_lines(output.str());
+	}
+
+	dict<Net *, property_ir::BoolId> parse_input_cache;
+
+	property_ir::BoolId parse_input(Net *net)
+	{
+		auto it = parse_input_cache.find(net);
+		if (it != parse_input_cache.end())
+			return it->second;
+
+		using namespace property_ir;
+		BoolId result(net->Name());
+		parse_input_cache.emplace(net, result);
+		emit(*printer, declare_input(result));
+		return result;
 	}
 
 	property_ir::ClkSeqExpr parse_sequence([[maybe_unused]]Net *net)
 	{
-		return property_ir::clk_seq_no_match();
-	}
+		log_assert(net != nullptr);
+		auto type = PRIM_END;
+		auto *inst = net->Driver();
+		if (inst != nullptr && !net->IsMultipleDriven())
+			type = inst->Type();
 
+		using namespace property_ir;
+		switch (type) {
+			case PRIM_GND:
+				return clk_seq_bool(constant(false));
+			case PRIM_PWR:
+				return clk_seq_bool(constant(true));
+			case PRIM_SVA_SEQ_CONCAT:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				auto *sva_high_s = inst->GetAttValue("sva:high");
+
+				bool sva_eq = !strcmp(sva_low_s, sva_high_s);
+				int sva_low = atoi(sva_low_s);
+				if (sva_eq && sva_low == 0)
+					return clk_seq_fusion(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+				else if (sva_eq && sva_low == 1)
+					return clk_seq_concat(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+				else {
+					parser_error("need ranges", inst);
+					// also why does clk_seq_delay only take a single child?
+					// return clk_seq_delay(range?, parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+				}
+			}
+			// case PRIM_SVA_CONSECUTIVE_REPEAT:
+				// return clk_seq_repeat(range?, inst->GetInput());
+			// case PRIM_SVA_NON_CONSECUTIVE_REPEAT:
+				// return clk_seq_nonconsecutive_repeat(range?, bool?);
+			// case PRIM_SVA_GOTO_REPEAT:
+				// return clk_seq_goto_repeat(range?, bool?);
+			case PRIM_SVA_SEQ_AND:
+				return clk_seq_and(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			case PRIM_SVA_SEQ_OR:
+				return clk_seq_or(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			// case PRIM_SVA_THROUGHOUT:
+				// return clk_seq_throughout(parse_bool(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			case PRIM_SVA_INTERSECT:
+				return clk_seq_intersect(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			case PRIM_SVA_WITHIN:
+				return clk_seq_within(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			case PRIM_SVA_FIRST_MATCH:
+				return clk_seq_first_match(parse_sequence(inst->GetInput()));
+			case PRIM_SVA_SAMPLED:
+			case PRIM_SVA_ROSE:
+			case PRIM_SVA_FELL:
+			case PRIM_SVA_STABLE:
+			case PRIM_SVA_PAST:
+				parser_error("Sampled value function", inst);
+			case PRIM_END:
+				return clk_seq_bool(parse_input(net));
+			default:
+				parser_error(inst);
+		}
+	}
 
 	property_ir::ClkPropExpr parse_property(Net *net)
 	{
@@ -2007,6 +2118,24 @@ struct VerificPIRImporter
 				log_error("PRIM_SVA_SYNC_ACCEPT_ON\n");
 			case PRIM_SVA_SYNC_REJECT_ON:
 				log_error("PRIM_SVA_SYNC_REJECT_ON\n");
+			case PRIM_SVA_ALWAYS:
+			{
+				auto *sva_low_s = inst->GetAttValue("sva:low");
+				auto *sva_high_s = inst->GetAttValue("sva:high");
+
+				int sva_low = atoi(sva_low_s);
+				int sva_high = atoi(sva_high_s);
+				bool sva_inf = !strcmp(sva_high_s, "$");
+				if (sva_low == 0 && sva_inf)
+					return clk_prop_always(parse_property(inst->GetInput()));
+				else
+					log_error("PRIM_SVA_ALWAYS [%d:%d]\n", sva_low, sva_high);
+					// return clk_prop_always_ranged(range?, parse_property(inst->GetInput()));
+			}
+			case PRIM_SVA_S_ALWAYS:
+				log_error("PRIM_SVA_S_ALWAYS");
+			case PRIM_END:
+				return clk_prop_bool(parse_input(net));
 			default:
 				auto seq = parse_sequence(net);
 				return clk_prop_clk_seq(seq);
