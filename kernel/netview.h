@@ -2,6 +2,7 @@
 // - Instances  one per cell, depth first in statement order
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
+// - Staleness  upToDate() compares a fingerprint of the design with the one of build()
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -56,7 +57,6 @@ struct NetView final {
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void recheck();
 
 	Counts counts() const;
 
