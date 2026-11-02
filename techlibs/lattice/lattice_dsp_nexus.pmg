@@ -176,12 +176,12 @@ code
 			reject;
 		}
 
-		bool small = GetSize(port(mul, \A)) <= 18 && GetSize(port(mul, \B)) <= 18;
+		bool narrow_mul = GetSize(port(mul, \A)) <= 18 && GetSize(port(mul, \B)) <= 18;
 		// Narrow muls don't take a whole 36x36 block for a wide sum
-		if (small && width > 54)
+		if (narrow_mul && width > 54)
 			reject;
-		int ab_width = small ? 18 : 36;
-		int z_width = small ? 54 : 108;
+		int ab_width = narrow_mul ? 18 : 36;
+		int z_width = narrow_mul ? 54 : 108;
 
 		bool ab_signed = param(mul, \A_SIGNED).as_bool();
 		SigSpec sigA = port(mul, \A);
@@ -202,7 +202,7 @@ code
 		if (width < z_width)
 			sigY.append(module->addWire(NEW_ID, z_width - width));
 
-		Cell *mac = module->addCell(NEW_ID, small ? "$__NX_MAC18X18" : "$__NX_MAC36X36");
+		Cell *mac = module->addCell(NEW_ID, narrow_mul ? "$__NX_MAC18X18" : "$__NX_MAC36X36");
 		mac->setPort(\A, sigA);
 		mac->setPort(\B, sigB);
 		mac->setPort(\C, sigC);
