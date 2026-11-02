@@ -6,7 +6,6 @@ YOSYS_NAMESPACE_BEGIN
 
 void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &refs)
 {
-	log_assert(view.upToDate());
 	detail::HitIndex hit_index(view, *data_);
 	detail::Resolver resolver(view, *data_, hit_index);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++)
@@ -117,7 +116,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePort(const std::vecto
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Net))
 		nets.push_back(hit->net);
 	std::vector<const Netlist::Pin *> pins;
-	for (const Netlist::Net *net : detail::uniqueSorted(nets))
+	for (const Netlist::Net *net : nets)
 		collectTopPorts(net, pins);
 	pins = detail::uniqueSorted(pins);
 	std::vector<const Netlist::Pin *> named = namedTopPins(ref_index);
