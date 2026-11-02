@@ -3,6 +3,7 @@
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 // - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
+// - Staleness  upToDate() compares a fingerprint of the design with the one of build() or markUpToDate()
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -60,7 +61,6 @@ struct NetView final {
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void recheck();
 	void markUpToDate();
 
 	Counts counts() const;

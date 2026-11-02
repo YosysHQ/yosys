@@ -320,14 +320,12 @@ TEST_F(NetViewTest, selectionDoesNotMatter)
 	NetView view;
 	view.build(d);
 	d->selection().select(sub);
-	view.recheck();
 	EXPECT_TRUE(view.upToDate());
 }
 
 // Stale after an edit, then rebuilt for the next
 static void expectStale(NetView &view, Design *d)
 {
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 	view.clear();
 	view.build(d);
@@ -370,12 +368,11 @@ TEST_F(NetViewTest, staleViewKeepsNames)
 	Netlist::Net *d0_net = topChild(view, u_inv0)->pins[1]->net;
 	top->rename(d0, "\\renamed");
 	top->remove(pool<Wire *>{d0});
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 	EXPECT_EQ(view.name(d0_net), (Netlist::NetName{"d0", 0, true}));
 }
 
-TEST_F(NetViewTest, monitorEventsMakeTheViewStale)
+TEST_F(NetViewTest, editsMakeTheViewStale)
 {
 	NetView view;
 	view.build(d);
@@ -402,7 +399,6 @@ TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 	NetView view;
 	view.build(other);
 	delete other;
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 }
 
@@ -652,31 +648,22 @@ TEST_F(NetViewTest, unknownTypeWithALibraryIsAnErrorIfConnected)
 	EXPECT_FALSE(view.built());
 }
 
-TEST_F(NetViewTest, directEditsNeedRecheck)
+TEST_F(NetViewTest, directEditsMakeTheViewStale)
 {
 	Cell *u_spare = top->addCell("\\u_spare", ID(INV)); // no connections
 	NetView view;
 	view.build(d);
 	u_inv2->type = d->twines().add("\\INV2");
-	EXPECT_TRUE(view.upToDate());
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 	u_inv2->type = ID(INV);
-	view.recheck();
-	EXPECT_FALSE(view.upToDate());
-
-	view.clear();
-	view.build(d);
-	top->remove(u_spare);
 	EXPECT_TRUE(view.upToDate());
-	view.recheck();
+
+	top->remove(u_spare);
 	EXPECT_FALSE(view.upToDate());
 
 	view.clear();
 	view.build(d);
 	top->rename(d0, "\\renamed");
-	EXPECT_TRUE(view.upToDate());
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 }
 
@@ -689,7 +676,6 @@ TEST_F(NetViewTest, renameIntoAFreedTwineSlotIsStale)
 	d->gc_twines();
 	top->rename(u_inv2, "\\b_new");
 	ASSERT_EQ(u_inv2->name.ref().eq_key(), old_key);
-	view.recheck();
 	EXPECT_FALSE(view.upToDate());
 }
 
