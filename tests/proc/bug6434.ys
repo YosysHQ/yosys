@@ -1,0 +1,33 @@
+# unused loop variable latch is not an error
+read_verilog <<EOT
+module top(input ena, input [2:0] idx, output reg [7:0] out);
+always @* begin : blk
+	integer i;
+	if (ena)
+		for (i = 0; i < 8; i = i + 1)
+			out[i] = i > idx;
+	else
+		out = 0;
+end
+endmodule
+EOT
+logger -expect-no-warnings
+proc -latches error
+logger -check-expected
+opt_clean
+select -assert-none t:$dlatch t:$adlatch
+
+design -reset
+
+# latch value read later in the same process is an error
+read_verilog <<EOT
+module top(input en, d, output reg out);
+reg y;
+always @* begin
+	if (en) y = d;
+	out = y;
+end
+endmodule
+EOT
+logger -expect error "Latch inferred for signal" 1
+proc -latches error

@@ -30,11 +30,39 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
+struct latch_report_t
+{
+	Cell *cell;
+	SigSpec lhs;
+	RTLIL::Process *proc;
+	bool always_comb;
+};
+
+// collects every bit a process references
+struct process_bits_collector_t
+{
+	SigMap &sigmap;
+	pool<SigBit> &bits;
+
+	void operator()(SigSpec &sig)
+	{
+		for (auto bit : sigmap(sig))
+			bits.insert(bit);
+	}
+};
+
 struct proc_dlatch_db_t
 {
 	Module *module;
 	SigMap sigmap;
 	FfInitVals initvals;
+
+	vector<latch_report_t> latch_reports;
+	SigMap use_sigmap;
+	// mux data edges before find_mux_feedback replaces latch feedback with x
+	vector<SigSig> mux_data_edges;
+	dict<SigBit, vector<SigBit>> data_successors;
+	pool<SigBit> observed_bits;
 
 	pool<Cell*> generated_dlatches;
 	dict<Cell*, vector<SigBit>> mux_srcbits;
@@ -66,6 +94,11 @@ struct proc_dlatch_db_t
 						mux_srcbits_vec.push_back(bit);
 
 				mux_srcbits[cell].swap(mux_srcbits_vec);
+
+				if (!cell->has_keep_attr()) {
+					mux_data_edges.push_back(SigSig(cell->getPort(ID::A), cell->getPort(ID::Y)));
+					mux_data_edges.push_back(SigSig(cell->getPort(ID::B), cell->getPort(ID::Y)));
+				}
 			}
 
 			for (auto &conn : cell->connections())
@@ -432,9 +465,102 @@ struct proc_dlatch_db_t
 			}
 		}
 	}
+
+	void add_data_successors(const SigSpec &sig_in, const SigSpec &sig_out)
+	{
+		int width = GetSize(sig_out);
+		for (int i = 0; i < GetSize(sig_in); i++)
+			data_successors[use_sigmap(sig_in[i])].push_back(use_sigmap(sig_out[i % width]));
+	}
+
+	// mux data inputs and latch D inputs pass a bit on, any other read observes it
+	void build_use_index()
+	{
+		use_sigmap.set(module);
+
+		for (auto &[sig_in, sig_out] : mux_data_edges)
+			add_data_successors(sig_in, sig_out);
+
+		for (auto cell : module->cells()) {
+			if (cell->type.in(ID($mux), ID($pmux), ID($bwmux)) && !cell->has_keep_attr()) {
+				for (auto bit : use_sigmap(cell->getPort(ID::S)))
+					observed_bits.insert(bit);
+				continue;
+			}
+
+			bool is_latch = cell->type.in(ID($dlatch), ID($adlatch)) && !cell->has_keep_attr();
+			if (is_latch)
+				add_data_successors(cell->getPort(ID::D), cell->getPort(ID::Q));
+
+			for (auto &[port, sig] : cell->connections()) {
+				if (is_latch && port == ID::D)
+					continue;
+				if (!cell->known() || cell->input(port))
+					for (auto bit : use_sigmap(sig))
+						observed_bits.insert(bit);
+			}
+		}
+
+		for (auto wire : module->wires())
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
+				for (auto bit : use_sigmap(wire))
+					observed_bits.insert(bit);
+
+		process_bits_collector_t collector{use_sigmap, observed_bits};
+		for (auto [_, proc] : module->processes)
+			proc->rewrite_sigspecs(collector);
+	}
+
+	bool is_latch_output_observed(Cell *cell)
+	{
+		pool<SigBit> visited;
+		vector<SigBit> queue;
+		for (auto bit : use_sigmap(cell->getPort(ID::Q)))
+			queue.push_back(bit);
+
+		while (!queue.empty()) {
+			SigBit bit = queue.back();
+			queue.pop_back();
+			if (bit.wire == nullptr || !visited.insert(bit).second)
+				continue;
+			if (observed_bits.count(bit))
+				return true;
+			auto it = data_successors.find(bit);
+			if (it != data_successors.end())
+				for (auto next_bit : it->second)
+					queue.push_back(next_bit);
+		}
+		return false;
+	}
+
+	void report_latches(LatchPolicy policy)
+	{
+		if (latch_reports.empty())
+			return;
+
+		build_use_index();
+
+		for (auto &report : latch_reports) {
+			if (report.always_comb)
+				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
+						module->name, log_signal(report.lhs), module->name, report.proc->name);
+			else if (!is_latch_output_observed(report.cell))
+				log("Latch inferred for unused signal `%s.%s' from process `%s.%s': %s\n",
+						module->name, log_signal(report.lhs), module->name, report.proc->name, report.cell);
+			else if (policy == LatchPolicy::Error)
+				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						module->name, log_signal(report.lhs), module->name, report.proc->name, report.cell);
+			else if (policy == LatchPolicy::Warn)
+				log_warning("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						module->name, log_signal(report.lhs), module->name, report.proc->name, report.cell);
+			else
+				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
+						module->name, log_signal(report.lhs), module->name, report.proc->name, report.cell);
+		}
+	}
 };
 
-void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
+void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc)
 {
 	RTLIL::SigSig latches_bits, nolatches_bits;
 	dict<SigBit, SigBit> latches_out_in;
@@ -562,21 +688,11 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 				cell->set_bool_attribute(ID::always_latch);
 			db.generated_dlatches.insert(cell);
 
-			if (proc->get_bool_attribute(ID::always_comb))
-				log_error("Latch inferred for signal `%s.%s' from always_comb process `%s.%s'.\n",
-						db.module->name, log_signal(lhs), db.module->name, proc->name);
-			else if (proc->get_bool_attribute(ID::always_latch))
+			if (proc->get_bool_attribute(ID::always_latch))
 				log("Latch inferred for signal `%s.%s' from always_latch process `%s.%s': %s\n",
 						db.module->name, log_signal(lhs), db.module->name, proc->name, cell);
-			else if (policy == LatchPolicy::Error)
-				log_error("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name, log_signal(lhs), db.module->name, proc->name, cell);
-			else if (policy == LatchPolicy::Warn)
-				log_warning("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name, log_signal(lhs), db.module->name, proc->name, cell);
 			else
-				log("Latch inferred for signal `%s.%s' from process `%s.%s': %s\n",
-						db.module->name, log_signal(lhs), db.module->name, proc->name, cell);
+				db.latch_reports.push_back({cell, lhs, proc, proc->get_bool_attribute(ID::always_comb)});
 		}
 
 		offset += width;
@@ -600,6 +716,8 @@ struct ProcDlatchPass : public Pass {
 		log("        Latches requested explicitly with 'always_latch' processes are exempt\n");
 		log("        from this policy and always reported at info level. The generated\n");
 		log("        latch cells carry the 'always_latch' attribute.\n");
+		log("        Latches outside 'always_comb' processes whose output is never read\n");
+		log("        are reported at info level only.\n");
 		log("\n");
 	}
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -628,7 +746,8 @@ struct ProcDlatchPass : public Pass {
 		for (auto mod : design->all_selected_modules()) {
 			proc_dlatch_db_t db(mod);
 			for (auto proc : mod->selected_processes())
-				proc_dlatch(db, proc, policy);
+				proc_dlatch(db, proc);
+			db.report_latches(policy);
 			db.fixup_muxes();
 		}
 	}
