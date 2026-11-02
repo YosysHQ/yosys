@@ -168,7 +168,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 {
 	auto r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *unmap_design = r.first->second.get();
 
 	// Keep track of derived versions of modules that we haven't used, to prevent these being used for unwanted techmaps later on.
@@ -286,12 +286,12 @@ void prep_bypass(RTLIL::Design *design)
 {
 	auto r = saved_designs.emplace("$abc9_map", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *map_design = r.first->second.get();
 
 	r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *unmap_design = r.first->second.get();
 
 	pool<IdString> processed;
@@ -881,7 +881,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	auto r = saved_designs.emplace("$abc9_holes", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	RTLIL::Design *holes_design = r.first->second.get();
 	log_assert(holes_design);
 	RTLIL::Module *holes_module = holes_design->addModule(translate(holes_design, design, module->name));
