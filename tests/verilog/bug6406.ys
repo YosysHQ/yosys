@@ -10,6 +10,7 @@ module top();
 	typedef struct packed signed { logic [7:0] value; } signed_struct;
 
 	wire [7:0] a  = 8'hAC;
+	wire [3:0] b  = 4'h2;
 	wire [3:0] in = 4'd5;
 
 	wire [32:0] shift_unsized = 33'(1 << 31);
@@ -27,6 +28,7 @@ module top();
 	wire [7:0] complement_cast = ~W'(5);
 	wire [7:0] add_cast_signal = W'(in) + 8'hff;
 	wire [8:0] add_widened = W'(5) + 8'hff;
+    wire [1:0] concat_cast = {1'b1, (1'(b) ^ 1'b0)};
 
 	wire [63:0] byte_signed = byte'(a);
 	wire [63:0] typedef_signed = signed_byte'(a);
@@ -60,6 +62,9 @@ module top();
 		assert(complement_cast == 8'hfa);
 		assert(add_cast_signal == 8'h04);
 		assert(add_widened == 9'h104);
+
+		// 6408
+		assert(concat_cast == {1'b1, (1'(b))});
 	end
 endmodule
 EOT
