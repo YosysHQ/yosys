@@ -49,16 +49,7 @@ detail::BarrierMarks detail::BarrierStore::marks(const RTLIL::Cell *barrier) con
 	std::optional<int> id = detail::barrierIdOf(barrier);
 	if (!id)
 		return {};
-	if (marks_by_barrier.count(*id))
-		return marks_by_barrier.at(*id);
-	return detail::writtenMarks(barrier);
-}
-
-RTLIL::IdString detail::BarrierStore::cutPort(const RTLIL::Cell *barrier) const
-{
-	if (marks(barrier).cut_on_a)
-		return ID::A;
-	return ID::Y;
+	return marks_by_barrier.at(*id, detail::writtenMarks(barrier));
 }
 
 detail::BarrierWriter::BarrierWriter(const NetView &view, TrackData &data) : view_(view), data_(data)
@@ -218,7 +209,7 @@ RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 	RTLIL::Cell *existing = barrier_by_cut_bit_.at(bit, nullptr);
 	bool on_cut_wire = detail::isCutWire(bit.wire);
 	if (on_cut_wire && existing == nullptr) {
-		bit.wire->attributes.erase(view_.design()->twines().find(detail::cut_attr));
+		detail::unmarkCutWire(bit.wire);
 	} else if (on_cut_wire) {
 		BarrierMarks marks = data_.barriers.marks(existing);
 		if (!marks.port_cut && marks.cut_on_a == pin->isDriver())
@@ -273,7 +264,7 @@ void detail::BarrierWriter::removeUnusedBarriers()
 
 bool detail::BarrierWriter::isUnusedBarrier(const RTLIL::Cell *cell) const
 {
-	if (cell->type != ID($barrier) || used_barriers_.count(cell) || !data_.anchors.anchorsOf(view_.design(), cell).empty())
+	if (used_barriers_.count(cell) || !data_.anchors.anchorsOf(view_.design(), cell).empty())
 		return false;
 	std::optional<int> id = detail::barrierIdOf(cell);
 	return id && data_.barriers.marks_by_barrier.count(*id) && !data_.barriers.anchored_barriers.count(cell);
@@ -281,9 +272,12 @@ bool detail::BarrierWriter::isUnusedBarrier(const RTLIL::Cell *cell) const
 
 void detail::BarrierWriter::removeBarrier(RTLIL::Cell *barrier)
 {
-	RTLIL::SigBit cut = barrier->getPort(data_.barriers.cutPort(barrier))[0];
+	RTLIL::IdString cut_port = ID::Y;
+	if (data_.barriers.marks(barrier).cut_on_a)
+		cut_port = ID::A;
+	RTLIL::SigBit cut = barrier->getPort(cut_port)[0];
 	if (cut.wire != nullptr)
-		cut.wire->attributes.erase(view_.design()->twines().find(detail::cut_attr));
+		detail::unmarkCutWire(cut.wire);
 	barrier->module->connect(barrier->getPort(ID::Y), barrier->getPort(ID::A));
 	barrier->module->remove(barrier);
 	changed_view_ = true;
@@ -291,7 +285,7 @@ void detail::BarrierWriter::removeBarrier(RTLIL::Cell *barrier)
 
 RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks)
 {
-	int id = 0;
+	int id;
 	RTLIL::IdString name;
 	do {
 		id = data_.barriers.nextId();
@@ -301,8 +295,7 @@ RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, con
 	barrier->set_bool_attribute(ID::keep);
 	detail::ensureScopename(barrier);
 	barrier->attributes[view_.design()->twines().add(detail::anchor_attr)] = RTLIL::Const(id);
-	RTLIL::IdString marks_id = view_.design()->twines().add(detail::marks_attr);
-	barrier->attributes[marks_id] = RTLIL::Const(marks.cut_on_a | marks.port_cut << 1);
+	barrier->attributes[view_.design()->twines().add(detail::marks_attr)] = RTLIL::Const(marks.cut_on_a | marks.port_cut << 1);
 	barrier->setParam(ID::WIDTH, 1);
 	barrier->setPort(ID::A, a);
 	barrier->setPort(ID::Y, y);
@@ -334,7 +327,7 @@ void detail::CutSideWalker::pins(const RTLIL::Cell *barrier, const Netlist::Inst
 	Netlist::WalkTarget target = Netlist::WalkTarget::Loads;
 	if (side == Anchor::Side::A)
 		target = Netlist::WalkTarget::Drivers;
-	if (target == Netlist::WalkTarget::Loads)
+	else
 		rule = BufferRule::PassNewBuffer;
 	CutSideWalkState walk = {scope, target, rule, out};
 	walkBarrier(walk, barrier);
@@ -484,6 +477,8 @@ RTLIL::Wire *detail::addCutWire(RTLIL::Module *module)
 	cut->set_bool_attribute(module->design->twines().add(detail::cut_attr));
 	return cut;
 }
+
+void detail::unmarkCutWire(RTLIL::Wire *wire) { wire->attributes.erase(wire->module->design->twines().find(detail::cut_attr)); }
 
 // The attribute (rename -hide renames the barrier), else the name (abc9 renews it without attributes lol)
 std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)

@@ -75,7 +75,6 @@ public:
 	int nextId();
 	void skipIdsInUse(RTLIL::Design *design);
 	BarrierMarks marks(const RTLIL::Cell *barrier) const;
-	RTLIL::IdString cutPort(const RTLIL::Cell *barrier) const;
 };
 
 struct TrackData {
@@ -197,7 +196,7 @@ struct Resolver {
 	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
-	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule);
+	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	std::vector<const Netlist::Pin *> leafCutSides(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &renamed,
@@ -240,6 +239,7 @@ void removeTrackingMarks(RTLIL::Design *design);
 
 // Barriers
 RTLIL::Wire *addCutWire(RTLIL::Module *module);
+void unmarkCutWire(RTLIL::Wire *wire);
 std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
 BarrierMarks writtenMarks(const RTLIL::Cell *barrier);
 std::vector<RTLIL::Cell *> barrierCells(RTLIL::Design *design);

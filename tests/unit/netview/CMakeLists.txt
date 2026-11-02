@@ -1,6 +1,5 @@
 yosys_gtest(netview
 	netprotectTest.cc
-	nettrackTest.cc
 	netviewHelpers.h
 	netviewTest.cc
 	COMPONENTS

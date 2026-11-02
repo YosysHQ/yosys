@@ -1,21 +1,10 @@
 #include "netviewHelpers.h"
 
-#include "kernel/nettrack.h"
 #include "kernel/sigtools.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 using NetProtectTest = NetViewTest;
-
-// The view after passes with the Barrier instances of the tracker, the old view is cleared
-static std::unique_ptr<NetView> nextView(NetView &view, const NetTracker &tracker, Design *design)
-{
-	view.clear();
-	pool<const Cell *> barriers = tracker.barrierInstances(design);
-	std::unique_ptr<NetView> next = std::make_unique<NetView>();
-	next->build(design, {nullptr, &barriers});
-	return next;
-}
 
 // The $barrier cells of a module
 static std::vector<Cell *> barriersOf(Module *module)
@@ -41,133 +30,84 @@ static Cell *addBidiCell(Design *design, Module *parent, const SigSpec &signal)
 	return b;
 }
 
-using Pins = std::vector<const Netlist::Pin *>;
-
-static Pins sortedPins(Pins pins)
-{
-	std::sort(pins.begin(), pins.end());
-	return pins;
-}
-
-static TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::Kind::Pin)
-{
-	TrackedRef ref{kind};
-	ref.pins = pins;
-	return ref;
-}
-
-struct TrackedView {
-	Design *design;
-	std::unique_ptr<NetView> view = std::make_unique<NetView>();
-	NetTracker tracker;
-
-	explicit TrackedView(Design *design) : design(design) { view->build(design); }
-	Netlist::Instance *child(const Cell *cell) const { return topChild(*view, cell); }
-	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs, TrackMode::Barriers); }
-	// The view after a pass, the refs resolved in it
-	void next(const std::vector<TrackedRef *> &refs)
-	{
-		view = nextView(*view, tracker, design);
-		tracker.resolve(*view, refs);
-	}
-};
-
 TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 {
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
-	TrackedRef ref{TrackedRef::Kind::Pin};
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_sub)->pins[0]});
 	ref.hints.keep_as_instance = true;
-	ref.pins = {topChild(view, u_sub)->pins[0]};
-	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
-	EXPECT_FALSE(view.upToDate());
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&ref});
+	t.checkpoint({&ref});
+	EXPECT_FALSE(t.view->upToDate());
+	t.next({&ref});
 	ASSERT_EQ(ref.result.barrier_a_pins.size(), 1u);
 	ASSERT_EQ(ref.result.barrier_y_pins.size(), 1u);
 	const Netlist::Pin *a = ref.result.barrier_a_pins[0];
 	const Netlist::Pin *y = ref.result.barrier_y_pins[0];
 	EXPECT_TRUE(a->inst->kind == Netlist::Instance::Kind::Barrier);
 	EXPECT_EQ(a->dir(), Netlist::PortDir::Input);
-	EXPECT_EQ(a->net, topChild(*next, u_sub)->pins[0]->inner);
-	EXPECT_EQ(y->net, next->instance(i1, topChild(*next, u_sub))->pins[0]->net);
+	EXPECT_EQ(a->net, t.child(u_sub)->pins[0]->inner);
+	EXPECT_EQ(y->net, t.view->instance(i1, t.child(u_sub))->pins[0]->net);
 	EXPECT_NE(a->net, y->net);
-	ASSERT_EQ(next->nets(a->inst).size(), 1u);
+	ASSERT_EQ(t.view->nets(a->inst).size(), 1u);
 	EXPECT_EQ(a->inner, y->inner);
-	std::vector<const Netlist::Pin *> loads = {next->instance(i1, topChild(*next, u_sub))->pins[0],
-						   next->instance(i2, topChild(*next, u_sub))->pins[0]};
+	Pins loads = {t.view->instance(i1, t.child(u_sub))->pins[0], t.view->instance(i2, t.child(u_sub))->pins[0]};
 	EXPECT_EQ(sortedPins(ref.pins), sortedPins(loads));
 	EXPECT_TRUE(ref.result.flattened_hier_pin);
-	TrackedRef on_barrier{TrackedRef::Kind::Pin};
-	on_barrier.pins = {a};
-	tracker.checkpoint(*next, {&on_barrier}, TrackMode::AnchorsOnly);
+	TrackedRef on_barrier = pinRef({a});
+	t.mode = TrackMode::AnchorsOnly;
+	t.checkpoint({&on_barrier});
 	EXPECT_TRUE(on_barrier.origin.on_barrier_instance);
 }
 
 TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
 {
 	ensurePasses();
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
+	TrackedView t(d);
 	TrackedRef cell{TrackedRef::Kind::Instance};
-	cell.instances = {topChild(view, u_inv2)};
-	tracker.checkpoint(view, {&cell}, TrackMode::Barriers);
+	cell.instances = {t.child(u_inv2)};
+	t.checkpoint({&cell});
 	EXPECT_TRUE(u_inv2->get_bool_attribute(ID::keep));
 	EXPECT_EQ(barriersOf(top).size(), 2u); // a barrier at each pin
-	tracker.unprotect(d);
+	t.tracker.unprotect(d);
 	EXPECT_FALSE(u_inv2->has_attribute(ID::keep));
 	EXPECT_EQ(top->cells().size(), 3u);
-	EXPECT_FALSE(view.upToDate());
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&cell});
-	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{topChild(*next, u_inv2)});
+	EXPECT_FALSE(t.view->upToDate());
+	t.next({&cell});
+	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{t.child(u_inv2)});
 }
 
-// rename -hide gives the barriers new names, unprotect finds them by their id
 TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 {
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
+	TrackedView t(d);
 	TrackedRef cell{TrackedRef::Kind::Instance};
-	cell.instances = {topChild(view, u_inv2)};
-	tracker.checkpoint(view, {&cell}, TrackMode::Barriers);
+	cell.instances = {t.child(u_inv2)};
+	t.checkpoint({&cell});
 	// a pass makes the cell a wire
 	top->connect(u_inv2->getPort(ID(Y)), u_inv2->getPort(ID(A)));
 	top->remove(u_inv2);
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&cell});
+	t.next({&cell});
 	EXPECT_TRUE(cell.instances.empty());
-	EXPECT_EQ(cell.result.loads_beyond, std::vector<const Netlist::Pin *>{next->top()->findPin("out", 0)});
+	EXPECT_EQ(cell.result.loads_beyond, Pins{t.view->top()->findPin("out", 0)});
 	EXPECT_TRUE(cell.removedButLoadsKept());
 }
 
 // The name finds no port, the barrier finds it by its signal
 TEST_F(NetProtectTest, netBarrierFindsTheNetOfItsScope)
 {
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
+	TrackedView t(d);
 	TrackedRef net{TrackedRef::Kind::Net};
-	net.nets = {topChild(view, u_inv2)->pins[0]->net};
-	tracker.checkpoint(view, {&net}, TrackMode::Barriers);
+	net.nets = {t.child(u_inv2)->pins[0]->net};
+	t.checkpoint({&net});
 	// splitnets drops the anchors of the wire
 	p->attributes.clear();
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&net});
-	EXPECT_EQ(net.nets, std::vector<const Netlist::Net *>{topChild(*next, u_inv2)->pins[0]->net});
+	t.next({&net});
+	EXPECT_EQ(net.nets, std::vector<const Netlist::Net *>{t.child(u_inv2)->pins[0]->net});
 }
 
 TEST_F(NetProtectTest, loopOfNewBuffersEnds)
 {
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
-	TrackedRef ref{TrackedRef::Kind::Pin};
-	ref.pins = {topChild(view, u_inv2)->pins[0]};
-	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv2)->pins[0]});
+	t.checkpoint({&ref});
 	// a pass puts a loop of buffers on the cut wire
 	SigBit cut = u_inv2->getPort(ID(A));
 	Wire *b = top->addWire("\\b");
@@ -177,21 +117,18 @@ TEST_F(NetProtectTest, loopOfNewBuffersEnds)
 	Cell *b2 = top->addCell("$b2", ID($_BUF_));
 	b2->setPort(ID::A, b);
 	b2->setPort(ID::Y, cut);
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&ref});
-	EXPECT_EQ(ref.pins, std::vector<const Netlist::Pin *>{topChild(*next, u_inv2)->pins[0]});
+	t.next({&ref});
+	EXPECT_EQ(ref.pins, Pins{t.child(u_inv2)->pins[0]});
 }
 
 TEST_F(NetProtectTest, ringOfNewBuffersOnAPartEnds)
 {
 	Wire *n = top->addWire("\\n");
 	top->connect(n, d0);
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
+	TrackedView t(d);
 	TrackedRef net{TrackedRef::Kind::Net};
-	net.nets = {topChild(view, u_inv0)->pins[1]->net};
-	tracker.checkpoint(view, {&net}, TrackMode::Barriers);
+	net.nets = {t.child(u_inv0)->pins[1]->net};
+	t.checkpoint({&net});
 	// n gets its own driver, a ring of new buffers drives d0
 	top->new_connections({{tie, State::S0}});
 	Cell *inv = top->addCell("$inv", ID(INV));
@@ -204,20 +141,16 @@ TEST_F(NetProtectTest, ringOfNewBuffersOnAPartEnds)
 	Cell *r2 = top->addCell("$r2", ID($_BUF_));
 	r2->setPort(ID::A, x);
 	r2->setPort(ID::Y, d0);
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&net});
+	t.next({&net});
 	EXPECT_FALSE(net.nets.empty());
 }
 
 // insbuf puts a buffer between a top input and its barrier, a pass renames the port
 TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 {
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
-	TrackedRef port{TrackedRef::Kind::TopPort};
-	port.pins = {view.top()->findPin("q", 1)};
-	tracker.checkpoint(view, {&port}, TrackMode::Barriers);
+	TrackedView t(d);
+	TrackedRef port = pinRef({t.view->top()->findPin("q", 1)}, TrackedRef::Kind::TopPort);
+	t.checkpoint({&port});
 	Wire *w = top->addWire("\\w");
 	Cell *buf = top->addCell("$buf", ID($_BUF_));
 	buf->setPort(ID::A, SigBit(q, 1));
@@ -227,31 +160,25 @@ TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 	q->attributes.clear();
 	top->rename(q, "\\q_renamed");
 	top->fixup_ports();
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&port});
-	EXPECT_EQ(port.pins, std::vector<const Netlist::Pin *>{next->top()->findPin("q_renamed", 1)});
+	t.next({&port});
+	EXPECT_EQ(port.pins, Pins{t.view->top()->findPin("q_renamed", 1)});
 }
 
 TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
 {
-	NetView view;
-	view.build(d);
-	TrackedRef in_sub{TrackedRef::Kind::Pin}, in_top{TrackedRef::Kind::Pin}, again{TrackedRef::Kind::Pin};
-	in_sub.pins = {view.instance(i1, topChild(view, u_sub))->pins[0]};
 	IdString id_attr;
-	std::unique_ptr<NetView> next;
 	{
-		NetTracker first;
-		first.checkpoint(view, {&in_sub}, TrackMode::Barriers);
+		TrackedView first(d);
+		TrackedRef in_sub = pinRef({first.view->instance(i1, first.child(u_sub))->pins[0]});
+		first.checkpoint({&in_sub});
 		id_attr = d->twines().find("\\netview_anchor");
 		Cell *read_back = barriersOf(sub)[0];
 		read_back->attributes[id_attr] = Const(read_back->attributes.at(id_attr).as_int() + 1);
-		next = nextView(view, first, d);
 	}
-	NetTracker second;
-	in_top.pins = {topChild(*next, u_inv2)->pins[0]};
-	again.pins = {topChild(*next, u_inv0)->pins[0]};
-	second.checkpoint(*next, {&in_top, &again}, TrackMode::Barriers);
+	TrackedView second(d);
+	TrackedRef in_top = pinRef({second.child(u_inv2)->pins[0]});
+	TrackedRef again = pinRef({second.child(u_inv0)->pins[0]});
+	second.checkpoint({&in_top, &again});
 	std::vector<Cell *> barriers = barriersOf(top);
 	ASSERT_EQ(barriers.size(), 2u);
 	ASSERT_EQ(barriersOf(sub).size(), 1u);
@@ -265,18 +192,14 @@ TEST_F(NetProtectTest, newBarriersSkipIdsInUse)
 TEST_F(NetProtectTest, inoutPinIsALoadBeyondABarrier)
 {
 	Cell *b = addBidiCell(d, top, d0);
-	NetView view;
-	view.build(d);
-	NetTracker tracker;
+	TrackedView t(d);
 	TrackedRef ref{TrackedRef::Kind::Instance};
-	ref.instances = {topChild(view, u_inv0)};
-	tracker.checkpoint(view, {&ref}, TrackMode::Barriers);
-	std::unique_ptr<NetView> next = nextView(view, tracker, d);
-	tracker.resolve(*next, {&ref});
-	const Netlist::Pin *b_io = topChild(*next, b)->pins[0];
-	std::vector<const Netlist::Pin *> &loads = ref.result.loads_beyond;
-	EXPECT_NE(std::find(loads.begin(), loads.end(), b_io), loads.end());
-	EXPECT_NE(std::find(loads.begin(), loads.end(), next->instance(i1, topChild(*next, u_sub))->pins[0]), loads.end());
+	ref.instances = {t.child(u_inv0)};
+	t.checkpoint({&ref});
+	t.next({&ref});
+	const Pins &loads = ref.result.loads_beyond;
+	EXPECT_NE(std::find(loads.begin(), loads.end(), t.child(b)->pins[0]), loads.end());
+	EXPECT_NE(std::find(loads.begin(), loads.end(), t.view->instance(i1, t.child(u_sub))->pins[0]), loads.end());
 }
 
 TEST_F(NetProtectTest, inoutPinsKeepTheirCells)
@@ -337,8 +260,6 @@ TEST_F(NetProtectTest, renamedPortOfAFeedthroughKeepsItsDirection)
 	EXPECT_EQ(ref.pins[0]->dir(), Netlist::PortDir::Input);
 }
 
-// u_inv2 keeps its anchor and ports, it has no port renames. A pass maps g(A[1:0], Y) to G2(I[1:0], Y) with the bits
-// of A swapped, the renames of g hold the old and the new bit
 TEST_F(NetProtectTest, pinRefFindsTopPins)
 {
 	Wire *o = top->addWire("\\o");
@@ -374,7 +295,6 @@ TEST_F(NetProtectTest, refsOnFlattenCopiesOfABarrierKeepOnlyThem)
 	EXPECT_EQ(barriersOf(top).size(), 2u);
 }
 
-// A pass buffers the feedthrough o2 = in. The wire anchor on o2 is no lost name, the ref of in keeps in only
 TEST_F(NetProtectTest, flattenedOutputPinKeepsItsLoadsBeyond)
 {
 	ensurePasses();
@@ -386,6 +306,50 @@ TEST_F(NetProtectTest, flattenedOutputPinKeepsItsLoadsBeyond)
 	t.checkpoint({&ref});
 	t.next({&ref});
 	EXPECT_EQ(ref.result.loads_beyond, Pins{t.child(u_inv2)->pins[0]});
+}
+
+TEST_F(NetProtectTest, flattenCopyOfAKeptCellKeepsItsPath)
+{
+	ensurePasses();
+	sub->set_bool_attribute(ID::keep_hierarchy);
+	Module *mid = d->addModule("\\mid");
+	Wire *mid_a = mid->addWire(ID(a));
+	mid_a->port_input = true;
+	mid->fixup_ports();
+	mid->addCell("\\s", "\\sub")->setPort(ID(a), mid_a);
+	Cell *m1 = top->addCell("\\m1", "\\mid");
+	m1->setPort(ID(a), in);
+	top->addCell("\\m2", "\\mid")->setPort(ID(a), in);
+	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedRef ref = pinRef({t.view->instance(i1, t.view->instance(mid->cell("\\s"), t.child(m1)))->pins[0]});
+	t.checkpoint({&ref});
+	Pass::call(d, "flatten");
+	t.next({&ref});
+	ASSERT_EQ(ref.pins.size(), 1u);
+	EXPECT_EQ(ref.pins[0]->inst->parent, t.child(top->cell("\\m1.s")));
+}
+
+// splitnets drops the anchors of the port wire, the port name finds the pin
+TEST_F(NetProtectTest, topPortFindsItsPinByName)
+{
+	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedRef port = pinRef({t.view->top()->findPin("q", 1)}, TrackedRef::Kind::TopPort);
+	t.checkpoint({&port});
+	q->attributes.clear();
+	t.next({&port});
+	EXPECT_EQ(port.pins, Pins{t.view->top()->findPin("q", 1)});
+}
+
+// after clear, resolve finds nothing
+TEST_F(NetProtectTest, clearForgetsTheAnchors)
+{
+	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedRef cell{TrackedRef::Kind::Instance};
+	cell.instances = {t.child(u_inv2)};
+	t.checkpoint({&cell});
+	t.tracker.clear(d);
+	t.next({&cell});
+	EXPECT_TRUE(cell.instances.empty());
 }
 
 YOSYS_NAMESPACE_END

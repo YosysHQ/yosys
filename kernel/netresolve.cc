@@ -134,11 +134,11 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 	ref.result.flattened_hier_pin = ref.origin.isHierarchicalPin() && any_leaf && !any_hier;
 }
 
-std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std::vector<AnchorHit> &hits, BufferRule rule)
+std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std::vector<AnchorHit> &hits)
 {
 	std::vector<const Netlist::Pin *> pins;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier))
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, rule, pins);
+		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 	return pins;
 }
 
@@ -267,7 +267,7 @@ std::vector<const Netlist::Instance *> detail::Resolver::resolveCell(const std::
 		cells.push_back(hit->instance);
 	if (!cells.empty())
 		return cells;
-	for (const Netlist::Pin *pin : cutSidePinsOfHits(hits, BufferRule::PassNewBuffer))
+	for (const Netlist::Pin *pin : cutSidePinsOfHits(hits))
 		cells.push_back(pin->inst);
 	return detail::uniqueSorted(cells);
 }
@@ -279,7 +279,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePort(const std::vecto
 		nets.push_back(hit->net);
 	std::vector<const Netlist::Pin *> pins;
 	if (nets.empty()) {
-		for (const Netlist::Pin *pin : cutSidePinsOfHits(hits, BufferRule::PassNewBuffer)) {
+		for (const Netlist::Pin *pin : cutSidePinsOfHits(hits)) {
 			if (pin->inst->isTop())
 				pins.push_back(pin);
 			else
