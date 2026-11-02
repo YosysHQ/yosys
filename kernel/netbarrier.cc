@@ -79,8 +79,11 @@ void detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_ind
 	for (const Netlist::Pin *other : pin->inst->pins)
 		outputs += other->isDriver();
 	// Every path from an input of a cell with one output passes that output
-	if (pin->inst->isLeaf() && ref.hints.keep_cell && outputs > 1)
-		isolateCell(pin->inst);
+	if (pin->inst->isLeaf() && ref.hints.keep_cell && outputs > 1) {
+		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
+		for (const Netlist::Pin *other : pin->inst->pins)
+			ensureBarrierAtPin(other);
+	}
 	if (pin->inst->isLeaf())
 		return protectLeafPin(pin, ref_index);
 	protectHierPin(pin, ref_index, ref.hints.keep_as_instance);
@@ -135,21 +138,14 @@ void detail::BarrierWriter::protectPort(const Netlist::Pin *pin, uint32_t ref_in
 
 void detail::BarrierWriter::protectCell(const Netlist::Instance *inst, uint32_t ref_index)
 {
-	if (inst->isLeaf() && view_.isRegister(inst)) {
-		detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep);
-		for (const Netlist::Pin *pin : inst->pins) {
-			if (view_.isClockPin(pin))
-				anchorPinBarrier(pin, ref_index);
-		}
-		return;
-	}
-	if (inst->isLeaf()) {
-		isolateCell(inst);
-		for (const Netlist::Pin *pin : inst->pins)
+	if (!inst->isLeaf())
+		return detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep_hierarchy);
+	detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep);
+	bool is_register = view_.isRegister(inst);
+	for (const Netlist::Pin *pin : inst->pins) {
+		if (!is_register || view_.isClockPin(pin))
 			anchorPinBarrier(pin, ref_index);
-		return;
 	}
-	detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep_hierarchy);
 }
 
 void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_index)
@@ -162,13 +158,6 @@ void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_ind
 				protectLeafPin(pin, ref_index, path);
 		}
 	}
-}
-
-void detail::BarrierWriter::isolateCell(const Netlist::Instance *inst)
-{
-	detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep);
-	for (const Netlist::Pin *pin : inst->pins)
-		ensureBarrierAtPin(pin);
 }
 
 void detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
@@ -187,7 +176,7 @@ RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 {
 	RTLIL::Cell *cell = view_.cell(pin->inst);
 	RTLIL::IdString port = detail::escapedPortId(view_.design(), cell, nullptr, pin->port().name);
-	if (cell == nullptr || !cell->hasPort(port) || pin->bit >= GetSize(cell->getPort(port)))
+	if (!cell->hasPort(port) || pin->bit >= GetSize(cell->getPort(port)))
 		return nullptr;
 	RTLIL::SigSpec sig = cell->getPort(port);
 	RTLIL::SigBit bit = sig[pin->bit];

@@ -138,7 +138,7 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 			continue;
 		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, ref.result.loads_beyond);
 		const Netlist::Instance *inst = view_.instance(hit->barrier, hit->barrier_scope);
-		if (inst == nullptr || inst->isLeaf())
+		if (inst == nullptr)
 			continue;
 		ref.result.barrier_a_pins.push_back(inst->findPin("A", 0));
 		ref.result.barrier_y_pins.push_back(inst->findPin("Y", 0));
