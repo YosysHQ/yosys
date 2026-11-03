@@ -189,13 +189,13 @@ struct RpcModule : RTLIL::Module {
 			std::tie(command, input) = server->derive_module(design, stripped_name.substr(1), parameters);
 
 			std::istringstream input_stream(input);
-			RTLIL::Design *derived_design = new RTLIL::Design;
-			Frontend::frontend_call(derived_design, &input_stream, "<rpc>" + derived_name.substr(8), command);
-			derived_design->check();
+			RTLIL::Design derived_design;
+			Frontend::frontend_call(&derived_design, &input_stream, "<rpc>" + derived_name.substr(8), command);
+			derived_design.check();
 
 			dict<std::string, std::string> name_mangling;
 			bool found_derived_top = false;
-			for (auto module : derived_design->modules()) {
+			for (auto module : derived_design.modules()) {
 				std::string original_name = module->name.str();
 				if (original_name == stripped_name) {
 					found_derived_top = true;
@@ -207,24 +207,22 @@ struct RpcModule : RTLIL::Module {
 			if (!found_derived_top)
 				log_cmd_error("RPC frontend did not return requested module `%s`!\n", stripped_name);
 
-			for (auto module : derived_design->modules())
+			for (auto module : derived_design.modules())
 				for (auto cell : module->cells())
 					if (name_mangling.count(cell->type.str()))
 						cell->type = cell->twines().add(name_mangling[cell->type.str()]);
 
-			for (auto module : derived_design->modules_) {
-				std::string mangled_name = name_mangling[derived_design->twines().str(module.first)];
+			for (auto module : derived_design.modules_) {
+				std::string mangled_name = name_mangling[derived_design.twines().str(module.first)];
 
-				log("Importing `%s' as `%s'.\n", PooledName(derived_design, module.first).unescape(), mangled_name);
+				log("Importing `%s' as `%s'.\n", PooledName(&derived_design, module.first).unescape(), mangled_name);
 
 				IdString original_name = module.first;
 				RTLIL::Module *t = module.second->clone(design, design->twines().add(mangled_name));
 				t->attributes.erase(ID::top);
 				if (!t->has_attribute(ID::hdlname))
-					t->set_string_attribute(ID::hdlname, derived_design->twines().str(original_name));
+					t->set_string_attribute(ID::hdlname, derived_design.twines().str(original_name));
 			}
-
-			delete derived_design;
 		}
 
 		return design->twines().add(derived_name);
