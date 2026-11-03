@@ -2,6 +2,7 @@
 // - Instances  one per cell occurrence, depth first in statement order
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
+// - Lifetime   records live until clear(), build after clear() restarts the ids
 // - Staleness  upToDate() compares a fingerprint of the design with the one of build()
 
 #ifndef NETVIEW_H
@@ -77,11 +78,6 @@ struct NetView final {
 	Netlist::Pin *pinById(uint32_t id) const;
 	Netlist::Net *netById(uint32_t id) const;
 
-	void retire();
-	bool retired() const;
-	bool owns(const Netlist::Instance *inst) const;
-	bool owns(const Netlist::Pin *pin) const;
-	bool owns(const Netlist::Net *net) const;
 private:
 	std::unique_ptr<detail::ViewData> data_;
 };

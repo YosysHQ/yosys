@@ -103,7 +103,6 @@ public:
 	Netlist::Instance *newInstance();
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
-	void dropContents();
 };
 
 // The port lists of the instances
@@ -156,7 +155,6 @@ struct ViewData {
 	RTLIL::Design *design = nullptr;
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
-	bool retired = false;
 	RecordStore records;
 	PortStore ports;
 	RtlilIndex index;
