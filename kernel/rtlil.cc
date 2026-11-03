@@ -724,6 +724,12 @@ void RTLIL::Design::transfer_metadata(RTLIL::AttrObject *target, const RTLIL::At
 	target->set_meta(metas_.transfer(target->meta(), source->meta()));
 }
 
+void RTLIL::Design::transfer_attributes(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
+{
+	target->attributes = source->attributes;
+	transfer_metadata(target, source);
+}
+
 void RTLIL::Design::absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source)
 {
 	SrcRef merged = srcs_.merge(target->src(), source->src());

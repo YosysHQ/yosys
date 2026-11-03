@@ -1343,6 +1343,7 @@ public:
 	std::string get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const;
 	void set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value);
 	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
+	void transfer_attributes(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 
 	size_t gc_twines();
