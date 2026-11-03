@@ -81,7 +81,7 @@ Ref TwineSetPool<Derived, Ref>::place(size_t idx, std::span<const IdString> memb
 }
 
 template<typename Derived, typename Ref>
-Ref TwineSetPool<Derived, Ref>::find_members(std::span<const IdString> members) const {
+Ref TwineSetPool<Derived, Ref>::find(std::span<const IdString> members) const {
 	std::vector<IdString> canon = canonical(members);
 	if (canon.empty())
 		return Ref();

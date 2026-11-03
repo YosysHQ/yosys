@@ -36,7 +36,7 @@ struct TwineSetPool : TwineBackedPool<Derived, TwineSet, Ref> {
 	Ref without_member(Ref ref, IdString member);
 	Ref place(size_t idx, std::span<const IdString> members);
 	using HashConsPool<Derived, TwineSet, Ref>::finish_placement;
-	Ref find_members(std::span<const IdString> members) const;
+	Ref find(std::span<const IdString> members) const;
 	Ref copy_from(const Derived &other, Ref ref);
 	std::string serial(Ref ref) const;
 
