@@ -125,8 +125,7 @@ static void run_ice40_opts(Module *module)
 					module->rename(cell, it->second.decode_string());
 					decltype(Cell::attributes) old_attr;
 					std::swap(old_attr, cell->attributes);
-					cell->set_src(SrcRef::Null);
-					cell->set_meta(MetaRef::Null);
+					cell->clear_attributes();
 					for (const auto &a : old_attr) {
 						std::string aname = twines.str(a.first);
 						if (aname.starts_with("\\SB_LUT4.\\"))
