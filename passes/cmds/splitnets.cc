@@ -61,11 +61,9 @@ struct SplitnetsWorker
 		new_wire->port_output = wire->port_output;
 		new_wire->start_offset = wire->start_offset + offset;
 
-		auto it = wire->attributes.find(ID::src);
-		if (it != wire->attributes.end())
-			new_wire->attributes.emplace(ID::src, it->second);
+		module->design->absorb_metadata(new_wire, wire);
 
-		it = wire->attributes.find(ID::hdlname);
+		auto it = wire->attributes.find(ID::hdlname);
 		if (it != wire->attributes.end())
 			new_wire->attributes.emplace(ID::hdlname, it->second);
 
