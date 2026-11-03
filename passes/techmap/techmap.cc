@@ -356,9 +356,7 @@ struct TechmapWorker
 				extra_connect = SigSig();
 			}
 
-			for (auto &attr : w->attributes) {
-				if (attr.first == ID::src)
-					continue;
+			if (!w->attributes.empty() || w->has_attribute(ID::hdlname) || w->has_attribute(ID::scopename)) {
 				auto lhs = GetSize(extra_connect.first);
 				auto rhs = GetSize(extra_connect.second);
 				if (lhs > rhs)
@@ -366,7 +364,6 @@ struct TechmapWorker
 				else if (rhs > lhs)
 					extra_connect.second.remove(lhs, rhs-lhs);
 				module->connect(extra_connect);
-				break;
 			}
 		}
 
