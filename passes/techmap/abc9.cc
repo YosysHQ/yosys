@@ -377,7 +377,8 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("exe")) {
-			//run("aigmap");
+			if (xaiger == 1)
+				run("aigmap");
 			if (help_mode) {
 				run("foreach module in selection");
 				run("    abc9_ops -write_lut <abc-temp-dir>/input.lut", "(skip if '-lut' or '-luts')");
