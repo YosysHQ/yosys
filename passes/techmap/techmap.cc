@@ -263,11 +263,8 @@ struct TechmapWorker
 				w->port_output = false;
 				w->port_id = 0;
 				w->attributes.erase(ID::techmap_autopurge);
-				if (tpl_w->get_bool_attribute(ID::_techmap_special_)) {
-					w->attributes.clear();
-					w->set_src(SrcRef::Null);
-					w->set_meta(MetaRef::Null);
-				}
+				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
+					w->clear_attributes();
 				if (w->has_attribute(ID::src))
 					design->absorb_metadata(w, src_cell);
 			}
