@@ -53,6 +53,7 @@ struct Port {
 	int hdlIndex(int bit) const; // the declared index of a bit
 };
 
+// A scope is a non-leaf instance (for example the top or a submodule instance)
 struct Instance {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
 
