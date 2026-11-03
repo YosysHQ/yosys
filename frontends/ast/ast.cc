@@ -1033,6 +1033,8 @@ RTLIL::Const AstNode::asParaConst() const
 	}
 
 	RTLIL::Const val = asAttrConst();
+	if (is_signed)
+		val.flags |= RTLIL::CONST_FLAG_SIGNED;
 	if (is_unsized)
 		val.flags |= RTLIL::CONST_FLAG_UNSIZED;
 	return val;
