@@ -30,7 +30,8 @@ template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
 }
 
 struct Fingerprint;
-bool designAlive(const RTLIL::Design *design);
+struct ViewData;
+bool designAlive(const ViewData &data);
 RTLIL::Module *topModule(RTLIL::Design *design);
 
 // Buildability
@@ -154,6 +155,8 @@ struct ScopeContents {
 
 struct ViewData {
 	RTLIL::Design *design = nullptr;
+	std::weak_ptr<const RTLIL::Design> design_owner;
+	bool design_shared = false;
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
 	RecordStore records;
