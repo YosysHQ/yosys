@@ -321,13 +321,14 @@ TEST_F(NetViewTest, editsMakeTheViewStale)
 
 TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 {
-	Design *other = new Design;
+	std::shared_ptr<Design> other = std::make_shared<Design>();
 	Module *m = other->addModule(ID(top));
 	m->addWire(ID(a))->port_input = true;
 	m->fixup_ports();
 	NetView view;
-	view.build(other);
-	delete other;
+	view.build(other.get());
+	EXPECT_TRUE(view.upToDate());
+	other.reset();
 	EXPECT_FALSE(view.upToDate());
 }
 
