@@ -40,6 +40,7 @@ protected:
 	Ref place(size_t abs, Node t);
 	void finish_placement();
 	size_t size() const;
+	void clear();
 
 	template<typename Roots>
 	size_t gc(const Roots& roots);
@@ -47,8 +48,6 @@ protected:
 private:
 	Derived* self();
 	const Derived* self() const;
-
-	void reset();
 
 	static bool is_static(Ref ref);
 

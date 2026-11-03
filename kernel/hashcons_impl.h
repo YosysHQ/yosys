@@ -105,7 +105,7 @@ HashConsPool<Derived, Node, Ref>::HashConsPool() { rebuild_index(); }
 template<typename Derived, typename Node, typename Ref>
 HashConsPool<Derived, Node, Ref>::HashConsPool(HashConsPool&& other)
 	: backing(std::move(other.backing)), table(std::move(other.table)), free_list(std::move(other.free_list)), index_entries(other.index_entries) {
-	other.reset();
+	other.clear();
 }
 
 template<typename Derived, typename Node, typename Ref>
@@ -115,13 +115,13 @@ HashConsPool<Derived, Node, Ref>& HashConsPool<Derived, Node, Ref>::operator=(Ha
 		table = std::move(other.table);
 		free_list = std::move(other.free_list);
 		index_entries = other.index_entries;
-		other.reset();
+		other.clear();
 	}
 	return *this;
 }
 
 template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::reset() {
+void HashConsPool<Derived, Node, Ref>::clear() {
 	backing.clear();
 	free_list.clear();
 	rebuild_index();
