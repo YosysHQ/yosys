@@ -36,26 +36,7 @@
         win32Pkgs = pkgs.callPackage ./nix/cross/win32.nix { };
         win64Pkgs = pkgs.callPackage ./nix/cross/win64.nix { };
 
-        mkShell =
-          t:
-          pkgs.mkShell.override { stdenv = t.stdenv; } {
-            inputsFrom = [
-              t
-            ];
-
-            packages = with pkgs; [
-              llvmPackages.clang-tools
-              (python3.withPackages (ps: [
-                ps.pybind11
-                ps.cxxheaderparser
-              ]))
-            ];
-
-            shellHook = ''
-              DRIVER_ROOT="${t.stdenv.cc}/bin"
-              export CLANGD_FLAGS="--query-driver $DRIVER_ROOT/$CC,$DRIVER_ROOT/$CXX"
-            '';
-          };
+        mkShell = t: import ./nix/shell.nix { inherit pkgs; yosys = t; };
       in
       {
         formatter = pkgs.nixfmt-tree;

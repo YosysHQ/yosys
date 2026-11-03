@@ -1,3 +1,4 @@
+# issue #3879
 read_verilog <<EOF
 module gcd(I, D);
 
@@ -27,3 +28,10 @@ design -copy-from gate -as gate gcd
 miter -equiv -make_assert -flatten gold gate miter
 
 sat -verify -prove-asserts -show-all miter
+
+# issue #6421
+design -load input
+extract_fa -d 4
+
+design -load input
+extract_fa -b 5

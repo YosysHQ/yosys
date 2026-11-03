@@ -108,7 +108,6 @@ static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString na
 
 struct TechmapWorker
 {
-	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	dict<RTLIL::Module*, bool> techmap_do_cache;
 	pool<RTLIL::Module*> module_queue;
@@ -587,9 +586,10 @@ struct TechmapWorker
 
 							if (extmapper_name == "simplemap") {
 								log("Creating %s with simplemap.\n", extmapper_module);
-								if (simplemap_mappers.count(extmapper_cell->type) == 0)
+								SimplemapFn mapper = simplemap_mapper(extmapper_cell->type);
+								if (mapper == nullptr)
 									log_error("No simplemap mapper for cell type %s found!\n", extmapper_cell->type.unescape());
-								simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
+								mapper(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
 
@@ -635,9 +635,10 @@ struct TechmapWorker
 						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), extmapper_name);
 
 						if (extmapper_name == "simplemap") {
-							if (simplemap_mappers.count(cell->type) == 0)
+							SimplemapFn mapper = simplemap_mapper(cell->type);
+							if (mapper == nullptr)
 								log_error("No simplemap mapper for cell type %s found!\n", cell->type.unescape());
-							simplemap_mappers.at(cell->type)(module, cell);
+							mapper(module, cell);
 						}
 
 						if (extmapper_name == "maccmap") {
@@ -1206,7 +1207,6 @@ struct TechmapPass : public Pass {
 		log_push();
 
 		TechmapWorker worker;
-		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
@@ -1264,16 +1264,15 @@ struct TechmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Design *map = new RTLIL::Design;
+		RTLIL::Design map_design;
+		RTLIL::Design *map = &map_design;
 		if (map_files.empty()) {
 			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
-					if (!saved_designs.count(fn.substr(1))) {
-						delete map;
+					if (!saved_designs.count(fn.substr(1)))
 						log_cmd_error("Can't open saved design `%s'.\n", fn.substr(1));
-					}
 					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
@@ -1355,7 +1354,6 @@ struct TechmapPass : public Pass {
 		}
 
 		log("No more expansions possible.\n");
-		delete map;
 
 		log_pop();
 	}
