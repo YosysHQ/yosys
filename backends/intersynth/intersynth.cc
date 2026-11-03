@@ -77,7 +77,7 @@ struct IntersynthBackend : public Backend {
 		log_push();
 
 		std::vector<std::string> libfiles;
-		std::vector<RTLIL::Design*> libs;
+		std::vector<std::unique_ptr<RTLIL::Design>> libs;
 		bool flag_notypes = false;
 		bool selected = false;
 
@@ -107,9 +107,8 @@ struct IntersynthBackend : public Backend {
 			f.open(filename.c_str());
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename);
-			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
-			libs.push_back(lib);
+			auto &lib = libs.emplace_back(std::make_unique<RTLIL::Design>());
+			Frontend::frontend_call(lib.get(), &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 		}
 
 		if (libs.size() > 0)
@@ -119,8 +118,8 @@ struct IntersynthBackend : public Backend {
 		std::string netlists_code;
 		NewCellTypes ct(design);
 
-		for (auto lib : libs)
-			ct.setup_design(lib);
+		for (auto &lib : libs)
+			ct.setup_design(lib.get());
 
 		for (auto module : design->modules())
 		{
@@ -206,9 +205,6 @@ struct IntersynthBackend : public Backend {
 		}
 		*f << stringf("\n### Netlists\n");
 		*f << stringf("%s", netlists_code);
-
-		for (auto lib : libs)
-			delete lib;
 
 		log_pop();
 	}
