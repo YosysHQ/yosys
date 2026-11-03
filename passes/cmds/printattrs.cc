@@ -55,11 +55,8 @@ struct PrintAttrsPass : public Pass {
 	}
 
 	static void log_metadata(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
-		if (obj->src() != SrcRef::Null)
-			log("%s(* src=\"%s\" *)\n", get_indent_str(indent),
-					design->get_src_attribute(obj));
 		for (IdString id : RTLIL::interned_attributes)
-			if (id != ID::src && obj->has_attribute(id))
+			if (obj->has_attribute(id))
 				log_const(PooledName(design, id), RTLIL::Const(design->get_interned_attribute(obj, id)), indent);
 	}
 
