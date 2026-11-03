@@ -30,9 +30,6 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 
-#define log_debug2(...) ;
-//#define log_debug2(...) log_debug(__VA_ARGS__)
-
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
