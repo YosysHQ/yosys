@@ -50,36 +50,22 @@ protected:
 	Ref intern(std::vector<IdString> members);
 };
 
-struct NameSetRef {
+struct NameSetRef : PoolRef<NameSetRef> {
 	static const NameSetRef Null;
 
-	constexpr NameSetRef() : value(NULL_VAL) {}
+	constexpr NameSetRef() = default;
 
 	constexpr bool operator==(const NameSetRef &rhs) const { return value == rhs.value; }
 
-	constexpr NameSetRef unstamped() const {
-		NameSetRef ref = *this;
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-		ref.serial = 0;
-#endif
-		return ref;
-	}
-
 private:
+	template<typename> friend struct PoolRef;
 	template<typename, typename, typename> friend struct HashConsPool;
 	template<typename, typename, typename> friend struct TwineBackedPool;
 	template<typename, typename> friend struct TwineSetPool;
 	friend struct MetaPool;
 
-	explicit constexpr NameSetRef(size_t val) : value((uint32_t) val) {}
-	constexpr size_t raw() const { return value; }
+	using PoolRef::PoolRef;
 	constexpr NameSetRef untag() const { return *this; }
-
-	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
-	uint32_t value;
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-	uint32_t serial = 0;
-#endif
 };
 
 inline constexpr NameSetRef NameSetRef::Null{};

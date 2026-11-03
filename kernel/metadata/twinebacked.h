@@ -8,6 +8,28 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+template<typename Self>
+struct PoolRef {
+	constexpr Self unstamped() const {
+		Self ref = static_cast<const Self &>(*this);
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+		ref.serial = 0;
+#endif
+		return ref;
+	}
+
+protected:
+	constexpr PoolRef() = default;
+	explicit constexpr PoolRef(size_t val) : value((uint32_t) val) {}
+	constexpr size_t raw() const { return value; }
+
+	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
+	uint32_t value = NULL_VAL;
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+	uint32_t serial = 0;
+#endif
+};
+
 template<typename Derived, typename Node, typename Ref>
 struct TwineBackedPool : HashConsPool<Derived, Node, Ref> {
 	static constexpr size_t STATIC_COUNT = 0;

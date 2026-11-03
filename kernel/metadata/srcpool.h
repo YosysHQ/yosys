@@ -10,28 +10,22 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct SrcRef {
+struct SrcRef : PoolRef<SrcRef> {
 	static const SrcRef Null;
 
-	constexpr SrcRef() : value(NULL_VAL) {}
+	constexpr SrcRef() = default;
 
 	constexpr bool operator==(const SrcRef &rhs) const { return value == rhs.value; }
 
 private:
+	template<typename> friend struct PoolRef;
 	template<typename, typename, typename> friend struct HashConsPool;
 	template<typename, typename, typename> friend struct TwineBackedPool;
 	template<typename, typename> friend struct TwineSetPool;
 	friend struct SrcPool;
 
-	explicit constexpr SrcRef(size_t val) : value((uint32_t) val) {}
-	constexpr size_t raw() const { return value; }
+	using PoolRef::PoolRef;
 	constexpr SrcRef untag() const { return *this; }
-
-	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
-	uint32_t value;
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-	uint32_t serial = 0;
-#endif
 };
 
 inline constexpr SrcRef SrcRef::Null{};
