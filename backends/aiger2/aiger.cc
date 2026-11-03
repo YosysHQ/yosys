@@ -1437,12 +1437,14 @@ struct XAigerWriter : AigerWriter {
 				<< " " << design->twines().ref_token(bit.wire->name) << "\n";
 			if (bit.wire->has_attribute(ID::src)) {
 				for (auto source : bit.wire->get_strpool_attribute(ID::src)) {
-					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+					map_file << "source " << lit << " " << bit.offset << " "
+						<< design->twines().ref_token(design->twines().add(TwineSpec::Root{source})) << '\n';
 				}
 			}
 			if (bit.wire->driverCell()->has_attribute(ID::src)) {
 				for (auto source : bit.wire->driverCell()->get_strpool_attribute(ID::src)) {
-					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+					map_file << "source " << lit << " " << bit.offset << " "
+						<< design->twines().ref_token(design->twines().add(TwineSpec::Root{source})) << '\n';
 				}
 			}
 		}
