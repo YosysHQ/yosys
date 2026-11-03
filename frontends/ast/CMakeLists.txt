@@ -7,6 +7,5 @@ yosys_core(ast
 	LIBRARIES
 		$<${YOSYS_ENABLE_LIBFFI}:${Dlfcn_LIBRARIES};PkgConfig::libffi>
 	REQUIRES
-		frontend_common
 		sha1
 )

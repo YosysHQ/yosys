@@ -22,7 +22,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "kernel/utils.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>

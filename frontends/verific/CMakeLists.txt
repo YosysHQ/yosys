@@ -63,7 +63,6 @@ yosys_frontend(verific
 	REQUIRES
 		sha1
 		read_verilog
-		frontend_common
 	PROVIDES
 		read
 	DATA_EXPLICIT

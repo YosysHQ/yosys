@@ -26,7 +26,7 @@
 #include "kernel/log.h"
 #include "kernel/fmt.h"
 #include "kernel/scopeinfo.h"
-#include "backends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

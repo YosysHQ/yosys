@@ -25,7 +25,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/log.h"
-#include "backends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
