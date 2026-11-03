@@ -6,10 +6,10 @@ YOSYS_NAMESPACE_BEGIN
 
 using NetProtectTest = NetViewTest;
 
-// The view after passes with the Barrier instances of the tracker, the old view is retired
+// The view after passes with the Barrier instances of the tracker, the old view is cleared
 static std::unique_ptr<NetView> nextView(NetView &view, const NetTracker &tracker, Design *design)
 {
-	view.retire();
+	view.clear();
 	pool<const Cell *> barriers = tracker.barrierInstances(design);
 	std::unique_ptr<NetView> next = std::make_unique<NetView>();
 	next->build(design, {nullptr, &barriers});
