@@ -41,9 +41,9 @@ struct NetView final {
 	};
 
 	struct Counts {
-		size_t instances = 0;
-		size_t nets = 0;
-		size_t pins = 0;
+		uint64_t instances = 0;
+		uint64_t nets = 0;
+		uint64_t pins = 0;
 		bool operator==(const Counts &) const = default;
 		void add(const Counts &other); // saturates at UINT32_MAX
 		bool fitIds() const;

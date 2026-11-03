@@ -142,8 +142,8 @@ public:
 };
 
 struct RtlilIndex {
-	ListMap<uint32_t, Netlist::Instance *> instances_by_cell; // by cell hashidx_
-	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module;
+	ListMap<uint32_t, Netlist::Instance *> instances_by_cell;	      // by cell hashidx_, one per unfolded occurrence of the cell
+	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module; // the scopes whose body is the module
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
 	NetsByScopeBit nets_by_scope_bit;
