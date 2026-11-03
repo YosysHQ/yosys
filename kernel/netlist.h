@@ -11,8 +11,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct NetView;
-
 namespace Netlist
 {
 
@@ -53,6 +51,7 @@ struct Port {
 	int hdlIndex(int bit) const; // the declared index of a bit
 };
 
+// A scope is a non-leaf instance (for example the top or a submodule instance)
 struct Instance {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
 
@@ -64,7 +63,6 @@ struct Instance {
 	Kind kind;
 	uint32_t id;
 	Instance *parent;
-	const NetView *view; // the owner
 	const std::vector<Port> *ports;
 	std::vector<Pin *> pins;
 	std::vector<Instance *> children;
