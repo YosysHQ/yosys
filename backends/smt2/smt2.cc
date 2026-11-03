@@ -23,6 +23,7 @@
 #include "kernel/newcelltypes.h"
 #include "kernel/log.h"
 #include "kernel/mem.h"
+#include "kernel/yw.h"
 #include "libs/json11/json11.hpp"
 #include "kernel/utils.h"
 #include <string>
@@ -1514,17 +1515,6 @@ struct Smt2Worker
 		else
 			f << "true)";
 		f << stringf(" ; end of module %s\n", get_id(module));
-	}
-
-	template<class T> static std::vector<std::string> witness_path(T *obj) {
-		std::vector<std::string> path;
-		if (obj->name.isPublic()) {
-			for (auto token : obj->get_hdlname_attribute())
-				path.push_back("\\" + token);
-		}
-		if (path.empty())
-			path.push_back(obj->name.str());
-		return path;
 	}
 
 	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0)
