@@ -363,7 +363,7 @@ struct SetundefPass : public Pass {
 						if (c.wire && c.wire->attributes.count(ID::init)) {
 							if (c.wire->width == c.width && c.offset == 0) {
 								c.wire->attributes.erase(ID::init);
-								log("Removing init attribute from undriven wire %s.\n", log_id(c.wire));
+								log("Removing init attribute from undriven wire %s.\n", c.wire);
 							} else {
 								Const &initval = c.wire->attributes[ID::init];
 								initval.resize(GetSize(c.wire), State::Sx);
@@ -371,10 +371,10 @@ struct SetundefPass : public Pass {
 									initval.set(i, State::Sx);
 								if (initval.is_fully_undef()) {
 									c.wire->attributes.erase(ID::init);
-									log("Removing init attribute from undriven wire %s.\n", log_id(c.wire));
+									log("Removing init attribute from undriven wire %s.\n", c.wire);
 								} else {
 									log("Clearing init attribute bits [%d:%d] from partially undriven wire %s.\n",
-										c.offset + c.width - 1, c.offset, log_id(c.wire));
+										c.offset + c.width - 1, c.offset, c.wire);
 								}
 							}
 						}
