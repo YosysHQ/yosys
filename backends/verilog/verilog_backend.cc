@@ -107,6 +107,7 @@ enum class ConstKind {
 	Expr, // any context not listed below
 	Concat, // a part of {...}, where unsized literals are not allowed
 	Attr,
+	SizedAttr, // attributes that Yosys reads back with their exact width
 	Param,
 	Specify, // specify path delays and timing check limits
 };
@@ -247,6 +248,7 @@ struct VerilogWriter
 		switch (kind) {
 		case ConstKind::Expr:
 		case ConstKind::Concat:
+		case ConstKind::SizedAttr:
 			return false;
 		case ConstKind::Attr:
 			return !config.nodec_attr;
@@ -263,6 +265,7 @@ struct VerilogWriter
 		bool set_signed = (data.flags & RTLIL::CONST_FLAG_SIGNED) != 0;
 		if (width < 0)
 			width = data.size() - offset;
+		bool narrow_attr = width < 32 && kind == ConstKind::Attr && !config.nodec_attr;
 		if (width == 0) {
 			// See IEEE 1364-2005 Clause 5.1.14.
 			f << "{0{1'b0}}";
@@ -271,7 +274,7 @@ struct VerilogWriter
 		if (config.nostr)
 			goto dump_hex;
 		if ((data.flags & RTLIL::CONST_FLAG_STRING) == 0 || width != (int)data.size()) {
-			if (width == 32 && kind != ConstKind::Concat && !config.nodec) {
+			if ((width == 32 || narrow_attr) && kind != ConstKind::Concat && !config.nodec) {
 				int32_t val = 0;
 				for (int i = offset+width-1; i >= offset; i--) {
 					log_assert(i < (int)data.size());
@@ -280,6 +283,8 @@ struct VerilogWriter
 					if (data[i] == State::S1)
 						val |= 1 << (i - offset);
 				}
+				if (narrow_attr && set_signed && data[offset+width-1] == State::S1)
+					val = (int32_t)((uint32_t)val | (~0u << width));
 				if (set_signed && val == INT32_MIN)
 					goto dump_hex;
 				if (use_unsized_decimal(kind, set_signed) && (set_signed || val >= 0))
@@ -451,25 +456,19 @@ struct VerilogWriter
 		}
 	}
 
-	void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string term = "\n", bool modattr = false, bool regattr = false, bool as_comment = false)
+	void dump_attributes(std::ostream &f, std::string indent, dict<RTLIL::IdString, RTLIL::Const> &attributes, std::string term = "\n", bool regattr = false, bool as_comment = false)
 	{
 		if (config.noattr)
 			return;
 		if (config.attr2comment)
 			as_comment = true;
-		if (config.nodec)
-			modattr = false;
 		for (auto it = attributes.begin(); it != attributes.end(); ++it) {
 			if (it->first == ID::single_bit_vector) continue;
 			if (it->first == ID::init && regattr) continue;
 			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(it->first));
 			f << stringf(" = ");
-			if (modattr && (it->second == State::S0 || it->second == Const(0)))
-				f << stringf(" 0 ");
-			else if (modattr && (it->second == State::S1 || it->second == Const(1)))
-				f << stringf(" 1 ");
-			else
-				dump_const(f, it->second, ConstKind::Attr, -1, 0, as_comment);
+			ConstKind kind = it->first.in(ID::init, ID::defaultvalue) ? ConstKind::SizedAttr : ConstKind::Attr;
+			dump_const(f, it->second, kind, -1, 0, as_comment);
 			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 		}
 	}
@@ -483,7 +482,7 @@ struct VerilogWriter
 
 	void dump_wire(std::ostream &f, std::string indent, RTLIL::Wire *wire)
 	{
-		dump_attributes(f, indent, wire->attributes, "\n", /*modattr=*/false, /*regattr=*/reg_wires.count(wire->name));
+		dump_attributes(f, indent, wire->attributes, "\n", /*regattr=*/reg_wires.count(wire->name));
 #if 0
 		if (wire->port_input && !wire->port_output)
 			f << stringf("%s" "input %s", indent, reg_wires.count(wire->name) ? "reg " : "");
@@ -2338,7 +2337,7 @@ struct VerilogWriter
 
 		for (auto it = sw->cases.begin(); it != sw->cases.end(); ++it) {
 			bool got_default = false;
-			dump_attributes(f, indent + "  ", (*it)->attributes, "\n", /*modattr=*/false, /*regattr=*/false, /*as_comment=*/true);
+			dump_attributes(f, indent + "  ", (*it)->attributes, "\n", /*regattr=*/false, /*as_comment=*/true);
 			if ((*it)->compare.size() == 0) {
 				f << stringf("%s  default", indent);
 				got_default = true;
@@ -2525,7 +2524,7 @@ struct VerilogWriter
 			}
 		}
 
-		dump_attributes(f, indent, module->attributes, "\n", /*modattr=*/true);
+		dump_attributes(f, indent, module->attributes);
 		f << stringf("%s" "module %s(", indent, id(module->name, false));
 		int cnt = 0;
 		for (auto port : module->ports) {
@@ -2647,9 +2646,10 @@ struct VerilogBackend : public Backend {
 		log("        will write out all constants in binary.\n");
 		log("\n");
 		log("    -nodec_attr\n");
-		log("        32-bit attribute values between -(2**31-1) and 2**31-1 are by default\n");
-		log("        dumped in decimal and without size and radix. This option dumps them\n");
-		log("        with size and radix instead.\n");
+		log("        attribute values of up to 32 bits are by default dumped in decimal and\n");
+		log("        without size and radix, except for 32-bit values outside of\n");
+		log("        -(2**31-1)..2**31-1 and the values of the init and defaultvalue\n");
+		log("        attributes. This option dumps them with size and radix instead.\n");
 		log("\n");
 		log("    -dec_param\n");
 		log("        signed 32-bit parameter values between -(2**31-1) and 2**31-1 are by\n");

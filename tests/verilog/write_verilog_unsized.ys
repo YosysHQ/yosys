@@ -11,8 +11,11 @@ module \top
   attribute \neg 32's11111111111111111111111111111011
   attribute \min 32's10000000000000000000000000000000
   attribute \narrow 8'00000001
+  attribute \snarrow 8's11111011
+  attribute \onebit 1'1
   attribute \undef 32'x
   attribute \str "abcd"
+  attribute \init 1'1
   wire \w
   wire width 32 output 1 \e
   wire width 34 output 2 \c
@@ -31,14 +34,17 @@ end
 EOT
 
 write_verilog -defaultparams temp/write_verilog_unsized.v
-! grep -qF "(* mattr =  1  *)" temp/write_verilog_unsized.v
+! grep -qF "(* mattr = 1 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* one = 1 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* zero = 0 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* max = 2147483647 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* over = 32'd2147483648 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* neg = -5 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* min = 32'sh80000000 *)" temp/write_verilog_unsized.v
-! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_unsized.v
+! grep -qF "(* narrow = 1 *)" temp/write_verilog_unsized.v
+! grep -qF "(* snarrow = -5 *)" temp/write_verilog_unsized.v
+! grep -qF "(* onebit = 1 *)" temp/write_verilog_unsized.v
+! grep -qF "(* init = 1'h1 *)" temp/write_verilog_unsized.v
 ! grep -qF "(* undef = 32'hxxxxxxxx *)" temp/write_verilog_unsized.v
 ! grep -qF "(* str = \"abcd\" *)" temp/write_verilog_unsized.v
 ! grep -qF "parameter PD = 32'd7;" temp/write_verilog_unsized.v
@@ -53,6 +59,9 @@ write_verilog -defaultparams temp/write_verilog_unsized.v
 write_verilog -defaultparams -nodec_attr temp/write_verilog_unsized_nodec_attr.v
 ! grep -qF "(* one = 32'd1 *)" temp/write_verilog_unsized_nodec_attr.v
 ! grep -qF "(* neg = -32'sd5 *)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "(* narrow = 8'h01 *)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "(* onebit = 1'h1 *)" temp/write_verilog_unsized_nodec_attr.v
+! grep -qF "(* mattr = 32'd1 *)" temp/write_verilog_unsized_nodec_attr.v
 ! grep -qF ".S(7)" temp/write_verilog_unsized_nodec_attr.v
 
 write_verilog -defaultparams -dec_param temp/write_verilog_unsized_dec_param.v
