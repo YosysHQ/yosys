@@ -15,7 +15,7 @@ A ``src`` value is a set of source locations. Each location is an
 ``IdString`` in the design's ``TwinePool``: the file name is a root twine and
 ``:<line>.<column>-<line>.<column>`` is a suffix on it, so a file name is
 stored once no matter how many locations point into it. A set is a
-``SrcSet``, a sorted and deduplicated vector of such twines, interned in a
+``TwineSet``, a sorted and deduplicated vector of such twines, interned in a
 per-``Design`` ``SrcPool``. Like ``TwinePool``, ``SrcPool`` inherits from
 ``HashConsPool``, so equal sets are stored once.
 
@@ -41,7 +41,7 @@ twin:
    module->remove(remove_cell);
 
 For ``src``, a transfer copies the source's locations and absorbing adds them
-to the target's. Names are covered below.
+to the target's.
 
 When a pass builds a new object out of others, it merges their handles
 instead, as `share` does:
@@ -51,7 +51,7 @@ instead, as `share` does:
    supercell->set_src(module->srcs().merge(c1->src(), c2->src()));
 
 Merging is cheap and avoids touching any underlying strings. Location sets
-are joined with ``|`` when rendered as a string, wuch as on export.
+are joined with ``|`` when rendered as a string, such as on export.
 
 The integer behind a ``SrcRef`` depends on allocation order, so it must never
 decide synthesis results. ``SrcRef`` therefore has no ordering, no hash and no
@@ -74,23 +74,24 @@ names and scopes it absorbed from other objects. Like ``SrcPool``, ``MetaPool``
 inherits from ``HashConsPool``, so equal blocks are stored once.
 
 A scope is a chain of twines in the design's ``TwinePool``: ``a b`` is the
-suffix `` b`` on the root ``a``, so all names in one scope share it. Every
+suffix `` b`` on the scope ``a``, so all names in one scope share it. Every
 chain starts at an empty root twine, so a single-element ``hdlname``, such as a
 module's original name, is a name in the root scope. The name is a suffix on
 its scope that holds only the last element.
 
 An identity with a name renders as the ``hdlname`` attribute, and one without
-renders as ``scopename``, so frontends and backends still see the two
-attributes as before. Absorbed names have no attribute and are not written out.
+renders as ``scopename``. Absorbed names have no attribute and only
+`write_rtlil` writes them out.
 
-A transfer replaces the target's identity with the source's and keeps the
-target's old identity among its absorbed names. Absorbing adds the source's
+A transfer replaces the target's identity with the source's and adds the
+target's old identity and the source's absorbed names to the target's absorbed
+names. Absorbing adds the source's
 identity and absorbed names to the target's absorbed names. The parts of a
 split object, such as the bits of a sliced flip-flop, each carry the identity,
 since the HDL has no object for a part.
 
-Migration from ``src`` attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Migration from ``src``, ``hdlname`` and ``scopename`` attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 C++ core change
 ^^^^^^^^^^^^^^^
@@ -148,20 +149,20 @@ re-interns source locations into the target design; elsewhere, use
    +scope = design->get_scopename(cell);
 
 Copying a whole ``attributes`` dictionary no longer copies the names along with
-it. Pair the copy with ``transfer_metadata`` or ``absorb_metadata``.
+it. Copy with ``transfer_attributes``, or pair the copy with ``absorb_metadata``.
 
 ``RTLIL::interned_attributes`` lists ``src``, ``hdlname`` and ``scopename``,
 and ``Design::get_interned_attribute`` and ``set_interned_attribute`` read and
 write any of them by name. Frontends set attributes read from their input with
 ``import_attribute`` or ``import_attributes`` from
-``frontends/common/attributes.h``, which route the interned ones:
+``kernel/metadata/attributes.h``, which route the interned ones:
 
 .. code-block:: diff
 
    -obj->attributes[id] = value;
    +import_attribute(design, obj, id, value);
 
-Backends iterate ``ExportedAttributes`` from ``backends/common/attributes.h``,
+Backends iterate ``ExportedAttributes`` from ``kernel/metadata/attributes.h``,
 which yields the interned attributes rendered as strings, then the object's
 ``attributes``:
 
@@ -204,7 +205,8 @@ metadata blocks:
 
    metadata
      twines
-       root 1031 "top"
+       root 1030 ""
+       suffix 1031 1030 "top"
        suffix 1064 1031 " u_and"
        ...
      end
