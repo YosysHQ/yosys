@@ -83,9 +83,12 @@ public:
 
 	std::string compare_attributes(const RTLIL::AttrObject *a, const RTLIL::AttrObject *b)
 	{
-		for (IdString id : {ID::hdlname, ID::scopename})
-			if (mod_a->design->get_interned_attribute(a, id) != mod_b->design->get_interned_attribute(b, id))
-				return "attribute " + RTLIL::unescape_id(ID::str(id)) + " mismatch";
+		for (IdString id : RTLIL::interned_attributes) {
+			RTLIL::Const value_a(mod_a->design->get_interned_attribute(a, id));
+			RTLIL::Const value_b(mod_b->design->get_interned_attribute(b, id));
+			if (value_a != value_b)
+				return "attribute " + RTLIL::unescape_id(ID::str(id)) + " mismatch: " + log_const(value_a) + " != " + log_const(value_b);
+		}
 		for (const auto &it : a->attributes) {
 			IdString in_b = bridge.a_to_b(it.first);
 			if (b->attributes.count(in_b) == 0)
