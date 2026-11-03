@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "kernel/log.h"
-#include "kernel/srcpool.h"
+#include "kernel/metadata/srcpool.h"
 
 YOSYS_NAMESPACE_BEGIN
 

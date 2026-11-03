@@ -159,6 +159,8 @@ struct QlBramMergeWorker {
 		for (auto attr: bram2->attributes)
 			if (!merged->has_attribute(attr.first))
 				merged->attributes.insert(attr);
+		module->design->transfer_metadata(merged, bram1);
+		module->design->absorb_metadata(merged, bram2);
 
 		// Remove the old cells
 		module->remove(bram1);

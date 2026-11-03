@@ -23,7 +23,8 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 #include "kernel/twine.h"
-#include "kernel/srcpool.h"
+#include "kernel/metadata/srcpool.h"
+#include "kernel/metadata/metapool.h"
 
 #include <deque>
 #include <string_view>
@@ -636,12 +637,22 @@ public:
 	[[nodiscard]] Hasher hash_into(Hasher h) const;
 };
 
+namespace RTLIL {
+	inline constexpr IdString interned_attributes[] = {ID::src, ID::hdlname, ID::scopename};
+	inline constexpr bool is_interned_attribute(IdString id) {
+		return std::ranges::find(interned_attributes, id) != std::end(interned_attributes);
+	}
+}
+
 struct RTLIL::AttrObject
 {
 	dict<RTLIL::IdString, RTLIL::Const> attributes;
 
 	SrcRef src() const { return src_; }
 	void set_src(SrcRef ref) { src_ = ref; }
+	MetaRef meta() const { return meta_; }
+	void set_meta(MetaRef ref) { meta_ = ref; }
+	void clear_attributes() { attributes.clear(); src_ = SrcRef::Null; meta_ = MetaRef::Null; }
 
 	bool has_attribute(RTLIL::IdString id) const;
 
@@ -658,14 +669,12 @@ struct RTLIL::AttrObject
 
 	pool<string> get_strpool_attribute(RTLIL::IdString id) const;
 
-	void set_hdlname_attribute(const vector<string> &hierarchy);
-	vector<string> get_hdlname_attribute() const;
-
 	void set_intvec_attribute(RTLIL::IdString id, const vector<int> &data);
 	vector<int> get_intvec_attribute(RTLIL::IdString id) const;
 
 private:
 	SrcRef src_ = SrcRef::Null;
+	MetaRef meta_ = MetaRef::Null;
 };
 
 #include "kernel/rtlil_twine_compat.h"
@@ -1316,16 +1325,26 @@ struct RTLIL::Design : std::enable_shared_from_this<RTLIL::Design>
 private:
 	TwinePool twines_;
 	SrcPool srcs_{twines_};
+	MetaPool metas_{twines_};
 
 public:
 	TwinePool &twines() { return twines_; }
 	const TwinePool &twines() const { return twines_; }
 	SrcPool &srcs() { return srcs_; }
 	const SrcPool &srcs() const { return srcs_; }
+	MetaPool &metas() { return metas_; }
+	const MetaPool &metas() const { return metas_; }
 
 	std::string get_src_attribute(const RTLIL::AttrObject *obj) const { return srcs_.str(obj->src()); }
 	pool<std::string> src_leaves(const RTLIL::AttrObject *obj) const { return srcs_.leaves(obj->src()); }
+	std::string get_hdlname(const RTLIL::AttrObject *obj) const { return metas_.hdlname(obj->meta()); }
+	std::string get_scopename(const RTLIL::AttrObject *obj) const { return metas_.scopename(obj->meta()); }
+	void set_hdlname(RTLIL::AttrObject *obj, std::string_view path);
+	void set_scopename(RTLIL::AttrObject *obj, std::string_view path);
+	std::string get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const;
+	void set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value);
 	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
+	void transfer_attributes(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 
 	size_t gc_twines();
@@ -1524,6 +1543,8 @@ public:
 	std::string get_src_attribute() const {
 		return design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	int refcount_wires_;
 	int refcount_cells_;
@@ -1981,6 +2002,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	bool known_driver() const { return driverCell_ != nullptr; }
 
@@ -2025,6 +2048,8 @@ struct RTLIL::Memory : public RTLIL::AttrObject
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	RTLIL::MemoryNameId name;
 
@@ -2065,6 +2090,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	RTLIL::CellTypeId type;
 	dict<RTLIL::IdString, RTLIL::SigSpec> connections_;
@@ -2198,6 +2225,8 @@ public:
 	std::string get_src_attribute() const {
 		return module->design->get_src_attribute(this);
 	}
+	void set_hdlname_attribute(const vector<string> &hierarchy);
+	vector<string> get_hdlname_attribute() const;
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);

@@ -372,7 +372,7 @@ std::pair<std::vector<IdString>, IdString> parse_scopename(const O* object)
 			path.pop_back();
 		}
 	} else {
-		for (auto const &item : split_tokens(object->get_string_attribute(ID(scopename)), " "))
+		for (auto const &item : split_tokens(object->design()->get_scopename(object), " "))
 			path.push_back(twines.add("\\" + item));
 	}
 	return {path, trailing};
@@ -445,6 +445,8 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 
 // Get all attribute from the flattened module or flattened cell corresponding to a $scopeinfo cell.
 dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs);
+
+void scopeinfo_set_attributes(RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::AttrObject *obj);
 
 YOSYS_NAMESPACE_END
 

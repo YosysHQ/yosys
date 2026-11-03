@@ -25,6 +25,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/log.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
@@ -403,13 +404,8 @@ struct EdifBackend : public Backend {
 					}
 
 					{
-						auto count_nontrivial_attr = [](Wire *w) {
-							int count = w->attributes.size();
-							return count;
-						};
-
-						int c1 = count_nontrivial_attr(w1);
-						int c2 = count_nontrivial_attr(w2);
+						int c1 = GetSize(w1->attributes) + w1->has_attribute(ID::hdlname) + w1->has_attribute(ID::scopename);
+						int c2 = GetSize(w2->attributes) + w2->has_attribute(ID::hdlname) + w2->has_attribute(ID::scopename);
 
 						if (c1 > c2) goto promote;
 						if (c1 < c2) goto nopromote;
@@ -440,8 +436,8 @@ struct EdifBackend : public Backend {
 				if (wire->width == 1) {
 					*f << stringf("          (port %s (direction %s)", EDIF_DEF(wire->name), dir);
 					if (attr_properties)
-						for (auto &p : wire->attributes)
-							add_prop(p.first, p.second);
+						for (auto &[name, value] : ExportedAttributes(design, wire))
+							add_prop(name, value);
 					*f << ")\n";
 					RTLIL::SigSpec sig = sigmap(RTLIL::SigSpec(wire));
 					net_join_db[sig].insert(make_pair(stringf("(portRef %s)", EDIF_REF(wire->name)), wire->port_input));
@@ -451,8 +447,8 @@ struct EdifBackend : public Backend {
 					b[wire->upto ? 1 : 0] = wire->start_offset + GetSize(wire) - 1;
 					*f << stringf("          (port (array %s %d) (direction %s)", EDIF_DEFR(wire->name, port_rename, b[0], b[1]), wire->width, dir);
 					if (attr_properties)
-						for (auto &p : wire->attributes)
-							add_prop(p.first, p.second);
+						for (auto &[name, value] : ExportedAttributes(design, wire))
+							add_prop(name, value);
 
 					*f << ")\n";
 					for (int i = 0; i < wire->width; i++) {
@@ -477,8 +473,8 @@ struct EdifBackend : public Backend {
 				for (auto &p : cell->parameters)
 					add_prop(p.first, p.second);
 				if (attr_properties)
-					for (auto &p : cell->attributes)
-						add_prop(p.first, p.second);
+					for (auto &[name, value] : ExportedAttributes(design, cell))
+						add_prop(name, value);
 
 				*f << stringf(")\n");
 				for (auto &p : cell->connections()) {
@@ -547,8 +543,8 @@ struct EdifBackend : public Backend {
 				}
 				*f << stringf("            )");
 				if (attr_properties && sig.wire != NULL)
-					for (auto &p : sig.wire->attributes)
-						add_prop(p.first, p.second);
+					for (auto &[name, value] : ExportedAttributes(design, sig.wire))
+						add_prop(name, value);
 				*f << stringf("\n          )\n");
 			}
 
@@ -581,8 +577,8 @@ struct EdifBackend : public Backend {
 						*f << stringf("            )");
 
 						if (attr_properties && raw_sig.wire != NULL)
-							for (auto &p : raw_sig.wire->attributes)
-								add_prop(p.first, p.second);
+							for (auto &[name, value] : ExportedAttributes(design, raw_sig.wire))
+								add_prop(name, value);
 
 						*f << stringf("\n          )\n");
 					}

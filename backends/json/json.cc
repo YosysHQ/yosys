@@ -23,6 +23,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/cellaigs.h"
 #include "kernel/log.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
@@ -148,10 +149,8 @@ struct JsonWriter
 	void write_attributes(const RTLIL::AttrObject *obj, bool for_module=false)
 	{
 		bool first = true;
-		if (obj->src() != SrcRef::Null)
-			write_parameter(first, for_module, ID::src, Const(design->get_src_attribute(obj)));
-		for (auto &attr : obj->attributes)
-			write_parameter(first, for_module, attr.first, attr.second);
+		for (auto &[name, value] : ExportedAttributes(design, obj))
+			write_parameter(first, for_module, name, value);
 	}
 
 	void write_module(Module *module_)

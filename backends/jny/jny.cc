@@ -22,6 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 #include <algorithm>
 #include <unordered_map>
@@ -266,7 +267,7 @@ struct JnyWriter
         if (_include_attributes) {
             f << ",\n" << _indent << "  \"attributes\": {\n";
 
-            write_prams(mod->attributes, indent_level + 2);
+            write_prams(ExportedAttributes(_design, mod), indent_level + 2);
 
             f << "\n";
             f << _indent << "  }";
@@ -345,19 +346,19 @@ struct JnyWriter
         }
     }
 
-    void write_prams(dict<RTLIL::IdString, RTLIL::Const>& params, uint16_t indent_level = 0) {
+    template<typename Params>
+    void write_prams(const Params& params, uint16_t indent_level = 0) {
         const auto _indent = gen_indent(indent_level);
 
         bool first_param{true};
-        for (auto& param : params) {
+        for (auto& [name, param_val] : params) {
             if (!first_param)
                 f << stringf(",\n");
-            const auto param_val = param.second;
             if (!param_val.empty()) {
-                f << stringf("  %s\"%s\": ", _indent, escape_string(_design->twines().unescaped_str(param.first)));
+                f << stringf("  %s\"%s\": ", _indent, escape_string(_design->twines().unescaped_str(name)));
                 write_param_val(param_val);
             } else {
-                f << stringf("  %s\"%s\": true", _indent, escape_string(_design->twines().unescaped_str(param.first)));
+                f << stringf("  %s\"%s\": true", _indent, escape_string(_design->twines().unescaped_str(name)));
             }
 
             first_param = false;
@@ -391,7 +392,7 @@ struct JnyWriter
         if (_include_attributes) {
             f << ",\n" << _indent << "    \"attributes\": {\n";
 
-            write_prams(cell->attributes, indent_level + 2);
+            write_prams(ExportedAttributes(_design, cell), indent_level + 2);
 
             f << "\n";
             f << _indent << "    }";

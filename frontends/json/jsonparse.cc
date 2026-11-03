@@ -18,6 +18,7 @@
  */
 
 #include "kernel/yosys.h"
+#include "kernel/metadata/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -295,11 +296,7 @@ void json_parse_attributes(RTLIL::Design *design, RTLIL::AttrObject *obj, JsonNo
 	for (auto it : node->data_dict)
 	{
 		IdString key = design->twines().add(RTLIL::escape_id(it.first));
-		Const value = json_parse_attr_param_value(it.second);
-		if (key == ID::src && (value.flags & RTLIL::CONST_FLAG_STRING))
-			obj->set_src(design->srcs().add(value.decode_string()));
-		else
-			obj->attributes[key] = value;
+		import_attribute(design, obj, key, json_parse_attr_param_value(it.second));
 	}
 }
 

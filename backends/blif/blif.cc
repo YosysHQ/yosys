@@ -26,6 +26,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/log.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE
@@ -187,12 +188,13 @@ struct BlifDumper
 		return subckt_or_gate(config->gates_mode ? design->module(cell_type) : nullptr);
 	}
 
-	void dump_params(const char *command, dict<IdString, Const> &params)
+	template<typename Params>
+	void dump_params(const char *command, const Params &params)
 	{
-		for (auto &param : params) {
-			f << stringf("%s %s ", command, design->twines().unescaped_str(param.first));
-			if (param.second.flags & RTLIL::CONST_FLAG_STRING) {
-				std::string str = param.second.decode_string();
+		for (auto &[name, value] : params) {
+			f << stringf("%s %s ", command, design->twines().unescaped_str(name));
+			if (value.flags & RTLIL::CONST_FLAG_STRING) {
+				std::string str = value.decode_string();
 				f << stringf("\"");
 				for (char ch : str)
 					if (ch == '"' || ch == '\\')
@@ -203,7 +205,7 @@ struct BlifDumper
 						f << stringf("%c", ch);
 				f << stringf("\"\n");
 			} else
-				f << stringf("%s\n", param.second.as_string());
+				f << stringf("%s\n", value.as_string());
 		}
 	}
 
@@ -484,7 +486,7 @@ struct BlifDumper
 			if (config->cname_mode)
 				f << stringf(".cname %s\n", str(cell->name));
 			if (config->attr_mode)
-				dump_params(".attr", cell->attributes);
+				dump_params(".attr", ExportedAttributes(design, cell));
 			if (config->param_mode)
 				dump_params(".param", cell->parameters);
 
@@ -493,7 +495,7 @@ struct BlifDumper
 				if (config->iname_mode)
 					f << stringf(".cname %s\n", str(cell->name));
 				if (config->iattr_mode)
-					dump_params(".attr", cell->attributes);
+					dump_params(".attr", ExportedAttributes(design, cell));
 			}
 		}
 

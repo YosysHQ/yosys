@@ -26,6 +26,7 @@
 #include "kernel/log.h"
 #include "kernel/fmt.h"
 #include "kernel/scopeinfo.h"
+#include "kernel/metadata/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -638,10 +639,10 @@ std::string escape_cxx_string(const std::string &input)
 }
 
 template<class T>
-std::string get_hdl_name(T *object)
+std::string get_hdl_name(const RTLIL::Design *design, T *object)
 {
 	if (object->has_attribute(ID::hdlname))
-		return object->get_string_attribute(ID::hdlname);
+		return design->get_hdlname(object);
 	else
 		return object->name.str().substr(1);
 }
@@ -928,12 +929,12 @@ struct CxxrtlWorker {
 
 	void dump_attrs(const RTLIL::AttrObject *object)
 	{
-		for (auto attr : object->attributes) {
-			f << indent << "// " << design->twines().str(attr.first) << ": ";
-			if (attr.second.flags & RTLIL::CONST_FLAG_STRING) {
-				f << attr.second.decode_string();
+		for (auto &[name, value] : ExportedAttributes(design, object)) {
+			f << indent << "// " << design->twines().str(name) << ": ";
+			if (value.flags & RTLIL::CONST_FLAG_STRING) {
+				f << value.decode_string();
 			} else {
-				f << attr.second.as_int(/*is_signed=*/attr.second.flags & RTLIL::CONST_FLAG_SIGNED);
+				f << value.as_int(/*is_signed=*/value.flags & RTLIL::CONST_FLAG_SIGNED);
 			}
 			f << "\n";
 		}
@@ -1263,7 +1264,7 @@ struct CxxrtlWorker {
 			f << indent << "if (performer) {\n";
 			inc_indent();
 				f << indent << "static const metadata_map attributes = ";
-				dump_metadata_map(cell->attributes);
+				dump_metadata_map(exported_attributes(cell));
 				f << ";\n";
 				f << indent << "performer->on_print(formatter, attributes);\n";
 			dec_indent();
@@ -1320,7 +1321,7 @@ struct CxxrtlWorker {
 			f << indent << "if (performer) {\n";
 			inc_indent();
 				f << indent << "static const metadata_map attributes = ";
-				dump_metadata_map(cell->attributes);
+				dump_metadata_map(exported_attributes(cell));
 				f << ";\n";
 				if (cell->type == ID($print)) {
 					f << indent << "performer->on_print(formatter, attributes);\n";
@@ -2359,9 +2360,17 @@ struct CxxrtlWorker {
 		}
 	}
 
+	dict<RTLIL::IdString, RTLIL::Const> exported_attributes(const RTLIL::AttrObject *object)
+	{
+		dict<RTLIL::IdString, RTLIL::Const> attributes;
+		for (auto &[name, value] : ExportedAttributes(design, object))
+			attributes[name] = value;
+		return attributes;
+	}
+
 	void dump_debug_attrs(const RTLIL::AttrObject *object, bool serialize = true)
 	{
-		dict<RTLIL::IdString, RTLIL::Const> attributes = object->attributes;
+		dict<RTLIL::IdString, RTLIL::Const> attributes = exported_attributes(object);
 		// Inherently necessary to get access to the object, so a waste of space to emit.
 		attributes.erase(ID::hdlname);
 		// Internal Yosys attribute that should be removed but isn't.
@@ -2392,7 +2401,7 @@ struct CxxrtlWorker {
 			inc_indent();
 				// The module is responsible for adding its own scope.
 				f << indent << "scopes->add(path.empty() ? path : path.substr(0, path.size() - 1), ";
-				f << escape_cxx_string(get_hdl_name(module)) << ", ";
+				f << escape_cxx_string(get_hdl_name(design, module)) << ", ";
 				dump_debug_attrs(module, /*serialize=*/false);
 				f << ", std::move(cell_attrs));\n";
 				count_scopes++;
@@ -2403,7 +2412,7 @@ struct CxxrtlWorker {
 						auto module_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Module);
 						auto cell_attrs = scopeinfo_attributes(cell, ScopeinfoAttrs::Cell);
 						cell_attrs.erase(ID::module_not_derived);
-						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(cell)) << ", ";
+						f << indent << "scopes->add(path, " << escape_cxx_string(get_hdl_name(design, cell)) << ", ";
 						if (module_attrs.count(ID(hdlname))) {
 							f << escape_cxx_string(module_attrs.at(ID(hdlname)).decode_string());
 						} else {
@@ -2481,7 +2490,7 @@ struct CxxrtlWorker {
 							if (has_driven_sync + has_driven_comb + has_undriven > 1)
 								count_mixed_driver++;
 
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(design, wire)) << ", ";
 							dump_debug_attrs(wire);
 							f << ", " << mangle(wire);
 							if (wire->start_offset != 0 || !flags.empty()) {
@@ -2504,7 +2513,7 @@ struct CxxrtlWorker {
 						case WireType::ALIAS: {
 							// Alias of a member wire
 							const RTLIL::Wire *aliasee = debug_wire_type.sig_subst.as_wire();
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(design, wire)) << ", ";
 							dump_debug_attrs(wire);
 							f << ", ";
 							// If the aliasee is an outline, then the alias must be an outline, too; otherwise downstream
@@ -2525,7 +2534,7 @@ struct CxxrtlWorker {
 							f << indent << "static const value<" << wire->width << "> const_" << mangle(wire) << " = ";
 							dump_const(debug_wire_type.sig_subst.as_const());
 							f << ";\n";
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(design, wire)) << ", ";
 							dump_debug_attrs(wire);
 							f << ", const_" << mangle(wire);
 							if (wire->start_offset != 0)
@@ -2536,7 +2545,7 @@ struct CxxrtlWorker {
 						}
 						case WireType::OUTLINE: {
 							// Localized or inlined, but rematerializable wire
-							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(wire)) << ", ";
+							f << indent << "items->add(path, " << escape_cxx_string(get_hdl_name(design, wire)) << ", ";
 							dump_debug_attrs(wire);
 							f << ", debug_eval_outline, " << mangle(wire);
 							if (wire->start_offset != 0)
@@ -2556,7 +2565,7 @@ struct CxxrtlWorker {
 					for (auto &mem : mod_memories[module]) {
 						if (!mem.memid.isPublic())
 							continue;
-						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(mem.cell) : get_hdl_name(mem.mem)) << ", ";
+						f << indent << "items->add(path, " << escape_cxx_string(mem.packed ? get_hdl_name(design, mem.cell) : get_hdl_name(design, mem.mem)) << ", ";
 						if (mem.packed) {
 							dump_debug_attrs(mem.cell);
 						} else {
@@ -2574,7 +2583,7 @@ struct CxxrtlWorker {
 						continue;
 					const char *access = is_cxxrtl_blackbox_cell(cell) ? "->" : ".";
 					f << indent << mangle(cell) << access;
-					f << "debug_info(items, scopes, path + " << escape_cxx_string(get_hdl_name(cell) + ' ') << ", ";
+					f << "debug_info(items, scopes, path + " << escape_cxx_string(get_hdl_name(design, cell) + ' ') << ", ";
 					dump_debug_attrs(cell, /*serialize=*/false);
 					f << ");\n";
 				}
@@ -2696,10 +2705,10 @@ struct CxxrtlWorker {
 					if (cell_module->get_bool_attribute(ID(cxxrtl_blackbox))) {
 						f << indent << "std::unique_ptr<" << mangle(cell_module) << template_args(cell) << "> ";
 						f << mangle(cell) << " = " << mangle(cell_module) << template_args(cell);
-						f << "::create(" << escape_cxx_string(get_hdl_name(cell)) << ", ";
+						f << "::create(" << escape_cxx_string(get_hdl_name(design, cell)) << ", ";
 						dump_metadata_map(cell->parameters);
 						f << ", ";
-						dump_metadata_map(cell->attributes);
+						dump_metadata_map(exported_attributes(cell));
 						f << ");\n";
 					} else {
 						f << indent << mangle(cell_module) << " " << mangle(cell) << " {interior()};\n";

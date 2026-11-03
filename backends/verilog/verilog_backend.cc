@@ -28,6 +28,7 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 #include "kernel/fmt.h"
+#include "kernel/metadata/attributes.h"
 #include "backends/verilog/verilog_backend.h"
 #include <string>
 #include <sstream>
@@ -431,23 +432,17 @@ struct VerilogWriter
 			return;
 		if (config.attr2comment)
 			as_comment = true;
-		if (obj->src() != SrcRef::Null) {
-			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id(ID::str(ID::src)));
+		for (auto &[name, value] : ExportedAttributes(active_module->design, obj)) {
+			if (name == ID::single_bit_vector) continue;
+			if (name == ID::init && regattr) continue;
+			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(name));
 			f << stringf(" = ");
-			dump_const(f, RTLIL::Const(active_module->design->get_src_attribute(obj)), -1, 0, false, as_comment);
-			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
-		}
-		for (auto it = obj->attributes.begin(); it != obj->attributes.end(); ++it) {
-			if (it->first == ID::single_bit_vector) continue;
-			if (it->first == ID::init && regattr) continue;
-			f << stringf("%s" "%s %s", indent, as_comment ? "/*" : "(*", id_of(it->first));
-			f << stringf(" = ");
-			if (modattr && (it->second == State::S0 || it->second == Const(0)))
+			if (modattr && (value == State::S0 || value == Const(0)))
 				f << stringf(" 0 ");
-			else if (modattr && (it->second == State::S1 || it->second == Const(1)))
+			else if (modattr && (value == State::S1 || value == Const(1)))
 				f << stringf(" 1 ");
 			else
-				dump_const(f, it->second, -1, 0, false, as_comment);
+				dump_const(f, value, -1, 0, false, as_comment);
 			f << stringf(" %s%s", as_comment ? "*/" : "*)", term);
 		}
 	}

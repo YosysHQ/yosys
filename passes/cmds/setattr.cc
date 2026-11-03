@@ -20,6 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
+#include "kernel/metadata/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -64,11 +65,15 @@ static void do_setunset(RTLIL::Design *design, dict<IdString, RTLIL::Const> &att
 
 static void do_setunset(RTLIL::Design *design, RTLIL::AttrObject *obj, const std::vector<setunset_t> &list)
 {
-	for (auto &item : list)
-		if (item.name == "\\src")
-			obj->set_src(item.unset ? SrcRef::Null : design->srcs().add(item.value.decode_string()));
-		else
+	for (auto &item : list) {
+		IdString id = design->twines().find(item.name);
+		if (!RTLIL::is_interned_attribute(id))
 			do_setunset(design, obj->attributes, item);
+		else if (item.unset)
+			design->set_interned_attribute(obj, id, "");
+		else
+			import_attribute(design, obj, id, item.value);
+	}
 }
 
 struct SetattrPass : public Pass {

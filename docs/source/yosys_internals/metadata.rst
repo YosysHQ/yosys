@@ -9,13 +9,13 @@ design. Storing them as ``Const`` strings in each object's ``attributes``
 dictionary duplicates them many times over, and every merge of two objects
 builds a new, longer string. Such attributes are instead interned per
 ``Design`` and stored outside the ``attributes`` dictionary, behind a small
-handle. So far the only one is ``src``.
+handle. So far these are ``src``, ``hdlname`` and ``scopename``.
 
 A ``src`` value is a set of source locations. Each location is an
 ``IdString`` in the design's ``TwinePool``: the file name is a root twine and
 ``:<line>.<column>-<line>.<column>`` is a suffix on it, so a file name is
 stored once no matter how many locations point into it. A set is a
-``SrcSet``, a sorted and deduplicated vector of such twines, interned in a
+``TwineSet``, a sorted and deduplicated vector of such twines, interned in a
 per-``Design`` ``SrcPool``. Like ``TwinePool``, ``SrcPool`` inherits from
 ``HashConsPool``, so equal sets are stored once.
 
@@ -23,8 +23,7 @@ Every ``AttrObject`` holds a 32-bit ``SrcRef`` index into that pool, or
 ``SrcRef::Null`` when it has no source location.
 
 Passes move metadata between objects with one of two operations. An object
-that replaces another takes over its metadata and becomes the sole carrier of
-its identity:
+that replaces another takes over its metadata and carries its identity:
 
 .. code-block:: cpp
 
@@ -52,7 +51,7 @@ instead, as `share` does:
    supercell->set_src(module->srcs().merge(c1->src(), c2->src()));
 
 Merging is cheap and avoids touching any underlying strings. Location sets
-are joined with ``|`` when rendered as a string, wuch as on export.
+are joined with ``|`` when rendered as a string, such as on export.
 
 The integer behind a ``SrcRef`` depends on allocation order, so it must never
 decide synthesis results. ``SrcRef`` therefore has no ordering, no hash and no
@@ -65,8 +64,34 @@ the design is not a root, so it must not be kept across passes. A ``SrcRef``
 used with the wrong design or after its set was collected is caught by the
 checks described in :doc:`provenance`.
 
-Migration from ``src`` attributes
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Names
+^^^^^
+
+``hdlname`` and ``scopename`` live in a per-``Design`` ``MetaPool``. Every
+``AttrObject`` holds a 32-bit ``MetaRef`` into it, or ``MetaRef::Null``. The
+block it refers to holds the object's identity, a scope and a name, plus the
+names and scopes it absorbed from other objects. Like ``SrcPool``, ``MetaPool``
+inherits from ``HashConsPool``, so equal blocks are stored once.
+
+A scope is a chain of twines in the design's ``TwinePool``: ``a b`` is the
+suffix `` b`` on the scope ``a``, so all names in one scope share it. Every
+chain starts at an empty root twine, so a single-element ``hdlname``, such as a
+module's original name, is a name in the root scope. The name is a suffix on
+its scope that holds only the last element.
+
+An identity with a name renders as the ``hdlname`` attribute, and one without
+renders as ``scopename``. Absorbed names have no attribute and only
+``write_rtlil`` writes them out.
+
+A transfer replaces the target's identity with the source's and adds the
+target's old identity and the source's absorbed names to the target's absorbed
+names. Absorbing adds the source's
+identity and absorbed names to the target's absorbed names. The parts of a
+split object, such as the bits of a sliced flip-flop, each carry the identity,
+since the HDL has no object for a part.
+
+Migration from ``src``, ``hdlname`` and ``scopename`` attributes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 C++ core change
 ^^^^^^^^^^^^^^^
@@ -111,6 +136,41 @@ re-interns source locations into the target design; elsewhere, use
 
    dst->set_src(dst_design->srcs().copy_from(src_design->srcs(), src->src()));
 
+``hdlname`` and ``scopename`` are not in ``attributes`` anymore either.
+``has_attribute`` still works for them, but ``get_string_attribute`` and
+``set_string_attribute`` assert. Use ``get_hdlname_attribute()`` and
+``set_hdlname_attribute()`` on ``Module``, ``Wire``, ``Memory``, ``Cell`` and
+``Process``, or ``Design::get_hdlname``, ``set_hdlname``, ``get_scopename`` and
+``set_scopename`` for any ``AttrObject``:
+
+.. code-block:: diff
+
+   -scope = cell->get_string_attribute(ID(scopename));
+   +scope = design->get_scopename(cell);
+
+Copying a whole ``attributes`` dictionary no longer copies the names along with
+it. Copy with ``transfer_attributes``, or pair the copy with ``absorb_metadata``.
+
+``RTLIL::interned_attributes`` lists ``src``, ``hdlname`` and ``scopename``,
+and ``Design::get_interned_attribute`` and ``set_interned_attribute`` read and
+write any of them by name. Frontends set attributes read from their input with
+``import_attribute`` or ``import_attributes`` from
+``kernel/metadata/attributes.h``, which route the interned ones:
+
+.. code-block:: diff
+
+   -obj->attributes[id] = value;
+   +import_attribute(design, obj, id, value);
+
+Backends iterate ``ExportedAttributes`` from ``kernel/metadata/attributes.h``,
+which yields the interned attributes rendered as strings, then the object's
+``attributes``:
+
+.. code-block:: diff
+
+   -for (auto &[name, value] : obj->attributes)
+   +for (auto &[name, value] : ExportedAttributes(design, obj))
+
 Python helpers
 ^^^^^^^^^^^^^^
 
@@ -135,22 +195,44 @@ and ``Process`` returns the design's pool, which offers ``add``, ``merge``,
 RTLIL
 ^^^^^
 
-``write_rtlil`` refers to source locations instead of spelling them out. A
-single location is written as ``@<twine>``, a reference into the ``twines``
-section. A set of several locations is written as ``$<set>``, a reference
-into a ``srcs`` section of the ``metadata`` block, with one ``set <set> <twine>...`` line per set:
+``write_rtlil`` refers to metadata instead of spelling it out. Everything it
+refers to is written once, in a ``metadata`` section after ``autoidx``, which
+holds a ``twines`` section, a ``srcs`` section of location sets, a
+``namesets`` section of absorbed name sets and a ``blocks`` section of
+metadata blocks:
 
 .. code-block:: text
 
    metadata
+     twines
+       root 1030 ""
+       suffix 1031 1030 "top"
+       suffix 1064 1031 " u_and"
+       ...
+     end
      srcs
        set 0 1055 1056
      end
+     namesets
+       set 0 1064
+     end
+     blocks
+       block 1 scope 1031
+       block 2 hdlnames 0
+     end
    end
-   ...
+
+A single source location is written as ``@<twine>`` and a set of several as
+``$<set>``. An object's metadata block is written as ``#<block>`` on a
+``metadata`` attribute, followed by its names as a comment:
+
+.. code-block:: text
+
      attribute \src "$0"  # top.v:3.5-3.9|top.v:4.5-4.9
      attribute \src "@1055"  # top.v:3.5-3.9
+     attribute \metadata "#1"  # scopename "top"
+     attribute \metadata "#2"  # absorbed "top u_and"
 
-``read_rtlil`` still accepts plain location strings, so older RTLIL files can
-be read in. ``write_rtlil -readable`` writes plain strings for older Yosys
-versions.
+``read_rtlil`` still accepts plain ``src``, ``hdlname`` and ``scopename``
+strings, so older RTLIL files can be read in. ``write_rtlil -readable`` writes
+plain strings for older Yosys versions and drops absorbed names.

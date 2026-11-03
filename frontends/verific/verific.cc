@@ -22,6 +22,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
 #include "kernel/utils.h"
+#include "kernel/metadata/attributes.h"
 #include "libs/sha1/sha1.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -458,11 +459,7 @@ void VerificImporter::import_attributes(RTLIL::AttrObject *target, DesignObj *ob
 		if (attr->Key()[0] == ' ' || attr->Value() == nullptr)
 			continue;
 		RTLIL::Const value = verific_const(nullptr, attr->Value(), obj);
-		if (!strcmp(attr->Key(), "src")) {
-			target->set_src(module->srcs().add(value.decode_string()));
-			continue;
-		}
-		attributes[module->twines().add(RTLIL::escape_id(attr->Key()))] = std::move(value);
+		import_attribute(module->design, target, module->twines().add(RTLIL::escape_id(attr->Key())), value);
 	}
 
 	if (nl) {
@@ -1582,7 +1579,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 	}
 	import_attributes(module, nl, nl);
 	if (module->name.isPublic())
-		module->set_string_attribute(ID::hdlname, nl->CellBaseName());
+		module->design->set_hdlname(module, nl->CellBaseName());
 	module->set_string_attribute(ID(library), nl->Owner()->Owner()->Name());
 #ifdef VERIFIC_VHDL_SUPPORT
 	if (nl->IsFromVhdl()) {

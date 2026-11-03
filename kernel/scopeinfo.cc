@@ -18,6 +18,7 @@
  */
 
 #include "kernel/scopeinfo.h"
+#include "kernel/metadata/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -116,6 +117,21 @@ RTLIL::Const scopeinfo_get_attribute(const RTLIL::Cell *scopeinfo, ScopeinfoAttr
 	if (found == scopeinfo->attributes.end())
 		return RTLIL::Const();
 	return found->second;
+}
+
+void scopeinfo_set_attributes(RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs, const RTLIL::AttrObject *obj)
+{
+	log_assert(scopeinfo->type == ID($scopeinfo));
+	RTLIL::Design *design = scopeinfo->module->design;
+	TwinePool &twines = design->twines();
+	const char *prefix = attr_prefix(attrs);
+
+	for (auto const &[id, value] : ExportedAttributes(design, obj)) {
+		if (attrs == ScopeinfoAttrs::Cell && id == ID::hdlname)
+			design->set_hdlname(scopeinfo, value.decode_string());
+		else
+			scopeinfo->attributes.emplace(twines.add(prefix + twines.unescaped_str(id)), value);
+	}
 }
 
 dict<RTLIL::IdString, RTLIL::Const> scopeinfo_attributes(const RTLIL::Cell *scopeinfo, ScopeinfoAttrs attrs)
