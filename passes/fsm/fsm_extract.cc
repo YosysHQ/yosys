@@ -415,8 +415,7 @@ struct FsmExtractWorker
 		fsm_cell->setPort(ID::CTRL_IN, ctrl_in);
 		fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 		fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
-		fsm_cell->attributes = wire->attributes;
-		module->design->transfer_metadata(fsm_cell, wire);
+		module->design->transfer_attributes(fsm_cell, wire);
 		fsm_cell->set_meta(module->design->metas().without_hdlname(fsm_cell->meta()));
 		fsm_data.copy_to_cell(fsm_cell);
 
