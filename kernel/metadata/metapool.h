@@ -9,10 +9,10 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct MetaRef {
+struct MetaRef : PoolRef<MetaRef> {
 	static const MetaRef Null;
 
-	constexpr MetaRef() : value(NULL_VAL) {}
+	constexpr MetaRef() = default;
 
 	constexpr bool operator==(const MetaRef &rhs) const { return value == rhs.value; }
 
@@ -20,22 +20,17 @@ struct MetaRef {
 	constexpr bool has_scopename() const { return value != NULL_VAL && (value & SCOPENAME_BIT); }
 
 private:
+	template<typename> friend struct PoolRef;
 	template<typename, typename, typename> friend struct HashConsPool;
 	template<typename, typename, typename> friend struct TwineBackedPool;
 	friend struct MetaPool;
 
-	explicit constexpr MetaRef(size_t val) : value((uint32_t) val) {}
-	constexpr size_t raw() const { return value; }
+	using PoolRef::PoolRef;
 	constexpr MetaRef untag() const { return value == NULL_VAL ? *this : MetaRef(value & ~TAG_MASK); }
 
-	static constexpr uint32_t NULL_VAL = ~uint32_t{0};
 	static constexpr uint32_t HDLNAME_BIT = uint32_t{1} << 31;
 	static constexpr uint32_t SCOPENAME_BIT = uint32_t{1} << 30;
 	static constexpr uint32_t TAG_MASK = HDLNAME_BIT | SCOPENAME_BIT;
-	uint32_t value;
-#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
-	uint32_t serial = 0;
-#endif
 };
 
 inline constexpr MetaRef MetaRef::Null{};
