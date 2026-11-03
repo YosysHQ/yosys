@@ -1543,13 +1543,13 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 		log_error("Can't open ABC output file `%s'.\n", buffer);
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
-	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
+	RTLIL::Design mapped_design;
+	parse_blif(&mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
 
 	ifs.close();
 
 	log_header(design, "Re-integrating ABC results.\n");
-	RTLIL::Module *mapped_mod = mapped_design->module(ID::netlist);
+	RTLIL::Module *mapped_mod = mapped_design.module(ID::netlist);
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
 	bool markgroups = run_abc.config.markgroups;
@@ -1766,7 +1766,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design->twines(), c->type));
+		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design.twines(), c->type));
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 		RTLIL::copy_attr_dict(cell->parameters, c->parameters, c->module->design, module->design);
 		for (auto &conn : c->connections()) {
@@ -1777,7 +1777,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				log_assert(c.width == 1);
 				newsig.append(module->wire(remap_ref(module, c.wire->name)));
 			}
-			cell->setPort(module->twines().copy_from(mapped_design->twines(), conn.first), newsig);
+			cell->setPort(module->twines().copy_from(mapped_design.twines(), conn.first), newsig);
 		}
 		design->select(module, cell);
 	}
@@ -1814,7 +1814,6 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
-	delete mapped_design;
 	finish();
 }
 

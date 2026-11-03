@@ -74,15 +74,11 @@ namespace pyosys {
 	{
 		return name_str(lhs) < name_str(rhs);
 	}
-	static TwinePool *twine_pool(RTLIL::Design &design) { return &design.twines(); }
-	static TwinePool *twine_pool(RTLIL::Module &module) { return module.design ? &module.design->twines() : nullptr; }
+	static RTLIL::Design *owning_design(RTLIL::Design &design) { return &design; }
+	static RTLIL::Design *owning_design(RTLIL::Module &module) { return module.design; }
 	template<typename T>
-	static TwinePool *twine_pool(T &obj) { return obj.module ? twine_pool(*obj.module) : nullptr; }
-
-	static RTLIL::PooledName design_id_add(RTLIL::Design &self, const std::string &name)
-	{
-		return RTLIL::PooledName(&self.twines(), self.twines().add(name));
-	}
+	static RTLIL::Design *owning_design(T &obj) { return obj.module ? obj.module->design : nullptr; }
+	static TwinePool *twine_pool(RTLIL::Design *design) { return design ? &design->twines() : nullptr; }
 
 	static std::string design_str(RTLIL::Design &self, const RTLIL::PooledName &name)
 	{
@@ -103,17 +99,25 @@ namespace pyosys {
 
 	struct PyName {
 		RTLIL::PooledName name;
+		std::weak_ptr<const RTLIL::Design> design;
 		size_t pool_serial = 0;
+
+		explicit PyName(RTLIL::IdString id) : name(id) {}
+		PyName(const RTLIL::Design *design, RTLIL::IdString id) : name(design, id)
+		{
+			if (design) {
+				this->design = design->weak_from_this();
+				pool_serial = design->twines().serial();
+			}
+		}
 	};
 
 	static bool alive(const PyName &n)
 	{
 		if (n.name.pool() == nullptr)
 			return true;
-		for (auto *design : *RTLIL::Design::get_all_designs())
-			if (&design->twines() == n.name.pool())
-				return design->twines().serial() == n.pool_serial;
-		return false;
+		auto design = n.design.lock();
+		return design && design->twines().serial() == n.pool_serial;
 	}
 
 	static const RTLIL::PooledName &live(const PyName &n)
@@ -121,6 +125,11 @@ namespace pyosys {
 		if (!alive(n))
 			throw std::runtime_error("this name belongs to a design that no longer exists");
 		return n.name;
+	}
+
+	static PyName design_id_add(RTLIL::Design &self, const std::string &name)
+	{
+		return PyName(&self, self.twines().add(name));
 	}
 
 	struct NameArg {
@@ -157,13 +166,13 @@ namespace pyosys {
 	template<typename Owner>
 	static RTLIL::IdString resolve_name(Owner &self, const NameArg &arg, bool create)
 	{
-		return resolve_name(twine_pool(self), arg, create);
+		return resolve_name(twine_pool(owning_design(self)), arg, create);
 	}
 
 	template<typename Owner>
-	static RTLIL::PooledName pooled_name(Owner &self, RTLIL::IdString id)
+	static PyName pooled_name(Owner &self, RTLIL::IdString id)
 	{
-		return RTLIL::PooledName(twine_pool(self), id);
+		return PyName(owning_design(self), id);
 	}
 }
 
@@ -180,11 +189,6 @@ public:
 			return false;
 		value = pyosys::live(src.cast<const pyosys::PyName &>());
 		return true;
-	}
-
-	static handle cast(const Yosys::RTLIL::PooledName &src, return_value_policy, handle)
-	{
-		return pybind11::cast(pyosys::PyName{src, src.pool() ? src.pool()->serial() : 0}).release();
 	}
 };
 
@@ -207,7 +211,7 @@ public:
 
 	static handle cast(Yosys::RTLIL::IdString src, return_value_policy, handle)
 	{
-		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
+		return pybind11::cast(pyosys::PyName(src)).release();
 	}
 };
 
@@ -233,15 +237,6 @@ public:
 	}
 };
 
-template <typename Owner, typename Slot> struct type_caster<Yosys::RTLIL::OwnedId<Owner, Slot>> {
-	static constexpr auto name = const_name("IdString");
-
-	static handle cast(const Yosys::RTLIL::OwnedId<Owner, Slot> &src, return_value_policy, handle)
-	{
-		return pybind11::cast(Yosys::RTLIL::PooledName(src)).release();
-	}
-};
-
 }
 }
 
@@ -252,28 +247,41 @@ namespace pyosys {
 		RTLIL::IdString ref = self.twines().find(name);
 		if (ref.empty())
 			return py::none();
-		return py::cast(RTLIL::PooledName(&self.twines(), ref));
+		return py::cast(PyName(&self, ref));
+	}
+
+	struct SelectedMember {
+		RTLIL::AttrObject *obj;
+		PyName name;
+	};
+
+	static py::list module_selected_members(RTLIL::Module &self)
+	{
+		py::list out;
+		for (auto &member : self.selected_members())
+			out.append(SelectedMember{member.obj, PyName(self.design, member.name.ref())});
+		return out;
 	}
 
 	static py::list module_ports(RTLIL::Module &self)
 	{
-		TwinePool *pool = twine_pool(self);
+		RTLIL::Design *design = owning_design(self);
 		py::list out;
 		for (RTLIL::IdString port : self.ports)
-			out.append(py::cast(RTLIL::PooledName(pool, port)));
+			out.append(py::cast(PyName(design, port)));
 		return out;
 	}
 
 	template<typename Value>
 	struct NameMapView {
 		using Map = dict<RTLIL::IdString, Value>;
-		TwinePool *pool;
+		RTLIL::Design *design;
 		Map *map;
 
 		static constexpr py::return_value_policy policy =
 			std::is_pointer_v<Value> ? py::return_value_policy::reference : py::return_value_policy::copy;
 
-		typename Map::iterator find(const NameArg &name) const { return map->find(resolve_name(pool, name, false)); }
+		typename Map::iterator find(const NameArg &name) const { return map->find(resolve_name(twine_pool(design), name, false)); }
 
 		typename Map::iterator at(const NameArg &name) const
 		{
@@ -287,7 +295,7 @@ namespace pyosys {
 		{
 			py::list out;
 			for (auto &entry : *map)
-				out.append(RTLIL::PooledName(pool, entry.first));
+				out.append(py::cast(PyName(design, entry.first)));
 			return out;
 		}
 
@@ -303,7 +311,7 @@ namespace pyosys {
 		{
 			py::list out;
 			for (auto &entry : *map)
-				out.append(py::make_tuple(RTLIL::PooledName(pool, entry.first), py::cast(entry.second, policy)));
+				out.append(py::make_tuple(PyName(design, entry.first), py::cast(entry.second, policy)));
 			return out;
 		}
 
@@ -313,7 +321,7 @@ namespace pyosys {
 			py::object pairs = py::hasattr(source, "items") ? source.attr("items")() : py::reinterpret_borrow<py::object>(source);
 			for (py::handle pair : pairs) {
 				py::tuple kv = py::reinterpret_borrow<py::tuple>(pair);
-				fresh[resolve_name(pool, kv[0].cast<NameArg>(), true)] = kv[1].cast<Value>();
+				fresh[resolve_name(twine_pool(design), kv[0].cast<NameArg>(), true)] = kv[1].cast<Value>();
 			}
 			*map = std::move(fresh);
 		}
@@ -338,14 +346,14 @@ namespace pyosys {
 			.def("items", &View::items)
 			.def("__repr__", [](const View &v) { return "<" + std::string(py::str(py::dict(v.items()))) + ">"; });
 		if (writable)
-			cls.def("__setitem__", [](View &v, const NameArg &key, const Value &value) { (*v.map)[resolve_name(v.pool, key, true)] = value; })
+			cls.def("__setitem__", [](View &v, const NameArg &key, const Value &value) { (*v.map)[resolve_name(twine_pool(v.design), key, true)] = value; })
 				.def("__delitem__", [](View &v, const NameArg &key) { v.map->erase(v.at(key)); });
 	}
 
 	template<typename Owner, typename Value>
 	static NameMapView<Value> name_view(Owner &owner, dict<RTLIL::IdString, Value> &map)
 	{
-		return {twine_pool(owner), &map};
+		return {owning_design(owner), &map};
 	}
 
 	template<typename Owner, typename PyClass, typename Member>
@@ -588,7 +596,7 @@ namespace pyosys {
 		bind_name_map_view<RTLIL::Memory *>(m, "NameMemoryView", false);
 		bind_name_map_view<RTLIL::Process *>(m, "NameProcessView", false);
 
-		auto design_cls = py::reinterpret_borrow<py::class_<RTLIL::Design>>(m.attr("Design"));
+		auto design_cls = py::reinterpret_borrow<py::class_<RTLIL::Design, std::shared_ptr<RTLIL::Design>>>(m.attr("Design"));
 		def_name_dict<RTLIL::Design>(design_cls, "modules_", &RTLIL::Design::modules_, false);
 		design_cls
 			.def("id_add", &design_id_add, py::arg("name"))
@@ -603,6 +611,10 @@ namespace pyosys {
 		def_name_dict<RTLIL::Module>(module_cls, "processes", &RTLIL::Module::processes, false);
 		def_name_dict<RTLIL::Module>(module_cls, "parameter_default_values", &RTLIL::Module::parameter_default_values, true);
 		module_cls.def_property_readonly("ports", &module_ports);
+		py::class_<SelectedMember>(m, "SelectedMember")
+			.def_readonly("obj", &SelectedMember::obj)
+			.def_readonly("name", &SelectedMember::name);
+		module_cls.def("selected_members", &module_selected_members);
 
 		auto cell_cls = py::reinterpret_borrow<py::class_<RTLIL::Cell>>(m.attr("Cell"));
 		def_name_dict<RTLIL::Cell>(cell_cls, "attributes", &RTLIL::Cell::attributes, true);
