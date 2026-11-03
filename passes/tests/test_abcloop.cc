@@ -46,7 +46,8 @@ static void test_abcloop()
 {
 	log("Rng seed value: %u\n", int(xorshift32_state));
 
-	RTLIL::Design *design = new RTLIL::Design;
+	RTLIL::Design uut_design;
+	RTLIL::Design *design = &uut_design;
 	RTLIL::Module *module = nullptr;
 	RTLIL::SigSpec in_sig, out_sig;
 

@@ -627,7 +627,7 @@ struct ShowWorker
 		fprintf(f, "}\n");
 	}
 
-	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<RTLIL::Design*> &libs, uint32_t colorSeed, bool genWidthLabels,
+	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<std::unique_ptr<RTLIL::Design>> &libs, uint32_t colorSeed, bool genWidthLabels,
 			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
@@ -642,8 +642,8 @@ struct ShowWorker
 		ct.setup_stdcells_mem();
 		ct.setup_design(design);
 
-		for (auto lib : libs)
-			ct.setup_design(lib);
+		for (auto &lib : libs)
+			ct.setup_design(lib.get());
 
 		design->optimize();
 		page_counter = 0;
@@ -787,7 +787,7 @@ struct ShowPass : public Pass {
 		std::string viewer_exe;
 		std::string flag_wireshape = "diamond";
 		std::vector<std::string> libfiles;
-		std::vector<RTLIL::Design*> libs;
+		std::vector<std::unique_ptr<RTLIL::Design>> libs;
 		uint32_t colorSeed = 0;
 		bool flag_width = false;
 		bool flag_signed = false;
@@ -916,9 +916,8 @@ struct ShowPass : public Pass {
 			yosys_input_files.insert(filename);
 			if (f.fail())
 				log_error("Can't open lib file `%s'.\n", filename);
-			RTLIL::Design *lib = new RTLIL::Design;
-			Frontend::frontend_call(lib, &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
-			libs.push_back(lib);
+			auto &lib = libs.emplace_back(std::make_unique<RTLIL::Design>());
+			Frontend::frontend_call(lib.get(), &f, filename, (filename.size() > 3 && filename.compare(filename.size()-3, std::string::npos, ".il") == 0 ? "rtlil" : "verilog"));
 		}
 
 		if (libs.size() > 0)
@@ -931,16 +930,10 @@ struct ShowPass : public Pass {
 		FILE *f = fopen(dot_file.c_str(), "w");
 		if (custom_prefix)
 			yosys_output_files.insert(dot_file);
-		if (f == nullptr) {
-			for (auto lib : libs)
-				delete lib;
+		if (f == nullptr)
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
-		}
 		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
 		fclose(f);
-
-		for (auto lib : libs)
-			delete lib;
 
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
