@@ -437,18 +437,18 @@ void prep_bypass(RTLIL::Design *design)
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, translate(map_design, cell->module->design, cell->type));
 			auto bypass_cell = map_module->addCell(NEW_ID, map_module->twines().add(cell->type.str() + "_$abc9_byp"));
-			for (const auto &conn : cell->connections()) {
-				auto port = map_module->wire(translate(map_design, design, conn.first));
-				if (cell->input(conn.first)) {
-					replace_cell->setPort(translate(map_design, design, conn.first), port);
-					if (bypass_module->wire(conn.first))
-						bypass_cell->setPort(translate(map_design, design, conn.first), port);
+			for (auto port_name : inst_module->ports) {
+				auto port = map_module->wire(translate(map_design, design, port_name));
+				if (port->port_input) {
+					replace_cell->setPort(translate(map_design, design, port_name), port);
+					if (bypass_module->wire(port_name))
+						bypass_cell->setPort(translate(map_design, design, port_name), port);
 				}
-				if (cell->output(conn.first)) {
-					bypass_cell->setPort(translate(map_design, design, conn.first), port);
-					auto n = "$abc9byp$" + design->twines().str(conn.first);
-					auto w = map_module->addWire(n, GetSize(conn.second));
-					replace_cell->setPort(translate(map_design, design, conn.first), w);
+				if (port->port_output) {
+					bypass_cell->setPort(translate(map_design, design, port_name), port);
+					auto n = "$abc9byp$" + design->twines().str(port_name);
+					auto w = map_module->addWire(n, GetSize(port));
+					replace_cell->setPort(translate(map_design, design, port_name), w);
 					bypass_cell->setPort(n, w);
 				}
 			}

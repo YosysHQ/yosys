@@ -1,0 +1,21 @@
+# A port that the first cell of a type leaves unconnected must not be lost
+# on the other cells of that type (abc9_ops -prep_bypass)
+read_verilog <<EOT
+module top(input clk, we, input [5:0] wa, ra, input [1:0] d,
+	output p_spo, q_spo, q_dpo, p_q, q_q, q_q31);
+	RAM64X1D ram_p (.WCLK(clk), .WE(we), .D(d[0]),
+		.A0(wa[0]), .A1(wa[1]), .A2(wa[2]), .A3(wa[3]), .A4(wa[4]), .A5(wa[5]),
+		.DPRA0(ra[0]), .DPRA1(ra[1]), .DPRA2(ra[2]), .DPRA3(ra[3]), .DPRA4(ra[4]), .DPRA5(ra[5]),
+		.SPO(p_spo));
+	RAM64X1D ram_q (.WCLK(clk), .WE(we), .D(d[1]),
+		.A0(wa[0]), .A1(wa[1]), .A2(wa[2]), .A3(wa[3]), .A4(wa[4]), .A5(wa[5]),
+		.DPRA0(ra[0]), .DPRA1(ra[1]), .DPRA2(ra[2]), .DPRA3(ra[3]), .DPRA4(ra[4]), .DPRA5(ra[5]),
+		.SPO(q_spo), .DPO(q_dpo));
+	SRLC32E srl_p (.CLK(clk), .CE(we), .D(d[0]), .A(wa[4:0]), .Q(p_q));
+	SRLC32E srl_q (.CLK(clk), .CE(we), .D(d[1]), .A(wa[4:0]), .Q(q_q), .Q31(q_q31));
+endmodule
+EOT
+synth_xilinx -top top -noiopad
+cd top
+select -assert-count 1 c:ram_q %co:+[DPO] w:q_dpo %i
+select -assert-count 1 c:srl_q %co:+[Q31] w:q_q31 %i
