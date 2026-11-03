@@ -26,9 +26,9 @@ static IdString publish(TwinePool &twines, IdString id) {
 	std::string name = twines.str(id);
 	if (!name.starts_with("$"))
 		return id;
-	log_debug("publishing %s\n", name.c_str());
+	log_debug("publishing %s\n", name);
 	IdString published = twines.add("\\" + name);
-	log_debug("published %s\n", twines.str(published).c_str());
+	log_debug("published %s\n", twines.str(published));
 	return published;
 }
 

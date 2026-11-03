@@ -124,7 +124,7 @@ std::istream* uncompressed(const std::string filename, std::ios_base::openmode m
 		log("Found gzip magic in file `%s', decompressing using zlib.\n", filename);
 		if (magic[2] != 8)
 			log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
-				filename.c_str(), unsigned(magic[2]));
+				filename, unsigned(magic[2]));
 		gzip_istream* s = new gzip_istream();
 		delete f;
 		bool ok = s->open(filename.c_str());

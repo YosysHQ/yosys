@@ -132,7 +132,7 @@ struct SatHelper
 
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+					s.first, log_signal(lhs), lhs.size(), s.second, log_signal(rhs), rhs.size());
 
 			log("Import set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
@@ -153,7 +153,7 @@ struct SatHelper
 
 			if (lhs.size() != rhs.size())
 				log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-					s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+					s.first, log_signal(lhs), lhs.size(), s.second, log_signal(rhs), rhs.size());
 
 			log("Import set-constraint for this timestep: %s = %s\n", log_signal(lhs), log_signal(rhs));
 			big_lhs.remove2(lhs, &big_rhs);
@@ -317,7 +317,7 @@ struct SatHelper
 
 				if (lhs.size() != rhs.size())
 					log_cmd_error("Set expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+						s.first, log_signal(lhs), lhs.size(), s.second, log_signal(rhs), rhs.size());
 
 				log("Import init set-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
@@ -385,7 +385,7 @@ struct SatHelper
 
 				if (lhs.size() != rhs.size())
 					log_cmd_error("Proof expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+						s.first, log_signal(lhs), lhs.size(), s.second, log_signal(rhs), rhs.size());
 
 				log("Import proof-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
@@ -413,7 +413,7 @@ struct SatHelper
 
 				if (lhs.size() != rhs.size())
 					log_cmd_error("Proof-x expression with different lhs and rhs sizes: %s (%s, %d bits) vs. %s (%s, %d bits)\n",
-						s.first.c_str(), log_signal(lhs), lhs.size(), s.second.c_str(), log_signal(rhs), rhs.size());
+						s.first, log_signal(lhs), lhs.size(), s.second, log_signal(rhs), rhs.size());
 
 				log("Import proof-x-constraint: %s = %s\n", log_signal(lhs), log_signal(rhs));
 				big_lhs.remove2(lhs, &big_rhs);
@@ -1431,7 +1431,7 @@ struct SatPass : public Pass {
 				shows.push_back(wire->name.str());
 		}
 
-		log("Using SAT solver `%s`.\n", solver->name.c_str());
+		log("Using SAT solver `%s`.\n", solver->name);
 
 		if (tempinduct)
 		{

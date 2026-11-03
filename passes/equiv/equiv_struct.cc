@@ -79,7 +79,7 @@ struct EquivStructWorker
 						inputs_a.append(bits_a[i]);
 						inputs_b.append(bits_b[i]);
 						input_names.push_back(GetSize(bits_a) == 1 ? module->twines().str(port_a.first) :
-								stringf("%s[%d]", module->twines().unescaped_str(port_a.first).c_str(), i));
+								stringf("%s[%d]", module->twines().unescaped_str(port_a.first), i));
 					}
 		}
 
@@ -87,7 +87,7 @@ struct EquivStructWorker
 			SigBit bit_a = inputs_a[i], bit_b = inputs_b[i];
 			SigBit bit_y = module->addWire(NEW_ID);
 			log("        New $equiv for input %s: A: %s, B: %s, Y: %s\n",
-					input_names[i].c_str(), log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
+					input_names[i], log_signal(bit_a), log_signal(bit_b), log_signal(bit_y));
 			module->addEquiv(NEW_ID, bit_a, bit_b, bit_y);
 			merged_map.add(bit_a, bit_y);
 			merged_map.add(bit_b, bit_y);

@@ -188,7 +188,7 @@ void Pass::cmd_error(const std::vector<std::string> &args, size_t argidx, std::s
 	help();
 
 	log_cmd_error("Command syntax error: %s\n> %s\n> %*s^\n",
-			msg.c_str(), command_text.c_str(), error_pos, "");
+			msg, command_text, error_pos, "");
 }
 
 void Pass::extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select)
@@ -433,9 +433,7 @@ Frontend::Frontend(std::string name, std::string short_help, source_location loc
 
 void Frontend::run_register()
 {
-	if (pass_register.count(pass_name) && !replace_existing_pass())
-		log_error("Unable to register pass '%s', pass already exists!\n", pass_name);
-	pass_register[pass_name] = this;
+	Pass::run_register();
 
 	if (frontend_register.count(frontend_name) && !replace_existing_pass())
 		log_error("Unable to register frontend '%s', frontend already exists!\n", frontend_name);
@@ -581,11 +579,9 @@ Backend::Backend(std::string name, std::string short_help, source_location locat
 
 void Backend::run_register()
 {
-	if (pass_register.count(pass_name))
-		log_error("Unable to register pass '%s', pass already exists!\n", pass_name);
-	pass_register[pass_name] = this;
+	Pass::run_register();
 
-	if (backend_register.count(backend_name))
+	if (backend_register.count(backend_name) && !replace_existing_pass())
 		log_error("Unable to register backend '%s', backend already exists!\n", backend_name);
 	backend_register[backend_name] = this;
 }
@@ -1111,7 +1107,7 @@ struct HelpPass : public Pass {
 				auto help_cell = cell_help_messages.get(args[1]);
 				if (is_code_getter(args[1])) {
 						log("\n");
-						log("%s\n", help_cell.code);
+						log_lines(help_cell.code);
 				} else {
 					log("\n");
 					log("    %s %s\n", help_cell.name, help_cell.ports);
@@ -1124,7 +1120,7 @@ struct HelpPass : public Pass {
 							if (line != "::") log("%s\n", line);
 						}
 					} else if (help_cell.desc.length()) {
-						log("%s\n", help_cell.desc);
+						log_lines(help_cell.desc);
 					} else {
 						log("No help message for this cell type found.\n");
 					}

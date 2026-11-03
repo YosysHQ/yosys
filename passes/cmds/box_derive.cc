@@ -106,7 +106,7 @@ struct BoxDerivePass : Pass {
 					IdString derived_type = base->derive(d, cell->parameters);
 					Module *derived = d->module(derived_type);
 					log_assert(derived && "Failed to derive module\n");
-					log("derived %s\n", d->twines().str(derived_type).c_str());
+					log("derived %s\n", d->twines().str(derived_type));
 
 					if (naming_attr_ref != IdString::Null && derived->has_attribute(naming_attr_ref)) {
 						std::string new_name = RTLIL::escape_id(derived->get_string_attribute(naming_attr_ref));

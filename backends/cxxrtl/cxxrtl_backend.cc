@@ -863,7 +863,7 @@ struct CxxrtlWorker {
 			if (!isupper(param_name[0]))
 				log_cmd_error("Attribute `cxxrtl_template' of module `%s' includes a parameter `%s', "
 				              "which does not start with an uppercase letter.\n",
-				              module, param_name.c_str());
+				              module, param_name);
 		}
 		return param_names;
 	}
@@ -909,12 +909,12 @@ struct CxxrtlWorker {
 			IdString id_param_name = cell->twines().find('\\' + param_name);
 			if (!cell->hasParam(id_param_name))
 				log_cmd_error("Cell `%s.%s' does not have a parameter `%s', which is required by the templated module `%s'.\n",
-				              cell->module, cell, param_name.c_str(), cell_module);
+				              cell->module, cell, param_name, cell_module);
 			RTLIL::Const param_value = cell->getParam(id_param_name);
 			if (((param_value.flags & ~RTLIL::CONST_FLAG_SIGNED) != 0) || param_value.as_int() < 0)
 				log_cmd_error("Parameter `%s' of cell `%s.%s', which is required by the templated module `%s', "
 				              "is not a positive integer.\n",
-				              param_name.c_str(), cell->module, cell, cell_module);
+				              param_name, cell->module, cell, cell_module);
 			params += std::to_string(cell->getParam(id_param_name).as_int());
 		}
 		params += ">";
@@ -2582,7 +2582,7 @@ struct CxxrtlWorker {
 		dec_indent();
 
 		log_debug("Debug information statistics for module `%s':\n", module);
-		log_debug("  Scopes: %zu", count_scopes);
+		log_debug("  Scopes: %zu\n", count_scopes);
 		log_debug("  Public wires: %zu, of which:\n", count_public_wires);
 		log_debug("    Member wires: %zu, of which:\n", count_member_wires);
 		log_debug("      Undriven:     %zu (incl. inputs)\n", count_undriven);
@@ -3865,7 +3865,7 @@ struct CxxrtlBackend : public Backend {
 			intf_f.open(worker.intf_filename, std::ofstream::trunc);
 			if (intf_f.fail())
 				log_cmd_error("Can't open file `%s' for writing: %s\n",
-				              worker.intf_filename.c_str(), strerror(errno));
+				              worker.intf_filename, strerror(errno));
 
 			worker.intf_f = &intf_f;
 		}

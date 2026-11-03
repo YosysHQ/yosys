@@ -128,7 +128,7 @@ struct QlBramMergeWorker {
 
 		// Create the new cell
 		RTLIL::Cell* merged = module->addCell(NEW_ID, merged_cell_type);
-		log_debug("Merging split BRAM cells %s and %s -> %s\n", bram1->name.unescape(), bram2->name.unescape(), merged->name.unescape());
+		log_debug("Merging split BRAM cells %s and %s -> %s\n", bram1, bram2, merged);
 
 		for (auto &it : param_map(false))
 		{
@@ -146,14 +146,14 @@ struct QlBramMergeWorker {
 			if (bram1->hasPort(it.first))
 				merged->setPort(it.second, bram1->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram1->name.unescape());
+				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram1);
 		}
 		for (auto &it : port_map(true))
 		{
 			if (bram2->hasPort(it.first))
 				merged->setPort(it.second, bram2->getPort(it.first));
 			else
-				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram2->name.unescape());
+				log_error("Can't find port %s on cell %s!\n", PooledName(module, it.first).unescape(), bram2);
 		}
 		merged->attributes = bram1->attributes;
 		for (auto attr: bram2->attributes)

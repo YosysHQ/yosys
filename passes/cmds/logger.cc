@@ -158,7 +158,7 @@ struct LoggerPass : public Pass {
 				if ((type=="error" || type=="prefix-error") && count!=1)
 					log_cmd_error("Expected error message occurrences must be 1 !\n");
 				log("Added regex '%s' to expected %s messages list.\n",
-					pattern.c_str(), type.c_str());
+					pattern, type);
 				try {
 					logger().add_expect(type, pattern, count);
 				}

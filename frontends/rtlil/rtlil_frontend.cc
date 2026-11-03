@@ -54,7 +54,7 @@ struct RTLILFrontendWorker {
 	std::vector<IdString> twine_parser_holds;
 
 	struct TwineDesc {
-		enum Kind { Leaf, Suffix } kind;
+		enum Kind { Root, Suffix } kind;
 		std::string text;
 		size_t parent = 0;
 		bool materializing = false;
@@ -343,7 +343,7 @@ struct RTLILFrontendWorker {
 			error("No wires found for legalization");
 		int hash = hash_ops<RTLIL::IdString>::hash(id).yield();
 		RTLIL::Wire *wire = current_module->wire_at(abs(hash % wires_size));
-		log("Legalizing wire `%s' to `%s'.\n", PooledName(current_module->design, id).unescape(), wire->name.unescape());
+		log("Legalizing wire `%s' to `%s'.\n", PooledName(current_module->design, id).unescape(), wire);
 		return wire;
 	}
 
@@ -442,15 +442,15 @@ struct RTLILFrontendWorker {
 		if (design->has(module_name)) {
 			RTLIL::Module *existing_mod = design->module(module_name);
 			if (!flag_overwrite && (flag_lib || (attrbuf.count(ID::blackbox) && attrbuf.at(ID::blackbox).as_bool()))) {
-				log("Ignoring blackbox re-definition of module %s.\n", design->twines().str(module_name).c_str());
+				log("Ignoring blackbox re-definition of module %s.\n", design->twines().str(module_name));
 				delete_current_module = true;
 			} else if (!flag_nooverwrite && !flag_overwrite && !existing_mod->get_bool_attribute(ID::blackbox)) {
 				error("RTLIL error: redefinition of module %s.", design->twines().str(module_name).c_str());
 			} else if (flag_nooverwrite) {
-				log("Ignoring re-definition of module %s.\n", design->twines().str(module_name).c_str());
+				log("Ignoring re-definition of module %s.\n", design->twines().str(module_name));
 				delete_current_module = true;
 			} else {
-				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", design->twines().str(module_name).c_str());
+				log("Replacing existing%s module %s.\n", existing_mod->get_bool_attribute(ID::blackbox) ? " blackbox" : "", design->twines().str(module_name));
 				design->remove(existing_mod);
 			}
 		}
@@ -523,8 +523,8 @@ struct RTLILFrontendWorker {
 				continue;
 			const TwineDesc &desc = twine_descs.at(id);
 			IdString found;
-			if (desc.kind == TwineDesc::Leaf)
-				found = design->twines().find(TwineSpec{TwineSpec::Leaf{desc.text}});
+			if (desc.kind == TwineDesc::Root)
+				found = design->twines().find(TwineSpec{TwineSpec::Root{desc.text}});
 			else
 				found = design->twines().find(TwineSpec{TwineSpec::Suffix{
 						IdString(desc.parent), desc.text}});
@@ -556,8 +556,8 @@ struct RTLILFrontendWorker {
 		desc.materializing = true;
 		IdString ref;
 		switch (desc.kind) {
-		case TwineDesc::Leaf:
-			ref = design->twines().add(TwineSpec::Leaf{desc.text});
+		case TwineDesc::Root:
+			ref = design->twines().add(TwineSpec::Root{desc.text});
 			break;
 		case TwineDesc::Suffix:
 			ref = design->twines().add(TwineSpec::Suffix{
@@ -604,10 +604,10 @@ struct RTLILFrontendWorker {
 		while (true) {
 			if (try_parse_keyword("end"))
 				break;
-			if (try_parse_keyword("leaf")) {
+			if (try_parse_keyword("root")) {
 				size_t file_id = parse_integer();
 				TwineDesc &desc = twine_descs[file_id];
-				desc.kind = TwineDesc::Leaf;
+				desc.kind = TwineDesc::Root;
 				desc.text = parse_string();
 				expect_eol();
 				continue;
@@ -621,7 +621,7 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
-			error("Expected `leaf` or `suffix` inside twines block, got `%s'.",
+			error("Expected `root` or `suffix` inside twines block, got `%s'.",
 					error_token());
 		}
 		std::vector<size_t> ordered_ids;
@@ -643,6 +643,18 @@ struct RTLILFrontendWorker {
 		for (size_t id : ordered_ids)
 			materialize_file_twine(id);
 		twine_descs.clear();
+		expect_eol();
+	}
+
+	void parse_metadata()
+	{
+		expect_eol();
+		while (!try_parse_keyword("end")) {
+			if (try_parse_keyword("twines"))
+				parse_twines();
+			else
+				error("Unexpected section `%s' in metadata block.", error_token());
+		}
 		expect_eol();
 	}
 
@@ -675,7 +687,7 @@ struct RTLILFrontendWorker {
 				IdString wire_name = *name;
 				if (current_module->wire(wire_name) != nullptr) {
 					if (flag_legalize) {
-						log("Legalizing redefinition of wire %s.\n", design->twines().str(wire_name).c_str());
+						log("Legalizing redefinition of wire %s.\n", design->twines().str(wire_name));
 						pool<RTLIL::Wire*> wires = {current_module->wire(wire_name)};
 						current_module->remove(wires);
 					} else
@@ -743,7 +755,7 @@ struct RTLILFrontendWorker {
 				mem_name = *name;
 				if (current_module->memories.count(mem_name) != 0) {
 					if (flag_legalize) {
-						log("Legalizing redefinition of memory %s.\n", design->twines().str(mem_name).c_str());
+						log("Legalizing redefinition of memory %s.\n", design->twines().str(mem_name));
 						current_module->remove(current_module->memories.at(mem_name));
 					} else
 						error("RTLIL error: redefinition of memory %s.", design->twines().str(mem_name).c_str());
@@ -809,7 +821,7 @@ struct RTLILFrontendWorker {
 					cell_name_ref = design->twines().add(new_name_str);
 					++suffix;
 				} while (current_module->cell(cell_name_ref) != nullptr);
-				log("Legalizing redefinition of cell %s by renaming to %s.\n", base.c_str(), new_name_str.c_str());
+				log("Legalizing redefinition of cell %s by renaming to %s.\n", base, new_name_str);
 			} else
 				error("RTLIL error: redefinition of cell %s.", design->twines().str(cell_name_ref).c_str());
 		}
@@ -843,7 +855,7 @@ struct RTLILFrontendWorker {
 				IdString port_name = parse_twine();
 				if (cell->hasPort(port_name)) {
 					if (flag_legalize)
-						log("Legalizing redefinition of cell port %s.\n", design->twines().str(port_name).c_str());
+						log("Legalizing redefinition of cell port %s.\n", design->twines().str(port_name));
 					else
 						error("RTLIL error: redefinition of cell port %s.", design->twines().str(port_name).c_str());
 				}
@@ -949,7 +961,7 @@ struct RTLILFrontendWorker {
 
 		if (current_module->processes.count(proc_name) != 0) {
 			if (flag_legalize) {
-				log("Legalizing redefinition of process %s.\n", design->twines().str(proc_name).c_str());
+				log("Legalizing redefinition of process %s.\n", design->twines().str(proc_name));
 				current_module->remove(current_module->processes.at(proc_name));
 			} else
 				error("RTLIL error: redefinition of process %s.", design->twines().str(proc_name).c_str());
@@ -1045,8 +1057,8 @@ struct RTLILFrontendWorker {
 				expect_eol();
 				continue;
 			}
-			if (try_parse_keyword("twines")) {
-				parse_twines();
+			if (try_parse_keyword("metadata")) {
+				parse_metadata();
 				continue;
 			}
 			error("Unexpected token: %s", error_token());

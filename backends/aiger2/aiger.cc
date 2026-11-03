@@ -1447,10 +1447,6 @@ struct XAigerWriter : AigerWriter {
 			auto &minfo = cursor.leaf_minfo(*this);
 
 			for (auto box : minfo.found_blackboxes) {
-				log_debug(" - %s.%s (type %s): ", cursor.path(),
-						  box,
-						  box->type.unescape());
-
 				Module *box_module = design->module(box->type), *box_derived;
 
 				if (box_module && !box->parameters.empty()) {
@@ -1461,15 +1457,18 @@ struct XAigerWriter : AigerWriter {
 					box_derived = box_module;
 				}
 
+				std::string box_type = "opaque";
 				if (box_derived && box_derived->has_attribute(ID::abc9_box_id)) {
 					// This is an ABC9 box, we have timing data, maybe even a whitebox model
 					// These need to go last in the AIGER port list.
 					nonopaque_boxes.push_back(std::make_tuple(cursor, box, box_derived));
-					log_debug("non-opaque\n");
+					box_type = "non-opaque";
 				} else {
 					opaque_boxes.push_back(std::make_tuple(cursor, box, box_derived));
-					log_debug("opaque\n");
 				}
+				log_debug(" - %s.%s (type %s): %s\n", cursor.path(),
+						  box,
+						  box->type.unescape(), box_type);
 			}
 		});
 
@@ -1831,7 +1830,7 @@ struct Aiger2Backend : Backend {
 				col = 0;
 			}
 			col += name.size() + 2;
-			message += stringf("%s, ", name.c_str());
+			message += stringf("%s, ", name);
 		}
 		if (!message.empty())
 			log("    %s\n", message);
@@ -1855,7 +1854,7 @@ struct Aiger2Backend : Backend {
 				col = 0;
 			}
 			col += name.size() + 2;
-			message += stringf("%s, ", name.c_str());
+			message += stringf("%s, ", name);
 		}
 		if (!message.empty())
 			log("    %s\n", message);

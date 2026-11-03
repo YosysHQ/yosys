@@ -158,8 +158,8 @@ struct abc9_output_filter
 		//int pi, po;
 		//if (sscanf(line.c_str(), "Start-point = pi%d.  End-point = po%d.", &pi, &po) == 2) {
 		//	log("ABC: Start-point = pi%d (%s).  End-point = po%d (%s).\n",
-		//			pi, pi_map.count(pi) ? pi_map.at(pi).c_str() : "???",
-		//			po, po_map.count(po) ? po_map.at(po).c_str() : "???");
+		//			pi, pi_map.count(pi) ? pi_map.at(pi) : "???",
+		//			po, po_map.count(po) ? po_map.at(po) : "???");
 		//	return;
 		//}
 
@@ -188,7 +188,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 
 		std::string merged_scl = convert_liberty_files_to_merged_scl(liberty_files, dont_use_args, exe_file);
 		if (!merged_scl.empty()) {
-			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl.c_str());
+			abc9_script += stringf("read_scl \"%s\" ; ", merged_scl);
 		} else if(!liberty_files.empty()) {
 			if (!scl_cache_enabled)
 				log("ABC: SCL cache disabled, using liberty format\n");
@@ -268,7 +268,7 @@ void abc9_module(RTLIL::Design *design, std::string script_file, std::string exe
 		if (abc9_script[i] == ';' && abc9_script[i+1] == ' ')
 			abc9_script[i+1] = '\n';
 
-	FILE *f = fopen(stringf("%s/abc.script", tempdir_name.c_str()).c_str(), "wt");
+	FILE *f = fopen(stringf("%s/abc.script", tempdir_name).c_str(), "wt");
 	fprintf(f, "%s\n", abc9_script.c_str());
 	fclose(f);
 

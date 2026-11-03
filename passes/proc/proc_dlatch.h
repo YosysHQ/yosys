@@ -42,7 +42,7 @@ struct SynthLatchesConfig {
 	{
 		if (args[idx] == "-latches" && idx+1 < args.size()) {
 			if (!latch_policy_from_string(args[++idx], policy))
-				log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", args[idx].c_str());
+				log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", args[idx]);
 			return true;
 		}
 		return false;

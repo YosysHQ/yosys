@@ -46,7 +46,7 @@ struct CopyPass : public Pass {
 
 		IdString src_ref = design->twines().find(src_name);
 		if (design->module(src_ref) == nullptr)
-			log_cmd_error("Can't find source module %s.\n", src_name.c_str());
+			log_cmd_error("Can't find source module %s.\n", src_name);
 
 		if (design->module(trg_name) != nullptr)
 			log_cmd_error("Target module name %s already exists.\n", trg_name);

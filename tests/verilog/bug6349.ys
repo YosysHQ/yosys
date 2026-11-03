@@ -1,0 +1,16 @@
+read_verilog -sv <<EOT
+module top(input clk, input rst, output reg q);
+    reg s;
+    always @(posedge clk) begin
+        s <= !rst;
+        if (rst) q <= 1'b0;
+        else begin
+            if (s) q <= 1'b1;
+            q <= 1'b0;
+        end
+    end
+endmodule
+EOT
+
+prep -top top
+sat -verify -seq 4 -set rst 0 -set-at 1 rst 1 -prove q 0 -prove-skip 1 -show-ports

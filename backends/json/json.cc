@@ -714,7 +714,7 @@ struct JsonPass : public Pass {
 		if (!empty) {
 			delete f;
 		} else {
-			log("%s", buf.str());
+			log_lines(buf.str());
 		}
 	}
 } JsonPass;

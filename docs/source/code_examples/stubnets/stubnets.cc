@@ -78,10 +78,10 @@ static void find_stub_nets(RTLIL::Design *design, RTLIL::Module *module, bool re
 		} else {
 			if (!report_bits)
 				continue;
-			log("  found wire with stub bits: %s [", wire);
+			std::string bits;
 			for (int bit : stub_bits)
-				log("%s%d", bit == *stub_bits.begin() ? "" : ", ", bit);
-			log("]\n");
+				bits += stringf("%s%d", bit == *stub_bits.begin() ? "" : ", ", bit);
+			log("  found wire with stub bits: %s [%s]\n", wire, bits);
 		}
 
 		// we have outputted a line, increment summary counter

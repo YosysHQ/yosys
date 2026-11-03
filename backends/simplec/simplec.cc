@@ -283,7 +283,7 @@ struct SimplecWorker
 			util_declarations.push_back(stringf("    sig->%s &= ~(1UL << %d);", value_name, word_offset));
 		#else
 			util_declarations.push_back(stringf("    sig->%s = (sig->%s & ~((uint%d_t)1 << %d)) | ((uint%d_t)value << %d);",
-					value_name.c_str(), value_name.c_str(), max_uintsize, word_offset, max_uintsize, word_offset));
+					value_name, value_name, max_uintsize, word_offset, max_uintsize, word_offset));
 		#endif
 
 			util_declarations.push_back(stringf("}"));
@@ -553,7 +553,7 @@ struct SimplecWorker
 
 								if (verbose)
 									log("      Propagating %s.%s[%d] -> %s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
-											work->parent->log_prefix.c_str(), parent_bit.wire, parent_bit.offset);
+											work->parent->log_prefix, parent_bit.wire, parent_bit.offset);
 							}
 						}
 
@@ -571,11 +571,11 @@ struct SimplecWorker
 
 								if (verbose)
 									log("      Propagating %s.%s[%d] -> %s.%s.%s[%d].\n", work->log_prefix, bit.wire, bit.offset,
-											work->log_prefix.c_str(), std::get<0>(port), child_bit.wire, child_bit.offset);
+											work->log_prefix, std::get<0>(port), child_bit.wire, child_bit.offset);
 							} else {
 								if (verbose)
 									log("      Marking cell %s.%s (via %s.%s[%d]).\n", work->log_prefix, std::get<0>(port),
-											work->log_prefix.c_str(), bit.wire, bit.offset);
+											work->log_prefix, bit.wire, bit.offset);
 								work->set_dirty(std::get<0>(port));
 							}
 						}
@@ -632,8 +632,8 @@ struct SimplecWorker
 
 			if (verbose)
 				log("  Propagating alias %s.%s[%d] -> %s.%s[%d].\n",
-						work->log_prefix.c_str(), canonical_bit.wire, canonical_bit.offset,
-						work->log_prefix.c_str(), bit.wire, bit.offset);
+						work->log_prefix, canonical_bit.wire, canonical_bit.offset,
+						work->log_prefix, bit.wire, bit.offset);
 		}
 
 		work->sticky_dirty_bits.clear();

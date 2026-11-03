@@ -1616,25 +1616,25 @@ struct SelectPass : public Pass {
 			if (assert_modcount >= 0 && assert_modcount != module_count)
 			{
 				log_error("Assertion failed: selection contains %d modules instead of the asserted %d:%s\n",
-						module_count, assert_modcount, sel_str.c_str());
+						module_count, assert_modcount, sel_str);
 			}
 			if (assert_count >= 0 && assert_count != total_count)
 			{
 				std::string desc = describe_selection_for_assert(design, sel);
 				log_error("Assertion failed: selection contains %d elements instead of the asserted %d:%s\n%s",
-						total_count, assert_count, sel_str.c_str(), desc.c_str());
+						total_count, assert_count, sel_str, desc);
 			}
 			if (assert_max >= 0 && assert_max < total_count)
 			{
 				std::string desc = describe_selection_for_assert(design, sel);
 				log_error("Assertion failed: selection contains %d elements, more than the maximum number %d:%s\n%s",
-						total_count, assert_max, sel_str.c_str(), desc.c_str());
+						total_count, assert_max, sel_str, desc);
 			}
 			if (assert_min >= 0 && assert_min > total_count)
 			{
 				std::string desc = describe_selection_for_assert(design, sel);
 				log_error("Assertion failed: selection contains %d elements, less than the minimum number %d:%s\n%s",
-						total_count, assert_min, sel_str.c_str(), desc.c_str());
+						total_count, assert_min, sel_str, desc);
 			}
 			design->pop_selection();
 			return;
@@ -1794,7 +1794,7 @@ static void log_matches(const char *title, Module *module, const T &list)
 			return twines.str(a) < twines.str(b);
 		});
 		for (auto ref : matches)
-			log("  %s\n", twines.unescaped_str(ref).c_str());
+			log("  %s\n", twines.unescaped_str(ref));
 	}
 }
 

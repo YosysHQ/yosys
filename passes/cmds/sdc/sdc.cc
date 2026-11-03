@@ -212,48 +212,48 @@ struct SdcObjects {
 		constrained_nets.sort();
 		// log("Design ports:\n");
 		// for (auto name : design_ports) {
-		// 	log("\t%s\n", name.c_str());
+		// 	log("\t%s\n", name);
 		// }
 		// log("Design cells:\n");
 		// for (auto [name, cell] : design_cells) {
 		// 	(void)cell;
-		// 	log("\t%s\n", name.c_str());
+		// 	log("\t%s\n", name);
 		// }
 		// log("Design pins:\n");
 		// for (auto [name, pin] : design_pins) {
 		// 	(void)pin;
-		// 	log("\t%s\n", name.c_str());
+		// 	log("\t%s\n", name);
 		// }
 		// log("Design nets:\n");
 		// for (auto [name, net] : design_nets) {
 		// 	(void)net;
-		// 	log("\t%s\n", name.c_str());
+		// 	log("\t%s\n", name);
 		// }
 		// log("\n");
 		log("Constrained ports:\n");
 		for (auto [ref, bits] : constrained_ports) {
 			auto [name, port] = ref;
 			(void)port;
-			log("\t%s\n", name.c_str());
+			log("\t%s\n", name);
 			bits.dump();
 		}
 		log("Constrained cells:\n");
 		for (auto& [name, cell] : constrained_cells) {
 			(void)cell;
-			log("\t%s\n", name.c_str());
+			log("\t%s\n", name);
 		}
 		log("Constrained pins:\n");
 		for (auto& [ref, bits] : constrained_pins) {
 			auto [name, pin] = ref;
 			(void)pin;
-			log("\t%s\n", name.c_str());
+			log("\t%s\n", name);
 			bits.dump();
 		}
 		log("Constrained nets:\n");
 		for (auto& [ref, bits] : constrained_nets) {
 			auto [name, net] = ref;
 			(void)net;
-			log("\t%s\n", name.c_str());
+			log("\t%s\n", name);
 			bits.dump();
 		}
 		log("\n");
@@ -336,7 +336,7 @@ static std::pair<bool, BitSelection> matches(std::string name, const std::string
 		for (auto c : bit_selector)
 			if (!std::isdigit(c))
 				log_error("Unsupported bit selector %s in SDC pattern %s\n",
-							bit_selector.c_str(), pat.c_str());
+							bit_selector, pat);
 		bit_idx = std::stoi(bit_selector);
 
 	}
@@ -436,7 +436,7 @@ static size_t get_node_count(Tcl_Interp* interp) {
 	std::string idx(idx_raw);
 	for (auto c : idx)
 		if (!std::isdigit(c))
-			log_error("sdc_call_index non-numeric value %s\n", idx.c_str());
+			log_error("sdc_call_index non-numeric value %s\n", idx);
 	return std::stoi(idx);
 }
 
@@ -488,7 +488,7 @@ std::vector<SdcGraphNode> build_graph(const std::vector<std::vector<std::string>
 				std::string rest = arg.substr(pos + prefix.length());
 				for (auto c : rest)
 					if (!std::isdigit(c))
-						log_error("weird thing %s in %s\n", rest.c_str(), arg.c_str());
+						log_error("weird thing %s in %s\n", rest, arg);
 				size_t arg_node_idx = std::stoi(rest);
 				log_assert(arg_node_idx < graph.size());
 				new_node.addChild(&graph[arg_node_idx]);
@@ -548,7 +548,7 @@ find_matching(U objects, const MatchConfig& config, const std::vector<std::strin
 			}
 		}
 		if (!found)
-			log_warning("No matches in design for %s %s\n", obj_type, pat.c_str());
+			log_warning("No matches in design for %s %s\n", obj_type, pat);
 	}
 	return resolved;
 }
@@ -563,7 +563,7 @@ struct TclOpts {
 		if (expected == arg) {
 			if (!std::find_if(legals.begin(), legals.end(),
 					[&opt_name](const char* str) { return opt_name == str; }))
-				log_cmd_error("Illegal argument %s for %s.\n", expected.c_str(), name);
+				log_cmd_error("Illegal argument %s for %s.\n", expected, name);
 			return true;
 		}
 		return false;
@@ -780,7 +780,7 @@ struct SdcPass : public Pass {
 			log_cmd_error("SDC interpreter returned an error in stub preamble file: %s\n", Tcl_GetStringResult(interp));
 		for (auto path : stubs_paths)
 			if (Tcl_EvalFile(interp, path.c_str()) != TCL_OK)
-				log_cmd_error("SDC interpreter returned an error in OpenSTA stub file %s: %s\n", path.c_str(), Tcl_GetStringResult(interp));
+				log_cmd_error("SDC interpreter returned an error in OpenSTA stub file %s: %s\n", path, Tcl_GetStringResult(interp));
 		if (Tcl_EvalFile(interp, sdc_path.c_str()) != TCL_OK)
 			log_cmd_error("SDC interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
 		if (dump_mode)

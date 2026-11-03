@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
 void apply_prefix(const std::string &prefix, std::string &id)
 {
 	if (id[0] == '\\')
-		id = stringf("%s.%s", prefix, id.c_str()+1);
+		id = stringf("%s.%s", prefix, id.substr(1));
 	else
 		id = stringf("$techmap%s.%s", prefix, id);
 }
@@ -108,7 +108,6 @@ static RTLIL::Wire *map_port(RTLIL::Module *tpl, RTLIL::Design *src, IdString na
 
 struct TechmapWorker
 {
-	dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> simplemap_mappers;
 	dict<std::pair<IdString, dict<IdString, RTLIL::Const>>, RTLIL::Module*> techmap_cache;
 	dict<RTLIL::Module*, bool> techmap_do_cache;
 	pool<RTLIL::Module*> module_queue;
@@ -300,7 +299,7 @@ struct TechmapWorker
 				w = map_port(tpl, design, portname);
 			if (w == nullptr || w->port_id == 0) {
 				if (!portname.isPublic())
-					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell->name.unescape(), tpl->name.unescape());
+					log_error("Can't map port `%s' of cell `%s' to template `%s'!\n", PooledName(design, portname).unescape(), cell, tpl);
 				continue;
 			}
 
@@ -587,9 +586,10 @@ struct TechmapWorker
 
 							if (extmapper_name == "simplemap") {
 								log("Creating %s with simplemap.\n", extmapper_module);
-								if (simplemap_mappers.count(extmapper_cell->type) == 0)
+								SimplemapFn mapper = simplemap_mapper(extmapper_cell->type);
+								if (mapper == nullptr)
 									log_error("No simplemap mapper for cell type %s found!\n", extmapper_cell->type.unescape());
-								simplemap_mappers.at(extmapper_cell->type)(extmapper_module, extmapper_cell);
+								mapper(extmapper_module, extmapper_cell);
 								extmapper_module->remove(extmapper_cell);
 							}
 
@@ -635,9 +635,10 @@ struct TechmapWorker
 						log_debug("%s %s.%s (%s) with %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), extmapper_name);
 
 						if (extmapper_name == "simplemap") {
-							if (simplemap_mappers.count(cell->type) == 0)
+							SimplemapFn mapper = simplemap_mapper(cell->type);
+							if (mapper == nullptr)
 								log_error("No simplemap mapper for cell type %s found!\n", cell->type.unescape());
-							simplemap_mappers.at(cell->type)(module, cell);
+							mapper(module, cell);
 						}
 
 						if (extmapper_name == "maccmap") {
@@ -799,7 +800,7 @@ struct TechmapWorker
 							auto &data = it.second.front();
 
 							if (!data.value.is_fully_const())
-								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire->name.unescape(), log_signal(data.value));
+								log_error("Techmap yielded config wire %s with non-const value %s.\n", data.wire, log_signal(data.value));
 
 							techmap_wire_names.erase(it.first);
 
@@ -929,7 +930,7 @@ struct TechmapWorker
 						if (techmap_do_cache[tpl])
 							for (auto &it2 : it.second)
 								if (!it2.value.is_fully_const())
-									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire->name.unescape(), log_signal(it2.value));
+									log_error("Techmap yielded config wire %s with non-const value %s.\n", it2.wire, log_signal(it2.value));
 						techmap_wire_names.erase(it.first);
 					}
 
@@ -975,7 +976,7 @@ struct TechmapWorker
 
 				if (extern_mode && !in_recursion)
 				{
-					std::string m_name = stringf("$extern:%s", tpl->name.unescape());
+					std::string m_name = stringf("$extern:%s", tpl);
 
 					if (!design->module(design->twines().add(m_name)))
 					{
@@ -985,18 +986,18 @@ struct TechmapWorker
 						module_queue.insert(m);
 					}
 
-					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), m_name.c_str());
+					log_debug("%s %s.%s to imported %s.\n", mapmsg_prefix, module, cell, m_name);
 					cell->type = cell->twines().add(m_name);
 					cell->parameters.clear();
 				}
 				else
 				{
-					auto msg = stringf("Using template %s for cells of type %s.", tpl->name.unescape(), cell->type.unescape());
+					auto msg = stringf("Using template %s for cells of type %s.", tpl, cell->type.unescape());
 					if (!log_msg_cache.count(msg)) {
 						log_msg_cache.insert(msg);
 						log("%s\n", msg);
 					}
-					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix.c_str(), module->name.unescape(), cell->name.unescape(), cell->type.unescape(), tpl->name.unescape());
+					log_debug("%s %s.%s (%s) using %s.\n", mapmsg_prefix, module, cell, cell->type.unescape(), tpl);
 					techmap_module_worker(design, module, cell, tpl);
 					cell = nullptr;
 				}
@@ -1206,7 +1207,6 @@ struct TechmapPass : public Pass {
 		log_push();
 
 		TechmapWorker worker;
-		simplemap_get_mappers(worker.simplemap_mappers);
 
 		std::vector<std::string> map_files;
 		std::vector<RTLIL::IdString> dont_map;
@@ -1264,16 +1264,15 @@ struct TechmapPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		RTLIL::Design *map = new RTLIL::Design;
+		RTLIL::Design map_design;
+		RTLIL::Design *map = &map_design;
 		if (map_files.empty()) {
 			Frontend::frontend_call(map, nullptr, "+/techmap.v", verilog_frontend);
 		} else {
 			for (auto &fn : map_files)
 				if (fn.compare(0, 1, "%") == 0) {
-					if (!saved_designs.count(fn.substr(1))) {
-						delete map;
-						log_cmd_error("Can't open saved design `%s'.\n", fn.c_str()+1);
-					}
+					if (!saved_designs.count(fn.substr(1)))
+						log_cmd_error("Can't open saved design `%s'.\n", fn.substr(1));
 					RTLIL::Design *saved = saved_designs.at(fn.substr(1)).get();
 					for (auto mod : saved->modules())
 						if (!map->module(map->twines().copy_from(saved->twines(), mod->name)))
@@ -1328,7 +1327,7 @@ struct TechmapPass : public Pass {
 			std::string maps = "";
 			for (auto &m : i.second)
 				maps += stringf(" %s", PooledName(map, m).unescape());
-			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps.c_str());
+			log_debug("    %s:%s\n", PooledName(design, i.first).unescape(), maps);
 		}
 		log_debug("\n");
 
@@ -1355,7 +1354,6 @@ struct TechmapPass : public Pass {
 		}
 
 		log("No more expansions possible.\n");
-		delete map;
 
 		log_pop();
 	}

@@ -268,7 +268,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	{
 		if (check_label("begin")) {
 			run(stringf("read_verilog -lib -specify %s +/analogdevices/cells_sim.v", tech_param));
-			run(stringf("hierarchy -check %s", top_opt.c_str()));
+			run(stringf("hierarchy -check %s", top_opt));
 		}
 
 		if (check_label("prepare")) {
@@ -456,9 +456,9 @@ struct SynthAnalogDevicesPass : public ScriptPass
 			std::string abc9_opts;
 			std::string k = "synth_analogdevices.abc9.W";
 			if (active_design && active_design->scratchpad.count(k))
-				abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k).c_str());
+				abc9_opts += stringf(" -W %s", active_design->scratchpad_get_string(k));
 			else {
-				abc9_opts += stringf(" -W %s", RTLIL::constpad.at("synth_analogdevices.abc9.W").c_str());
+				abc9_opts += stringf(" -W %s", RTLIL::constpad.at("synth_analogdevices.abc9.W"));
 			}
 			if (nowidelut)
 				abc9_opts += stringf(" -maxlut 6");
@@ -492,7 +492,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 		if (check_label("edif")) {
 			if (!edif_file.empty() || help_mode) {
 				run("delete t:$assert t:$scopeinfo");
-				run(stringf("write_edif %s", edif_file.c_str()));
+				run(stringf("write_edif %s", edif_file));
 			}
 		}
 	}

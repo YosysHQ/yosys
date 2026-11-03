@@ -188,7 +188,7 @@ struct SynthAchronixPass : public ScriptPass {
       {
         if (!vout_file.empty() || help_mode)
           run(stringf("write_verilog -nodec -attr2comment -defparam -renameprefix syn_ %s",
-                      help_mode ? "<file-name>" : vout_file.c_str()));
+                      help_mode ? "<file-name>" : vout_file));
       }
   }
 } SynthAchronixPass;

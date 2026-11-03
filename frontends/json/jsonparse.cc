@@ -295,7 +295,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 	module->name = design->twines().add(RTLIL::escape_id(modname));
 
 	if (design->module(module->name))
-		log_error("Re-definition of module %s.\n", module->name.unescape());
+		log_error("Re-definition of module %s.\n", module);
 
 	design->add(module);
 
@@ -390,7 +390,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON port node '%s' has invalid '%s' bit string value on bit %d.\n",
-								PooledName(design, port_ref).unescape(), bitval_node->data_string.c_str(), i);
+								PooledName(design, port_ref).unescape(), bitval_node->data_string, i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -474,7 +474,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 						module->connect(sigbit, State::Sz);
 					else
 						log_error("JSON netname node '%s' has invalid '%s' bit string value on bit %d.\n",
-								PooledName(design, net_ref).unescape(), bitval_node->data_string.c_str(), i);
+								PooledName(design, net_ref).unescape(), bitval_node->data_string, i);
 				} else
 				if (bitval_node->type == 'N') {
 					int bitidx = bitval_node->data_number;
@@ -553,7 +553,7 @@ void json_import(Design *design, string &modname, JsonNode *node)
 							sig.append(State::Sz);
 						else
 							log_error("JSON cells node '%s' connection '%s' has invalid '%s' bit string value on bit %d.\n",
-									PooledName(design, cell_ref).unescape(), PooledName(design, conn_ref).unescape(), bitval_node->data_string.c_str(), i);
+									PooledName(design, cell_ref).unescape(), PooledName(design, conn_ref).unescape(), bitval_node->data_string, i);
 					} else
 					if (bitval_node->type == 'N') {
 						int bitidx = bitval_node->data_number;
@@ -592,20 +592,20 @@ void json_import(Design *design, string &modname, JsonNode *node)
 			mem->name = design->twines().add(RTLIL::escape_id(memory_node_it.first));
 
 			if (memory_node->type != 'D')
-				log_error("JSON memory node '%s' is not a dictionary.\n", mem->name.unescape());
+				log_error("JSON memory node '%s' is not a dictionary.\n", mem);
 
 			if (memory_node->data_dict.count("width") == 0)
-				log_error("JSON memory node '%s' has no width attribute.\n", mem->name.unescape());
+				log_error("JSON memory node '%s' has no width attribute.\n", mem);
 			JsonNode *width_node = memory_node->data_dict.at("width");
 			if (width_node->type != 'N')
-				log_error("JSON memory node '%s' has a non-number width.\n", mem->name.unescape());
+				log_error("JSON memory node '%s' has a non-number width.\n", mem);
 			mem->width = width_node->data_number;
 
 			if (memory_node->data_dict.count("size") == 0)
-				log_error("JSON memory node '%s' has no size attribute.\n", mem->name.unescape());
+				log_error("JSON memory node '%s' has no size attribute.\n", mem);
 			JsonNode *size_node = memory_node->data_dict.at("size");
 			if (size_node->type != 'N')
-				log_error("JSON memory node '%s' has a non-number size.\n", mem->name.unescape());
+				log_error("JSON memory node '%s' has a non-number size.\n", mem);
 			mem->size = size_node->data_number;
 
 			mem->start_offset = 0;

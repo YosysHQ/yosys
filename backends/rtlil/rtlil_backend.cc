@@ -57,7 +57,7 @@ static std::string twine_cmt(const RTLIL::Design *design, IdString ref, DumpMode
 {
 	if (mode != DumpMode::Replayable || ID::is_static(ref))
 		return "";
-	return stringf("  # %s", design->twines().str(ref).c_str());
+	return stringf("  # %s", design->twines().str(ref));
 }
 
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
@@ -131,11 +131,8 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 	}
 }
 
-void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
+static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
 {
-	if (design == nullptr || used.empty())
-		return;
-
 	std::vector<IdString> ids;
 	pool<IdString> closed;
 	for (IdString used_id : used)
@@ -146,17 +143,17 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 		}
 	std::sort(ids.begin(), ids.end());
 
-	f << stringf("twines\n");
+	f << stringf("  twines\n");
 	for (IdString id : ids) {
 		const TwineNode &n = design->twines()[id];
 		switch (n.kind()) {
-		case TwineNode::Kind::Leaf:
-			f << stringf("  leaf %zu ", id.raw());
+		case TwineNode::Kind::Root:
+			f << stringf("    root %zu ", id.raw());
 			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
 			break;
 		case TwineNode::Kind::Suffix:
-			f << stringf("  suffix %zu %zu ", id.raw(), n.prefix().raw());
+			f << stringf("    suffix %zu %zu ", id.raw(), n.prefix().raw());
 			dump_const(f, RTLIL::Const(std::string(n.text())));
 			f << stringf("\n");
 			break;
@@ -164,6 +161,16 @@ void RTLIL_BACKEND::dump_twines(std::ostream &f, const RTLIL::Design *design, co
 			break;
 		}
 	}
+	f << stringf("  end\n");
+}
+
+void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used_twines)
+{
+	if (design == nullptr || used_twines.empty())
+		return;
+
+	f << stringf("metadata\n");
+	dump_twines(f, design, used_twines);
 	f << stringf("end\n");
 }
 
@@ -193,9 +200,9 @@ void RTLIL_BACKEND::dump_sigchunk(std::ostream &f, const RTLIL::SigChunk &chunk,
 	if (chunk.width == chunk.wire->width && chunk.offset == 0)
 		f << name;
 	else if (chunk.width == 1)
-		f << stringf("%s [%d]", name.c_str(), chunk.offset);
+		f << stringf("%s [%d]", name, chunk.offset);
 	else
-		f << stringf("%s [%d:%d]", name.c_str(), chunk.offset+chunk.width-1, chunk.offset);
+		f << stringf("%s [%d:%d]", name, chunk.offset+chunk.width-1, chunk.offset);
 }
 
 void RTLIL_BACKEND::dump_sigspec(std::ostream &f, const RTLIL::SigSpec &sig, bool autoint, DumpMode mode)
@@ -218,7 +225,7 @@ void RTLIL_BACKEND::dump_wire(std::ostream &f, std::string indent, const RTLIL::
 	dump_attributes(f, indent, wire, design, mode);
 	if (wire->known_driver()) {
 		f << stringf("%s" "# driver %s %s\n", indent,
-				wire->driverCell()->name, design->twines().str(wire->driverPort()).c_str());
+				wire->driverCell()->name, design->twines().str(wire->driverPort()));
 	}
 	f << stringf("%s" "wire ", indent);
 	if (wire->width != 1)
@@ -490,7 +497,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (only_selected)
 			f << stringf("\n");
 		f << stringf("autoidx %d\n", design->twines().autoidx());
-		dump_twines(f, design, used_twines);
+		dump_metadata(f, design, used_twines);
 	}
 
 	if (body.tellp() > 0)
@@ -668,9 +675,7 @@ struct DumpPass : public Pass {
 		if (!empty) {
 			delete f;
 		} else {
-			std::string line;
-			while (std::getline(buf, line))
-				log("%s\n", line.c_str());
+			log_lines(buf.str());
 		}
 	}
 } DumpPass;

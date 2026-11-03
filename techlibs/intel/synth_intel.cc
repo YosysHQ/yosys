@@ -312,7 +312,7 @@ struct SynthIntelPass : public ScriptPass {
 		if (check_label("vqm")) {
 			if (!vout_file.empty() || help_mode)
 				run(stringf("write_verilog -attr2comment -defparam -nohex -decimal -renameprefix syn_ %s",
-					    help_mode ? "<file-name>" : vout_file.c_str()));
+					    help_mode ? "<file-name>" : vout_file));
 		}
 
 		if (check_label("vpr")) {

@@ -108,13 +108,13 @@ struct OpenstaPass : public Pass
 				return;
 			if (line.find("does not match net size") != std::string::npos)
 				return;
-			log("OpenSTA: %s", line.c_str());
+			log("OpenSTA: %s", line);
 		};
 		int ret = run_command(command, process_line);
 		if (ret)
 			log_error("OpenSTA returned %d (error)\n", ret);
 		else
-			log("sdc_expanded_filename: %s\n", sdc_expanded_filename.c_str());
+			log("sdc_expanded_filename: %s\n", sdc_expanded_filename);
 
 		if (cleanup) {
 			log("Removing temp directory.\n");

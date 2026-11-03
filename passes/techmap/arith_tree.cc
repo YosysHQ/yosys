@@ -475,7 +475,7 @@ struct ArithTreePass : public Pass {
 				const std::string &v = args[++argidx];
 				if (v == "fa") { opt.strategy = CompressorTree::Strategy::FA_ONLY; }
 				else if (v == "42") { opt.strategy = CompressorTree::Strategy::PREFER_42; }
-				else { log_cmd_error("arith_tree: unknown -strategy '%s'\n", v.c_str()); }
+				else { log_cmd_error("arith_tree: unknown -strategy '%s'\n", v); }
 				continue;
 			}
 			if (arg == "-final" && argidx + 1 < args.size()) {
@@ -483,7 +483,7 @@ struct ArithTreePass : public Pass {
 				if (v == "auto") { opt.final_mode = CompressorTree::FinalMode::AUTO; }
 				else if (v == "ripple") { opt.final_mode = CompressorTree::FinalMode::RIPPLE; }
 				else if (v == "prefix") { opt.final_mode = CompressorTree::FinalMode::PREFIX; }
-				else { log_cmd_error("arith_tree: unknown -final '%s'\n", v.c_str()); }
+				else { log_cmd_error("arith_tree: unknown -final '%s'\n", v); }
 				continue;
 			}
 			if (arg == "-no-fma") {

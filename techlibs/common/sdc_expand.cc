@@ -146,7 +146,7 @@ struct SdcExpandPass : public ScriptPass
 				log("Removing temp directory.\n");
 				remove_directory(tempdir_name);
 			} else {
-				log("Keeping temp directory %s\n", tempdir_name.c_str());
+				log("Keeping temp directory %s\n", tempdir_name);
 			}
 		}
 		run("design -load pre_expand");

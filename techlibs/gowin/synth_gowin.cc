@@ -406,10 +406,10 @@ struct SynthGowinPass : public ScriptPass
 		{
 			if (!vout_file.empty() || help_mode)
 				 run(stringf("write_verilog -simple-lhs -decimal -attr2comment -defparam -renameprefix gen %s",
-						help_mode ? "<file-name>" : vout_file.c_str()));
+						help_mode ? "<file-name>" : vout_file));
 			if (!json_file.empty() || help_mode)
 				 run(stringf("write_json %s",
-						help_mode ? "<file-name>" : json_file.c_str()));
+						help_mode ? "<file-name>" : json_file));
 		}
 	}
 } SynthGowinPass;

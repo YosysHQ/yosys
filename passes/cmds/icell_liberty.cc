@@ -54,11 +54,11 @@ struct LibertyStubber {
 		LibertyItemizer i(f);
 
 		if (ffType.has_gclk) {
-			log_warning("Formal flip flop %s can't be modeled\n", base_name.c_str());
+			log_warning("Formal flip flop %s can't be modeled\n", base_name);
 			return;
 		}
 		if (ffType.has_ce) {
-			log_warning("DFFE %s can't be modeled\n", base_name.c_str());
+			log_warning("DFFE %s can't be modeled\n", base_name);
 			return;
 		}
 
@@ -120,7 +120,7 @@ struct LibertyStubber {
 		auto base_name = base->name.str().substr(1);
 		auto derived_name = derived->name.str().substr(1);
 		if (!ct.cell_types.count(base->name)) {
-			log_debug("skip skeleton for %s\n", base_name.c_str());
+			log_debug("skip skeleton for %s\n", base_name);
 			return;
 		}
 
@@ -179,7 +179,7 @@ struct IcellLiberty : Pass {
 		if (liberty_filename.size()) {
 			liberty_file->open(liberty_filename.c_str());
 			if (liberty_file->fail()) {
-				log_cmd_error("Can't open file `%s' for writing: %s\n", liberty_filename.c_str(), strerror(errno));
+				log_cmd_error("Can't open file `%s' for writing: %s\n", liberty_filename, strerror(errno));
 			}
 		}
 

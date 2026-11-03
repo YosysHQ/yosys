@@ -136,7 +136,7 @@ struct ConnwrappersWorker
 				}
 
 				if (old_sig.size())
-					log("Connected extended bits of %s.%s:%s: %s -> %s\n", module->name.unescape(), cell->name.unescape(),
+					log("Connected extended bits of %s.%s:%s: %s -> %s\n", module, cell,
 							PooledName(module, conn.first).unescape(), log_signal(old_sig), log_signal(conn.second));
 			}
 		}

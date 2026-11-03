@@ -127,7 +127,7 @@ struct SplitcellsWorker
 				if (slice->hasParam(ID::WIDTH))
 					slice->setParam(ID::WIDTH, GetSize(slice->getPort(ID::Y)));
 
-				log("  slice %d: %s => %s\n", i, module->twines().str(slice_name).c_str(), log_signal(slice->getPort(ID::Y)));
+				log("  slice %d: %s => %s\n", i, module->twines().str(slice_name), log_signal(slice->getPort(ID::Y)));
 			}
 
 			module->remove(cell);

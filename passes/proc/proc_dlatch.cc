@@ -623,7 +623,7 @@ struct ProcDlatchPass : public Pass {
 
 		LatchPolicy policy;
 		if (!latch_policy_from_string(policy_str, policy))
-			log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", policy_str.c_str());
+			log_cmd_error("Invalid value '%s' for -latches (expected info|warn|error).\n", policy_str);
 
 		for (auto mod : design->all_selected_modules()) {
 			proc_dlatch_db_t db(mod);

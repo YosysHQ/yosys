@@ -23,12 +23,12 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-std::map<std::string, std::unique_ptr<RTLIL::Design>> saved_designs;
-std::vector<std::unique_ptr<RTLIL::Design>> pushed_designs;
+std::map<std::string, std::shared_ptr<RTLIL::Design>> saved_designs;
+std::vector<std::shared_ptr<RTLIL::Design>> pushed_designs;
 
-static std::unique_ptr<RTLIL::Design> snapshot(RTLIL::Design *design)
+static std::shared_ptr<RTLIL::Design> snapshot(RTLIL::Design *design)
 {
-	auto copy = std::make_unique<RTLIL::Design>();
+	auto copy = std::make_shared<RTLIL::Design>();
 	design->clone_into(copy.get());
 	return copy;
 }
@@ -256,7 +256,7 @@ struct DesignPass : public Pass {
 		if (mode == Mode::CopyTo) {
 			auto &saved = saved_designs[name];
 			if (!saved)
-				saved = std::make_unique<RTLIL::Design>();
+				saved = std::make_shared<RTLIL::Design>();
 			copy_from_design = design;
 			copy_to_design = saved.get();
 		}

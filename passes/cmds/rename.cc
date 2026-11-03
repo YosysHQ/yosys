@@ -427,7 +427,7 @@ struct RenamePass : public Pass {
 							if (wire_suffix.empty()) {
 								for (auto const &[port, _] : cell->connections()) {
 									if (cell->output(port)) {
-										wire_suffix += stringf("%s.%s", cell->type, module->twines().str(port).c_str() + 1);
+										wire_suffix += stringf("%s.%s", cell->type, module->twines().str(port).substr(1));
 										break;
 									}
 								}

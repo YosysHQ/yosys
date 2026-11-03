@@ -326,7 +326,7 @@ struct SynthPass : public ScriptPass {
 					run(stringf("techmap -map +/mul2dsp.v -map %s -D DSP_A_MAXWIDTH=%d -D DSP_B_MAXWIDTH=%d "
 						    "-D DSP_A_MINWIDTH=%d -D DSP_B_MINWIDTH=%d -D DSP_Y_MINWIDTH=%d "
 						    "-D DSP_NAME=$__FABULOUS_MUL",
-						    multiplier_map.c_str(), multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min,
+						    multiplier_map, multiplier_a_max, multiplier_b_max, multiplier_a_min, multiplier_b_min,
 						    multiplier_y_min));
 				}
 				run("select a:mul2dsp", "              (if -multiplier-map)");
@@ -364,7 +364,7 @@ struct SynthPass : public ScriptPass {
 			if (help_mode) {
 				run("techmap -map <arith_map.v> -D ARITH_<carry>");
 			} else if (!arith_map.empty()) {
-				run(stringf("techmap -map %s -D ARITH_%s", arith_map.c_str(), carry_mode.c_str()));
+				run(stringf("techmap -map %s -D ARITH_%s", arith_map, carry_mode));
 			}
 			run("clean");
 		}
@@ -421,7 +421,7 @@ struct SynthPass : public ScriptPass {
 			if (help_mode) {
 				run("techmap -D LUT_K=<lut> -map <cells_map.v>");
 			} else if (!cells_map.empty()) {
-				run(stringf("techmap -D LUT_K=%d -map %s", lut, cells_map.c_str()));
+				run(stringf("techmap -D LUT_K=%d -map %s", lut, cells_map));
 			}
 			run("clean");
 		}

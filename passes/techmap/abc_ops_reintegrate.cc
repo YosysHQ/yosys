@@ -34,7 +34,7 @@ struct Remapper
 
 	std::string name(const std::string &abc9_name) const
 	{
-		return stringf("$abc$%d$%s", map_autoidx, abc9_name.c_str() + 1);
+		return stringf("$abc$%d$%s", map_autoidx, abc9_name.substr(1));
 	}
 
 	IdString operator()(IdString n) const
@@ -47,7 +47,7 @@ inline IdString ref_from_token(RTLIL::Design *design, const std::string &tok)
 {
 	IdString ref = design->twines().ref_from_token(tok);
 	if (ref == IdString::Null)
-		log_error("Bad map file: '%s' is not a live name reference of this yosys run.\n", tok.c_str());
+		log_error("Bad map file: '%s' is not a live name reference of this yosys run.\n", tok);
 	return ref;
 }
 

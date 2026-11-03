@@ -1082,6 +1082,7 @@ skip_fine_alu:
 		}
 
 		if (cell->type.in(ID($_NOT_), ID($not), ID($logic_not)) && GetSize(cell->getPort(ID::Y)) == 1 &&
+				!cell->has_keep_attr() &&
 				invert_map.count(assign_map(cell->getPort(ID::A))) != 0) {
 			replace_cell(cell, "double_invert", ID::Y, invert_map.at(assign_map(cell->getPort(ID::A))));
 			goto next_cell;
@@ -2248,7 +2249,7 @@ skip_alu_split:
 				if (replace || remove)
 				{
 					log_debug("Replacing %s cell `%s' (implementing %s) with %s.\n",
-							cell->type.unescape(), cell, condition.c_str(), replacement.c_str());
+							cell->type.unescape(), cell, condition, replacement);
 					if (replace)
 						module->connect(cell->getPort(ID::Y), replace_sig);
 					module->remove(cell);

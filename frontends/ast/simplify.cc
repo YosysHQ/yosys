@@ -218,7 +218,7 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 			} else {
 				log_error("enum_item children size==%zu, expected 1 or 2 for %s (%s)\n",
 						  (size_t) enum_item->children.size(),
-						  enum_item->str.c_str(), enum_node->str.c_str()
+						  enum_item->str, enum_node->str
 				);
 			}
 			//start building attribute string
@@ -226,8 +226,8 @@ void AstNode::annotateTypedEnums(AstNode *template_node)
 			//get enum item value
 			if(enum_item->children[0]->type != AST_CONSTANT){
 				log_error("expected const, got %s for %s (%s)\n",
-						  type2str(enum_item->children[0]->type).c_str(),
-						  enum_item->str.c_str(), enum_node->str.c_str()
+						  type2str(enum_item->children[0]->type),
+						  enum_item->str, enum_node->str
 						);
 			}
 			RTLIL::Const val = enum_item->children[0]->bitsAsConst(width, is_signed);
@@ -3558,7 +3558,7 @@ skip_dynamic_range_lvalue_expansion:;
 				// Warn if array assignment expansion is large.
 				if (total_elements > 10000)
 					log_warning("Expanding array assignment with %d elements at %s, this may be slow.\n",
-						total_elements, location.to_string().c_str());
+						total_elements, location.to_string());
 
 				// Collect all assignments
 				std::vector<std::unique_ptr<AstNode>> assignments;
@@ -4859,6 +4859,8 @@ replace_fcall_later:;
 		case AST_CAST_SIZE:
 			if (children.at(0)->type == AST_CONSTANT && children.at(1)->type == AST_CONSTANT) {
 				int width = children[0]->bitsAsConst().as_int();
+				if (width <= 0)
+					input_error("Static cast with zero or negative size!\n");
 				RTLIL::Const val;
 				if (children[1]->is_unsized)
 					val = children[1]->bitsAsUnsizedConst(width);

@@ -25,8 +25,8 @@ struct IdString;
 
 /**
  * A twine is a data structure designed to deduplicate prefixes.
- * The key idea is that a twine is a suffix node or a leaf node.
- * A leaf node holds a string,
+ * The key idea is that a twine is a suffix node or a root node.
+ * A root node holds a string,
  * while a suffix node appends a string to a twine.
  *
  * Twines are used here to implement IdString, the Yosys interned
@@ -235,15 +235,15 @@ struct TwineSpec {
 		auto operator<=>(const AutoSuffix&) const = default;
 	};
 
-	// "leaf", regular deduplicated string
-	struct Leaf {
+	// "root", regular deduplicated string
+	struct Root {
 		std::string s;
-		auto operator<=>(const Leaf&) const = default;
+		auto operator<=>(const Root&) const = default;
 	};
 
-	std::variant<Leaf, Suffix, AutoSuffix> data;
+	std::variant<Root, Suffix, AutoSuffix> data;
 
-	TwineSpec(Leaf v);
+	TwineSpec(Root v);
 	TwineSpec(Suffix v);
 	TwineSpec(AutoSuffix v);
 };
@@ -286,7 +286,7 @@ struct TwineNode {
 	static constexpr uint32_t extend_hash(uint32_t hash, std::string_view tail) {
 		// Basically DJB2, but we're not doing it with hashlib.h hash64,
 		// so that we get the "content hashing" identity:
-		// hash(suffix(leaf("a"), "b")) == hash(leaf("ab"))
+		// hash(suffix(root("a"), "b")) == hash(root("ab"))
 		for (char c : tail)
 			hash = ((hash << 5) + hash) + static_cast<unsigned char>(c);
 		return hash;
@@ -303,15 +303,15 @@ struct TwineNode {
 	TwineNode &operator=(TwineNode &&other) noexcept;
 	~TwineNode() = default;
 
-	enum class Kind { Dead, Leaf, Suffix };
+	enum class Kind { Dead, Root, Suffix };
 
 	constexpr bool is_dead() const { return prefix_ == DEAD; }
-	constexpr bool is_leaf() const { return prefix_ == NO_PREFIX; }
+	constexpr bool is_root() const { return prefix_ == NO_PREFIX; }
 	constexpr bool is_suffix() const { return prefix_ < DEAD; }
 
 	constexpr Kind kind() const {
 		return prefix_ == DEAD ? Kind::Dead
-			: prefix_ == NO_PREFIX ? Kind::Leaf
+			: prefix_ == NO_PREFIX ? Kind::Root
 			: Kind::Suffix;
 	}
 

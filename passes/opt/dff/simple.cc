@@ -36,6 +36,7 @@ struct SimpleContext
 	dict<SigBit, int> bitusers;        // Signal sink count
 	dict<SigBit, cell_int_t> bit2mux;  // Signal bit to driving MUX
 	dict<SigBit, cell_int_t> bit2gate; // Signal bit to driving AND/OR
+	pool<SigBit> kept_bits;
 
 	std::vector<Cell *> dff_cells;
 
@@ -46,20 +47,33 @@ struct SimpleContext
 		// - bit2mux: the mux cell and bit index that drives it, if any
 		// - bit2gate: the AND/OR cell and bit index that drives it, if any
 
-		for (auto wire : worker.module->wires())
+		for (auto wire : worker.module->wires()) {
+			if (wire->get_bool_attribute(ID::keep))
+				for (auto bit : worker.sigmap(wire))
+					kept_bits.insert(bit);
+
 			if (wire->port_output)
 				for (auto bit : worker.sigmap(wire))
 					bitusers[bit]++;
+		}
 
 		for (auto cell : worker.module->cells()) {
 			if (cell->type.in(ID($mux), ID($pmux), ID($_MUX_))) {
 				RTLIL::SigSpec sig_y = worker.sigmap(cell->getPort(ID::Y));
-				for (int i = 0; i < GetSize(sig_y); i++)
-					bit2mux[sig_y[i]] = cell_int_t(cell, i);
+				for (int i = 0; i < GetSize(sig_y); i++) {
+					SigBit bit = sig_y[i];
+					if (kept_bits.count(bit))
+						continue;
+					bit2mux[bit] = cell_int_t(cell, i);
+				}
 			} else if (cell->type.in(ID($and), ID($or), ID($_AND_), ID($_OR_))) {
 				const RTLIL::SigSpec &sig_y = cell->getPort(ID::Y);
-				for (int i = 0; i < GetSize(sig_y); i++)
-					bit2gate[worker.sigmap(sig_y[i])] = cell_int_t(cell, i);
+				for (int i = 0; i < GetSize(sig_y); i++) {
+					SigBit bit = worker.sigmap(sig_y[i]);
+					if (kept_bits.count(bit))
+						continue;
+					bit2gate[bit] = cell_int_t(cell, i);
+				}
 			}
 
 			for (auto conn : cell->connections()) {
@@ -616,6 +630,11 @@ struct SimpleContext
 		std::vector<int> remaining_indices;
 
 		for (int i = 0; i < ff.width; i++) {
+			if (kept_bits.count(worker.sigmap(ff.sig_d[i]))) {
+				remaining_indices.push_back(i);
+				continue;
+			}
+
 			ctrls_t enables;
 
 			while (bit2mux.count(ff.sig_d[i]) && bitusers[ff.sig_d[i]] == 1) {
@@ -746,8 +765,13 @@ struct SimpleContext
 				optimize_const_clk(ff, cell, changed);
 
 			// Feedback (D=Q) opt
-			if ((ff.has_clk || ff.has_gclk) && ff.sig_d == ff.sig_q)
-				optimize_d_equals_q(ff, cell, changed);
+			if ((ff.has_clk || ff.has_gclk) && ff.sig_d == ff.sig_q) {
+				bool d_has_kept_bit = false;
+				for (int i = 0; i < ff.width; i++)
+					if (kept_bits.count(worker.sigmap(ff.sig_d[i]))) { d_has_kept_bit = true; break; }
+				if (!d_has_kept_bit)
+					optimize_d_equals_q(ff, cell, changed);
+			}
 
 			if (ff.has_aload && !ff.has_clk && ff.sig_ad == ff.sig_q) {
 				log("Handling AD = Q on %s (%s) from module %s (removing async load path).\n",

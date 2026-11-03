@@ -303,7 +303,7 @@ struct arg_map_t
 			else
 				log_error("Cannot expand macro `%s by giving only %d argument%s "
 				          "(argument %d has no default).\n",
-				          macro_name.c_str(), GetSize(arg_vals),
+				          macro_name, GetSize(arg_vals),
 				          (GetSize(arg_vals) == 1 ? "" : "s"), i + 1);
 
 			assert(val);
@@ -382,7 +382,7 @@ void define_map_t::log() const
 		const std::string &name = it.first;
 		const define_body_t &body = *it.second;
 		Yosys::log("`define %s%s %s\n",
-		           name.c_str(), body.has_args ? "()" : "", body.body.c_str());
+		           name, body.has_args ? "()" : "", body.body);
 	}
 }
 
@@ -518,7 +518,7 @@ static bool try_expand_macro(define_map_t &defines, macro_arg_stack_t &macro_arg
 				tok = buf;
 			}
 			log_error("Expected to find '(' to begin macro arguments for '%s', but instead found '%s'\n",
-				name.c_str(), tok.c_str());
+				name, tok);
 		}
 		std::vector<std::string> args;
 		bool done = false;
@@ -635,7 +635,7 @@ read_define_args()
 			}
 			log_error("Trailing contents after identifier in macro argument `%s': "
 				  "expected '=', ',' or ')'.\n",
-				  arg_name.c_str());
+				  arg_name);
 
 		default:
 			// The only FSM states are 0-2 and we dealt with 2 at the start of the loop.
