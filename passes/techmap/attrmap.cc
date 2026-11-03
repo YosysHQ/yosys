@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/metadata/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -148,22 +149,17 @@ void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr
 
 void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr<AttrmapAction>> &actions, RTLIL::AttrObject *obj)
 {
+	ExportedAttributes exported(design, obj);
 	dict<IdString, RTLIL::Const> attributes = obj->attributes;
-	for (IdString id : RTLIL::interned_attributes)
-		if (obj->has_attribute(id))
-			attributes[id] = RTLIL::Const(design->get_interned_attribute(obj, id));
+	for (auto &[name, value] : exported.interned())
+		attributes[name] = value;
 
 	attrmap_apply(design, objname, actions, attributes);
 
-	for (IdString id : RTLIL::interned_attributes) {
-		auto it = attributes.find(id);
-		std::string value = it == attributes.end() ? std::string() : it->second.decode_string();
-		if (value != design->get_interned_attribute(obj, id))
-			design->set_interned_attribute(obj, id, value);
-		if (it != attributes.end())
-			attributes.erase(it);
-	}
-	obj->attributes = std::move(attributes);
+	for (IdString id : RTLIL::interned_attributes)
+		if (!attributes.count(id) && obj->has_attribute(id))
+			design->set_interned_attribute(obj, id, "");
+	import_attributes(design, obj, std::move(attributes));
 }
 
 void log_attrmap_paramap_options()

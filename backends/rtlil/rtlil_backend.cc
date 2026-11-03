@@ -25,6 +25,7 @@
 #include "rtlil_backend.h"
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
+#include "kernel/metadata/attributes.h"
 #include <errno.h>
 #include <iterator>
 
@@ -146,14 +147,23 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 	}
 }
 
+static void dump_attribute(std::ostream &f, const std::string &indent, const RTLIL::Design *design, IdString name, const RTLIL::Const &value, DumpMode mode)
+{
+	f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
+	RTLIL_BACKEND::dump_const(f, value);
+	f << stringf("\n");
+}
+
 void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, DumpMode mode)
 {
-	SrcRef id = obj->src();
-	if (id != SrcRef::Null) {
-		f << stringf("%s" "attribute \\src ", indent);
-		if (mode == DumpMode::Readable) {
-			dump_const(f, RTLIL::Const(design->get_src_attribute(obj)));
-		} else {
+	if (mode == DumpMode::Readable) {
+		ExportedAttributes exported(design, obj);
+		for (auto &[name, value] : exported.interned())
+			dump_attribute(f, indent, design, name, value, mode);
+	} else {
+		SrcRef id = obj->src();
+		if (id != SrcRef::Null) {
+			f << stringf("%s" "attribute \\src ", indent);
 			const std::vector<IdString> &members = design->srcs()[id].members();
 			if (emitted_twines != nullptr)
 				for (IdString member : members)
@@ -167,30 +177,20 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 			}
 			if (mode == DumpMode::Replayable)
 				f << stringf("  # %s", design->srcs().str(id));
+			f << stringf("\n");
 		}
-		f << stringf("\n");
+		if (obj->meta() != MetaRef::Null) {
+			if (emitted_metas != nullptr)
+				emitted_metas->insert(obj->meta());
+			f << stringf("%s" "attribute \\metadata ", indent);
+			dump_const(f, RTLIL::Const("#" + design->metas().serial(obj->meta())));
+			if (mode == DumpMode::Replayable)
+				f << stringf("  # %s", metadata_summary(design, obj->meta()));
+			f << stringf("\n");
+		}
 	}
-	if (obj->meta() != MetaRef::Null && mode != DumpMode::Readable) {
-		if (emitted_metas != nullptr)
-			emitted_metas->insert(obj->meta());
-		f << stringf("%s" "attribute \\metadata ", indent);
-		dump_const(f, RTLIL::Const("#" + design->metas().serial(obj->meta())));
-		if (mode == DumpMode::Replayable)
-			f << stringf("  # %s", metadata_summary(design, obj->meta()));
-		f << stringf("\n");
-	}
-	for (IdString id : RTLIL::interned_attributes) {
-		if (id == ID::src || !obj->has_attribute(id) || mode != DumpMode::Readable)
-			continue;
-		f << stringf("%s" "attribute %s ", indent, twine_ref(design, id, mode));
-		dump_const(f, RTLIL::Const(design->get_interned_attribute(obj, id)));
-		f << stringf("\n");
-	}
-	for (const auto& [name, value] : reversed(obj->attributes)) {
-		f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
-		dump_const(f, value);
-		f << stringf("\n");
-	}
+	for (const auto& [name, value] : reversed(obj->attributes))
+		dump_attribute(f, indent, design, name, value, mode);
 }
 
 static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
