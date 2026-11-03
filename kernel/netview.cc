@@ -32,10 +32,9 @@ NetView::Counts NetView::counts() const
 	return {records.instances.size() - 1, records.nets.size(), records.pins.size()};
 }
 
-bool detail::designAlive(const RTLIL::Design *design)
+bool detail::designAlive(const ViewData &data)
 {
-	const std::vector<RTLIL::Design *> &designs = *RTLIL::Design::get_all_designs();
-	return std::find(designs.begin(), designs.end(), design) != designs.end();
+	return !data.design_shared || !data.design_owner.expired();
 }
 
 // A yosys internal cell type (no library cell)
@@ -353,6 +352,8 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
 	data_->design = design;
+	data_->design_owner = design->weak_from_this();
+	data_->design_shared = !data_->design_owner.expired();
 	data_->library = options.library;
 	// A leaf type without ports errors out halfway, drop the partial view
 	try {
@@ -781,7 +782,7 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 bool NetView::upToDate() const
 {
 	const detail::ViewData &data = *data_;
-	if (!built() || !detail::designAlive(data.design) || data.design->twines().serial() != data.twines_serial)
+	if (!built() || !detail::designAlive(data) || data.design->twines().serial() != data.twines_serial)
 		return false;
 	return detail::designFingerprint(data.design, data.watched_module_names) == data.fingerprint;
 }

@@ -168,7 +168,7 @@ void prep_hier(RTLIL::Design *design, bool dff_mode)
 {
 	auto r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *unmap_design = r.first->second.get();
 
 	// Keep track of derived versions of modules that we haven't used, to prevent these being used for unwanted techmaps later on.
@@ -286,12 +286,12 @@ void prep_bypass(RTLIL::Design *design)
 {
 	auto r = saved_designs.emplace("$abc9_map", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *map_design = r.first->second.get();
 
 	r = saved_designs.emplace("$abc9_unmap", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	Design *unmap_design = r.first->second.get();
 
 	pool<IdString> processed;
@@ -437,18 +437,18 @@ void prep_bypass(RTLIL::Design *design)
 			//   replaced cell
 			auto replace_cell = map_module->addCell(ID::_TECHMAP_REPLACE_, translate(map_design, cell->module->design, cell->type));
 			auto bypass_cell = map_module->addCell(NEW_ID, map_module->twines().add(cell->type.str() + "_$abc9_byp"));
-			for (const auto &conn : cell->connections()) {
-				auto port = map_module->wire(translate(map_design, design, conn.first));
-				if (cell->input(conn.first)) {
-					replace_cell->setPort(translate(map_design, design, conn.first), port);
-					if (bypass_module->wire(conn.first))
-						bypass_cell->setPort(translate(map_design, design, conn.first), port);
+			for (auto port_name : inst_module->ports) {
+				auto port = map_module->wire(translate(map_design, design, port_name));
+				if (port->port_input) {
+					replace_cell->setPort(translate(map_design, design, port_name), port);
+					if (bypass_module->wire(port_name))
+						bypass_cell->setPort(translate(map_design, design, port_name), port);
 				}
-				if (cell->output(conn.first)) {
-					bypass_cell->setPort(translate(map_design, design, conn.first), port);
-					auto n = "$abc9byp$" + design->twines().str(conn.first);
-					auto w = map_module->addWire(n, GetSize(conn.second));
-					replace_cell->setPort(translate(map_design, design, conn.first), w);
+				if (port->port_output) {
+					bypass_cell->setPort(translate(map_design, design, port_name), port);
+					auto n = "$abc9byp$" + design->twines().str(port_name);
+					auto w = map_module->addWire(n, GetSize(port));
+					replace_cell->setPort(translate(map_design, design, port_name), w);
 					bypass_cell->setPort(n, w);
 				}
 			}
@@ -881,7 +881,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 
 	auto r = saved_designs.emplace("$abc9_holes", nullptr);
 	if (r.second)
-		r.first->second = std::make_unique<Design>();
+		r.first->second = std::make_shared<Design>();
 	RTLIL::Design *holes_design = r.first->second.get();
 	log_assert(holes_design);
 	RTLIL::Module *holes_module = holes_design->addModule(translate(holes_design, design, module->name));

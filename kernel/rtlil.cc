@@ -1017,16 +1017,12 @@ RTLIL::Design::Design()
 	refcount_modules_ = 0;
 	selected_active_module.clear();
 	push_full_selection();
-
-	RTLIL::Design::get_all_designs()->push_back(this);
 }
 
 RTLIL::Design::~Design()
 {
 	for (auto &pr : modules_)
 		delete pr.second;
-	auto &all_designs = *RTLIL::Design::get_all_designs();
-	all_designs.erase(std::find(all_designs.begin(), all_designs.end(), this));
 }
 
 void RTLIL::Design::reset()
@@ -1049,12 +1045,6 @@ void RTLIL::Design::reset_verilog_state()
 	verilog_packages.clear();
 	verilog_globals.clear();
 	verilog_defines->clear();
-}
-
-static std::vector<RTLIL::Design*> all_designs;
-std::vector<RTLIL::Design*> *RTLIL::Design::get_all_designs(void)
-{
-	return &all_designs;
 }
 
 RTLIL::ObjRange<RTLIL::Module*, IdString> RTLIL::Design::modules()

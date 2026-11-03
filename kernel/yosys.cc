@@ -90,7 +90,7 @@ const char* yosys_maybe_version() {
 		return "Yosys";
 }
 
-RTLIL::Design *yosys_design = NULL;
+std::shared_ptr<RTLIL::Design> yosys_design;
 NewCellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
@@ -260,7 +260,7 @@ void yosys_setup()
 	init_abc_executable_name();
 
 	Pass::init_register();
-	yosys_design = new RTLIL::Design;
+	yosys_design = std::make_shared<RTLIL::Design>();
 	yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
 	log_push();
 }
@@ -280,8 +280,7 @@ void yosys_shutdown()
 
 	Pass::done_register();
 
-	delete yosys_design;
-	yosys_design = NULL;
+	yosys_design.reset();
 
 	logger().clear();
 
@@ -330,7 +329,7 @@ const std::string *create_id_prefix(std::string_view file, int line, std::string
 
 RTLIL::Design *yosys_get_design()
 {
-	return yosys_design;
+	return yosys_design.get();
 }
 
 const char *create_prompt(RTLIL::Design *design, int recursion_counter, bool newline)
@@ -703,7 +702,7 @@ static void handle_label(std::string &command, bool &from_to_active, const std::
 bool run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *from_to_label)
 {
 	if (design == nullptr)
-		design = yosys_design;
+		design = yosys_design.get();
 
 	if (command == "auto") {
 	  std::string filename_trim = filename;
@@ -850,7 +849,7 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 void run_pass(std::string command, RTLIL::Design *design)
 {
 	if (design == nullptr)
-		design = yosys_design;
+		design = yosys_design.get();
 
 	log("\n");
 	log_comment("-- Running command `%s' --\n", command);
@@ -861,7 +860,7 @@ void run_pass(std::string command, RTLIL::Design *design)
 void run_backend(std::string filename, std::string command, RTLIL::Design *design)
 {
 	if (design == nullptr)
-		design = yosys_design;
+		design = yosys_design.get();
 
 	if (command == "auto") {
 		if (filename.size() > 2 && filename.compare(filename.size()-2, std::string::npos, ".v") == 0)

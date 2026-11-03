@@ -1299,7 +1299,7 @@ inline constexpr bool is_name_string_v =
 #define YS_NAME_FWD(_func) YS_NAME_FWD_POOL(_func, design->twines())
 #define YS_NAME_FWD_2ND(_func) YS_NAME_FWD_2ND_POOL(_func, design->twines())
 
-struct RTLIL::Design
+struct RTLIL::Design : std::enable_shared_from_this<RTLIL::Design>
 {
 	[[nodiscard]] Hasher hash_into(Hasher h) const { h.eat(LARGE_HASHIDX_COLLIDER); return h; }
 
@@ -1485,8 +1485,6 @@ public:
 	// returns all selected unboxed whole modules, warning the user if any
 	// partially selected or boxed modules have been ignored
 	std::vector<RTLIL::Module*> selected_unboxed_whole_modules_warn() const { return selected_modules(SELECT_WHOLE_WARN, SB_UNBOXED_WARN); }
-
-	static std::vector<RTLIL::Design*> *get_all_designs(void);
 
 	std::string to_rtlil_str(bool only_selected = true) const;
 
