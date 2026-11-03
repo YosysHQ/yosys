@@ -32,14 +32,6 @@ void TwineBackedPool<Derived, Node, Ref>::clone_from(const Derived &other) {
 }
 
 template<typename Derived, typename Node, typename Ref>
-void TwineBackedPool<Derived, Node, Ref>::clear() {
-	this->backing.clear();
-	this->free_list.clear();
-	std::fill(this->table.begin(), this->table.end(), Ref());
-	this->index_entries = 0;
-}
-
-template<typename Derived, typename Node, typename Ref>
 size_t TwineBackedPool<Derived, Node, Ref>::gc(const Marks &live) {
 	return HashConsPool<Derived, Node, Ref>::gc(live);
 }

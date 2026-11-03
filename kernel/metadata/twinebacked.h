@@ -58,8 +58,8 @@ struct TwineBackedPool : HashConsPool<Derived, Node, Ref> {
 	static void for_each_child(const Node&, F&&) {}
 
 	using HashConsPool<Derived, Node, Ref>::size;
+	using HashConsPool<Derived, Node, Ref>::clear;
 	void clone_from(const Derived &other);
-	void clear();
 	size_t gc(const Marks &live);
 
 protected:
