@@ -92,10 +92,44 @@ write_verilog -nostr temp/write_verilog_unsized_nostr.v
 
 design -reset
 read_verilog temp/write_verilog_unsized.v
+select -assert-mod-count 1 A:mattr=32'd1
+select -assert-count 1 w:w a:one=32'd1 %i
+select -assert-count 1 w:w a:zero=32'd0 %i
+select -assert-count 1 w:w a:max=32'd2147483647 %i
+select -assert-count 1 w:w a:over=32'h80000000 %i
+select -assert-count 1 w:w a:neg=32'hfffffffb %i
+select -assert-count 1 w:w a:min=32'h80000000 %i
+select -assert-count 1 w:w a:narrow=32'd1 %i
+select -assert-count 1 w:w a:snarrow=32'hfffffffb %i
+select -assert-count 1 w:w a:onebit=32'd1 %i
+select -assert-count 1 w:w a:undef=32'hxxxxxxxx %i
+select -assert-count 1 w:w a:str=abcd %i
+select -assert-count 1 w:w a:init=1'b1 %i
+select -assert-count 1 c:u r:W=32'd5 %i
+select -assert-count 1 c:u r:H=32'h80000000 %i
+select -assert-count 1 c:u r:N=32'hfffffffb %i
+select -assert-count 1 c:u r:M=32'h80000000 %i
+select -assert-count 1 c:u r:S=32'd7 %i
+delete c:u
+sat -verify -prove e 32'd5
+sat -verify -set a 0 -prove c 34'd10
+sat -verify -set a 1 -prove c 34'h20000000b
+
 design -reset
 read_verilog temp/write_verilog_unsized_defparam.v
+select -assert-count 1 c:u r:W=32'd5 %i
+select -assert-count 1 c:u r:H=32'h80000000 %i
+select -assert-count 1 c:u r:N=32'hfffffffb %i
+select -assert-count 1 c:u r:M=32'h80000000 %i
+select -assert-count 1 c:u r:S=32'd7 %i
+
 design -reset
 read_verilog temp/write_verilog_unsized_decimal.v
+select -assert-count 1 c:u r:W=32'd5 %i
+select -assert-count 1 c:u r:H=32'h80000000 %i
+select -assert-count 1 c:u r:N=32'hfffffffb %i
+delete c:u
+sat -verify -prove e 32'd5
 
 design -reset
 read_verilog -icells <<EOT
@@ -108,3 +142,4 @@ write_verilog -noattr -noexpr temp/write_verilog_unsized_intmin.v
 ! grep -qF ".ARST_VALUE(32'sh80000000)" temp/write_verilog_unsized_intmin.v
 design -reset
 read_verilog -icells temp/write_verilog_unsized_intmin.v
+select -assert-count 1 c:u r:ARST_VALUE=32'h80000000 %i
