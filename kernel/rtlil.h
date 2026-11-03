@@ -652,6 +652,7 @@ struct RTLIL::AttrObject
 	void set_src(SrcRef ref) { src_ = ref; }
 	MetaRef meta() const { return meta_; }
 	void set_meta(MetaRef ref) { meta_ = ref; }
+	void clear_attributes() { attributes.clear(); src_ = SrcRef::Null; meta_ = MetaRef::Null; }
 
 	bool has_attribute(RTLIL::IdString id) const;
 
