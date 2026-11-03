@@ -28,7 +28,7 @@
 #include "kernel/ff.h"
 #include "kernel/mem.h"
 #include "kernel/fmt.h"
-#include "backends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include "backends/verilog/verilog_backend.h"
 #include <string>
 #include <sstream>

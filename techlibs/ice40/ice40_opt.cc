@@ -19,7 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include "passes/techmap/simplemap.h"
 #include <stdlib.h>
 #include <stdio.h>

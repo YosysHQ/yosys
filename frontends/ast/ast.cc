@@ -30,7 +30,7 @@
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 

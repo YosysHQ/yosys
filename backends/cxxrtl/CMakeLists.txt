@@ -13,7 +13,6 @@ yosys_backend(cxxrtl
 		runtime/cxxrtl/capi/cxxrtl_capi_vcd.cc
 		runtime/cxxrtl/capi/cxxrtl_capi_vcd.h
 	REQUIRES
-		backend_common
 		hierarchy
 		flatten
 		proc

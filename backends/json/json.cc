@@ -23,7 +23,7 @@
 #include "kernel/celltypes.h"
 #include "kernel/cellaigs.h"
 #include "kernel/log.h"
-#include "backends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 
 USING_YOSYS_NAMESPACE

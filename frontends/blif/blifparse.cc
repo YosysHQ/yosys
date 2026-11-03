@@ -18,7 +18,7 @@
  */
 
 #include "blifparse.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 

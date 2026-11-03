@@ -79,8 +79,6 @@ yosys_pass(setattr
 		wbflip
 		setparam
 		chparam
-	REQUIRES
-		frontend_common
 )
 yosys_pass(copy
 	copy.cc

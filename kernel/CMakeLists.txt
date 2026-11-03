@@ -57,6 +57,8 @@ yosys_core(kernel
 	macc.h
 	mem.cc
 	mem.h
+	metadata/attributes.cc
+	metadata/attributes.h
 	metadata/metapool.cc
 	metadata/metapool.h
 	metadata/srcpool.cc
@@ -150,6 +152,7 @@ yosys_core(kernel
 		macc.h
 		modtools.h
 		mem.h
+		metadata/attributes.h
 		metadata/metapool.h
 		metadata/srcpool.h
 		metadata/twinebacked.h

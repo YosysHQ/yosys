@@ -22,7 +22,7 @@
 #include "kernel/sigtools.h"
 #include "kernel/celltypes.h"
 #include "kernel/log.h"
-#include "backends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include <string>
 #include <algorithm>
 #include <unordered_map>

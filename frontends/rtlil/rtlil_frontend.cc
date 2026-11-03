@@ -26,7 +26,7 @@
 #include "kernel/rtlil.h"
 #include "kernel/utils.h"
 #include "kernel/twine.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 #include <charconv>
 #include <deque>
 #include <optional>

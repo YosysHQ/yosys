@@ -20,7 +20,7 @@
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
 #include "kernel/log.h"
-#include "frontends/common/attributes.h"
+#include "kernel/metadata/attributes.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
