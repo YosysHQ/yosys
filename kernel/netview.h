@@ -3,6 +3,7 @@
 // - Nets       one per SigMap bit, a $barrier joins its A and Y unless either is constant
 // - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
 // - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
+// - Lifetime   records live until clear(), build after clear() restarts the ids
 // - Staleness  upToDate() compares a fingerprint of the design with the one of build() or markUpToDate()
 
 #ifndef NETVIEW_H
@@ -39,9 +40,9 @@ struct NetView final {
 	};
 
 	struct Counts {
-		size_t instances = 0;
-		size_t nets = 0;
-		size_t pins = 0;
+		uint64_t instances = 0;
+		uint64_t nets = 0;
+		uint64_t pins = 0;
 		bool operator==(const Counts &) const = default;
 		void add(const Counts &other); // saturates at UINT32_MAX
 		bool fitIds() const;
@@ -85,11 +86,6 @@ struct NetView final {
 	bool isRegister(const Netlist::Instance *inst) const;
 	bool isClockPin(const Netlist::Pin *pin) const;
 
-	void retire();
-	bool retired() const;
-	bool owns(const Netlist::Instance *inst) const;
-	bool owns(const Netlist::Pin *pin) const;
-	bool owns(const Netlist::Net *net) const;
 private:
 	std::unique_ptr<detail::ViewData> data_;
 };

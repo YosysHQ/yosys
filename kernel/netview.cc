@@ -347,7 +347,7 @@ void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
 
 void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 {
-	log_assert(!built() && !retired());
+	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
@@ -369,23 +369,6 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 
 void NetView::clear() { *data_ = detail::ViewData(); }
 
-void NetView::retire()
-{
-	detail::RecordStore records = std::move(data_->records);
-	*data_ = detail::ViewData();
-	data_->records = std::move(records);
-	data_->records.dropContents();
-	data_->retired = true;
-}
-
-bool NetView::retired() const { return data_->retired; }
-
-bool NetView::owns(const Netlist::Instance *inst) const { return inst != nullptr && inst->view == this; }
-
-bool NetView::owns(const Netlist::Pin *pin) const { return pin != nullptr && owns(pin->inst); }
-
-bool NetView::owns(const Netlist::Net *net) const { return net != nullptr && owns(net->scope); }
-
 Netlist::Instance *detail::RecordStore::newInstance()
 {
 	Netlist::Instance *inst = &instances.emplace_back();
@@ -405,23 +388,6 @@ Netlist::Net *detail::RecordStore::newNet()
 	Netlist::Net *net = &nets.emplace_back();
 	net->id = next_net_id++;
 	return net;
-}
-
-void detail::RecordStore::dropContents()
-{
-	for (Netlist::Instance &inst : instances) {
-		inst.pins = {};
-		inst.children = {};
-		inst.name = {};
-		inst.hdlpath = {};
-		inst.type = {};
-		inst.hdl_type = {};
-		inst.ports = nullptr;
-	}
-	for (Netlist::Net &net : nets) {
-		net.pins = {};
-		net.boundary = {};
-	}
 }
 
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
