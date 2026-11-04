@@ -1250,7 +1250,9 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    y:<property>\n");
 		log("        all cells with a given type property, possible values are:\n");
-		log("        evaluable, combinatorial, synthesizable, builtin_ff, formal\n");
+		log("        is_evaluable, is_combinatorial, is_synthesizable, is_stdcell,\n");
+		log("        is_ff, is_mem_noff, is_anyinit, is_tristate, has_side_effect,\n");
+		log("        is_nondeterministic, is_formal\n");
 		log("        (currently only internal cells can have type properties)\n");
 		log("\n");
 		log("    p:<pattern>\n");
