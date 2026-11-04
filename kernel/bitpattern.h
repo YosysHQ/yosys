@@ -47,7 +47,7 @@ struct BitPatternPool
 	static constexpr int MAX_WIDTH = 4096;
 
 	int width;
-	int max_nodes = 1 << 20;
+	int max_nodes = 1 << 17;
 	bool gave_up = false;
 
 	BitPatternPool(RTLIL::SigSpec sig);
