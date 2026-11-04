@@ -1,0 +1,16 @@
+yosys_core(rewriter
+	attributes.cc
+	attributes.h
+	rewriter.cc
+	rewriter.h
+	rule.cc
+	rule.h
+	REQUIRES
+		kernel
+	DATA_DIR
+		include/kernel/rewriter
+	DATA_FILES
+		attributes.h
+		rewriter.h
+		rule.h
+)
