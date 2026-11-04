@@ -73,7 +73,11 @@
 
 #ifdef YOSYS_LINK_ABC
 namespace abc {
+	struct Abc_Frame_t_;
+	typedef struct Abc_Frame_t_ Abc_Frame_t;
+	Abc_Frame_t *Abc_FrameGetGlobalFrame();
 	int Abc_RealMain(int argc, char *argv[]);
+	int Abc_FrameSetOutputStreams(Abc_Frame_t *p, FILE *pOut, FILE *pErr);
 }
 #endif
 
@@ -1358,20 +1362,12 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
 		if (temp_stdouterr_w == NULL)
 			logs.log_error("ABC: cannot open a temporary file for output redirection\n");
-		fflush(stdout);
-		fflush(stderr);
-		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
-		FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
-#if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
-#else
-#define fd_renumber(from, to) dup2(from, to)
-#endif
-		fd_renumber(fileno(stdout), fileno(old_stdout));
-		fd_renumber(fileno(stderr), fileno(old_stderr));
-		fd_renumber(fileno(temp_stdouterr_w), fileno(stdout));
-		fd_renumber(fileno(temp_stdouterr_w), fileno(stderr));
-		fclose(temp_stdouterr_w);
+		abc::Abc_Frame_t *pAbcFrame = abc::Abc_FrameGetGlobalFrame();
+		if (!pAbcFrame) {
+		    logs.log_error("ABC: Abc_FrameGetGlobalFrame returned null value\n");
+		    return;
+		}
+		abc::Abc_FrameSetOutputStreams(pAbcFrame, temp_stdouterr_w, temp_stdouterr_w);
 		// These needs to be mutable, supposedly due to getopt
 		char *abc_argv[5];
 		abc_argv[0] = strdup(config.exe_file.c_str());
@@ -1384,12 +1380,7 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		free(abc_argv[1]);
 		free(abc_argv[2]);
 		free(abc_argv[3]);
-		fflush(stdout);
-		fflush(stderr);
-		fd_renumber(fileno(old_stdout), fileno(stdout));
-		fd_renumber(fileno(old_stderr), fileno(stderr));
-		fclose(old_stdout);
-		fclose(old_stderr);
+		fclose(temp_stdouterr_w);
 		std::ifstream temp_stdouterr_r(temp_stdouterr_name);
 		for (std::string line; std::getline(temp_stdouterr_r, line); )
 			filt.next_line(line + "\n");
@@ -2364,10 +2355,6 @@ struct AbcPass : public Pass {
 		emit_global_input_files(config);
 
 		int max_threads = INT_MAX;
-#ifdef YOSYS_LINK_ABC
-		// ABC does't support multithreaded calls so don't call it off the main thread.
-		max_threads = 0;
-#endif
 		int num_worker_threads = ThreadPool::pool_size(1, max_threads);
 		ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
 		ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
