@@ -35,36 +35,33 @@ function [1:0] mode;
 	endcase
 endfunction
 
-function [255:0] slice_init;
-	input [3:0] idx;
-	integer i;
-	reg [7:0] ri;
-	reg [11:0] a;
-	for (i = 0; i < 256; i = i + 1) begin
-		ri = i;
-		a = {idx, ri[7:4], ri[0], ri[1], ri[2], ri[3]};
-		slice_init[i] = INIT[a];
-	end
-endfunction
+// INIT_P[idx*256 +: 256] equals what slice_init(idx) used to return.
+// Bit reversal of the 4-bit position inside every 16-bit group, done as two
+// delta swaps (index bits 0<->3, then 1<->2) on the whole 4096-bit vector.
+localparam [4095:0] INIT_X0 = INIT;
+localparam [4095:0] INIT_T1 = ((INIT_X0 >> 7) ^ INIT_X0) & {256{16'h00AA}};
+localparam [4095:0] INIT_X1 = INIT_X0 ^ INIT_T1 ^ (INIT_T1 << 7);
+localparam [4095:0] INIT_T2 = ((INIT_X1 >> 2) ^ INIT_X1) & {256{16'h0C0C}};
+localparam [4095:0] INIT_P  = INIT_X1 ^ INIT_T2 ^ (INIT_T2 << 2);
 
 `define INSTANCE(type, rclk, wclk) \
 	type #( \
-		.INIT_0(slice_init(0)), \
-		.INIT_1(slice_init(1)), \
-		.INIT_2(slice_init(2)), \
-		.INIT_3(slice_init(3)), \
-		.INIT_4(slice_init(4)), \
-		.INIT_5(slice_init(5)), \
-		.INIT_6(slice_init(6)), \
-		.INIT_7(slice_init(7)), \
-		.INIT_8(slice_init(8)), \
-		.INIT_9(slice_init(9)), \
-		.INIT_A(slice_init(10)), \
-		.INIT_B(slice_init(11)), \
-		.INIT_C(slice_init(12)), \
-		.INIT_D(slice_init(13)), \
-		.INIT_E(slice_init(14)), \
-		.INIT_F(slice_init(15)), \
+		.INIT_0(INIT_P[255:0]), \
+		.INIT_1(INIT_P[511:256]), \
+		.INIT_2(INIT_P[767:512]), \
+		.INIT_3(INIT_P[1023:768]), \
+		.INIT_4(INIT_P[1279:1024]), \
+		.INIT_5(INIT_P[1535:1280]), \
+		.INIT_6(INIT_P[1791:1536]), \
+		.INIT_7(INIT_P[2047:1792]), \
+		.INIT_8(INIT_P[2303:2048]), \
+		.INIT_9(INIT_P[2559:2304]), \
+		.INIT_A(INIT_P[2815:2560]), \
+		.INIT_B(INIT_P[3071:2816]), \
+		.INIT_C(INIT_P[3327:3072]), \
+		.INIT_D(INIT_P[3583:3328]), \
+		.INIT_E(INIT_P[3839:3584]), \
+		.INIT_F(INIT_P[4095:3840]), \
 		.READ_MODE(mode(PORT_R_WIDTH)), \
 		.WRITE_MODE(mode(PORT_W_WIDTH)) \
 	) _TECHMAP_REPLACE_ ( \
