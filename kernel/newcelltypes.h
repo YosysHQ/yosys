@@ -50,6 +50,7 @@ struct CellTableBuilder {
 		bool is_tristate = false;
 		bool has_side_effect = false;
 		bool is_nondeterministic = false;
+		bool is_formal = false;
 	};
 	struct CellInfo {
 		RTLIL::IdString type;
@@ -65,14 +66,20 @@ struct CellTableBuilder {
 	constexpr void setup_internals_other()
 	{
 		Features features {};
+		features.is_combinatorial = true;
 		features.is_tristate = true;
+		features.is_evaluable = true;
+		features.is_synthesizable = true;
 		setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
 
 		features = {};
+		features.is_combinatorial = true;
+		features.is_evaluable = true;
 		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
 
 		features = {};
 		features.has_side_effect = true;
+		features.is_formal = true;
 		setup_type(ID($assert), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($assume), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($live), {ID::A, ID::EN}, {}, features);
@@ -80,17 +87,22 @@ struct CellTableBuilder {
 		setup_type(ID($cover), {ID::A, ID::EN}, {}, features);
 
 		features = {};
+		features.is_formal = true;
 		setup_type(ID($initstate), {}, {ID::Y}, features);
 
 		features = {};
 		features.is_nondeterministic = true;
+		features.is_formal = true;
 		setup_type(ID($anyconst), {}, {ID::Y}, features);
 		setup_type(ID($anyseq), {}, {ID::Y}, features);
 		setup_type(ID($allconst), {}, {ID::Y}, features);
 		setup_type(ID($allseq), {}, {ID::Y}, features);
 
 		features = {};
+		features.is_formal = true;
 		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, features);
+
+		features = {};
 		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
 		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
@@ -114,6 +126,8 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_evaluable = true;
+		features.is_synthesizable = true;
+		features.is_combinatorial = true;
 		std::initializer_list<RTLIL::IdString> unary_ops = {
 			ID($not), ID($pos), ID($buf), ID($neg),
 			ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool),
@@ -149,6 +163,8 @@ struct CellTableBuilder {
 	constexpr void setup_internals_ff()
 	{
 		Features features {};
+		features.is_evaluable = true;
+		features.is_synthesizable = true;
 		features.is_ff = true;
 		setup_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q}, features);
 		setup_type(ID($ff), {ID::D}, {ID::Q}, features);
@@ -172,11 +188,14 @@ struct CellTableBuilder {
 		Features features {};
 		features.is_anyinit = true;
 		features.is_nondeterministic = true;
+		features.is_formal = true;
 		setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
 	}
 	constexpr void setup_internals_mem_noff()
 	{
 		Features features {};
+		features.is_evaluable = true;
+		features.is_synthesizable = true;
 		features.is_mem_noff = true;
 		// NOT setup_internals_ff()
 
@@ -195,6 +214,9 @@ struct CellTableBuilder {
 	constexpr void setup_stdcells_tristate()
 	{
 		Features features {};
+		features.is_evaluable = true;
+		features.is_synthesizable = true;
+		features.is_combinatorial = true;
 		features.is_stdcell = true;
 		features.is_tristate = true;
 		setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, features);
@@ -203,8 +225,10 @@ struct CellTableBuilder {
 	constexpr void setup_stdcells_eval()
 	{
 		Features features {};
-		features.is_stdcell = true;
 		features.is_evaluable = true;
+		features.is_synthesizable = true;
+		features.is_combinatorial = true;
+		features.is_stdcell = true;
 		setup_type(ID($_BUF_), {ID::A}, {ID::Y}, features);
 		setup_type(ID($_NOT_), {ID::A}, {ID::Y}, features);
 		setup_type(ID($_AND_), {ID::A, ID::B}, {ID::Y}, features);
@@ -228,6 +252,8 @@ struct CellTableBuilder {
 
 	constexpr void setup_stdcells_ff() {
 		Features features {};
+		features.is_evaluable = true;
+		features.is_synthesizable = true;
 		features.is_stdcell = true;
 		features.is_ff = true;
 
@@ -498,6 +524,7 @@ struct Categories {
 	Category is_tristate {};
 	Category has_side_effect {};
 	Category is_nondeterministic {};
+	Category is_formal {};
 	constexpr Categories() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
@@ -513,6 +540,7 @@ struct Categories {
 			is_tristate.set(idx, cell.features.is_tristate);
 			has_side_effect.set(idx, cell.features.has_side_effect);
 			is_nondeterministic.set(idx, cell.features.is_nondeterministic);
+			is_formal.set(idx, cell.features.is_formal);
 		}
 	}
 	constexpr static Category join(Category left, Category right) {
@@ -537,6 +565,47 @@ struct Categories {
 			c.set(i, !arg[i]);
 		}
 		return c;
+	}
+	constexpr std::optional<Category> lookup(const std::string &property) const {
+		if (property == "empty") {
+			return empty;
+		} else
+		if (property == "is_known") {
+			return is_known;
+		} else
+		if (property == "is_evaluable") {
+			return is_evaluable;
+		} else
+		if (property == "is_combinatorial") {
+			return is_combinatorial;
+		} else
+		if (property == "is_synthesizable") {
+			return is_synthesizable;
+		} else
+		if (property == "is_stdcell") {
+			return is_stdcell;
+		} else
+		if (property == "is_ff") {
+			return is_ff;
+		} else
+		if (property == "is_mem_noff") {
+			return is_mem_noff;
+		} else
+		if (property == "is_anyinit") {
+			return is_anyinit;
+		} else
+		if (property == "is_tristate") {
+			return is_tristate;
+		} else
+		if (property == "has_side_effect") {
+			return has_side_effect;
+		} else
+		if (property == "is_nondeterministic") {
+			return is_nondeterministic;
+		} else
+		if (property == "is_formal") {
+			return is_formal;
+		} else return std::nullopt;
 	}
 };
 
@@ -570,6 +639,8 @@ namespace {
 	static_assert(!categories.has_side_effect(ID($and)));
 	static_assert(categories.is_nondeterministic(ID($anyinit)));
 	static_assert(!categories.is_nondeterministic(ID($initstate)));
+	static_assert(categories.is_formal(ID($initstate)));
+	static_assert(!categories.is_formal(ID($and)));
 }
 
 };
