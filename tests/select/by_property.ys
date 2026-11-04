@@ -1,0 +1,69 @@
+read_verilog -formal <<EOF
+module top(input a, b, clk, output y);
+  wire n = ~a;
+  reg q;
+  always @(posedge clk) q <= b;
+  assign y = n & q;
+  always @* assert (y == (n & q));
+endmodule
+EOF
+proc
+opt_clean
+chformal -lower
+opt_expr
+opt_clean
+
+#########
+# Initial
+#########
+# a    -not-> n
+# b    -dff-> q
+# n, q -and-> y
+#### assert ####
+# n, q -and-> n1
+# n1, y -eq-> n2
+# n2 -> assert
+###############
+select -assert-count 6 y:is_known
+select -assert-count 5 y:is_evaluable
+select -assert-count 4 y:is_combinatorial
+select -assert-count 5 y:is_synthesizable
+select -assert-count 1 y:is_ff
+select -assert-count 1 y:has_side_effect
+select -assert-count 1 y:is_formal
+
+################
+# Assert Removed
+################
+# a    -not-> n
+# b    -dff-> q
+# n, q -and-> y
+#### assert ###
+# n, q -and-> n1
+# n1, y -eq-> n2
+# n2 -> hanging
+###############
+delete c:* y:is_synthesizable %d
+select -assert-count 5 y:is_known
+select -assert-count 5 y:is_evaluable
+select -assert-count 4 y:is_combinatorial
+select -assert-count 5 y:is_synthesizable
+select -assert-count 1 y:is_ff
+select -assert-count 0 y:has_side_effect
+select -assert-count 0 y:is_formal
+
+#######################
+# Dead Wires Cleaned Up
+#######################
+# a    -not-> n
+# b    -dff-> q
+# n, q -and-> y
+###############
+opt_clean
+select -assert-count 3 y:is_known
+select -assert-count 3 y:is_evaluable
+select -assert-count 2 y:is_combinatorial
+select -assert-count 3 y:is_synthesizable
+select -assert-count 1 y:is_ff
+select -assert-count 0 y:has_side_effect
+select -assert-count 0 y:is_formal
