@@ -18,7 +18,7 @@ Cell properties
 
 .. code-block:: none
 
-   is_combinatorial == is_evaluable + is_tristate
+   is_combinatorial == is_evaluable + is_tristate - this is not currently true
 
 .. cell:defprop:: is_synthesizable
 
@@ -26,8 +26,7 @@ Cell properties
 
 .. code-block:: none
 
-   is_synthesizable == all_cells - it_anyinit - has_side_effect - is_nondeterministic - is_formal - is_meta_info
-   is_synthesizable == is_combinatorial + is_ff + is_mem_noff
+   is_synthesizable == is_combinatorial + is_ff + is_mem_noff - this is not currently true
 
 .. cell:defprop:: is_stdcell
 
