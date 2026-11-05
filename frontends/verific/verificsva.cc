@@ -1945,12 +1945,13 @@ public:
 		printer->lines();
 
 		auto result = parse_property(root->GetInput());
+		// TODO better auto names?
 		ClkPropId prop(root->Name());
 		auto declaration = declare(prop, result);
 		// TODO when to use declare-rec
-		// TODO figure out how to recognise named property blocks
 		emit(*printer, declaration);
 		switch (root->Type()) {
+			// TODO parameters
 			case PRIM_SVA_ASSERT:
 				emit(*printer, assert_property(prop));
 				// TODO autocover
@@ -1991,7 +1992,7 @@ private:
 		return result;
 	}
 
-	property_ir::ClkSeqExpr parse_sequence([[maybe_unused]]Net *net)
+	property_ir::BoolId parse_bool(Net *net)
 	{
 		log_assert(net != nullptr);
 		auto type = PRIM_END;
@@ -2001,55 +2002,70 @@ private:
 
 		using namespace property_ir;
 		switch (type) {
+			case PRIM_SVA_SAMPLED:
+			case PRIM_SVA_ROSE:
+			case PRIM_SVA_FELL:
+			case PRIM_SVA_STABLE:
+			case PRIM_SVA_PAST:
+				// TODO sampled value functions
+				parser_error("Sampled value function", inst);
+			case PRIM_END:
+				return parse_input(net);
+			default:
+				parser_error(inst);
+		}
+	}
+
+	property_ir::ClkSeqExpr parse_sequence([[maybe_unused]]Net *net)
+	{
+		log_assert(net != nullptr);
+		auto type = PRIM_END;
+		auto *inst = net->Driver();
+		if (inst != nullptr && !net->IsMultipleDriven())
+			type = inst->Type();
+
+		// TODO figure out how to recognise named sequence blocks
+		using namespace property_ir;
+		switch (type) {
 			case PRIM_GND:
 				return clk_seq_bool(constant(false));
 			case PRIM_PWR:
 				return clk_seq_bool(constant(true));
 			case PRIM_SVA_SEQ_CONCAT:
 			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				auto *sva_high_s = inst->GetAttValue("sva:high");
-
-				bool sva_eq = !strcmp(sva_low_s, sva_high_s);
-				int sva_low = atoi(sva_low_s);
-				if (sva_eq && sva_low == 0)
+				auto range = get_sva_range(inst);
+				if (range.single(0))
 					return clk_seq_fusion(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
-				else if (sva_eq && sva_low == 1)
+				else if (range.single(1))
 					return clk_seq_concat(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 				else {
-					parser_error("need ranges", inst);
-					// also why does clk_seq_delay only take a single child?
-					// return clk_seq_delay(range?, parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+					auto errmsg = stringf("PRIM_SVA_SEQ_CONCAT[%d:%d]", range.lower, range.upper);
+					parser_error(errmsg, inst);
+					// return clk_seq_delay(range, parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 				}
 			}
-			// case PRIM_SVA_CONSECUTIVE_REPEAT:
-				// return clk_seq_repeat(range?, inst->GetInput());
-			// case PRIM_SVA_NON_CONSECUTIVE_REPEAT:
-				// return clk_seq_nonconsecutive_repeat(range?, bool?);
-			// case PRIM_SVA_GOTO_REPEAT:
-				// return clk_seq_goto_repeat(range?, bool?);
+			case PRIM_SVA_CONSECUTIVE_REPEAT:
+				return clk_seq_repeat(get_sva_range(inst), parse_sequence(inst->GetInput()));
+			case PRIM_SVA_NON_CONSECUTIVE_REPEAT:
+				return clk_seq_nonconsecutive_repeat(get_sva_range(inst), parse_bool(inst->GetInput()));
+			case PRIM_SVA_GOTO_REPEAT:
+				return clk_seq_goto_repeat(get_sva_range(inst), parse_bool(inst->GetInput()));
 			case PRIM_SVA_SEQ_AND:
 				return clk_seq_and(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 			case PRIM_SVA_SEQ_OR:
 				return clk_seq_or(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
-			// case PRIM_SVA_THROUGHOUT:
-				// return clk_seq_throughout(parse_bool(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+			case PRIM_SVA_THROUGHOUT:
+				return clk_seq_throughout(parse_bool(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 			case PRIM_SVA_INTERSECT:
 				return clk_seq_intersect(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 			case PRIM_SVA_WITHIN:
 				return clk_seq_within(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
 			case PRIM_SVA_FIRST_MATCH:
 				return clk_seq_first_match(parse_sequence(inst->GetInput()));
-			case PRIM_SVA_SAMPLED:
-			case PRIM_SVA_ROSE:
-			case PRIM_SVA_FELL:
-			case PRIM_SVA_STABLE:
-			case PRIM_SVA_PAST:
-				parser_error("Sampled value function", inst);
 			case PRIM_END:
 				return clk_seq_bool(parse_input(net));
 			default:
-				parser_error(inst);
+				return clk_seq_bool(parse_bool(net));
 		}
 	}
 
@@ -2061,6 +2077,7 @@ private:
 		if (inst != nullptr && !net->IsMultipleDriven())
 			type = inst->Type();
 
+		// TODO figure out how to recognise named property blocks
 		using namespace property_ir;
 		switch (type) {
 			case PRIM_SVA_AT:
@@ -2087,25 +2104,21 @@ private:
 			case PRIM_SVA_IFF:
 				return clk_prop_iff(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_NEXTTIME:
-			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				int sva_low = atoi(sva_low_s);
-				log_error("PRIM_SVA_NEXTTIME [%d]\n", sva_low);
-				// return clk_prop_nexttime(sva_low, parse_property(inst->GetInput()));
-			}
+				return clk_prop_nexttime(get_sva_int(inst), parse_property(inst->GetInput()));
 			case PRIM_SVA_S_NEXTTIME:
-			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				int sva_low = atoi(sva_low_s);
-				log_error("PRIM_SVA_S_NEXTTIME [%d]\n", sva_low);
-				// return clk_prop_strong_nexttime(sva_low, parse_property(inst->GetInput()));
-			}
+				return clk_prop_strong_nexttime(get_sva_int(inst), parse_property(inst->GetInput()));
 			case PRIM_SVA_STRONG:
 				return clk_prop_strong(parse_sequence(inst->GetInput()));
 			case PRIM_SVA_WEAK:
 				return clk_prop_weak(parse_sequence(inst->GetInput()));
 			case PRIM_SVA_IF:
-				log_error("PRIM_SVA_IF\n");
+			{
+				auto else_case = inst->GetInput1();
+				if (else_case->Driver()->Type() == PRIM_PWR)
+					return clk_prop_if(parse_bool(inst->GetInput3()), parse_property(inst->GetInput2()));
+				else
+					return clk_prop_if_else(parse_bool(inst->GetInput3()), parse_property(inst->GetInput2()), parse_property(inst->GetInput1()));
+			}
 			case PRIM_SVA_UNTIL:
 				return clk_prop_until(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_S_UNTIL:
@@ -2115,28 +2128,14 @@ private:
 			case PRIM_SVA_S_UNTIL_WITH:
 				return clk_prop_strong_until_with(parse_property(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_EVENTUALLY:
-			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				auto *sva_high_s = inst->GetAttValue("sva:high");
-
-				int sva_low = atoi(sva_low_s);
-				int sva_high = atoi(sva_high_s);
-				log_error("PRIM_SVA_EVENTUALLY [%d:%d]\n", sva_low, sva_high);
-				// return clk_prop_eventually(?, parse_property(inst->GetInput()));
-			}
+				return clk_prop_eventually(get_sva_bounded_range(inst), parse_property(inst->GetInput()));
 			case PRIM_SVA_S_EVENTUALLY:
 			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				auto *sva_high_s = inst->GetAttValue("sva:high");
-
-				int sva_low = atoi(sva_low_s);
-				int sva_high = atoi(sva_high_s);
-				bool sva_inf = !strcmp(sva_high_s, "$");
-				if (sva_low == 0 && sva_inf)
+				auto range = get_sva_range(inst);
+				if (range.lower == 0 && range.unbounded())
 					return clk_prop_strong_eventually(parse_property(inst->GetInput()));
 				else
-					log_error("PRIM_SVA_S_EVENTUALLY [%d:%d]\n", sva_low, sva_high);
-					// return clk_prop_strong_eventually_ranged(?, parse_property(inst->GetInput()));
+					return clk_prop_strong_eventually_ranged(range, parse_property(inst->GetInput()));
 			}
 			case PRIM_SVA_ACCEPT_ON:
 				log_error("PRIM_SVA_ACCEPT_ON\n");
@@ -2148,26 +2147,51 @@ private:
 				log_error("PRIM_SVA_SYNC_REJECT_ON\n");
 			case PRIM_SVA_ALWAYS:
 			{
-				auto *sva_low_s = inst->GetAttValue("sva:low");
-				auto *sva_high_s = inst->GetAttValue("sva:high");
-
-				int sva_low = atoi(sva_low_s);
-				int sva_high = atoi(sva_high_s);
-				bool sva_inf = !strcmp(sva_high_s, "$");
-				if (sva_low == 0 && sva_inf)
+				auto range = get_sva_range(inst);
+				if (range.lower == 0 && range.unbounded())
 					return clk_prop_always(parse_property(inst->GetInput()));
 				else
-					log_error("PRIM_SVA_ALWAYS [%d:%d]\n", sva_low, sva_high);
-					// return clk_prop_always_ranged(range?, parse_property(inst->GetInput()));
+					return clk_prop_always_ranged(range, parse_property(inst->GetInput()));
 			}
 			case PRIM_SVA_S_ALWAYS:
-				log_error("PRIM_SVA_S_ALWAYS");
+				return clk_prop_strong_always(get_sva_bounded_range(inst), parse_property(inst->GetInput()));
 			case PRIM_END:
 				return clk_prop_bool(parse_input(net));
 			default:
 				auto seq = parse_sequence(net);
 				return clk_prop_clk_seq(seq);
 		}
+	}
+
+	property_ir::IntLiteral get_sva_int(Instance *inst) {
+		auto *sva_low_s = inst->GetAttValue("sva:low");
+		auto *sva_high_s = inst->GetAttValue("sva:high");
+
+		log_assert(strcmp(sva_low_s, sva_high_s) == 0);
+
+		return property_ir::IntLiteral(atoi(sva_low_s));
+	}
+	property_ir::RangeLiteral get_sva_range(Instance *inst) {
+		auto *sva_low_s = inst->GetAttValue("sva:low");
+		auto *sva_high_s = inst->GetAttValue("sva:high");
+		bool sva_inf = !strcmp(sva_high_s, "$");
+
+		return property_ir::RangeLiteral(
+			atoi(sva_low_s),
+			sva_inf ? -1 : atoi(sva_high_s)
+		);
+	}
+	property_ir::BoundedRangeLiteral get_sva_bounded_range(Instance *inst) {
+		auto *sva_low_s = inst->GetAttValue("sva:low");
+		auto *sva_high_s = inst->GetAttValue("sva:high");
+		bool sva_inf = !strcmp(sva_high_s, "$");
+
+		log_assert(!sva_inf);
+
+		return property_ir::BoundedRangeLiteral(
+			atoi(sva_low_s),
+			atoi(sva_high_s)
+		);
 	}
 };
 
