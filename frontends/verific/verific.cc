@@ -2347,16 +2347,23 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			if (mode_autocover)
 				verific_import_sva_cover(this, inst);
 			verific_import_sva_assert(this, inst);
+			verific_import_property_ir(this, inst);
 		}
 
-		for (auto inst : sva_assumes)
+		for (auto inst : sva_assumes){
 			verific_import_sva_assume(this, inst);
+			verific_import_property_ir(this, inst);
+		}
 
-		for (auto inst : sva_covers)
+		for (auto inst : sva_covers){
 			verific_import_sva_cover(this, inst);
+			verific_import_property_ir(this, inst);
+		}
 
-		for (auto inst : sva_triggers)
+		for (auto inst : sva_triggers){
 			verific_import_sva_trigger(this, inst);
+			verific_import_property_ir(this, inst);
+		}
 
 		merge_past_ffs(past_ffs);
 	}

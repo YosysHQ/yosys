@@ -107,6 +107,7 @@ public:
 	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::map<std::string,Verific::Netlist*> &nl_todo, bool norename = false);
 };
 
+void verific_import_property_ir(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_cover(VerificImporter *importer, Verific::Instance *inst);

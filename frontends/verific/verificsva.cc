@@ -1892,12 +1892,15 @@ struct VerificSvaImporter
 
 struct VerificPIRImporter
 {
+public:
 	VerificImporter *importer = nullptr;
 	Instance *root;
-	property_ir::SExprPrinter *printer;
 
 	struct ParserErrorException {
 	};
+
+private:
+	property_ir::SExprPrinter *printer;
 
 	[[noreturn]] void parser_error(std::string errmsg)
 	{
@@ -1929,25 +1932,50 @@ struct VerificPIRImporter
 				msg, inst->View()->Owner()->Name(), inst->Name()), inst->Linefile());
 	}
 
+public:
 	void import()
 	{
-		// ?
-		std::ostringstream output;
-		printer = new property_ir::SExprPrinter(output);
-		printer->lines();
-
 		log("  [new] %s (%s):\n", root->Name(), root->View()->Owner()->Name());
 
 		using namespace property_ir;
-		ClkPropExpr result = parse_property(root->GetInput());
+		std::ostringstream output;
+		printer = new SExprPrinter(output);
+		printer->begin_list();
+		printer->identifier("document");
+		printer->lines();
+
+		auto result = parse_property(root->GetInput());
 		ClkPropId prop(root->Name());
-		// should this be declare-rec?
-		emit(*printer, declare(prop, result));
-		// TODO all the emits should actually be nested in a document
-		// TODO the final assert/cover etc
+		auto declaration = declare(prop, result);
+		// TODO when to use declare-rec
+		// TODO figure out how to recognise named property blocks
+		emit(*printer, declaration);
+		switch (root->Type()) {
+			case PRIM_SVA_ASSERT:
+				emit(*printer, assert_property(prop));
+				// TODO autocover
+				// if (autocover)
+				// 	emit(*printer, cover_property(prop));
+				break;
+			case PRIM_SVA_ASSUME:
+				emit(*printer, assume_property(prop));
+				break;
+			case PRIM_SVA_COVER:
+				emit(*printer, cover_property(prop));
+				break;
+			case PRIM_SVA_RESTRICT:
+				emit(*printer, restrict_property(prop));
+				break;
+			// case PRIM_SVA_TRIGGERED:
+				// emit(*printer, trigger_sequence(prop));
+			default:
+				parser_error(root);
+		}
+		printer->end_list();
 		log_lines(output.str());
 	}
 
+private:
 	dict<Net *, property_ir::BoolId> parse_input_cache;
 
 	property_ir::BoolId parse_input(Net *net)
@@ -2143,6 +2171,14 @@ struct VerificPIRImporter
 	}
 };
 
+void verific_import_property_ir(VerificImporter *importer, Instance *inst)
+{
+	VerificPIRImporter pir_worker;
+	pir_worker.importer = importer;
+	pir_worker.root = inst;
+	pir_worker.import();
+}
+
 void verific_import_sva_assert(VerificImporter *importer, Instance *inst)
 {
 	VerificSvaImporter worker;
@@ -2150,11 +2186,6 @@ void verific_import_sva_assert(VerificImporter *importer, Instance *inst)
 	worker.root = inst;
 	worker.mode_assert = true;
 	worker.import();
-
-	VerificPIRImporter pir_worker;
-	pir_worker.importer = importer;
-	pir_worker.root = inst;
-	pir_worker.import();
 }
 
 void verific_import_sva_assume(VerificImporter *importer, Instance *inst)
