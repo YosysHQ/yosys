@@ -1,11 +1,11 @@
 yosys_pass(rewriter
 	pass.cc
-	passes/rewriter_blackbox.cc
+	passes/rewriter_bwbox.cc
 	passes/rewriter_anyall_seqconst.cc
 	rewriter.cc
 	rewriter.h
 	PROVIDES
-		rewriter_blackbox
+		rewriter_bwbox
 		rewriter_anyall_seqconst
 	REQUIRES
 		kernel

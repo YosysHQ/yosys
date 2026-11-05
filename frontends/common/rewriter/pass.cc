@@ -41,7 +41,8 @@ struct RewriterPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		call(design, "rewriter_blackbox");
+		// leaving this for later, there needs to be more complicated blackbox logic
+		// call(design, "rewriter_bwbox");
 		call(design, "rewriter_anyall_seqconst");
 	}
 } RewriterPass;
