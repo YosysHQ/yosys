@@ -541,17 +541,19 @@ struct Categories {
 			is_meta_info.set(idx, cell.features.is_meta_info);
 		}
 	}
-	constexpr static Category join(Category left, Category right) {
+	template<typename... Args>
+	constexpr static Category join(Args... args) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c.set(i, left[i] || right[i]);
+			c.set(i, ( ... || args[i]));
 		}
 		return c;
 	}
-	constexpr static Category meet(Category left, Category right) {
+	template<typename... Args>
+	constexpr static Category meet(Args... args) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c.set(i, left[i] && right[i]);
+			c.set(i, (... && args[i]));
 		}
 		return c;
 	}
@@ -577,10 +579,10 @@ struct Categories {
 		if (property == "is_evaluable") {
 			return is_evaluable;
 		} else
-		if (property == "is_x_aware" || property == "x-aware") {
+		if (property == "x-aware") {
 			return is_x_aware;
 		} else
-		if (property == "is_x_output" || property == "x-output") {
+		if (property == "x-output") {
 			return is_x_output;
 		} else
 		if (property == "is_combinatorial") {
