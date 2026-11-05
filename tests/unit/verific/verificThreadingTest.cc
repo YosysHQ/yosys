@@ -69,4 +69,29 @@ TEST(VerificThreadingTest, CleanupReleasesSession)
 	remove(filename.c_str());
 }
 
+TEST(VerificThreadingTest, HierarchyOnOtherDesign)
+{
+	if (logger().empty())
+		logger().add_sink<StderrLogSink>(false);
+
+	const std::string filename = make_temp_file(get_base_tmpdir() + "/yosys_verific_XXXXXX.sv");
+	std::ofstream(filename) << design_source;
+
+	// When we load Verific design first, but then do 
+	// hierarchy on other design, that is not coming
+	// from Verific but some other source
+	RTLIL::Design pending;
+	Pass::call(&pending, "verific -sv " + filename);
+
+	RTLIL::Design other;
+	other.addModule("\\other");
+	Pass::call(&other, "hierarchy -top other");
+	EXPECT_NE(other.module("\\other"), nullptr);
+
+	Pass::call(&pending, "hierarchy -top top");
+	EXPECT_NE(pending.module(ID(top)), nullptr);
+
+	remove(filename.c_str());
+}
+
 YOSYS_NAMESPACE_END
