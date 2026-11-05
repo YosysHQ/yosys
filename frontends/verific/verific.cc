@@ -132,6 +132,12 @@ VerificSession::~VerificSession()
 	verific_session_cv.notify_all();
 }
 
+bool VerificSession::owns(Design *design)
+{
+	std::lock_guard<std::mutex> lock(verific_session_mutex);
+	return verific_session_design == design;
+}
+
 int verific_verbose;
 bool verific_import_pending;
 string verific_error_msg;
