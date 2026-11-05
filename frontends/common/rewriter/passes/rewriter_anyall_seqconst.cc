@@ -52,7 +52,6 @@ bool FormalAttrRule::apply(RTLIL::Wire *wire, SigMap &sigmap) const {
 			twines.add(wire->name, "$" + twines.unescaped_str(attr)));
 
 		RTLIL::SigSpec target = sigmap(wire);
-		// unset_drivers(module, sigmap, target);
 		module->connect(target, create_sig(name));
 		wire->attributes.erase(attr);
 		return true;

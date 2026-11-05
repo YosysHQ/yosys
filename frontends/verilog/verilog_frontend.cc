@@ -34,6 +34,7 @@
 #include "verilog_location.h"
 #include "preproc.h"
 #include "kernel/yosys.h"
+#include "kernel/register.h"
 #include "libs/sha1/sha1.h"
 #include <stdarg.h>
 #include <list>
@@ -562,6 +563,8 @@ struct VerilogFrontend : public Frontend {
 		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
 				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire);
 
+		// handle anyseq, anyconst, ...
+		call(design, "rewriter");
 
 		if (!flag_nopp)
 			delete parse_state.lexin;

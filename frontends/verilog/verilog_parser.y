@@ -2078,41 +2078,10 @@ wire_name_list:
 
 wire_name_and_opt_assign:
 	wire_name {
-		bool attr_anyconst = false;
-		bool attr_anyseq = false;
-		bool attr_allconst = false;
-		bool attr_allseq = false;
-		if (extra->ast_stack.back()->children.back()->get_bool_attribute(ID::anyconst)) {
-			extra->ast_stack.back()->children.back()->attributes.erase(ID::anyconst);
-			attr_anyconst = true;
-		}
-		if (extra->ast_stack.back()->children.back()->get_bool_attribute(ID::anyseq)) {
-			extra->ast_stack.back()->children.back()->attributes.erase(ID::anyseq);
-			attr_anyseq = true;
-		}
-		if (extra->ast_stack.back()->children.back()->get_bool_attribute(ID::allconst)) {
-			extra->ast_stack.back()->children.back()->attributes.erase(ID::allconst);
-			attr_allconst = true;
-		}
-		if (extra->ast_stack.back()->children.back()->get_bool_attribute(ID::allseq)) {
-			extra->ast_stack.back()->children.back()->attributes.erase(ID::allseq);
-			attr_allseq = true;
-		}
-		if (extra->current_wire_rand || attr_anyconst || attr_anyseq || attr_allconst || attr_allseq) {
-			auto wire = std::make_unique<AstNode>(@$, AST_IDENTIFIER);
-			auto fcall = std::make_unique<AstNode>(@$, AST_FCALL);
-			wire->str = extra->ast_stack.back()->children.back()->str;
-			fcall->str = extra->current_wire_const ? "\\$anyconst" : "\\$anyseq";
-			if (attr_anyconst)
-				fcall->str = "\\$anyconst";
-			if (attr_anyseq)
-				fcall->str = "\\$anyseq";
-			if (attr_allconst)
-				fcall->str = "\\$allconst";
-			if (attr_allseq)
-				fcall->str = "\\$allseq";
-			fcall->attributes[ID::reg] = AstNode::mkconst_str(@$, RTLIL::unescape_id(wire->str));
-			extra->ast_stack.back()->children.push_back(std::make_unique<AstNode>(@$, AST_ASSIGN, std::move(wire), std::move(fcall)));
+		if (extra->current_wire_rand) {
+			auto &wire = extra->ast_stack.back()->children.back();
+		    auto attr = extra->current_wire_const ? ID::anyconst : ID::anyseq;
+		    wire->attributes[attr] = AstNode::mkconst_int(@$, 1, false);
 		}
 	} |
 	wire_name TOK_EQ expr {
