@@ -456,18 +456,27 @@ void detail::removeEmptyScopename(RTLIL::AttrObject *object)
 		object->attributes.erase(ID::scopename);
 }
 
-// The cut marks of wires, our keep marks and empty scopenames
+// The cut marks of wires, our keep marks, empty scopenames and the names autoname took from barriers
 void detail::removeTrackingMarks(RTLIL::Design *design)
 {
 	detail::removeOwnedKeeps(design);
 	RTLIL::IdString cut = design->twines().find(detail::cut_attr);
+	std::string marker = std::string(detail::anchor_prefix) + "$";
 	for (RTLIL::Module *module : design->modules()) {
+		std::vector<RTLIL::IdString> named;
 		for (RTLIL::Wire *wire : module->wires()) {
 			wire->attributes.erase(cut);
 			detail::removeEmptyScopename(wire);
+			if (wire->port_id == 0 && wire->name.isPublic() && wire->name.str().find(marker) != std::string::npos)
+				named.push_back(wire->name);
 		}
-		for (RTLIL::Cell *cell : module->cells())
+		for (RTLIL::Cell *cell : module->cells()) {
 			detail::removeEmptyScopename(cell);
+			if (cell->type != ID($barrier) && cell->name.isPublic() && cell->name.str().find(marker) != std::string::npos)
+				named.push_back(cell->name);
+		}
+		for (RTLIL::IdString name : named)
+			module->rename(name, NEW_ID);
 	}
 }
 
