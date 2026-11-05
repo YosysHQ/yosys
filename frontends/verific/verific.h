@@ -25,6 +25,12 @@ YOSYS_NAMESPACE_BEGIN
 
 extern int verific_verbose;
 
+struct VerificSession {
+	Design *design;
+	VerificSession(Design *design);
+	~VerificSession();
+};
+
 extern bool verific_import_pending;
 extern std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top = std::string());
 

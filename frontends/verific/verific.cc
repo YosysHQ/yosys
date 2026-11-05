@@ -32,6 +32,8 @@
 #  include <dirent.h>
 #endif
 #include <filesystem>
+#include <mutex>
+#include <condition_variable>
 
 #include "frontends/verific/verific.h"
 
@@ -105,6 +107,30 @@ using namespace Verific;
 
 #ifdef YOSYS_ENABLE_VERIFIC
 YOSYS_NAMESPACE_BEGIN
+
+// Verific use internally static data structures to keep current
+// state, we can not mix new design with existing until current
+// design is imported
+
+static std::mutex verific_session_mutex;
+static std::condition_variable verific_session_cv;
+static Design *verific_session_design = nullptr;
+
+VerificSession::VerificSession(Design *design) : design(design)
+{
+	std::unique_lock<std::mutex> lock(verific_session_mutex);
+	verific_session_cv.wait(lock, [design] { return verific_session_design == nullptr || verific_session_design == design; });
+	verific_session_design = design;
+}
+
+VerificSession::~VerificSession()
+{
+	if (verific_import_pending)
+		return;
+	std::lock_guard<std::mutex> lock(verific_session_mutex);
+	verific_session_design = nullptr;
+	verific_session_cv.notify_all();
+}
 
 int verific_verbose;
 bool verific_import_pending;
@@ -3552,6 +3578,7 @@ struct VerificPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		VerificSession session(design);
 
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
