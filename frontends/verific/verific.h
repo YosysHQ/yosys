@@ -29,6 +29,7 @@ struct VerificSession {
 	Design *design;
 	VerificSession(Design *design);
 	~VerificSession();
+	static bool owns(Design *design);
 };
 
 extern bool verific_import_pending;
