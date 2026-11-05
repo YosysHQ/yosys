@@ -42,6 +42,8 @@ struct CellTableBuilder {
 	struct Features {
 		bool is_internal = true;
 		bool is_evaluable = false;
+		bool is_x_aware = false;
+		bool is_x_output = false;
 		bool is_combinatorial = false;
 		bool is_synthesizable = false;
 		bool is_stdcell = false;
@@ -71,7 +73,8 @@ struct CellTableBuilder {
 
 	// Setup combinatorial cell type which is synthesizable and evaluable (by default)
 	constexpr void setup_comb_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-			bool is_evaluable = true, bool is_stdcell = false, bool is_tristate = false)
+			bool is_evaluable = true, bool is_stdcell = false, bool is_tristate = false,
+			bool is_x_aware = false, bool is_x_output = false)
 	{
 		Features features {};
 		features.is_combinatorial = true;
@@ -79,6 +82,8 @@ struct CellTableBuilder {
 		features.is_synthesizable = true;
 		features.is_stdcell = is_stdcell;
 		features.is_tristate = is_tristate;
+		features.is_x_aware = is_x_aware;
+		features.is_x_output = is_x_output;
 		setup_type(type, inputs, outputs, features);
 	}
 
@@ -199,11 +204,18 @@ struct CellTableBuilder {
 
 		std::initializer_list<RTLIL::IdString> binary_ops = {
 			ID($and), ID($or), ID($xor), ID($xnor),
-			ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift), ID($shiftx),
-			ID($lt), ID($le), ID($eq), ID($ne), ID($eqx), ID($nex), ID($ge), ID($gt),
-			ID($add), ID($sub), ID($mul), ID($div), ID($mod), ID($divfloor), ID($modfloor), ID($pow),
+			ID($shl), ID($shr), ID($sshl), ID($sshr), ID($shift),
+			ID($lt), ID($le), ID($eq), ID($ne), ID($ge), ID($gt),
+			ID($add), ID($sub), ID($mul), ID($divfloor), ID($modfloor), ID($pow),
 			ID($logic_and), ID($logic_or), ID($concat), ID($macc),
-			ID($bweqx)
+		};
+
+		std::initializer_list<RTLIL::IdString> binary_ops_x_aware = {
+			ID($eqx), ID($nex), ID($bweqx)
+		};
+
+		std::initializer_list<RTLIL::IdString> binary_ops_x_out = {
+			ID($shiftx), ID($div), ID($mod),
 		};
 
 		for (auto type : unary_ops)
@@ -212,8 +224,16 @@ struct CellTableBuilder {
 		for (auto type : binary_ops)
 			setup_comb_type(type, {ID::A, ID::B}, {ID::Y});
 
-		for (auto type : {ID($mux), ID($pmux), ID($bwmux)})
+		for (auto type : binary_ops_x_aware)
+			setup_comb_type(type, {ID::A, ID::B}, {ID::Y}, true, false, false, true);
+
+		for (auto type : binary_ops_x_out)
+			setup_comb_type(type, {ID::A, ID::B}, {ID::Y}, true, false, false, false, true);
+
+		for (auto type : {ID($mux), ID($bwmux)})
 			setup_comb_type(type, {ID::A, ID::B, ID::S}, {ID::Y});
+
+		setup_comb_type(ID($pmux), {ID::A, ID::B, ID::S}, {ID::Y}, true, false, false, false, true);
 
 		for (auto type : {ID($bmux), ID($demux)})
 			setup_comb_type(type, {ID::A, ID::S}, {ID::Y});
@@ -486,6 +506,8 @@ struct Categories {
 	Category is_internal {};
 	Category is_known {};
 	Category is_evaluable {};
+	Category is_x_aware {};
+	Category is_x_output {};
 	Category is_combinatorial {};
 	Category is_synthesizable {};
 	Category is_stdcell {};
@@ -504,6 +526,8 @@ struct Categories {
 			is_known.set(idx);
 			is_internal.set(idx, cell.features.is_internal);
 			is_evaluable.set(idx, cell.features.is_evaluable);
+			is_x_aware.set(idx, cell.features.is_x_aware);
+			is_x_output.set(idx, cell.features.is_x_output);
 			is_combinatorial.set(idx, cell.features.is_combinatorial);
 			is_synthesizable.set(idx, cell.features.is_synthesizable);
 			is_stdcell.set(idx, cell.features.is_stdcell);
@@ -552,6 +576,12 @@ struct Categories {
 		} else
 		if (property == "is_evaluable") {
 			return is_evaluable;
+		} else
+		if (property == "is_x_aware" || property == "x-aware") {
+			return is_x_aware;
+		} else
+		if (property == "is_x_output" || property == "x-output") {
+			return is_x_output;
 		} else
 		if (property == "is_combinatorial") {
 			return is_combinatorial;
@@ -621,6 +651,10 @@ namespace {
 	static_assert(!categories.is_nondeterministic(ID($initstate)));
 	static_assert(categories.is_formal(ID($initstate)));
 	static_assert(!categories.is_formal(ID($and)));
+	static_assert(categories.is_x_aware(ID($eqx)));
+	static_assert(!categories.is_x_aware(ID($eq)));
+	static_assert(categories.is_x_output(ID($div)));
+	static_assert(!categories.is_x_output(ID($shift)));
 }
 
 };
