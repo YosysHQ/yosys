@@ -92,6 +92,7 @@ TEST(CellTypesTest, basic)
 
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
+		SCOPED_TRACE(ID::unescaped_str(type));
 		EXPECT_EQ(categories.is_combinatorial(type), evaluable_or_tristate(type));
 		EXPECT_EQ(categories.is_synthesizable(type), synthesizable_kinds(type));
 	}
