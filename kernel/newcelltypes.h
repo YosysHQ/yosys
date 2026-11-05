@@ -142,8 +142,8 @@ struct CellTableBuilder {
 
 		// is this evaluable
 		features = {};
+		features.is_evaluable = false;
 		features.is_combinatorial = true;
-		features.is_evaluable = true;
 		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
 
 		// combinatorial, has_side_effect, and !is_nondeterministic;
