@@ -3354,6 +3354,12 @@ struct VerificPass : public Pass {
 		log("all messages of certain type.\n");
 		log("\n");
 		log("\n");
+		log("    verific -cleanup\n");
+		log("\n");
+		log("Discard all files read so far without importing them and reset the internal\n");
+		log("state of Verific.\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules or configurations, import to\n");
@@ -3680,6 +3686,11 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 #endif
+		if (GetSize(args) > argidx && args[argidx] == "-cleanup") {
+			verific_cleanup();
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
 		{

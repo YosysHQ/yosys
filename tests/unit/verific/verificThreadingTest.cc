@@ -46,4 +46,27 @@ TEST(VerificThreadingTest, DesignsConcurrencyCheck)
 	remove(filename.c_str());
 }
 
+TEST(VerificThreadingTest, CleanupReleasesSession)
+{
+	if (logger().empty())
+		logger().add_sink<StderrLogSink>(false);
+
+	const std::string filename = make_temp_file(get_base_tmpdir() + "/yosys_verific_XXXXXX.sv");
+	std::ofstream(filename) << design_source;
+
+	// read then cleanup, new design should work
+	// should help in multithread error handling
+	RTLIL::Design discarded;
+	Pass::call(&discarded, "verific -sv " + filename);
+	Pass::call(&discarded, "verific -cleanup");
+
+	RTLIL::Design design;
+	Pass::call(&design, "verific -sv " + filename);
+	Pass::call(&design, "hierarchy -top top");
+	EXPECT_NE(design.module(ID(top)), nullptr);
+	EXPECT_EQ(discarded.module(ID(top)), nullptr);
+
+	remove(filename.c_str());
+}
+
 YOSYS_NAMESPACE_END
