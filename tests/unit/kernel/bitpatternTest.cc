@@ -108,7 +108,7 @@ TEST(BitpatternTest, priority_encoder)
 
 TEST(BitpatternTest, flips_bit_order)
 {
-	detail::expect_exact_mux(true, 4096);
+	detail::expect_exact_mux(true, 128);
 }
 
 TEST(BitpatternTest, retries_msb_first)

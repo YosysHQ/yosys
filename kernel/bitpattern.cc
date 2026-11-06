@@ -43,9 +43,9 @@ bool BitPatternPool::covers_nothing(RTLIL::SigSpec sig)
 	return false;
 }
 
-int BitPatternPool::budget() { return attempt == Attempt::MsbFirstQuarterBudget ? max_nodes / 4 : max_nodes; }
+int BitPatternPool::budget() { return max_nodes >> (3 * ((MAX_ATTEMPTS - 1 - attempt) / 2)); }
 
-int BitPatternPool::bit_index(int level) { return attempt == Attempt::LsbFirst ? level : width - 1 - level; }
+int BitPatternPool::bit_index(int level) { return attempt % 2 ? level : width - 1 - level; }
 
 int BitPatternPool::make_node(int level, int low, int high)
 {
@@ -166,8 +166,8 @@ bool BitPatternPool::take(RTLIL::SigSpec sig)
 	std::vector<RTLIL::State> bits = sig.as_const().to_bits();
 	int old_root = root;
 	bool removed = remove(bits);
-	while (!removed && attempt != Attempt::MsbFirst) {
-		attempt = Attempt(int(attempt) + 1);
+	while (!removed && attempt + 1 < MAX_ATTEMPTS) {
+		attempt++;
 		if (rebuild()) {
 			old_root = root;
 			removed = remove(bits);
@@ -182,7 +182,7 @@ bool BitPatternPool::take(RTLIL::SigSpec sig)
 	// hash-consed, same root means no overlap
 	if (root == old_root)
 		return false;
-	if (attempt != Attempt::MsbFirst)
+	if (attempt + 1 < MAX_ATTEMPTS)
 		taken.push_back(bits);
 	return true;
 }

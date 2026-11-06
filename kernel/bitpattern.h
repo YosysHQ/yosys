@@ -45,6 +45,8 @@ struct BitPatternPool
 
 	// bounds recursion depth
 	static constexpr int MAX_WIDTH = 4096;
+	// MSB then LSB first per budget, budgets grow 8x
+	static constexpr int MAX_ATTEMPTS = 8;
 
 	int width;
 	int max_nodes = 1 << 17;
@@ -108,13 +110,7 @@ private:
 	bool remove(const std::vector<RTLIL::State> &bits);
 	bool rebuild();
 
-	enum class Attempt {
-		MsbFirstQuarterBudget,
-		LsbFirst,
-		MsbFirst
-	};
-
-	Attempt attempt = Attempt::MsbFirstQuarterBudget;
+	int attempt = 0;
 
 	// (level, low, high)
 	idict<std::tuple<int, int, int>> nodes;
