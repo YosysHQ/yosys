@@ -89,3 +89,40 @@ synth_ice40
 select -assert-count 1 t:$_TBUF_
 select -assert-count 1 t:$_TBUF_ %x:+[E] w:t %i
 select -assert-count 1 t:$_TBUF_ %x:+[Y] w:y %i
+
+design -reset
+read_verilog <<EOT
+module sliced_drivers(input s, input t, input a, input [1:0] b, inout [1:0] y);
+assign y = s ? {1'bz, a} : 2'bzz;
+assign y = t ? b : 2'bzz;
+endmodule
+EOT
+design -save sliced_drivers
+
+proc
+tribuf -formal
+opt
+select -assert-count 4 t:$assert
+select -assert-none t:$tribuf
+sat -set s 1 -set t 0 -prove y[0] a -verify
+sat -set s 0 -set t 1 -prove y b -verify
+
+design -load sliced_drivers
+synth_ice40
+select -assert-count 2 t:$_TBUF_
+select -assert-count 1 t:$_TBUF_ %x:+[Y] w:y %i
+
+design -reset
+read_verilog <<EOT
+module wide_overlap(input s, input t, input [3:0] a, input [1:0] b, inout [3:0] y);
+assign y = s ? a : 4'bzzzz;
+assign y[1:0] = t ? b : 2'bzz;
+endmodule
+EOT
+proc
+tribuf -merge
+opt_clean
+select -assert-count 2 t:$tribuf
+select -assert-count 2 t:$tribuf r:WIDTH=2 %i
+select -assert-count 1 t:$pmux
+select -assert-count 1 t:$pmux r:WIDTH=2 %i

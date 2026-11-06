@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/utils.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -35,6 +36,83 @@ struct TribufConfig {
 	}
 };
 
+struct TribufCells : dict<SigSpec, vector<Cell*>> {
+	class DriverSlices {
+		dict<SigSpec, vector<SigSpec>> slices_of_driver;
+    public:
+		DriverSlices(const TribufCells &tribuf_cells)
+		{
+			vector<SigSpec> driver_sigs;
+			dict<SigBit, vector<int>> drivers_of_bit;
+			for (auto &[driver_sig, _] : tribuf_cells) {
+				for (auto bit : driver_sig)
+					drivers_of_bit[bit].push_back(GetSize(driver_sigs));
+				driver_sigs.push_back(driver_sig);
+			}
+
+			dict<vector<int>, SigSpec> bits_of_drivers;
+			for (auto &[bit, drivers] : reversed(drivers_of_bit))
+				bits_of_drivers[drivers].append(bit);
+
+			for (auto &[drivers, bits] : bits_of_drivers)
+				for (int driver : drivers)
+					slices_of_driver[driver_sigs[driver]].push_back(bits);
+		}
+
+		// Groups of this driver's bits that share the exact same driver set
+		const vector<SigSpec> &slices_of(const SigSpec &driver_sig) const
+		{
+			return slices_of_driver.at(driver_sig);
+		}
+
+		bool is_aligned(const SigSpec &driver_sig) const
+		{
+			return slices_of(driver_sig)[0] == driver_sig;
+		}
+	};
+
+	static Cell *slice_tribuf(Module *module, Cell *cell, const dict<SigBit, int> &y_index, const SigSpec &slice)
+	{
+		SigSpec a = cell->getPort(ID::A);
+		SigSpec slice_a;
+		for (auto bit : slice)
+			slice_a.append(a[y_index.at(bit)]);
+
+		Cell *sliced = module->addTribuf(NEW_ID, slice_a, cell->getPort(ID::EN), slice);
+		sliced->attributes = cell->attributes;
+		return sliced;
+	}
+
+	// Slice each net's tribuf outputs into groups of bits driven by the same set of tribuf outputs.
+	// Two fully connected tribuf outputs are handled as the same output thanks to prior SigMap,
+	// so we're only splitting on partial overlaps
+	void split_partial_overlaps(Module *module)
+	{
+		DriverSlices slices(*this);
+
+		vector<SigSpec> to_split;
+		for (auto &[y, tribufs] : *this)
+			if (!y.empty() && !slices.is_aligned(y))
+				to_split.push_back(y);
+
+		for (auto &y : to_split) {
+			vector<Cell*> tribufs = std::move(at(y));
+			erase(y);
+
+			dict<SigBit, int> y_index;
+			for (int i = 0; i < GetSize(y); i++)
+				y_index[y[i]] = i;
+
+			for (auto &slice : slices.slices_of(y))
+				for (auto cell : tribufs)
+					(*this)[slice].push_back(slice_tribuf(module, cell, y_index, slice));
+
+			for (auto cell : tribufs)
+				module->remove(cell);
+		}
+	}
+};
+
 struct TribufWorker {
 	Module *module;
 	SigMap sigmap;
@@ -44,7 +122,7 @@ struct TribufWorker {
 	{
 	}
 
-	void mux_to_tribufs(Cell *cell, dict<SigSpec, vector<Cell*>> &tribuf_cells)
+	void mux_to_tribufs(Cell *cell, TribufCells &tribuf_cells)
 	{
 		bool is_fine = cell->type == ID($_MUX_);
 		SigSpec sig_a = cell->getPort(ID::A);
@@ -117,7 +195,7 @@ struct TribufWorker {
 
 	void run()
 	{
-		dict<SigSpec, vector<Cell*>> tribuf_cells;
+		TribufCells tribuf_cells;
 		pool<SigBit> output_bits;
 
 		if (config.logic_mode || config.formal_mode)
@@ -140,6 +218,7 @@ struct TribufWorker {
 
 		if (config.merge_mode || config.logic_mode || config.formal_mode)
 		{
+			tribuf_cells.split_partial_overlaps(module);
 			for (auto &it : tribuf_cells)
 			{
 				bool no_tribuf = false;
