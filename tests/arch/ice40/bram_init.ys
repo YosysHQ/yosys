@@ -1,0 +1,99 @@
+# Golden test for iCE40 SB_RAM40_4K initialization data generation
+# (memory_bram + techlibs/ice40/brams_map.v slice_init bit mapping).
+#
+# Init data: 4096 random bits from /dev/random, stored in bram_init_<W>.hex.
+# The INIT_0..INIT_F values below were recorded from yosys 8f3cc3d0c as the
+# golden reference; any change in BRAM init generation breaks this test.
+# Note: all bit widths of BRAM will have the same init data shown below,
+# because they are all mapped to the same RAM40_4K resource. All the four
+# types of BRAM test input share the same random data input, the only
+# difference is the port width cut.
+
+design -reset
+read_verilog bram_init.v
+synth_ice40 -top ram16
+cd ram16
+select -assert-count 1 t:SB_RAM40_4K
+select -assert-count 1 r:INIT_0=256'h1d5eb9737962af83fe39fc172dd49895c924a593f46a5faffc703ead422916d3
+select -assert-count 1 r:INIT_1=256'h7dce1aca4908a3d2fb83d464bddff628e35151c46bec064fee2da86b15f4712a
+select -assert-count 1 r:INIT_2=256'h01e1bac5bebd58b92ef582d39a5e8f90a9e107c14b52d26215150df1a136c986
+select -assert-count 1 r:INIT_3=256'h38d8a5b31342f1ac2e7a0b1b94869fecf0edb4355626d22227a85095a3fb93cd
+select -assert-count 1 r:INIT_4=256'hb21ba31e3cf9d8350aaea60bbf056e84ee536f6f5393ebaa705613b8eb20716b
+select -assert-count 1 r:INIT_5=256'h01ff616027f57e62ec2da16f407505c7bd07b43aff7b5ce9a19a357b9c4ebcde
+select -assert-count 1 r:INIT_6=256'hcb06e9bda042be47a7d5b8daf8fb58eead8bba47b6c51a70ea0bef0bff2f78da
+select -assert-count 1 r:INIT_7=256'h42e0d2954262a8a31b4a5d194dc10344ae32d84805859fa12744054d01d0ee9c
+select -assert-count 1 r:INIT_8=256'h042ac94be56daf1dfd5441986808138dc009e95ce51dd67bf88c3210d947f2f2
+select -assert-count 1 r:INIT_9=256'h4d77f080be61c7f277ef3509fe55eb6c4188d2679e86e1eb5204a0089069eae0
+select -assert-count 1 r:INIT_A=256'hbb0113aea7542aa0363a20bdf97db1ac08f98d82136f733f1de9ceeca0cebb3b
+select -assert-count 1 r:INIT_B=256'h3022343256f932aa2339477be2e805102e711f707d44498b2810b0f028347189
+select -assert-count 1 r:INIT_C=256'h5260de0fa26ea82d12bcb3fd32187e83d72f7090a2e642b7c11abfb7e98ef2d2
+select -assert-count 1 r:INIT_D=256'h6d9971bb55ab57b9fab66cd0943db588ca542a2270981fc27a20b796e5462271
+select -assert-count 1 r:INIT_E=256'hf0326faee3e48c266887b9e542a03677091fae593cf8453fc2967d4b88fd171e
+select -assert-count 1 r:INIT_F=256'h15d099dec9ada9e038ba12efe74ad07365b3694c50c34f18440699e02addfe91
+
+design -reset
+read_verilog bram_init.v
+synth_ice40 -top ram8
+cd ram8
+select -assert-count 1 t:SB_RAM40_4K
+select -assert-count 1 r:INIT_0=256'h1d5eb9737962af83fe39fc172dd49895c924a593f46a5faffc703ead422916d3
+select -assert-count 1 r:INIT_1=256'h7dce1aca4908a3d2fb83d464bddff628e35151c46bec064fee2da86b15f4712a
+select -assert-count 1 r:INIT_2=256'h01e1bac5bebd58b92ef582d39a5e8f90a9e107c14b52d26215150df1a136c986
+select -assert-count 1 r:INIT_3=256'h38d8a5b31342f1ac2e7a0b1b94869fecf0edb4355626d22227a85095a3fb93cd
+select -assert-count 1 r:INIT_4=256'hb21ba31e3cf9d8350aaea60bbf056e84ee536f6f5393ebaa705613b8eb20716b
+select -assert-count 1 r:INIT_5=256'h01ff616027f57e62ec2da16f407505c7bd07b43aff7b5ce9a19a357b9c4ebcde
+select -assert-count 1 r:INIT_6=256'hcb06e9bda042be47a7d5b8daf8fb58eead8bba47b6c51a70ea0bef0bff2f78da
+select -assert-count 1 r:INIT_7=256'h42e0d2954262a8a31b4a5d194dc10344ae32d84805859fa12744054d01d0ee9c
+select -assert-count 1 r:INIT_8=256'h042ac94be56daf1dfd5441986808138dc009e95ce51dd67bf88c3210d947f2f2
+select -assert-count 1 r:INIT_9=256'h4d77f080be61c7f277ef3509fe55eb6c4188d2679e86e1eb5204a0089069eae0
+select -assert-count 1 r:INIT_A=256'hbb0113aea7542aa0363a20bdf97db1ac08f98d82136f733f1de9ceeca0cebb3b
+select -assert-count 1 r:INIT_B=256'h3022343256f932aa2339477be2e805102e711f707d44498b2810b0f028347189
+select -assert-count 1 r:INIT_C=256'h5260de0fa26ea82d12bcb3fd32187e83d72f7090a2e642b7c11abfb7e98ef2d2
+select -assert-count 1 r:INIT_D=256'h6d9971bb55ab57b9fab66cd0943db588ca542a2270981fc27a20b796e5462271
+select -assert-count 1 r:INIT_E=256'hf0326faee3e48c266887b9e542a03677091fae593cf8453fc2967d4b88fd171e
+select -assert-count 1 r:INIT_F=256'h15d099dec9ada9e038ba12efe74ad07365b3694c50c34f18440699e02addfe91
+
+design -reset
+read_verilog bram_init.v
+synth_ice40 -top ram4
+cd ram4
+select -assert-count 1 t:SB_RAM40_4K
+select -assert-count 1 r:INIT_0=256'h1d5eb9737962af83fe39fc172dd49895c924a593f46a5faffc703ead422916d3
+select -assert-count 1 r:INIT_1=256'h7dce1aca4908a3d2fb83d464bddff628e35151c46bec064fee2da86b15f4712a
+select -assert-count 1 r:INIT_2=256'h01e1bac5bebd58b92ef582d39a5e8f90a9e107c14b52d26215150df1a136c986
+select -assert-count 1 r:INIT_3=256'h38d8a5b31342f1ac2e7a0b1b94869fecf0edb4355626d22227a85095a3fb93cd
+select -assert-count 1 r:INIT_4=256'hb21ba31e3cf9d8350aaea60bbf056e84ee536f6f5393ebaa705613b8eb20716b
+select -assert-count 1 r:INIT_5=256'h01ff616027f57e62ec2da16f407505c7bd07b43aff7b5ce9a19a357b9c4ebcde
+select -assert-count 1 r:INIT_6=256'hcb06e9bda042be47a7d5b8daf8fb58eead8bba47b6c51a70ea0bef0bff2f78da
+select -assert-count 1 r:INIT_7=256'h42e0d2954262a8a31b4a5d194dc10344ae32d84805859fa12744054d01d0ee9c
+select -assert-count 1 r:INIT_8=256'h042ac94be56daf1dfd5441986808138dc009e95ce51dd67bf88c3210d947f2f2
+select -assert-count 1 r:INIT_9=256'h4d77f080be61c7f277ef3509fe55eb6c4188d2679e86e1eb5204a0089069eae0
+select -assert-count 1 r:INIT_A=256'hbb0113aea7542aa0363a20bdf97db1ac08f98d82136f733f1de9ceeca0cebb3b
+select -assert-count 1 r:INIT_B=256'h3022343256f932aa2339477be2e805102e711f707d44498b2810b0f028347189
+select -assert-count 1 r:INIT_C=256'h5260de0fa26ea82d12bcb3fd32187e83d72f7090a2e642b7c11abfb7e98ef2d2
+select -assert-count 1 r:INIT_D=256'h6d9971bb55ab57b9fab66cd0943db588ca542a2270981fc27a20b796e5462271
+select -assert-count 1 r:INIT_E=256'hf0326faee3e48c266887b9e542a03677091fae593cf8453fc2967d4b88fd171e
+select -assert-count 1 r:INIT_F=256'h15d099dec9ada9e038ba12efe74ad07365b3694c50c34f18440699e02addfe91
+
+design -reset
+read_verilog bram_init.v
+synth_ice40 -top ram2
+cd ram2
+select -assert-count 1 t:SB_RAM40_4K
+select -assert-count 1 r:INIT_0=256'h1d5eb9737962af83fe39fc172dd49895c924a593f46a5faffc703ead422916d3
+select -assert-count 1 r:INIT_1=256'h7dce1aca4908a3d2fb83d464bddff628e35151c46bec064fee2da86b15f4712a
+select -assert-count 1 r:INIT_2=256'h01e1bac5bebd58b92ef582d39a5e8f90a9e107c14b52d26215150df1a136c986
+select -assert-count 1 r:INIT_3=256'h38d8a5b31342f1ac2e7a0b1b94869fecf0edb4355626d22227a85095a3fb93cd
+select -assert-count 1 r:INIT_4=256'hb21ba31e3cf9d8350aaea60bbf056e84ee536f6f5393ebaa705613b8eb20716b
+select -assert-count 1 r:INIT_5=256'h01ff616027f57e62ec2da16f407505c7bd07b43aff7b5ce9a19a357b9c4ebcde
+select -assert-count 1 r:INIT_6=256'hcb06e9bda042be47a7d5b8daf8fb58eead8bba47b6c51a70ea0bef0bff2f78da
+select -assert-count 1 r:INIT_7=256'h42e0d2954262a8a31b4a5d194dc10344ae32d84805859fa12744054d01d0ee9c
+select -assert-count 1 r:INIT_8=256'h042ac94be56daf1dfd5441986808138dc009e95ce51dd67bf88c3210d947f2f2
+select -assert-count 1 r:INIT_9=256'h4d77f080be61c7f277ef3509fe55eb6c4188d2679e86e1eb5204a0089069eae0
+select -assert-count 1 r:INIT_A=256'hbb0113aea7542aa0363a20bdf97db1ac08f98d82136f733f1de9ceeca0cebb3b
+select -assert-count 1 r:INIT_B=256'h3022343256f932aa2339477be2e805102e711f707d44498b2810b0f028347189
+select -assert-count 1 r:INIT_C=256'h5260de0fa26ea82d12bcb3fd32187e83d72f7090a2e642b7c11abfb7e98ef2d2
+select -assert-count 1 r:INIT_D=256'h6d9971bb55ab57b9fab66cd0943db588ca542a2270981fc27a20b796e5462271
+select -assert-count 1 r:INIT_E=256'hf0326faee3e48c266887b9e542a03677091fae593cf8453fc2967d4b88fd171e
+select -assert-count 1 r:INIT_F=256'h15d099dec9ada9e038ba12efe74ad07365b3694c50c34f18440699e02addfe91
+
