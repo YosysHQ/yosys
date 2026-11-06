@@ -959,6 +959,16 @@ static void select_stmt(RTLIL::Design *design, std::vector<RTLIL::Selection> &wo
 						sel.selected_members[mod->name].insert(cell->name);
 			}
 		} else
+		if (arg_memb.compare(0, 2, "y:") == 0) {
+			auto category_opt = StaticCellTypes::categories.lookup(arg_memb.substr(2));
+			if (!category_opt) {
+				log_cmd_error("Property \"%s\" is not a member of the set of valid properties", arg_memb.substr(2));
+			}
+			auto category = *category_opt;
+			for (auto cell : mod->cells())
+				if (category(cell->type))
+					sel.selected_members[mod->name].insert(cell->name);
+		} else
 		if (arg_memb.compare(0, 2, "p:") == 0) {
 			for (auto &it : mod->processes)
 				if (match_ids(design->twines().str(it.first), arg_memb.substr(2)))
@@ -1237,6 +1247,13 @@ struct SelectPass : public Pass {
 		log("\n");
 		log("    t:@<name>\n");
 		log("        all cells with a type matching a module in the saved selection <name>\n");
+		log("\n");
+		log("    y:<property>\n");
+		log("        all cells with a given type property, possible values are:\n");
+		log("        is_evaluable, is_combinatorial, is_synthesizable, is_stdcell,\n");
+		log("        is_ff, is_mem_noff, is_anyinit, is_tristate, has_side_effect,\n");
+		log("        is_nondeterministic, is_formal\n");
+		log("        (currently only internal cells can have type properties)\n");
 		log("\n");
 		log("    p:<pattern>\n");
 		log("        all processes with a name matching the given pattern\n");
