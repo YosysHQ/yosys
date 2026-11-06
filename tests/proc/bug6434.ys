@@ -1,27 +1,4 @@
 # https://github.com/YosysHQ/yosys/issues/6434
-read_verilog <<EOT
-module test(
-	input  wire       ena,
-	input  wire [2:0] idx,
-	output reg  [7:0] out
-);
-	always @(*)
-	begin : xxx
-		integer i;
-		if (ena)
-			for (i=0; i<8; i=i+1)
-				out[i] = i > idx;
-		else
-			out <= 0;
-	end
-endmodule
-EOT
-logger -expect-no-warnings
-synth_ice40
-logger -check-expected
-
-design -reset
-
 # no latch for an unused loop variable
 read_verilog <<EOT
 module top(input ena, input [2:0] idx, output reg [7:0] out);
@@ -35,12 +12,20 @@ always @* begin : blk
 end
 endmodule
 EOT
+design -save read
+
 logger -expect-no-warnings
 logger -expect log "No latch inferred for unused signal .*blk\.i" 1
 proc -latches error
 logger -check-expected
 select -assert-none t:$dlatch t:$adlatch
 check -assert
+
+# synth_ice40 defaults to -latches error
+design -load read
+logger -expect-no-warnings
+synth_ice40
+logger -check-expected
 
 design -reset
 
@@ -57,5 +42,3 @@ EOT
 logger -expect warning "Latch inferred for signal" 1
 proc -latches warn
 logger -check-expected
-
-design -reset
