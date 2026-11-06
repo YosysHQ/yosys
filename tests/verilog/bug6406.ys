@@ -8,6 +8,8 @@ module top();
 	typedef logic signed [7:0] signed_byte;
 	typedef logic [7:0] unsigned_byte;
 	typedef struct packed signed { logic [7:0] value; } signed_struct;
+	typedef union packed signed { logic [7:0] value; } signed_union;
+	typedef union packed unsigned { logic signed [7:0] value; } unsigned_union;
 
 	wire [7:0] a  = 8'hAC;
 	wire [3:0] b  = 4'h2;
@@ -34,6 +36,8 @@ module top();
 	wire [63:0] typedef_signed = signed_byte'(a);
 	wire [63:0] typedef_unsigned = unsigned_byte'($signed(a));
 	wire [63:0] struct_signed = signed_struct'(a);
+	wire [63:0] union_signed = signed_union'(a);
+	wire [63:0] union_unsigned = unsigned_union'(a);
 	wire [63:0] shortint_widened = shortint'(a);
 
 	// reference values from icarus verilog
@@ -50,6 +54,8 @@ module top();
 		assert(typedef_signed == 64'hFFFF_FFFF_FFFF_FFAC);
 		assert(typedef_unsigned == 64'hAC);
 		assert(struct_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(union_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(union_unsigned == 64'h0000_0000_0000_00AC);
 		assert(shortint_widened == 64'hAC);
 
 		// 6332
