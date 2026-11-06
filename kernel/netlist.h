@@ -53,7 +53,7 @@ struct Port {
 
 // A scope is a non-leaf instance (for example the top or a submodule instance)
 struct Instance {
-	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
+	enum class Kind : uint8_t { Module, LibraryCell, InternalCell, Barrier };
 
 	std::string name;		  // local name, unescaped
 	std::string unique_name;	  // of a child: localName, else name if the localName repeats in the scope
