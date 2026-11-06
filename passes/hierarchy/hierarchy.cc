@@ -1067,24 +1067,22 @@ struct HierarchyPass : public Pass {
 
 		bool verific_mod = false;
 #ifdef YOSYS_ENABLE_VERIFIC
-		verific_mod = verific_import_pending;
+		if (VerificSession::owns(design)) {
+			VerificSession verific_session(design);
+			verific_mod = verific_import_pending;
+			if (verific_mod) {
+				if (top_mod == nullptr && !load_top_mod.empty()) {
+					load_top_mod = verific_import(design, parameters, load_top_mod);
+					top_mod = design->module(RTLIL::escape_id(load_top_mod));
+				} else {
+					verific_import(design, parameters);
+				}
+			}
+		}
 #endif
 
-		if (top_mod == nullptr && !load_top_mod.empty()) {
-#ifdef YOSYS_ENABLE_VERIFIC
-			if (verific_import_pending) {
-				load_top_mod = verific_import(design, parameters, load_top_mod);
-				top_mod = design->module(RTLIL::escape_id(load_top_mod));
-			}
-#endif
-			if (top_mod == NULL)
-				log_cmd_error("Module `%s' not found!\n", load_top_mod);
-		} else {
-#ifdef YOSYS_ENABLE_VERIFIC
-			if (verific_import_pending)
-				verific_import(design, parameters);
-#endif
-		}
+		if (top_mod == nullptr && !load_top_mod.empty())
+			log_cmd_error("Module `%s' not found!\n", load_top_mod);
 
 		if (generate_mode) {
 			generate(design, generate_cells, generate_ports);

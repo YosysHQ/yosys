@@ -32,6 +32,8 @@
 #  include <dirent.h>
 #endif
 #include <filesystem>
+#include <mutex>
+#include <condition_variable>
 
 #include "frontends/verific/verific.h"
 
@@ -105,6 +107,36 @@ using namespace Verific;
 
 #ifdef YOSYS_ENABLE_VERIFIC
 YOSYS_NAMESPACE_BEGIN
+
+// Verific use internally static data structures to keep current
+// state, we can not mix new design with existing until current
+// design is imported
+
+static std::mutex verific_session_mutex;
+static std::condition_variable verific_session_cv;
+static Design *verific_session_design = nullptr;
+
+VerificSession::VerificSession(Design *design) : design(design)
+{
+	std::unique_lock<std::mutex> lock(verific_session_mutex);
+	verific_session_cv.wait(lock, [design] { return verific_session_design == nullptr || verific_session_design == design; });
+	verific_session_design = design;
+}
+
+VerificSession::~VerificSession()
+{
+	if (verific_import_pending)
+		return;
+	std::lock_guard<std::mutex> lock(verific_session_mutex);
+	verific_session_design = nullptr;
+	verific_session_cv.notify_all();
+}
+
+bool VerificSession::owns(Design *design)
+{
+	std::lock_guard<std::mutex> lock(verific_session_mutex);
+	return verific_session_design == design;
+}
 
 int verific_verbose;
 bool verific_import_pending;
@@ -3333,6 +3365,12 @@ struct VerificPass : public Pass {
 		log("all messages of certain type.\n");
 		log("\n");
 		log("\n");
+		log("    verific -cleanup\n");
+		log("\n");
+		log("Discard all files read so far without importing them and reset the internal\n");
+		log("state of Verific.\n");
+		log("\n");
+		log("\n");
 		log("    verific -import [options] <top>..\n");
 		log("\n");
 		log("Elaborate the design for the specified top modules or configurations, import to\n");
@@ -3557,6 +3595,7 @@ struct VerificPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
+		VerificSession session(design);
 
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
@@ -3658,6 +3697,11 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 #endif
+		if (GetSize(args) > argidx && args[argidx] == "-cleanup") {
+			verific_cleanup();
+			goto check_error;
+		}
+
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
 		{
