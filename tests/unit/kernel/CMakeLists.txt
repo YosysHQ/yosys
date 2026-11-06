@@ -1,4 +1,5 @@
 yosys_gtest(kernel
+	bitpatternPerfTest.cc
 	bitpatternTest.cc
 	cellTypesTest.cc
 	designStateTest.cc
