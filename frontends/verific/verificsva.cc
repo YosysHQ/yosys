@@ -2034,14 +2034,18 @@ private:
 			case PRIM_SVA_SEQ_CONCAT:
 			{
 				auto range = get_sva_range(inst);
-				if (range.single(0))
-					return clk_seq_fusion(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
-				else if (range.single(1))
-					return clk_seq_concat(parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+				auto second = parse_sequence(inst->GetInput2());
+				if (is_input1_const_true(inst) && range.single(0))
+					return second;
+				else if (is_input1_const_true(inst))
+					return clk_seq_delay(range, parse_sequence(inst->GetInput2()));
+				else if (range.single(0))
+					return clk_seq_fusion(parse_sequence(inst->GetInput1()), second);
 				else {
-					auto errmsg = stringf("PRIM_SVA_SEQ_CONCAT[%d:%d]", range.lower, range.upper);
-					parser_error(errmsg, inst);
-					// return clk_seq_delay(range, parse_sequence(inst->GetInput1()), parse_sequence(inst->GetInput2()));
+					auto first = parse_sequence(inst->GetInput1());
+					if (!range.single(1))
+						second = clk_seq_delay(range, second);
+					return clk_seq_concat(first, second);
 				}
 			}
 			case PRIM_SVA_CONSECUTIVE_REPEAT:
@@ -2113,8 +2117,7 @@ private:
 				return clk_prop_weak(parse_sequence(inst->GetInput()));
 			case PRIM_SVA_IF:
 			{
-				auto else_case = inst->GetInput1();
-				if (else_case->Driver()->Type() == PRIM_PWR)
+				if (is_input1_const_true(inst))
 					return clk_prop_if(parse_bool(inst->GetInput3()), parse_property(inst->GetInput2()));
 				else
 					return clk_prop_if_else(parse_bool(inst->GetInput3()), parse_property(inst->GetInput2()), parse_property(inst->GetInput1()));
@@ -2138,13 +2141,13 @@ private:
 					return clk_prop_strong_eventually_ranged(range, parse_property(inst->GetInput()));
 			}
 			case PRIM_SVA_ACCEPT_ON:
-				log_error("PRIM_SVA_ACCEPT_ON\n");
+				return clk_prop_accept_on(parse_bool(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_REJECT_ON:
-				log_error("PRIM_SVA_REJECT_ON\n");
+				return clk_prop_reject_on(parse_bool(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_SYNC_ACCEPT_ON:
-				log_error("PRIM_SVA_SYNC_ACCEPT_ON\n");
+				return clk_prop_sync_accept_on(parse_bool(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_SYNC_REJECT_ON:
-				log_error("PRIM_SVA_SYNC_REJECT_ON\n");
+				return clk_prop_sync_reject_on(parse_bool(inst->GetInput1()), parse_property(inst->GetInput2()));
 			case PRIM_SVA_ALWAYS:
 			{
 				auto range = get_sva_range(inst);
@@ -2155,12 +2158,29 @@ private:
 			}
 			case PRIM_SVA_S_ALWAYS:
 				return clk_prop_strong_always(get_sva_bounded_range(inst), parse_property(inst->GetInput()));
+			case PRIM_GND:
+				return clk_prop_bool(constant(false));
+			case PRIM_PWR:
+				return clk_prop_bool(constant(true));
 			case PRIM_END:
 				return clk_prop_bool(parse_input(net));
 			default:
+				// TODO consider unwrapping if it's just a clk-seq-bool
 				auto seq = parse_sequence(net);
 				return clk_prop_clk_seq(seq);
 		}
+	}
+
+	bool is_input1_const_true(Instance *inst) const {
+		// TODO have an option to make this always false (and disable
+		// the optimizations)
+		auto *net = inst->GetInput1();
+		if (net == nullptr)
+			return false;
+		auto *driver = net->Driver();
+		if (driver == nullptr || net->IsMultipleDriven())
+			return false;
+		return driver->Type() == PRIM_PWR;
 	}
 
 	property_ir::IntLiteral get_sva_int(Instance *inst) {
