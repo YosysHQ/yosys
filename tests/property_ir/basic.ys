@@ -1,0 +1,19 @@
+verific -sv basic.sv
+verific -import -v top
+
+design -reset
+verific -sv basic.sv
+verific -import -v next
+
+design -reset
+verific -sv basic.sv
+verific -import -v rep
+
+# not compatible with old importer
+# design -reset
+# verific -sv basic.sv
+# verific -import -v ite
+
+design -reset
+verific -sv basic.sv
+verific -import -v nested
