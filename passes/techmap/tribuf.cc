@@ -36,93 +36,9 @@ struct TribufConfig {
 	}
 };
 
-struct TribufCells : dict<SigSpec, vector<Cell*>> {
-	class DriverSlices {
-		dict<SigSpec, vector<SigSpec>> slices_of_driver;
-    public:
-		DriverSlices(const TribufCells &tribuf_cells)
-		{
-			vector<SigSpec> driver_sigs;
-			dict<SigBit, vector<int>> drivers_of_bit;
-			for (auto &[driver_sig, _] : tribuf_cells) {
-				for (auto bit : driver_sig)
-					drivers_of_bit[bit].push_back(GetSize(driver_sigs));
-				driver_sigs.push_back(driver_sig);
-			}
-
-			dict<vector<int>, SigSpec> bits_of_drivers;
-			for (auto &[bit, drivers] : reversed(drivers_of_bit))
-				bits_of_drivers[drivers].append(bit);
-
-			for (auto &[drivers, bits] : bits_of_drivers)
-				for (int driver : drivers)
-					slices_of_driver[driver_sigs[driver]].push_back(bits);
-		}
-
-		// Groups of this driver's bits that share the exact same driver set
-		const vector<SigSpec> &slices_of(const SigSpec &driver_sig) const
-		{
-			return slices_of_driver.at(driver_sig);
-		}
-
-		bool is_aligned(const SigSpec &driver_sig) const
-		{
-			return slices_of(driver_sig)[0] == driver_sig;
-		}
-	};
-
-	static Cell *slice_tribuf(Module *module, Cell *cell, const dict<SigBit, int> &y_index, const SigSpec &slice)
-	{
-		SigSpec a = cell->getPort(ID::A);
-		SigSpec slice_a;
-		for (auto bit : slice)
-			slice_a.append(a[y_index.at(bit)]);
-
-		Cell *sliced = module->addTribuf(NEW_ID, slice_a, cell->getPort(ID::EN), slice);
-		sliced->attributes = cell->attributes;
-		return sliced;
-	}
-
-	// Slice each net's tribuf outputs into groups of bits driven by the same set of tribuf outputs.
-	// Two fully connected tribuf outputs are handled as the same output thanks to prior SigMap,
-	// so we're only splitting on partial overlaps
-	void split_partial_overlaps(Module *module)
-	{
-		DriverSlices slices(*this);
-
-		vector<SigSpec> to_split;
-		for (auto &[y, tribufs] : *this)
-			if (!y.empty() && !slices.is_aligned(y))
-				to_split.push_back(y);
-
-		for (auto &y : to_split) {
-			vector<Cell*> tribufs = std::move(at(y));
-			erase(y);
-
-			dict<SigBit, int> y_index;
-			for (int i = 0; i < GetSize(y); i++)
-				y_index[y[i]] = i;
-
-			for (auto &slice : slices.slices_of(y))
-				for (auto cell : tribufs)
-					(*this)[slice].push_back(slice_tribuf(module, cell, y_index, slice));
-
-			for (auto cell : tribufs)
-				module->remove(cell);
-		}
-	}
-};
-
-struct TribufWorker {
-	Module *module;
-	SigMap sigmap;
-	const TribufConfig &config;
-
-	TribufWorker(Module *module, const TribufConfig &config) : module(module), sigmap(module), config(config)
-	{
-	}
-
-	void mux_to_tribufs(Cell *cell, TribufCells &tribuf_cells)
+class TribufCells {
+	dict<SigSpec, vector<Cell*>> cells = {};
+	void mux_to_tribufs(Cell* cell, Module* module, SigMap& sigmap)
 	{
 		bool is_fine = cell->type == ID($_MUX_);
 		SigSpec sig_a = cell->getPort(ID::A);
@@ -155,7 +71,7 @@ struct TribufWorker {
 			}
 		}
 
-		vector<std::tuple<SigSpec, SigSpec, SigSpec>> drivers;
+		vector<std::tuple<SigSpec, SigSpec, SigSpec>> drivers = {};
 		if (!s_y.empty())
 			drivers.emplace_back(s_a, sig_s, s_y);
 		if (!ns_y.empty())
@@ -187,103 +103,230 @@ struct TribufWorker {
 				tribuf = module->addTribuf(NEW_ID, a, en, y);
 				tribuf->attributes = cell->attributes;
 			}
-			tribuf_cells[sigmap(y)].push_back(tribuf);
+			cells[sigmap(y)].push_back(tribuf);
 		}
 
 		module->design->scratchpad_set_bool("tribuf.added_something", true);
 	}
 
-	void run()
+	class DriverSlices {
+		dict<SigSpec, vector<SigSpec>> slices_of_driver = {};
+    public:
+		DriverSlices(const TribufCells &tribuf_cells)
+		{
+			vector<SigSpec> driver_sigs = {};
+			dict<SigBit, vector<int>> drivers_of_bit = {};
+			for (auto &[driver_sig, _] : tribuf_cells.cells) {
+				for (auto bit : driver_sig)
+					drivers_of_bit[bit].push_back(GetSize(driver_sigs));
+				driver_sigs.push_back(driver_sig);
+			}
+
+			dict<vector<int>, SigSpec> bits_of_drivers = {};
+			for (auto &[bit, drivers] : reversed(drivers_of_bit))
+				bits_of_drivers[drivers].append(bit);
+
+			for (auto &[drivers, bits] : bits_of_drivers)
+				for (int driver : drivers)
+					slices_of_driver[driver_sigs[driver]].push_back(bits);
+		}
+
+		// Groups of this driver's bits that share the exact same driver set
+		const vector<SigSpec> &slices_of(const SigSpec &driver_sig) const
+		{
+			return slices_of_driver.at(driver_sig);
+		}
+
+		bool is_aligned(const SigSpec &driver_sig) const
+		{
+			return slices_of(driver_sig)[0] == driver_sig;
+		}
+	};
+
+	static Cell *slice_tribuf(Module *module, Cell *cell, const dict<SigBit, int> &y_index, const SigSpec &slice)
 	{
-		TribufCells tribuf_cells;
-		pool<SigBit> output_bits;
+		SigSpec a = cell->getPort(ID::A);
+		SigSpec slice_a = {};
+		for (auto bit : slice)
+			slice_a.append(a[y_index.at(bit)]);
 
-		if (config.logic_mode || config.formal_mode)
-			for (auto wire : module->wires())
-				if (wire->port_output)
-					for (auto bit : sigmap(wire))
-						output_bits.insert(bit);
+		Cell *sliced = module->addTribuf(NEW_ID, slice_a, cell->getPort(ID::EN), slice);
+		sliced->attributes = cell->attributes;
+		return sliced;
+	}
 
+public:
+	TribufCells(Module* module, SigMap& sigmap) {
 		for (auto cell : module->selected_cells())
 		{
 			if (cell->type == ID($tribuf))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+				cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 			if (cell->type == ID($_TBUF_))
-				tribuf_cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
+				cells[sigmap(cell->getPort(ID::Y))].push_back(cell);
 
 			if (cell->type.in(ID($mux), ID($_MUX_)) && (cell->getPort(ID::A).has_const(State::Sz) || cell->getPort(ID::B).has_const(State::Sz)))
-				mux_to_tribufs(cell, tribuf_cells);
+				mux_to_tribufs(cell, module, sigmap);
+		}
+	}
+
+	auto begin() const { return cells.begin(); }
+	auto end() const { return cells.end(); }
+
+	// Slice each net's tribuf outputs into groups of bits driven by the same set of tribuf outputs.
+	// Two fully connected tribuf outputs are handled as the same output thanks to prior SigMap,
+	// so we're only splitting on partial overlaps
+	void split_partial_overlaps(Module *module)
+	{
+		DriverSlices slices(*this);
+
+		vector<SigSpec> to_split = {};
+		for (auto &[y, tribufs] : cells)
+			if (!y.empty() && !slices.is_aligned(y))
+				to_split.push_back(y);
+
+		for (auto &y : to_split) {
+			vector<Cell*> tribufs = std::move(cells.at(y));
+			cells.erase(y);
+
+			dict<SigBit, int> y_index = {};
+			for (int i = 0; i < GetSize(y); i++)
+				y_index[y[i]] = i;
+
+			for (auto &slice : slices.slices_of(y))
+				for (auto cell : tribufs)
+					cells[slice].push_back(slice_tribuf(module, cell, y_index, slice));
+
+			for (auto cell : tribufs)
+				module->remove(cell);
+		}
+	}
+};
+
+static pool<SigBit> get_output_port_bits(Module* module, SigMap& sigmap) {
+	pool<SigBit> bits = {};
+	for (auto wire : module->wires())
+		if (wire->port_output)
+			for (auto bit : sigmap(wire))
+				bits.insert(bit);
+	return bits;
+}
+
+class LogicConversion {
+	const TribufConfig &config;
+	pool<SigBit> output_bits = {};
+public:
+	LogicConversion(Module *module, SigMap &sigmap, const TribufConfig &config) : config(config)
+	{
+		if (config.logic_mode && !config.formal_mode)
+			output_bits = get_output_port_bits(module, sigmap);
+	}
+
+	bool to_logic(const SigSpec &y) const
+	{
+		if (config.formal_mode)
+			return true;
+		if (!config.logic_mode)
+			return false;
+		for (auto bit : y)
+			if (output_bits.count(bit))
+				return false;
+		return true;
+	}
+};
+
+static SigSpec enable_of(Cell *cell)
+{
+	return cell->getPort(cell->type == ID($tribuf) ? ID::EN : ID::E);
+}
+
+static SigSpec enables_of(const vector<Cell*> &tribufs)
+{
+	SigSpec enables = {};
+	for (auto cell : tribufs)
+		enables.append(enable_of(cell));
+	return enables;
+}
+
+struct TribufWorker {
+	Module *module;
+	SigMap sigmap;
+	const TribufConfig &config;
+
+	TribufWorker(Module *module, const TribufConfig &config) : module(module), sigmap(module), config(config)
+	{
+	}
+
+	void add_conflict_asserts(const vector<Cell*> &tribufs)
+	{
+		// Done if nothing can conflict
+		if (GetSize(tribufs) <= 1)
+			return;
+
+		for (auto cell : tribufs) {
+			SigSpec others_s = {};
+			for (auto other_cell : tribufs)
+				if (other_cell != cell)
+					others_s.append(enable_of(other_cell));
+
+			auto other_s = module->ReduceOr(NEW_ID, others_s);
+			auto conflict = module->And(NEW_ID, enable_of(cell), other_s);
+
+			std::string name = stringf("$tribuf_conflict$%s", cell);
+			auto assert_cell = module->addAssert(name, module->Not(NEW_ID, conflict), SigSpec(true));
+
+			assert_cell->set_src_attribute(cell->get_src_attribute());
+			assert_cell->set_bool_attribute(ID::keep);
+
+			module->design->scratchpad_set_bool("tribuf.added_something", true);
+		}
+	}
+
+	SigSpec merged_data(const SigSpec &y, const vector<Cell*> &tribufs, const SigSpec &enables)
+	{
+		SigSpec data = {};
+		for (auto cell : tribufs)
+			data.append(cell->getPort(ID::A));
+
+		if (GetSize(tribufs) == 1)
+			return data;
+		return module->Pmux(NEW_ID, SigSpec(State::Sx, GetSize(y)), data, enables);
+	}
+
+	void merge_net(const SigSpec &y, const vector<Cell*> &tribufs, bool convert_to_logic)
+	{
+		// Done if nothing to merge or convert
+		if (GetSize(tribufs) <= 1 && !convert_to_logic)
+			return;
+
+		SigSpec enables = enables_of(tribufs);
+		SigSpec data = merged_data(y, tribufs, enables);
+
+		if (convert_to_logic)
+			module->connect(y, data);
+		else {
+			module->addTribuf(NEW_ID, data, module->ReduceOr(NEW_ID, enables), y);
+			module->design->scratchpad_set_bool("tribuf.added_something", true);
 		}
 
-		if (config.merge_mode || config.logic_mode || config.formal_mode)
-		{
-			tribuf_cells.split_partial_overlaps(module);
-			for (auto &it : tribuf_cells)
-			{
-				bool no_tribuf = false;
+		for (auto cell : tribufs)
+			module->remove(cell);
+	}
 
-				if (config.logic_mode && !config.formal_mode) {
-					no_tribuf = true;
-					for (auto bit : it.first)
-						if (output_bits.count(bit))
-							no_tribuf = false;
-				}
+	void run()
+	{
+		// Convert elligible $mux to $tribuf and collect all $tribuf
+		TribufCells tribuf_cells(module, sigmap);
 
-				if (config.formal_mode)
-					no_tribuf = true;
+		if (!config.merge_mode && !config.logic_mode && !config.formal_mode)
+			return;
 
-				if (GetSize(it.second) <= 1 && !no_tribuf)
-					continue;
-
-				if (config.formal_mode && GetSize(it.second) >= 2) {
-					for (auto cell : it.second) {
-						SigSpec others_s;
-
-						for (auto other_cell : it.second) {
-							if (other_cell == cell)
-								continue;
-							else if (other_cell->type == ID($tribuf))
-								others_s.append(other_cell->getPort(ID::EN));
-							else
-								others_s.append(other_cell->getPort(ID::E));
-						}
-
-						auto cell_s = cell->type == ID($tribuf) ? cell->getPort(ID::EN) : cell->getPort(ID::E);
-
-						auto other_s = module->ReduceOr(NEW_ID, others_s);
-
-						auto conflict = module->And(NEW_ID, cell_s, other_s);
-
-						std::string name = stringf("$tribuf_conflict$%s", cell);
-						auto assert_cell = module->addAssert(name, module->Not(NEW_ID, conflict), SigSpec(true));
-
-						assert_cell->set_src_attribute(cell->get_src_attribute());
-						assert_cell->set_bool_attribute(ID::keep);
-
-						module->design->scratchpad_set_bool("tribuf.added_something", true);
-					}
-				}
-
-				SigSpec pmux_b, pmux_s;
-				for (auto cell : it.second) {
-					if (cell->type == ID($tribuf))
-						pmux_s.append(cell->getPort(ID::EN));
-					else
-						pmux_s.append(cell->getPort(ID::E));
-					pmux_b.append(cell->getPort(ID::A));
-					module->remove(cell);
-				}
-
-				SigSpec muxout = GetSize(pmux_s) > 1 ? module->Pmux(NEW_ID, SigSpec(State::Sx, GetSize(it.first)), pmux_b, pmux_s) : pmux_b;
-
-				if (no_tribuf)
-					module->connect(it.first, muxout);
-				else {
-					module->addTribuf(NEW_ID, muxout, module->ReduceOr(NEW_ID, pmux_s), it.first);
-					module->design->scratchpad_set_bool("tribuf.added_something", true);
-				}
-			}
+		LogicConversion conversion(module, sigmap, config);
+		tribuf_cells.split_partial_overlaps(module);
+		for (auto &[y, tribufs] : tribuf_cells) {
+			if (config.formal_mode)
+				add_conflict_asserts(tribufs);
+			merge_net(y, tribufs, conversion.to_logic(y));
 		}
 	}
 };
