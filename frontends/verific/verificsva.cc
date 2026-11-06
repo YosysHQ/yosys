@@ -1944,6 +1944,9 @@ public:
 		printer->identifier("document");
 		printer->lines();
 
+		if (root->Type() == PRIM_SVA_IMMEDIATE_ASSERT || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME || root->Type() == PRIM_SVA_IMMEDIATE_COVER)
+			parser_error("immediates don't need properties", root);
+
 		auto result = parse_property(root->GetInput());
 		// TODO better auto names?
 		ClkPropId prop(root->Name());
@@ -2000,16 +2003,17 @@ private:
 		if (inst != nullptr && !net->IsMultipleDriven())
 			type = inst->Type();
 
-		using namespace property_ir;
+		if (!verific_sva_prims.count(type))
+			// undriven? x? z?
+			return parse_input(net);
+
 		switch (type) {
 			case PRIM_SVA_SAMPLED:
 			case PRIM_SVA_ROSE:
 			case PRIM_SVA_FELL:
 			case PRIM_SVA_STABLE:
 			case PRIM_SVA_PAST:
-				// TODO sampled value functions
-				parser_error("Sampled value function", inst);
-			case PRIM_END:
+				// TODO sampled value functions (?)
 				return parse_input(net);
 			default:
 				parser_error(inst);
@@ -2112,8 +2116,10 @@ private:
 			case PRIM_SVA_S_NEXTTIME:
 				return clk_prop_strong_nexttime(get_sva_int(inst), parse_property(inst->GetInput()));
 			case PRIM_SVA_STRONG:
+				// TODO consider unwrapping if it's just a clk-seq-bool
 				return clk_prop_strong(parse_sequence(inst->GetInput()));
 			case PRIM_SVA_WEAK:
+				// TODO consider unwrapping if it's just a clk-seq-bool
 				return clk_prop_weak(parse_sequence(inst->GetInput()));
 			case PRIM_SVA_IF:
 			{

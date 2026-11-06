@@ -52,3 +52,62 @@ module nested (input clk, input a, b, c);
     endsequence
     ap: assert property (@(posedge clk) q);
 endmodule
+
+module immediate (input clk, input a);
+    always @(posedge clk) begin
+        assert (a);
+    end
+endmodule
+
+module sampled_val (input clk, input a, b);
+    always @(posedge clk) begin
+        assert property ($rose(a) |=> b);
+    end
+endmodule
+
+module submod (input clk, input a, b, c);
+    property p;
+        a ##1 b |-> always(c);
+    endproperty
+
+    inner: assert property (@(posedge clk) p);
+endmodule
+
+module mod (input clk, input a, b, c);
+    property p;
+        a |-> s_eventually [1:2] b;
+    endproperty
+
+    submod sub (clk, a, b, c);
+
+    outer: assert property (@(posedge clk) p);
+endmodule
+
+module flopped (input clk, input d);
+    reg q;
+    always @(posedge clk)
+        q <= d;
+
+    default clocking @(posedge clk); endclocking
+    assert property ($rose(d) |=> q);
+    assert property ($fell(d) |=> !q);
+endmodule
+
+module binops (input clk, input a, b, c);
+    property q;
+        b |-> c;
+    endproperty
+
+    sequence s;
+        a ##[2:4] b;
+    endsequence
+
+    sequence t;
+        s or c[*1:3];
+    endsequence
+
+    always @(posedge clk) begin
+        assert property ((a #-# b) and not q);
+        assert property (a && b throughout t);
+    end
+endmodule

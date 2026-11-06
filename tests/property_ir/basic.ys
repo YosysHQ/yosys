@@ -9,11 +9,37 @@ design -reset
 verific -sv basic.sv
 verific -import -v rep
 
-# not compatible with old importer
-# design -reset
-# verific -sv basic.sv
-# verific -import -v ite
-
 design -reset
 verific -sv basic.sv
 verific -import -v nested
+
+# not yet handled by new importer
+# design -reset
+# verific -sv basic.sv
+# verific -import -v immediate
+
+design -reset
+verific -sv basic.sv
+verific -import -v sampled_val
+
+# design -reset
+# verific -sv basic.sv
+# verific -import -v mod
+
+# not yet handled by new importer
+# design -reset
+# verific -sv basic.sv
+# verific -import -flatten -v mod
+
+design -reset
+verific -sv basic.sv
+verific -import -v flopped
+
+# the rest are not compatible with old importer
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err ite
+
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err binops
