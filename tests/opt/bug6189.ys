@@ -1,0 +1,12 @@
+read_verilog <<EOF
+module bug(input clk, d, input [7:0] x, output [8:0] y);
+  reg q;
+  always @(posedge clk) q <= ~d;
+  assign y = ~{x, q};
+endmodule
+EOF
+
+hierarchy -top bug
+proc
+opt_ffinv
+check -assert
