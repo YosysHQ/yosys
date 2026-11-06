@@ -987,7 +987,7 @@ struct VerificSvaImporter
 	bool mode_cover = false;
 	bool mode_trigger = false;
 
-	Instance *net_to_ast_driver(Net *n)
+	Instance *net_to_ast_driver(Net *n, bool include_mux = false)
 	{
 		if (n == nullptr)
 			return nullptr;
@@ -1001,7 +1001,8 @@ struct VerificSvaImporter
 			return nullptr;
 
 		if (!verific_sva_prims.count(inst->Type()))
-			return nullptr;
+			if (!include_mux || inst->Type() != PRIM_MUX)
+				return nullptr;
 
 		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
 				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE ||
@@ -1525,10 +1526,22 @@ struct VerificSvaImporter
 
 	bool eventually_property(Net *&net, SigBit &trig)
 	{
-		Instance *inst = net_to_ast_driver(net);
+		Instance *inst = net_to_ast_driver(net, true);
 
 		if (inst == nullptr)
 			return false;
+
+		if (inst->Type() == PRIM_MUX) {
+			// TODO does this need to be recursive?
+			Instance *input1 = get_ast_input1(inst);
+			if (input1 != nullptr)
+				inst = input1;
+			else
+				inst = get_ast_input2(inst);
+
+			if (inst == nullptr)
+				return false;
+		}
 
 		if (clocking.cond_net != nullptr) {
 			trig = importer->net_map_at(clocking.cond_net);
@@ -1541,7 +1554,16 @@ struct VerificSvaImporter
 		if (inst->Type() == PRIM_SVA_S_EVENTUALLY || inst->Type() == PRIM_SVA_EVENTUALLY)
 		{
 			if (mode_cover || mode_trigger)
-				parser_error(inst);
+				parser_error("Unsupported eventually cover", inst);
+
+			// check for bounded eventually
+			const char *sva_low_s = inst->GetAttValue("sva:low");
+			const char *sva_high_s = inst->GetAttValue("sva:high");
+			int sva_low = atoi(sva_low_s);
+			bool sva_inf = !strcmp(sva_high_s, "$");
+
+			if (sva_low != 0 || !sva_inf)
+				parser_error("Unsupported bounded eventually", inst);
 
 			net = inst->GetInput();
 			clocking.cond_net = nullptr;
