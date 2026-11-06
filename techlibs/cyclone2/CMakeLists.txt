@@ -1,0 +1,28 @@
+yosys_pass(synth_cyclone2
+	synth_cyclone2.cc
+	REQUIRES
+		abc
+		attrmap
+		check
+		dfflegalize
+		hierarchy
+		iopadmap
+		memory_map
+		opt
+		opt_clean
+		opt_expr
+		read_verilog
+		setundef
+		simplemap
+		stat
+		synth
+		techmap
+		write_json
+	DATA_DIR
+		cyclone2
+	DATA_FILES
+		arith_map.v
+		cells_bb.v
+		cells_map.v
+		cells_sim.v
+)
