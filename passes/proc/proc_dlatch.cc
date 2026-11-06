@@ -30,23 +30,6 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-struct process_reader_counter_t
-{
-	SigMap &sigmap;
-	dict<SigBit, int> &readers;
-
-	void operator()(SigSpec &sig)
-	{
-		for (auto bit : sigmap(sig))
-			readers[bit]++;
-	}
-
-	void operator()(SigSpec &, SigSpec &rhs)
-	{
-		(*this)(rhs);
-	}
-};
-
 struct proc_dlatch_db_t
 {
 	Module *module;
@@ -59,6 +42,7 @@ struct proc_dlatch_db_t
 	dict<SigBit, int> sigusers;
 	pool<SigBit> active_bits;
 	dict<SigBit, int> extra_readers;
+	bool all_processes_muxed = true;
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
@@ -98,13 +82,42 @@ struct proc_dlatch_db_t
 				for (auto bit : sigmap(wire))
 					sigusers[bit]++;
 			if (wire->port_output || wire->get_bool_attribute(ID::keep))
-				for (auto bit : sigmap(wire))
-					extra_readers[bit]++;
+				count_extra_readers(wire);
 		}
 
-		process_reader_counter_t counter{sigmap, extra_readers};
-		for (auto [_, proc] : module->processes)
-			proc->rewrite_sigspecs2(counter);
+		// after proc_mux, sync rules hold the only process reads that are not muxes
+		for (auto [_, proc] : module->processes) {
+			if (has_assignments(&proc->root_case))
+				all_processes_muxed = false;
+			for (auto sync : proc->syncs) {
+				count_extra_readers(sync->signal);
+				for (auto &[lhs, rhs] : sync->actions)
+					count_extra_readers(rhs);
+				for (auto &mem_write : sync->mem_write_actions) {
+					count_extra_readers(mem_write.address);
+					count_extra_readers(mem_write.data);
+					count_extra_readers(mem_write.enable);
+				}
+			}
+		}
+	}
+
+	static bool has_assignments(RTLIL::CaseRule *case_rule)
+	{
+		for (auto &[lhs, rhs] : case_rule->actions)
+			if (!lhs.empty())
+				return true;
+		for (auto switch_rule : case_rule->switches)
+			for (auto sub_case : switch_rule->cases)
+				if (has_assignments(sub_case))
+					return true;
+		return false;
+	}
+
+	void count_extra_readers(const SigSpec &sig)
+	{
+		for (auto bit : sigmap(sig))
+			extra_readers[bit]++;
 	}
 
 	int readers(SigBit bit)
@@ -145,6 +158,8 @@ struct proc_dlatch_db_t
 	// latch output only feeds its own hold path
 	bool is_unused_latch(SigBit q, SigBit d)
 	{
+		if (!all_processes_muxed)
+			return false;
 		return readers(d) == 1 && count_hold_uses(d, q) == readers(q);
 	}
 
@@ -535,7 +550,6 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 	}
 
 	bool may_drop_latch = !proc->get_bool_attribute(ID::always_comb) && !proc->get_bool_attribute(ID::always_latch);
-	SigSpec unused_bits;
 
 	latches_out_in.sort();
 	for (auto &it : latches_out_in) {
@@ -548,7 +562,6 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 		// cut the hold path and leave the output undriven
 		if (may_drop_latch && db.is_unused_latch(it.first, it.second)) {
 			db.find_mux_feedback(it.second, it.first, true);
-			unused_bits.append(it.first);
 			db.initvals.remove_init(it.first);
 			continue;
 		}
@@ -573,9 +586,6 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 		latches_rst[it.first] = nrst;
 		latches_set[it.first] = nset;
 	}
-
-	if (!unused_bits.empty())
-		log("No latch inferred for unused signal `%s.%s' from process `%s.%s'.\n", db.module->name, log_signal(unused_bits), db.module->name, proc->name);
 
 	int offset = 0;
 	for (auto chunk : nolatches_bits.first.chunks()) {

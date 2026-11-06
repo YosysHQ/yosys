@@ -15,7 +15,6 @@ EOT
 design -save read
 
 logger -expect-no-warnings
-logger -expect log "No latch inferred for unused signal .*blk\.i" 1
 proc -latches error
 logger -check-expected
 select -assert-none t:$dlatch t:$adlatch
