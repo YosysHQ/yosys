@@ -22,6 +22,8 @@ template <typename K, typename V> struct ListMap {
 	std::vector<V> none;
 };
 
+template <typename T> bool idLess(const T *a, const T *b) { return a->id < b->id; }
+
 template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
 {
 	if (at < records.size())
@@ -47,12 +49,16 @@ bool checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Modul
 bool checkIndices(RTLIL::Module *module, std::string &reason);
 
 // Cells
+constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
+
 bool isInternalType(RTLIL::IdString type);
 bool isTransparentType(RTLIL::IdString type);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 constexpr std::string_view cut_attr = "\\netview_cut";
 bool isCutWire(const RTLIL::Wire *wire);
+bool hasUserKeep(const RTLIL::Wire *wire);
+std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
 
 // Ports
 Netlist::Port wirePort(RTLIL::Wire *wire);
@@ -90,10 +96,10 @@ void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vecto
 std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net, bool down);
 
 // Fingerprint
-void hashDesign(Fingerprint &fp, RTLIL::Design *design);
+uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
-void hashWire(Fingerprint &fp, RTLIL::Wire *wire);
-void hashCell(Fingerprint &fp, RTLIL::Cell *cell);
+uint64_t wireHash(RTLIL::Wire *wire);
+uint64_t cellHash(RTLIL::Cell *cell);
 uint64_t designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names);
 
 struct RecordStore {
@@ -168,6 +174,7 @@ struct ViewData {
 	BodyKeys body_keys; // a cache of NetView::bodyKey
 	// the design at the build
 	uint64_t fingerprint = 0;
+	size_t twines_serial = 0;
 	std::vector<std::string> watched_module_names;
 };
 

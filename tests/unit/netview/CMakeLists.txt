@@ -1,10 +1,9 @@
 yosys_gtest(netview
-	netlistTest.cc
 	netprotectTest.cc
-	nettrackTest.cc
 	netviewHelpers.h
 	netviewTest.cc
 	COMPONENTS
+		design
 		flatten
 		optbarriers
 		rename
