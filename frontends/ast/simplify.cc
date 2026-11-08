@@ -2790,7 +2790,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		for (size_t i = 0; i < children.size(); i++)
 			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
 			{
-				log_assert(!sv_mode_but_global_and_used_for_literally_one_condition);
+				if(	sv_mode_but_global_and_used_for_literally_one_condition){
+					input_error("Local declaration in unnamed block requires explicit begin-end wrap\n");
+				}
 				children[i]->input_error("Local declaration in unnamed block is only supported in SystemVerilog mode!\n");
 			}
 	}
