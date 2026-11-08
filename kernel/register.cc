@@ -433,9 +433,7 @@ Frontend::Frontend(std::string name, std::string short_help, source_location loc
 
 void Frontend::run_register()
 {
-	if (pass_register.count(pass_name) && !replace_existing_pass())
-		log_error("Unable to register pass '%s', pass already exists!\n", pass_name);
-	pass_register[pass_name] = this;
+	Pass::run_register();
 
 	if (frontend_register.count(frontend_name) && !replace_existing_pass())
 		log_error("Unable to register frontend '%s', frontend already exists!\n", frontend_name);
@@ -581,11 +579,9 @@ Backend::Backend(std::string name, std::string short_help, source_location locat
 
 void Backend::run_register()
 {
-	if (pass_register.count(pass_name))
-		log_error("Unable to register pass '%s', pass already exists!\n", pass_name);
-	pass_register[pass_name] = this;
+	Pass::run_register();
 
-	if (backend_register.count(backend_name))
+	if (backend_register.count(backend_name) && !replace_existing_pass())
 		log_error("Unable to register backend '%s', backend already exists!\n", backend_name);
 	backend_register[backend_name] = this;
 }

@@ -480,66 +480,53 @@ void simplemap_pmux(RTLIL::Module *module, RTLIL::Cell *cell)
 	}
 }
 
-void simplemap_get_mappers(dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers)
+SimplemapFn simplemap_mapper(IdString type)
 {
-	mappers[ID($not)]         = simplemap_not;
-	mappers[ID($pos)]         = simplemap_pos;
-	mappers[ID($buf)]         = simplemap_buf;
-	mappers[ID($and)]         = simplemap_bitop;
-	mappers[ID($or)]          = simplemap_bitop;
-	mappers[ID($xor)]         = simplemap_bitop;
-	mappers[ID($xnor)]        = simplemap_bitop;
-	mappers[ID($bweqx)]       = simplemap_bitop;
-	mappers[ID($reduce_and)]  = simplemap_reduce;
-	mappers[ID($reduce_or)]   = simplemap_reduce;
-	mappers[ID($reduce_xor)]  = simplemap_reduce;
-	mappers[ID($reduce_xnor)] = simplemap_reduce;
-	mappers[ID($reduce_bool)] = simplemap_reduce;
-	mappers[ID($logic_not)]   = simplemap_lognot;
-	mappers[ID($logic_and)]   = simplemap_logbin;
-	mappers[ID($logic_or)]    = simplemap_logbin;
-	mappers[ID($eq)]          = simplemap_eqne;
-	mappers[ID($eqx)]         = simplemap_eqne;
-	mappers[ID($ne)]          = simplemap_eqne;
-	mappers[ID($nex)]         = simplemap_eqne;
-	mappers[ID($mux)]         = simplemap_mux;
-	mappers[ID($pmux)]        = simplemap_pmux;
-	mappers[ID($bwmux)]       = simplemap_bwmux;
-	mappers[ID($tribuf)]      = simplemap_tribuf;
-	mappers[ID($bmux)]        = simplemap_bmux;
-	mappers[ID($lut)]         = simplemap_lut;
-	mappers[ID($sop)]         = simplemap_sop;
-	mappers[ID($slice)]       = simplemap_slice;
-	mappers[ID($concat)]      = simplemap_concat;
-	mappers[ID($sr)]          = simplemap_ff;
-	mappers[ID($ff)]          = simplemap_ff;
-	mappers[ID($dff)]         = simplemap_ff;
-	mappers[ID($dffe)]        = simplemap_ff;
-	mappers[ID($dffsr)]       = simplemap_ff;
-	mappers[ID($dffsre)]      = simplemap_ff;
-	mappers[ID($adff)]        = simplemap_ff;
-	mappers[ID($sdff)]        = simplemap_ff;
-	mappers[ID($adffe)]       = simplemap_ff;
-	mappers[ID($sdffe)]       = simplemap_ff;
-	mappers[ID($sdffce)]      = simplemap_ff;
-	mappers[ID($aldff)]       = simplemap_ff;
-	mappers[ID($aldffe)]      = simplemap_ff;
-	mappers[ID($dlatch)]      = simplemap_ff;
-	mappers[ID($adlatch)]     = simplemap_ff;
-	mappers[ID($dlatchsr)]    = simplemap_ff;
+	if (type == ID($not))
+		return simplemap_not;
+	if (type == ID($pos))
+		return simplemap_pos;
+	if (type == ID($buf))
+		return simplemap_buf;
+	if (type.in(ID($and), ID($or), ID($xor), ID($xnor), ID($bweqx)))
+		return simplemap_bitop;
+	if (type.in(ID($reduce_and), ID($reduce_or), ID($reduce_xor), ID($reduce_xnor), ID($reduce_bool)))
+		return simplemap_reduce;
+	if (type == ID($logic_not))
+		return simplemap_lognot;
+	if (type.in(ID($logic_and), ID($logic_or)))
+		return simplemap_logbin;
+	if (type.in(ID($eq), ID($eqx), ID($ne), ID($nex)))
+		return simplemap_eqne;
+	if (type == ID($mux))
+		return simplemap_mux;
+	if (type == ID($pmux))
+		return simplemap_pmux;
+	if (type == ID($bwmux))
+		return simplemap_bwmux;
+	if (type == ID($tribuf))
+		return simplemap_tribuf;
+	if (type == ID($bmux))
+		return simplemap_bmux;
+	if (type == ID($lut))
+		return simplemap_lut;
+	if (type == ID($sop))
+		return simplemap_sop;
+	if (type == ID($slice))
+		return simplemap_slice;
+	if (type == ID($concat))
+		return simplemap_concat;
+	if (type.in(ID($sr), ID($ff), ID($dff), ID($dffe), ID($dffsr), ID($dffsre), ID($adff), ID($sdff),
+			ID($adffe), ID($sdffe), ID($sdffce), ID($aldff), ID($aldffe), ID($dlatch), ID($adlatch), ID($dlatchsr)))
+		return simplemap_ff;
+	return nullptr;
 }
 
 void simplemap(RTLIL::Module *module, RTLIL::Cell *cell)
 {
-	static dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
-	static bool initialized_mappers = false;
-
-	if (!initialized_mappers) {
-		simplemap_get_mappers(mappers);
-		initialized_mappers = true;
-	}
-
-	mappers.at(cell->type)(module, cell);
+	SimplemapFn mapper = simplemap_mapper(cell->type);
+	log_assert(mapper != nullptr);
+	mapper(module, cell);
 }
 
 YOSYS_NAMESPACE_END
@@ -568,20 +555,18 @@ struct SimplemapPass : public Pass {
 		log_header(design, "Executing SIMPLEMAP pass (map simple cells to gate primitives).\n");
 		extra_args(args, 1, design);
 
-		dict<IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> mappers;
-		simplemap_get_mappers(mappers);
-
 		for (auto mod : design->modules()) {
 			if (!design->selected(mod) || mod->get_blackbox_attribute())
 				continue;
 			std::vector<RTLIL::Cell*> cells = mod->cells();
 			for (auto cell : cells) {
-				if (mappers.count(cell->type) == 0)
+				SimplemapFn mapper = simplemap_mapper(cell->type);
+				if (mapper == nullptr)
 					continue;
 				if (!design->selected(mod, cell))
 					continue;
 				log("Mapping %s.%s (%s).\n", mod, cell, cell->type.unescape());
-				mappers.at(cell->type)(mod, cell);
+				mapper(mod, cell);
 				mod->remove(cell);
 			}
 		}

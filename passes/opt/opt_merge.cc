@@ -96,6 +96,10 @@ struct FoundDuplicates
 	std::vector<DuplicateCell> duplicates;
 };
 
+static constexpr auto unmergeable = StaticCellTypes::Categories::join(
+	StaticCellTypes::categories.has_side_effect,
+	StaticCellTypes::categories.is_nondeterministic);
+
 struct OptMergeThreadWorker
 {
 	const RTLIL::Module *module;
@@ -287,6 +291,8 @@ struct OptMergeThreadWorker
 			if (cell->type.in(ID($scopeinfo), ID($barrier)))
 				continue;
 			if (mode_keepdc && has_dont_care_initval(cell))
+				continue;
+			if (unmergeable(cell->type))
 				continue;
 			if (!cell->known())
 				continue;
@@ -555,10 +561,6 @@ struct OptMergePass : public Pass {
 		}
 		ct.cell_types.erase(ID($tribuf));
 		ct.cell_types.erase(ID($_TBUF_));
-		ct.cell_types.erase(ID($anyseq));
-		ct.cell_types.erase(ID($anyconst));
-		ct.cell_types.erase(ID($allseq));
-		ct.cell_types.erase(ID($allconst));
 
 		int total_count = 0;
 		for (auto module : design->selected_modules()) {

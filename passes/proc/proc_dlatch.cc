@@ -41,6 +41,8 @@ struct proc_dlatch_db_t
 	dict<SigBit, pair<Cell*, int>> mux_drivers;
 	dict<SigBit, int> sigusers;
 	pool<SigBit> active_bits;
+	dict<SigBit, int> extra_readers;
+	bool all_processes_muxed = true;
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
@@ -79,7 +81,86 @@ struct proc_dlatch_db_t
 			if (wire->port_input)
 				for (auto bit : sigmap(wire))
 					sigusers[bit]++;
+			if (wire->port_output || wire->get_bool_attribute(ID::keep))
+				count_extra_readers(wire);
 		}
+
+		// after proc_mux, sync rules hold the only process reads that are not muxes
+		for (auto [_, proc] : module->processes) {
+			if (has_assignments(&proc->root_case))
+				all_processes_muxed = false;
+			for (auto sync : proc->syncs) {
+				count_extra_readers(sync->signal);
+				for (auto &[lhs, rhs] : sync->actions)
+					count_extra_readers(rhs);
+				for (auto &mem_write : sync->mem_write_actions) {
+					count_extra_readers(mem_write.address);
+					count_extra_readers(mem_write.data);
+					count_extra_readers(mem_write.enable);
+				}
+			}
+		}
+	}
+
+	static bool has_assignments(RTLIL::CaseRule *case_rule)
+	{
+		for (auto &[lhs, rhs] : case_rule->actions)
+			if (!lhs.empty())
+				return true;
+		for (auto switch_rule : case_rule->switches)
+			for (auto sub_case : switch_rule->cases)
+				if (has_assignments(sub_case))
+					return true;
+		return false;
+	}
+
+	void count_extra_readers(const SigSpec &sig)
+	{
+		for (auto bit : sigmap(sig))
+			extra_readers[bit]++;
+	}
+
+	int readers(SigBit bit)
+	{
+		return sigusers[bit] + extra_readers[bit];
+	}
+
+	int count_hold_uses(SigBit bit, SigBit q)
+	{
+		auto it = mux_drivers.find(bit);
+		if (it == mux_drivers.end())
+			return 0;
+
+		auto [cell, index] = it->second;
+		if (cell->has_keep_attr())
+			return 0;
+
+		SigSpec sig_a = sigmap(cell->getPort(ID::A));
+		SigSpec sig_b = sigmap(cell->getPort(ID::B));
+		int width = GetSize(sig_a);
+		SigSpec inputs = sig_a[index];
+		if (cell->type == ID($bwmux))
+			inputs.append(sig_b[index]);
+		else
+			for (int i = 0; i < GetSize(sig_b) / width; i++)
+				inputs.append(sig_b[i*width + index]);
+
+		int uses = 0;
+		for (auto input : inputs) {
+			if (input == q)
+				uses++;
+			else if (readers(input) == 1)
+				uses += count_hold_uses(input, q);
+		}
+		return uses;
+	}
+
+	// latch output only feeds its own hold path
+	bool is_unused_latch(SigBit q, SigBit d)
+	{
+		if (!all_processes_muxed)
+			return false;
+		return readers(d) == 1 && count_hold_uses(d, q) == readers(q);
 	}
 
 	bool quickcheck(const SigSpec &haystack, const SigSpec &needle)
@@ -468,11 +549,20 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 		sr->actions.clear();
 	}
 
+	bool may_drop_latch = !proc->get_bool_attribute(ID::always_comb) && !proc->get_bool_attribute(ID::always_latch);
+
 	latches_out_in.sort();
 	for (auto &it : latches_out_in) {
 		if (db.find_mux_feedback(it.second, it.first, false) == db.false_node) {
 			nolatches_bits.first.append(it.first);
 			nolatches_bits.second.append(it.second);
+			continue;
+		}
+
+		// cut the hold path and leave the output undriven
+		if (may_drop_latch && db.is_unused_latch(it.first, it.second)) {
+			db.find_mux_feedback(it.second, it.first, true);
+			db.initvals.remove_init(it.first);
 			continue;
 		}
 

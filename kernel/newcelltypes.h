@@ -48,6 +48,8 @@ struct CellTableBuilder {
 		bool is_mem_noff = false;
 		bool is_anyinit = false;
 		bool is_tristate = false;
+		bool has_side_effect = false;
+		bool is_nondeterministic = false;
 	};
 	struct CellInfo {
 		RTLIL::IdString type;
@@ -70,22 +72,35 @@ struct CellTableBuilder {
 		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
 
 		features = {};
+		features.has_side_effect = true;
 		setup_type(ID($assert), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($assume), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($live), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($fair), {ID::A, ID::EN}, {}, features);
 		setup_type(ID($cover), {ID::A, ID::EN}, {}, features);
+
+		features = {};
 		setup_type(ID($initstate), {}, {ID::Y}, features);
+
+		features = {};
+		features.is_nondeterministic = true;
 		setup_type(ID($anyconst), {}, {ID::Y}, features);
 		setup_type(ID($anyseq), {}, {ID::Y}, features);
 		setup_type(ID($allconst), {}, {ID::Y}, features);
 		setup_type(ID($allseq), {}, {ID::Y}, features);
+
+		features = {};
 		setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, features);
 		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
 		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
+
+		features = {};
+		features.has_side_effect = true;
 		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {}, features);
 		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {}, features);
+
+		features = {};
 		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y}, features);
 		setup_type(ID($get_tag), {ID::A}, {ID::Y}, features);
 		setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, {}, features);
@@ -156,6 +171,7 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_anyinit = true;
+		features.is_nondeterministic = true;
 		setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
 	}
 	constexpr void setup_internals_mem_noff()
@@ -480,6 +496,8 @@ struct Categories {
 	Category is_mem_noff {};
 	Category is_anyinit {};
 	Category is_tristate {};
+	Category has_side_effect {};
+	Category is_nondeterministic {};
 	constexpr Categories() {
 		for (size_t i = 0; i < builder.count; ++i) {
 			auto& cell = builder.cells[i];
@@ -493,6 +511,8 @@ struct Categories {
 			is_mem_noff.set(idx, cell.features.is_mem_noff);
 			is_anyinit.set(idx, cell.features.is_anyinit);
 			is_tristate.set(idx, cell.features.is_tristate);
+			has_side_effect.set(idx, cell.features.has_side_effect);
+			is_nondeterministic.set(idx, cell.features.is_nondeterministic);
 		}
 	}
 	constexpr static Category join(Category left, Category right) {
@@ -546,6 +566,10 @@ namespace {
 	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($and)));
 	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($dffsr)));
 	static_assert(!Categories::join(categories.is_evaluable, categories.is_ff)(ID($anyinit)));
+	static_assert(categories.has_side_effect(ID($print)));
+	static_assert(!categories.has_side_effect(ID($and)));
+	static_assert(categories.is_nondeterministic(ID($anyinit)));
+	static_assert(!categories.is_nondeterministic(ID($initstate)));
 }
 
 };

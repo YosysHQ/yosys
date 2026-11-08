@@ -38,7 +38,9 @@ extern void simplemap_concat(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap_ff(RTLIL::Module *module, RTLIL::Cell *cell);
 extern void simplemap(RTLIL::Module *module, RTLIL::Cell *cell);
 
-extern void simplemap_get_mappers(dict<RTLIL::IdString, void(*)(RTLIL::Module*, RTLIL::Cell*)> &mappers);
+using SimplemapFn = void (*)(RTLIL::Module *module, RTLIL::Cell *cell);
+// Null if simplemap can't map this cell type
+extern SimplemapFn simplemap_mapper(RTLIL::IdString type);
 
 YOSYS_NAMESPACE_END
 

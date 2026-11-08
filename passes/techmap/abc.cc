@@ -1169,33 +1169,9 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 }
 
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
-static bool is_abc_prompt(const std::string &line, std::string &rest) {
-	size_t pos = 0;
-	while (true) {
-		// The prompt may not start at the start of the line, because
-		// ABC can output progress and maybe other data that isn't
-		// newline-terminated.
-		size_t start = line.find("abc ", pos);
-		if (start == std::string::npos)
-			return false;
-		pos = start + 4;
-
-		size_t digits = 0;
-		while (pos + digits < line.size() && line[pos + digits] >= '0' && line[pos + digits] <= '9')
-			++digits;
-		if (digits < 2)
-			return false;
-		if (line.substr(pos + digits, 2) == "> ") {
-			rest = line.substr(pos + digits + 2);
-			return true;
-		}
-	}
-}
-
 bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	std::string line;
 	char buf[1024];
-	bool seen_source_cmd = false;
 	bool seen_yosys_abc_done = false;
 	while (true) {
 		int ret;
@@ -1218,23 +1194,16 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 			line.append(start, upto - start);
 			start = upto;
 
-			std::string rest;
-			bool is_prompt = is_abc_prompt(line, rest);
-			if (is_prompt && seen_source_cmd) {
-				// This is the first prompt after we sourced the script.
-				// We are done here.
-				// We won't have seen a newline yet since ABC is waiting at the prompt.
-				if (!seen_yosys_abc_done)
-					logs.log_error("ABC script did not complete successfully\n");
-				return seen_yosys_abc_done;
-			}
 			if (line.empty() || line[line.size() - 1] != '\n') {
 				// No newline yet, wait for more text
 				continue;
 			}
+			if (line.substr(0, 13) == "YOSYS_ABC_END") {
+				if (!seen_yosys_abc_done)
+					logs.log_error("ABC script did not complete successfully\n");
+				return seen_yosys_abc_done;
+			}
 			filt.next_line(line);
-			if (is_prompt && rest.substr(0, 7) == "source ")
-				seen_source_cmd = true;
 			if (line.substr(0, 14) == "YOSYS_ABC_DONE")
 				seen_yosys_abc_done = true;
 			line.clear();
@@ -1439,7 +1408,8 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 				}
 			std::string cmd = stringf(
 					"empty\n"
-					"source %s\n", tmp_script_name);
+					"source %s\n"
+					"echo YOSYS_ABC_END\n", tmp_script_name);
 			ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
 			if (ret != static_cast<int>(cmd.size())) {
 				logs.log_error("write failed\n");
@@ -1543,13 +1513,13 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 		log_error("Can't open ABC output file `%s'.\n", buffer);
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
-	RTLIL::Design *mapped_design = new RTLIL::Design;
-	parse_blif(mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
+	RTLIL::Design mapped_design;
+	parse_blif(&mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
 
 	ifs.close();
 
 	log_header(design, "Re-integrating ABC results.\n");
-	RTLIL::Module *mapped_mod = mapped_design->module(ID::netlist);
+	RTLIL::Module *mapped_mod = mapped_design.module(ID::netlist);
 	if (mapped_mod == nullptr)
 		log_error("ABC output file does not contain a module `netlist'.\n");
 	bool markgroups = run_abc.config.markgroups;
@@ -1766,7 +1736,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design->twines(), c->type));
+		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design.twines(), c->type));
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 		RTLIL::copy_attr_dict(cell->parameters, c->parameters, c->module->design, module->design);
 		for (auto &conn : c->connections()) {
@@ -1777,7 +1747,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				log_assert(c.width == 1);
 				newsig.append(module->wire(remap_ref(module, c.wire->name)));
 			}
-			cell->setPort(module->twines().copy_from(mapped_design->twines(), conn.first), newsig);
+			cell->setPort(module->twines().copy_from(mapped_design.twines(), conn.first), newsig);
 		}
 		design->select(module, cell);
 	}
@@ -1814,7 +1784,6 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 	log("ABC RESULTS:           input signals: %8d\n", in_wires);
 	log("ABC RESULTS:          output signals: %8d\n", out_wires);
 
-	delete mapped_design;
 	finish();
 }
 

@@ -445,7 +445,8 @@ struct RecoverModuleWorker {
 };
 
 struct RecoverNamesWorker {
-    Design *design, *gold_design = nullptr;
+    Design *design;
+    Design gold_design;
     CellTypes ct_all;
     RecoverNamesWorker(Design *design) : design(design) {}
 
@@ -564,7 +565,7 @@ struct RecoverNamesWorker {
 
     void analyse_mod(Module *gate_mod)
     {
-        Module *gold_mod = gold_design->module(gate_mod->name);
+        Module *gold_mod = gold_design.module(gate_mod->name);
         if (!gold_mod)
             return;
 
@@ -667,10 +668,8 @@ struct RecoverNamesWorker {
     void operator()(string command)
     {
         // Make a backup copy of the pre-mapping design for later
-        gold_design = new RTLIL::Design;
-
         for (auto mod : design->modules())
-            gold_design->add(mod->clone());
+            gold_design.add(mod->clone());
 
         run_pass(command, design);
 
@@ -683,9 +682,6 @@ struct RecoverNamesWorker {
                 to_analyse.push_back(mod);
         for (auto mod : to_analyse)
             analyse_mod(mod);
-    }
-    ~RecoverNamesWorker() {
-        delete gold_design;
     }
 };
 

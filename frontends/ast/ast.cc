@@ -1014,7 +1014,12 @@ RTLIL::Const AstNode::asAttrConst() const
 {
 	log_assert(type == AST_CONSTANT);
 
-	return is_string ? RTLIL::Const(str) : RTLIL::Const(bits);
+	if (is_string)
+		return RTLIL::Const(str);
+	RTLIL::Const val(bits);
+	if (is_signed)
+		val.flags |= RTLIL::CONST_FLAG_SIGNED;
+	return val;
 }
 
 RTLIL::Const AstNode::asParaConst() const
@@ -1140,7 +1145,7 @@ static IdString build_hier_content(TwinePool &pool, std::string_view content)
 {
 	size_t dot = content.rfind('.');
 	if (dot == std::string_view::npos)
-		return pool.add(TwineSpec::Leaf{std::string{content}}).tag(true);
+		return pool.add(TwineSpec::Root{std::string{content}}).tag(true);
 	IdString prefix = build_hier_content(pool, content.substr(0, dot));
 	return pool.add(TwineSpec::Suffix{prefix, std::string{content.substr(dot)}});
 }

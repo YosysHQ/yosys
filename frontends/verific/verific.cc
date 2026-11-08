@@ -2327,7 +2327,12 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				for (auto bit : zwires)
 					sigvec.push_back(bit);
 			}
-			sigvec[port_offset] = net_map_at(pr->GetNet());
+			// fixing issue where undriven interface nets get driver conflicts - issue 6409
+			Net *port_net = pr->GetPort()->GetNet();
+			bool unused_output = !is_blackbox(inst->View()) && pr->IsOutput() && port_net && !port_net->Driver();
+			if (!unused_output) {
+				sigvec[port_offset] = net_map_at(pr->GetNet());
+			}
 		}
 
 		if (verific_verbose)
