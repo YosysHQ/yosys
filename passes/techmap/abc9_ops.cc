@@ -344,6 +344,8 @@ void prep_bypass(RTLIL::Design *design)
 				auto w = map_module->addWire(translate(map_design, design, port_name), inst_module->wire(port_name));
 				if (w->port_output)
 					w->attributes.erase(ID::init);
+				if (w->port_input)
+					w->attributes[ID::techmap_autopurge] = 1;
 			}
 			map_module->ports.clear();
 			for (auto port_name : inst_module->ports)
