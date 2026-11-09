@@ -25,7 +25,7 @@ General Advice
 When running symbolic model checking from within yosys, there are a few things to keep in mind.
 
 1. Add ``async2sync; chformal -lower`` after running hierarchy. ``async2sync``
-   does what it's name suggests and synchornizes aynchronous cells. ``chformal -lower``
+   does what it's name suggests and synchornizes asynchronous cells. ``chformal -lower``
    transforms ``$check`` cells into the appropriate ``$assert`` or ``$cover`` cells.
 2. Some frontends such as ``read_slang`` have different semantics regarding how they handle undriven bits.
    To canonicalize them you may want to run ``setundef -undriven -anyseq``.
