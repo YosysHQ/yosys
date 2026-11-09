@@ -1,0 +1,7 @@
+read_verilog -sv axis_master_fixed.v axis_test.v
+hierarchy -top axis_test
+async2sync
+chformal -lower
+
+proc; flatten;;
+sat -seq 50 -prove-asserts
