@@ -2442,6 +2442,14 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 		bool pwr1 = inst_mux->GetInput1()->IsPwr();
 		bool pwr2 = inst_mux->GetInput2()->IsPwr();
 
+		bool gnd1 = inst_mux->GetInput1()->IsGnd();
+		bool gnd2 = inst_mux->GetInput2()->IsGnd();
+
+		if (!pwr1 && !pwr2) {
+			pwr1 = gnd1;
+			pwr2 = gnd2;
+		}
+
 		if (!pwr1 && !pwr2)
 			break;
 
@@ -2539,6 +2547,14 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 
 		bool pwr1 = inst_mux->GetInput1()->IsPwr();
 		bool pwr2 = inst_mux->GetInput2()->IsPwr();
+
+		bool gnd1 = inst_mux->GetInput1()->IsGnd();
+		bool gnd2 = inst_mux->GetInput2()->IsGnd();
+
+		if (!pwr1 && !pwr2) {
+			pwr1 = gnd1;
+			pwr2 = gnd2;
+		}
 
 		if (!pwr1 && !pwr2)
 			break;
