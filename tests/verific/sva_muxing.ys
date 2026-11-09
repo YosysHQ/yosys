@@ -1,0 +1,16 @@
+verific -sv << EOT
+module top (input clk, en, a, b);
+    always @(posedge clk) if (en) assert property (a ##1 b);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$assert %ci* i:a %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, en, a, b);
+    always @(posedge clk) if (en) cover property (a ##1 b);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$cover %ci* i:a %i
