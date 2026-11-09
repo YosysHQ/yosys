@@ -84,16 +84,16 @@ TEST(CellTypesTest, basic)
 
 	const auto &categories = StaticCellTypes::categories;
 
-	constexpr auto evaluable_or_tristate = StaticCellTypes::Categories::join(
-		categories.is_evaluable, categories.is_tristate);
+	constexpr auto is_stateless_synthesizable = StaticCellTypes::Categories::meet(
+		categories.is_synthesizable, categories.is_stateless);
 
 	constexpr auto synthesizable_kinds = StaticCellTypes::Categories::join(
-		categories.is_combinatorial, categories.is_ff, categories.is_mem_noff);
+		categories.is_combinatorial, categories.is_ff, categories.is_mem);
 
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
 		SCOPED_TRACE(ID::unescaped_str(type));
-		EXPECT_EQ(categories.is_combinatorial(type), evaluable_or_tristate(type));
+		EXPECT_EQ(categories.is_combinatorial(type), is_stateless_synthesizable(type));
 		EXPECT_EQ(categories.is_synthesizable(type), synthesizable_kinds(type));
 	}
 }

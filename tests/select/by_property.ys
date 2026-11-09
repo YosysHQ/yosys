@@ -25,7 +25,7 @@ opt_clean
 # n2 -> assert
 ###############
 select -assert-count 6 y:is_known
-select -assert-count 5 y:is_evaluable
+select -assert-count 4 y:is_evaluable
 select -assert-count 4 y:is_combinatorial
 select -assert-count 5 y:is_synthesizable
 select -assert-count 1 y:is_ff
@@ -43,9 +43,10 @@ select -assert-count 1 y:is_formal
 # n1, y -eq-> n2
 # n2 -> hanging
 ###############
+log -header "Deleting non-synthesizable cells"
 delete c:* y:is_synthesizable %d
 select -assert-count 5 y:is_known
-select -assert-count 5 y:is_evaluable
+select -assert-count 4 y:is_evaluable
 select -assert-count 4 y:is_combinatorial
 select -assert-count 5 y:is_synthesizable
 select -assert-count 1 y:is_ff
@@ -59,9 +60,10 @@ select -assert-count 0 y:is_formal
 # b    -dff-> q
 # n, q -and-> y
 ###############
+log -header "Cleaning up dead cells"
 opt_clean
 select -assert-count 3 y:is_known
-select -assert-count 3 y:is_evaluable
+select -assert-count 2 y:is_evaluable
 select -assert-count 2 y:is_combinatorial
 select -assert-count 3 y:is_synthesizable
 select -assert-count 1 y:is_ff
