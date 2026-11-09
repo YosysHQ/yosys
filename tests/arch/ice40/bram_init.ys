@@ -96,4 +96,3 @@ select -assert-count 1 r:INIT_C=256'h5260de0fa26ea82d12bcb3fd32187e83d72f7090a2e
 select -assert-count 1 r:INIT_D=256'h6d9971bb55ab57b9fab66cd0943db588ca542a2270981fc27a20b796e5462271
 select -assert-count 1 r:INIT_E=256'hf0326faee3e48c266887b9e542a03677091fae593cf8453fc2967d4b88fd171e
 select -assert-count 1 r:INIT_F=256'h15d099dec9ada9e038ba12efe74ad07365b3694c50c34f18440699e02addfe91
-

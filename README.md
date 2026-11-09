@@ -91,7 +91,7 @@ To run tests, run the following:
 
 For more details, and instructions for other platforms, check [building from
 source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source) and [running the tests](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/test_suites.html)
-on Read the Docs. 
+on Read the Docs.
 
 Getting Started
 ===============
