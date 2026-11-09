@@ -47,6 +47,8 @@ struct AigerReader
     std::vector<int> mergeability, initial_state;
     dict<unsigned, RTLIL::Wire*> aiger_wires;
 
+    dict<RTLIL::SigBit, unsigned> wire_to_variable;
+
     AigerReader(RTLIL::Design *design, std::istream &f, RTLIL::IdString module_name, RTLIL::IdString clk_name, std::string map_filename);
     void parse_aiger();
     void parse_xaiger();
@@ -57,6 +59,7 @@ struct AigerReader
     RTLIL::Wire* createWireIfNotExists(RTLIL::Module *module, unsigned literal);
     RTLIL::Wire* getOrCreateNormalWire(RTLIL::Module *module, unsigned variable);
     RTLIL::Wire* getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable);
+    RTLIL::Wire* addVariableWire(RTLIL::Module *module, std::string name, unsigned variable);
 };
 
 YOSYS_NAMESPACE_END

@@ -61,6 +61,7 @@ struct ConstEvalAig
 	dict<RTLIL::SigBit, RTLIL::State> values_map;
 	dict<RTLIL::SigBit, RTLIL::Cell*> sig2driver;
 	dict<SigBit, pool<RTLIL::SigBit>> sig2deps;
+	pool<RTLIL::SigBit> deps;
 
 	ConstEvalAig(RTLIL::Module *module) : module(module)
 	{
@@ -79,6 +80,7 @@ struct ConstEvalAig
 	{
 		values_map.clear();
 		sig2deps.clear();
+		deps.clear();
 	}
 
 	void set(RTLIL::SigBit sig, RTLIL::State value)
@@ -117,6 +119,7 @@ struct ConstEvalAig
 	void compute_deps(RTLIL::SigBit output, const pool<RTLIL::SigBit> &inputs)
 	{
 		sig2deps[output].insert(output);
+		deps.insert(output);
 
 		RTLIL::Cell *cell = sig2driver.at(output);
 		RTLIL::SigBit sig_a = cell->getPort(ID::A);
@@ -361,8 +364,7 @@ RTLIL::Wire* AigerReader::getOrCreateNormalWire(RTLIL::Module *module, unsigned 
 	std::string name = stringf("$aiger%d$%d", aiger_autoidx, variable);
 	if (RTLIL::Wire *wire = module->wire(name))
 		return wire;
-	log_debug2("Creating %s\n", name);
-	return module->addWire(std::move(name));
+	return addVariableWire(module, std::move(name), variable);
 }
 
 RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigned variable)
@@ -370,12 +372,19 @@ RTLIL::Wire* AigerReader::getOrCreateInvertedWire(RTLIL::Module *module, unsigne
 	std::string name = stringf("$aiger%d$%db", aiger_autoidx, variable);
 	if (RTLIL::Wire *wire = module->wire(name))
 		return wire;
-	log_debug2("Creating %s\n", name);
-	RTLIL::Wire *inverted = module->addWire(std::move(name));
+	RTLIL::Wire *inverted = addVariableWire(module, std::move(name), variable);
 	RTLIL::Wire *normal = createWireIfNotExists(module, variable << 1);
 	log_debug2("Creating %s = ~%s\n", inverted->name, normal->name);
 	module->addNotGate(stringf("$not$aiger%d$%d", aiger_autoidx, variable), normal, inverted);
 	return inverted;
+}
+
+RTLIL::Wire* AigerReader::addVariableWire(RTLIL::Module *module, std::string name, unsigned variable)
+{
+	log_debug2("Creating %s\n", name.c_str());
+	RTLIL::Wire *wire = module->addWire(std::move(name));
+	wire_to_variable[wire] = variable;
+	return wire;
 }
 
 void AigerReader::parse_xaiger()
@@ -429,6 +438,10 @@ void AigerReader::parse_xaiger()
 	if (f.peek() == '\n')
 		f.get();
 
+	dict<RTLIL::Cell*, std::vector<int>> lut_sources;
+	std::vector<uint32_t> equivalences;
+	bool got_equivalences = false;
+
 	// Parse footer (comments, extensions)
 	for (int c = f.get(); c != EOF; c = f.get()) {
 		// XAIGER extensions
@@ -475,7 +488,21 @@ void AigerReader::parse_xaiger()
 				RTLIL::Cell *output_cell = module->cell(stringf("$and$aiger%d$%d", aiger_autoidx, rootNodeID));
 				log_assert(output_cell);
 				module->remove(output_cell);
-				module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+				RTLIL::Cell *lut = module->addLut(stringf("$lut$aiger%d$%d", aiger_autoidx, rootNodeID), input_sig, output_sig, std::move(lut_mask));
+
+				auto sources_pool = pool<int>{};
+				for (auto literal : ce.deps) {
+					if (literal.is_wire()) {
+						log_assert(wire_to_variable.find(literal) != wire_to_variable.end());
+						sources_pool.insert(wire_to_variable.at(literal));
+					}
+				}
+
+				auto sources = std::vector<int>{};
+				for (auto source : sources_pool)
+					sources.push_back(source);
+
+				lut_sources[lut] = sources;
 			}
 		}
 		else if (c == 'M') { // cell 'M'apping
@@ -608,6 +635,18 @@ void AigerReader::parse_xaiger()
 				boxes.emplace_back(cell);
 			}
 		}
+		else if (c == 'y') { // equivalence classes
+			got_equivalences = true;
+
+			uint32_t entryCount = parse_xaiger_literal(f) / sizeof(uint32_t);
+			equivalences.clear();
+			for (unsigned i = 0; i < entryCount; i++) {
+				uint32_t entry;
+				// Surprise! This is native-endian not big-endian.
+				f.read(reinterpret_cast<char*>(&entry), sizeof(entry));
+				equivalences.push_back(entry);
+			}
+		}
 		else if (c == 'a' /* 'a'dditional AIG */ || c == 'i' /* 'i'nput arrival times */ || c == 'o' /* 'o'utput required times */) {
 			uint32_t dataSize = parse_xaiger_literal(f);
 			f.ignore(dataSize);
@@ -615,6 +654,20 @@ void AigerReader::parse_xaiger()
 		}
 		else {
 			break;
+		}
+	}
+
+	// The literals in `lut_sources` are from the ABC output design; map them to literals from the ABC input design for name recovery.
+	if (got_equivalences) {
+		for (auto &[lut, sources] : lut_sources) {
+			auto mapped_sources = std::vector<int>{};
+			for (auto source : sources) {
+				// if `source` is not equivalent to an input design node, skip it.
+				if (source >= GetSize(equivalences) || equivalences[source] == ~0u)
+					continue;
+				mapped_sources.push_back(equivalences[source]);
+			}
+			lut->set_intvec_attribute(ID::abc9_src, mapped_sources);
 		}
 	}
 
