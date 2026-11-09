@@ -2648,7 +2648,7 @@ struct VerilogBackend : public Backend {
 		log("    -nodec_attr\n");
 		log("        attribute values of up to 32 bits are by default dumped in decimal and\n");
 		log("        without size and radix, except for 32-bit values outside of\n");
-		log("        -(2**31-1)..2**31-1 and the values of the init and defaultvalue\n");
+		log("        range -(2**31-1)..2**31-1 and the values of the init and defaultvalue\n");
 		log("        attributes. This option dumps them with size and radix instead.\n");
 		log("\n");
 		log("    -dec_param\n");
