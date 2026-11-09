@@ -6,8 +6,7 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 {
 	Cell *u_x = top->addCell("\\u_x", ID(INV));
 	u_x->setPort(ID(A), State::Sx);
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	Netlist::Instance *t = view.top();
 	std::vector<Netlist::Net *> zeros = view.constNets(Netlist::Net::Const::Zero);
 	ASSERT_EQ(zeros.size(), 1u);
@@ -32,8 +31,7 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 // write_verilog sorts the design, opt_clean reorders the connections
 TEST_F(NetViewTest, topIsNoRegisterOrBuffer)
 {
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	EXPECT_FALSE(view.isRegister(view.top()));
 	EXPECT_FALSE(view.isBuffer(view.top()));
 	EXPECT_FALSE(view.isClockPin(view.top()->pins[0]));
@@ -69,8 +67,7 @@ TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 	Module *m = other->addModule(ID(top));
 	m->addWire(ID(a))->port_input = true;
 	m->fixup_ports();
-	NetView view;
-	view.build(other.get());
+	NetView view(other.get());
 	EXPECT_TRUE(view.upToDate());
 	other.reset();
 	EXPECT_FALSE(view.upToDate());
@@ -121,8 +118,7 @@ static std::vector<std::string> hdlpathOfName(const std::string &name)
 	Module *m = design.addModule(ID(top));
 	m->set_bool_attribute(ID::top);
 	Cell *cell = m->addCell(name, ID(INV));
-	NetView view;
-	view.build(&design);
+	NetView view(&design);
 	return topChild(view, cell)->hdlpath;
 }
 
@@ -156,8 +152,7 @@ TEST(NetViewNameTest, publicNamesAreUnescaped)
 	u->setPort("\\$a", i);
 	u->setPort("$p", i);
 	u->setPort(ID(Y), o);
-	NetView view;
-	view.build(&design);
+	NetView view(&design);
 	Netlist::Instance *iu = topChild(view, u);
 	EXPECT_EQ(iu->name, "$u");
 	ASSERT_EQ(view.top()->ports->size(), 2u);
@@ -179,15 +174,12 @@ TEST_F(NetViewTest, unknownTypeWithALibraryIsAnErrorIfConnected)
 {
 	top->addCell("\\u_tap0", "\\TAP");
 	NoCellLibrary library;
-	NetView view;
-	view.build(d, {&library});
+	NetView view(d, {&library});
 	EXPECT_TRUE(topChild(view, top->cell("\\u_tap0"))->pins.empty());
 
-	view.clear();
 	top->addCell("\\u_tap1", "\\TAP")->setPort("\\A", in);
 	auto scope = logger().error_throw_scope();
-	EXPECT_THROW(view.build(d, {&library}), log_cmd_error_exception);
-	EXPECT_FALSE(view.built());
+	EXPECT_THROW(NetView failed(d, {&library}), log_cmd_error_exception);
 }
 
 // $pre -> $barrier -> d0
@@ -202,8 +194,7 @@ TEST_F(NetViewTest, connectAndInputPortAreTransparent)
 	Cell *input = top->addCell("$i", ID($input_port));
 	input->setParam(ID::WIDTH, 1);
 	input->setPort(ID::Y, in);
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	EXPECT_EQ(topChild(view, connect), nullptr);
 	EXPECT_EQ(topChild(view, input), nullptr);
 	EXPECT_EQ(view.top()->children.size(), 3u);
@@ -219,19 +210,8 @@ TEST_F(NetViewTest, barrierFromALiteralConstantIsConstant)
 	Wire *post = top->addWire("$post");
 	top->addBarrier("$b", State::S1, post);
 	u_inv2->setPort(ID(A), post);
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	EXPECT_EQ(topChild(view, u_inv2)->pins[0]->net->constant, Netlist::Net::Const::One);
-}
-
-TEST_F(NetViewTest, countsOfAnUnbuiltViewAreZero)
-{
-	NetView view;
-	EXPECT_EQ(view.counts(), NetView::Counts{});
-	view.build(d);
-	EXPECT_NE(view.counts(), NetView::Counts{});
-	view.clear();
-	EXPECT_EQ(view.counts(), NetView::Counts{});
 }
 
 TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
@@ -243,8 +223,7 @@ TEST_F(NetViewTest, splitBitsOfAFlatVectorKeepTheirIndex)
 	w1->set_hdlname_attribute({"u", "w"});
 	Cell *c = top->addCell("\\c", ID(INV));
 	c->setPort(ID(A), w1);
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	EXPECT_EQ(view.name(topChild(view, c)->pins[0]->net), (Netlist::NetName{"u.w[1]", 1, false, {"u", "w"}}));
 }
 
@@ -258,8 +237,7 @@ TEST_F(NetViewTest, childNamesAreUniqueInTheScope)
 	r->set_hdlname_attribute({"k"});
 	Cell *v = top->addCell("\\v", ID(INV));
 	v->set_hdlname_attribute({"v", "y"});
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	dict<const Cell *, std::string> by_cell;
 	for (const Netlist::Instance *child : view.top()->children)
 		by_cell[view.cell(child)] = child->unique_name;
@@ -284,8 +262,7 @@ TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
 		cell->setPort(ID(a), in);
 		wrappers.push_back(cell);
 	}
-	NetView view;
-	view.build(d);
+	NetView view(d);
 	std::vector<uint64_t> keys;
 	std::vector<uint64_t> child_keys;
 	for (Cell *cell : wrappers) {

@@ -110,17 +110,18 @@ inline TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::K
 struct TrackedView {
 	Design *design;
 	TrackMode mode;
-	std::unique_ptr<NetView> view = std::make_unique<NetView>();
+	std::unique_ptr<NetView> view = std::make_unique<NetView>(design);
 	NetTracker tracker;
 
-	explicit TrackedView(Design *design, TrackMode mode = TrackMode::Barriers) : design(design), mode(mode) { view->build(design); }
+	explicit TrackedView(Design *design, TrackMode mode = TrackMode::Barriers) : design(design), mode(mode)
+	{
+	}
 	Netlist::Instance *child(const Cell *cell) const { return topChild(*view, cell); }
 	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs, mode); }
 	void next(const std::vector<TrackedRef *> &refs)
 	{
 		pool<const Cell *> barriers = tracker.barrierInstances(design);
-		view = std::make_unique<NetView>();
-		view->build(design, {nullptr, &barriers});
+		view = std::make_unique<NetView>(design, NetView::BuildOptions{nullptr, &barriers});
 		tracker.resolve(*view, refs);
 	}
 };

@@ -87,6 +87,7 @@ uint64_t bitKey(const RTLIL::SigBit &bit);
 void nameChildren(Netlist::Instance *scope);
 
 // Body keys
+uint64_t scopeBodyHash(const NetView &view, const Netlist::Instance *scope);
 uint64_t pinHash(char tag, const std::string &child, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net);
 void eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *net);
 
@@ -150,12 +151,6 @@ struct RtlilIndex {
 	NetsByScopeBit nets_by_scope_bit;
 };
 
-struct BodyKeys {
-	Netlist::IdMap<uint64_t> keys; // by instance id, 0 if not known
-public:
-	uint64_t key(const NetView &view, const Netlist::Instance *scope);
-};
-
 struct ScopeContents {
 	std::vector<Netlist::Net *> nets;
 	Netlist::Net *tie_nets[2] = {}; // by value == Const::One
@@ -171,7 +166,8 @@ struct ViewData {
 	PortStore ports;
 	RtlilIndex index;
 	Netlist::IdMap<ScopeContents> scope_contents; // by scope id
-	BodyKeys body_keys; // a cache of NetView::bodyKey
+	Netlist::IdMap<uint64_t> body_keys;           // NetView::bodyKey by scope id
+
 	// the design at the build
 	uint64_t fingerprint = 0;
 	size_t twines_serial = 0;

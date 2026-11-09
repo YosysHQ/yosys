@@ -44,26 +44,24 @@ struct NetView final {
 		uint64_t instances = 0;
 		uint64_t nets = 0;
 		uint64_t pins = 0;
-		bool operator==(const Counts &) const = default;
 		void add(const Counts &other); // saturates at UINT32_MAX
 		bool fitIds() const;
 	};
 
-	NetView();
+	// one instance per cell occurrence, depth first in statement order
+	// log_cmd_error if not buildable() or a leaf type has no port model
+	// with a library only a connected cell needs one
+	explicit NetView(RTLIL::Design *design);
+	NetView(RTLIL::Design *design, const BuildOptions &options);
 	~NetView();
 	NetView(const NetView &) = delete;
 	NetView &operator=(const NetView &) = delete;
 
-	void build(RTLIL::Design *design);
-	void build(RTLIL::Design *design, const BuildOptions &options);
 	static bool buildable(RTLIL::Design *design, std::string &reason);
-	void clear();
-	bool built() const;
 	RTLIL::Design *design() const;
 	Netlist::Instance *top() const;
 
 	bool upToDate() const;
-	void markUpToDate();
 
 	Counts counts() const;
 
@@ -89,6 +87,9 @@ struct NetView final {
 	bool isBuffer(const Netlist::Instance *inst) const;
 
 private:
+	friend struct NetTracker;
+	// a checkpoint with barriers calls it when no view net changed
+	void markUpToDate();
 	std::unique_ptr<detail::ViewData> data_;
 };
 

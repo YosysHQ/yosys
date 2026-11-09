@@ -14,11 +14,7 @@ bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
 
 bool Netlist::CellLibrary::isBuffer(const Instance &) { return false; }
 
-NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
-
 NetView::~NetView() = default;
-
-bool NetView::built() const { return data_->top != nullptr; }
 
 Netlist::Instance *NetView::top() const { return data_->top; }
 
@@ -26,8 +22,6 @@ RTLIL::Design *NetView::design() const { return data_->design; }
 
 NetView::Counts NetView::counts() const
 {
-	if (!built())
-		return {};
 	const detail::RecordStore &records = data_->records;
 	return {records.instances.size() - 1, records.nets.size(), records.pins.size()};
 }
@@ -343,11 +337,10 @@ bool detail::checkIndices(RTLIL::Module *module, std::string &reason)
 	return true;
 }
 
-void NetView::build(RTLIL::Design *design) { build(design, BuildOptions()); }
+NetView::NetView(RTLIL::Design *design) : NetView(design, BuildOptions()) {}
 
-void NetView::build(RTLIL::Design *design, const BuildOptions &options)
+NetView::NetView(RTLIL::Design *design, const BuildOptions &options) : data_(std::make_unique<detail::ViewData>())
 {
-	log_assert(!built());
 	std::string reason;
 	if (!buildable(design, reason))
 		log_cmd_error("NetView: %s.\n", reason);
@@ -355,22 +348,21 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	data_->design_owner = design->weak_from_this();
 	data_->design_shared = !data_->design_owner.expired();
 	data_->library = options.library;
-	// A leaf type without ports errors out halfway, drop the partial view
-	try {
-		detail::ViewBuilder(*this, *data_, options.barrier_instances).build(detail::topModule(design));
-	} catch (...) {
-		clear();
-		throw;
-	}
+	detail::ViewBuilder(*this, *data_, options.barrier_instances).build(detail::topModule(design));
 	for (const std::string &type : data_->ports.types_not_in_library)
 		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
 	data_->twines_serial = design->twines().serial();
 	for (const auto &[module, occurrences] : data_->index.scopes_by_module.data)
 		data_->watched_module_names.push_back(module->name);
+	// body keys, children first, a child has a larger id
+	// the top (id 0) needs none
+	for (uint32_t id = data_->records.instances.size(); id-- > 1;) {
+		const Netlist::Instance *inst = &data_->records.instances[id];
+		if (!inst->isLeaf())
+			data_->body_keys[id] = detail::scopeBodyHash(*this, inst);
+	}
 	markUpToDate();
 }
-
-void NetView::clear() { *data_ = detail::ViewData(); }
 
 Netlist::Instance *detail::RecordStore::newInstance()
 {
@@ -616,14 +608,12 @@ struct detail::Fingerprint {
 
 uint64_t NetView::bodyKey(const Netlist::Instance *scope) const
 {
-	log_assert(built());
-	return data_->body_keys.key(*this, scope);
+	log_assert(!scope->isLeaf() && !scope->isTop());
+	return data_->body_keys.get(scope->id);
 }
 
-uint64_t detail::BodyKeys::key(const NetView &view, const Netlist::Instance *scope)
+uint64_t detail::scopeBodyHash(const NetView &view, const Netlist::Instance *scope)
 {
-	if (uint64_t known = keys.get(scope->id))
-		return known;
 	uint64_t sum = 0;
 	for (const Netlist::Port &port : *scope->ports) {
 		detail::Fingerprint fp;
@@ -651,13 +641,12 @@ uint64_t detail::BodyKeys::key(const NetView &view, const Netlist::Instance *sco
 			fp.eat(uint64_t('C'));
 			fp.eat(child->unique_name);
 			fp.eat(child->hdl_type);
-			fp.eat(key(view, child));
+			fp.eat(view.bodyKey(child));
 		}
 		sum += fp.yield();
 		for (const Netlist::Pin *pin : child->pins)
 			sum += detail::pinHash('c', child->unique_name, view, pin, pin->net);
 	}
-	keys[scope->id] = sum;
 	return sum;
 }
 
@@ -782,14 +771,13 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 bool NetView::upToDate() const
 {
 	const detail::ViewData &data = *data_;
-	if (!built() || !detail::designAlive(data) || data.design->twines().serial() != data.twines_serial)
+	if (!detail::designAlive(data) || data.design->twines().serial() != data.twines_serial)
 		return false;
 	return detail::designFingerprint(data.design, data.watched_module_names) == data.fingerprint;
 }
 
 void NetView::markUpToDate()
 {
-	log_assert(built());
 	data_->fingerprint = detail::designFingerprint(data_->design, data_->watched_module_names);
 }
 
