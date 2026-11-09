@@ -69,7 +69,7 @@ The following libraries are required, this command will install them on Ubuntu L
 
   $ sudo apt-get install gawk git make python3 lld bison clang flex \
 		libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
-		graphviz xdot
+		graphviz xdot gtkwave
 
 This sequence of commands will build Yosys from source using the default preset:
 
@@ -85,13 +85,13 @@ For release builds, substitute the cmake commands with these:
 
 To run tests, run the following:
 
-  $ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
+	$ export BUILD_DIR=$(realpath build-rel) && make -C tests -j"$(nproc)" vanilla-test
 
 ### Detailed instructions
 
 For more details, and instructions for other platforms, check [building from
 source](https://yosyshq.readthedocs.io/projects/yosys/en/latest/getting_started/installation.html#building-from-source) and [running the tests](https://yosyshq.readthedocs.io/projects/yosys/en/latest/yosys_internals/extending_yosys/test_suites.html)
-on Read the Docs. 
+on Read the Docs.
 
 Getting Started
 ===============
