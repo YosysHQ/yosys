@@ -45,11 +45,12 @@ struct CellTableBuilder {
 		bool is_x_aware = false;
 		bool is_x_output = false;
 		bool is_combinatorial = false;
+		bool is_stateless = false;
 		bool is_synthesizable = false;
 		bool is_stdcell = false;
 		bool is_ff = false;
-		bool is_mem_noff = false;
-		bool is_anyinit = false;
+		bool is_mem = false;
+		bool is_clocked = false;
 		bool is_tristate = false;
 		bool has_side_effect = false;
 		bool is_nondeterministic = false;
@@ -78,6 +79,7 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_combinatorial = true;
+		features.is_stateless = true;
 		features.is_evaluable = is_evaluable; // not true for $tribuf, why isn't it valid? are z bits not valid from eval?
 		features.is_synthesizable = true;
 		features.is_stdcell = is_stdcell;
@@ -94,28 +96,42 @@ struct CellTableBuilder {
 		Features features {};
 		features.is_synthesizable = true;
 		features.is_ff = true;
+		features.is_clocked = true;
+		features.is_stdcell = is_stdcell;
+
+		setup_type(type, inputs, outputs, features);
+	}
+
+	constexpr void setup_latch_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
+		bool is_stdcell = false)
+	{
+		Features features {};
+		features.is_synthesizable = true;
+		features.is_ff = true;
+		features.is_clocked = false;
 		features.is_stdcell = is_stdcell;
 
 		setup_type(type, inputs, outputs, features);
 	}
 
 	// Setup builtin mem cell type which is synthesizable
-	constexpr void setup_mem_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs)
+	constexpr void setup_mem_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, bool is_clocked = true)
 	{
 		Features features {};
 		features.is_synthesizable = true;
-		features.is_mem_noff = true;
+		features.is_mem = true;
+		features.is_clocked = is_clocked;
 
 		setup_type(type, inputs, outputs, features);
 	}
 
 	// Setup formal cell type which may be combinatorial, and may have effects
 	constexpr void setup_formal_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-			bool is_combinatorial = false, bool has_side_effect = false, bool is_nondeterministic = false)
+			bool has_side_effect = false, bool is_nondeterministic = false, bool is_stateless = true)
 	{
 		Features features {};
-		features.is_combinatorial = is_combinatorial; // also
 		features.is_formal = true;
+		features.is_stateless = is_stateless;
 		features.has_side_effect = has_side_effect; // assert
 		features.is_nondeterministic = is_nondeterministic; // anyseq
 		setup_type(type, inputs, outputs, features);
@@ -136,6 +152,7 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_meta_info = true;
+		features.is_stateless = true;
 		setup_type(type, inputs, outputs, features);
 	}
 
@@ -148,29 +165,34 @@ struct CellTableBuilder {
 		// is this evaluable
 		features = {};
 		features.is_evaluable = false;
-		features.is_combinatorial = true;
+		features.is_stateless = true;
 		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
 
-		// combinatorial, has_side_effect, and !is_nondeterministic;
-		setup_formal_type(ID($assert), {ID::A, ID::EN}, {}, true, true, false);
-		setup_formal_type(ID($assume), {ID::A, ID::EN}, {}, true, true, false);
-		setup_formal_type(ID($live),   {ID::A, ID::EN}, {}, true, true, false);
-		setup_formal_type(ID($fair),   {ID::A, ID::EN}, {}, true, true, false);
-		setup_formal_type(ID($cover),  {ID::A, ID::EN}, {}, true, true, false);
+		// has_side_effect, and !is_nondeterministic;
+		setup_formal_type(ID($assert), {ID::A, ID::EN}, {}, true, false);
+		setup_formal_type(ID($assume), {ID::A, ID::EN}, {}, true, false);
+		setup_formal_type(ID($live),   {ID::A, ID::EN}, {}, true, false);
+		setup_formal_type(ID($fair),   {ID::A, ID::EN}, {}, true, false);
+		setup_formal_type(ID($cover),  {ID::A, ID::EN}, {}, true, false);
 
-		// combinatorial, !has_side_effect, and !is_nondeterministic;
-		setup_formal_type(ID($initstate), {}, {ID::Y}, true, false, false);
-		setup_formal_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, true, false, false);
+		// !has_side_effect, and !is_nondeterministic;
+		setup_formal_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, false, false);
 
-		// combinatorial, !has_side_effect, and is_nondeterministic;
-		setup_formal_type(ID($anyconst), {}, {ID::Y}, true, false, true);
-		setup_formal_type(ID($anyseq), {}, {ID::Y}, true, false, true);
-		setup_formal_type(ID($allconst), {}, {ID::Y}, true, false, true);
-		setup_formal_type(ID($allseq), {}, {ID::Y}, true, false, true);
+		// !has_side_effect, and !is_nondeterministic & !is_stateless;
+		setup_formal_type(ID($initstate), {}, {ID::Y}, false, false, false);
+
+		// !has_side_effect, and is_nondeterministic;
+		setup_formal_type(ID($anyconst), {}, {ID::Y}, false, true);
+		setup_formal_type(ID($anyseq), {}, {ID::Y}, false, true);
+		setup_formal_type(ID($allconst), {}, {ID::Y}, false, true);
+		setup_formal_type(ID($allseq), {}, {ID::Y}, false, true);
+
+		// !has_side_effect, and is_nondeterministic, & !is_stateless;
+		setup_formal_type(ID($anyinit), {ID::D}, {ID::Q}, false, true, false);
 
 		// combinatorial
 		features = {};
-		features.is_combinatorial = true;
+		features.is_stateless = true;
 		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
 		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
@@ -179,7 +201,6 @@ struct CellTableBuilder {
 		setup_effects_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {});
 		setup_effects_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {});
 
-		// !combinatorial
 		setup_formal_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
 		setup_formal_type(ID($get_tag), {ID::A}, {ID::Y});
 		setup_formal_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, {});
@@ -258,17 +279,9 @@ struct CellTableBuilder {
 		setup_ff_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
 		setup_ff_type(ID($sdffe), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
 		setup_ff_type(ID($sdffce), {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
-		setup_ff_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
-		setup_ff_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
-		setup_ff_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
-	}
-	constexpr void setup_internals_anyinit()
-	{
-		Features features {};
-		features.is_anyinit = true;
-		features.is_nondeterministic = true;
-		features.is_formal = true;
-		setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
+		setup_latch_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q}, false);
+		setup_latch_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
+		setup_latch_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
 	}
 	constexpr void setup_internals_mem_noff()
 	{
@@ -276,13 +289,14 @@ struct CellTableBuilder {
 		setup_mem_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
 		setup_mem_type(ID($memwr), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, {});
 		setup_mem_type(ID($memwr_v2), {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, {});
-		setup_mem_type(ID($meminit), {ID::ADDR, ID::DATA}, {});
-		setup_mem_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, {});
+		setup_mem_type(ID($meminit), {ID::ADDR, ID::DATA}, {}, false);
+		setup_mem_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, {}, false);
 		setup_mem_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
 		setup_mem_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
 
 		// What?
 		Features features {};
+		features.is_clocked = true;
 		setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT}, features);
 	}
 	constexpr void setup_stdcells_tristate()
@@ -442,7 +456,6 @@ struct CellTableBuilder {
 		setup_internals_other();
 		setup_internals_eval();
 		setup_internals_ff();
-		setup_internals_anyinit();
 		setup_internals_mem_noff();
 		setup_stdcells_tristate();
 		setup_stdcells_eval();
@@ -509,10 +522,12 @@ struct Categories {
 	Category is_x_aware {};
 	Category is_x_output {};
 	Category is_combinatorial {};
+	Category is_stateless {};
+	Category is_clocked {};
 	Category is_synthesizable {};
 	Category is_stdcell {};
 	Category is_ff {};
-	Category is_mem_noff {};
+	Category is_mem {};
 	Category is_anyinit {};
 	Category is_tristate {};
 	Category has_side_effect {};
@@ -529,11 +544,12 @@ struct Categories {
 			is_x_aware.set(idx, cell.features.is_x_aware);
 			is_x_output.set(idx, cell.features.is_x_output);
 			is_combinatorial.set(idx, cell.features.is_combinatorial);
+			is_stateless.set(idx, cell.features.is_stateless);
+			is_clocked.set(idx, cell.features.is_clocked);
 			is_synthesizable.set(idx, cell.features.is_synthesizable);
 			is_stdcell.set(idx, cell.features.is_stdcell);
 			is_ff.set(idx, cell.features.is_ff);
-			is_mem_noff.set(idx, cell.features.is_mem_noff);
-			is_anyinit.set(idx, cell.features.is_anyinit);
+			is_mem.set(idx, cell.features.is_mem);
 			is_tristate.set(idx, cell.features.is_tristate);
 			has_side_effect.set(idx, cell.features.has_side_effect);
 			is_nondeterministic.set(idx, cell.features.is_nondeterministic);
@@ -579,14 +595,20 @@ struct Categories {
 		if (property == "is_evaluable") {
 			return is_evaluable;
 		} else
-		if (property == "x-aware") {
+		if (property == "is_x_aware" || property == "x-aware") {
 			return is_x_aware;
 		} else
-		if (property == "x-output") {
+		if (property == "is_x_output" || property == "x-output") {
 			return is_x_output;
 		} else
 		if (property == "is_combinatorial") {
 			return is_combinatorial;
+		} else
+		if (property == "is_clocked") {
+			return is_clocked;
+		} else
+		if (property == "is_stateless") {
+			return is_stateless;
 		} else
 		if (property == "is_synthesizable") {
 			return is_synthesizable;
@@ -597,11 +619,8 @@ struct Categories {
 		if (property == "is_ff") {
 			return is_ff;
 		} else
-		if (property == "is_mem_noff") {
-			return is_mem_noff;
-		} else
-		if (property == "is_anyinit") {
-			return is_anyinit;
+		if (property == "is_mem") {
+			return is_mem;
 		} else
 		if (property == "is_tristate") {
 			return is_tristate;
@@ -628,7 +647,7 @@ static constexpr Categories categories;
 // Legacy
 namespace Compat {
 	static constexpr auto internals_all = Categories::meet(categories.is_known, Categories::complement(categories.is_stdcell));
-	static constexpr auto mem_ff = Categories::join(categories.is_ff, categories.is_mem_noff);
+	static constexpr auto mem_ff = Categories::join(categories.is_ff, categories.is_mem);
 	// old setup_internals + setup_stdcells
 	static constexpr auto nomem_noff = Categories::meet(categories.is_known, Categories::complement(mem_ff));
 	static constexpr auto internals_mem_ff = Categories::meet(internals_all, mem_ff);
@@ -636,12 +655,24 @@ namespace Compat {
 	static constexpr auto internals_nomem_noff = Categories::meet(internals_all, nomem_noff);
 	// old setup_stdcells
 	static constexpr auto stdcells_nomem_noff = Categories::meet(categories.is_stdcell, nomem_noff);
-	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem_noff);
+	static constexpr auto stdcells_mem = Categories::meet(categories.is_stdcell, categories.is_mem);
 	// old setup_internals_eval
 	// static constexpr auto internals_eval = Categories::meet(internals_all, categories.is_evaluable);
 };
 
 namespace {
+	static_assert(categories.is_clocked(ID($dff)));
+	static_assert(categories.is_clocked(ID($memrd)));
+	static_assert(!categories.is_clocked(ID($and)));
+	static_assert(!categories.is_clocked(ID($dlatch)));
+	static_assert((*categories.lookup("is_clocked"))(ID($dff)));
+	static_assert(categories.is_stateless(ID($and)));
+	static_assert(categories.is_stateless(ID($anyseq)));
+	static_assert(!categories.is_stateless(ID($initstate)));
+	static_assert(!categories.is_stateless(ID($dff)));
+	static_assert(!categories.is_stateless(ID($mem_v2)));
+	static_assert(!categories.is_stateless(ID($anyinit)));
+	static_assert(categories.lookup("is_stateless")->operator()(ID($and)));
 	static_assert(categories.is_evaluable(ID($and)));
 	static_assert(!categories.is_ff(ID($and)));
 	static_assert(Categories::join(categories.is_evaluable, categories.is_ff)(ID($and)));
