@@ -19,6 +19,20 @@ Other applications include checking if a module conforms to interface standards.
 
 The `sat` command in Yosys can be used to perform Symbolic Model Checking.
 
+General Advice
+~~~~~~~~~~~~~~
+
+When running symbolic model checking from within yosys, there are a few things to keep in mind.
+
+1. Add ``async2sync; chformal -lower`` after running hierarchy. ``async2sync``
+   does what it's name suggests and synchornizes aynchronous cells. ``chformal -lower``
+   transforms ``$check`` cells into the appropriate ``$assert`` or ``$cover`` cells.
+2. Some frontends such as ``read_slang`` have different semantics regarding how they handle undriven bits.
+   To canonicalize them you may want to run ``setundef -undriven -anyseq``.
+   This replaces all wires that are undriven or explicitely set as X with ``$anyseq`` cells.
+
+These are transformations that SBY and EQY performs for you so are only needed if you are not using them.
+
 Checking techmap
 ~~~~~~~~~~~~~~~~
 
