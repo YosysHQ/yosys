@@ -144,10 +144,10 @@ private:
 
 struct AnchorWriter {
 	AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker);
-	void write(uint32_t ref_index, TrackedRef &ref, size_t at, TrackMode mode);
+	void write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers);
 private:
-	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode);
-	void anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode);
+	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers);
+	void anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers);
 	void anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref);
 	void anchorCell(const Netlist::Instance *inst, Anchor anchor);
 	void anchorWires(const Netlist::Net *net, uint32_t ref_index);

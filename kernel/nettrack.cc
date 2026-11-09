@@ -16,12 +16,12 @@ NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
 NetTracker::~NetTracker() = default;
 
-void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode)
+void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool with_barriers)
 {
 	detail::TrackData &data = *data_;
 	data.bind(view.design());
 	data.clearAnchors(view.design());
-	if (mode == TrackMode::Barriers) {
+	if (with_barriers) {
 		data.barriers.skipIdsInUse(view.design());
 		detail::removeOwnedKeeps(view.design());
 	}
@@ -32,12 +32,12 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++) {
 		TrackedRef &ref = *refs[ref_index];
 		for (size_t at = 0; at < detail::objectCount(ref); at++) {
-			anchors.write(ref_index, ref, at, mode);
-			if (mode == TrackMode::Barriers)
+			anchors.write(ref_index, ref, at, with_barriers);
+			if (with_barriers)
 				barriers.protect(ref_index, ref, at);
 		}
 	}
-	if (mode != TrackMode::Barriers)
+	if (!with_barriers)
 		return;
 	barriers.cutPorts();
 	barriers.removeUnusedBarriers();
@@ -181,7 +181,7 @@ void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObje
 
 detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker) : view_(view), data_(data), walker_(walker) {}
 
-void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, TrackMode mode)
+void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers)
 {
 	switch (ref.kind) {
 	case TrackedRef::Kind::Net:
@@ -193,11 +193,11 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 	}
 	case TrackedRef::Kind::TopPort:
 	case TrackedRef::Kind::Pin:
-		return anchorPin(ref.pins[at], ref_index, ref, mode);
+		return anchorPin(ref.pins[at], ref_index, ref, with_barriers);
 	}
 }
 
-void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
+void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers)
 {
 	if (pin->inst->isTop()) {
 		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
@@ -205,7 +205,7 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 		return;
 	}
 	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)
-		return anchorBarrierInstancePin(pin, ref_index, ref, mode);
+		return anchorBarrierInstancePin(pin, ref_index, ref, with_barriers);
 	if (!pin->inst->isLeaf()) {
 		ref.origin.hier_pin_dir = Netlist::PortDir::Input;
 		if (pin->dir() == Netlist::PortDir::Output)
@@ -215,10 +215,10 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 	anchorCell(pin->inst, anchor);
 }
 
-void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, TrackMode mode)
+void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers)
 {
 	ref.origin.on_barrier_instance = true;
-	if (mode == TrackMode::AnchorsOnly)
+	if (!with_barriers)
 		return anchorDriversOfBarrierInstance(pin, ref_index, ref);
 	Anchor anchor = {Anchor::Role::Pin, ref_index, "", pin->port().name, pin->bit, "", false, Anchor::Side::Y};
 	std::string path = data_.snapshot.scopePath(view_, pin->inst->parent);
@@ -233,7 +233,7 @@ void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pi
 	std::vector<const Netlist::Pin *> drivers;
 	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const Netlist::Pin *driver : drivers)
-		anchorPin(driver, ref_index, ref, TrackMode::AnchorsOnly);
+		anchorPin(driver, ref_index, ref, /*with_barriers=*/false);
 	ref.origin.anchored_on_drivers = !drivers.empty();
 }
 

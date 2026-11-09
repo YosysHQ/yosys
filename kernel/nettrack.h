@@ -20,8 +20,6 @@ namespace detail
 struct TrackData;
 }
 
-enum class TrackMode : uint8_t { AnchorsOnly, Barriers };
-
 struct PortRename {
 	std::string old_port;
 	int old_bit;
@@ -77,7 +75,7 @@ struct NetTracker final {
 	NetTracker(const NetTracker &) = delete;
 	NetTracker &operator=(const NetTracker &) = delete;
 
-	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, TrackMode mode);
+	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool with_barriers);
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
 	void clear(RTLIL::Design *design);
 

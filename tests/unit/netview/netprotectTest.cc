@@ -53,7 +53,7 @@ TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 	EXPECT_EQ(sortedPins(ref.pins), sortedPins(loads));
 	EXPECT_TRUE(ref.result.flattened_hier_pin);
 	TrackedRef on_barrier = pinRef({a});
-	t.mode = TrackMode::AnchorsOnly;
+	t.with_barriers = false;
 	t.checkpoint({&on_barrier});
 	EXPECT_TRUE(on_barrier.origin.on_barrier_instance);
 }
@@ -320,7 +320,7 @@ TEST_F(NetProtectTest, flattenCopyOfAKeptCellKeepsItsPath)
 	Cell *m1 = top->addCell("\\m1", "\\mid");
 	m1->setPort(ID(a), in);
 	top->addCell("\\m2", "\\mid")->setPort(ID(a), in);
-	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedView t(d, /*with_barriers=*/false);
 	TrackedRef ref = pinRef({t.view->instance(i1, t.view->instance(mid->cell("\\s"), t.child(m1)))->pins[0]});
 	t.checkpoint({&ref});
 	Pass::call(d, "flatten");
@@ -332,7 +332,7 @@ TEST_F(NetProtectTest, flattenCopyOfAKeptCellKeepsItsPath)
 // splitnets drops the anchors of the port wire, the port name finds the pin
 TEST_F(NetProtectTest, topPortFindsItsPinByName)
 {
-	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedView t(d, /*with_barriers=*/false);
 	TrackedRef port = pinRef({t.view->top()->findPin("q", 1)}, TrackedRef::Kind::TopPort);
 	t.checkpoint({&port});
 	q->attributes.clear();
@@ -343,7 +343,7 @@ TEST_F(NetProtectTest, topPortFindsItsPinByName)
 // after clear, resolve finds nothing
 TEST_F(NetProtectTest, clearForgetsTheAnchors)
 {
-	TrackedView t(d, TrackMode::AnchorsOnly);
+	TrackedView t(d, /*with_barriers=*/false);
 	TrackedRef cell{TrackedRef::Kind::Instance};
 	cell.instances = {t.child(u_inv2)};
 	t.checkpoint({&cell});
