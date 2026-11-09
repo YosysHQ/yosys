@@ -208,8 +208,11 @@ RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 		return nullptr;
 	RTLIL::Cell *existing = barrier_by_cut_bit_.at(bit, nullptr);
 	bool on_cut_wire = detail::isCutWire(bit.wire);
+	// a cut wire without a tracked barrier is plain again
+	// it may now root its net, so the view changes
 	if (on_cut_wire && existing == nullptr) {
 		detail::unmarkCutWire(bit.wire);
+		changed_view_ = true;
 	} else if (on_cut_wire) {
 		BarrierMarks marks = data_.barriers.marks(existing);
 		if (!marks.port_cut && marks.cut_on_a == pin->isDriver())

@@ -58,6 +58,18 @@ TEST_F(NetProtectTest, clockPinKeepsABarrierInstance)
 	EXPECT_TRUE(on_barrier.origin.on_barrier_instance);
 }
 
+TEST_F(NetProtectTest, freedCutWireMakesTheViewStale)
+{
+	Wire *cut = top->addWire("$C");
+	cut->set_bool_attribute(d->twines().add("\\netview_cut"));
+	top->addBarrier("$Bx", cut, top->addWire("$c2"));
+	u_inv2->setPort(ID(A), cut);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_inv2)->pins[0]});
+	t.checkpoint({&ref});
+	EXPECT_FALSE(t.view->upToDate());
+}
+
 TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
 {
 	ensurePasses();
