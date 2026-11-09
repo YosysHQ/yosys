@@ -40,6 +40,38 @@ module top();
 	wire [63:0] union_unsigned = unsigned_union'(a);
 	wire [63:0] shortint_widened = shortint'(a);
 
+	wire [7:0] mult_lhs = 8'd16;
+	wire [7:0] mult_rhs = 8'd16;
+	wire [7:0] mult_shift_trunc = (mult_lhs * mult_rhs) >> 8;
+	wire [7:0] mult_shift_wide = (16'(mult_lhs) * mult_rhs) >> 8;
+
+	localparam CAST_WIDTH = 16;
+
+	wire signed [7:0] signed_neg = -8'd1;
+	wire signed [7:0] trunc_signed = 4'(signed_neg);
+	wire signed [7:0] trunc_as_unsigned = 4'(unsigned'(signed_neg));
+	wire [7:0] unsigned_neg = -8'd1;
+	wire [7:0] trunc_unsigned = 4'(unsigned_neg);
+	wire [7:0] trunc_as_signed = 4'(signed'(unsigned_neg));
+	wire [7:0] nested_signed = 8'(4'(signed_neg));
+	wire [7:0] nested_unsigned = 8'(4'(unsigned_neg));
+	wire [7:0] nested_signed_const = 8'(4'(signed'(-8'd1)));
+	wire [7:0] nested_unsigned_const = 8'(4'(unsigned'(-8'd1)));
+
+	wire [8:0] extend_signed = trunc_signed;
+	wire [8:0] extend_trunc_unsigned = trunc_as_unsigned;
+	wire [8:0] widen_signed = 9'(trunc_signed);
+	wire [8:0] widen_trunc_unsigned = 9'(trunc_as_unsigned);
+	wire [8:0] widen_as_unsigned = 9'(unsigned'(trunc_signed));
+	wire [8:0] widen_trunc_as_unsigned = 9'(unsigned'(trunc_as_unsigned));
+	wire [8:0] widen_unsigned = 9'(unsigned_neg);
+	wire [8:0] widen_unsigned_trunc = 9'(trunc_unsigned);
+	wire [8:0] widen_as_signed = 9'(signed'(unsigned_neg));
+	wire [8:0] widen_trunc_as_signed = 9'(signed'(trunc_unsigned));
+
+	wire [16:0] cast_expr_width = (CAST_WIDTH + 1)'(mult_lhs);
+	wire [16:0] cast_expr_neg = (CAST_WIDTH + 1)'(mult_shift_wide - 2);
+
 	// reference values from icarus verilog
 	always @* begin
 		// 6331
@@ -68,6 +100,35 @@ module top();
 		assert(complement_cast == 8'hfa);
 		assert(add_cast_signal == 8'h04);
 		assert(add_widened == 9'h104);
+
+		// Static size casts, signedness, and chained extensions.
+		assert(mult_shift_trunc == 8'b0000_0000);
+		assert(mult_shift_wide == 8'b0000_0001);
+
+		assert(cast_expr_width == 17'b0_0000_0000_0001_0000);
+		assert(cast_expr_neg == 17'b1_1111_1111_1111_1111);
+
+		assert(signed_neg == 8'b1111_1111);
+		assert(trunc_signed == 8'b1111_1111);
+		assert(trunc_as_unsigned == 8'b0000_1111);
+		assert(unsigned_neg == 8'b1111_1111);
+		assert(trunc_unsigned == 8'b0000_1111);
+		assert(trunc_as_signed == 8'b1111_1111);
+		assert(nested_signed == 8'b1111_1111);
+		assert(nested_unsigned == 8'b0000_1111);
+		assert(nested_signed_const == 8'b1111_1111);
+		assert(nested_unsigned_const == 8'b0000_1111);
+
+		assert(extend_signed == 9'b1_1111_1111);
+		assert(extend_trunc_unsigned == 9'b0_0000_1111);
+		assert(widen_signed == 9'b1_1111_1111);
+		assert(widen_trunc_unsigned == 9'b0_0000_1111);
+		assert(widen_as_unsigned == 9'b0_1111_1111);
+		assert(widen_trunc_as_unsigned == 9'b0_0000_1111);
+		assert(widen_unsigned == 9'b0_1111_1111);
+		assert(widen_unsigned_trunc == 9'b0_0000_1111);
+		assert(widen_as_signed == 9'b1_1111_1111);
+		assert(widen_trunc_as_signed == 9'b0_0000_1111);
 
 		// 6408
 		assert(concat_cast == {1'b1, (1'(b))});
