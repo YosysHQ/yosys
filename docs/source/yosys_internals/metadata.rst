@@ -12,17 +12,16 @@ builds a new, longer string. Such attributes are instead interned per
 handle. So far these are ``src``, ``hdlname`` and ``scopename``.
 
 A ``src`` value is a set of source locations. Each location is an
-``IdString`` in the design's ``TwinePool``: the file name is a root twine and
-``:<line>.<column>-<line>.<column>`` is a suffix on it, so a file name is
-stored once no matter how many locations point into it. A set is a
+``IdString``, intended to be a line/column range suffix like
+``:<line>.<column>-<line>.<column>`` of a file path ``IdString``.
+A set is a
 ``TwineSet``, a sorted and deduplicated vector of such twines, interned in a
-per-``Design`` ``SrcPool``. Like ``TwinePool``, ``SrcPool`` inherits from
-``HashConsPool``, so equal sets are stored once.
+per-``Design`` ``SrcPool``.
 
 Every ``AttrObject`` holds a 32-bit ``SrcRef`` index into that pool, or
 ``SrcRef::Null`` when it has no source location.
 
-Passes move metadata between objects with one of two operations. An object
+There's two ways to move metadata between objects in a pass. An object
 that replaces another takes over its metadata and carries its identity:
 
 .. code-block:: cpp
@@ -30,8 +29,7 @@ that replaces another takes over its metadata and carries its identity:
    design->transfer_metadata(new_obj, old_obj);
 
 An object that takes in others without replacing them absorbs their metadata
-as a non-unique use, as the cell that `opt_merge` keeps absorbs its removed
-twin:
+as a non-unique use:
 
 .. code-block:: cpp
    :caption: Absorbing metadata in `opt_merge`
