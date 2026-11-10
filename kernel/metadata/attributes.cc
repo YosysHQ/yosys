@@ -4,19 +4,19 @@ YOSYS_NAMESPACE_BEGIN
 
 void import_attribute(RTLIL::Design *design, RTLIL::AttrObject *obj, RTLIL::IdString id, const RTLIL::Const &value)
 {
-	if (RTLIL::is_interned_attribute(id))
-		design->set_interned_attribute(obj, id, value.decode_string());
+	if (RTLIL::is_specialized_attribute(id))
+		design->set_specialized_attribute(obj, id, value.decode_string());
 	else
 		obj->attributes[id] = value;
 }
 
 void import_attributes(RTLIL::Design *design, RTLIL::AttrObject *obj, dict<RTLIL::IdString, RTLIL::Const> attributes)
 {
-	for (IdString id : RTLIL::interned_attributes) {
+	for (IdString id : RTLIL::specialized_attributes) {
 		auto it = attributes.find(id);
 		if (it == attributes.end())
 			continue;
-		design->set_interned_attribute(obj, id, it->second.decode_string());
+		design->set_specialized_attribute(obj, id, it->second.decode_string());
 		attributes.erase(it);
 	}
 	obj->attributes = std::move(attributes);
@@ -24,12 +24,12 @@ void import_attributes(RTLIL::Design *design, RTLIL::AttrObject *obj, dict<RTLIL
 
 ExportedAttributes::ExportedAttributes(const RTLIL::Design *design, const RTLIL::AttrObject *obj)
 {
-	interned_values.reserve(std::size(RTLIL::interned_attributes));
-	entries.reserve(std::size(RTLIL::interned_attributes) + obj->attributes.size());
-	for (IdString id : RTLIL::interned_attributes)
+	specialized_values.reserve(std::size(RTLIL::specialized_attributes));
+	entries.reserve(std::size(RTLIL::specialized_attributes) + obj->attributes.size());
+	for (IdString id : RTLIL::specialized_attributes)
 		if (obj->has_attribute(id)) {
-			interned_values.emplace_back(design->get_interned_attribute(obj, id));
-			entries.push_back({id, interned_values.back()});
+			specialized_values.emplace_back(design->get_specialized_attribute(obj, id));
+			entries.push_back({id, specialized_values.back()});
 		}
 	for (auto &[id, value] : obj->attributes)
 		entries.push_back({id, value});

@@ -158,7 +158,7 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 {
 	if (mode == DumpMode::Readable) {
 		ExportedAttributes exported(design, obj);
-		for (auto &[name, value] : exported.interned())
+		for (auto &[name, value] : exported.specialized())
 			dump_attribute(f, indent, design, name, value, mode);
 	} else {
 		SrcRef id = obj->src();

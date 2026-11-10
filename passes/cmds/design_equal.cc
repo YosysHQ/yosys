@@ -83,9 +83,9 @@ public:
 
 	std::string compare_attributes(const RTLIL::AttrObject *a, const RTLIL::AttrObject *b)
 	{
-		for (IdString id : RTLIL::interned_attributes) {
-			RTLIL::Const value_a(mod_a->design->get_interned_attribute(a, id));
-			RTLIL::Const value_b(mod_b->design->get_interned_attribute(b, id));
+		for (IdString id : RTLIL::specialized_attributes) {
+			RTLIL::Const value_a(mod_a->design->get_specialized_attribute(a, id));
+			RTLIL::Const value_b(mod_b->design->get_specialized_attribute(b, id));
 			if (value_a != value_b)
 				return "attribute " + RTLIL::unescape_id(ID::str(id)) + " mismatch: " + log_const(value_a) + " != " + log_const(value_b);
 		}

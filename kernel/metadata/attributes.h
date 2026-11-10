@@ -25,10 +25,10 @@ public:
 	std::vector<Entry>::const_iterator begin() const { return entries.begin(); }
 	std::vector<Entry>::const_iterator end() const { return entries.end(); }
 	int size() const { return GetSize(entries); }
-	std::span<const Entry> interned() const { return std::span(entries).first(interned_values.size()); }
+	std::span<const Entry> specialized() const { return std::span(entries).first(specialized_values.size()); }
 
 private:
-	std::vector<RTLIL::Const> interned_values;
+	std::vector<RTLIL::Const> specialized_values;
 	std::vector<Entry> entries;
 };
 

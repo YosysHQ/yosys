@@ -55,9 +55,9 @@ struct PrintAttrsPass : public Pass {
 	}
 
 	static void log_metadata(const RTLIL::Design *design, const RTLIL::AttrObject *obj, const unsigned int indent) {
-		for (IdString id : RTLIL::interned_attributes)
+		for (IdString id : RTLIL::specialized_attributes)
 			if (obj->has_attribute(id))
-				log_const(PooledName(design, id), RTLIL::Const(design->get_interned_attribute(obj, id)), indent);
+				log_const(PooledName(design, id), RTLIL::Const(design->get_specialized_attribute(obj, id)), indent);
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override

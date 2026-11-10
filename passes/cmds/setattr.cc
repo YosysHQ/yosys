@@ -67,10 +67,10 @@ static void do_setunset(RTLIL::Design *design, RTLIL::AttrObject *obj, const std
 {
 	for (auto &item : list) {
 		IdString id = design->twines().find(item.name);
-		if (!RTLIL::is_interned_attribute(id))
+		if (!RTLIL::is_specialized_attribute(id))
 			do_setunset(design, obj->attributes, item);
 		else if (item.unset)
-			design->set_interned_attribute(obj, id, "");
+			design->set_specialized_attribute(obj, id, "");
 		else
 			import_attribute(design, obj, id, item.value);
 	}

@@ -650,7 +650,7 @@ bool RTLIL::AttrObject::has_attribute(RTLIL::IdString id) const
 
 void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 {
-	log_assert(!is_interned_attribute(id));
+	log_assert(!is_specialized_attribute(id));
 	if (value)
 		attributes[id] = RTLIL::Const(1);
 	else
@@ -659,7 +659,7 @@ void RTLIL::AttrObject::set_bool_attribute(RTLIL::IdString id, bool value)
 
 bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 {
-	if (is_interned_attribute(id))
+	if (is_specialized_attribute(id))
 		return has_attribute(id);
 	const auto it = attributes.find(id);
 	if (it == attributes.end())
@@ -669,7 +669,7 @@ bool RTLIL::AttrObject::get_bool_attribute(RTLIL::IdString id) const
 
 void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 {
-	log_assert(!is_interned_attribute(id) && "interned in the design; use Design::set_interned_attribute");
+	log_assert(!is_specialized_attribute(id) && "specialized in the design; use Design::set_specialized_attribute");
 	if (value.empty())
 		attributes.erase(id);
 	else
@@ -678,7 +678,7 @@ void RTLIL::AttrObject::set_string_attribute(RTLIL::IdString id, string value)
 
 string RTLIL::AttrObject::get_string_attribute(RTLIL::IdString id) const
 {
-	log_assert(!is_interned_attribute(id) && "interned in the design; use Design::get_interned_attribute");
+	log_assert(!is_specialized_attribute(id) && "specialized in the design; use Design::get_specialized_attribute");
 	std::string value;
 	const auto it = attributes.find(id);
 	if (it != attributes.end())
@@ -696,7 +696,7 @@ void RTLIL::Design::set_scopename(RTLIL::AttrObject *obj, std::string_view path)
 	obj->set_meta(metas_.with_scopename(obj->meta(), path));
 }
 
-std::string RTLIL::Design::get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const
+std::string RTLIL::Design::get_specialized_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const
 {
 	if (id == ID::src)
 		return get_src_attribute(obj);
@@ -706,7 +706,7 @@ std::string RTLIL::Design::get_interned_attribute(const RTLIL::AttrObject *obj, 
 	return get_scopename(obj);
 }
 
-void RTLIL::Design::set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value)
+void RTLIL::Design::set_specialized_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value)
 {
 	if (id == ID::src)
 		obj->set_src(value.empty() ? SrcRef::Null : srcs_.add(value));

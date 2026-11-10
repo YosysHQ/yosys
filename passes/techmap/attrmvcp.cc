@@ -134,12 +134,12 @@ struct AttrmvcpPass : public Pass {
 				if (!copy_mode)
 					wire->attributes.swap(new_attributes);
 
-				for (IdString id : RTLIL::interned_attributes)
+				for (IdString id : RTLIL::specialized_attributes)
 				{
 					if (!attrnames.count(id) || !wire->has_attribute(id))
 						continue;
 
-					std::string value = design->get_interned_attribute(wire, id);
+					std::string value = design->get_specialized_attribute(wire, id);
 					bool did_something = false;
 
 					for (auto bit : sigmap(wire))
@@ -147,12 +147,12 @@ struct AttrmvcpPass : public Pass {
 							for (auto cell : net2cells.at(bit)) {
 								log("Moving attribute %s=\"%s\" from %s.%s to %s.%s.\n", PooledName(design, id).unescape(), value,
 										module, wire, module, cell);
-								design->set_interned_attribute(cell, id, value);
+								design->set_specialized_attribute(cell, id, value);
 								did_something = true;
 							}
 
 					if (!copy_mode && (purge_mode || did_something))
-						design->set_interned_attribute(wire, id, "");
+						design->set_specialized_attribute(wire, id, "");
 				}
 			}
 		}

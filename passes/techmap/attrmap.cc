@@ -151,14 +151,14 @@ void attrmap_apply(RTLIL::Design *design, string objname, vector<std::unique_ptr
 {
 	ExportedAttributes exported(design, obj);
 	dict<IdString, RTLIL::Const> attributes = obj->attributes;
-	for (auto &[name, value] : exported.interned())
+	for (auto &[name, value] : exported.specialized())
 		attributes[name] = value;
 
 	attrmap_apply(design, objname, actions, attributes);
 
-	for (IdString id : RTLIL::interned_attributes)
+	for (IdString id : RTLIL::specialized_attributes)
 		if (!attributes.count(id) && obj->has_attribute(id))
-			design->set_interned_attribute(obj, id, "");
+			design->set_specialized_attribute(obj, id, "");
 	import_attributes(design, obj, std::move(attributes));
 }
 

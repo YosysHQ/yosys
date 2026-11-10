@@ -638,9 +638,9 @@ public:
 };
 
 namespace RTLIL {
-	inline constexpr IdString interned_attributes[] = {ID::src, ID::hdlname, ID::scopename};
-	inline constexpr bool is_interned_attribute(IdString id) {
-		return std::ranges::find(interned_attributes, id) != std::end(interned_attributes);
+	inline constexpr IdString specialized_attributes[] = {ID::src, ID::hdlname, ID::scopename};
+	inline constexpr bool is_specialized_attribute(IdString id) {
+		return std::ranges::find(specialized_attributes, id) != std::end(specialized_attributes);
 	}
 }
 
@@ -1341,8 +1341,8 @@ public:
 	std::string get_scopename(const RTLIL::AttrObject *obj) const { return metas_.scopename(obj->meta()); }
 	void set_hdlname(RTLIL::AttrObject *obj, std::string_view path);
 	void set_scopename(RTLIL::AttrObject *obj, std::string_view path);
-	std::string get_interned_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const;
-	void set_interned_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value);
+	std::string get_specialized_attribute(const RTLIL::AttrObject *obj, RTLIL::IdString id) const;
+	void set_specialized_attribute(RTLIL::AttrObject *obj, RTLIL::IdString id, std::string_view value);
 	void transfer_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	void transfer_attributes(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);
 	void absorb_metadata(RTLIL::AttrObject *target, const RTLIL::AttrObject *source);

@@ -65,11 +65,11 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[twines.add(stringf("\\SB_LUT4.%s", twines.str(a.first)))] = a.second;
 	RTLIL::Design *design = cell->module->design;
-	for (IdString id : RTLIL::interned_attributes) {
+	for (IdString id : RTLIL::specialized_attributes) {
 		if (st.carry->has_attribute(id))
-			cell->attributes[twines.add("\\SB_CARRY." + twines.str(id))] = Const(design->get_interned_attribute(st.carry, id));
+			cell->attributes[twines.add("\\SB_CARRY." + twines.str(id))] = Const(design->get_specialized_attribute(st.carry, id));
 		if (st.lut->has_attribute(id))
-			cell->attributes[twines.add("\\SB_LUT4." + twines.str(id))] = Const(design->get_interned_attribute(st.lut, id));
+			cell->attributes[twines.add("\\SB_LUT4." + twines.str(id))] = Const(design->get_specialized_attribute(st.lut, id));
 	}
 	cell->set_src(st.carry->src() != SrcRef::Null ? st.carry->src() : st.lut->src());
 	cell->attributes[twines.add("\\SB_LUT4.name")] = Const(st.lut->name.str());
