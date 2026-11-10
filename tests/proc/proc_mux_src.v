@@ -112,3 +112,22 @@ module ifelse(input clk,
 		end
 	end
 endmodule
+
+module partial (
+	input clk,
+	input sel,
+	input [7:0] in,
+	output reg [7:0] out,
+	output reg flag
+);
+	always @(posedge clk)
+	begin
+		if (sel) begin
+			out = in;
+			flag = 1'b1;
+		end else begin
+			out[2:1] = 2'b00;
+			flag = 1'b0;
+		end
+	end
+endmodule
