@@ -13,29 +13,52 @@ design -reset
 verific -sv basic.sv
 verific -import -v nested
 
-# not yet handled by new importer
-# design -reset
-# verific -sv basic.sv
-# verific -import -v immediate
-
 design -reset
 verific -sv basic.sv
 verific -import -v sampled_val
 
+design -reset
+verific -sv basic.sv
+verific -import restrict_prop
+
+design -reset
+verific -sv basic.sv
+verific -import -v clock_ctrl
+exit
+
+## not yet handled by new importer
+# TODO figure out immediates
+# design -reset
+# verific -sv basic.sv
+# verific -import -v immediate
+
+# TODO unique names
 # design -reset
 # verific -sv basic.sv
 # verific -import -v mod
 
-# not yet handled by new importer
+# TODO unique names, but flattened
 # design -reset
 # verific -sv basic.sv
 # verific -import -flatten -v mod
 
+# ?
 design -reset
 verific -sv basic.sv
 verific -import -v flopped
 
-# the rest are not compatible with old importer
+# TODO global clock
+design -reset
+verific -sv basic.sv
+verific -import -v global_clocking
+
+# TODO :evaluate, :disable-iff, :enable
+design -reset
+verific -sv basic.sv
+verific -import -v assert_params
+exit
+
+## the rest are not compatible with old importer
 design -reset
 verific -sv basic.sv
 verific -import -v -sva-continue-on-err ite
@@ -43,3 +66,18 @@ verific -import -v -sva-continue-on-err ite
 design -reset
 verific -sv basic.sv
 verific -import -v -sva-continue-on-err binops
+
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err multi_clk
+
+## these aren't compatible with either
+# TODO recursion
+# design -reset
+# verific -sv basic.sv
+# verific -import -v -sva-continue-on-err recursive
+
+# TODO disable iff
+# design -reset
+# verific -sv basic.sv
+# verific -import -v -sva-continue-on-err clocked_disable

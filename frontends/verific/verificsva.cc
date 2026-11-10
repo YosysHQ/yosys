@@ -2020,7 +2020,90 @@ private:
 		}
 	}
 
-	property_ir::ClkSeqExpr parse_sequence([[maybe_unused]]Net *net)
+	property_ir::BoolExpr parse_clock(Net *net, bool edged = true)
+	{
+		log_assert(net != nullptr);
+		auto type = PRIM_END;
+		auto *inst = net->Driver();
+		if (inst != nullptr && !net->IsMultipleDriven())
+			type = inst->Type();
+
+		using namespace property_ir;
+		BoolExpr result = constant(false);
+		switch (type) {
+			// TODO clock_defined
+			case PRIM_SVA_POSEDGE:
+			{
+				auto *driver = inst->GetInput()->Driver();
+				if (driver != nullptr && driver->Type() == PRIM_INV)
+					return falling_gclk(parse_clock(driver->GetInput()), constant(false));
+
+				// this is a mess
+				do {
+					if (driver == nullptr || driver->Type() != PRIM_AND)
+						break;
+
+					Net *net_dlatch = driver->GetInput1();
+					Instance *inst_dlatch = net_dlatch->Driver();
+
+					if (inst_dlatch == nullptr)
+						break;
+
+					if (inst_dlatch->Type() == PRIM_DLATCHRS) {
+						if (!inst_dlatch->GetSet()->IsGnd() || !inst_dlatch->GetReset()->IsGnd())
+							break;
+					} else if (inst_dlatch->Type() != PRIM_DLATCH)
+						break;
+
+					Net *net_enable = inst_dlatch->GetInput();
+					Net *net_not_clock = inst_dlatch->GetControl();
+
+					if (net_enable == nullptr || net_not_clock == nullptr)
+						break;
+
+					Instance *inst_not_clock = net_not_clock->Driver();
+
+					if (inst_not_clock == nullptr || inst_not_clock->Type() != PRIM_INV)
+						break;
+
+					Net *net_clock1 = inst_not_clock->GetInput();
+					Net *net_clock2 = driver->GetInput2();
+
+					if (net_clock1 == nullptr || net_clock1 != net_clock2)
+						break;
+
+					return bool_and(
+						rising_gclk(parse_clock(net_clock1), constant(false)),
+						parse_bool(net_enable));
+				} while (0);
+
+				return rising_gclk(parse_clock(inst->GetInput()), constant(false));
+			}
+			case PRIM_SVA_EVENT_OR:
+			{
+				auto *lhs = inst->GetInput1();
+				auto *rhs = inst->GetInput2();
+				if (!lhs->IsInv(rhs))
+					return bool_or(parse_clock(lhs, false), parse_clock(rhs, false));
+				log_assert (rhs->Driver() != nullptr && rhs->Driver()->Type() == PRIM_INV);
+				rhs = rhs->Driver()->GetInput();
+				return bool_or(
+					rising_gclk(parse_clock(lhs), constant(false)),
+					falling_gclk(parse_clock(rhs), constant(false)));
+			}
+			case PRIM_END:
+				result = parse_input(net);
+			default:
+				result = parse_bool(net);
+		}
+
+		if (edged)
+			return result;
+		else
+			return changing_gclk(result, constant(false));
+	}
+
+	property_ir::ClkSeqExpr parse_sequence(Net *net)
 	{
 		log_assert(net != nullptr);
 		auto type = PRIM_END;
@@ -2091,7 +2174,7 @@ private:
 			case PRIM_SVA_AT:
 			{
 				std::shared_ptr<VerificClocking> new_clocking(new VerificClocking(importer, net));
-				return parse_property(new_clocking->body_net);
+				return clk_prop_clocked(parse_clock(inst->GetInput1(), false), parse_property(new_clocking->body_net));
 			}
 			case PRIM_SVA_OVERLAPPED_IMPLICATION:
 				return clk_prop_overlapped_implication(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
