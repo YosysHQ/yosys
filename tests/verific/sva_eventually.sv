@@ -63,3 +63,23 @@ module cover_clock_enable (input clk, ce, en, rst);
         if (en)
             cover property (disable iff (rst) s_eventually 1'b0);
 endmodule
+
+module assert_clock_enable (input clk, ce, en, rst);
+    always @(posedge clk iff ce)
+        if (en)
+            assert property (disable iff (rst) s_eventually 1'b0);
+endmodule
+
+module assert_nested_disable (input clk, en, rst, a);
+    property p;
+        @(posedge clk) disable iff (rst) s_eventually a;
+    endproperty
+    assert property (p);
+endmodule
+
+module assert_nested_disable_outer (input clk, en, rst, a);
+    property p;
+        @(posedge clk) s_eventually a;
+    endproperty
+    assert property (disable iff (rst) p);
+endmodule
