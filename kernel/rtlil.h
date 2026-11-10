@@ -662,11 +662,11 @@ struct RTLIL::AttrObject
 	std::string get_src_attribute() const {
 		return get_string_attribute(ID::src);
 	}
-	void transfer_attribute(const AttrObject* from, const IdString& attr) {
+	void transfer_attribute(const AttrObject *from, const IdString &attr) {
 		if (from->has_attribute(attr))
 			attributes[attr] = from->attributes.at(attr);
 	}
-	void transfer_src_attribute(const AttrObject* from) {
+	void transfer_src_attribute(const AttrObject *from) {
 		transfer_attribute(from, ID::src);
 	}
 

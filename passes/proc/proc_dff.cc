@@ -158,7 +158,7 @@ void gen_dff(RTLIL::Module *mod, RTLIL::SigSpec sig_in, RTLIL::Const val_rst, RT
 	log("%s.\n", message);
 }
 
-template <typename T>
+template<typename T>
 static void error_at_src(const RTLIL::Process *proc, const RTLIL::Const *src, T msg)
 {
 	if ((!src || src->empty()) && proc->attributes.count(ID::src))
