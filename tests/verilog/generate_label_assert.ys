@@ -10,6 +10,7 @@ module top (
         for (i = 0; i < 4; i = i + 1) begin
             always_comb begin
                 test_i: assert (in[i] == ~out[i]);
+                test_z: cover  (in[i] == ~out[i]);
             end
         end
     endgenerate
@@ -17,3 +18,4 @@ endmodule
 EOT
 
 select -assert-count 4 c:*test_i
+select -assert-count 4 c:*test_z

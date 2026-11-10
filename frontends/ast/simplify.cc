@@ -5134,6 +5134,7 @@ void AstNode::expand_genblock(const std::string &prefix)
 		case AST_ENUM_ITEM:
 		case AST_GENVAR:
 		case AST_ASSERT:
+		case AST_COVER:
 			prefix_node(child);
 			break;
 
