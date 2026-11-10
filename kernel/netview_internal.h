@@ -129,7 +129,6 @@ struct InstanceRtlil {
 };
 
 struct NetRtlil {
-	RTLIL::SigBit bit; // canonical SigMap bit
 	RTLIL::SigBit name_bit;
 	Netlist::NetName name; // copied out of RTLIL
 	std::vector<RTLIL::SigBit> wire_bits;
@@ -192,7 +191,6 @@ private:
 	void registerWires(RTLIL::Module *module, Netlist::Instance *scope);
 	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
 	WireOrigin wireOrigin(const RTLIL::Wire *wire);
-	RTLIL::SigBit nameBit(const Netlist::Net *net) const;
 	SigMap &sigmapFor(RTLIL::Module *module);
 	void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const;
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);

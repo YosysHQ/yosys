@@ -73,7 +73,7 @@ TEST_F(NetViewTest, deletedDesignMakesTheViewStale)
 	EXPECT_FALSE(view.upToDate());
 }
 
-static Module *addWrapper(Design *design, const std::string &name, const std::string &child, const std::string &type, bool mid_inv)
+static Module *addWrapper(Design *design, const std::string &name, const std::string &child, const std::string &type)
 {
 	Module *module = design->addModule(name);
 	Wire *a = module->addWire(ID(a));
@@ -81,15 +81,8 @@ static Module *addWrapper(Design *design, const std::string &name, const std::st
 	Wire *y = module->addWire(ID(y));
 	y->port_output = true;
 	module->fixup_ports();
-	Wire *in = a;
-	if (mid_inv) {
-		in = module->addWire("\\mid");
-		Cell *i0 = module->addCell("\\i0", ID(INV));
-		i0->setPort(ID(A), a);
-		i0->setPort(ID(Y), in);
-	}
 	Cell *cell = module->addCell(child, type);
-	cell->setPort(type == "\\INV" ? ID(A) : ID(a), in);
+	cell->setPort(type == "\\INV" ? ID(A) : ID(a), a);
 	cell->setPort(type == "\\INV" ? ID(Y) : ID(y), y);
 	return module;
 }
@@ -250,12 +243,12 @@ TEST_F(NetViewTest, childNamesAreUniqueInTheScope)
 
 TEST_F(NetViewTest, bodyKeysAreEqualForEqualBodies)
 {
-	addWrapper(d, "\\S1", "\\i", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
-	addWrapper(d, "\\S2", "\\i", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
-	addWrapper(d, "\\S3", "\\j", "\\INV", false)->set_string_attribute(ID::hdlname, "S");
-	addWrapper(d, "\\W1", "\\c", "\\S1", false)->set_string_attribute(ID::hdlname, "W");
-	addWrapper(d, "\\W2", "\\c", "\\S3", false)->set_string_attribute(ID::hdlname, "W");
-	addWrapper(d, "\\W3", "\\c", "\\S2", false)->set_string_attribute(ID::hdlname, "W");
+	addWrapper(d, "\\S1", "\\i", "\\INV")->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\S2", "\\i", "\\INV")->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\S3", "\\j", "\\INV")->set_string_attribute(ID::hdlname, "S");
+	addWrapper(d, "\\W1", "\\c", "\\S1")->set_string_attribute(ID::hdlname, "W");
+	addWrapper(d, "\\W2", "\\c", "\\S3")->set_string_attribute(ID::hdlname, "W");
+	addWrapper(d, "\\W3", "\\c", "\\S2")->set_string_attribute(ID::hdlname, "W");
 	std::vector<Cell *> wrappers;
 	for (int n = 1; n <= 3; n++) {
 		Cell *cell = top->addCell(stringf("\\w%d", n), stringf("\\W%d", n));

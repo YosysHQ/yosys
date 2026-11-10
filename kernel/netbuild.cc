@@ -208,7 +208,6 @@ Netlist::Net *detail::ViewBuilder::newNet(Netlist::Instance *scope, const RTLIL:
 		net->constant = Netlist::Net::Const::One;
 	else if (bit.wire == nullptr)
 		net->constant = Netlist::Net::Const::Zero;
-	data_.index.net_rtlil[net->id].bit = bit;
 	if (bit.wire != nullptr)
 		setNameBit(net, bit);
 	data_.scope_contents[scope->id].nets.push_back(net);
@@ -238,7 +237,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 			// Public wires collapsed into another wire's net (assign aliases) stay reachable under their own names
 			data_.index.net_rtlil[net->id].aliases.push_back(detail::netName(bit, wireOrigin(bit.wire)));
 			// A net is named after its best wire bit
-			if (net->constant == Netlist::Net::Const::None && detail::netNameRank(bit) < detail::netNameRank(nameBit(net)))
+			if (net->constant == Netlist::Net::Const::None && detail::netNameRank(bit) < detail::netNameRank(data_.index.net_rtlil.get(net->id).name_bit))
 				setNameBit(net, bit);
 		}
 	}
@@ -272,14 +271,6 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 				sigmap.add(y[b], a[b]);
 		}
 	}
-}
-
-RTLIL::SigBit detail::ViewBuilder::nameBit(const Netlist::Net *net) const
-{
-	const NetRtlil &rtlil = data_.index.net_rtlil.get(net->id);
-	if (rtlil.name_bit.wire != nullptr)
-		return rtlil.name_bit;
-	return rtlil.bit;
 }
 
 void detail::ViewBuilder::setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit)
