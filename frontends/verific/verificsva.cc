@@ -987,7 +987,7 @@ struct VerificSvaImporter
 	bool mode_cover = false;
 	bool mode_trigger = false;
 
-	Instance *net_to_ast_driver(Net *n, bool include_mux = false)
+	Instance *net_to_ast_driver(Net *n)
 	{
 		if (n == nullptr)
 			return nullptr;
@@ -1001,8 +1001,7 @@ struct VerificSvaImporter
 			return nullptr;
 
 		if (!verific_sva_prims.count(inst->Type()))
-			if (!include_mux || inst->Type() != PRIM_MUX)
-				return nullptr;
+			return nullptr;
 
 		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
 				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE ||
@@ -1540,22 +1539,10 @@ struct VerificSvaImporter
 
 	bool eventually_property(Net *&net, SigBit &trig)
 	{
-		Instance *inst = net_to_ast_driver(net, true);
+		Instance *inst = net_to_ast_driver(net);
 
 		if (inst == nullptr)
 			return false;
-
-		// resolve (potentially nested) indirection
-		while (inst->Type() == PRIM_MUX || inst->Type() == PRIM_SVA_DISABLE_IFF) {
-			Instance *input1 = get_ast_input1(inst);
-			if (input1 != nullptr)
-				inst = input1;
-			else
-				inst = get_ast_input2(inst);
-
-			if (inst == nullptr)
-				return false;
-		}
 
 		if (clocking.cond_net != nullptr) {
 			trig = importer->net_map_at(clocking.cond_net);

@@ -2567,6 +2567,20 @@ VerificClocking::VerificClocking(VerificImporter *importer, Net *net, bool sva_a
 		cond_net = inst_mux->GetControl();
 		cond_pol = pwr1;
 	} while (0);
+
+	// Detect disable condition
+	do {
+		if (body_net == nullptr)
+			break;
+
+		Instance *inst_disable = body_net->Driver();
+		if (inst_disable == nullptr || inst_disable->Type() != PRIM_SVA_DISABLE_IFF)
+			break;
+
+		disable_net = inst_disable->GetInput1();
+		disable_sig = importer->net_map_at(disable_net);
+		body_net = inst_disable->GetInput2();
+	} while (0);
 #endif
 
 	clock_net = net;
