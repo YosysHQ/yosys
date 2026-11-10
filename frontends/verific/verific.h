@@ -30,6 +30,7 @@ extern std::string verific_import(Design *design, const std::map<std::string,std
 
 extern pool<int> verific_sva_prims;
 
+
 struct VerificImporter;
 
 struct VerificClocking {
@@ -115,6 +116,11 @@ bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
 
 extern int verific_sva_fsm_limit;
 
+
 YOSYS_NAMESPACE_END
+
+namespace std {
+	std::ostream& operator<<(std::ostream& out, Verific::DesignObj const& inst);
+}
 
 #endif

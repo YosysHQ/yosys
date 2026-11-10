@@ -4795,3 +4795,237 @@ struct ReadPass : public Pass {
 } ReadPass;
 
 PRIVATE_NAMESPACE_END
+
+namespace std {
+
+std::ostream& operator<<(std::ostream& out, _prim_type t) {
+	switch(t) {
+		case PRIM_NONE: return out << "PRIM_NONE";
+		case PRIM_PWR: return out << "PRIM_PWR";
+		case PRIM_GND: return out << "PRIM_GND";
+		case PRIM_X: return out << "PRIM_X";
+		case PRIM_Z: return out << "PRIM_Z";
+		case PRIM_INV: return out << "PRIM_INV";
+		case PRIM_BUF: return out << "PRIM_BUF";
+		case PRIM_AND: return out << "PRIM_AND";
+		case PRIM_NAND: return out << "PRIM_NAND";
+		case PRIM_OR: return out << "PRIM_OR";
+		case PRIM_NOR: return out << "PRIM_NOR";
+		case PRIM_XOR: return out << "PRIM_XOR";
+		case PRIM_XNOR: return out << "PRIM_XNOR";
+		case PRIM_MUX: return out << "PRIM_MUX";
+		case PRIM_PULLUP: return out << "PRIM_PULLUP";
+		case PRIM_PULLDOWN: return out << "PRIM_PULLDOWN";
+		case PRIM_TRI: return out << "PRIM_TRI";
+		case PRIM_BUFIF1: return out << "PRIM_BUFIF1";
+		case PRIM_DLATCH: return out << "PRIM_DLATCH";
+		case PRIM_DLATCHRS: return out << "PRIM_DLATCHRS";
+		case PRIM_DFF: return out << "PRIM_DFF";
+		case PRIM_DFFRS: return out << "PRIM_DFFRS";
+		case PRIM_NMOS: return out << "PRIM_NMOS";
+		case PRIM_PMOS: return out << "PRIM_PMOS";
+		case PRIM_CMOS: return out << "PRIM_CMOS";
+		case PRIM_TRAN: return out << "PRIM_TRAN";
+		case PRIM_FADD: return out << "PRIM_FADD";
+		case PRIM_RCMOS: return out << "PRIM_RCMOS";
+		case PRIM_RNMOS: return out << "PRIM_RNMOS";
+		case PRIM_RPMOS: return out << "PRIM_RPMOS";
+		case PRIM_RTRAN: return out << "PRIM_RTRAN";
+		case PRIM_HDL_ASSERTION: return out << "PRIM_HDL_ASSERTION";
+		case OPER_ADDER: return out << "OPER_ADDER";
+		case OPER_MULTIPLIER: return out << "OPER_MULTIPLIER";
+		case OPER_DIVIDER: return out << "OPER_DIVIDER";
+		case OPER_MODULO: return out << "OPER_MODULO";
+		case OPER_REMAINDER: return out << "OPER_REMAINDER";
+		case OPER_SHIFT_LEFT: return out << "OPER_SHIFT_LEFT";
+		case OPER_SHIFT_RIGHT: return out << "OPER_SHIFT_RIGHT";
+		case OPER_ROTATE_LEFT: return out << "OPER_ROTATE_LEFT";
+		case OPER_ROTATE_RIGHT: return out << "OPER_ROTATE_RIGHT";
+		case OPER_REDUCE_AND: return out << "OPER_REDUCE_AND";
+		case OPER_REDUCE_OR: return out << "OPER_REDUCE_OR";
+		case OPER_REDUCE_XOR: return out << "OPER_REDUCE_XOR";
+		case OPER_REDUCE_NAND: return out << "OPER_REDUCE_NAND";
+		case OPER_REDUCE_NOR: return out << "OPER_REDUCE_NOR";
+		case OPER_REDUCE_XNOR: return out << "OPER_REDUCE_XNOR";
+		case OPER_LESSTHAN: return out << "OPER_LESSTHAN";
+		case OPER_NTO1MUX: return out << "OPER_NTO1MUX";
+		case OPER_SELECTOR: return out << "OPER_SELECTOR";
+		case OPER_DECODER: return out << "OPER_DECODER";
+		case OPER_ENABLED_DECODER: return out << "OPER_ENABLED_DECODER";
+		case OPER_PRIO_SELECTOR: return out << "OPER_PRIO_SELECTOR";
+		case OPER_DUAL_PORT_RAM: return out << "OPER_DUAL_PORT_RAM";
+		case OPER_READ_PORT: return out << "OPER_READ_PORT";
+		case OPER_WRITE_PORT: return out << "OPER_WRITE_PORT";
+		case OPER_CLOCKED_WRITE_PORT: return out << "OPER_CLOCKED_WRITE_PORT";
+		case OPER_LUT: return out << "OPER_LUT";
+		case OPER_POW: return out << "OPER_POW";
+		case OPER_PRIO_ENCODER: return out << "OPER_PRIO_ENCODER";
+		case OPER_ABS: return out << "OPER_ABS";
+		case OPER_WIDE_AND: return out << "OPER_WIDE_AND";
+		case OPER_WIDE_OR: return out << "OPER_WIDE_OR";
+		case OPER_WIDE_XOR: return out << "OPER_WIDE_XOR";
+		case OPER_WIDE_NAND: return out << "OPER_WIDE_NAND";
+		case OPER_WIDE_NOR: return out << "OPER_WIDE_NOR";
+		case OPER_WIDE_XNOR: return out << "OPER_WIDE_XNOR";
+		case OPER_WIDE_BUF: return out << "OPER_WIDE_BUF";
+		case OPER_WIDE_INV: return out << "OPER_WIDE_INV";
+		case OPER_WIDE_TRI: return out << "OPER_WIDE_TRI";
+		case OPER_MINUS: return out << "OPER_MINUS";
+		case OPER_UMINUS: return out << "OPER_UMINUS";
+		case OPER_EQUAL: return out << "OPER_EQUAL";
+		case OPER_NEQUAL: return out << "OPER_NEQUAL";
+		case OPER_WIDE_MUX: return out << "OPER_WIDE_MUX";
+		case OPER_WIDE_NTO1MUX: return out << "OPER_WIDE_NTO1MUX";
+		case OPER_WIDE_SELECTOR: return out << "OPER_WIDE_SELECTOR";
+		case OPER_WIDE_DFF: return out << "OPER_WIDE_DFF";
+		case OPER_WIDE_DFFRS: return out << "OPER_WIDE_DFFRS";
+		case OPER_WIDE_DLATCHRS: return out << "OPER_WIDE_DLATCHRS";
+		case OPER_WIDE_DLATCH: return out << "OPER_WIDE_DLATCH";
+		case OPER_WIDE_PRIO_SELECTOR: return out << "OPER_WIDE_PRIO_SELECTOR";
+		case PRIM_SVA_IMMEDIATE_ASSERT: return out << "PRIM_SVA_IMMEDIATE_ASSERT";
+		case PRIM_SVA_ASSERT: return out << "PRIM_SVA_ASSERT";
+		case PRIM_SVA_COVER: return out << "PRIM_SVA_COVER";
+		case PRIM_SVA_ASSUME: return out << "PRIM_SVA_ASSUME";
+		case PRIM_SVA_EXPECT: return out << "PRIM_SVA_EXPECT";
+		case PRIM_SVA_POSEDGE: return out << "PRIM_SVA_POSEDGE";
+		case PRIM_SVA_NOT: return out << "PRIM_SVA_NOT";
+		case PRIM_SVA_FIRST_MATCH: return out << "PRIM_SVA_FIRST_MATCH";
+		case PRIM_SVA_ENDED: return out << "PRIM_SVA_ENDED";
+		case PRIM_SVA_MATCHED: return out << "PRIM_SVA_MATCHED";
+		case PRIM_SVA_CONSECUTIVE_REPEAT: return out << "PRIM_SVA_CONSECUTIVE_REPEAT";
+		case PRIM_SVA_NON_CONSECUTIVE_REPEAT: return out << "PRIM_SVA_NON_CONSECUTIVE_REPEAT";
+		case PRIM_SVA_GOTO_REPEAT: return out << "PRIM_SVA_GOTO_REPEAT";
+		case PRIM_SVA_MATCH_ITEM_TRIGGER: return out << "PRIM_SVA_MATCH_ITEM_TRIGGER";
+		case PRIM_SVA_AND: return out << "PRIM_SVA_AND";
+		case PRIM_SVA_OR: return out << "PRIM_SVA_OR";
+		case PRIM_SVA_SEQ_AND: return out << "PRIM_SVA_SEQ_AND";
+		case PRIM_SVA_SEQ_OR: return out << "PRIM_SVA_SEQ_OR";
+		case PRIM_SVA_EVENT_OR: return out << "PRIM_SVA_EVENT_OR";
+		case PRIM_SVA_OVERLAPPED_IMPLICATION: return out << "PRIM_SVA_OVERLAPPED_IMPLICATION";
+		case PRIM_SVA_NON_OVERLAPPED_IMPLICATION: return out << "PRIM_SVA_NON_OVERLAPPED_IMPLICATION";
+		case PRIM_SVA_OVERLAPPED_FOLLOWED_BY: return out << "PRIM_SVA_OVERLAPPED_FOLLOWED_BY";
+		case PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY: return out << "PRIM_SVA_NON_OVERLAPPED_FOLLOWED_BY";
+		case PRIM_SVA_INTERSECT: return out << "PRIM_SVA_INTERSECT";
+		case PRIM_SVA_THROUGHOUT: return out << "PRIM_SVA_THROUGHOUT";
+		case PRIM_SVA_WITHIN: return out << "PRIM_SVA_WITHIN";
+		case PRIM_SVA_AT: return out << "PRIM_SVA_AT";
+		case PRIM_SVA_DISABLE_IFF: return out << "PRIM_SVA_DISABLE_IFF";
+		case PRIM_SVA_SAMPLED: return out << "PRIM_SVA_SAMPLED";
+		case PRIM_SVA_ROSE: return out << "PRIM_SVA_ROSE";
+		case PRIM_SVA_FELL: return out << "PRIM_SVA_FELL";
+		case PRIM_SVA_STABLE: return out << "PRIM_SVA_STABLE";
+		case PRIM_SVA_PAST: return out << "PRIM_SVA_PAST";
+		case PRIM_SVA_MATCH_ITEM_ASSIGN: return out << "PRIM_SVA_MATCH_ITEM_ASSIGN";
+		case PRIM_SVA_SEQ_CONCAT: return out << "PRIM_SVA_SEQ_CONCAT";
+		case PRIM_SVA_IF: return out << "PRIM_SVA_IF";
+		case PRIM_SVA_RESTRICT: return out << "PRIM_SVA_RESTRICT";
+		case PRIM_SVA_TRIGGERED: return out << "PRIM_SVA_TRIGGERED";
+		case PRIM_SVA_STRONG: return out << "PRIM_SVA_STRONG";
+		case PRIM_SVA_WEAK: return out << "PRIM_SVA_WEAK";
+		case PRIM_SVA_NEXTTIME: return out << "PRIM_SVA_NEXTTIME";
+		case PRIM_SVA_S_NEXTTIME: return out << "PRIM_SVA_S_NEXTTIME";
+		case PRIM_SVA_ALWAYS: return out << "PRIM_SVA_ALWAYS";
+		case PRIM_SVA_S_ALWAYS: return out << "PRIM_SVA_S_ALWAYS";
+		case PRIM_SVA_S_EVENTUALLY: return out << "PRIM_SVA_S_EVENTUALLY";
+		case PRIM_SVA_EVENTUALLY: return out << "PRIM_SVA_EVENTUALLY";
+		case PRIM_SVA_UNTIL: return out << "PRIM_SVA_UNTIL";
+		case PRIM_SVA_S_UNTIL: return out << "PRIM_SVA_S_UNTIL";
+		case PRIM_SVA_UNTIL_WITH: return out << "PRIM_SVA_UNTIL_WITH";
+		case PRIM_SVA_S_UNTIL_WITH: return out << "PRIM_SVA_S_UNTIL_WITH";
+		case PRIM_SVA_IMPLIES: return out << "PRIM_SVA_IMPLIES";
+		case PRIM_SVA_IFF: return out << "PRIM_SVA_IFF";
+		case PRIM_SVA_ACCEPT_ON: return out << "PRIM_SVA_ACCEPT_ON";
+		case PRIM_SVA_REJECT_ON: return out << "PRIM_SVA_REJECT_ON";
+		case PRIM_SVA_SYNC_ACCEPT_ON: return out << "PRIM_SVA_SYNC_ACCEPT_ON";
+		case PRIM_SVA_SYNC_REJECT_ON: return out << "PRIM_SVA_SYNC_REJECT_ON";
+		case PRIM_SVA_GLOBAL_CLOCKING_DEF: return out << "PRIM_SVA_GLOBAL_CLOCKING_DEF";
+		case PRIM_SVA_GLOBAL_CLOCKING_REF: return out << "PRIM_SVA_GLOBAL_CLOCKING_REF";
+		case PRIM_SVA_IMMEDIATE_ASSUME: return out << "PRIM_SVA_IMMEDIATE_ASSUME";
+		case PRIM_SVA_IMMEDIATE_COVER: return out << "PRIM_SVA_IMMEDIATE_COVER";
+		case OPER_SVA_SAMPLED: return out << "OPER_SVA_SAMPLED";
+		case OPER_SVA_STABLE: return out << "OPER_SVA_STABLE";
+		case OPER_WIDE_CASE_SELECT_BOX: return out << "OPER_WIDE_CASE_SELECT_BOX";
+		case PRIM_YOSYSHQ_INITSTATE: return out << "PRIM_YOSYSHQ_INITSTATE";
+		case OPER_YOSYSHQ_SET_TAG: return out << "OPER_YOSYSHQ_SET_TAG";
+		case OPER_YOSYSHQ_GET_TAG: return out << "OPER_YOSYSHQ_GET_TAG";
+		case OPER_YOSYSHQ_OVERWRITE_TAG: return out << "OPER_YOSYSHQ_OVERWRITE_TAG";
+		case OPER_YOSYSHQ_ORIGINAL_TAG: return out << "OPER_YOSYSHQ_ORIGINAL_TAG";
+		case OPER_YOSYSHQ_FUTURE_FF: return out << "OPER_YOSYSHQ_FUTURE_FF";
+		case PRIM_FORCE: return out << "PRIM_FORCE";
+		case PRIM_HDL_MESSAGE_DISPLAY: return out << "PRIM_HDL_MESSAGE_DISPLAY";
+		case PRIM_HDL_MESSAGE_INFO: return out << "PRIM_HDL_MESSAGE_INFO";
+		case PRIM_HDL_MESSAGE_ERROR: return out << "PRIM_HDL_MESSAGE_ERROR";
+		case PRIM_HDL_MESSAGE_WARNING: return out << "PRIM_HDL_MESSAGE_WARNING";
+		case PRIM_HDL_MESSAGE_FATAL: return out << "PRIM_HDL_MESSAGE_FATAL";
+		case PRIM_END: return out << "PRIM_END";
+	}
+}
+
+struct LogVerificDesignObj {
+	Verific::DesignObj const* obj;
+	int depth;
+};
+
+std::ostream& operator<<(std::ostream& out, LogVerificDesignObj const& o) {
+	if (o.obj == nullptr) return out << "<null>";
+	auto& obj = *o.obj;
+	auto depth = o.depth;
+	out << obj.Name();
+	if (depth == 0) return out;
+	auto log_rec = [&](Verific::DesignObj const * obj) { return LogVerificDesignObj { .obj = obj, .depth = depth > 0 ? depth - 1 : -1, }; };
+	auto maybe_comma = [&, first = false]() mutable {
+		if (!first) { out << ", "; };
+		first = false;
+	};
+	if (auto inst = dynamic_cast<Verific::Instance const*>(&obj)) {
+		out << "Inst: " << inst->Type();
+		out << "(";
+
+#define LOG_OUTPUT_INPUT_BITS(N) \
+		for (unsigned i = 0; i < inst->Input ## N ## Size(); i++) { \
+            maybe_comma(); \
+			out << "in" #N "[" << i << "]:" << log_rec(inst->GetInput ## N ## Bit(i));  \
+		} \
+
+#define LOG_OUTPUT_INPUT(N) \
+		if (inst->GetInput ## N ()) { \
+			maybe_comma();  \
+			out << "in" #N ":" << log_rec(inst->GetInput ## N());  \
+		}
+
+		LOG_OUTPUT_INPUT(1) LOG_OUTPUT_INPUT_BITS(1)
+		LOG_OUTPUT_INPUT(2) LOG_OUTPUT_INPUT_BITS(2)
+		LOG_OUTPUT_INPUT(3)
+
+#undef OUTPUT_INPUT
+#undef OUTPUT_INPUT_BITS
+		out << ")";
+	} else if (auto net = dynamic_cast<Verific::Net const*>(&obj) ){
+		out << "Net(";
+		if (net->Driver()){
+			maybe_comma();
+			out << net->Driver();
+		}
+		auto ports = net->GetPorts();
+		for (unsigned i = 0; i < net->NumOfPorts(); i++){
+			maybe_comma();
+			out << log_rec((Port*)ports->GetAt(i));
+		}
+		out << ")";
+	} else if(auto port = dynamic_cast<Verific::Port const*>(&obj) ) {
+		out << "Port(";
+		if (port->IsInput()) out << "in";
+		if (port->IsOutput()) out << "out";
+		if (port->IsInout()) out << "inout";
+		out << ")";
+	} else {
+		out << "<unimplemented output operator>";
+	}
+	return out;
+}
+
+std::ostream& operator<<(std::ostream& out, Verific::DesignObj const& o) {
+	return out << LogVerificDesignObj { .obj = &o, .depth = 1, };
+}
+
+}
