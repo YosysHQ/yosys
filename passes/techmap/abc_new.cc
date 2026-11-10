@@ -101,12 +101,15 @@ struct AbcNewPass : public ScriptPass {
 		cleanup = true;
 		abc_exe_options.clear();
 		size_t argidx;
+		bool has_script_arg = false;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-exe" || args[argidx] == "-script" ||
 					args[argidx] == "-D" ||
 					args[argidx] == "-constr" || args[argidx] == "-dont_use" ||
 					args[argidx] == "-liberty" || args[argidx] == "-genlib") {
 				abc_exe_options += " " + args[argidx] + " " + args[argidx + 1];
+				if (args[argidx] == "-script")
+					has_script_arg = true;
 				argidx++;
 			} else if (args[argidx] == "-run" && argidx + 1 < args.size()) {
 				size_t pos = args[++argidx].find(':');
@@ -123,7 +126,7 @@ struct AbcNewPass : public ScriptPass {
 		extra_args(args, argidx, d);
 
 		// If no script provided, use a default.
-		if (abc_exe_options.find("-script") == std::string::npos) {
+		if (!has_script_arg) {
 			d->scratchpad_set_string("abc9.script", RTLIL::constpad["abc_new.script.speed"]);
 		}
 
