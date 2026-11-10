@@ -600,7 +600,7 @@ struct AST_INTERNAL::ProcessGenerator
 
 	// add an assignment (aka "action") but split it up in chunks. this way huge assignments
 	// are avoided and the generated $mux cells have a more "natural" size.
-	void addChunkActions(std::vector<RTLIL::SyncAction> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, AstNode* ast, bool inSyncRule = false)
+	void addChunkActions(std::vector<RTLIL::SyncAction> &actions, RTLIL::SigSpec lvalue, RTLIL::SigSpec rvalue, AstNode *ast, bool inSyncRule = false)
 	{
 		if (inSyncRule && initSyncSignals.size() > 0) {
 			init_actions.push_back({lvalue.extract(initSyncSignals), lvalue.extract(initSyncSignals, &rvalue), ast->loc_string()});
@@ -721,25 +721,25 @@ struct AST_INTERNAL::ProcessGenerator
 					current_case_assigned_bits.clear();
 					current_case->compare_src = child->loc_string();
 					last_generated_case = current_case;
-					std::optional<AstNode*> block;
+					AstNode *block = nullptr;
 					for (auto& node : child->children) {
 						if (node->type == AST_DEFAULT) {
 							default_case = current_case;
 						} else if (node->type == AST_BLOCK) {
-							log_assert(!block.has_value());
+							log_assert(block == nullptr);
 							block = node.get();
 						} else {
 							current_case->compare.push_back(node->genWidthRTLIL(width_hint, sign_hint, &subst_rvalue_map.stdmap()));
 						}
 					}
-					log_assert(block.has_value());
-					set_src_attr(current_case, *block);
-					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, *block);
+					log_assert(block != nullptr);
+					set_src_attr(current_case, block);
+					addChunkActions(current_case->actions, this_case_eq_ltemp, this_case_eq_rvalue, block);
 					// Track temp assignments
 					for (auto &bit : this_case_eq_ltemp)
 						if (bit.wire != NULL)
 							current_case_assigned_bits.insert(bit);
-					processAst(*block);
+					processAst(block);
 					if (default_case != current_case)
 						sw->cases.push_back(current_case);
 					else
