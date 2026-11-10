@@ -87,7 +87,8 @@ Verilog Attributes and non-standard features
 - The ``hdlname`` attribute is used by some passes to document the original
   (HDL) name of a module when renaming a module. It should contain a single
   name, or, when describing a hierarchical name in a flattened design, multiple
-  names separated by a single space character.
+  names separated by a single space character. See :ref:`sec:hdl_names` for
+  how Yosys stores it.
 
 - The ``keep`` attribute on cells and wires is used to mark objects that should
   never be removed by the optimizer. This is used for example for cells that
@@ -116,7 +117,8 @@ Verilog Attributes and non-standard features
   HDL front-ends set it on the modules, wires, cells and processes they create,
   in the form ``<file-name>:<line>.<column>-<line>.<column>``.
   An explicit ``(* src = "..." *)`` attribute in the source replaces this
-  location. Passes carry it in a specialized data structure through synthesis.
+  location. Passes carry it in a specialized data structure through synthesis,
+  see :ref:`sec:source_locations`.
   `write_verilog` writes it back out as a ``(* src = "..." *)`` attribute,
   reconstructing it from the data structure. When objects are combined,
   the result lists all original locations, separated by \|.

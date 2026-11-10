@@ -104,7 +104,8 @@ provided by the user to avoid name collisions. When that happens, attribute
 attribute contains one name (if emitted directly by the frontend, or is a result
 of disambiguation) or multiple names separated by spaces (if a result of
 flattening). All names specified in the ``hdlname`` attribute are public and do
-not include the leading ``\``.
+not include the leading ``\``. See :ref:`sec:hdl_names` for how Yosys stores
+it.
 
 RTLIL::Design and RTLIL::Module
 -------------------------------
@@ -127,7 +128,7 @@ an ``RTLIL::Module`` object contains the following additional properties:
    module
 
 The attributes can be Verilog attributes imported by the Verilog frontend or
-attributes assigned by passes. They can be used to store additional metadata
+attributes assigned by passes. They can be used to store additional information
 about modules or just mark them to be used by certain part of the synthesis
 script but not by others.
 
