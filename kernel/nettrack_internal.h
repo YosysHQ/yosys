@@ -199,17 +199,26 @@ private:
 	bool changed_view_ = false;
 };
 
+struct LeafCutSides {
+	std::vector<const Netlist::Pin *> cut = {};
+	std::vector<const Netlist::Pin *> flattened = {};
+	std::vector<const Netlist::Pin *> inside = {};
+};
+
+struct ResolvedPin {
+	std::vector<const Netlist::Pin *> pins = {};
+	std::vector<const Netlist::Pin *> own_pins = {};
+};
+
 struct Resolver {
 	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
 	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
-	std::vector<const Netlist::Pin *> resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
-	std::vector<const Netlist::Pin *> leafCutSides(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &renamed,
-						       std::vector<const Netlist::Pin *> &hier_pins, std::vector<const Netlist::Pin *> &flattened,
-						       Netlist::PortDir dir);
-	std::vector<const Netlist::Pin *> pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &cut) const;
+	ResolvedPin resolvePin(const std::vector<AnchorHit> &hits, const TrackedRef &ref);
+	LeafCutSides leafCutSides(const std::vector<AnchorHit> &hits, const InstanceList &hier_insts);
+	PinList pinsBehindNewLogic(const InstanceList &insts, const PinList &cut) const;
 	void addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const;
 	std::vector<const Netlist::Instance *> resolveCell(const std::vector<AnchorHit> &hits);
 	std::vector<const Netlist::Pin *> resolvePort(const std::vector<AnchorHit> &hits, uint32_t ref_index);
@@ -218,13 +227,13 @@ private:
 	std::vector<const Netlist::Pin *> namedTopPins(uint32_t ref_index) const;
 	void collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const;
 	PinList checkpointedPorts(const PinList &ports, uint32_t ref_index) const;
-	std::vector<const Netlist::Pin *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
+	PinList leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *newBufferInput(const Netlist::Net *net) const;
 	const Netlist::Net *newBufferRoot(const Netlist::Net *net) const;
 	std::vector<const Netlist::Net *> bufferSplitRoots(const pool<const Netlist::Net *> &parts) const;
 	std::vector<const Netlist::Net *> resolveNet(const std::vector<AnchorHit> &hits, TrackedRef &ref);
-	std::vector<PortRename> portRenames(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &insts);
+	std::vector<PortRename> portRenames(const std::vector<AnchorHit> &hits, const InstanceList &insts);
 private:
 	const NetView &view_;
 	const TrackData &data_;
@@ -264,7 +273,7 @@ std::string barrierScopePath(const std::string &path, const RTLIL::Cell *barrier
 
 // Resolve
 std::vector<const AnchorHit *> hitsOfRole(const std::vector<AnchorHit> &hits, Anchor::Role role);
-std::vector<const Netlist::Pin *> hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves, Netlist::PortDir dir);
+PinList hierPinsAbove(const InstanceList &insts, const PinList &leaves, Netlist::PortDir dir);
 const Netlist::Pin *findTopPort(const Netlist::Instance *top, const TopPortName &name);
 bool isNewBuffer(const NetView &view, const Snapshot &snapshot, const Netlist::Instance *inst);
 

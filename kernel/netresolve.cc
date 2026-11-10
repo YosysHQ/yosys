@@ -111,10 +111,13 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 	const std::vector<AnchorHit> &hits = hit_index_.hitsOf(ref_index);
 	collectLoadsBeyondAndBarrierPins(hits, ref);
 	switch (ref.kind) {
-	case TrackedRef::Kind::Pin:
-		ref.pins = resolvePin(hits, ref);
+	case TrackedRef::Kind::Pin: {
+		ResolvedPin resolved = resolvePin(hits, ref);
+		ref.pins = std::move(resolved.pins);
+		ref.result.own_pins = std::move(resolved.own_pins);
 		addTopPins(hits, ref_index, ref);
 		break;
+	}
 	case TrackedRef::Kind::TopPort:
 		ref.pins = resolvePort(hits, ref_index);
 		break;
@@ -166,9 +169,9 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 	}
 }
 
-std::vector<const Netlist::Pin *> detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref)
+detail::ResolvedPin detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, const TrackedRef &ref)
 {
-	std::vector<const Netlist::Pin *> hier_pins, uncut;
+	std::vector<const Netlist::Pin *> own_pins, hier_pins, uncut;
 	std::vector<const Netlist::Instance *> renamed, renamed_leaves;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Pin)) {
 		const Netlist::Pin *pin = hit->instance->findPin(hit->anchor.port, hit->anchor.bit);
@@ -177,66 +180,63 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePin(const std::vector
 		else if (pin == nullptr)
 			renamed.push_back(hit->instance);
 		else if (hit->instance->isLeaf())
-			ref.result.own_pins.push_back(pin);
+			own_pins.push_back(pin);
 		else
 			hier_pins.push_back(pin);
 		if (pin != nullptr && hit->anchor.uncut)
 			uncut.push_back(pin);
 	}
-	// Next to a Barrier instance a found or renamed hierarchical pin takes the leaf rules
-	if (!ref.result.barrier_a_pins.empty()) {
+	bool beside_barrier_instance = !ref.result.barrier_a_pins.empty();
+	// beside a Barrier instance, hierarchical pins take the leaf rules
+	if (beside_barrier_instance) {
 		hier_pins.clear();
 		renamed.clear();
 	}
-	std::vector<const Netlist::Pin *> flattened;
-	std::vector<const Netlist::Pin *> cut = leafCutSides(hits, renamed, hier_pins, flattened, ref.origin.hier_pin_dir);
-	// A leaf pin with a barrier is on its cut side, without barriers the own pins are the result
-	std::vector<const Netlist::Pin *> pins = uncut;
-	if (cut.empty())
-		pins = ref.result.own_pins;
-	pins.insert(pins.end(), cut.begin(), cut.end());
-	pins.insert(pins.end(), hier_pins.begin(), hier_pins.end());
-	ref.result.own_pins.insert(ref.result.own_pins.end(), hier_pins.begin(), hier_pins.end());
-	ref.result.own_pins.insert(ref.result.own_pins.end(), flattened.begin(), flattened.end());
-	if (!renamed_leaves.empty()) {
-		std::vector<const Netlist::Pin *> behind = pinsBehindNewLogic(renamed_leaves, cut);
-		ref.result.own_pins.insert(ref.result.own_pins.end(), behind.begin(), behind.end());
-	}
-	ref.result.own_pins = detail::uniqueSorted(ref.result.own_pins);
-	return detail::uniqueSorted(pins);
-}
-
-// The cut sides of the leaf pins of the ref. The port cuts in its hierarchical instances hold the leaves inside, from
-// them the ports that splitnets -ports renamed go to hier_pins. The other port cuts hold the leaves of a hierarchical
-// pin that flatten removed or that a Barrier instance keeps
-std::vector<const Netlist::Pin *> detail::Resolver::leafCutSides(const std::vector<AnchorHit> &hits,
-								 const std::vector<const Netlist::Instance *> &renamed,
-								 std::vector<const Netlist::Pin *> &hier_pins,
-								 std::vector<const Netlist::Pin *> &flattened, Netlist::PortDir dir)
-{
-	std::vector<const Netlist::Instance *> hier_insts = renamed;
+	InstanceList hier_insts = renamed;
 	for (const Netlist::Pin *pin : hier_pins)
 		hier_insts.push_back(pin->inst);
-	std::vector<const Netlist::Pin *> inside, cut;
+	auto [cut, flattened, inside] = leafCutSides(hits, hier_insts);
+	if (!renamed.empty()) {
+		PinList above = detail::hierPinsAbove(renamed, inside, ref.origin.hier_pin_dir);
+		hier_pins.insert(hier_pins.end(), above.begin(), above.end());
+	}
+	// a leaf pin with a barrier resolves to its cut side
+	// without barriers the own pins are the result
+	std::vector<const Netlist::Pin *> pins = uncut;
+	if (cut.empty())
+		pins = own_pins;
+	pins.insert(pins.end(), cut.begin(), cut.end());
+	pins.insert(pins.end(), hier_pins.begin(), hier_pins.end());
+	own_pins.insert(own_pins.end(), hier_pins.begin(), hier_pins.end());
+	own_pins.insert(own_pins.end(), flattened.begin(), flattened.end());
+	if (!renamed_leaves.empty()) {
+		std::vector<const Netlist::Pin *> behind = pinsBehindNewLogic(renamed_leaves, cut);
+		own_pins.insert(own_pins.end(), behind.begin(), behind.end());
+	}
+	return {detail::uniqueSorted(pins), detail::uniqueSorted(own_pins)};
+}
+
+// cut sides of the leaf pins of the ref
+// port cuts in its hierarchical instances lead to ports splitnets -ports renamed
+// other port cuts hold a flattened pin or one a Barrier instance keeps
+detail::LeafCutSides detail::Resolver::leafCutSides(const std::vector<AnchorHit> &hits, const InstanceList &hier_insts)
+{
+	LeafCutSides sides;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
-		std::vector<const Netlist::Pin *> *out = &cut;
+		std::vector<const Netlist::Pin *> *out = &sides.cut;
 		BarrierMarks marks = data_.barriers.marks(hit->barrier);
 		bool in_hier_pin = std::find(hier_insts.begin(), hier_insts.end(), hit->barrier_scope) != hier_insts.end();
 		if (in_hier_pin && marks.port_cut)
-			out = &inside;
+			out = &sides.inside;
 		else if (marks.port_cut)
-			out = &flattened;
+			out = &sides.flattened;
 		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::StopAtNewBuffer, *out);
 	}
-	if (!renamed.empty()) {
-		std::vector<const Netlist::Pin *> above = detail::hierPinsAbove(renamed, inside, dir);
-		hier_pins.insert(hier_pins.end(), above.begin(), above.end());
-	}
-	cut.insert(cut.end(), flattened.begin(), flattened.end());
-	return cut;
+	sides.cut.insert(sides.cut.end(), sides.flattened.begin(), sides.flattened.end());
+	return sides;
 }
 
-std::vector<const Netlist::Pin *> detail::Resolver::pinsBehindNewLogic(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &cut) const
+detail::PinList detail::Resolver::pinsBehindNewLogic(const InstanceList &insts, const PinList &cut) const
 {
 	std::vector<const Netlist::Pin *> found;
 	std::vector<const Netlist::Pin *> todo = cut;
@@ -308,7 +308,7 @@ void detail::Resolver::addTopPins(const std::vector<AnchorHit> &hits, uint32_t r
 }
 
 // A name moved if a name finds no pin or a named pin is on a net with no anchor (a constant net has none)
-std::vector<const Netlist::Pin *> detail::Resolver::topPinsOfRef(const std::vector<AnchorHit> &hits, uint32_t ref_index) const
+detail::PinList detail::Resolver::topPinsOfRef(const std::vector<AnchorHit> &hits, uint32_t ref_index) const
 {
 	std::vector<const Netlist::Pin *> named = namedTopPins(ref_index);
 	pool<const Netlist::Net *> anchored, named_nets;
@@ -375,7 +375,7 @@ detail::PinList detail::Resolver::checkpointedPorts(const PinList &ports, uint32
 	return on_wire;
 }
 
-std::vector<const Netlist::Pin *> detail::Resolver::leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const
+detail::PinList detail::Resolver::leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const
 {
 	std::vector<const Netlist::Pin *> pins;
 	for (const Netlist::Pin *pin : net->pins) {
@@ -462,7 +462,7 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 }
 
 // dfflibmap renames C to CK, abc swaps inputs
-std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHit> &hits, const std::vector<const Netlist::Instance *> &insts)
+std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHit> &hits, const InstanceList &insts)
 {
 	bool same_cells = !detail::hitsOfRole(hits, Anchor::Role::Cell).empty();
 	std::vector<PortRename> renames;
@@ -498,7 +498,7 @@ std::vector<const detail::AnchorHit *> detail::hitsOfRole(const std::vector<Anch
 }
 
 // Hierarchical pins of dir or inout whose port splitnets -ports renamed, up from the leaf pins through all boundaries (a feedthrough has both)
-std::vector<const Netlist::Pin *> detail::hierPinsAbove(const std::vector<const Netlist::Instance *> &insts, const std::vector<const Netlist::Pin *> &leaves, Netlist::PortDir dir)
+detail::PinList detail::hierPinsAbove(const InstanceList &insts, const PinList &leaves, Netlist::PortDir dir)
 {
 	std::vector<const Netlist::Pin *> found;
 	std::vector<const Netlist::Net *> todo;
