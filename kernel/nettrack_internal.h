@@ -27,8 +27,11 @@ enum class PinCut : uint8_t {
 	Uncut // leaf pin of a pin ref that a checkpoint with barriers left without a barrier
 };
 
+using PinList = std::vector<const Netlist::Pin *>;
+using InstanceList = std::vector<const Netlist::Instance *>;
+
 struct Anchor {
-	enum class Role : uint8_t { Pin, Cell, Net, Barrier };
+	enum class Role : uint8_t { Pin, Cell, Net, Barrier, Port };
 	enum class Side : uint8_t { None, A, Y };
 
 	Role role;
@@ -214,6 +217,7 @@ private:
 	std::vector<const Netlist::Pin *> topPinsOfRef(const std::vector<AnchorHit> &hits, uint32_t ref_index) const;
 	std::vector<const Netlist::Pin *> namedTopPins(uint32_t ref_index) const;
 	void collectTopPorts(const Netlist::Net *net, std::vector<const Netlist::Pin *> &pins) const;
+	PinList checkpointedPorts(const PinList &ports, uint32_t ref_index) const;
 	std::vector<const Netlist::Pin *> leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *netInScope(const Netlist::Net *net, const std::string &scope_path) const;
 	const Netlist::Net *newBufferInput(const Netlist::Net *net) const;
@@ -232,6 +236,7 @@ private:
 size_t objectCount(const TrackedRef &ref);
 int newRefValue(RTLIL::Design *design);
 int keySeed(RTLIL::Design *design);
+RTLIL::SigBit portBit(const NetView &view, const Netlist::Pin *pin);
 
 // Attributes
 void ensureScopename(RTLIL::AttrObject *object);

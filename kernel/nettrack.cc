@@ -196,6 +196,10 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 	if (pin->inst->isTop()) {
 		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
 		anchorWires(pin->inner, ref_index);
+		if (RTLIL::SigBit bit = detail::portBit(view_, pin); bit.wire != nullptr) {
+			Anchor port_anchor = {.role = Anchor::Role::Port, .ref_index = ref_index, .bit = bit.offset};
+			data_.anchors.append(view_.design(), bit.wire, port_anchor);
+		}
 		return;
 	}
 	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)
@@ -214,6 +218,18 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 		.uncut = cut == PinCut::Uncut
 	};
 	anchorCell(pin->inst, anchor);
+}
+
+// port wire bit in the instance's module, or empty
+RTLIL::SigBit detail::portBit(const NetView &view, const Netlist::Pin *pin)
+{
+	RTLIL::Module *module = view.module(pin->inst);
+	if (module == nullptr)
+		return {};
+	RTLIL::Wire *wire = module->wire(detail::escapedPortId(view.design(), nullptr, module, pin->port().name));
+	if (wire == nullptr || pin->bit >= wire->width)
+		return {};
+	return {wire, pin->bit};
 }
 
 void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers)

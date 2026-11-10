@@ -288,7 +288,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::resolvePort(const std::vecto
 	}
 	for (const Netlist::Net *net : nets)
 		collectTopPorts(net, pins);
-	pins = detail::uniqueSorted(pins);
+	pins = checkpointedPorts(detail::uniqueSorted(pins), ref_index);
 	std::vector<const Netlist::Pin *> named = namedTopPins(ref_index);
 	bool agrees = true;
 	for (const Netlist::Pin *pin : named)
@@ -327,6 +327,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::topPinsOfRef(const std::vect
 		if (!named_nets.count(net))
 			collectTopPorts(net, lost_names);
 	}
+	lost_names = checkpointedPorts(lost_names, ref_index);
 	if (on_anchors.size() == data_.top_ports_by_ref.get(ref_index).size() || lost_names.empty())
 		return named;
 	on_anchors.insert(on_anchors.end(), lost_names.begin(), lost_names.end());
@@ -351,6 +352,27 @@ void detail::Resolver::collectTopPorts(const Netlist::Net *net, std::vector<cons
 				pins.push_back(port);
 		}
 	}
+}
+
+// ports whose wire bit has a ref Port anchor, else all
+detail::PinList detail::Resolver::checkpointedPorts(const PinList &ports, uint32_t ref_index) const
+{
+	std::vector<const Netlist::Pin *> on_wire;
+	for (const Netlist::Pin *top_pin : ports) {
+		RTLIL::SigBit bit = detail::portBit(view_, top_pin);
+		if (bit.wire == nullptr)
+			continue;
+		for (const Anchor &anchor : data_.anchors.anchorsOf(view_.design(), bit.wire)) {
+			bool same_ref_bit = anchor.ref_index == ref_index && anchor.bit == bit.offset;
+			if (anchor.role == Anchor::Role::Port && same_ref_bit) {
+				on_wire.push_back(top_pin);
+				break;
+			}
+		}
+	}
+	if (on_wire.empty())
+		return ports;
+	return on_wire;
 }
 
 std::vector<const Netlist::Pin *> detail::Resolver::leafPinsUnderScope(const Netlist::Net *net, const std::string &scope_path) const

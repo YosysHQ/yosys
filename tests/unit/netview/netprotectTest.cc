@@ -276,16 +276,23 @@ TEST_F(NetProtectTest, pinRefFindsTopPins)
 {
 	Wire *o = top->addWire("\\o");
 	o->port_output = true;
+	Wire *thru = top->addWire("\\thru");
+	thru->port_output = true;
 	top->fixup_ports();
 	top->connect(o, State::S0);
+	top->connect(thru, in);
 	TrackedView t(d);
-	TrackedRef ref = pinRef({t.view->top()->findPin("in", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]});
-	t.checkpoint({&ref});
+	TrackedRef port = pinRef({t.view->top()->findPin("in", 0)}, TrackedRef::Kind::TopPort);
+	Pins ref_pins = {t.view->top()->findPin("in", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]};
+	TrackedRef ref = pinRef(ref_pins);
+	t.checkpoint({&port, &ref});
 	top->rename(in, "\\in2");
 	top->rename(out, "\\in");
 	top->fixup_ports();
-	t.next({&ref});
-	EXPECT_EQ(sortedPins(ref.pins), sortedPins({t.view->top()->findPin("in2", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]}));
+	t.next({&port, &ref});
+	EXPECT_EQ(port.pins, Pins{t.view->top()->findPin("in2", 0)});
+	Pins expected = {t.view->top()->findPin("in2", 0), t.view->top()->findPin("o", 0), t.child(u_inv0)->pins[0]};
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins(expected));
 }
 
 TEST_F(NetProtectTest, refsOnFlattenCopiesOfABarrierKeepOnlyThem)
