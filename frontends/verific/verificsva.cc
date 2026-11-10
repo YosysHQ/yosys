@@ -2202,10 +2202,10 @@ private:
 		auto *sva_high_s = inst->GetAttValue("sva:high");
 		bool sva_inf = !strcmp(sva_high_s, "$");
 
-		return property_ir::RangeLiteral(
-			atoi(sva_low_s),
-			sva_inf ? -1 : atoi(sva_high_s)
-		);
+		if (sva_inf)
+			return property_ir::RangeLiteral(atoi(sva_low_s));
+		else
+			return property_ir::RangeLiteral(atoi(sva_low_s), atoi(sva_high_s));
 	}
 	property_ir::BoundedRangeLiteral get_sva_bounded_range(Instance *inst) {
 		auto *sva_low_s = inst->GetAttValue("sva:low");
