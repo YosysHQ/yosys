@@ -5,7 +5,6 @@
 
 #ifndef YOSYS_IO_H
 #define YOSYS_IO_H
-
 YOSYS_NAMESPACE_BEGIN
 
 struct IdString;
@@ -195,6 +194,17 @@ check_format(std::string_view fmt, int fmt_start, bool *has_escapes, FoundFormat
 	ensure_no_format_spec(fmt, fmt_start, has_escapes);
 }
 
+template<typename T>
+concept has_output_operator = requires(std::ostream& os, const T& value) {
+      { os << value  } -> std::same_as<std::ostream&>;
+};
+
+
+template<typename T>
+concept ptr_has_output_operator = std::is_pointer_v<std::remove_cvref_t<T>>
+                               && has_output_operator<std::remove_pointer_t<T>>;
+
+
 template <class T>
 static auto has_name_member_imp(int)
 	-> decltype(static_cast<const IdString>(std::declval<T>().name), std::true_type{});
@@ -266,6 +276,8 @@ constexpr void check_format(std::string_view fmt, int fmt_start, bool *has_escap
 		        !std::is_convertible_v<Arg, const std::string &> &&
 			!std::is_convertible_v<Arg, const std::string_view &> &&
 			!has_name_member<Arg>() &&
+			!has_output_operator<Arg> &&
+			!ptr_has_output_operator<Arg> &&
 			!ptr_has_name_member<Arg>()) {
 			YOSYS_ABORT("Expected type convertible to char *");
 		}
@@ -363,6 +375,21 @@ inline void format_emit_one(std::string &result, std::string_view fmt, const Fou
 		if constexpr (ptr_has_name_member<Arg>()) {
 			const std::string &s = arg->name.unescape();
 			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s);
+			return;
+		}
+		if constexpr (ptr_has_output_operator<Arg>) {
+			std::stringstream s;
+			if (arg == nullptr)
+				s << "<null>";
+			else
+				s << *arg;
+			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s.str());
+			return;
+		}
+		if constexpr (has_output_operator<Arg>) {
+			std::stringstream s;
+			s << arg;
+			format_emit_string(result, spec, dynamic_ints, num_dynamic_ints, s.str());
 			return;
 		}
 		break;
