@@ -693,8 +693,7 @@ struct RTLILFrontendWorker {
 			} else if (try_parse_keyword("blocks")) {
 				parse_blocks();
 				materialize_file_handles(design->metas(), file_blocks, "metadata");
-			}
-			else
+			} else
 				error("Unexpected section `%s' in metadata block.", error_token());
 		}
 		expect_eol();
