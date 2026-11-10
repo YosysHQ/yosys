@@ -72,26 +72,30 @@ void detail::BarrierWriter::noteBarrier(RTLIL::Cell *barrier)
 		port_barrier_by_bit_[barrier->getPort(port_side)[0]] = barrier;
 }
 
-void detail::BarrierWriter::protect(uint32_t ref_index, const TrackedRef &ref, size_t at)
+detail::PinCut detail::BarrierWriter::protect(uint32_t ref_index, const TrackedRef &ref, size_t at)
 {
 	switch (ref.kind) {
 	case TrackedRef::Kind::Pin:
 		return protectPin(ref.pins[at], ref_index, ref);
 	case TrackedRef::Kind::TopPort:
-		return protectPort(ref.pins[at], ref_index);
+		protectPort(ref.pins[at], ref_index);
+		break;
 	case TrackedRef::Kind::Instance:
-		return protectCell(ref.instances[at], ref_index);
+		protectCell(ref.instances[at], ref_index);
+		break;
 	case TrackedRef::Kind::Net:
-		return protectNet(ref.nets[at], ref_index);
+		protectNet(ref.nets[at], ref_index);
+		break;
 	}
+	return PinCut::Cut;
 }
 
 bool detail::BarrierWriter::changedView() const { return changed_view_; }
 
-void detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref)
+detail::PinCut detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref)
 {
 	if (pin->inst->isTop())
-		return;
+		return PinCut::Cut;
 	int outputs = 0;
 	for (const Netlist::Pin *other : pin->inst->pins)
 		outputs += other->isDriver();
@@ -104,18 +108,20 @@ void detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_ind
 	if (pin->inst->isLeaf())
 		return protectLeafPin(pin, ref_index);
 	protectHierPin(pin, ref_index, ref.hints.keep_as_instance);
+	return PinCut::Cut;
 }
 
 // A driver also cuts its first connected input, so opt_merge merges no cell into it
-void detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
+detail::PinCut detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
-	anchorPinBarrier(pin, ref_index, net_scope_path);
+	PinCut cut = anchorPinBarrier(pin, ref_index, net_scope_path);
 	if (!pin->isDriver())
-		return;
+		return cut;
 	for (const Netlist::Pin *input : pin->inst->pins) {
 		if (input->dir() == Netlist::PortDir::Input && ensureBarrierAtPin(input) != nullptr)
-			return;
+			break;
 	}
+	return cut;
 }
 
 void detail::BarrierWriter::protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance)
@@ -177,23 +183,24 @@ void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_ind
 	}
 }
 
-void detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
+detail::PinCut detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPin(pin);
 	if (barrier == nullptr)
-		return keepUncutPin(pin, ref_index);
+		return keepUncutPin(pin);
 	Anchor::Side cut_side = Anchor::Side::Y;
 	if (pin->isDriver())
 		cut_side = Anchor::Side::A;
 	Anchor anchor = {Anchor::Role::Barrier, ref_index, "", pin->port().name, pin->bit, net_scope_path, false, cut_side};
 	detail::recordBarrierAnchor(view_, data_.barriers, barrier, data_.snapshot.scopePath(view_, pin->inst->parent), anchor);
+	return PinCut::Cut;
 }
 
-void detail::BarrierWriter::keepUncutPin(const Netlist::Pin *pin, uint32_t ref_index)
+detail::PinCut detail::BarrierWriter::keepUncutPin(const Netlist::Pin *pin)
 {
-	data_.anchors.markUncut(view_.design(), view_.cell(pin->inst), ref_index, pin);
 	if (pin->dir() == Netlist::PortDir::Inout)
 		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
+	return PinCut::Uncut;
 }
 
 RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)

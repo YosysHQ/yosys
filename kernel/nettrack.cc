@@ -32,9 +32,10 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++) {
 		TrackedRef &ref = *refs[ref_index];
 		for (size_t at = 0; at < detail::objectCount(ref); at++) {
-			anchors.write(ref_index, ref, at, with_barriers);
+			detail::PinCut cut = detail::PinCut::Cut;
 			if (with_barriers)
-				barriers.protect(ref_index, ref, at);
+				cut = barriers.protect(ref_index, ref, at);
+			anchors.write(ref_index, ref, at, with_barriers, cut);
 		}
 	}
 	if (!with_barriers)
@@ -167,21 +168,9 @@ int detail::keySeed(RTLIL::Design *design)
 	return *seed;
 }
 
-void detail::AnchorStore::markUncut(RTLIL::Design *design, const RTLIL::AttrObject *object, uint32_t ref_index, const Netlist::Pin *pin)
-{
-	RTLIL::IdString id = design->twines().find(detail::ref_attr);
-	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
-		return;
-	for (Anchor &anchor : anchors_by_ref_attr.at(object->attributes.at(id).as_int())) {
-		bool same_pin = anchor.port == pin->port().name && anchor.bit == pin->bit;
-		if (anchor.role == Anchor::Role::Pin && anchor.ref_index == ref_index && same_pin)
-			anchor.uncut = true;
-	}
-}
-
 detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker) : view_(view), data_(data), walker_(walker) {}
 
-void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers)
+void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers, PinCut cut)
 {
 	switch (ref.kind) {
 	case TrackedRef::Kind::Net:
@@ -189,15 +178,20 @@ void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at,
 	case TrackedRef::Kind::Instance: {
 		const Netlist::Instance *inst = ref.instances[at];
 		log_assert(!inst->isTop());
-		return anchorCell(inst, {Anchor::Role::Cell, ref_index, data_.snapshot.cellScopePath(view_, inst), "", 0, "", false});
+		Anchor anchor = {
+			.role = Anchor::Role::Cell,
+			.ref_index = ref_index,
+			.scope_path = data_.snapshot.cellScopePath(view_, inst)
+		};
+		return anchorCell(inst, anchor);
 	}
 	case TrackedRef::Kind::TopPort:
 	case TrackedRef::Kind::Pin:
-		return anchorPin(ref.pins[at], ref_index, ref, with_barriers);
+		return anchorPin(ref.pins[at], ref_index, ref, with_barriers, cut);
 	}
 }
 
-void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers)
+void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers, PinCut cut)
 {
 	if (pin->inst->isTop()) {
 		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
@@ -211,7 +205,14 @@ void detail::AnchorWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index
 		if (pin->dir() == Netlist::PortDir::Output)
 			ref.origin.hier_pin_dir = Netlist::PortDir::Output;
 	}
-	Anchor anchor = {Anchor::Role::Pin, ref_index, data_.snapshot.cellScopePath(view_, pin->inst), pin->port().name, pin->bit, "", false};
+	Anchor anchor = {
+		.role = Anchor::Role::Pin,
+		.ref_index = ref_index,
+		.scope_path = data_.snapshot.cellScopePath(view_, pin->inst),
+		.port = pin->port().name,
+		.bit = pin->bit,
+		.uncut = cut == PinCut::Uncut
+	};
 	anchorCell(pin->inst, anchor);
 }
 
@@ -220,7 +221,13 @@ void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uin
 	ref.origin.on_barrier_instance = true;
 	if (!with_barriers)
 		return anchorDriversOfBarrierInstance(pin, ref_index, ref);
-	Anchor anchor = {Anchor::Role::Pin, ref_index, "", pin->port().name, pin->bit, "", false, Anchor::Side::Y};
+	Anchor anchor = {
+		.role = Anchor::Role::Pin,
+		.ref_index = ref_index,
+		.port = pin->port().name,
+		.bit = pin->bit,
+		.side = Anchor::Side::Y
+	};
 	std::string path = data_.snapshot.scopePath(view_, pin->inst->parent);
 	detail::recordBarrierAnchor(view_, data_.barriers, view_.cell(pin->inst), path, anchor);
 }
@@ -233,7 +240,7 @@ void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pi
 	std::vector<const Netlist::Pin *> drivers;
 	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const Netlist::Pin *driver : drivers)
-		anchorPin(driver, ref_index, ref, /*with_barriers=*/false);
+		anchorPin(driver, ref_index, ref, /*with_barriers=*/false, PinCut::Cut);
 	ref.origin.anchored_on_drivers = !drivers.empty();
 }
 
@@ -251,7 +258,14 @@ void detail::AnchorWriter::anchorWires(const Netlist::Net *net, uint32_t ref_ind
 	std::string path = data_.snapshot.scopePath(view_, net->scope);
 	for (const RTLIL::SigBit &bit : view_.wireBits(net)) {
 		bool shared = markIfShared(bit.wire, bit.wire->module);
-		Anchor anchor = {Anchor::Role::Net, ref_index, detail::withOwnScope(path, bit.wire), "", bit.offset, path, shared};
+		Anchor anchor = {
+			.role = Anchor::Role::Net,
+			.ref_index = ref_index,
+			.scope_path = detail::withOwnScope(path, bit.wire),
+			.bit = bit.offset,
+			.net_scope_path = path,
+			.in_shared_module = shared
+		};
 		data_.anchors.append(view_.design(), bit.wire, anchor);
 	}
 }
