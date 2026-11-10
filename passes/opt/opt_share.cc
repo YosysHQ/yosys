@@ -201,7 +201,7 @@ void merge_operators(RTLIL::Module *module, RTLIL::Cell *mux, const std::vector<
 			operand = ExtSigSpec(module->Neg(NEW_ID, operand.sig, operand.is_signed, ports[i].op->src()));
 	}
 
-	for (const auto& p : ports)
+	for (const auto &p : ports)
 		module->design->absorb_metadata(shared_op, p.op);
 
 	for (const auto& p : ports) {

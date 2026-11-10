@@ -119,7 +119,7 @@ Verilog Attributes and non-standard features
   location. Passes carry it in a specialized data structure through synthesis.
   `write_verilog` writes it back out as a ``(* src = "..." *)`` attribute,
   reconstructing it from the data structure. When objects are combined,
-  the result lists all original locations, separated by \|. 
+  the result lists all original locations, separated by \|.
 
 - The ``defaultvalue`` attribute is used to store default values for module
   inputs. The attribute is attached to the input wire by the HDL front-end when
