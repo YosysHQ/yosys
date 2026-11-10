@@ -1,0 +1,11 @@
+# logger -expect error "loop variable .*? exceeds unroll limit .*" 1
+log -header "Unroll limit higher than loop max is allowed"
+log -push
+read_verilog -sv -unroll-limit 20 loop_unroll.sv
+design -reset
+log -pop
+log -header "Unroll limit lower than loop max catches error"
+log -push
+logger -expect error "loop variable .*? exceeds unroll limit .*" 1
+read_verilog -sv -unroll-limit 5 loop_unroll.sv
+log -pop
