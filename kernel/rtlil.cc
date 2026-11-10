@@ -737,26 +737,6 @@ namespace {
 				walk_process_attr_objects(process, visit);
 		}
 	}
-
-	template<typename F>
-	void walk_process_srcs(RTLIL::Process *process, F visit) {
-		std::vector<RTLIL::CaseRule*> case_stack{&process->root_case};
-		while (!case_stack.empty()) {
-			RTLIL::CaseRule *cs = case_stack.back();
-			case_stack.pop_back();
-			visit(cs->compare_src);
-			for (auto &action : cs->actions)
-				visit(action.src);
-			for (auto *sw : cs->switches) {
-				visit(sw->signal_src);
-				for (auto *case_ : sw->cases)
-					case_stack.push_back(case_);
-			}
-		}
-		for (auto *sync : process->syncs)
-			for (auto &action : sync->actions)
-				visit(action.src);
-	}
 }
 
 
@@ -783,7 +763,7 @@ size_t RTLIL::Design::gc_twines()
 
 	for (auto &[_, module] : modules_)
 		for (auto &[_, process] : module->processes)
-			walk_process_srcs(process, src_root);
+			process->walk_srcs(src_root);
 
 	root(selected_active_module);
 
@@ -3214,7 +3194,7 @@ RTLIL::Process *RTLIL::Module::addProcess(RTLIL::IdString name, const RTLIL::Pro
 			obj->attributes = std::move(attributes);
 			obj->set_src(design->srcs().copy_from(src_design->srcs(), obj->src()));
 		});
-		walk_process_srcs(proc, [&](SrcRef &src) {
+		proc->walk_srcs([&](SrcRef &src) {
 			src = design->srcs().copy_from(src_design->srcs(), src);
 		});
 		for (auto *sync : proc->syncs)

@@ -2201,6 +2201,8 @@ public:
 
 	template<typename T> void rewrite_sigspecs(T &functor);
 	template<typename T> void rewrite_sigspecs2(T &functor);
+	template<typename F> void walk_srcs(F visit);
+	template<typename F> void walk_srcs(F visit) const;
 	RTLIL::Process *clone(RTLIL::Module *module) const;
 
 	std::string to_rtlil_str() const;
@@ -2379,6 +2381,33 @@ void RTLIL::Process::rewrite_sigspecs(T &functor)
 	root_case.rewrite_sigspecs(functor);
 	for (auto it : syncs)
 		it->rewrite_sigspecs(functor);
+}
+
+template<typename F>
+void RTLIL::Process::walk_srcs(F visit)
+{
+	std::vector<RTLIL::CaseRule*> case_stack{&root_case};
+	while (!case_stack.empty()) {
+		RTLIL::CaseRule *cs = case_stack.back();
+		case_stack.pop_back();
+		visit(cs->compare_src);
+		for (auto &action : cs->actions)
+			visit(action.src);
+		for (auto *sw : cs->switches) {
+			visit(sw->signal_src);
+			for (auto *case_ : sw->cases)
+				case_stack.push_back(case_);
+		}
+	}
+	for (auto *sync : syncs)
+		for (auto &action : sync->actions)
+			visit(action.src);
+}
+
+template<typename F>
+void RTLIL::Process::walk_srcs(F visit) const
+{
+	const_cast<RTLIL::Process*>(this)->walk_srcs([&](const SrcRef &src) { visit(src); });
 }
 
 template<typename T>
