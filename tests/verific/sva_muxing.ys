@@ -5,6 +5,27 @@ endmodule
 EOT
 verific -import top
 select -assert-any t:$assert %ci* i:a %i
+select -assert-any t:$assert %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, rst, en, a);
+    always @(posedge clk) if (en) assert property (disable iff (rst) a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$assert %ci* i:a %i
+select -assert-any t:$assert %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, en, a);
+    assert property (@(posedge clk iff en) a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$assert %ci* i:a %i
+select -assert-any t:$assert %ci* i:en %i
 
 design -reset
 verific -sv << EOT
@@ -14,3 +35,34 @@ endmodule
 EOT
 verific -import top
 select -assert-any t:$cover %ci* i:a %i
+select -assert-any t:$cover %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, rst, en, a);
+    always @(posedge clk) if (en) cover property (disable iff (rst) a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$cover %ci* i:a %i
+select -assert-any t:$cover %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, en, a);
+    always @(posedge clk iff en) cover property (a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$cover %ci* i:a %i
+select -assert-any t:$cover %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, en, a);
+    cover property (@(posedge clk iff en) a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$cover %ci* i:a %i
+select -assert-any t:$cover %ci* i:en %i

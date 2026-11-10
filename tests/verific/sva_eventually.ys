@@ -58,6 +58,10 @@ verific -import assert_immediate
 design -reset
 verific -formal sva_eventually.sv
 verific -import assert_sequential
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_sequential_disable
 logger -check-expected
 
 # bounded eventually properties are not currently supported
