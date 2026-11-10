@@ -71,5 +71,9 @@ void verific_extnets(const std::map<std::string,Verific::Netlist*> &nl_todo);
 
 YOSYS_NAMESPACE_END
 
+namespace std {
+	std::ostream& operator<<(std::ostream& out, Verific::DesignObj const& inst);
+}
+
 #endif
 #endif
