@@ -145,13 +145,10 @@ private:
 
 	static bool keep_cell(Cell *cell, bool purge_mode)
 	{
-		if (cell->type.in(ID($assert), ID($assume), ID($live), ID($fair), ID($cover)))
+		if (StaticCellTypes::categories.has_side_effect(cell->type))
 			return true;
 
 		if (cell->type.in(ID($overwrite_tag)))
-			return true;
-
-		if (cell->type == ID($print) || cell->type == ID($check))
 			return true;
 
 		if (cell->has_keep_attr())

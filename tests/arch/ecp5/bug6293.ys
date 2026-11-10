@@ -1,0 +1,11 @@
+# https://github.com/YosysHQ/yosys/issues/6293
+# CCU2C boxes driving only a keep wire
+read_verilog <<EOT
+module bug(input clk, input [31:0] a, input [31:0] b, output reg [7:0] q);
+	(* keep *) wire [31:0] s;
+	assign s = a + b;
+	always @(posedge clk) q <= s[7:0];
+endmodule
+EOT
+synth_ecp5 -top bug
+select -assert-count 16 t:CCU2C
