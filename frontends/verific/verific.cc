@@ -2195,6 +2195,28 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 				continue;
 		}
 
+		if (inst->Type() == PRIM_SVA_SAMPLED)
+		{
+			log_assert(inst->GetInput2() == nullptr); // verific adds a non-standard conform clock argument
+			module->connect(net_map_at(inst->GetInput1()), net_map_at(inst->GetOutput()));
+
+			if (!mode_keep)
+				continue;
+		}
+
+
+		if (inst->Type() == OPER_SVA_SAMPLED)
+		{
+			log_assert(inst->Input2Size() == 1 && inst->GetInput2Bit(0) == nullptr);  // verific adds a non-standard conform clock argument
+			log_assert(inst->Input1Size() == inst->OutputSize());
+			for (unsigned i  = 0; i < inst->Input1Size(); i++) {
+				module->connect(net_map_at(inst->GetOutputBit(i)), net_map_at(inst->GetInput1Bit(i)));
+			}
+
+			if (!mode_keep)
+				continue;
+		}
+
 		if ((inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL))
 		{
 			VerificClocking clocking(this, inst->GetInput2());

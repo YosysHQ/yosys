@@ -1076,6 +1076,21 @@ struct VerificSvaImporter
 				break;
 			}
 
+			if (inst->Type() == OPER_SVA_SAMPLED)
+			{
+				check_expression_cache[net] = false;
+				break;
+			}
+
+			if (inst->Type() == PRIM_SVA_SAMPLED)
+			{
+				if (!check_expression(inst->GetInput1(), raise_error))
+					parser_error("$sampled can only be used with expressions", inst);
+				check_expression_cache[net] = true;
+				break;
+			}
+
+
 			if (inst->Type() == PRIM_SVA_FIRST_MATCH || inst->Type() == PRIM_SVA_NOT)
 			{
 				check_expression_cache[net] = check_expression(inst->GetInput(), raise_error);
@@ -1138,6 +1153,9 @@ struct VerificSvaImporter
 
 		if (inst->Type() == PRIM_SVA_NOT)
 			return module->Not(NEW_ID, parse_expression(inst->GetInput()));
+
+		if (inst->Type() == PRIM_SVA_SAMPLED)
+			return parse_expression(inst->GetInput1());
 
 		if (inst->Type() == PRIM_SVA_SEQ_OR || inst->Type() == PRIM_SVA_OR)
 			return module->Or(NEW_ID, parse_expression(inst->GetInput1()), parse_expression(inst->GetInput2()));
