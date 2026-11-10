@@ -516,7 +516,10 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 				flag_m = true;
 			if (design->selected(module)) {
 				count_selected_mods++;
-				if (module->has_processes())
+				bool has_srcs = false;
+				for (auto &[_, process] : module->processes)
+					process->walk_srcs([&](SrcRef src) { has_srcs |= src != SrcRef::Null; });
+				if (has_srcs)
 					log_warning("Module %s contains processes. Source locations inside them will be lost.\n", module);
 			}
 		}
