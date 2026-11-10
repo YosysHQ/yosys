@@ -57,3 +57,9 @@ endmodule
 module assert_bounded_implication (input clk, en, a);
     assert property (@(posedge clk) en |-> s_eventually [1:4] a);
 endmodule
+
+module cover_clock_enable (input clk, ce, en, rst);
+    always @(posedge clk iff ce)
+        if (en)
+            cover property (disable iff (rst) s_eventually 1'b0);
+endmodule

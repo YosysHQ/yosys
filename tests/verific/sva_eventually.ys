@@ -34,6 +34,13 @@ logger -expect warning "Unsupported eventually cover" 1
 verific -import -sva-continue-on-err cover_implication_disable
 logger -check-expected
 
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_clock_enable
+logger -check-expected
+
 # other kinds of nesting, e.g. and, are also unsupported (though here it is
 # generally unsupported not just because of the cover)
 design -reset

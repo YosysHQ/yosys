@@ -66,3 +66,16 @@ EOT
 verific -import top
 select -assert-any t:$cover %ci* i:a %i
 select -assert-any t:$cover %ci* i:en %i
+
+design -reset
+verific -sv << EOT
+module top (input clk, ce, en, rst, a);
+    always @(posedge clk iff ce) if (en) cover property (disable iff (rst) a);
+endmodule
+EOT
+verific -import top
+select -assert-any t:$cover %ci* i:a %i
+select -assert-any t:$cover %ci* i:en %i
+select -assert-any t:$cover %ci* i:rst %i
+select -assert-any t:$cover %ci* i:clk %i
+select -assert-any t:$cover %ci* i:ce %i
