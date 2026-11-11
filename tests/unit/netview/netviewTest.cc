@@ -117,7 +117,8 @@ static std::vector<std::string> hdlpathOfName(const std::string &name)
 
 TEST(NetViewNameTest, flattenNamesGiveSourcePath)
 {
-	EXPECT_EQ(hdlpathOfName("$flatten\\u1.\\l0.$and$x.v:3$7"), (std::vector<std::string>{"u1", "l0", "$and$x.v:3$7"}));
+	std::vector<std::string> expected_path = {"u1", "l0", "$and$x.v:3$7"};
+	EXPECT_EQ(hdlpathOfName("$flatten\\u1.\\l0.$and$x.v:3$7"), expected_path);
 	EXPECT_EQ(hdlpathOfName("$flatten\\u1/$y"), (std::vector<std::string>{"u1", "$y"}));
 	EXPECT_EQ(hdlpathOfName("$flatten\\u1_\\l0_$y"), (std::vector<std::string>{"u1", "l0", "$y"}));
 	EXPECT_TRUE(hdlpathOfName("$and$x.v:3$7").empty());

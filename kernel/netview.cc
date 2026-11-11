@@ -32,7 +32,10 @@ bool detail::designAlive(const ViewData &data)
 }
 
 // A yosys internal cell type (no library cell)
-bool detail::isInternalType(RTLIL::IdString type) { return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo); }
+bool detail::isInternalType(RTLIL::IdString type)
+{
+	return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo);
+}
 
 std::vector<std::string> detail::sourcePath(const RTLIL::AttrObject *object, std::string_view name)
 {
@@ -93,7 +96,10 @@ bool detail::trailingIndex(std::string_view name, int &index)
 	return true;
 }
 
-bool detail::isTransparentType(RTLIL::IdString type) { return type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo)); }
+bool detail::isTransparentType(RTLIL::IdString type)
+{
+	return type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo));
+}
 
 std::string detail::unescapedName(RTLIL::PooledName id) { return id.unescape(); }
 
@@ -266,8 +272,7 @@ uint64_t detail::cellPinBits(RTLIL::Design *design, const RTLIL::Cell *cell)
 	return bits;
 }
 
-bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open,
-			    std::string &reason)
+bool detail::checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &used, ModuleSet &open, std::string &reason)
 {
 	open.insert(module);
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -311,7 +316,7 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	return true;
 }
 
-bool detail::checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason)
+bool detail::checkModule(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &blackboxes, std::string &reason)
 {
 	if (!module->processes.empty()) {
 		reason = stringf("module %s has processes (run proc)", module);
@@ -440,9 +445,15 @@ void detail::NetsByScopeBit::set(const Netlist::Instance *scope, const RTLIL::Si
 	data[{scope->id, detail::bitKey(bit)}] = net;
 }
 
-RTLIL::Cell *NetView::cell(const Netlist::Instance *inst) const { return data_->index.instance_rtlil.get(inst->id).cell; }
+RTLIL::Cell *NetView::cell(const Netlist::Instance *inst) const
+{
+	return data_->index.instance_rtlil.get(inst->id).cell;
+}
 
-RTLIL::Module *NetView::module(const Netlist::Instance *scope) const { return data_->index.instance_rtlil.get(scope->id).module; }
+RTLIL::Module *NetView::module(const Netlist::Instance *scope) const
+{
+	return data_->index.instance_rtlil.get(scope->id).module;
+}
 
 Netlist::Instance *NetView::instance(const RTLIL::Cell *cell, const Netlist::Instance *scope) const
 {
@@ -453,9 +464,15 @@ Netlist::Instance *NetView::instance(const RTLIL::Cell *cell, const Netlist::Ins
 	return nullptr;
 }
 
-const std::vector<Netlist::Instance *> &NetView::scopes(const RTLIL::Module *module) const { return data_->index.scopes_by_module.get(module); }
+const std::vector<Netlist::Instance *> &NetView::scopes(const RTLIL::Module *module) const
+{
+	return data_->index.scopes_by_module.get(module);
+}
 
-const std::vector<RTLIL::SigBit> &NetView::wireBits(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).wire_bits; }
+const std::vector<RTLIL::SigBit> &NetView::wireBits(const Netlist::Net *net) const
+{
+	return data_->index.net_rtlil.get(net->id).wire_bits;
+}
 
 Netlist::Instance *NetView::instanceById(uint32_t id) const { return detail::recordAt(data_->records.instances, id); }
 
@@ -469,9 +486,15 @@ Netlist::NetName NetView::name(const Netlist::Net *net) const
 	return data_->index.net_rtlil.get(net->id).name;
 }
 
-const std::vector<Netlist::Net *> &NetView::nets(const Netlist::Instance *scope) const { return data_->scope_contents.get(scope->id).nets; }
+const std::vector<Netlist::Net *> &NetView::nets(const Netlist::Instance *scope) const
+{
+	return data_->scope_contents.get(scope->id).nets;
+}
 
-const std::vector<Netlist::NetName> &NetView::aliases(const Netlist::Net *net) const { return data_->index.net_rtlil.get(net->id).aliases; }
+const std::vector<Netlist::NetName> &NetView::aliases(const Netlist::Net *net) const
+{
+	return data_->index.net_rtlil.get(net->id).aliases;
+}
 
 std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 {
@@ -565,12 +588,14 @@ bool NetView::isClockPin(const Netlist::Pin *pin) const
 	if (data_->library != nullptr && data_->library->isClockPin(*pin))
 		return true;
 	const std::string &name = pin->port().name;
-	return !pin->inst->isTop() && StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+	bool clock_port_name = name == "C" || name == "CLK";
+	return !pin->inst->isTop() && StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && clock_port_name;
 }
 
 bool NetView::isBuffer(const Netlist::Instance *inst) const
 {
-	return (!inst->isTop() && cell(inst)->type == ID($_BUF_)) || (data_->library != nullptr && data_->library->isBuffer(*inst));
+	bool internal_buffer = !inst->isTop() && cell(inst)->type == ID($_BUF_);
+	return internal_buffer || (data_->library != nullptr && data_->library->isBuffer(*inst));
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)

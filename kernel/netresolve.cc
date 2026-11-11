@@ -20,9 +20,15 @@ bool detail::isNewBuffer(const NetView &view, const Snapshot &snapshot, const Ne
 	return view.isBuffer(inst) && !snapshot.cell_paths.count(snapshot.scopePath(view, inst));
 }
 
-detail::HitIndex::HitIndex(const NetView &view, const TrackData &data) : view_(view), data_(data) { noteScope(view.top()); }
+detail::HitIndex::HitIndex(const NetView &view, const TrackData &data) : view_(view), data_(data)
+{
+	noteScope(view.top());
+}
 
-const std::vector<detail::AnchorHit> &detail::HitIndex::hitsOf(uint32_t ref_index) const { return hits_by_ref_.get(ref_index); }
+const std::vector<detail::AnchorHit> &detail::HitIndex::hitsOf(uint32_t ref_index) const
+{
+	return hits_by_ref_.get(ref_index);
+}
 
 void detail::HitIndex::noteScope(const Netlist::Instance *scope)
 {
@@ -59,8 +65,9 @@ void detail::HitIndex::noteBarrier(const RTLIL::Cell *cell, const Netlist::Insta
 		const Netlist::Instance *inst = nullptr;
 		if (pin_role)
 			inst = view_.instance(cell, scope);
+		bool in_own_scope = anchor.scope_path == path;
 		if (!pin_role || inst != nullptr)
-			hits_by_ref_[anchor.ref_index].push_back({anchor, inst, nullptr, anchor.scope_path == path, cell, scope});
+			hits_by_ref_[anchor.ref_index].push_back({anchor, inst, nullptr, in_own_scope, cell, scope});
 	}
 }
 
@@ -95,7 +102,8 @@ void detail::HitIndex::noteWireBit(const Netlist::Net *net, const RTLIL::SigBit 
 	for (const Anchor &anchor : data_.anchors.anchorsOf(view_.design(), bit.wire)) {
 		if (anchor.role != Anchor::Role::Net || anchor.bit != bit.offset)
 			continue;
-		bool in_own_scope = anchor.scope_path == detail::withOwnScope(data_.snapshot.scopePath(view_, net->scope), bit.wire);
+		std::string net_scope_path = data_.snapshot.scopePath(view_, net->scope);
+		bool in_own_scope = anchor.scope_path == detail::withOwnScope(net_scope_path, bit.wire);
 		hits_by_ref_[anchor.ref_index].push_back({anchor, nullptr, net, in_own_scope});
 	}
 }
@@ -141,7 +149,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std:
 {
 	std::vector<const Netlist::Pin *> pins;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier))
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
+		walker_.pins(*hit, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 	return pins;
 }
 
@@ -160,7 +168,7 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 			continue;
 		if (!of_cell && port_cuts && !data_.barriers.marks(hit->barrier).port_cut)
 			continue;
-		walker_.pins(hit->barrier, hit->barrier_scope, Anchor::Side::Y, BufferRule::StopAtNewBuffer, ref.result.loads_beyond);
+		walker_.pins(*hit, Anchor::Side::Y, BufferRule::StopAtNewBuffer, ref.result.loads_beyond);
 		const Netlist::Instance *inst = view_.instance(hit->barrier, hit->barrier_scope);
 		if (inst == nullptr)
 			continue;
@@ -225,12 +233,13 @@ detail::LeafCutSides detail::Resolver::leafCutSides(const std::vector<AnchorHit>
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> *out = &sides.cut;
 		BarrierMarks marks = data_.barriers.marks(hit->barrier);
-		bool in_hier_pin = std::find(hier_insts.begin(), hier_insts.end(), hit->barrier_scope) != hier_insts.end();
+		auto found_hier_inst = std::find(hier_insts.begin(), hier_insts.end(), hit->barrier_scope);
+		bool in_hier_pin = found_hier_inst != hier_insts.end();
 		if (in_hier_pin && marks.port_cut)
 			out = &sides.inside;
 		else if (marks.port_cut)
 			out = &sides.flattened;
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::StopAtNewBuffer, *out);
+		walker_.pins(*hit, hit->anchor.side, BufferRule::StopAtNewBuffer, *out);
 	}
 	sides.cut.insert(sides.cut.end(), sides.flattened.begin(), sides.flattened.end());
 	return sides;
@@ -255,7 +264,8 @@ detail::PinList detail::Resolver::pinsBehindNewLogic(const InstanceList &insts, 
 void detail::Resolver::addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const
 {
 	for (const Netlist::Pin *out : inst->pins) {
-		if (out->net != nullptr && (out->dir() == Netlist::PortDir::Output || out->dir() == Netlist::PortDir::Inout))
+		bool output_or_inout = out->dir() == Netlist::PortDir::Output || out->dir() == Netlist::PortDir::Inout;
+		if (out->net != nullptr && output_or_inout)
 			loads.insert(loads.end(), out->net->pins.begin(), out->net->pins.end());
 	}
 }
@@ -454,7 +464,7 @@ std::vector<const Netlist::Net *> detail::Resolver::resolveNet(const std::vector
 	std::vector<const Netlist::Net *> nets;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> pins;
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
+		walker_.pins(*hit, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 		for (const Netlist::Pin *pin : pins)
 			nets.push_back(netInScope(pin->net, hit->anchor.net_scope_path));
 	}
@@ -468,9 +478,10 @@ std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHi
 	std::vector<PortRename> renames;
 	for (const AnchorHit *hit : detail::hitsOfRole(hits, Anchor::Role::Barrier)) {
 		std::vector<const Netlist::Pin *> pins;
-		walker_.pins(hit->barrier, hit->barrier_scope, hit->anchor.side, BufferRule::PassNewBuffer, pins);
+		walker_.pins(*hit, hit->anchor.side, BufferRule::PassNewBuffer, pins);
 		for (const Netlist::Pin *pin : pins) {
-			bool identity = same_cells && pin->port().name == hit->anchor.port && pin->bit == hit->anchor.bit;
+			bool same_port_bit = pin->port().name == hit->anchor.port && pin->bit == hit->anchor.bit;
+			bool identity = same_cells && same_port_bit;
 			if (!identity && std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
 				renames.push_back({hit->anchor.port, hit->anchor.bit, pin});
 		}

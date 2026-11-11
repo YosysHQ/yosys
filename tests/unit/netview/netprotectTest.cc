@@ -244,7 +244,8 @@ TEST_F(NetProtectTest, pinRefKeepsEachOfItsPins)
 	TrackedRef ref = pinRef({t.child(u_c)->pins[0], t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)});
 	t.checkpoint({&ref});
 	t.next({&ref});
-	EXPECT_EQ(sortedPins(ref.pins), sortedPins({t.child(u_c)->pins[0], t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)}));
+	Pins expected = {t.child(u_c)->pins[0], t.child(u_inv2)->pins[0], t.child(u_sub)->findPin("a", 0)};
+	EXPECT_EQ(sortedPins(ref.pins), sortedPins(expected));
 	EXPECT_FALSE(ref.isBehindNewLogic());
 	EXPECT_FALSE(ref.result.flattened_hier_pin);
 }

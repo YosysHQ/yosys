@@ -10,7 +10,10 @@ bool TrackedRef::isBehindNewLogic() const
 	return !own.empty() && own != pool<const Netlist::Pin *>(pins.begin(), pins.end());
 }
 
-bool TrackedRef::removedButLoadsKept() const { return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty(); }
+bool TrackedRef::removedButLoadsKept() const
+{
+	return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty();
+}
 
 NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
@@ -73,8 +76,10 @@ detail::TrackData::~TrackData() { live_serials.erase(serial); }
 void detail::TrackData::bind(RTLIL::Design *design) const
 {
 	int owner = design->scratchpad_get_int(std::string(detail::tracker_key), 0);
-	if (owner != serial && live_serials.count(owner))
-		log_error("NetTracker: the design has another tracker, a second tracker would remove its anchors, keeps and barriers.\n");
+	if (owner != serial && live_serials.count(owner)) {
+		const char *reason = "a second tracker would remove its anchors, keeps and barriers";
+		log_error("NetTracker: the design has another tracker, %s.\n", reason);
+	}
 	design->scratchpad_set_int(std::string(detail::tracker_key), serial);
 }
 
@@ -168,7 +173,10 @@ int detail::keySeed(RTLIL::Design *design)
 	return *seed;
 }
 
-detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker) : view_(view), data_(data), walker_(walker) {}
+detail::AnchorWriter::AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker)
+    : view_(view), data_(data), walker_(walker)
+{
+}
 
 void detail::AnchorWriter::write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers, PinCut cut)
 {
@@ -254,7 +262,8 @@ void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pi
 	if (pin->dir() != Netlist::PortDir::Input)
 		return;
 	std::vector<const Netlist::Pin *> drivers;
-	walker_.pins(view_.cell(pin->inst), pin->inst->parent, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
+	AnchorHit barrier_hit = {.barrier = view_.cell(pin->inst), .barrier_scope = pin->inst->parent};
+	walker_.pins(barrier_hit, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
 	for (const Netlist::Pin *driver : drivers)
 		anchorPin(driver, ref_index, ref, /*with_barriers=*/false, PinCut::Cut);
 	ref.origin.anchored_on_drivers = !drivers.empty();
@@ -301,7 +310,10 @@ void detail::ensureScopename(RTLIL::AttrObject *object)
 		object->attributes[ID::scopename] = RTLIL::Const(std::string());
 }
 
-bool detail::hasOwnScope(const RTLIL::AttrObject *object) { return object->has_attribute(ID::hdlname) || object->has_attribute(ID::scopename); }
+bool detail::hasOwnScope(const RTLIL::AttrObject *object)
+{
+	return object->has_attribute(ID::hdlname) || object->has_attribute(ID::scopename);
+}
 
 std::vector<std::string> detail::ownScopeParts(const RTLIL::AttrObject *object)
 {

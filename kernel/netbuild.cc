@@ -237,7 +237,10 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 			// Public wires collapsed into another wire's net (assign aliases) stay reachable under their own names
 			data_.index.net_rtlil[net->id].aliases.push_back(detail::netName(bit, wireOrigin(bit.wire)));
 			// A net is named after its best wire bit
-			if (net->constant == Netlist::Net::Const::None && detail::netNameRank(bit) < detail::netNameRank(data_.index.net_rtlil.get(net->id).name_bit))
+			if (net->constant != Netlist::Net::Const::None)
+				continue;
+			RTLIL::SigBit current_name_bit = data_.index.net_rtlil.get(net->id).name_bit;
+			if (detail::netNameRank(bit) < detail::netNameRank(current_name_bit))
 				setNameBit(net, bit);
 		}
 	}
@@ -261,7 +264,8 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
 			RTLIL::SigBit a_root = sigmap(a[b]);
-			bool a_has_net = a_root.wire != nullptr || a_root.data == RTLIL::State::S0 || a_root.data == RTLIL::State::S1;
+			bool a_is_const_01 = a_root == RTLIL::State::S0 || a_root == RTLIL::State::S1;
+			bool a_has_net = a_root.wire != nullptr || a_is_const_01;
 			if (sigmap(y[b]).wire == nullptr || !a_has_net)
 				continue;
 			// The second bit stays the root, so a cut wire never names a net
@@ -331,6 +335,9 @@ Netlist::Net *detail::ViewBuilder::findOrMakeTieNet(Netlist::Instance *scope, co
 	return tie;
 }
 
-bool detail::isCutWire(const RTLIL::Wire *wire) { return wire->get_bool_attribute(wire->module->design->twines().find(detail::cut_attr)); }
+bool detail::isCutWire(const RTLIL::Wire *wire)
+{
+	return wire->get_bool_attribute(wire->module->design->twines().find(detail::cut_attr));
+}
 
 YOSYS_NAMESPACE_END

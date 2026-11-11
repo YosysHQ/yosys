@@ -43,11 +43,12 @@ template <typename T> struct IdMap {
 struct Port {
 	std::string name; // unescaped
 	int width = 0;
-	int from = 0; // [from:to] as declared
+	int from = 0;     // [from:to] as declared
 	int to = 0;
 	PortDir dir = PortDir::Unknown;
-	bool vector = false;	     // declared with a range
-	bool scalar() const;	     // one bit, declared without a range
+	bool vector = false;         // declared with a range
+public:
+	bool scalar() const;         // one bit, declared without a range
 	int hdlIndex(int bit) const; // the declared index of a bit
 };
 
@@ -55,10 +56,10 @@ struct Port {
 struct Instance {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell, Barrier };
 
-	std::string name;		  // local name, unescaped
-	std::string unique_name;	  // of a child: localName, else name if the localName repeats in the scope
-	std::string type;		  // cell type or module name, unescaped
-	std::string hdl_type;		  // the source module name before uniquify, else type
+	std::string name;                 // local name, unescaped
+	std::string unique_name;          // of a child: localName, else name if the localName repeats in the scope
+	std::string type;                 // cell type or module name, unescaped
+	std::string hdl_type;             // the source module name before uniquify, else type
 	std::vector<std::string> hdlpath; // source path of a flattened cell
 	Kind kind;
 	uint32_t id;

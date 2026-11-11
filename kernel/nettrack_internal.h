@@ -46,8 +46,8 @@ struct Anchor {
 };
 
 struct BarrierMarks {
-	bool cut_on_a = false;	       // the cut wire is on A, at an output
-	bool port_cut = false;	       // the cut side holds all uses of a port bit
+	bool cut_on_a = false;         // the cut wire is on A, at an output
+	bool port_cut = false;         // the cut side holds all uses of a port bit
 	bool keep_as_instance = false; // a Barrier instance in the view, keeps a hierarchical pin
 };
 
@@ -85,13 +85,14 @@ public:
 };
 
 struct TrackData {
+	static inline int last_serial = 0;
+	static inline pool<int> live_serials;
+
 	Snapshot snapshot;
 	AnchorStore anchors;
 	BarrierStore barriers;
 	ListMap<uint32_t, TopPortName> top_ports_by_ref;
 	int serial;
-	static inline int last_serial = 0;
-	static inline pool<int> live_serials;
 public:
 	TrackData();
 	~TrackData();
@@ -100,11 +101,11 @@ public:
 };
 
 struct AnchorHit {
-	Anchor anchor;
-	const Netlist::Instance *instance; // of a cell anchor
-	const Netlist::Net *net;	         // of a wire anchor
-	bool in_own_scope;
-	const RTLIL::Cell *barrier = nullptr; // of a barrier anchor
+	Anchor anchor = {};
+	const Netlist::Instance *instance = nullptr; // of a cell anchor
+	const Netlist::Net *net = nullptr;           // of a wire anchor
+	bool in_own_scope = false;
+	const RTLIL::Cell *barrier = nullptr;        // of a barrier anchor
 	const Netlist::Instance *barrier_scope = nullptr;
 };
 
@@ -134,7 +135,7 @@ struct CutSideWalkState {
 
 struct CutSideWalker {
 	CutSideWalker(const NetView &view, const TrackData &data);
-	void pins(const RTLIL::Cell *barrier, const Netlist::Instance *scope, Anchor::Side side, BufferRule rule, std::vector<const Netlist::Pin *> &out);
+	void pins(const AnchorHit &hit, Anchor::Side side, BufferRule rule, PinList &out);
 private:
 	void walkBarrier(CutSideWalkState &walk, const RTLIL::Cell *barrier);
 	void walkSignal(CutSideWalkState &walk, const RTLIL::Cell *from, const RTLIL::SigBit &bit, bool on_cut_wire);
@@ -186,7 +187,7 @@ private:
 	RTLIL::Cell *useBarrier(RTLIL::Cell *barrier);
 	bool isUnusedBarrier(const RTLIL::Cell *cell) const;
 	void removeBarrier(RTLIL::Cell *barrier);
-	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, const BarrierMarks &marks);
+	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, BarrierMarks marks);
 	void markWiresKeep(const Netlist::Net *net);
 private:
 	const NetView &view_;

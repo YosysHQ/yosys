@@ -37,6 +37,8 @@ struct ViewData;
 bool designAlive(const ViewData &data);
 RTLIL::Module *topModule(RTLIL::Design *design);
 
+using ModuleSet = pool<RTLIL::Module *>;
+
 // Buildability
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 
@@ -44,8 +46,8 @@ NetView::Counts countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<
 uint64_t portBits(RTLIL::Module *module);
 uint64_t wireBits(RTLIL::Module *module);
 uint64_t cellPinBits(RTLIL::Design *design, const RTLIL::Cell *cell);
-bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
-bool checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason);
+bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &used, ModuleSet &open, std::string &reason);
+bool checkModule(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &blackboxes, std::string &reason);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
 
 // Cells
@@ -124,7 +126,7 @@ struct PortStore {
 };
 
 struct InstanceRtlil {
-	RTLIL::Cell *cell = nullptr;	 // none for the top
+	RTLIL::Cell *cell = nullptr;     // none for the top
 	RTLIL::Module *module = nullptr; // none for leaves
 };
 
@@ -143,7 +145,8 @@ public:
 };
 
 struct RtlilIndex {
-	ListMap<uint32_t, Netlist::Instance *> instances_by_cell;	      // by cell hashidx_, one per unfolded occurrence of the cell
+	// by cell hashidx_, one per unfolded occurrence of the cell
+	ListMap<uint32_t, Netlist::Instance *> instances_by_cell;
 	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module; // the scopes whose body is the module
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
