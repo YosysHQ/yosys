@@ -1,0 +1,9 @@
+read_verilog <<EOT
+module test_case(input signed [2:0] sh, output [1:0] y);
+	assign y = (sh >= 0) ? ((sh > 2) ? 2'h3 : (2'd1 << sh)) : (2'd1 >> -sh);
+endmodule
+EOT
+hierarchy -top test_case
+proc; flatten; opt_clean
+alumacc
+share -aggressive
