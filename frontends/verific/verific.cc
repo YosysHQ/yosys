@@ -32,8 +32,6 @@
 #  include <dirent.h>
 #endif
 #include <filesystem>
-#include <mutex>
-#include <condition_variable>
 
 #include "frontends/verific/verific.h"
 
@@ -112,30 +110,38 @@ YOSYS_NAMESPACE_BEGIN
 // state, we can not mix new design with existing until current
 // design is imported
 
-static std::mutex verific_session_mutex;
-static std::condition_variable verific_session_cv;
-static Design *verific_session_design = nullptr;
+void verific_cleanup();
 
-VerificSession::VerificSession(Design *design) : design(design)
+void VerificSession::begin(Design *design)
 {
-	std::unique_lock<std::mutex> lock(verific_session_mutex);
-	verific_session_cv.wait(lock, [design] { return verific_session_design == nullptr || verific_session_design == design; });
-	verific_session_design = design;
+	std::unique_lock<std::mutex> lock(mutex);
+	while (owner != nullptr && owner != design)
+		cv.wait(lock);
+	owner = design;
+}
+
+std::unique_ptr<VerificSession> VerificSession::deferred_end(Design *design)
+{
+	std::lock_guard<std::mutex> lock(mutex);
+	if (owner != design)
+		return nullptr;
+	return std::make_unique<VerificSession>();
 }
 
 VerificSession::~VerificSession()
 {
-	if (verific_import_pending)
-		return;
-	std::lock_guard<std::mutex> lock(verific_session_mutex);
-	verific_session_design = nullptr;
-	verific_session_cv.notify_all();
+	verific_cleanup();
+	std::lock_guard<std::mutex> lock(mutex);
+	owner = nullptr;
+	cv.notify_all();
 }
 
-bool VerificSession::owns(Design *design)
+static std::string verific_subcommand(const std::vector<std::string> &args)
 {
-	std::lock_guard<std::mutex> lock(verific_session_mutex);
-	return verific_session_design == design;
+	int i = 1;
+	while (i+1 < GetSize(args) && (args[i] == "-work" || args[i] == "-L"))
+		i += 2;
+	return i < GetSize(args) ? args[i] : std::string();
 }
 
 int verific_verbose;
@@ -3228,7 +3234,6 @@ std::string verific_import(Design *design, const std::map<std::string,std::strin
 		nl_todo.erase(it);
 	}
 
-	verific_cleanup();
 	if (!verific_error_msg.empty())
 		log_error("%s\n", verific_error_msg);
 	return top;
@@ -3629,8 +3634,6 @@ struct VerificPass : public Pass {
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
 	{
-		VerificSession session(design);
-
 		if (check_noverific_env())
 			log_cmd_error("This version of Yosys is built without Verific support.\n"
 					"\n"
@@ -3641,6 +3644,20 @@ struct VerificPass : public Pass {
 					"binaries of YosysHQ Tabby CAD Suite.\n");
 
 		log_header(design, "Executing VERIFIC (loading SystemVerilog and VHDL designs using Verific).\n");
+
+		std::string subcommand = verific_subcommand(args);
+		std::unique_ptr<VerificSession> scoped_session_ender = {};
+		if (subcommand == "-cleanup") {
+			(void)VerificSession::deferred_end(design);
+			return;
+		}
+		if (subcommand == "-import") {
+			scoped_session_ender = VerificSession::deferred_end(design);
+			if (!scoped_session_ender)
+				log_cmd_error("Nothing was read into Verific for this design.\n");
+		} else {
+			VerificSession::begin(design);
+		}
 
 		if (set_verific_global_flags)
 		{
@@ -3731,11 +3748,6 @@ struct VerificPass : public Pass {
 #ifdef VERIFIC_SYSTEMVERILOG_SUPPORT
 		veri_file::RegisterCallBackVerificStream(&verific_read_cb);
 #endif
-		if (GetSize(args) > argidx && args[argidx] == "-cleanup") {
-			verific_cleanup();
-			goto check_error;
-		}
-
 		if (GetSize(args) > argidx && (args[argidx] == "-set-error" || args[argidx] == "-set-warning" ||
 				args[argidx] == "-set-info" || args[argidx] == "-set-ignore"))
 		{
@@ -4544,7 +4556,6 @@ struct VerificPass : public Pass {
 				nl_todo.erase(it);
 			}
 
-			verific_cleanup();
 			already_imported = true;
 			goto check_error;
 		}

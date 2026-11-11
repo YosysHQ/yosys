@@ -19,6 +19,9 @@
 
 #ifdef YOSYS_ENABLE_VERIFIC
 
+#include <condition_variable>
+#include <mutex>
+
 #include "DataBase.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -26,10 +29,13 @@ YOSYS_NAMESPACE_BEGIN
 extern int verific_verbose;
 
 struct VerificSession {
-	Design *design;
-	VerificSession(Design *design);
 	~VerificSession();
-	static bool owns(Design *design);
+	static void begin(Design *design);
+	static std::unique_ptr<VerificSession> deferred_end(Design *design);
+private:
+	static inline std::mutex mutex;
+	static inline std::condition_variable cv;
+	static inline Design *owner = nullptr;
 };
 
 extern bool verific_import_pending;
