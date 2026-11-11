@@ -402,6 +402,20 @@ if (YOSYS_ENABLE_PCH)
 	add_library(yosys_pch OBJECT EXCLUDE_FROM_ALL ${YOSYS_CMAKE_BINARY_DIR}/yosys_pch.cc)
 	target_link_libraries(yosys_pch PUBLIC yosys_common)
 	target_precompile_headers(yosys_pch PRIVATE ${YOSYS_CMAKE_SOURCE_DIR}/kernel/yosys.h)
+	target_compile_options(yosys_pch PRIVATE $<$<CXX_COMPILER_ID:Clang,AppleClang>:SHELL:-Xclang -fno-pch-timestamp>)
+	set(YOSYS_PCH_LAUNCHER "${YOSYS_COMPILER_LAUNCHER}")
+	if (YOSYS_COMPILER_LAUNCHER MATCHES "(^|/)ccache$")
+		execute_process(
+			COMMAND ${YOSYS_COMPILER_LAUNCHER} -k sloppiness
+			OUTPUT_VARIABLE ccache_sloppiness
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+		string(REPLACE " " "" ccache_sloppiness "${ccache_sloppiness}")
+		list(APPEND ccache_sloppiness pch_defines time_macros)
+		list(JOIN ccache_sloppiness "," ccache_sloppiness)
+		set(YOSYS_PCH_LAUNCHER "${YOSYS_COMPILER_LAUNCHER};sloppiness=${ccache_sloppiness}")
+	endif()
+	set_target_properties(yosys_pch PROPERTIES CXX_COMPILER_LAUNCHER "${YOSYS_PCH_LAUNCHER}")
 endif()
 
 # Two pseudo-components used for dependency tracking only.
