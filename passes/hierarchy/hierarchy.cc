@@ -1067,8 +1067,7 @@ struct HierarchyPass : public Pass {
 
 		bool verific_mod = false;
 #ifdef YOSYS_ENABLE_VERIFIC
-		if (VerificSession::owns(design)) {
-			VerificSession verific_session(design);
+		if (auto verific_session = VerificSession::deferred_end(design)) {
 			verific_mod = verific_import_pending;
 			if (verific_mod) {
 				if (top_mod == nullptr && !load_top_mod.empty()) {
