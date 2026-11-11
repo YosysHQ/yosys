@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include <numeric>
+#include <regex>
 
 YOSYS_NAMESPACE_BEGIN
 

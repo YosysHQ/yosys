@@ -22,10 +22,8 @@
 
 #include "kernel/yosys_common.h"
 
-#include <chrono>
 #include <time.h>
 
-#include <regex>
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
 				std::regex_constants::optimize | \
@@ -116,7 +114,7 @@ struct LogMessage {
 	std::string prefix;
 	std::string format;
 	std::string message;
-	std::chrono::steady_clock::time_point timestamp;
+	int64_t timestamp_us;
 	LogSourceLocation src;
 
 	std::string cached_msg;
@@ -202,19 +200,11 @@ private:
 class LogManager
 {
 private:
-	struct LogExpectedItem
-	{
-		LogExpectedItem(const std::regex &pat, int expected) :
-				pattern(pat), expected_count(expected), current_count(0) {}
-		LogExpectedItem() : expected_count(0), current_count(0) {}
-
-		std::regex pattern;
-		int expected_count;
-		int current_count;
-	};
+	struct Patterns;
 
 public:
-	LogManager() = default;
+	LogManager();
+	~LogManager();
 
 	template<typename T, typename... Args>
 	T &add_sink(Args&&... args)
@@ -390,9 +380,9 @@ public:
 	void report_unexpected_error();
 
 	void add_experimental_ignore(std::string name) { experimental_ignored.insert(name); }
-	void add_warn(std::string pattern) { warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
-	void add_nowarn(std::string pattern) { nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
-	void add_werror(std::string pattern) { werror_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+	void add_warn(std::string pattern);
+	void add_nowarn(std::string pattern);
+	void add_werror(std::string pattern);
 	void add_expect(std::string type, std::string pattern, int count);
 
 	void set_verbose_level(int level) { verbose_level = level; }
@@ -408,7 +398,6 @@ public:
 	int get_errors_total() const { return errors_count; }
 	const std::set<std::string> &get_experimental() const { return experimental; }
 	const std::map<std::string, std::string> &get_deprecated() const { return deprecated; }
-	std::chrono::steady_clock::time_point get_initial_time() const;
 
 	void add_hdump(std::string name, std::string value) { hdump[name].insert(value); }
 
@@ -429,7 +418,7 @@ public:
 	void reset_stack();
 
 	void check_expected();
-	bool expects_error() { return (expect_error.size() + expect_prefix_error.size())>0; }
+	bool expects_error();
 #ifndef NDEBUG
 	bool is_debug(int n = 0) { if (force_debug) return true; debug_suppressed += n; return false; }
 #else
@@ -452,9 +441,7 @@ private:
 	std::set<std::string> warnings, experimental, experimental_ignored;
 	std::map<std::string, std::string> deprecated;
 
-	std::vector<std::regex> warn_regexes, nowarn_regexes, werror_regexes;
-	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
-	dict<std::string, LogExpectedItem> expect_prefix_log, expect_prefix_warning, expect_prefix_error;
+	std::unique_ptr<Patterns> pat;
 	bool expect_no_warnings = false;
 	bool log_time = false;
 	bool cmd_error_throw = false;
