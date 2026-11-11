@@ -5,9 +5,7 @@ YOSYS_NAMESPACE_BEGIN
 
 void NetTracker::resolve(const NetView &view, const std::vector<TrackedRef *> &refs)
 {
-	detail::HitIndex hit_index(view, *data_);
-	detail::CutSideWalker walker(view, *data_);
-	detail::Resolver resolver(view, *data_, hit_index, walker);
+	detail::Resolver resolver(view, *data_);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++)
 		resolver.resolve(ref_index, *refs[ref_index]);
 }
@@ -107,8 +105,8 @@ void detail::HitIndex::noteWireBit(const Netlist::Net *net, const RTLIL::SigBit 
 	}
 }
 
-detail::Resolver::Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker)
-    : view_(view), data_(data), hit_index_(hit_index), walker_(walker)
+detail::Resolver::Resolver(const NetView &view, const TrackData &data)
+    : view_(view), data_(data), hit_index_(view, data), walker_(view, data)
 {
 }
 
@@ -118,13 +116,10 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 	const std::vector<AnchorHit> &hits = hit_index_.hitsOf(ref_index);
 	collectLoadsBeyondAndBarrierPins(hits, ref);
 	switch (ref.kind) {
-	case TrackedRef::Kind::Pin: {
-		ResolvedPin resolved = resolvePin(hits, ref);
-		ref.pins = std::move(resolved.pins);
-		ref.result.own_pins = std::move(resolved.own_pins);
+	case TrackedRef::Kind::Pin:
+		resolvePin(hits, ref);
 		addTopPins(hits, ref_index, ref);
 		break;
-	}
 	case TrackedRef::Kind::TopPort:
 		ref.pins = resolvePort(hits, ref_index);
 		break;
@@ -141,7 +136,7 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 		any_leaf = any_leaf || pin->inst->isLeaf();
 		any_hier = any_hier || (!pin->inst->isLeaf() && !pin->inst->isTop());
 	}
-	ref.result.flattened_hier_pin = ref.origin.isHierarchicalPin() && any_leaf && !any_hier;
+	ref.result.flattened_hier_pin = ref.origin.hier_pin_dir != Netlist::PortDir::Unknown && any_leaf && !any_hier;
 }
 
 std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std::vector<AnchorHit> &hits)
@@ -157,7 +152,7 @@ std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std:
 void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	bool of_cell = ref.kind == TrackedRef::Kind::Instance;
-	if (!ref.origin.isHierarchicalPin() && !of_cell)
+	if (ref.origin.hier_pin_dir == Netlist::PortDir::Unknown && !of_cell)
 		return;
 	std::vector<const AnchorHit *> barrier_hits = detail::hitsOfRole(hits, Anchor::Role::Barrier);
 	bool port_cuts = false;
@@ -177,7 +172,7 @@ void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<Anchor
 	}
 }
 
-detail::ResolvedPin detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, const TrackedRef &ref)
+void detail::Resolver::resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	std::vector<const Netlist::Pin *> own_pins, hier_pins, uncut;
 	std::vector<const Netlist::Instance *> renamed, renamed_leaves;
@@ -221,7 +216,8 @@ detail::ResolvedPin detail::Resolver::resolvePin(const std::vector<AnchorHit> &h
 		std::vector<const Netlist::Pin *> behind = pinsBehindNewLogic(renamed_leaves, cut);
 		own_pins.insert(own_pins.end(), behind.begin(), behind.end());
 	}
-	return {detail::uniqueSorted(pins), detail::uniqueSorted(own_pins)};
+	ref.pins = detail::uniqueSorted(pins);
+	ref.result.own_pins = detail::uniqueSorted(own_pins);
 }
 
 // cut sides of the leaf pins of the ref
@@ -486,7 +482,7 @@ std::vector<PortRename> detail::Resolver::portRenames(const std::vector<AnchorHi
 			bool same_port_bit = pin->port().name == hit->anchor.port && pin->bit == hit->anchor.bit;
 			bool identity = same_cells && same_port_bit;
 			if (!identity && std::find(insts.begin(), insts.end(), pin->inst) != insts.end())
-				renames.push_back({hit->anchor.port, hit->anchor.bit, pin});
+				renames.push_back({hit->anchor.port, pin});
 		}
 	}
 	return renames;

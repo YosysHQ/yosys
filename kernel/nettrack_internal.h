@@ -14,7 +14,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail
 {
 
-constexpr std::string_view anchor_prefix = "netview_anchor";
+constexpr std::string_view barrier_name_marker = "netview_anchor$"; // a barrier name has the marker, then the id
 constexpr std::string_view anchor_attr = "\\netview_anchor";
 constexpr std::string_view ref_attr = "\\netview_ref";
 constexpr std::string_view marks_attr = "\\netview_marks";
@@ -84,7 +84,7 @@ public:
 struct BarrierStore {
 	// from the last checkpoint
 	ListMap<int, Anchor> anchors_by_barrier; // by the barrier id in the barrier name
-	pool<const RTLIL::Cell *> anchored_barriers;
+	pool<const RTLIL::Cell *> used_barriers; // anchored or used
 
 	// marks of the current barriers
 	dict<int, BarrierMarks> marks_by_barrier;
@@ -165,32 +165,21 @@ private:
 	dict<RTLIL::SigBit, const Netlist::Pin *> top_port_pin_by_bit_; // by top SigMap bit
 };
 
-struct AnchorWriter {
-	AnchorWriter(const NetView &view, TrackData &data, CutSideWalker &walker);
-	void write(uint32_t ref_index, TrackedRef &ref, size_t at, bool with_barriers, PinCut cut);
+// anchors the objects of each ref
+// with barriers it first puts $barrier cells at them
+// a barrier cuts a pin off its net with a cut wire
+struct CheckpointWriter {
+	CheckpointWriter(const NetView &view, TrackData &data, bool with_barriers);
+	void write(uint32_t ref_index, TrackedRef &ref);
+	bool finishBarriers(); // cuts the ports, removes unused barriers, true if the view changed
 private:
-	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers, PinCut cut);
-	void anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, bool with_barriers);
+	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, PinCut cut);
+	void anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref);
 	void anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref);
 	void anchorCell(const Netlist::Instance *inst, Anchor anchor);
 	void anchorWires(const Netlist::Net *net, uint32_t ref_index);
 	bool markIfShared(RTLIL::AttrObject *object, RTLIL::Module *module);
-private:
-	const NetView &view_;
-	TrackData &data_;
-	CutSideWalker &walker_;
-};
-
-// puts $barrier cells at the objects of each ref
-// a barrier cuts a pin off its net with a cut wire
-struct BarrierWriter {
-	BarrierWriter(const NetView &view, TrackData &data);
-	PinCut protect(uint32_t ref_index, const TrackedRef &ref, size_t at);
-	void cutPorts();
-	void removeUnusedBarriers();
-	bool changedView() const;
-private:
-	// barrier at the leaf pin, or the port inside a hierarchical pin
+	// barrier at a leaf pin, hierarchical pin or top port bit, none without barriers
 	PinCut protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref);
 	PinCut protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
 	void protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance);
@@ -199,23 +188,24 @@ private:
 	void protectCell(const Netlist::Instance *inst, uint32_t ref_index);
 	void protectNet(const Netlist::Net *net, uint32_t ref_index); // barriers at the leaf drivers
 	PinCut anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path = "");
-	PinCut keepUncutPin(const Netlist::Pin *pin);
+	void recordBarrierAnchor(const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin);
 	RTLIL::Cell *ensureBarrierAtPort(const Netlist::Pin *pin);
 	void noteBarrier(RTLIL::Cell *barrier);
 	RTLIL::Cell *useBarrier(RTLIL::Cell *barrier);
 	bool isUnusedBarrier(const RTLIL::Cell *cell) const;
 	void removeBarrier(RTLIL::Cell *barrier);
-	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, BarrierMarks marks);
+	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, RTLIL::SigBit cut, BarrierMarks marks);
 	void markWiresKeep(const Netlist::Net *net);
 private:
 	const NetView &view_;
 	TrackData &data_;
+	bool with_barriers_;
+	CutSideWalker walker_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> port_barrier_by_bit_;
 	dict<RTLIL::Module *, dict<RTLIL::SigBit, RTLIL::SigBit>> cut_by_port_bit_;
 	pool<const RTLIL::Cell *> new_port_barriers_;
-	pool<const RTLIL::Cell *> used_barriers_;
 	bool changed_view_ = false;
 };
 
@@ -225,19 +215,14 @@ struct LeafCutSides {
 	std::vector<const Netlist::Pin *> inside = {};
 };
 
-struct ResolvedPin {
-	std::vector<const Netlist::Pin *> pins = {};
-	std::vector<const Netlist::Pin *> own_pins = {};
-};
-
 // turns the hits of each ref into objects
 struct Resolver {
-	Resolver(const NetView &view, const TrackData &data, const HitIndex &hit_index, CutSideWalker &walker);
+	Resolver(const NetView &view, const TrackData &data);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
 	std::vector<const Netlist::Pin *> cutSidePinsOfHits(const std::vector<AnchorHit> &hits);
 	void collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref);
-	ResolvedPin resolvePin(const std::vector<AnchorHit> &hits, const TrackedRef &ref);
+	void resolvePin(const std::vector<AnchorHit> &hits, TrackedRef &ref);
 	LeafCutSides leafCutSides(const std::vector<AnchorHit> &hits, const InstanceList &hier_insts);
 	PinList pinsBehindNewLogic(const InstanceList &insts, const PinList &cut) const;
 	void addOutputLoads(const Netlist::Instance *inst, std::vector<const Netlist::Pin *> &loads) const;
@@ -258,12 +243,11 @@ private:
 private:
 	const NetView &view_;
 	const TrackData &data_;
-	const HitIndex &hit_index_;
-	CutSideWalker &walker_;
+	HitIndex hit_index_;
+	CutSideWalker walker_;
 };
 
 // checkpoint helpers
-size_t objectCount(const TrackedRef &ref);
 int newRefValue(RTLIL::Design *design);
 int keySeed(RTLIL::Design *design);
 RTLIL::SigBit portBit(const NetView &view, const Netlist::Pin *pin);
@@ -280,10 +264,8 @@ void removeTrackingMarks(RTLIL::Design *design);
 RTLIL::Wire *addCutWire(RTLIL::Module *module);
 void unmarkCutWire(RTLIL::Wire *wire);
 std::optional<int> barrierIdOf(const RTLIL::Cell *barrier);
-BarrierMarks writtenMarks(const RTLIL::Cell *barrier);
 std::vector<RTLIL::Cell *> barrierCells(RTLIL::Design *design);
 RTLIL::Selection trackedBarriers(RTLIL::Design *design);
-void recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor);
 void replaceBitsInModule(RTLIL::Module *module, const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, const pool<const RTLIL::Cell *> &skip);
 
 // scope paths of cells, wires and barriers

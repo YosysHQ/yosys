@@ -74,8 +74,7 @@ TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
 {
 	ensurePasses();
 	TrackedView t(d);
-	TrackedRef cell{TrackedRef::Kind::Instance};
-	cell.instances = {t.child(u_inv2)};
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
 	t.checkpoint({&cell});
 	EXPECT_TRUE(u_inv2->get_bool_attribute(ID::keep));
 	EXPECT_EQ(barriersOf(top).size(), 2u); // a barrier at each pin
@@ -90,8 +89,7 @@ TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
 TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 {
 	TrackedView t(d);
-	TrackedRef cell{TrackedRef::Kind::Instance};
-	cell.instances = {t.child(u_inv2)};
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
 	t.checkpoint({&cell});
 	// a pass makes the cell a wire
 	top->connect(u_inv2->getPort(ID(Y)), u_inv2->getPort(ID(A)));
@@ -106,8 +104,7 @@ TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 TEST_F(NetProtectTest, netBarrierFindsTheNetOfItsScope)
 {
 	TrackedView t(d);
-	TrackedRef net{TrackedRef::Kind::Net};
-	net.nets = {t.child(u_inv2)->pins[0]->net};
+	TrackedRef net{.kind = TrackedRef::Kind::Net, .nets = {t.child(u_inv2)->pins[0]->net}};
 	t.checkpoint({&net});
 	// splitnets drops the anchors of the wire
 	p->attributes.clear();
@@ -138,8 +135,7 @@ TEST_F(NetProtectTest, ringOfNewBuffersOnAPartEnds)
 	Wire *n = top->addWire("\\n");
 	top->connect(n, d0);
 	TrackedView t(d);
-	TrackedRef net{TrackedRef::Kind::Net};
-	net.nets = {t.child(u_inv0)->pins[1]->net};
+	TrackedRef net{.kind = TrackedRef::Kind::Net, .nets = {t.child(u_inv0)->pins[1]->net}};
 	t.checkpoint({&net});
 	// n gets its own driver, a ring of new buffers drives d0
 	top->new_connections({{tie, State::S0}});
@@ -206,8 +202,7 @@ TEST_F(NetProtectTest, inoutPinIsALoadBeyondABarrier)
 {
 	Cell *b = addBidiCell(d, top, d0);
 	TrackedView t(d);
-	TrackedRef ref{TrackedRef::Kind::Instance};
-	ref.instances = {t.child(u_inv0)};
+	TrackedRef ref{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv0)}};
 	t.checkpoint({&ref});
 	t.next({&ref});
 	const Pins &loads = ref.result.loads_beyond;
@@ -310,8 +305,8 @@ TEST_F(NetProtectTest, refsOnFlattenCopiesOfABarrierKeepOnlyThem)
 	t.next({});
 	std::vector<Cell *> copies = barriersOf(top);
 	ASSERT_EQ(copies.size(), 3u);
-	TrackedRef on_copy = pinRef({t.child(copies[0])->findPin("A", 0)}), cell{TrackedRef::Kind::Instance};
-	cell.instances = {t.child(copies[1])};
+	TrackedRef on_copy = pinRef({t.child(copies[0])->findPin("A", 0)});
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(copies[1])}};
 	t.checkpoint({&on_copy, &cell});
 	EXPECT_EQ(barriersOf(top).size(), 2u);
 }
@@ -365,8 +360,7 @@ TEST_F(NetProtectTest, topPortFindsItsPinByName)
 TEST_F(NetProtectTest, clearForgetsTheAnchors)
 {
 	TrackedView t(d, /*with_barriers=*/false);
-	TrackedRef cell{TrackedRef::Kind::Instance};
-	cell.instances = {t.child(u_inv2)};
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
 	t.checkpoint({&cell});
 	t.tracker.clear(d);
 	t.next({&cell});

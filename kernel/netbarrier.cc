@@ -1,4 +1,4 @@
-// barriers of NetTracker, see BarrierWriter and CutSideWalker
+// barriers of NetTracker, see CheckpointWriter and CutSideWalker
 
 #include "kernel/nettrack_internal.h"
 #include "kernel/register.h"
@@ -42,10 +42,14 @@ detail::BarrierMarks detail::BarrierStore::marks(const RTLIL::Cell *barrier) con
 	std::optional<int> id = detail::barrierIdOf(barrier);
 	if (!id)
 		return {};
-	return marks_by_barrier.at(*id, detail::writtenMarks(barrier));
+	RTLIL::IdString attr = barrier->module->design->twines().find(detail::marks_attr);
+	int bits = barrier->attributes.at(attr, RTLIL::Const(0)).as_int();
+	BarrierMarks written_marks = {.cut_on_a = (bits & 1) != 0, .port_cut = (bits & 2) != 0};
+	return marks_by_barrier.at(*id, written_marks);
 }
 
-detail::BarrierWriter::BarrierWriter(const NetView &view, TrackData &data) : view_(view), data_(data)
+detail::CheckpointWriter::CheckpointWriter(const NetView &view, TrackData &data, bool with_barriers)
+    : view_(view), data_(data), with_barriers_(with_barriers), walker_(view, data)
 {
 	for (RTLIL::Cell *cell : detail::barrierCells(view.design())) {
 		if (!view.scopes(cell->module).empty() && detail::barrierIdOf(cell))
@@ -54,7 +58,7 @@ detail::BarrierWriter::BarrierWriter(const NetView &view, TrackData &data) : vie
 }
 
 // index the barrier by its cut bit
-void detail::BarrierWriter::noteBarrier(RTLIL::Cell *barrier)
+void detail::CheckpointWriter::noteBarrier(RTLIL::Cell *barrier)
 {
 	BarrierMarks marks = data_.barriers.marks(barrier);
 	RTLIL::IdString cut_port = ID::Y, port_side = ID::A;
@@ -65,28 +69,14 @@ void detail::BarrierWriter::noteBarrier(RTLIL::Cell *barrier)
 		port_barrier_by_bit_[barrier->getPort(port_side)[0]] = barrier;
 }
 
-detail::PinCut detail::BarrierWriter::protect(uint32_t ref_index, const TrackedRef &ref, size_t at)
+detail::PinCut detail::CheckpointWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref)
 {
-	switch (ref.kind) {
-	case TrackedRef::Kind::Pin:
-		return protectPin(ref.pins[at], ref_index, ref);
-	case TrackedRef::Kind::TopPort:
-		protectPort(ref.pins[at], ref_index);
-		break;
-	case TrackedRef::Kind::Instance:
-		protectCell(ref.instances[at], ref_index);
-		break;
-	case TrackedRef::Kind::Net:
-		protectNet(ref.nets[at], ref_index);
-		break;
+	if (!with_barriers_)
+		return PinCut::Cut;
+	if (ref.kind == TrackedRef::Kind::TopPort) {
+		protectPort(pin, ref_index);
+		return PinCut::Cut;
 	}
-	return PinCut::Cut;
-}
-
-bool detail::BarrierWriter::changedView() const { return changed_view_; }
-
-detail::PinCut detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32_t ref_index, const TrackedRef &ref)
-{
 	if (pin->inst->isTop())
 		return PinCut::Cut;
 	int outputs = 0;
@@ -106,7 +96,7 @@ detail::PinCut detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32
 
 // a driver also cuts its first connected input
 // this stops opt_merge from merging a cell into it
-detail::PinCut detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
+detail::PinCut detail::CheckpointWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
 	PinCut cut = anchorPinBarrier(pin, ref_index, net_scope_path);
 	if (!pin->isDriver())
@@ -118,7 +108,7 @@ detail::PinCut detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, ui
 	return cut;
 }
 
-void detail::BarrierWriter::protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance)
+void detail::CheckpointWriter::protectHierPin(const Netlist::Pin *pin, uint32_t ref_index, bool keep_as_instance)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPort(pin);
 	if (barrier == nullptr && pin->dir() == Netlist::PortDir::Inout)
@@ -135,10 +125,10 @@ void detail::BarrierWriter::protectHierPin(const Netlist::Pin *pin, uint32_t ref
 	if (pin->dir() == Netlist::PortDir::Input)
 		cut_side = Anchor::Side::Y;
 	Anchor anchor = {Anchor::Role::Barrier, ref_index, "", pin->port().name, pin->bit, "", false, cut_side};
-	detail::recordBarrierAnchor(view_, data_.barriers, barrier, data_.snapshot.scopePath(view_, pin->inst), anchor);
+	recordBarrierAnchor(barrier, data_.snapshot.scopePath(view_, pin->inst), anchor);
 }
 
-void detail::BarrierWriter::protectPort(const Netlist::Pin *pin, uint32_t ref_index)
+void detail::CheckpointWriter::protectPort(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	const Netlist::Port &port = pin->port();
 	if (port.scalar())
@@ -150,10 +140,10 @@ void detail::BarrierWriter::protectPort(const Netlist::Pin *pin, uint32_t ref_in
 	if (port.dir == Netlist::PortDir::Input)
 		cut_side = Anchor::Side::A;
 	Anchor anchor = {Anchor::Role::Barrier, ref_index, "", port.name, pin->bit, "", false, cut_side};
-	detail::recordBarrierAnchor(view_, data_.barriers, barrier, "", anchor);
+	recordBarrierAnchor(barrier, "", anchor);
 }
 
-void detail::BarrierWriter::protectCell(const Netlist::Instance *inst, uint32_t ref_index)
+void detail::CheckpointWriter::protectCell(const Netlist::Instance *inst, uint32_t ref_index)
 {
 	if (!inst->isLeaf())
 		return detail::setOwnedAttribute(view_.design(), view_.cell(inst), ID::keep_hierarchy);
@@ -165,7 +155,7 @@ void detail::BarrierWriter::protectCell(const Netlist::Instance *inst, uint32_t 
 	}
 }
 
-void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_index)
+void detail::CheckpointWriter::protectNet(const Netlist::Net *net, uint32_t ref_index)
 {
 	markWiresKeep(net);
 	std::string path = data_.snapshot.scopePath(view_, net->scope);
@@ -177,29 +167,25 @@ void detail::BarrierWriter::protectNet(const Netlist::Net *net, uint32_t ref_ind
 	}
 }
 
-detail::PinCut detail::BarrierWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
+detail::PinCut detail::CheckpointWriter::anchorPinBarrier(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPin(pin);
-	if (barrier == nullptr)
-		return keepUncutPin(pin);
+	if (barrier == nullptr) {
+		if (pin->dir() == Netlist::PortDir::Inout)
+			detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
+		return PinCut::Uncut;
+	}
 	Anchor::Side cut_side = Anchor::Side::Y;
 	if (pin->isDriver())
 		cut_side = Anchor::Side::A;
 	const std::string &port_name = pin->port().name;
 	Anchor anchor = {Anchor::Role::Barrier, ref_index, "", port_name, pin->bit, net_scope_path, false, cut_side};
 	std::string parent_scope_path = data_.snapshot.scopePath(view_, pin->inst->parent);
-	detail::recordBarrierAnchor(view_, data_.barriers, barrier, parent_scope_path, anchor);
+	recordBarrierAnchor(barrier, parent_scope_path, anchor);
 	return PinCut::Cut;
 }
 
-detail::PinCut detail::BarrierWriter::keepUncutPin(const Netlist::Pin *pin)
-{
-	if (pin->dir() == Netlist::PortDir::Inout)
-		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
-	return PinCut::Uncut;
-}
-
-RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
+RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 {
 	RTLIL::Cell *cell = view_.cell(pin->inst);
 	RTLIL::IdString port = detail::escapedPortId(view_.design(), cell, nullptr, pin->port().name);
@@ -222,61 +208,48 @@ RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPin(const Netlist::Pin *pin)
 			return useBarrier(existing);
 	}
 	RTLIL::Wire *cut = detail::addCutWire(cell->module);
-	RTLIL::Cell *barrier;
-	if (pin->isDriver())
-		barrier = createBarrierCell(cell->module, cut, bit, {.cut_on_a = true});
-	else
-		barrier = createBarrierCell(cell->module, bit, cut, {});
+	RTLIL::Cell *barrier = createBarrierCell(cell->module, bit, cut, {.cut_on_a = pin->isDriver()});
 	sig[pin->bit] = cut;
 	cell->setPort(port, sig);
 	return barrier;
 }
 
-RTLIL::Cell *detail::BarrierWriter::ensureBarrierAtPort(const Netlist::Pin *pin)
+RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPort(const Netlist::Pin *pin)
 {
-	RTLIL::Module *module = view_.module(pin->inst);
-	if (module == nullptr)
+	RTLIL::SigBit bit = detail::portBit(view_, pin);
+	if (bit.wire == nullptr || bit.wire->port_input == bit.wire->port_output)
 		return nullptr;
-	RTLIL::Wire *wire = module->wire(detail::escapedPortId(view_.design(), nullptr, module, pin->port().name));
-	if (wire == nullptr || pin->bit >= wire->width || wire->port_input == wire->port_output)
-		return nullptr;
-	RTLIL::SigBit bit(wire, pin->bit);
+	RTLIL::Module *module = bit.wire->module;
 	if (RTLIL::Cell *existing = port_barrier_by_bit_.at(bit, nullptr))
 		return useBarrier(existing);
 	RTLIL::Wire *cut = detail::addCutWire(module);
-	RTLIL::Cell *barrier;
-	if (wire->port_input)
-		barrier = createBarrierCell(module, bit, cut, {.port_cut = true});
-	else
-		barrier = createBarrierCell(module, cut, bit, {.cut_on_a = true, .port_cut = true});
+	BarrierMarks marks = {.cut_on_a = !bit.wire->port_input, .port_cut = true};
+	RTLIL::Cell *barrier = createBarrierCell(module, bit, cut, marks);
 	cut_by_port_bit_[module][bit] = cut;
 	new_port_barriers_.insert(barrier);
 	return barrier;
 }
 
-void detail::BarrierWriter::cutPorts()
+bool detail::CheckpointWriter::finishBarriers()
 {
 	for (const auto &[module, cuts] : cut_by_port_bit_)
 		detail::replaceBitsInModule(module, cuts, new_port_barriers_);
-}
-
-void detail::BarrierWriter::removeUnusedBarriers()
-{
 	for (RTLIL::Cell *cell : detail::barrierCells(view_.design())) {
 		if (isUnusedBarrier(cell))
 			removeBarrier(cell);
 	}
+	return changed_view_;
 }
 
-bool detail::BarrierWriter::isUnusedBarrier(const RTLIL::Cell *cell) const
+bool detail::CheckpointWriter::isUnusedBarrier(const RTLIL::Cell *cell) const
 {
-	if (used_barriers_.count(cell) || !data_.anchors.anchorsOf(view_.design(), cell).empty())
+	if (data_.barriers.used_barriers.count(cell) || !data_.anchors.anchorsOf(view_.design(), cell).empty())
 		return false;
 	std::optional<int> id = detail::barrierIdOf(cell);
-	return id && data_.barriers.marks_by_barrier.count(*id) && !data_.barriers.anchored_barriers.count(cell);
+	return id && data_.barriers.marks_by_barrier.count(*id);
 }
 
-void detail::BarrierWriter::removeBarrier(RTLIL::Cell *barrier)
+void detail::CheckpointWriter::removeBarrier(RTLIL::Cell *barrier)
 {
 	RTLIL::IdString cut_port = ID::Y;
 	if (data_.barriers.marks(barrier).cut_on_a)
@@ -289,13 +262,13 @@ void detail::BarrierWriter::removeBarrier(RTLIL::Cell *barrier)
 	changed_view_ = true;
 }
 
-RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, const RTLIL::SigBit &a, const RTLIL::SigBit &y, BarrierMarks marks)
+RTLIL::Cell *detail::CheckpointWriter::createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, RTLIL::SigBit cut, BarrierMarks marks)
 {
 	int id;
 	RTLIL::IdString name;
 	do {
 		id = data_.barriers.nextId();
-		name = module->twines().add(stringf("\\%s$%d", detail::anchor_prefix, id));
+		name = module->twines().add(stringf("\\%s%d", detail::barrier_name_marker, id));
 	} while (module->count_id(name) != 0);
 	RTLIL::Cell *barrier = module->addCell(name, ID($barrier));
 	barrier->set_bool_attribute(ID::keep);
@@ -304,6 +277,9 @@ RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, con
 	int packed_marks = marks.cut_on_a | marks.port_cut << 1;
 	barrier->attributes[view_.design()->twines().add(detail::marks_attr)] = RTLIL::Const(packed_marks);
 	barrier->setParam(ID::WIDTH, 1);
+	RTLIL::SigBit a = bit, y = cut;
+	if (marks.cut_on_a)
+		std::swap(a, y);
 	barrier->setPort(ID::A, a);
 	barrier->setPort(ID::Y, y);
 	data_.barriers.marks_by_barrier[id] = marks;
@@ -311,14 +287,14 @@ RTLIL::Cell *detail::BarrierWriter::createBarrierCell(RTLIL::Module *module, con
 	return useBarrier(barrier);
 }
 
-RTLIL::Cell *detail::BarrierWriter::useBarrier(RTLIL::Cell *barrier)
+RTLIL::Cell *detail::CheckpointWriter::useBarrier(RTLIL::Cell *barrier)
 {
-	used_barriers_.insert(barrier);
+	data_.barriers.used_barriers.insert(barrier);
 	return barrier;
 }
 
 // only one-bit wires, keep on a wide wire holds all its bits
-void detail::BarrierWriter::markWiresKeep(const Netlist::Net *net)
+void detail::CheckpointWriter::markWiresKeep(const Netlist::Net *net)
 {
 	for (const RTLIL::SigBit &bit : view_.wireBits(net)) {
 		if (bit.wire->width == 1 && !detail::isCutWire(bit.wire))
@@ -418,12 +394,9 @@ const Netlist::Pin *detail::CutSideWalker::topPortPinOf(const RTLIL::SigBit &bit
 	if (bit.wire->port_id != 0)
 		return top->findPin(detail::unescapedName(bit.wire->name), bit.offset);
 	if (top_port_pin_by_bit_.empty()) {
-		RTLIL::Design *design = view_.design();
 		for (const Netlist::Pin *port : top->pins) {
-			const std::string &port_name = port->port().name;
-			RTLIL::IdString port_id = detail::escapedPortId(design, nullptr, walker.module, port_name);
-			RTLIL::Wire *wire = walker.module->wire(port_id);
-			top_port_pin_by_bit_.emplace(walker.sigmap(RTLIL::SigBit(wire, port->bit)), port);
+			if (RTLIL::SigBit port_bit = detail::portBit(view_, port); port_bit.wire != nullptr)
+				top_port_pin_by_bit_.emplace(walker.sigmap(port_bit), port);
 		}
 	}
 	return top_port_pin_by_bit_.at(walker.sigmap(bit), nullptr);
@@ -472,7 +445,7 @@ void detail::removeTrackingMarks(RTLIL::Design *design)
 {
 	detail::removeOwnedKeeps(design);
 	RTLIL::IdString cut = design->twines().find(detail::cut_attr);
-	std::string marker = std::string(detail::anchor_prefix) + "$";
+	std::string_view marker = detail::barrier_name_marker;
 	for (RTLIL::Module *module : design->modules()) {
 		std::vector<RTLIL::IdString> named;
 		for (RTLIL::Wire *wire : module->wires()) {
@@ -511,19 +484,11 @@ std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)
 	RTLIL::IdString id = barrier->module->design->twines().find(detail::anchor_attr);
 	if (barrier->has_attribute(id))
 		return barrier->attributes.at(id).as_int();
-	std::string marker = std::string(detail::anchor_prefix) + "$";
 	std::string text = barrier->name.str();
-	size_t at = text.find(marker);
+	size_t at = text.find(detail::barrier_name_marker);
 	if (at == std::string::npos)
 		return std::nullopt;
-	return atoi(text.c_str() + at + marker.size());
-}
-
-detail::BarrierMarks detail::writtenMarks(const RTLIL::Cell *barrier)
-{
-	RTLIL::IdString id = barrier->module->design->twines().find(detail::marks_attr);
-	int bits = barrier->attributes.at(id, RTLIL::Const(0)).as_int();
-	return {.cut_on_a = (bits & 1) != 0, .port_cut = (bits & 2) != 0};
+	return atoi(text.c_str() + at + detail::barrier_name_marker.size());
 }
 
 std::vector<RTLIL::Cell *> detail::barrierCells(RTLIL::Design *design)
@@ -549,15 +514,15 @@ RTLIL::Selection detail::trackedBarriers(RTLIL::Design *design)
 	return selection;
 }
 
-void detail::recordBarrierAnchor(const NetView &view, BarrierStore &barriers, const RTLIL::Cell *barrier, const std::string &path, Anchor anchor)
+void detail::CheckpointWriter::recordBarrierAnchor(const RTLIL::Cell *barrier, const std::string &path, Anchor anchor)
 {
 	std::optional<int> id = detail::barrierIdOf(barrier);
 	if (!id)
 		return;
 	anchor.scope_path = detail::barrierScopePath(path, barrier);
-	anchor.in_shared_module = view.scopes(barrier->module).size() > 1;
-	barriers.anchors_by_barrier.add(*id, anchor);
-	barriers.anchored_barriers.insert(barrier);
+	anchor.in_shared_module = view_.scopes(barrier->module).size() > 1;
+	data_.barriers.anchors_by_barrier.add(*id, anchor);
+	data_.barriers.used_barriers.insert(barrier);
 }
 
 void detail::replaceBitsInModule(RTLIL::Module *module, const dict<RTLIL::SigBit, RTLIL::SigBit> &rules, const pool<const RTLIL::Cell *> &skip)
@@ -589,7 +554,7 @@ std::string detail::barrierScopePath(const std::string &path, const RTLIL::Cell 
 	if (detail::hasOwnScope(barrier))
 		return detail::withOwnScope(path, barrier);
 	std::string name = barrier->name.str();
-	std::string own = name.substr(1, name.find(std::string(detail::anchor_prefix) + "$") - 1);
+	std::string own = name.substr(1, name.find(detail::barrier_name_marker) - 1);
 	if (!own.empty())
 		own.pop_back();
 	std::replace(own.begin(), own.end(), '.', '/');

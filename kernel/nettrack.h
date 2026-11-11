@@ -14,7 +14,6 @@ struct TrackData;
 
 struct PortRename {
 	std::string old_port;
-	int old_bit;
 	const Netlist::Pin *pin;
 };
 
@@ -39,8 +38,6 @@ struct TrackedRef {
 		bool on_barrier_instance = false;                          // Pin, was on a Barrier instance
 		// Pin, a checkpoint without barriers moved a Barrier instance A pin to its drivers
 		bool anchored_on_drivers = false;
-	public:
-		bool isHierarchicalPin() const;
 	};
 
 	struct Result {
