@@ -6,7 +6,7 @@ YOSYS_NAMESPACE_BEGIN
 
 using NetProtectTest = NetViewTest;
 
-// The $barrier cells of a module
+// the $barrier cells of a module
 static std::vector<Cell *> barriersOf(Module *module)
 {
 	std::vector<Cell *> barriers;
@@ -102,7 +102,7 @@ TEST_F(NetProtectTest, removedCellKeepsItsLoads)
 	EXPECT_TRUE(cell.removedButLoadsKept());
 }
 
-// The name finds no port, the barrier finds it by its signal
+// the name finds no port, the barrier finds it by its signal
 TEST_F(NetProtectTest, netBarrierFindsTheNetOfItsScope)
 {
 	TrackedView t(d);
@@ -157,7 +157,8 @@ TEST_F(NetProtectTest, ringOfNewBuffersOnAPartEnds)
 	EXPECT_FALSE(net.nets.empty());
 }
 
-// insbuf puts a buffer between a top input and its barrier, a pass renames the port
+// like insbuf, a buffer goes between a top input and its barrier
+// a pass renames the port after that
 TEST_F(NetProtectTest, portBarrierPassesANewBuffer)
 {
 	TrackedView t(d);
@@ -349,7 +350,7 @@ TEST_F(NetProtectTest, flattenCopyOfAKeptCellKeepsItsPath)
 	EXPECT_EQ(ref.pins[0]->inst->parent, t.child(top->cell("\\m1.s")));
 }
 
-// splitnets drops the anchors of the port wire, the port name finds the pin
+// splitnets drops the port wire anchors, the port name finds the pin
 TEST_F(NetProtectTest, topPortFindsItsPinByName)
 {
 	TrackedView t(d, /*with_barriers=*/false);

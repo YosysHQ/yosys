@@ -1,5 +1,4 @@
-// Resolve. HitIndex finds the anchors in the view in build order, Resolver
-// turns the hits of each ref into objects.
+// resolve of NetTracker, see Resolver
 #include "kernel/nettrack_internal.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -153,7 +152,8 @@ std::vector<const Netlist::Pin *> detail::Resolver::cutSidePinsOfHits(const std:
 	return pins;
 }
 
-// The loads beyond the barrier of a hierarchical pin, or of the outputs of a cell
+// loads past the barriers of a hierarchical pin
+// for a cell, loads past its output barriers
 void detail::Resolver::collectLoadsBeyondAndBarrierPins(const std::vector<AnchorHit> &hits, TrackedRef &ref)
 {
 	bool of_cell = ref.kind == TrackedRef::Kind::Instance;
@@ -317,7 +317,8 @@ void detail::Resolver::addTopPins(const std::vector<AnchorHit> &hits, uint32_t r
 	ref.result.own_pins = detail::uniqueSorted(ref.result.own_pins);
 }
 
-// A name moved if a name finds no pin or a named pin is on a net with no anchor (a constant net has none)
+// a name moved without a pin, or when its net lost the anchor
+// nets that are constant or missing are not checked
 detail::PinList detail::Resolver::topPinsOfRef(const std::vector<AnchorHit> &hits, uint32_t ref_index) const
 {
 	std::vector<const Netlist::Pin *> named = namedTopPins(ref_index);
@@ -430,7 +431,9 @@ const Netlist::Net *detail::Resolver::newBufferRoot(const Netlist::Net *net) con
 	return net;
 }
 
-// insbuf splits a net with buffers, so the parts that no other part drives keep its meaning, and the part that drives them all when there are several
+// insbuf splits a net with buffers
+// the parts no other part drives keep the net's meaning
+// if there are several, the part driving them all keeps it
 std::vector<const Netlist::Net *> detail::Resolver::bufferSplitRoots(const pool<const Netlist::Net *> &parts) const
 {
 	std::vector<const Netlist::Net *> roots;
@@ -508,7 +511,8 @@ std::vector<const detail::AnchorHit *> detail::hitsOfRole(const std::vector<Anch
 	return {};
 }
 
-// Hierarchical pins of dir or inout whose port splitnets -ports renamed, up from the leaf pins through all boundaries (a feedthrough has both)
+// pins whose port splitnets -ports renamed, up from the leaves
+// only dir or inout ones, a feedthrough has both
 detail::PinList detail::hierPinsAbove(const InstanceList &insts, const PinList &leaves, Netlist::PortDir dir)
 {
 	std::vector<const Netlist::Pin *> found;

@@ -1,10 +1,4 @@
-// NetView: the Netlist of an RTLIL design
-// - Instances  one per cell occurrence, depth first in statement order
-// - Nets       one per SigMap bit, a $barrier joins its A and Y, a constant only from A
-// - Names      port, then 'keep', then public wire. 'hdlname' gives hdlpath
-// - Barriers   a $barrier of BuildOptions::barrier_instances is a Barrier instance
-// - Lifetime   records live until clear(), build after clear() restarts the ids
-// - Staleness  upToDate() compares a fingerprint of the design with the one of build() or markUpToDate()
+// NetView builds the Netlist of an RTLIL design
 
 #ifndef NETVIEW_H
 #define NETVIEW_H
@@ -34,9 +28,12 @@ namespace detail
 struct ViewData;
 }
 
+// records and by-reference vectors are read only, live with the view
+// ids index this view, instances from 0 (top), pins and nets from 1
 struct NetView final {
 	struct BuildOptions {
 		Netlist::CellLibrary *library = nullptr;
+		// these $barriers become Barrier instances
 		const pool<const RTLIL::Cell *> *barrier_instances = nullptr;
 	};
 
@@ -61,16 +58,26 @@ struct NetView final {
 	RTLIL::Design *design() const;
 	Netlist::Instance *top() const;
 
+	// false when the name pool or fingerprint changed since build
+	// also false when the design a shared_ptr held at build is gone
+	// fingerprint has module names, blackbox ports, top, wires, cells, connections of view modules
 	bool upToDate() const;
 
 	Counts counts() const;
 
+	// one net per SigMap bit in each scope a pin touches it
+	// a $barrier joins its A and Y, a constant only from A
 	const std::vector<Netlist::Net *> &nets(const Netlist::Instance *scope) const;
+	// one tie net per constant value and scope, x and z unconnected
 	std::vector<Netlist::Net *> constNets(Netlist::Net::Const value) const;
+	// names rank port, then 'keep', then public wire
+	// the 'hdlname' attribute gives the hdlpath
 	Netlist::NetName name(const Netlist::Net *net) const;
-	const std::vector<Netlist::NetName> &aliases(const Netlist::Net *net) const; // of the public wire bits on the net
+	// from the public wire bits on the net
+	const std::vector<Netlist::NetName> &aliases(const Netlist::Net *net) const;
 	std::vector<Netlist::Pin *> leafPins(const Netlist::Net *net, Netlist::WalkTarget target) const;
-	uint64_t bodyKey(const Netlist::Instance *scope) const; // equal for equal bodies, a 64-bit hash
+	// 64-bit hash of a non-leaf child, equal for equal bodies
+	uint64_t bodyKey(const Netlist::Instance *scope) const;
 
 	RTLIL::Cell *cell(const Netlist::Instance *inst) const;
 	RTLIL::Module *module(const Netlist::Instance *scope) const;

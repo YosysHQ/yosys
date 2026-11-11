@@ -31,7 +31,7 @@ bool detail::designAlive(const ViewData &data)
 	return !data.design_shared || !data.design_owner.expired();
 }
 
-// A yosys internal cell type (no library cell)
+// a yosys internal cell type, not a library cell
 bool detail::isInternalType(RTLIL::IdString type)
 {
 	return StaticCellTypes::categories.is_known(type) && type != ID($scopeinfo);
@@ -44,7 +44,7 @@ std::vector<std::string> detail::sourcePath(const RTLIL::AttrObject *object, std
 	return detail::flattenPath(name);
 }
 
-// $flatten\a.\b.$x for a, b and $x, any separator for the dot
+// $flatten\a.\b.$x gives a, b and $x, any separator for the dot
 std::vector<std::string> detail::flattenPath(std::string_view name)
 {
 	constexpr std::string_view prefix = "$flatten";
@@ -65,7 +65,7 @@ std::vector<std::string> detail::flattenPath(std::string_view name)
 	return parts;
 }
 
-// A separator char, then the next scope ('\') or the private name ('$')
+// a separator char, then the next scope ('\') or the private name ('$')
 size_t detail::flattenSeparator(std::string_view name)
 {
 	for (bool any_char : {false, true}) {
@@ -80,7 +80,7 @@ size_t detail::flattenSeparator(std::string_view name)
 	return std::string_view::npos;
 }
 
-// The N of a name that ends in [N]
+// the N of a name that ends in [N]
 bool detail::trailingIndex(std::string_view name, int &index)
 {
 	size_t open = name.rfind('[');
@@ -114,7 +114,7 @@ RTLIL::IdString detail::escapedPortId(const RTLIL::Design *design, const RTLIL::
 	return design->twines().find(name);
 }
 
-// Declared with a range - wider than one bit, or [n:n]
+// declared with a range, also a one-bit range
 bool detail::isVector(const RTLIL::Wire *wire) { return wire->width > 1 || wire->has_attribute(ID::single_bit_vector); }
 
 Netlist::NetName detail::netName(const RTLIL::SigBit &bit, WireOrigin origin)
@@ -155,12 +155,12 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 	if (!static_type && !yosys_celltypes.cell_known(cell->type))
 		return false;
 
-	// Connected ports carry their width
+	// connected ports carry their width
 	std::vector<std::pair<RTLIL::IdString, int>> ports;
 	for (const auto &[port, sig] : cell->connections())
 		ports.emplace_back(port, sig.size());
 
-	// A fresh internal cell gets width 1
+	// a fresh internal cell gets width 1
 	if (ports.empty() && static_type) {
 		for (RTLIL::IdString port : StaticCellTypes::port_info.inputs(cell->type))
 			ports.emplace_back(port, 1);
@@ -169,7 +169,7 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 	}
 
 	for (const auto &[port_id, width] : ports) {
-		// Width-0 ports have no pins
+		// width-0 ports have no pins
 		if (width == 0)
 			continue;
 		Netlist::Port port;
@@ -235,7 +235,7 @@ NetView::Counts detail::countRecords(RTLIL::Design *design, RTLIL::Module *modul
 	count.nets = std::min<uint64_t>(detail::wireBits(module) + 2, UINT32_MAX);
 	for (RTLIL::Cell *cell : module->cells()) {
 		NetView::Counts cell_count = {1, 0, detail::cellPinBits(design, cell)};
-		// A $barrier can be an instance with a net per bit
+		// a $barrier can be an instance with a net per bit
 		if (cell->type == ID($barrier))
 			cell_count.nets = cell_count.pins;
 		if (RTLIL::Module *sub = detail::childModule(design, cell))
@@ -390,6 +390,9 @@ Netlist::Net *detail::RecordStore::newNet()
 	return net;
 }
 
+// cells() lists the newest cell first
+// reversed it is creation order until a cell is removed
+// a module sorted by name keeps name order
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 {
 	std::vector<RTLIL::Cell *> cells = module->cells();
@@ -398,6 +401,7 @@ std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 	return cells;
 }
 
+// a smaller rank is a better name
 detail::NetNameRank detail::netNameRank(const RTLIL::SigBit &bit)
 {
 	const RTLIL::Wire *wire = bit.wire;
@@ -408,6 +412,7 @@ detail::NetNameRank detail::netNameRank(const RTLIL::SigBit &bit)
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
 }
 
+// keeps that NetTracker marked with netview_keep do not count
 bool detail::hasUserKeep(const RTLIL::Wire *wire)
 {
 	if (!wire->get_bool_attribute(ID::keep))

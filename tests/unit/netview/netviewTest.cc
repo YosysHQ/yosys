@@ -25,10 +25,9 @@ TEST_F(NetViewTest, namesAliasesAndConstants)
 	EXPECT_EQ(view.name(d0_net), (Netlist::NetName{"d0", 0, true}));
 	EXPECT_FALSE(view.nets(t).empty());
 	EXPECT_EQ(view.nets(topChild(view, u_inv0)).size(), 0u); // leaves own none
-	EXPECT_EQ(topChild(view, u_sub)->findPin("y", 1)->hdlIndex(), 2); // y[0:3] holds y[2] at offset 1
+	EXPECT_EQ(topChild(view, u_sub)->findPin("y", 1)->hdlIndex(), 2); // y counts 0 up to 3, offset 1 holds y[2]
 }
 
-// write_verilog sorts the design, opt_clean reorders the connections
 TEST_F(NetViewTest, topIsNoRegisterOrBuffer)
 {
 	NetView view(d);
@@ -37,7 +36,6 @@ TEST_F(NetViewTest, topIsNoRegisterOrBuffer)
 	EXPECT_FALSE(view.isClockPin(view.top()->pins[0]));
 }
 
-// top: w <- u_bidi.io (bidi: io <- g)
 TEST_F(NetViewTest, buildableReasons)
 {
 	std::string reason;
@@ -90,14 +88,14 @@ static Module *addWrapper(Design *design, const std::string &name, const std::st
 TEST_F(NetViewTest, buildableRefusesRangeOverflow)
 {
 	std::string reason;
-	top->addWire("\\huge", 2)->start_offset = INT_MAX - 1; // fits: [INT_MAX:INT_MAX-1]
+	top->addWire("\\huge", 2)->start_offset = INT_MAX - 1; // fits, the range is INT_MAX down to INT_MAX-1
 	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
 	top->wire("\\huge")->start_offset = INT_MAX;
 	EXPECT_FALSE(NetView::buildable(d, reason));
 	EXPECT_NE(reason.find("huge"), std::string::npos) << reason;
 	top->remove(pool<Wire *>{top->wire("\\huge")});
 	ASSERT_TRUE(NetView::buildable(d, reason)) << reason;
-	inv->addWire(ID(B), 2)->start_offset = INT_MAX; // [INT_MAX+1:INT_MAX]
+	inv->addWire(ID(B), 2)->start_offset = INT_MAX; // the range is INT_MAX+1 down to INT_MAX
 	inv->wire(ID(B))->port_input = true;
 	inv->fixup_ports();
 	EXPECT_FALSE(NetView::buildable(d, reason));
@@ -176,7 +174,7 @@ TEST_F(NetViewTest, unknownTypeWithALibraryIsAnErrorIfConnected)
 	EXPECT_THROW(NetView failed(d, {&library}), log_cmd_error_exception);
 }
 
-// $pre -> $barrier -> d0
+// $pre -> $connect -> d0
 TEST_F(NetViewTest, connectAndInputPortAreTransparent)
 {
 	Wire *pre = top->addWire("$pre");
@@ -196,9 +194,7 @@ TEST_F(NetViewTest, connectAndInputPortAreTransparent)
 	EXPECT_EQ(driven, topChild(view, u_sub)->pins[0]->net);
 }
 
-// a protected load pin of a constant: c -> $barrier -> post -> u_inv2
-// x on A makes no net, Y keeps its own
-// literal 1 on A: 1 -> $barrier -> post -> u_inv2
+// a literal 1 on A, 1 -> $barrier -> post -> u_inv2
 TEST_F(NetViewTest, barrierFromALiteralConstantIsConstant)
 {
 	Wire *post = top->addWire("$post");

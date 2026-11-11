@@ -1,18 +1,11 @@
-// BarrierWriter puts $barrier cells at the objects of the refs, their
-// anchors are in the barrier store by the barrier id in their name, barriers at:
-//   Pin       the leaf pin, or the port inside a hierarchical pin
-//   Instance  each pin of a gate, the clock pins of a register
-//   TopPort   a bit of a top bus port
-//   Net       the leaf drivers
-// A barrier cuts a pin off its net with a cut wire, CutSideWalker walks from a
-// barrier to the leaf pins on its cut side
+// barriers of NetTracker, see BarrierWriter and CutSideWalker
 
 #include "kernel/nettrack_internal.h"
 #include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN
 
-// optbarriers runs as a pass, so a pass hook of the consumer sees it
+// we call optbarriers as a pass so consumer pass hooks see it
 void NetTracker::unprotect(RTLIL::Design *design)
 {
 	data_->bind(design);
@@ -60,7 +53,7 @@ detail::BarrierWriter::BarrierWriter(const NetView &view, TrackData &data) : vie
 	}
 }
 
-// A barrier by its cut bit
+// index the barrier by its cut bit
 void detail::BarrierWriter::noteBarrier(RTLIL::Cell *barrier)
 {
 	BarrierMarks marks = data_.barriers.marks(barrier);
@@ -99,7 +92,7 @@ detail::PinCut detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32
 	int outputs = 0;
 	for (const Netlist::Pin *other : pin->inst->pins)
 		outputs += other->isDriver();
-	// Every path from an input of a cell with one output passes that output
+	// with one output every input path already passes that output
 	if (pin->inst->isLeaf() && ref.hints.keep_cell && outputs > 1) {
 		detail::setOwnedAttribute(view_.design(), view_.cell(pin->inst), ID::keep);
 		for (const Netlist::Pin *other : pin->inst->pins)
@@ -111,7 +104,8 @@ detail::PinCut detail::BarrierWriter::protectPin(const Netlist::Pin *pin, uint32
 	return PinCut::Cut;
 }
 
-// A driver also cuts its first connected input, so opt_merge merges no cell into it
+// a driver also cuts its first connected input
+// this stops opt_merge from merging a cell into it
 detail::PinCut detail::BarrierWriter::protectLeafPin(const Netlist::Pin *pin, uint32_t ref_index, const std::string &net_scope_path)
 {
 	PinCut cut = anchorPinBarrier(pin, ref_index, net_scope_path);
@@ -323,7 +317,7 @@ RTLIL::Cell *detail::BarrierWriter::useBarrier(RTLIL::Cell *barrier)
 	return barrier;
 }
 
-// Only one-bit wires, keep on a wide wire would hold its other bits too
+// only one-bit wires, keep on a wide wire holds all its bits
 void detail::BarrierWriter::markWiresKeep(const Netlist::Net *net)
 {
 	for (const RTLIL::SigBit &bit : view_.wireBits(net)) {
@@ -334,7 +328,7 @@ void detail::BarrierWriter::markWiresKeep(const Netlist::Net *net)
 
 detail::CutSideWalker::CutSideWalker(const NetView &view, const TrackData &data) : view_(view), data_(data) {}
 
-// A cut side ends at the cut side of another barrier
+// a cut side ends at the cut side of another barrier
 void detail::CutSideWalker::pins(const AnchorHit &hit, Anchor::Side side, BufferRule rule, PinList &out)
 {
 	Netlist::WalkTarget target = Netlist::WalkTarget::Loads;
@@ -376,7 +370,8 @@ void detail::CutSideWalker::walkSignal(CutSideWalkState &walk, const RTLIL::Cell
 	}
 }
 
-// Toward the target, and not into the cut wire of a barrier from the cut wire
+// enter only toward the target
+// never from a cut wire into another cut wire
 bool detail::CutSideWalker::entersBarrier(const CutSideWalkState &walk, const ModWalker::PortBit &at, bool on_cut_wire) const
 {
 	bool at_a = at.port == ID::A;
@@ -471,7 +466,8 @@ void detail::removeEmptyScopename(RTLIL::AttrObject *object)
 		object->attributes.erase(ID::scopename);
 }
 
-// The cut marks of wires, our keep marks, empty scopenames and the names autoname took from barriers
+// removes cut marks, our keeps and empty scopenames
+// also renames objects autoname named after barriers
 void detail::removeTrackingMarks(RTLIL::Design *design)
 {
 	detail::removeOwnedKeeps(design);
@@ -509,7 +505,7 @@ void detail::unmarkCutWire(RTLIL::Wire *wire)
 	wire->attributes.erase(wire->module->design->twines().find(detail::cut_attr));
 }
 
-// The attribute (rename -hide renames the barrier), else the name (abc9 renews it without attributes lol)
+// the attribute survives rename -hide, the name survives abc9
 std::optional<int> detail::barrierIdOf(const RTLIL::Cell *barrier)
 {
 	RTLIL::IdString id = barrier->module->design->twines().find(detail::anchor_attr);
@@ -542,7 +538,7 @@ std::vector<RTLIL::Cell *> detail::barrierCells(RTLIL::Design *design)
 	return cells;
 }
 
-// The barriers of the tracking by their id, also after rename -hide
+// barriers with a tracking id, also after rename -hide
 RTLIL::Selection detail::trackedBarriers(RTLIL::Design *design)
 {
 	RTLIL::Selection selection = RTLIL::Selection::EmptySelection(design);

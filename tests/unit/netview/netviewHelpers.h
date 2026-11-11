@@ -20,7 +20,8 @@ inline Module *addInv(Design *design, const std::string &name)
 	return inv;
 }
 
-// top: in -> u_inv0 -> d0 -> u_sub (sub: a -> i1 -> y[0], a -> i2) -> p -> u_inv2 -> out
+// in -> u_inv0 -> d0 -> u_sub -> p -> u_inv2 -> out
+// in sub, a -> i1 -> y[0] and a -> i2
 class NetViewTest : public ::testing::Test
 {
       protected:

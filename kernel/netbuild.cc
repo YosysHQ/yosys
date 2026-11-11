@@ -14,6 +14,8 @@ void detail::ViewBuilder::build(RTLIL::Module *top)
 	buildScope(top, data_.top);
 }
 
+// a submodule takes the ports of its module
+// a leaf asks library -> blackbox -> yosys cell types
 const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instance *inst, RTLIL::Module *sub)
 {
 	PortStore &store = data_.ports;
@@ -30,12 +32,14 @@ const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instanc
 	else
 		known = leafPorts(inst, ports);
 
-	// Each cell of an unknown type checks its own connections
+	// an unknown type is not cached, each cell checks its connections
 	if (shared && known)
 		store.lists_by_library_type[inst->type] = &ports;
 	return &ports;
 }
 
+// false when no model knows the type
+// with a library, warn once after build per type it lacks
 bool detail::ViewBuilder::leafPorts(const Netlist::Instance *inst, std::vector<Netlist::Port> &out)
 {
 	Netlist::CellLibrary *library = data_.library;
@@ -59,7 +63,7 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 {
 	Netlist::Instance *inst = data_.records.newInstance();
 
-	// The top has no cell, it is named after its module
+	// the top has no cell, it is named after its module
 	RTLIL::IdString name, type;
 	if (cell != nullptr) {
 		name = cell->name;
@@ -71,7 +75,7 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 	inst->name = detail::unescapedName({data_.design, name});
 	inst->type = detail::unescapedName({data_.design, type});
 
-	// A uniquified module keeps its original name in hdlname
+	// a uniquified module keeps its original name in hdlname
 	inst->hdl_type = inst->type;
 	if (module != nullptr && module->has_attribute(ID::hdlname))
 		inst->hdl_type = module->get_string_attribute(ID::hdlname);
@@ -149,6 +153,8 @@ bool detail::ViewBuilder::isBarrierInstance(const RTLIL::Cell *cell) const
 	return cell->type == ID($barrier) && barrier_instances_ != nullptr && barrier_instances_->count(cell);
 }
 
+// bit b of A and Y meet on inner net b
+// bits past the width of Y get no pin
 void detail::ViewBuilder::addBarrierInstance(RTLIL::Cell *cell, Netlist::Instance *scope)
 {
 	Netlist::Instance *inst = newInstance(cell, nullptr, scope);
@@ -234,9 +240,9 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 			if (!pub)
 				continue;
 
-			// Public wires collapsed into another wire's net (assign aliases) stay reachable under their own names
+			// public wires merged into another wire's net stay findable as aliases
 			data_.index.net_rtlil[net->id].aliases.push_back(detail::netName(bit, wireOrigin(bit.wire)));
-			// A net is named after its best wire bit
+			// a net is named after its best wire bit
 			if (net->constant != Netlist::Net::Const::None)
 				continue;
 			RTLIL::SigBit current_name_bit = data_.index.net_rtlil.get(net->id).name_bit;
@@ -246,6 +252,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 	}
 }
 
+// made on first use, joins module connections, $connect and non Barrier instance $barriers
 SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 {
 	auto [it, added] = sigmaps_.try_emplace(module, module);
@@ -256,6 +263,8 @@ SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 	return it->second;
 }
 
+// SigMap add(from, to) keeps the root of to
+// a constant is always the root
 void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const
 {
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -268,7 +277,8 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 			bool a_has_net = a_root.wire != nullptr || a_is_const_01;
 			if (sigmap(y[b]).wire == nullptr || !a_has_net)
 				continue;
-			// The second bit stays the root, so a cut wire never names a net
+			// the root is A, or Y when A is a cut wire
+			// a cut wire never names a net
 			if (a[b].wire != nullptr && detail::isCutWire(a[b].wire))
 				sigmap.add(a[b], y[b]);
 			else
@@ -284,6 +294,8 @@ void detail::ViewBuilder::setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit
 	rtlil.name = detail::netName(bit, wireOrigin(bit.wire));
 }
 
+// splitnets copies the hdlname of a vector to its pieces
+// a shared hdlname marks a split vector
 detail::WireOrigin detail::ViewBuilder::wireOrigin(const RTLIL::Wire *wire)
 {
 	if (!wire->has_attribute(ID::hdlname))
@@ -300,6 +312,8 @@ detail::WireOrigin detail::ViewBuilder::wireOrigin(const RTLIL::Wire *wire)
 	return WireOrigin::Declared;
 }
 
+// each SigMap class bit finds the net of its canonical bit
+// bit must be a constant or a wire bit of the scope's module
 Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
 {
 	NetsByScopeBit &nets = data_.index.nets_by_scope_bit;
@@ -313,7 +327,7 @@ Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const
 	Netlist::Net *net;
 	if (canon.wire == nullptr) {
 		if (canon.data != RTLIL::State::S0 && canon.data != RTLIL::State::S1)
-			return nullptr; // x/z: unconnected
+			return nullptr; // x and z stay unconnected
 		net = findOrMakeTieNet(scope, canon);
 	} else {
 		net = nets.get(scope, canon);

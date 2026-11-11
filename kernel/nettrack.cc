@@ -1,3 +1,4 @@
+// checkpoint and clear, BarrierWriter cuts each ref object, then AnchorWriter anchors it
 #include "kernel/nettrack_internal.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -158,6 +159,8 @@ int detail::newRefValue(RTLIL::Design *design)
 	return ++last_value;
 }
 
+// hash of the first design, fixed for the process
+// same commands give same values in each run
 int detail::keySeed(RTLIL::Design *design)
 {
 	static std::optional<int> seed;
@@ -256,7 +259,8 @@ void detail::AnchorWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uin
 	detail::recordBarrierAnchor(view_, data_.barriers, view_.cell(pin->inst), path, anchor);
 }
 
-// unprotect removes the Barrier instance, a ref of its A pin moves to the drivers, a ref of its Y pin takes no anchor
+// unprotect removes the Barrier instance, an A pin ref moves to its drivers
+// a Y pin ref takes no anchor
 void detail::AnchorWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref)
 {
 	if (pin->dir() != Netlist::PortDir::Input)
@@ -303,7 +307,7 @@ bool detail::AnchorWriter::markIfShared(RTLIL::AttrObject *object, RTLIL::Module
 	return true;
 }
 
-// Without -scopename, flatten extends the 'scopename' of a private object only if it has one
+// without -scopename, flatten extends a private object's 'scopename' only if present
 void detail::ensureScopename(RTLIL::AttrObject *object)
 {
 	if (!detail::hasOwnScope(object))

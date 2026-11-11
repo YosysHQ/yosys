@@ -39,7 +39,7 @@ RTLIL::Module *topModule(RTLIL::Design *design);
 
 using ModuleSet = pool<RTLIL::Module *>;
 
-// Buildability
+// buildability checks and record counts
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 
 NetView::Counts countRecords(RTLIL::Design *design, RTLIL::Module *module, dict<RTLIL::Module *, NetView::Counts> &counts);
@@ -50,7 +50,7 @@ bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &use
 bool checkModule(RTLIL::Design *design, RTLIL::Module *module, ModuleSet &blackboxes, std::string &reason);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
 
-// Cells
+// cell types, cell order, cut wires and tracker marks
 constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
 
 bool isInternalType(RTLIL::IdString type);
@@ -62,13 +62,13 @@ bool isCutWire(const RTLIL::Wire *wire);
 bool hasUserKeep(const RTLIL::Wire *wire);
 std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
 
-// Ports
+// port lists of modules and cell types
 Netlist::Port wirePort(RTLIL::Wire *wire);
 void modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out);
 bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 Netlist::PortDir cellTypePortDir(const RTLIL::Cell *cell, RTLIL::IdString port, bool static_type);
 
-// Names
+// instance and net names, hdl paths and ranks
 using NetNameRank = std::tuple<bool, bool, bool, size_t, std::string, int>;
 
 enum class WireOrigin : uint8_t {
@@ -88,17 +88,17 @@ NetNameRank netNameRank(const RTLIL::SigBit &bit);
 uint64_t bitKey(const RTLIL::SigBit &bit);
 void nameChildren(Netlist::Instance *scope);
 
-// Body keys
+// body keys of non-leaf scopes
 uint64_t scopeBodyHash(const NetView &view, const Netlist::Instance *scope);
 uint64_t pinHash(char tag, const std::string &child, const NetView &view, const Netlist::Pin *pin, const Netlist::Net *net);
 void eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *net);
 
-// Walks
+// walks from a net to its pins and nets
 bool pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target);
 void addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, std::vector<Netlist::Pin *> &out);
 std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net, bool down);
 
-// Fingerprint
+// design fingerprint for NetView::upToDate
 uint64_t designModuleHash(RTLIL::Module *module);
 void hashModule(Fingerprint &fp, RTLIL::Module *module);
 uint64_t wireHash(RTLIL::Wire *wire);
@@ -118,7 +118,7 @@ public:
 	Netlist::Net *newNet();
 };
 
-// The port lists of the instances
+// the port lists of all instances
 struct PortStore {
 	std::deque<std::vector<Netlist::Port>> lists;
 	dict<std::string, const std::vector<Netlist::Port> *> lists_by_library_type;

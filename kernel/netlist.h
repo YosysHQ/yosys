@@ -1,4 +1,4 @@
-// Netlist: the records of a read-only, bit-level, unfolded netlist
+// the records of a read-only, bit-level, unfolded netlist
 
 #ifndef NETLIST_H
 #define NETLIST_H
@@ -43,7 +43,7 @@ template <typename T> struct IdMap {
 struct Port {
 	std::string name; // unescaped
 	int width = 0;
-	int from = 0;     // [from:to] as declared
+	int from = 0;     // left index of the declared range, to is the right one
 	int to = 0;
 	PortDir dir = PortDir::Unknown;
 	bool vector = false;         // declared with a range
@@ -52,17 +52,18 @@ public:
 	int hdlIndex(int bit) const; // the declared index of a bit
 };
 
-// A scope is a non-leaf instance (for example the top or a submodule instance)
+// a scope (top, submodule or Barrier instance) has inner nets
+// a leaf (cell or blackbox) has none
 struct Instance {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell, Barrier };
 
 	std::string name;                 // local name, unescaped
-	std::string unique_name;          // of a child: localName, else name if the localName repeats in the scope
+	std::string unique_name;          // localName of a child, name if that repeats in the scope
 	std::string type;                 // cell type or module name, unescaped
 	std::string hdl_type;             // the source module name before uniquify, else type
 	std::vector<std::string> hdlpath; // source path of a flattened cell
 	Kind kind;
-	uint32_t id;
+	uint32_t id;                      // 0 is the top
 	Instance *parent;
 	const std::vector<Port> *ports;
 	std::vector<Pin *> pins;
@@ -74,11 +75,12 @@ public:
 	std::string localName() const;
 };
 
+// a top pin has only an inner net, top has no cell
 struct Pin {
 	Instance *inst;
-	Net *net;   // the net outside, in the scope of the parent
-	Net *inner; // the net inside the instance's scope
-	uint32_t id;
+	Net *net;            // outside, parent scope, from the cell connection
+	Net *inner;          // inside, instance scope, from the port wire or barrier bit
+	uint32_t id;         // from 1
 	uint32_t port_index; // in inst->ports
 	int bit;
 public:
@@ -92,7 +94,7 @@ struct Net {
 	enum class Const : uint8_t { None, Zero, One };
 
 	Instance *scope;
-	uint32_t id;
+	uint32_t id; // from 1
 	Const constant;
 	std::vector<Pin *> pins;     // the pins in the scope on this net
 	std::vector<Pin *> boundary; // the pins of the scope whose inner net this is
