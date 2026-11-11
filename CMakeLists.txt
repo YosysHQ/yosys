@@ -396,6 +396,14 @@ if (SANITIZE)
 	)
 endif()
 
+option(YOSYS_ENABLE_PCH "Precompile kernel/yosys.h" ON)
+if (YOSYS_ENABLE_PCH)
+	file(WRITE ${YOSYS_CMAKE_BINARY_DIR}/yosys_pch.cc "")
+	add_library(yosys_pch OBJECT EXCLUDE_FROM_ALL ${YOSYS_CMAKE_BINARY_DIR}/yosys_pch.cc)
+	target_link_libraries(yosys_pch PUBLIC yosys_common)
+	target_precompile_headers(yosys_pch PRIVATE ${YOSYS_CMAKE_SOURCE_DIR}/kernel/yosys.h)
+endif()
+
 # Two pseudo-components used for dependency tracking only.
 yosys_core(essentials BOOTSTRAP)
 yosys_core(everything BOOTSTRAP)
