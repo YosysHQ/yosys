@@ -26,11 +26,6 @@ NetView::Counts NetView::counts() const
 	return {records.instances.size() - 1, records.nets.size(), records.pins.size()};
 }
 
-bool detail::designAlive(const ViewData &data)
-{
-	return !data.design_shared || !data.design_owner.expired();
-}
-
 // a yosys internal cell type, not a library cell
 bool detail::isInternalType(RTLIL::IdString type)
 {
@@ -354,8 +349,6 @@ NetView::NetView(RTLIL::Design *design, const BuildOptions &options) : data_(std
 	data_->design_shared = !data_->design_owner.expired();
 	data_->library = options.library;
 	detail::ViewBuilder(*this, *data_, options.barrier_instances).build(detail::topModule(design));
-	for (const std::string &type : data_->ports.types_not_in_library)
-		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
 	data_->twines_serial = design->twines().serial();
 	for (const auto &[module, occurrences] : data_->index.scopes_by_module.data)
 		data_->watched_module_names.push_back(module->name);
@@ -367,27 +360,6 @@ NetView::NetView(RTLIL::Design *design, const BuildOptions &options) : data_(std
 			data_->body_keys[id] = detail::scopeBodyHash(*this, inst);
 	}
 	markUpToDate();
-}
-
-Netlist::Instance *detail::RecordStore::newInstance()
-{
-	Netlist::Instance *inst = &instances.emplace_back();
-	inst->id = next_inst_id++;
-	return inst;
-}
-
-Netlist::Pin *detail::RecordStore::newPin()
-{
-	Netlist::Pin *pin = &pins.emplace_back();
-	pin->id = next_pin_id++;
-	return pin;
-}
-
-Netlist::Net *detail::RecordStore::newNet()
-{
-	Netlist::Net *net = &nets.emplace_back();
-	net->id = next_net_id++;
-	return net;
 }
 
 // cells() lists the newest cell first
@@ -801,7 +773,9 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 bool NetView::upToDate() const
 {
 	const detail::ViewData &data = *data_;
-	if (!detail::designAlive(data) || data.design->twines().serial() != data.twines_serial)
+	if (data.design_shared && data.design_owner.expired())
+		return false;
+	if (data.design->twines().serial() != data.twines_serial)
 		return false;
 	return detail::designFingerprint(data.design, data.watched_module_names) == data.fingerprint;
 }

@@ -33,8 +33,6 @@ template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
 
 struct Fingerprint;
 uint64_t mix64(uint64_t state, uint64_t value);
-struct ViewData;
-bool designAlive(const ViewData &data);
 RTLIL::Module *topModule(RTLIL::Design *design);
 
 using ModuleSet = pool<RTLIL::Module *>;
@@ -105,24 +103,12 @@ uint64_t wireHash(RTLIL::Wire *wire);
 uint64_t cellHash(RTLIL::Cell *cell);
 uint64_t designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names);
 
+// a record id is its position
+// instances from 0, pins and nets from 1
 struct RecordStore {
 	std::deque<Netlist::Instance> instances;
 	std::deque<Netlist::Pin> pins;
 	std::deque<Netlist::Net> nets;
-	uint32_t next_inst_id = 0;
-	uint32_t next_pin_id = 1;
-	uint32_t next_net_id = 1;
-public:
-	Netlist::Instance *newInstance();
-	Netlist::Pin *newPin();
-	Netlist::Net *newNet();
-};
-
-// the port lists of all instances
-struct PortStore {
-	std::deque<std::vector<Netlist::Port>> lists;
-	dict<std::string, const std::vector<Netlist::Port> *> lists_by_library_type;
-	pool<std::string> types_not_in_library;
 };
 
 struct InstanceRtlil {
@@ -150,7 +136,6 @@ struct RtlilIndex {
 	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module; // the scopes whose body is the module
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
-	NetsByScopeBit nets_by_scope_bit;
 };
 
 struct ScopeContents {
@@ -165,7 +150,7 @@ struct ViewData {
 	Netlist::CellLibrary *library = nullptr;
 	Netlist::Instance *top = nullptr;
 	RecordStore records;
-	PortStore ports;
+	std::deque<std::vector<Netlist::Port>> port_lists; // the port lists of all instances
 	RtlilIndex index;
 	Netlist::IdMap<ScopeContents> scope_contents; // by scope id
 	Netlist::IdMap<uint64_t> body_keys;           // NetView::bodyKey by scope id
@@ -202,6 +187,9 @@ private:
 	const NetView &view_;
 	ViewData &data_;
 	const pool<const RTLIL::Cell *> *barrier_instances_;
+	NetsByScopeBit nets_by_scope_bit_;
+	dict<std::string, const std::vector<Netlist::Port> *> port_lists_by_library_type_;
+	pool<std::string> types_not_in_library_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
 	std::map<const RTLIL::Module *, dict<std::string, int>> hdlname_counts_; // wires per hdlname
 };

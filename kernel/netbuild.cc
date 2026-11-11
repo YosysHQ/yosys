@@ -12,20 +12,21 @@ void detail::ViewBuilder::build(RTLIL::Module *top)
 	data_.top = newInstance(nullptr, top, nullptr);
 	makePins(data_.top);
 	buildScope(top, data_.top);
+	for (const std::string &type : types_not_in_library_)
+		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
 }
 
 // a submodule takes the ports of its module
 // a leaf asks library -> blackbox -> yosys cell types
 const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instance *inst, RTLIL::Module *sub)
 {
-	PortStore &store = data_.ports;
 	bool shared = inst->kind == Netlist::Instance::Kind::LibraryCell;
 	if (shared) {
-		if (const std::vector<Netlist::Port> *cached = store.lists_by_library_type.at(inst->type, nullptr))
+		if (const std::vector<Netlist::Port> *cached = port_lists_by_library_type_.at(inst->type, nullptr))
 			return cached;
 	}
 
-	std::vector<Netlist::Port> &ports = store.lists.emplace_back();
+	std::vector<Netlist::Port> &ports = data_.port_lists.emplace_back();
 	bool known = true;
 	if (sub != nullptr)
 		detail::modulePorts(sub, ports);
@@ -34,7 +35,7 @@ const std::vector<Netlist::Port> *detail::ViewBuilder::portsFor(Netlist::Instanc
 
 	// an unknown type is not cached, each cell checks its connections
 	if (shared && known)
-		store.lists_by_library_type[inst->type] = &ports;
+		port_lists_by_library_type_[inst->type] = &ports;
 	return &ports;
 }
 
@@ -55,13 +56,14 @@ bool detail::ViewBuilder::leafPorts(const Netlist::Instance *inst, std::vector<N
 	if (!known && (library == nullptr || connected))
 		log_cmd_error("NetView: no port model for cell type %s (cell %s).\n", inst->type, inst->name);
 	if (library != nullptr)
-		data_.ports.types_not_in_library.insert(inst->type);
+		types_not_in_library_.insert(inst->type);
 	return known;
 }
 
 Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent)
 {
-	Netlist::Instance *inst = data_.records.newInstance();
+	Netlist::Instance *inst = &data_.records.instances.emplace_back();
+	inst->id = data_.records.instances.size() - 1;
 
 	// the top has no cell, it is named after its module
 	RTLIL::IdString name, type;
@@ -159,7 +161,7 @@ void detail::ViewBuilder::addBarrierInstance(RTLIL::Cell *cell, Netlist::Instanc
 {
 	Netlist::Instance *inst = newInstance(cell, nullptr, scope);
 	inst->kind = Netlist::Instance::Kind::Barrier;
-	std::vector<Netlist::Port> &ports = data_.ports.lists.emplace_back();
+	std::vector<Netlist::Port> &ports = data_.port_lists.emplace_back();
 	detail::cellTypePorts(cell, ports);
 	inst->ports = &ports;
 	int width = GetSize(cell->getPort(ID::Y));
@@ -177,7 +179,8 @@ void detail::ViewBuilder::addBarrierInstance(RTLIL::Cell *cell, Netlist::Instanc
 
 Netlist::Net *detail::ViewBuilder::newBarrierNet(Netlist::Instance *scope, int bit, bool scalar)
 {
-	Netlist::Net *net = data_.records.newNet();
+	Netlist::Net *net = &data_.records.nets.emplace_back();
+	net->id = data_.records.nets.size();
 	net->scope = scope;
 	net->constant = Netlist::Net::Const::None;
 	data_.index.net_rtlil[net->id].name = {"Y", bit, scalar};
@@ -187,7 +190,8 @@ Netlist::Net *detail::ViewBuilder::newBarrierNet(Netlist::Instance *scope, int b
 
 Netlist::Pin *detail::ViewBuilder::makePin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net)
 {
-	Netlist::Pin *pin = data_.records.newPin();
+	Netlist::Pin *pin = &data_.records.pins.emplace_back();
+	pin->id = data_.records.pins.size();
 	pin->inst = inst;
 	pin->net = net;
 	pin->inner = nullptr;
@@ -207,7 +211,8 @@ void detail::ViewBuilder::setInner(Netlist::Pin *pin, Netlist::Net *inner_net)
 
 Netlist::Net *detail::ViewBuilder::newNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
 {
-	Netlist::Net *net = data_.records.newNet();
+	Netlist::Net *net = &data_.records.nets.emplace_back();
+	net->id = data_.records.nets.size();
 	net->scope = scope;
 	net->constant = Netlist::Net::Const::None;
 	if (bit.wire == nullptr && bit.data == RTLIL::State::S1)
@@ -230,7 +235,7 @@ void detail::ViewBuilder::registerWires(RTLIL::Module *module, Netlist::Instance
 			RTLIL::SigBit canon = sigmap(bit);
 			Netlist::Net *net = nullptr;
 			if (canon.wire != nullptr)
-				net = data_.index.nets_by_scope_bit.get(scope, canon);
+				net = nets_by_scope_bit_.get(scope, canon);
 			else if (pub)
 				net = findOrMakeNet(scope, canon);
 			if (net == nullptr)
@@ -316,9 +321,8 @@ detail::WireOrigin detail::ViewBuilder::wireOrigin(const RTLIL::Wire *wire)
 // bit must be a constant or a wire bit of the scope's module
 Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
 {
-	NetsByScopeBit &nets = data_.index.nets_by_scope_bit;
 	if (bit.wire != nullptr) {
-		if (Netlist::Net *net = nets.get(scope, bit))
+		if (Netlist::Net *net = nets_by_scope_bit_.get(scope, bit))
 			return net;
 	}
 	RTLIL::SigBit canon = bit;
@@ -330,14 +334,14 @@ Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const
 			return nullptr; // x and z stay unconnected
 		net = findOrMakeTieNet(scope, canon);
 	} else {
-		net = nets.get(scope, canon);
+		net = nets_by_scope_bit_.get(scope, canon);
 		if (net == nullptr) {
 			net = newNet(scope, canon);
-			nets.set(scope, canon, net);
+			nets_by_scope_bit_.set(scope, canon, net);
 		}
 	}
 	if (bit.wire != nullptr && bit != canon)
-		nets.set(scope, bit, net);
+		nets_by_scope_bit_.set(scope, bit, net);
 	return net;
 }
 
