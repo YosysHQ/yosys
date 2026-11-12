@@ -8,3 +8,14 @@ EOT
 logger -expect warning "Unsupported Verific primitive .* of type sva_expect" 1
 verific -import -k top
 logger -check-expected
+
+design -reset
+verific -formal << EOT
+module top (input clk, a);
+    assert property (@(posedge clk or negedge clk) a);
+endmodule
+EOT
+
+logger -expect warning "Unsupported Verific primitive .* of type sva_event_or" 1
+verific -import -k top
+logger -check-expected

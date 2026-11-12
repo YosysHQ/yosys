@@ -2251,7 +2251,7 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 			continue;
 		}
 
-		if (verific_sva_prims.count(inst->Type()) && inst->Type() != PRIM_SVA_EXPECT)
+		if (verific_sva_prims.count(inst->Type()) && inst->Type() != PRIM_SVA_EXPECT && inst->Type() != PRIM_SVA_EVENT_OR)
 		{
 			if (!mode_keep)
 			{
