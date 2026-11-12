@@ -2730,6 +2730,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			log_assert(!body_ast->str.empty());
 			buf = body_ast->clone();
 
+			if (index > flag_unroll_limit) {
+				input_error("loop variable %s exceeds unroll limit %d\n", varbuf->str.c_str(), flag_unroll_limit);
+			}
+
 			std::stringstream sstr;
 			sstr << buf->str << "[" << index << "].";
 			std::string prefix = sstr.str();
