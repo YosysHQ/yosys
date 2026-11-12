@@ -26,7 +26,7 @@
 
 namespace Yosys::Rewriter::Rules {
 
-struct FormalAttrRule final : WireRewriteRule {
+struct FormalNondetRule final : WireRewriteRule {
 protected:
 	bool apply(RTLIL::Wire *wire, SigMap &sigmap) const override;
 };
@@ -41,7 +41,7 @@ protected:
 // end
 // ```
 // For now, redirect existing drivers as opposed to emitting an error
-bool FormalAttrRule::apply(RTLIL::Wire *wire, SigMap &sigmap) const {
+bool FormalNondetRule::apply(RTLIL::Wire *wire, SigMap &sigmap) const {
 	RTLIL::Module* module = wire->module;
 	auto rewrite_attr = [&](RTLIL::IdString attr, auto create_sig) {
 		if (!wire->get_bool_attribute(attr))
@@ -69,13 +69,13 @@ USING_YOSYS_NAMESPACE
 
 namespace {
 
-struct RewriterAnyseqPass : public Pass {
-	RewriterAnyseqPass() : Pass("rewriter_anyall_seqconst", "apply formal wire attributes") { }
+struct RewriterFormalNondetPass : public Pass {
+	RewriterFormalNondetPass() : Pass("rewriter_formal_nondet", "apply formal wire attributes") { }
 
 	void help() override
 	{
 		log("\n");
-		log("    rewriter_anyall_seqconst [selection]\n");
+		log("    rewriter_formal_nondet [selection]\n");
 		log("\n");
 		log("Replace anyseq, anyconst, allseq and allconst wire attributes with formal cells.\n");
 		log("\n");
@@ -89,9 +89,9 @@ struct RewriterAnyseqPass : public Pass {
 			break;
 		}
 		extra_args(args, argidx, design);
-		Rewriter::Rules::FormalAttrRule().rewrite(design);
+		Rewriter::Rules::FormalNondetRule().rewrite(design);
 
 	}
-} RewriterAnyseqPass;
+} RewriterFormalNondetPass;
 
 }
