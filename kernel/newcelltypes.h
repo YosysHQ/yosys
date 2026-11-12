@@ -597,10 +597,10 @@ struct Categories {
 		if (property == "is_evaluable") {
 			return is_evaluable;
 		} else
-		if (property == "is_x_aware" || property == "x-aware") {
+		if (property == "is_x_aware") {
 			return is_x_aware;
 		} else
-		if (property == "is_x_output" || property == "x-output") {
+		if (property == "is_x_output") {
 			return is_x_output;
 		} else
 		if (property == "is_combinatorial") {
