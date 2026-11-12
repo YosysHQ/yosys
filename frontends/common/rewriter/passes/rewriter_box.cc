@@ -62,7 +62,9 @@ bool BoxRule::apply([[maybe_unused]] RTLIL::Module *module, [[maybe_unused]] Sig
 
 		module->connections_.clear();
 		module->remove(remove_wires);
+		return true;
 	}
+	return false;
 }
 
 } // namespace Yosys::Rewriter::Rules
