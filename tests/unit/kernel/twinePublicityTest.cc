@@ -33,6 +33,20 @@ TEST(TwinePublicityTest, EscapedDollar)
 	EXPECT_EQ(pool.str(priv), "$foo");
 }
 
+TEST(TwinePublicityTest, UnescapeIdMatchesUnescapedStr)
+{
+	TwinePool pool;
+	for (std::string name : {"\\foo", "$foo", "\\$foo", "\\\\foo\\", "\\1foo"}) {
+		IdString id = pool.add(name);
+		EXPECT_EQ(RTLIL::unescape_id(name), pool.unescaped_str(id)) << name;
+	}
+	EXPECT_EQ(RTLIL::unescape_id("\\$foo"), "$foo");
+	EXPECT_EQ(RTLIL::unescape_id("\\\\foo\\"), "\\foo\\");
+	EXPECT_EQ(RTLIL::unescape_id("\\1foo"), "1foo");
+	EXPECT_EQ(RTLIL::unescape_id("\\"), "");
+	EXPECT_EQ(RTLIL::unescape_id(""), "");
+}
+
 TEST(TwinePublicityTest, TagStability)
 {
 	TwinePool pool;
