@@ -583,8 +583,8 @@ bool YOSYS_NAMESPACE_PREFIX AbstractCellEdgesDatabase::add_edges_from_cell(RTLIL
 	if (cell->type.in(
 			ID($_BUF_), ID($_NOT_), ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
 			ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_), ID($_MUX_), ID($_NMUX_),
-			ID($_MUX4_), ID($_MUX8_), ID($_MUX16_), ID($_AOI3_), ID($_OAI3_), ID($_AOI4_),
-			ID($_OAI4_), ID($_TBUF_))) {
+			ID($_MUX4_), ID($_MUX8_), ID($_MUX16_), ID($_MUX32_),
+			ID($_AOI3_), ID($_OAI3_), ID($_AOI4_), ID($_OAI4_), ID($_TBUF_))) {
 		full_op(this, cell);
 		return true;
 	}
