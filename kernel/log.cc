@@ -35,6 +35,8 @@
 #include <stdarg.h>
 #include <vector>
 #include <list>
+#include <chrono>
+#include <regex>
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -46,10 +48,36 @@ LogManager &logger()
 	return instance;
 }
 
-std::chrono::steady_clock::time_point LogManager::get_initial_time() const
+struct LogManager::Patterns
+{
+	struct LogExpectedItem
+	{
+		LogExpectedItem(const std::regex &pat, int expected) :
+				pattern(pat), expected_count(expected), current_count(0) {}
+		LogExpectedItem() : expected_count(0), current_count(0) {}
+
+		std::regex pattern;
+		int expected_count;
+		int current_count;
+	};
+
+	std::vector<std::regex> warn_regexes, nowarn_regexes, werror_regexes;
+	dict<std::string, LogExpectedItem> expect_log, expect_warning, expect_error;
+	dict<std::string, LogExpectedItem> expect_prefix_log, expect_prefix_warning, expect_prefix_error;
+};
+
+LogManager::LogManager() : pat(std::make_unique<Patterns>()) {}
+LogManager::~LogManager() = default;
+
+void LogManager::add_warn(std::string pattern) { pat->warn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+void LogManager::add_nowarn(std::string pattern) { pat->nowarn_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+void LogManager::add_werror(std::string pattern) { pat->werror_regexes.push_back(YS_REGEX_COMPILE(pattern)); }
+bool LogManager::expects_error() { return (pat->expect_error.size() + pat->expect_prefix_error.size()) > 0; }
+
+static int64_t log_elapsed_us()
 {
 	static const auto initial_time = std::chrono::steady_clock::now();
-	return initial_time;
+	return std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - initial_time).count();
 }
 
 void (*log_error_atexit)() = nullptr;
@@ -132,7 +160,7 @@ LogMessage::LogMessage(LogSeverity severity, LogSourceLocation src, std::string_
 	prefix(prefix),
 	format(format),
 	message(message),
-	timestamp(std::chrono::steady_clock::now()),
+	timestamp_us(log_elapsed_us()),
 	src(src)
 {
 	std::string time_str;
@@ -140,9 +168,7 @@ LogMessage::LogMessage(LogSeverity severity, LogSourceLocation src, std::string_
 	{
 		if (next_print_log) {
 			next_print_log = false;
-			auto elapsed = std::chrono::steady_clock::now() - logger().get_initial_time();
-			auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
-			time_str += stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
+			time_str += stringf("[%05d.%06d] ", int(timestamp_us / 1'000'000), int(timestamp_us % 1'000'000));
 		}
 
 		if (!format.empty() && format.back() == '\n')
@@ -200,7 +226,7 @@ void LogManager::logv_string(LogSeverity severity, LogSourceLocation src, std::s
 	{
 		warn_regex_recusion_guard = true;
 
-		if (warn_regexes.empty() && expect_log.empty() && expect_prefix_log.empty())
+		if (pat->warn_regexes.empty() && pat->expect_log.empty() && pat->expect_prefix_log.empty())
 		{
 			linebuffer.clear();
 		}
@@ -209,11 +235,11 @@ void LogManager::logv_string(LogSeverity severity, LogSourceLocation src, std::s
 			linebuffer += str;
 
 			if (!linebuffer.empty() && linebuffer.back() == '\n') {
-				for (auto &re : warn_regexes)
+				for (auto &re : pat->warn_regexes)
 					if (std::regex_search(linebuffer, re))
 						log_warning("Found log message matching -W regex:\n%s", str);
 
-				for (auto &[_, item] : expect_log)
+				for (auto &[_, item] : pat->expect_log)
 					if (std::regex_search(linebuffer, item.pattern))
 						item.current_count++;
 
@@ -271,7 +297,7 @@ void LogManager::formatted_warning(LogSourceLocation src, std::string_view prefi
 
 	bool suppressed = false;
 
-	for (auto &re : nowarn_regexes)
+	for (auto &re : pat->nowarn_regexes)
 		if (std::regex_search(message, re))
 			suppressed = true;
 
@@ -285,19 +311,19 @@ void LogManager::formatted_warning(LogSourceLocation src, std::string_view prefi
 		int bak_make_debug = make_debug;
 		make_debug = 0;
 
-		for (auto &re : werror_regexes)
+		for (auto &re : pat->werror_regexes)
 			if (std::regex_search(message, re))
 				formatted_error(src, "ERROR: ", format, message);
 
 		bool warning_match = false;
-		for (auto &[_, item] : expect_warning)
+		for (auto &[_, item] : pat->expect_warning)
 			if (std::regex_search(message, item.pattern)) {
 				item.current_count++;
 				warning_match = true;
 			}
 
 		std::string pattern = loc + string(prefix) + message;
-		for (auto &[_, item] : expect_prefix_warning)
+		for (auto &[_, item] : pat->expect_prefix_warning)
 			if (std::regex_search(pattern, item.pattern)) {
 				item.current_count++;
 				warning_match = true;
@@ -342,13 +368,13 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 
 	make_debug = bak_make_debug;
 
-	for (auto &[_, item] : expect_error)
+	for (auto &[_, item] : pat->expect_error)
 		if (std::regex_search(message, item.pattern))
 			item.current_count++;
 
 	std::string loc = !src.filename.empty() ? stringf("%s:%d: ", src.filename, src.start_line) : "";
 	std::string pattern = loc + string(prefix) + message;
-	for (auto &[_, item] : expect_prefix_error)
+	for (auto &[_, item] : pat->expect_prefix_error)
 		if (std::regex_search(pattern, item.pattern))
 			item.current_count++;
 
@@ -626,22 +652,22 @@ void LogManager::check_expected()
 {
 	// copy out all of the expected logs so that they cannot be re-checked
 	// or match against themselves
-	dict<std::string, LogExpectedItem> expect_log_copy, expect_warning_copy, expect_error_copy;
-	dict<std::string, LogExpectedItem> expect_prefix_log_copy, expect_prefix_warning_copy, expect_prefix_error_copy;
-	std::swap(expect_warning_copy, expect_warning);
-	std::swap(expect_log_copy, expect_log);
-	std::swap(expect_error_copy, expect_error);
-	std::swap(expect_prefix_warning_copy, expect_prefix_warning);
-	std::swap(expect_prefix_log_copy, expect_prefix_log);
-	std::swap(expect_prefix_error_copy, expect_prefix_error);
+	dict<std::string, Patterns::LogExpectedItem> expect_log_copy, expect_warning_copy, expect_error_copy;
+	dict<std::string, Patterns::LogExpectedItem> expect_prefix_log_copy, expect_prefix_warning_copy, expect_prefix_error_copy;
+	std::swap(expect_warning_copy, pat->expect_warning);
+	std::swap(expect_log_copy, pat->expect_log);
+	std::swap(expect_error_copy, pat->expect_error);
+	std::swap(expect_prefix_warning_copy, pat->expect_prefix_warning);
+	std::swap(expect_prefix_log_copy, pat->expect_prefix_log);
+	std::swap(expect_prefix_error_copy, pat->expect_prefix_error);
 
-	auto check = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
+	auto check = [&](const std::string kind, std::string pattern, Patterns::LogExpectedItem item) {
 		if (item.current_count == 0) {
-			warn_regexes.clear();
+			pat->warn_regexes.clear();
 			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 		if (item.current_count != item.expected_count) {
-			warn_regexes.clear();
+			pat->warn_regexes.clear();
 			log_error("Expected %s pattern '%s' found %d time(s), instead of %d time(s) !\n",
 				kind, pattern, item.current_count, item.expected_count);
 		}
@@ -656,9 +682,9 @@ void LogManager::check_expected()
 	for (auto &[pattern, item] : expect_prefix_log_copy)
 		check("prefixed log", pattern, item);
 
-	auto check_err = [&](const std::string kind, std::string pattern, LogExpectedItem item) {
+	auto check_err = [&](const std::string kind, std::string pattern, Patterns::LogExpectedItem item) {
 		if (item.current_count == item.expected_count) {
-			warn_regexes.clear();
+			pat->warn_regexes.clear();
 			log("Expected %s pattern '%s' found !!!\n", kind, pattern);
 			yosys_shutdown();
 			#if defined(_MSC_VER)
@@ -667,7 +693,7 @@ void LogManager::check_expected()
 				_Exit(0);
 			#endif
 		} else {
-			warn_regexes.clear();
+			pat->warn_regexes.clear();
 			log_error("Expected %s pattern '%s' not found !\n", kind, pattern);
 		}
 	};
@@ -687,17 +713,17 @@ void LogManager::report_unexpected_error()
 void LogManager::add_expect(std::string type, std::string pattern, int count)
 {
 	if (type == "error")
-		expect_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_error[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else if (type == "prefix-error")
-		expect_prefix_error[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_prefix_error[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else if (type == "warning")
-		expect_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_warning[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else if (type == "prefix-warning")
-		expect_prefix_warning[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_prefix_warning[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else if (type == "log")
-		expect_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_log[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else if (type == "prefix-log")
-		expect_prefix_log[pattern] = LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
+		pat->expect_prefix_log[pattern] = Patterns::LogExpectedItem(YS_REGEX_COMPILE(pattern), count);
 	else log_abort();
 }
 

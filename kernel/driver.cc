@@ -162,9 +162,7 @@ void ColorConsoleLogSink::log(const LogMessage &msg)
 	FILE *f = (error_output || msg.severity == LogSeverity::Error) ? stderr : stdout;
 
 	if (logger().get_log_time() && next_print_log) {
-		auto elapsed = msg.timestamp - logger().get_initial_time();
-		auto us = std::chrono::duration_cast<std::chrono::microseconds>(elapsed);
-		std::string time_str = stringf("[%05d.%06d] ", int(us.count() / 1'000'000),int(us.count() % 1'000'000));
+		std::string time_str = stringf("[%05d.%06d] ", int(msg.timestamp_us / 1'000'000), int(msg.timestamp_us % 1'000'000));
 		fmt::print(f, fg(fmt::terminal_color::blue), "{}", time_str);
 		next_print_log = false;
 	}
