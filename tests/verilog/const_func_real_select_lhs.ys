@@ -1,0 +1,9 @@
+logger -expect error "Select on real variable" 1
+read_verilog -sv <<EOT
+module top;
+    function real f;
+        f[0] = 1;
+    endfunction
+    localparam integer P = $rtoi(f());
+endmodule
+EOT
