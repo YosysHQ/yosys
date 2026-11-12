@@ -1,0 +1,58 @@
+read_verilog proc_mux_dominant.v
+hierarchy -top dominant_explicit
+proc
+select -assert-count 2 t:$logic_not
+select -assert-count 2 t:$mux
+select -assert-count 0 t:$eq
+select -assert-count 0 t:$pmux
+
+design -reset
+read_verilog proc_mux_dominant.v
+hierarchy -top dominant_wire
+proc
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$mux
+select -assert-count 0 t:$eq
+select -assert-count 0 t:$pmux
+
+design -reset
+read_verilog proc_mux_dominant.v
+hierarchy -top no_dominant
+proc
+select -assert-count 3 t:$eq
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$pmux
+
+design -reset
+read_verilog proc_mux_dominant.v
+hierarchy -top plurality
+proc
+select -assert-count 5 t:$eq
+select -assert-count 0 t:$logic_not
+select -assert-count 1 t:$pmux
+
+# full_case without full coverage: default is reachable, keep Sx
+design -reset
+read_rtlil proc_mux_dominant.il
+hierarchy -top nonexhaustive
+proc
+select -assert-count 2 t:$eq
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$pmux
+sat -set s 2'b11 -set-def-inputs -enable_undef -prove-x y 3'bxxx -verify
+
+design -reset
+read_rtlil proc_mux_dominant.il
+hierarchy -top exhaustive
+proc
+select -assert-count 1 t:$logic_not
+select -assert-count 1 t:$mux
+select -assert-count 0 t:$eq
+
+# with -ifx the select may be x, so the default is reachable
+design -reset
+read_rtlil proc_mux_dominant.il
+hierarchy -top exhaustive
+proc -ifx
+select -assert-count 4 t:$eqx
+select -assert-count 1 t:$pmux
