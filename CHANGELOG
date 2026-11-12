@@ -2,8 +2,25 @@
 List of major changes and improvements between releases
 =======================================================
 
-Yosys 0.70 .. Yosys 0.71-dev
+Yosys 0.70 .. Yosys 0.71
 --------------------------
+ * Commands and options
+    - Added "-readable" and "-small" to "dump" and "write_rtlil" passes
+      for convenience with the new string implementation.
+    - Added "shuffle" pass to deterministically reorder design objects.
+    - Added "-target" and "-family" to "verific" and "read_slang" passes
+      as experimental feature to specify FPGA synthesis target.
+    - Added "-nodec_attr" and "-dec_param" to "write_verilog" pass for
+      compatibility with other tools.
+
+ * Various
+    - Strings have been reimplemented with prefix deduplication to improve
+      performance. Plugins may need to be adapted. Please refer to
+      docs/source/yosys_internals/idstring.rst
+    - MCM pass now uses HCUB algorithm, improving runtime performance on
+      big multipliers and removing the 32-bit maximum size.
+    - Fixed out-of-memory crashes on large casez/priority case statements.
+    - verific: Improved detection of unsupported SVA constructs.
 
 Yosys 0.69 .. Yosys 0.70
 --------------------------
