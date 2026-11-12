@@ -423,7 +423,8 @@ static const RTLIL::Const verific_const(const char* type_name, const char *value
 				else
 					return RTLIL::Const(val);
 			}
-		} else extract_vhdl_const(value, output_signed);
+		} else
+			return extract_vhdl_const(value, output_signed);
 	}
 	// SystemVerilog
 	if (type_name && strcmp(type_name, "real")==0) {
