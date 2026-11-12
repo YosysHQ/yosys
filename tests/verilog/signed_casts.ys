@@ -1,0 +1,140 @@
+design -reset
+read_verilog -formal -sv <<EOT
+module top();
+	localparam B = 1;
+	localparam int unsigned W = 8;
+	localparam int P = 255;
+
+	typedef logic signed [7:0] signed_byte;
+	typedef logic [7:0] unsigned_byte;
+	typedef struct packed signed { logic [7:0] value; } signed_struct;
+	typedef union packed signed { logic [7:0] value; } signed_union;
+	typedef union packed unsigned { logic signed [7:0] value; } unsigned_union;
+
+	wire [7:0] a  = 8'hAC;
+	wire [3:0] b  = 4'h2;
+	wire [3:0] in = 4'd5;
+
+	wire [32:0] shift_unsized = 33'(1 << 31);
+	wire [32:0] shift_sized = 33'(1'b1 << 31);
+	wire [32:0] shift_parameter = 33'(B << 31);
+	wire [32:0] shift_subtract = 33'((1 << 31) - 1);
+	wire [9:0] multiply_widened = 10'(4'hF * 6'hA);
+
+	wire [7:0] add_parameter_width = W'(5) + 8'hff;
+	wire [7:0] add_literal_width = 8'(5) + 8'hff;
+	wire [7:0] add_cast_parameters = W'(5) + W'(P);
+	wire [7:0] subtract_mixed_widths = 8'(3) - W'(5);
+	wire [7:0] add_negative = 8'(-1) + 8'd1;
+	wire [7:0] negate_cast = -W'(5);
+	wire [7:0] complement_cast = ~W'(5);
+	wire [7:0] add_cast_signal = W'(in) + 8'hff;
+	wire [8:0] add_widened = W'(5) + 8'hff;
+    wire [1:0] concat_cast = {1'b1, (1'(b) ^ 1'b0)};
+
+	wire [63:0] byte_signed = byte'(a);
+	wire [63:0] typedef_signed = signed_byte'(a);
+	wire [63:0] typedef_unsigned = unsigned_byte'($signed(a));
+	wire [63:0] struct_signed = signed_struct'(a);
+	wire [63:0] union_signed = signed_union'(a);
+	wire [63:0] union_unsigned = unsigned_union'(a);
+	wire [63:0] shortint_widened = shortint'(a);
+
+	wire [7:0] mult_lhs = 8'd16;
+	wire [7:0] mult_rhs = 8'd16;
+	wire [7:0] mult_shift_trunc = (mult_lhs * mult_rhs) >> 8;
+	wire [7:0] mult_shift_wide = (16'(mult_lhs) * mult_rhs) >> 8;
+
+	localparam CAST_WIDTH = 16;
+
+	wire signed [7:0] signed_neg = -8'd1;
+	wire signed [7:0] trunc_signed = 4'(signed_neg);
+	wire signed [7:0] trunc_as_unsigned = 4'(unsigned'(signed_neg));
+	wire [7:0] unsigned_neg = -8'd1;
+	wire [7:0] trunc_unsigned = 4'(unsigned_neg);
+	wire [7:0] trunc_as_signed = 4'(signed'(unsigned_neg));
+	wire [7:0] nested_signed = 8'(4'(signed_neg));
+	wire [7:0] nested_unsigned = 8'(4'(unsigned_neg));
+	wire [7:0] nested_signed_const = 8'(4'(signed'(-8'd1)));
+	wire [7:0] nested_unsigned_const = 8'(4'(unsigned'(-8'd1)));
+
+	wire [8:0] extend_signed = trunc_signed;
+	wire [8:0] extend_trunc_unsigned = trunc_as_unsigned;
+	wire [8:0] widen_signed = 9'(trunc_signed);
+	wire [8:0] widen_trunc_unsigned = 9'(trunc_as_unsigned);
+	wire [8:0] widen_as_unsigned = 9'(unsigned'(trunc_signed));
+	wire [8:0] widen_trunc_as_unsigned = 9'(unsigned'(trunc_as_unsigned));
+	wire [8:0] widen_unsigned = 9'(unsigned_neg);
+	wire [8:0] widen_unsigned_trunc = 9'(trunc_unsigned);
+	wire [8:0] widen_as_signed = 9'(signed'(unsigned_neg));
+	wire [8:0] widen_trunc_as_signed = 9'(signed'(trunc_unsigned));
+
+	wire [16:0] cast_expr_width = (CAST_WIDTH + 1)'(mult_lhs);
+	wire [16:0] cast_expr_neg = (CAST_WIDTH + 1)'(mult_shift_wide - 2);
+
+	// reference values from icarus verilog
+	always @* begin
+		// 6331
+		assert(shift_unsized == 33'h0_8000_0000);
+		assert(shift_sized == 33'h0_8000_0000);
+		assert(shift_parameter == 33'h0_8000_0000);
+		assert(shift_subtract == 33'h0_7fff_ffff);
+		assert(multiply_widened == 10'd150);
+
+		// 6401
+		assert(byte_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(typedef_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(typedef_unsigned == 64'hAC);
+		assert(struct_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(union_signed == 64'hFFFF_FFFF_FFFF_FFAC);
+		assert(union_unsigned == 64'h0000_0000_0000_00AC);
+		assert(shortint_widened == 64'hAC);
+
+		// 6332
+		assert(add_parameter_width == 8'h04);
+		assert(add_literal_width == 8'h04);
+		assert(add_cast_parameters == 8'h04);
+		assert(subtract_mixed_widths == 8'hfe);
+		assert(add_negative == 8'd0);
+		assert(negate_cast == 8'hfb);
+		assert(complement_cast == 8'hfa);
+		assert(add_cast_signal == 8'h04);
+		assert(add_widened == 9'h104);
+
+		// Static size casts, signedness, and chained extensions.
+		assert(mult_shift_trunc == 8'b0000_0000);
+		assert(mult_shift_wide == 8'b0000_0001);
+
+		assert(cast_expr_width == 17'b0_0000_0000_0001_0000);
+		assert(cast_expr_neg == 17'b1_1111_1111_1111_1111);
+
+		assert(signed_neg == 8'b1111_1111);
+		assert(trunc_signed == 8'b1111_1111);
+		assert(trunc_as_unsigned == 8'b0000_1111);
+		assert(unsigned_neg == 8'b1111_1111);
+		assert(trunc_unsigned == 8'b0000_1111);
+		assert(trunc_as_signed == 8'b1111_1111);
+		assert(nested_signed == 8'b1111_1111);
+		assert(nested_unsigned == 8'b0000_1111);
+		assert(nested_signed_const == 8'b1111_1111);
+		assert(nested_unsigned_const == 8'b0000_1111);
+
+		assert(extend_signed == 9'b1_1111_1111);
+		assert(extend_trunc_unsigned == 9'b0_0000_1111);
+		assert(widen_signed == 9'b1_1111_1111);
+		assert(widen_trunc_unsigned == 9'b0_0000_1111);
+		assert(widen_as_unsigned == 9'b0_1111_1111);
+		assert(widen_trunc_as_unsigned == 9'b0_0000_1111);
+		assert(widen_unsigned == 9'b0_1111_1111);
+		assert(widen_unsigned_trunc == 9'b0_0000_1111);
+		assert(widen_as_signed == 9'b1_1111_1111);
+		assert(widen_trunc_as_signed == 9'b0_0000_1111);
+
+		// 6408
+		assert(concat_cast == {1'b1, (1'(b))});
+	end
+endmodule
+EOT
+prep -top top
+chformal -lower
+sat -verify -enable_undef -set-def-inputs -prove-asserts -show-all
