@@ -144,6 +144,43 @@ module clock_ctrl (input a, b, c, d, input x, y);
     a8: assert property (@(posedge a, d) seq);
 endmodule
 
+module clock_ctrl_nested (input clk, a, b, c, d, input x, y);
+    sequence seq;
+        x ##1 y;
+    endsequence
+
+    property p1; @(posedge a) seq; endproperty
+    property p2; @(negedge b) seq; endproperty
+    property p3; @(edge c) seq; endproperty
+    property p4; @(posedge a, negedge b) seq; endproperty
+    property p5; @(posedge c or negedge c) seq; endproperty
+    property p6; @(posedge c iff d) seq; endproperty
+    property p7; @(d) seq; endproperty
+    property p8; @(posedge a, d) seq; endproperty
+
+    // clk should be on the :enable
+    always @(posedge clk) begin
+        ap1: assert property (p1);
+        ap2: assert property (p2);
+        ap3: assert property (p3);
+        ap4: assert property (p4);
+        ap5: assert property (p5);
+        ap6: assert property (p6);
+        ap7: assert property (p7);
+        ap8: assert property (p8);
+    end
+
+    // clk can be ignored (not on the :enable)
+    a1: assert property (@(posedge clk) p1);
+    a2: assert property (@(posedge clk) p2);
+    a3: assert property (@(posedge clk) p3);
+    a4: assert property (@(posedge clk) p4);
+    a5: assert property (@(posedge clk) p5);
+    a6: assert property (@(posedge clk) p6);
+    a7: assert property (@(posedge clk) p7);
+    a8: assert property (@(posedge clk) p8);
+endmodule
+
 module recursive (input clk, input done, busy);
     property busy_until_done;
         done or (busy and (1'b1 |=> busy_until_done));
@@ -177,5 +214,21 @@ module clocked_disable (input clk, input a, b, c);
     property prop;
         @(posedge clk) a |-> ##1 b;
     endproperty;
-    da: assert property (disable iff (c) prop);
+    outer: assert property (disable iff (c) prop);
+
+    property prop2;
+        disable iff (c) b #-# a;
+    endproperty
+    inner: assert property (@(posedge clk) prop);
+endmodule
+
+module clocked_outer (input clk_i, clk_o, input a);
+    property prop;
+        @(posedge clk_i) a;
+    endproperty
+    always @(posedge clk_o) begin
+        ap1: assert property (prop);
+    end
+    ap2: assert property (@(posedge clk_o) prop);
+    ap3: assert property (@(posedge clk_o) @(posedge clk_i) a);
 endmodule

@@ -24,7 +24,6 @@ verific -import restrict_prop
 design -reset
 verific -sv basic.sv
 verific -import -v clock_ctrl
-exit
 
 ## not yet handled by new importer
 # TODO figure out immediates
@@ -56,7 +55,6 @@ verific -import -v global_clocking
 design -reset
 verific -sv basic.sv
 verific -import -v assert_params
-exit
 
 ## the rest are not compatible with old importer
 design -reset
@@ -71,6 +69,12 @@ design -reset
 verific -sv basic.sv
 verific -import -v -sva-continue-on-err multi_clk
 
+# TODO :enable
+# currently impossible to distinguish?
+design -reset
+verific -sv basic.sv
+verific -import -v -d zzz.v -sva-continue-on-err clocked_outer
+
 ## these aren't compatible with either
 # TODO recursion
 # design -reset
@@ -81,3 +85,8 @@ verific -import -v -sva-continue-on-err multi_clk
 # design -reset
 # verific -sv basic.sv
 # verific -import -v -sva-continue-on-err clocked_disable
+
+# more :enable edge cases
+# design -reset
+# verific -sv basic.sv
+# verific -import -v -d zzz.v -sva-continue-on-err clock_ctrl_nested
