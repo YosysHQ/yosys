@@ -144,6 +144,7 @@ struct CellTableBuilder {
 		Features features {};
 		features.is_formal = is_formal;
 		features.has_side_effect = true;
+		features.is_stateless = true;
 		setup_type(type, inputs, outputs, features);
 	}
 
@@ -212,6 +213,7 @@ struct CellTableBuilder {
 
 		// temporary helper cells
 		features = {};
+		features.is_stateless = true;
 		setup_type(ID($input_port), {}, {ID::Y}, features);
 		setup_type(ID($connect), {ID::A, ID::B}, {}, features);
 	}
