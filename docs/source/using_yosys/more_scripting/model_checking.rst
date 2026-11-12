@@ -25,7 +25,7 @@ General Advice
 When running symbolic model checking from within yosys, there are a few things to keep in mind.
 
 1. Add ``async2sync; chformal -lower`` (or replace ``async2sync`` with ``clk2fflogic``)
-   after running hierarchy. ``async2sync`` does what it's name suggests and synchornizes asynchronous cells.
+   after running hierarchy. ``async2sync`` does what it's name suggests and synchronizes asynchronous cells.
    That transformation should be used when the async signals are actually synchronized to a clock.
    ``clk2fflogic`` should be used if the assertions are on multiple different clocks.
    ``chformal -lower`` transforms ``$check`` cells into the appropriate ``$assert`` or ``$cover`` cells.
