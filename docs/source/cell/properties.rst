@@ -84,12 +84,4 @@ Cell properties
    example, a `$div` cell with divisor (``B``) equal to zero has undefined
    output.
 
-.. cell:defprop:: x-aware
-
-   Deprecated alias for ``is_x_aware``. Use ``is_x_aware`` instead.
-
-.. cell:defprop:: x-output
-
-   Deprecated alias for ``is_x_output``. Use ``is_x_output`` instead.
-
 Refer to the :ref:`propindex` for the list of cells with a given property.
