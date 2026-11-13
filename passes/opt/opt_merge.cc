@@ -96,7 +96,7 @@ struct FoundDuplicates
 	std::vector<DuplicateCell> duplicates;
 };
 
-static constexpr auto unmergeable = StaticCellTypes::Categories::join(
+static const auto unmergeable = StaticCellTypes::Categories::join(
 	StaticCellTypes::categories.has_side_effect,
 	StaticCellTypes::categories.is_nondeterministic);
 
