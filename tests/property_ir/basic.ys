@@ -51,10 +51,14 @@ design -reset
 verific -sv basic.sv
 verific -import -v global_clocking
 
-# TODO :evaluate, :disable-iff, :enable
+# TODO :enable
 design -reset
 verific -sv basic.sv
 verific -import -v assert_params
+
+design -reset
+verific -sv basic.sv
+verific -import -v default_disable
 
 ## the rest are not compatible with old importer
 design -reset
@@ -69,6 +73,14 @@ design -reset
 verific -sv basic.sv
 verific -import -v -sva-continue-on-err multi_clk
 
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err clocked_disable
+
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err clock_enable
+
 # TODO :enable
 # currently impossible to distinguish?
 design -reset
@@ -81,12 +93,7 @@ verific -import -v -d zzz.v -sva-continue-on-err clocked_outer
 # verific -sv basic.sv
 # verific -import -v -sva-continue-on-err recursive
 
-# TODO disable iff
-# design -reset
-# verific -sv basic.sv
-# verific -import -v -sva-continue-on-err clocked_disable
-
 # more :enable edge cases
 # design -reset
 # verific -sv basic.sv
-# verific -import -v -d zzz.v -sva-continue-on-err clock_ctrl_nested
+# verific -import -v -sva-continue-on-err clock_ctrl_nested

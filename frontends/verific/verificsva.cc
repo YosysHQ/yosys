@@ -1900,6 +1900,7 @@ public:
 	};
 
 private:
+	std::optional<property_ir::BoolExpr> disable_cond = std::nullopt;
 	property_ir::SExprPrinter *printer;
 
 	[[noreturn]] void parser_error(std::string errmsg)
@@ -1947,31 +1948,51 @@ public:
 		if (root->Type() == PRIM_SVA_IMMEDIATE_ASSERT || root->Type() == PRIM_SVA_IMMEDIATE_ASSUME || root->Type() == PRIM_SVA_IMMEDIATE_COVER)
 			parser_error("immediates don't need properties", root);
 
-		auto result = parse_property(root->GetInput());
+		auto scope = property_ir::EvaluationScope::Always;
+		auto *prop_net = root->GetInput();
+		if (prop_net != nullptr) {
+			auto *prop_inst = prop_net->Driver();
+			if (prop_inst != nullptr && prop_inst->Type() == PRIM_MUX) {
+				// are there other cases where we get a mux on top?
+				auto *ctrl_net = prop_inst->GetControl();
+				auto *ctrl = ctrl_net->Driver();
+				if (ctrl != nullptr && ctrl->Type() == PRIM_YOSYSHQ_INITSTATE) {
+					scope = property_ir::EvaluationScope::Initial;
+					prop_net = prop_inst->GetInput2();
+				}
+			}
+		}
+
+		auto result = parse_property(prop_net);
 		// TODO better auto names?
 		ClkPropId prop(root->Name());
 		auto declaration = declare(prop, result);
 		// TODO when to use declare-rec
 		emit(*printer, declaration);
+
+		// option parsing
+		property_ir::option::EvaluationScope eval_scope(scope);
+		property_ir::option::DisableIff disable_iff(disable_cond);
+
 		switch (root->Type()) {
 			// TODO parameters
 			case PRIM_SVA_ASSERT:
-				emit(*printer, assert_property(prop));
+				emit(*printer, assert_property(prop, eval_scope, disable_iff));
 				// TODO autocover
 				// if (autocover)
-				// 	emit(*printer, cover_property(prop));
+				// 	emit(*printer, cover_property(prop, eval_scope, disable_iff));
 				break;
 			case PRIM_SVA_ASSUME:
-				emit(*printer, assume_property(prop));
+				emit(*printer, assume_property(prop, eval_scope, disable_iff));
 				break;
 			case PRIM_SVA_COVER:
-				emit(*printer, cover_property(prop));
+				emit(*printer, cover_property(prop, eval_scope, disable_iff));
 				break;
 			case PRIM_SVA_RESTRICT:
-				emit(*printer, restrict_property(prop));
+				emit(*printer, restrict_property(prop, eval_scope, disable_iff));
 				break;
 			// case PRIM_SVA_TRIGGERED:
-				// emit(*printer, trigger_sequence(prop));
+				// emit(*printer, trigger_sequence(prop, eval_scope, disable_iff));
 			default:
 				parser_error(root);
 		}
@@ -1980,6 +2001,16 @@ public:
 	}
 
 private:
+	void set_disable(Instance *inst)
+	{
+		log_assert (inst != nullptr && inst->Type() == PRIM_SVA_DISABLE_IFF);
+
+		if (disable_cond.has_value())
+			parser_error("Can't nest 'disable iff'!", inst);
+
+		disable_cond = parse_bool(inst->GetInput1());
+	}
+
 	dict<Net *, property_ir::BoolId> parse_input_cache;
 
 	property_ir::BoolId parse_input(Net *net)
@@ -2020,7 +2051,7 @@ private:
 		}
 	}
 
-	property_ir::BoolExpr parse_clock(Net *net, bool edged = true)
+	property_ir::BoolExpr parse_clock_inner(Net *net, bool edged = true)
 	{
 		log_assert(net != nullptr);
 		auto type = PRIM_END;
@@ -2036,7 +2067,7 @@ private:
 			{
 				auto *driver = inst->GetInput()->Driver();
 				if (driver != nullptr && driver->Type() == PRIM_INV)
-					return falling_gclk(parse_clock(driver->GetInput()), constant(false));
+					return falling_gclk(parse_clock_inner(driver->GetInput()), constant(false));
 
 				// this is a mess
 				do {
@@ -2073,23 +2104,29 @@ private:
 						break;
 
 					return bool_and(
-						rising_gclk(parse_clock(net_clock1), constant(false)),
+						rising_gclk(parse_clock_inner(net_clock1), constant(false)),
 						parse_bool(net_enable));
 				} while (0);
 
-				return rising_gclk(parse_clock(inst->GetInput()), constant(false));
+				return rising_gclk(parse_clock_inner(inst->GetInput()), constant(false));
 			}
 			case PRIM_SVA_EVENT_OR:
 			{
 				auto *lhs = inst->GetInput1();
 				auto *rhs = inst->GetInput2();
 				if (!lhs->IsInv(rhs))
-					return bool_or(parse_clock(lhs, false), parse_clock(rhs, false));
+					return bool_or(parse_clock_inner(lhs, false), parse_clock_inner(rhs, false));
 				log_assert (rhs->Driver() != nullptr && rhs->Driver()->Type() == PRIM_INV);
 				rhs = rhs->Driver()->GetInput();
 				return bool_or(
-					rising_gclk(parse_clock(lhs), constant(false)),
-					falling_gclk(parse_clock(rhs), constant(false)));
+					rising_gclk(parse_clock_inner(lhs), constant(false)),
+					falling_gclk(parse_clock_inner(rhs), constant(false)));
+			}
+			case PRIM_SVA_DISABLE_IFF:
+			{
+				set_disable(inst);
+				auto *body_net = inst->GetInput2();
+				return parse_clock_inner(body_net, edged);
 			}
 			case PRIM_END:
 				result = parse_input(net);
@@ -2101,6 +2138,44 @@ private:
 			return result;
 		else
 			return changing_gclk(result, constant(false));
+	}
+
+	property_ir::BoolExpr demux_clock_body(property_ir::BoolExpr clock_expr, Net *&body_net)
+	{
+		if (body_net == nullptr)
+			return clock_expr;
+
+		auto *inst = body_net->Driver();
+		if (inst == nullptr || inst->Type() != PRIM_MUX)
+			return clock_expr;
+
+		// TODO covers use IsGnd() instead
+		bool pwr1 = inst->GetInput1()->IsPwr();
+		bool pwr2 = inst->GetInput2()->IsPwr();
+		if (pwr1 == pwr2)
+			return clock_expr;
+
+		// what if this is a regular mux?
+		auto sva_net = pwr1 ? inst->GetInput2() : inst->GetInput1();
+
+		body_net = sva_net;
+		auto cond_expr = parse_bool(inst->GetControl());
+		// can this be nested?
+		return property_ir::bool_and(
+			clock_expr,
+			pwr1 ? cond_expr : property_ir::bool_not(cond_expr)
+		);
+	}
+
+	std::pair<property_ir::BoolExpr, Net*> parse_clock(Instance *inst)
+	{
+		log_assert (inst != nullptr && inst->Type() == PRIM_SVA_AT);
+		auto *clock_net = inst->GetInput1();
+		auto *body_net = inst->GetInput2();
+
+		auto clock_expr = demux_clock_body(parse_clock_inner(clock_net), body_net);
+
+		return {clock_expr, body_net};
 	}
 
 	property_ir::ClkSeqExpr parse_sequence(Net *net)
@@ -2173,8 +2248,8 @@ private:
 		switch (type) {
 			case PRIM_SVA_AT:
 			{
-				std::shared_ptr<VerificClocking> new_clocking(new VerificClocking(importer, net));
-				return clk_prop_clocked(parse_clock(inst->GetInput1(), false), parse_property(new_clocking->body_net));
+				auto [clock_expr, body_net] = parse_clock(inst);
+				return clk_prop_clocked(clock_expr, parse_property(body_net));
 			}
 			case PRIM_SVA_OVERLAPPED_IMPLICATION:
 				return clk_prop_overlapped_implication(parse_sequence(inst->GetInput1()), parse_property(inst->GetInput2()));
@@ -2251,6 +2326,11 @@ private:
 				return clk_prop_bool(constant(false));
 			case PRIM_PWR:
 				return clk_prop_bool(constant(true));
+			case PRIM_SVA_DISABLE_IFF:
+			{
+				set_disable(inst);
+				return parse_property(inst->GetInput2());
+			}
 			case PRIM_END:
 				return clk_prop_bool(parse_input(net));
 			default:

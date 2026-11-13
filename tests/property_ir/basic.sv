@@ -199,8 +199,10 @@ module assert_params (input clk, input a, b, c);
         @(posedge clk) a |-> ##1 b;
     endproperty;
 
-    initial
+    initial begin
         ia: assert property (prop);
+        ic: cover property (prop);
+    end
 
     aa: assert property (prop);
     da: assert property (@(posedge clk) disable iff (c) a ##1 b);
@@ -231,4 +233,47 @@ module clocked_outer (input clk_i, clk_o, input a);
     end
     ap2: assert property (@(posedge clk_o) prop);
     ap3: assert property (@(posedge clk_o) @(posedge clk_i) a);
+endmodule
+
+module default_disable (input clk, rst, input a, b, c);
+    default clocking @(posedge clk); endclocking
+    default disable iff (rst);
+    property prop;
+        a |-> ##1 b;
+    endproperty;
+
+    property prop2;
+        disable iff (c) b and ##1 a;
+    endproperty
+
+    none: assert property (prop);
+    inner: assert property (prop2);
+    outer: assert property (disable iff (c) prop);
+endmodule
+
+module clock_enable (input clk, ce, rst, input a);
+    ap: assert property (@(posedge clk) a);
+    ap_d: assert property (@(posedge clk) disable iff (rst) a);
+
+    ap_ce: assert property (@(posedge clk iff ce) a);
+    ap_ce_d: assert property (@(posedge clk iff ce) disable iff (rst) a);
+
+    ap_nce: assert property (@(posedge clk iff !ce) a);
+    ap_nce_d: assert property (@(posedge clk iff !ce) disable iff (rst) a);
+
+    always @(posedge clk) begin
+        c_ap: assert property (a);
+        c_ap_d: assert property (disable iff (rst) a);
+
+        if (ce) begin
+            c_ap_ce: assert property (a);
+            c_ap_ce_d: assert property (disable iff (rst) a);
+        end else begin
+            c_ap_nce: assert property (a);
+            c_ap_nce_d: assert property (disable iff (rst) a);
+        end
+
+        // this produces the same netlist as c_ap_ce, but it's probably fine?
+        c_edge: assert property (ce ? a : 1'b1);
+    end
 endmodule
