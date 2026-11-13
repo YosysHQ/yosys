@@ -1,0 +1,41 @@
+! mkdir -p temp
+
+read_verilog <<EOT
+module gold(
+	input signed [5:0] a,
+	input signed [2:0] b,
+	output [7:0] uu,
+	output [7:0] us,
+	output [7:0] su,
+	output [7:0] ss
+);
+	assign uu = $unsigned(a) ** $unsigned(b);
+	assign us = $unsigned(a) ** $signed(b);
+	assign su = $signed(a) ** $unsigned(b);
+	assign ss = $signed(a) ** $signed(b);
+endmodule
+EOT
+
+prep -top gold
+rename gold gate
+write_verilog -noattr temp/pow_signedness_gate.v
+
+design -reset
+read_verilog temp/pow_signedness_gate.v
+select -assert-count 1 w:uu %a %ci1 t:$pow %i r:A_SIGNED=0 %i r:B_SIGNED=0 %i
+select -assert-count 1 w:us %a %ci1 t:$pow %i r:A_SIGNED=0 %i r:B_SIGNED=1 %i
+select -assert-count 1 w:su %a %ci1 t:$pow %i r:A_SIGNED=1 %i r:B_SIGNED=0 %i
+select -assert-count 1 w:ss %a %ci1 t:$pow %i r:A_SIGNED=1 %i r:B_SIGNED=1 %i
+
+design -reset
+read_verilog <<EOT
+module top(input signed [5:0] a, output [15:0] y);
+	assign y = $unsigned(a) ** 3;
+endmodule
+EOT
+synth -top top
+write_verilog -noattr temp/pow_signedness_issue.v
+design -reset
+read_verilog temp/pow_signedness_issue.v
+tee -o temp/pow_signedness_eval.log eval -set a 6'b111111 -show y
+! grep -qF "16'1101000010111111" temp/pow_signedness_eval.log
