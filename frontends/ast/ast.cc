@@ -39,8 +39,6 @@ using namespace AST_INTERNAL;
 // instantiate global variables (public API)
 namespace AST {
 	bool sv_mode_but_global_and_used_for_literally_one_condition;
-	unsigned long long astnodes = 0;
-	unsigned long long astnode_count() { return astnodes; }
 }
 
 TwinePool &AST::ast_name_pool()
@@ -49,9 +47,10 @@ TwinePool &AST::ast_name_pool()
 	return pool;
 }
 
+static std::recursive_mutex ast_mutex;
 static RTLIL::Design *ast_scoped_design = nullptr;
 
-AST::DesignScope::DesignScope(RTLIL::Design *design) : prev(ast_scoped_design)
+AST::DesignScope::DesignScope(RTLIL::Design *design) : lock(ast_mutex), prev(ast_scoped_design)
 {
 	ast_scoped_design = design;
 }
@@ -227,7 +226,6 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 AstNode::AstNode(AstSrcLocType loc, AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_ptr<AstNode> child2, std::unique_ptr<AstNode> child3, std::unique_ptr<AstNode> child4)
 {
 	hashidx_ = ast_scoped_design ? ast_scoped_design->next_hashidx() : LARGE_HASHIDX_COLLIDER;
-	astnodes++;
 
 	this->type = type;
 	location = loc;
@@ -333,7 +331,6 @@ void AstNode::delete_children()
 // AstNode destructor
 AstNode::~AstNode()
 {
-	astnodes--;
 	delete_children();
 }
 

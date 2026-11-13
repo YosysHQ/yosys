@@ -5699,10 +5699,10 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			VERILOG_FRONTEND::ConstParser p{Location()};
-			auto ast = p.const2ast(netname);
-			if (ast == nullptr)
+			auto parsed = p.parse(netname);
+			if (!parsed)
 				return false;
-			sig.append(RTLIL::Const(ast->bits));
+			sig.append(RTLIL::Const(parsed->bits));
 			continue;
 		}
 

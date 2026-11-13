@@ -37,12 +37,14 @@
 #include "libs/sha1/sha1.h"
 #include <stdarg.h>
 #include <list>
+#include <atomic>
 
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
 
+static std::atomic<int> verilog_defaults_frozen = 0;
 static std::vector<std::string> verilog_defaults;
 static std::list<std::vector<std::string>> verilog_defaults_stack;
 
@@ -591,6 +593,10 @@ struct VerilogFrontend : public Frontend {
 	}
 } VerilogFrontend;
 
+VerilogDefaultsFreeze::VerilogDefaultsFreeze() { verilog_defaults_frozen++; }
+
+VerilogDefaultsFreeze::~VerilogDefaultsFreeze() { verilog_defaults_frozen--; }
+
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
 	void help() override
@@ -618,6 +624,9 @@ struct VerilogDefaults : public Pass {
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
+
+		if (verilog_defaults_frozen.load() > 0)
+			log_cmd_error("verilog_defaults cannot be changed while designs are processed concurrently.\n");
 
 		if (args[1] == "-add") {
 			verilog_defaults.insert(verilog_defaults.end(), args.begin()+2, args.end());
