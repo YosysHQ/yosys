@@ -60,8 +60,6 @@ yosys_core(kernel
 	modtools.h
 	netbarrier.cc
 	netbuild.cc
-	netlist.cc
-	netlist.h
 	netresolve.cc
 	nettrack.cc
 	nettrack.h
@@ -152,7 +150,6 @@ yosys_core(kernel
 		log.h
 		macc.h
 		modtools.h
-		netlist.h
 		nettrack.h
 		netview.h
 		mem.h
