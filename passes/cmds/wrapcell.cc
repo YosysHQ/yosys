@@ -263,7 +263,7 @@ struct WrapcellPass : Pass {
 				subm->fixup_ports();
 
 				for (auto rule : attributes) {
-					if (rule.value_fmt.empty()) {
+					if (rule.value_fmt.empty() && !RTLIL::is_specialized_attribute(rule.name)) {
 						subm->set_bool_attribute(rule.name);
 					} else {
 						std::optional<std::string> value = format_with_params(d->twines(), rule.value_fmt, cell->parameters, context);
@@ -272,7 +272,10 @@ struct WrapcellPass : Pass {
 							log_error("Formatting error when processing cell '%s' in module '%s'\n",
 									  cell, module);
 
-						subm->set_string_attribute(rule.name, value.value());
+						if (RTLIL::is_specialized_attribute(rule.name))
+							d->set_specialized_attribute(subm, rule.name, value.value());
+						else
+							subm->set_string_attribute(rule.name, value.value());
 					}
 				}
 

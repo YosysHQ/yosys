@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/log_help.h"
 #include "kernel/sigtools.h"
+#include "kernel/scopeinfo.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -154,13 +155,7 @@ struct CutpointPass : public Pass {
 					auto scopeinfo = module->addCell(NEW_ID, ID($scopeinfo));
 					scopeinfo->setParam(ID::TYPE, RTLIL::Const("blackbox"));
 
-					for (auto const &attr : cell->attributes)
-					{
-						if (attr.first == ID::hdlname)
-							scopeinfo->attributes.insert(attr);
-						else
-							scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
-					}
+					scopeinfo_set_attributes(scopeinfo, ScopeinfoAttrs::Cell, cell);
 				}
 
 				module->remove(cell);

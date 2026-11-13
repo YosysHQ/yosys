@@ -80,14 +80,6 @@ struct ExactCellWires {
 	}
 };
 
-int count_nontrivial_wire_attrs(RTLIL::Wire *w)
-{
-	int count = w->attributes.size();
-	count -= w->attributes.count(ID::hdlname);
-	count -= w->attributes.count(ID::scopename);
-	return count;
-}
-
 // Should we pick `s2` over `s1` to represent a signal?
 bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const ShardedSigPool &regs, const ShardedSigPool &conns, ExactCellWires &cell_wires)
 {
@@ -132,8 +124,8 @@ bool compare_signals(const RTLIL::SigBit &s1, const RTLIL::SigBit &s2, const Sha
 	if (w1->name.isPublic() != w2->name.isPublic())
 		return w2->name.isPublic();
 
-	int attrs1 = count_nontrivial_wire_attrs(w1);
-	int attrs2 = count_nontrivial_wire_attrs(w2);
+	int attrs1 = GetSize(w1->attributes);
+	int attrs2 = GetSize(w2->attributes);
 
 	if (attrs1 != attrs2)
 		return attrs2 > attrs1;

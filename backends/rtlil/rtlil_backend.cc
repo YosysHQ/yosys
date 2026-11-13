@@ -25,6 +25,7 @@
 #include "rtlil_backend.h"
 #include "kernel/yosys.h"
 #include "kernel/utils.h"
+#include "kernel/metadata/attributes.h"
 #include <errno.h>
 #include <iterator>
 
@@ -34,13 +35,15 @@ YOSYS_NAMESPACE_BEGIN
 
 static pool<IdString> *emitted_twines = nullptr;
 static SrcPool::Marks *emitted_srcs = nullptr;
+static MetaPool::Marks *emitted_metas = nullptr;
 
 struct TwineCollector {
-	TwineCollector(pool<IdString> *twines, SrcPool::Marks *srcs) {
+	TwineCollector(pool<IdString> *twines, SrcPool::Marks *srcs, MetaPool::Marks *metas) {
 		emitted_twines = twines;
 		emitted_srcs = srcs;
+		emitted_metas = metas;
 	}
-	~TwineCollector() { emitted_twines = nullptr; emitted_srcs = nullptr; }
+	~TwineCollector() { emitted_twines = nullptr; emitted_srcs = nullptr; emitted_metas = nullptr; }
 };
 
 static std::string twine_handle(IdString ref)
@@ -62,6 +65,24 @@ static std::string twine_cmt(const RTLIL::Design *design, IdString ref, DumpMode
 	if (mode != DumpMode::Replayable || ID::is_static(ref))
 		return "";
 	return stringf("  # %s", design->twines().str(ref));
+}
+
+static std::string metadata_summary(const RTLIL::Design *design, MetaRef ref)
+{
+	std::vector<std::string> parts;
+	if (ref.has_hdlname())
+		parts.push_back("hdlname \"" + design->metas().hdlname(ref) + "\"");
+	if (ref.has_scopename())
+		parts.push_back("scopename \"" + design->metas().scopename(ref) + "\"");
+	const MetaBlock &block = design->metas()[ref];
+	for (NameSetRef set : {block.absorbed_hdlnames, block.absorbed_scopes})
+		if (set != NameSetRef::Null)
+			for (IdString member : design->metas().sets()[set].members())
+				parts.push_back("absorbed \"" + design->twines().str(member) + "\"");
+	std::string out;
+	for (auto &part : parts)
+		out += (out.empty() ? "" : ", ") + part;
+	return out;
 }
 
 void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int width, int offset, bool autoint)
@@ -126,14 +147,23 @@ void RTLIL_BACKEND::dump_const(std::ostream &f, const RTLIL::Const &data, int wi
 	}
 }
 
+static void dump_attribute(std::ostream &f, const std::string &indent, const RTLIL::Design *design, IdString name, const RTLIL::Const &value, DumpMode mode)
+{
+	f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
+	RTLIL_BACKEND::dump_const(f, value);
+	f << stringf("\n");
+}
+
 void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const RTLIL::AttrObject *obj, const RTLIL::Design *design, DumpMode mode)
 {
-	SrcRef id = obj->src();
-	if (id != SrcRef::Null) {
-		f << stringf("%s" "attribute \\src ", indent);
-		if (mode == DumpMode::Readable) {
-			dump_const(f, RTLIL::Const(design->get_src_attribute(obj)));
-		} else {
+	if (mode == DumpMode::Readable) {
+		ExportedAttributes exported(design, obj);
+		for (auto &[name, value] : exported.specialized())
+			dump_attribute(f, indent, design, name, value, mode);
+	} else {
+		SrcRef id = obj->src();
+		if (id != SrcRef::Null) {
+			f << stringf("%s" "attribute \\src ", indent);
 			const std::vector<IdString> &members = design->srcs()[id].members();
 			if (emitted_twines != nullptr)
 				for (IdString member : members)
@@ -147,14 +177,20 @@ void RTLIL_BACKEND::dump_attributes(std::ostream &f, std::string indent, const R
 			}
 			if (mode == DumpMode::Replayable)
 				f << stringf("  # %s", design->srcs().str(id));
+			f << stringf("\n");
 		}
-		f << stringf("\n");
+		if (obj->meta() != MetaRef::Null) {
+			if (emitted_metas != nullptr)
+				emitted_metas->insert(obj->meta());
+			f << stringf("%s" "attribute \\metadata ", indent);
+			dump_const(f, RTLIL::Const("#" + design->metas().serial(obj->meta())));
+			if (mode == DumpMode::Replayable)
+				f << stringf("  # %s", metadata_summary(design, obj->meta()));
+			f << stringf("\n");
+		}
 	}
-	for (const auto& [name, value] : reversed(obj->attributes)) {
-		f << stringf("%s" "attribute %s ", indent, twine_ref(design, name, mode));
-		dump_const(f, value);
-		f << stringf("\n");
-	}
+	for (const auto& [name, value] : reversed(obj->attributes))
+		dump_attribute(f, indent, design, name, value, mode);
 }
 
 static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used)
@@ -190,27 +226,71 @@ static void dump_twines(std::ostream &f, const RTLIL::Design *design, const pool
 	f << stringf("  end\n");
 }
 
-static void dump_srcs(std::ostream &f, const RTLIL::Design *design, const SrcPool::Marks &used)
+template<typename Pool, typename Marks>
+static void dump_sets(std::ostream &f, const char *section, const Pool &sets, const Marks &used)
 {
-	f << stringf("  srcs\n");
-	for (SrcRef ref : used) {
-		f << stringf("    set %s", design->srcs().serial(ref));
-		for (IdString member : design->srcs()[ref].members())
+	f << stringf("  %s\n", section);
+	for (auto ref : used) {
+		f << stringf("    set %s", sets.serial(ref));
+		for (IdString member : sets[ref].members())
 			f << stringf(" %zu", member.raw());
 		f << stringf("\n");
 	}
 	f << stringf("  end\n");
 }
 
-void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, const pool<IdString> &used_twines, const SrcPool::Marks &used_srcs)
+static void dump_blocks(std::ostream &f, const RTLIL::Design *design, const MetaPool::Marks &used)
 {
-	if (design == nullptr || used_twines.empty())
+	const MetaPool &metas = design->metas();
+	f << stringf("  blocks\n");
+	for (MetaRef ref : used) {
+		const MetaBlock &block = metas[ref];
+		f << stringf("    block %s", metas.serial(ref));
+		if (!block.scope.empty())
+			f << stringf(" scope %zu", block.scope.raw());
+		if (!block.hdlname.empty())
+			f << stringf(" hdlname %zu", block.hdlname.raw());
+		if (block.absorbed_hdlnames != NameSetRef::Null)
+			f << stringf(" hdlnames %s", metas.sets().serial(block.absorbed_hdlnames));
+		if (block.absorbed_scopes != NameSetRef::Null)
+			f << stringf(" scopes %s", metas.sets().serial(block.absorbed_scopes));
+		f << stringf("\n");
+	}
+	f << stringf("  end\n");
+}
+
+void RTLIL_BACKEND::dump_metadata(std::ostream &f, const RTLIL::Design *design, pool<IdString> used_twines,
+		const SrcPool::Marks &used_srcs, const MetaPool::Marks &used_metas)
+{
+	if (design == nullptr)
+		return;
+
+	NameSetPool::Marks used_sets;
+	for (MetaRef ref : used_metas) {
+		const MetaBlock &block = design->metas()[ref];
+		for (IdString id : {block.scope, block.hdlname})
+			if (!id.empty())
+				used_twines.insert(id);
+		for (NameSetRef set : {block.absorbed_hdlnames, block.absorbed_scopes})
+			if (set != NameSetRef::Null)
+				used_sets.insert(set);
+	}
+	for (NameSetRef set : used_sets)
+		for (IdString member : design->metas().sets()[set].members())
+			used_twines.insert(member);
+
+	if (used_twines.empty() && used_srcs.empty() && used_metas.empty())
 		return;
 
 	f << stringf("metadata\n");
-	dump_twines(f, design, used_twines);
+	if (!used_twines.empty())
+		dump_twines(f, design, used_twines);
 	if (!used_srcs.empty())
-		dump_srcs(f, design, used_srcs);
+		dump_sets(f, "srcs", design->srcs(), used_srcs);
+	if (!used_sets.empty())
+		dump_sets(f, "namesets", design->metas().sets(), used_sets);
+	if (!used_metas.empty())
+		dump_blocks(f, design, used_metas);
 	f << stringf("end\n");
 }
 
@@ -530,9 +610,11 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 	std::stringstream body;
 	pool<IdString> used_twines;
 	SrcPool::Marks used_srcs;
+	MetaPool::Marks used_metas;
 	{
-		TwineCollector collector(mode == DumpMode::Readable ? nullptr : &used_twines,
-				mode == DumpMode::Readable ? nullptr : &used_srcs);
+		bool readable = mode == DumpMode::Readable;
+		TwineCollector collector(readable ? nullptr : &used_twines, readable ? nullptr : &used_srcs,
+				readable ? nullptr : &used_metas);
 		for (const auto& [_, module] : reversed(design->modules_)) {
 			if (!only_selected || design->selected(module)) {
 				if (only_selected)
@@ -546,7 +628,7 @@ void RTLIL_BACKEND::dump_design(std::ostream &f, RTLIL::Design *design, bool onl
 		if (only_selected)
 			f << stringf("\n");
 		f << stringf("autoidx %d\n", design->twines().autoidx());
-		dump_metadata(f, design, used_twines, used_srcs);
+		dump_metadata(f, design, std::move(used_twines), used_srcs, used_metas);
 	}
 
 	if (body.tellp() > 0)

@@ -103,6 +103,9 @@ struct QlIoffPass : public Pass {
 				SrcRef old_src = old_port_output->src();
 				old_port_output->set_src(new_port_output->src());
 				new_port_output->set_src(old_src);
+				MetaRef old_meta = old_port_output->meta();
+				old_port_output->set_meta(new_port_output->meta());
+				new_port_output->set_meta(old_meta);
 
 				// create new output FFs
 				SigSpec sig_o(old_port_output);

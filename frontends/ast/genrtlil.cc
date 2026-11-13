@@ -31,6 +31,7 @@
 #include "kernel/utils.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
+#include "kernel/metadata/attributes.h"
 
 #include <sstream>
 #include <stdarg.h>
@@ -48,7 +49,7 @@ static void import_ast_attributes(RTLIL::AttrObject *obj, const AstNode *node)
 			continue;
 		if (attr.second->type != AST_CONSTANT)
 			node->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
-		obj->attributes[current_module->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+		import_attribute(current_module->design, obj, current_module->twines().add(attr_name_str(attr.first)), attr.second->asAttrConst());
 	}
 }
 

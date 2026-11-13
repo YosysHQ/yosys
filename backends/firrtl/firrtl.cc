@@ -465,7 +465,7 @@ struct FirrtlWorker
 		if (cell->type.begins_with("$paramod"))
 		{
 			log_assert(cell->has_attribute(ID::hdlname));
-			instanceOf = cell->get_string_attribute(ID::hdlname);
+			instanceOf = cell->module->design->get_hdlname(cell);
 		}
 		else
 		{

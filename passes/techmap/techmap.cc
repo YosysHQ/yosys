@@ -263,10 +263,8 @@ struct TechmapWorker
 				w->port_output = false;
 				w->port_id = 0;
 				w->attributes.erase(ID::techmap_autopurge);
-				if (tpl_w->get_bool_attribute(ID::_techmap_special_)) {
-					w->attributes.clear();
-					w->set_src(SrcRef::Null);
-				}
+				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
+					w->clear_attributes();
 				if (w->has_attribute(ID::src))
 					design->absorb_metadata(w, src_cell);
 			}
@@ -358,9 +356,7 @@ struct TechmapWorker
 				extra_connect = SigSig();
 			}
 
-			for (auto &attr : w->attributes) {
-				if (attr.first == ID::src)
-					continue;
+			if (!w->attributes.empty() || w->has_attribute(ID::hdlname) || w->has_attribute(ID::scopename)) {
 				auto lhs = GetSize(extra_connect.first);
 				auto rhs = GetSize(extra_connect.second);
 				if (lhs > rhs)
@@ -368,7 +364,6 @@ struct TechmapWorker
 				else if (rhs > lhs)
 					extra_connect.second.remove(lhs, rhs-lhs);
 				module->connect(extra_connect);
-				break;
 			}
 		}
 
@@ -430,6 +425,8 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
+			if (techmap_replace_cell && !c->meta().has_hdlname() && !c->meta().has_scopename())
+				c->set_meta(design->metas().transfer(c->meta(), src_cell->meta()));
 			design->absorb_metadata(c, src_cell);
 
 			if (techmap_replace_cell) {

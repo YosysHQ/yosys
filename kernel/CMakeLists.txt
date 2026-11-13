@@ -58,6 +58,16 @@ yosys_core(kernel
 	macc.h
 	mem.cc
 	mem.h
+	metadata/attributes.cc
+	metadata/attributes.h
+	metadata/metapool.cc
+	metadata/metapool.h
+	metadata/srcpool.cc
+	metadata/srcpool.h
+	metadata/twinebacked.h
+	metadata/twinebacked_impl.h
+	metadata/twineset.h
+	metadata/twineset_impl.h
 	modtools.h
 	newcelltypes.h
 	pattern.h
@@ -78,8 +88,6 @@ yosys_core(kernel
 	sexpr.cc
 	sexpr.h
 	sigtools.h
-	srcpool.cc
-	srcpool.h
 	tclapi.cc
 	threading.cc
 	threading.h
@@ -145,6 +153,13 @@ yosys_core(kernel
 		macc.h
 		modtools.h
 		mem.h
+		metadata/attributes.h
+		metadata/metapool.h
+		metadata/srcpool.h
+		metadata/twinebacked.h
+		metadata/twinebacked_impl.h
+		metadata/twineset.h
+		metadata/twineset_impl.h
 		qcsat.h
 		register.h
 		rtlil.h
@@ -154,7 +169,6 @@ yosys_core(kernel
 		scopeinfo.h
 		sexpr.h
 		sigtools.h
-		srcpool.h
 		threading.h
 		timinginfo.h
 		twine.h

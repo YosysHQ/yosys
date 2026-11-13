@@ -417,8 +417,7 @@ struct ChformalPass : public Pass {
 
 					Cell *plain_cell = module->addCell(NEW_ID, formal_flavor(cell));
 
-					plain_cell->attributes = cell->attributes;
-					module->design->transfer_metadata(plain_cell, cell);
+					module->design->transfer_attributes(plain_cell, cell);
 
 					SigBit sig_a = cell->getPort(ID::A);
 					SigBit sig_en = cell->getPort(ID::EN);

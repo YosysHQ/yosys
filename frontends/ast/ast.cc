@@ -30,6 +30,7 @@
 #include "kernel/yosys.h"
 #include "libs/sha1/sha1.h"
 #include "ast.h"
+#include "kernel/metadata/attributes.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -1355,7 +1356,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				continue;
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			import_attribute(design, module, design->twines().add(attr_name_str(attr.first)), attr.second->asAttrConst());
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			const auto& node = ast->children[i];
@@ -1385,7 +1386,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 				continue;
 			if (attr.second->type != AST_CONSTANT)
 				continue;
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			import_attribute(design, module, design->twines().add(attr_name_str(attr.first)), attr.second->asAttrConst());
 		}
 		for (const auto& node : ast->children)
 			if (node->type == AST_PARAMETER)

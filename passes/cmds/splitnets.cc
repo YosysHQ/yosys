@@ -63,11 +63,7 @@ struct SplitnetsWorker
 
 		module->design->transfer_metadata(new_wire, wire);
 
-		auto it = wire->attributes.find(ID::hdlname);
-		if (it != wire->attributes.end())
-			new_wire->attributes.emplace(ID::hdlname, it->second);
-
-		it = wire->attributes.find(ID::keep);
+		auto it = wire->attributes.find(ID::keep);
 		if (it != wire->attributes.end())
 			new_wire->attributes.emplace(ID::keep, it->second);
 

@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/metadata/attributes.h"
 #include "passes/techmap/simplemap.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -122,11 +123,13 @@ static void run_ice40_opts(Module *module)
 				auto it = cell->attributes.find(lut_name_attr);
 				if (it != cell->attributes.end()) {
 					module->rename(cell, it->second.decode_string());
-					decltype(Cell::attributes) new_attr;
-					for (const auto &a : cell->attributes) {
+					decltype(Cell::attributes) old_attr;
+					std::swap(old_attr, cell->attributes);
+					cell->clear_attributes();
+					for (const auto &a : old_attr) {
 						std::string aname = twines.str(a.first);
 						if (aname.starts_with("\\SB_LUT4.\\"))
-							new_attr[twines.add(aname.substr(strlen("\\SB_LUT4.")))] = a.second;
+							import_attribute(module->design, cell, twines.add(aname.substr(strlen("\\SB_LUT4."))), a.second);
 						else if (a.first.in(lut_name_attr, ID::keep, ID::module_not_derived))
 							continue;
 						else if (aname.starts_with("\\SB_CARRY.\\"))
@@ -134,7 +137,6 @@ static void run_ice40_opts(Module *module)
 						else
 							log_abort();
 					}
-					cell->attributes = std::move(new_attr);
 				}
 				module->connect(cell->getPort(ID::CO)[0], replacement_output);
 				module->design->scratchpad_set_bool("opt.did_something", true);

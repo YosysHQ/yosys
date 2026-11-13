@@ -415,28 +415,15 @@ struct FsmExtractWorker
 		fsm_cell->setPort(ID::CTRL_IN, ctrl_in);
 		fsm_cell->setPort(ID::CTRL_OUT, ctrl_out);
 		fsm_cell->parameters[ID::NAME] = RTLIL::Const(wire->name.str());
-		fsm_cell->attributes = wire->attributes;
-		fsm_cell->set_src(wire->src());
-		if(fsm_cell->attributes.count(ID::hdlname)) {
-			auto hdlname = fsm_cell->get_hdlname_attribute();
-			hdlname.pop_back();
-			fsm_cell->set_hdlname_attribute(hdlname);
-			fsm_cell->set_string_attribute(ID(scopename), fsm_cell->get_string_attribute(ID::hdlname));
-			fsm_cell->attributes.erase(ID::hdlname);
-		}
+		module->design->transfer_attributes(fsm_cell, wire);
+		fsm_cell->set_meta(module->design->metas().without_hdlname(fsm_cell->meta()));
 		fsm_data.copy_to_cell(fsm_cell);
 
 		// rename original state wire
 
 		wire->attributes.erase(ID::fsm_encoding);
 		module->rename(wire, stringf("$fsm$oldstate%s", wire->name));
-		if(wire->attributes.count(ID::hdlname)) {
-			auto hdlname = wire->get_hdlname_attribute();
-			hdlname.pop_back();
-			wire->set_hdlname_attribute(hdlname);
-			wire->set_string_attribute(ID(scopename), wire->get_string_attribute(ID::hdlname));
-			wire->attributes.erase(ID::hdlname);
-		}
+		wire->set_meta(module->design->metas().without_hdlname(wire->meta()));
 
 		// unconnect control outputs from old drivers
 

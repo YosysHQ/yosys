@@ -452,8 +452,7 @@ struct WreduceWorker
 
 	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	{
-		int count = w->attributes.size();
-		return count;
+		return GetSize(w->attributes) + w->has_attribute(ID::hdlname) + w->has_attribute(ID::scopename);
 	}
 
 	void run()
