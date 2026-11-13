@@ -12,83 +12,51 @@ namespace detail
 struct TrackData;
 }
 
-struct PortRename {
-	std::string old_port;
-	const Netlist::Pin *pin;
-};
-
-// identity is the signal plus the name at the checkpoint
-// field comments start with the kinds that use them
+// identity is the id of the cell, wire or barrier plus its scope at the checkpoint
 struct TrackedRef {
-	enum class Kind : uint8_t {
-		Pin,
-		Instance,
-		Net,
-		TopPort
-	};
+	enum class Kind : uint8_t { Pin, Instance, Net };
 
-	struct Hints {
-		bool keep_cell = false;        // Pin, keep a multi-output leaf cell, cut all its pins
-		bool keep_as_instance = false; // hierarchical Pin, its barrier becomes a Barrier instance
+	// caller fills kind and the vector of the kind, resolve refills the vector and makes a Net that is gone a Pin
+	Kind kind;
+	std::vector<const Netlist::Pin *> pins = {}; // of a Pin, a resolved leaf pin is on its cut side
+	std::vector<const Netlist::Instance *> instances = {}; // of an Instance, when gone the cells between its barriers
+	// resolve did not find the object, a Net that is not found becomes a Pin of the leaf pins that were on it
+	bool gone = false;
+	// the loads behind a leaf Pin or an Instance that is a wire or a constant now, a checkpoint anchors them as pins
+	std::vector<const Netlist::Pin *> loads = {};
+	// of an Instance, each old port with the pins now at its cut side
+	// the cut side of an output with no new driver has the loads behind it
+	struct PortCut {
+		std::string port;
+		bool is_output;
+		std::vector<const Netlist::Pin *> pins;
 	};
-
-	struct Origin {
-		// Pin, Input or Output of a hierarchical pin, Inout is Input
-		Netlist::PortDir hier_pin_dir = Netlist::PortDir::Unknown;
-		bool on_barrier_instance = false;                          // Pin, was on a Barrier instance
-		// Pin, a checkpoint without barriers moved a Barrier instance A pin to its drivers
-		bool anchored_on_drivers = false;
-	};
-
-	struct Result {
-		std::vector<const Netlist::Pin *> own_pins = {};       // Pin, pins of the anchored objects
-		// hierarchical Pin, Instance (output barriers), Y side loads
-		std::vector<const Netlist::Pin *> loads_beyond = {};
-		// hierarchical Pin, A pins of its Barrier instance barriers
-		std::vector<const Netlist::Pin *> barrier_a_pins = {};
-		std::vector<const Netlist::Pin *> barrier_y_pins = {}; // hierarchical Pin, their Y pins
-		// Net, leaf pins in the old scope of a net flatten merged
-		std::vector<const Netlist::Pin *> old_scope_pins = {};
-		// Instance, pins whose port name or bit changed since checkpoint
-		std::vector<PortRename> port_renames = {};
-		// hierarchical Pin, flatten removed it, pins are input loads or output drivers
-		bool flattened_hier_pin = false;
-	};
-
-	Kind kind;                                   // caller fills kind, hints and the vector of the kind
-	Hints hints = {};
-	// checkpoint sets it without clearing, a ref given again keeps unset fields
-	Origin origin = {};
-	std::vector<const Netlist::Pin *> pins = {}; // Pin and TopPort, a resolved Pin has its cut sides or own_pins
-	std::vector<const Netlist::Instance *> instances = {};
+	std::vector<PortCut> port_cuts = {};
 	std::vector<const Netlist::Net *> nets = {};
-	Result result = {};                          // filled by resolve
-public:
-	bool isBehindNewLogic() const;    // Pin, new logic between own_pins and the cut sides in pins
-	bool removedButLoadsKept() const; // Instance, cell gone, its barriers' Y side loads kept
 };
 
-// one live tracker per design, all in one thread
-// an anchor marks where an object was, by netview_ref or barrier id
+// the caller keeps to one tracker per design and one thread, not checked
+// an anchor marks where an object was, by the netview_ref id of a cell, wire or barrier
+// a checkpoint with protect puts keep_hierarchy on each scope with a private name above a ref object
+// each checkpoint puts an id and an hdlname with its name on each scope cell, each cell and barrier of a ref
+// the hdlname stays in the design, one with scope names in front stays as it is, see makeScopeNamesUnique
 struct NetTracker final {
 	NetTracker();
 	~NetTracker();
-	NetTracker(const NetTracker &) = delete;
-	NetTracker &operator=(const NetTracker &) = delete;
 
-	// drop old anchors, anchor the objects of each ref
+	// drop old anchors, protect and anchor the objects of each ref, the view must be up to date
 	// checkpoint -> passes -> new view -> resolve
-	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool with_barriers);
-	// point each checkpoint ref at what its anchors find, can rerun
-	// hits match by old instance path, else all unless in a shared module
+	// without protect an object has only its id, a pass can remove it
+	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool protect = true);
+	// point each checkpoint ref at what its anchors find, can rerun, see Resolver
+	// only moved cells are twins, two that fit lose the ref, a copy can get the ref of a deleted cell
+	// a hierarchical pin or net that flatten dissolved becomes the leaf pins that were on it, a Net is then a Pin
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
-	// drop anchors, barriers stay until unprotect
+	// drop the ids and notes of the last checkpoint, barriers stay until unprotect
 	void clear(RTLIL::Design *design);
-	// remove barriers and marks, keep anchors
-	// runs optbarriers -remove as a pass
+	// remove barriers and marks, keep anchors, the caller gives protect = false to a later checkpoint
+	// runs optbarriers -remove as a pass, so the pass hooks of the consumer see it
 	void unprotect(RTLIL::Design *design);
-	// BuildOptions::barrier_instances of the new view
-	pool<const RTLIL::Cell *> barrierInstances(RTLIL::Design *design) const;
 private:
 	std::unique_ptr<detail::TrackData> data_;
 };

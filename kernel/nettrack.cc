@@ -1,137 +1,121 @@
-// checkpoint and clear, CheckpointWriter cuts each ref object, then anchors it
+// checkpoint and clear, CheckpointWriter protects each ref object, then anchors it
 #include "kernel/nettrack_internal.h"
 
 YOSYS_NAMESPACE_BEGIN
-
-bool TrackedRef::isBehindNewLogic() const
-{
-	pool<const Netlist::Pin *> own(result.own_pins.begin(), result.own_pins.end());
-	return !own.empty() && own != pool<const Netlist::Pin *>(pins.begin(), pins.end());
-}
-
-bool TrackedRef::removedButLoadsKept() const
-{
-	return kind == Kind::Instance && instances.empty() && !result.loads_beyond.empty();
-}
 
 NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
 NetTracker::~NetTracker() = default;
 
-void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool with_barriers)
+void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool protect)
 {
-	detail::TrackData &data = *data_;
-	data.bind(view.design());
-	data.clearAnchors(view.design());
-	if (with_barriers) {
-		data.barriers.skipIdsInUse(view.design());
-		detail::removeOwnedKeeps(view.design());
-	}
-	data.snapshot.take(view);
-	detail::CheckpointWriter writer(view, data, with_barriers);
+	log_assert(view.upToDate());
+	// a cell keeps its id, design -load can bring back a cell of an older checkpoint
+	*data_ = {};
+	detail::removeOwnedKeeps(view.design());
+	detail::CheckpointWriter writer(view, *data_, protect);
+	detail::makeScopeNamesUnique(view);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++)
 		writer.write(ref_index, *refs[ref_index]);
-	if (with_barriers && !writer.finishBarriers())
-		view.markUpToDate();
+	writer.noteScopes();
+	writer.dropUnusedIds();
+	view.markUpToDate();
 }
 
 void NetTracker::clear(RTLIL::Design *design)
 {
-	data_->bind(design);
-	data_->clearAnchors(design);
-}
-
-detail::TrackData::TrackData() : serial(++last_serial) { live_serials.insert(serial); }
-
-detail::TrackData::~TrackData() { live_serials.erase(serial); }
-
-void detail::TrackData::bind(RTLIL::Design *design) const
-{
-	int owner = design->scratchpad_get_int(std::string(detail::tracker_key), 0);
-	if (owner != serial && live_serials.count(owner)) {
-		const char *reason = "a second tracker would remove its anchors, keeps and barriers";
-		log_error("NetTracker: the design has another tracker, %s.\n", reason);
-	}
-	design->scratchpad_set_int(std::string(detail::tracker_key), serial);
-}
-
-void detail::TrackData::clearAnchors(RTLIL::Design *design)
-{
-	anchors.anchors_by_ref_attr.clear();
-	barriers.anchors_by_barrier.clear();
-	barriers.used_barriers.clear();
-	top_ports_by_ref.clear();
+	*data_ = {};
 	RTLIL::IdString id = design->twines().find(detail::ref_attr);
-	if (id == RTLIL::IdString::Null)
-		return;
 	for (RTLIL::Module *module : design->modules()) {
-		for (RTLIL::Cell *cell : module->cells())
-			cell->attributes.erase(id);
+		for (RTLIL::Cell *cell : module->cells()) {
+			if (cell->type != ID($barrier)) // a barrier keeps its id
+				cell->attributes.erase(id);
+		}
 		for (RTLIL::Wire *wire : module->wires())
 			wire->attributes.erase(id);
 	}
 }
 
-void detail::Snapshot::take(const NetView &view)
+void detail::makeScopeNamesUnique(const NetView &view)
 {
-	*this = Snapshot();
-	takeScope(view, view.top());
-}
-
-void detail::Snapshot::takeScope(const NetView &view, const Netlist::Instance *scope)
-{
-	for (const Netlist::Instance *child : scope->children) {
-		cell_names[view.cell(child)->hashidx_] = child->localName();
-		cell_paths.insert(scopePath(view, child));
-		takeScope(view, child);
+	// a new name changes the names of the scopes below, so count again until no name changes
+	for (bool changed = true; changed;) {
+		changed = false;
+		dict<std::string, int> scope_count;
+		for (const Netlist::Instance &scope : view.instances()) {
+			if (scope.isLeaf() || scope.isTop())
+				continue;
+			detail::ensureHdlname(scope.cell);
+			scope_count[detail::scopeNames(&scope)]++;
+		}
+		// of two scopes with the same names one is a flatten copy with scope names in its hdlname
+		for (const Netlist::Instance &scope : view.instances()) {
+			if (scope.isLeaf() || scope.isTop())
+				continue;
+			bool has_scope_names = scope.cell->get_string_attribute(ID::hdlname).find(' ') != std::string::npos;
+			if (!has_scope_names || scope_count[detail::scopeNames(&scope)]-- <= 1)
+				continue;
+			scope.cell->set_string_attribute(ID::hdlname, scope.cell->name.unescape());
+			changed = true;
+		}
 	}
 }
 
-std::string detail::Snapshot::scopePath(const NetView &view, const Netlist::Instance *scope) const
+// each shorter list of the names is of a scope too, a known list has them all
+void detail::TrackData::noteDissolved(std::string names)
 {
-	if (scope->isTop())
-		return "";
-	std::string own = cell_names.at(view.cell(scope)->hashidx_, scope->localName());
-	return Netlist::joinPath({scopePath(view, scope->parent), own});
+	while (!names.empty() && scopes.emplace(names, Scope::Dissolved).second) {
+		size_t space_before = names.rfind(' ', names.size() - 2);
+		names.resize(space_before == std::string::npos ? 0 : space_before + 1);
+	}
 }
 
-std::string detail::Snapshot::cellScopePath(const NetView &view, const Netlist::Instance *inst) const
+std::string detail::scopeNames(const Netlist::Instance *scope, const RTLIL::AttrObject *object)
 {
-	const RTLIL::Cell *cell = view.cell(inst);
-	if (detail::hasOwnScope(cell) || inst->hdlpath.size() < 2)
-		return detail::withOwnScope(scopePath(view, inst->parent), cell);
-	std::vector<std::string> own(inst->hdlpath.begin(), inst->hdlpath.end() - 1);
-	return Netlist::joinPath({scopePath(view, inst->parent), Netlist::joinPath(own)});
+	std::string names;
+	if (object != nullptr)
+		names = object->get_string_attribute(ID::hdlname);
+	size_t last_space = names.rfind(' ');
+	names.resize(last_space == std::string::npos ? 0 : last_space + 1); // without the name of the object
+	for (; !scope->isTop(); scope = scope->parent)
+		names = detail::hdlName(scope->cell) + " " + names;
+	return names;
 }
 
-void detail::AnchorStore::append(RTLIL::Design *design, RTLIL::AttrObject *object, const Anchor &anchor)
+int detail::TrackData::nextId(RTLIL::Design *design)
 {
-	RTLIL::IdString id = design->twines().add(detail::ref_attr);
-	if (!object->has_attribute(id) || !anchors_by_ref_attr.count(object->attributes.at(id).as_int()))
-		object->attributes[id] = RTLIL::Const(detail::newRefValue(design));
-	anchors_by_ref_attr[object->attributes.at(id).as_int()].push_back(anchor);
+	last_id = std::max(last_id, detail::keySeed(design));
+	log_assert(last_id < INT_MAX);
+	return ++last_id;
 }
 
-const std::vector<detail::Anchor> &detail::AnchorStore::anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const
+void detail::CheckpointWriter::append(RTLIL::AttrObject *object, const Anchor &anchor)
 {
-	static const std::vector<Anchor> none;
-	if (anchors_by_ref_attr.empty())
-		return none;
-	RTLIL::IdString id = design->twines().find(detail::ref_attr);
-	if (!object->has_attribute(id))
-		return none;
-	return anchors_by_ref_attr.at(object->attributes.at(id).as_int(), none);
+	RTLIL::Design *design = view_.design();
+	std::optional<int> id = detail::refIdOf(design, object);
+	if (!id) {
+		id = data_.nextId(design);
+		object->attributes[design->twines().add(detail::ref_attr)] = RTLIL::Const(*id);
+	}
+	data_.anchors_by_id.add(*id, anchor);
+	anchored_.insert(object);
 }
 
-int detail::newRefValue(RTLIL::Design *design)
+const detail::AnchorList &detail::TrackData::anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const
 {
-	static int last_value = detail::keySeed(design);
-	log_assert(last_value < INT_MAX);
-	return ++last_value;
+	std::optional<int> id = detail::refIdOf(design, object);
+	return id ? anchors_by_id.get(*id) : anchors_by_id.none;
 }
 
-// hash of the first design, fixed for the process
-// same commands give same values in each run
+std::optional<int> detail::refIdOf(RTLIL::Design *design, const RTLIL::AttrObject *object)
+{
+	RTLIL::IdString attr = design->twines().find(detail::ref_attr);
+	if (!object->has_attribute(attr))
+		return std::nullopt;
+	return object->attributes.at(attr).as_int();
+}
+
+// hash of the first design, fixed for the process, so the same commands give the same ids in each run
 int detail::keySeed(RTLIL::Design *design)
 {
 	static std::optional<int> seed;
@@ -147,163 +131,147 @@ int detail::keySeed(RTLIL::Design *design)
 	return *seed;
 }
 
-void detail::CheckpointWriter::write(uint32_t ref_index, TrackedRef &ref)
+void detail::CheckpointWriter::write(uint32_t ref_index, const TrackedRef &ref)
 {
-	switch (ref.kind) {
-	case TrackedRef::Kind::Pin:
-	case TrackedRef::Kind::TopPort:
-		for (const Netlist::Pin *pin : ref.pins)
-			anchorPin(pin, ref_index, ref, protectPin(pin, ref_index, ref));
-		break;
-	case TrackedRef::Kind::Instance:
-		for (const Netlist::Instance *inst : ref.instances) {
-			log_assert(!inst->isTop());
-			if (with_barriers_)
-				protectCell(inst, ref_index);
-			std::string path = data_.snapshot.cellScopePath(view_, inst);
-			anchorCell(inst, {.role = Anchor::Role::Cell, .ref_index = ref_index, .scope_path = path});
-		}
-		break;
-	case TrackedRef::Kind::Net:
-		for (const Netlist::Net *net : ref.nets) {
-			if (with_barriers_)
-				protectNet(net, ref_index);
-			anchorWires(net, ref_index);
-		}
-		break;
+	for (const Netlist::Pin *pin : ref.pins)
+		anchorPin(pin, ref_index);
+	for (const Netlist::Pin *pin : ref.loads)
+		anchorPin(pin, ref_index);
+	for (const Netlist::Instance *inst : ref.instances) {
+		log_assert(!inst->isTop());
+		protectCell(inst, ref_index);
+		anchorIn(inst, inst->cell, {.role = Anchor::Role::Cell, .ref_index = ref_index});
+	}
+	for (const Netlist::Net *net : ref.nets) {
+		// the wire that names the net, none for a constant
+		RTLIL::IdString wire_name = detail::escapedPortId(view_.design(), net->scope, net->name.wire);
+		RTLIL::Wire *wire = net->scope->module->wire(wire_name);
+		std::string dissolved = detail::scopeNames(view_.top(), wire);
+		gone_scopes_by_module_[net->scope->module].insert(dissolved);
+		bool on_port = !net->scope->isTop() && !net->boundary.empty();
+		data_.net_places_by_ref.add(ref_index, {detail::scopeNames(net->scope), dissolved, on_port, net->name});
+		int place = GetSize(data_.net_places_by_ref.get(ref_index)) - 1;
+		if (wire != nullptr)
+			append(wire, {.role = Anchor::Role::Net, .ref_index = ref_index, .net_place = place});
+		protectNet(net, ref_index);
 	}
 }
 
-void detail::CheckpointWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref, PinCut cut)
+detail::Anchor detail::pinAnchor(const Netlist::Pin *pin, uint32_t ref_index, Anchor::Role role)
 {
-	if (pin->inst->isTop()) {
-		data_.top_ports_by_ref.add(ref_index, {pin->port().name, pin->hdlIndex()});
-		anchorWires(pin->inner, ref_index);
-		if (RTLIL::SigBit bit = detail::portBit(view_, pin); bit.wire != nullptr) {
-			Anchor port_anchor = {.role = Anchor::Role::Port, .ref_index = ref_index, .bit = bit.offset};
-			data_.anchors.append(view_.design(), bit.wire, port_anchor);
-		}
+	return {.role = role, .ref_index = ref_index, .port = pin->port().name, .bit = pin->bit,
+	        .hdl_index = pin->hdlIndex()};
+}
+
+// a top port is found by its wire or name, a hierarchical pin by its barrier
+// with no barrier by its instance and port name, else by the leaf pins below
+void detail::CheckpointWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_index)
+{
+	const Netlist::Instance *inst = pin->inst;
+	Anchor anchor = detail::pinAnchor(pin, ref_index);
+	if (inst->isTop()) {
+		data_.top_ports_by_ref.add(ref_index, anchor);
+		RTLIL::Wire *wire = inst->module->wire(detail::escapedPortId(view_.design(), inst, pin->port().name));
+		// a new id unless it has an anchor, a wire that design -load brings back then goes by its name
+		if (!anchored_.count(wire))
+			wire->attributes.erase(view_.design()->twines().find(detail::ref_attr));
+		anchor.role = Anchor::Role::Port;
+		append(wire, anchor);
 		return;
 	}
-	if (pin->inst->kind == Netlist::Instance::Kind::Barrier)
-		return anchorBarrierInstancePin(pin, ref_index, ref);
-	if (!pin->inst->isLeaf()) {
-		ref.origin.hier_pin_dir = Netlist::PortDir::Input;
-		if (pin->dir() == Netlist::PortDir::Output)
-			ref.origin.hier_pin_dir = Netlist::PortDir::Output;
+	bool cut = protect_ && cutPin(pin, ref_index);
+	if (cut && !inst->isLeaf())
+		return; // its barrier finds a hierarchical pin
+	if (cut && pin->isDriver())
+		protectDriver(pin, ref_index);
+	if (!inst->isLeaf())
+		anchorInnerPins(pin->inner, pin->dir(), ref_index);
+	if (cut)
+		anchor.role = Anchor::Role::CutPin;
+	anchorIn(inst, inst->cell, anchor);
+}
+
+void detail::CheckpointWriter::anchorInnerPins(const Netlist::Net *net, RTLIL::PortDir dir, uint32_t ref_index)
+{
+	if (net == nullptr)
+		return; // a port with nothing inside
+	for (const Netlist::Pin *pin : detail::standInPins(net, dir))
+		anchorIn(pin->inst, pin->inst->cell, detail::pinAnchor(pin, ref_index, Anchor::Role::StandIn));
+}
+
+detail::PinList detail::standInPins(const Netlist::Net *net, RTLIL::PortDir dir)
+{
+	PinList inside, loads_outside;
+	bool has_load_inside = false, exact_outside = true;
+	size_t scope_ports = 0;
+	for (const Netlist::Net *connected : detail::connectedNets(net)) {
+		const Netlist::Instance *scope = connected->scope;
+		while (scope != nullptr && scope != net->scope)
+			scope = scope->parent;
+		for (const Netlist::Pin *pin : connected->pins) {
+			bool wanted = dir == RTLIL::PD_INOUT || pin->isDriver() == (dir == RTLIL::PD_OUTPUT);
+			if (!pin->inst->isLeaf())
+				continue;
+			if (scope != nullptr && wanted)
+				inside.push_back(pin);
+			if (scope == nullptr && !pin->isDriver())
+				loads_outside.push_back(pin);
+			has_load_inside = has_load_inside || (scope != nullptr && !pin->isDriver());
+		}
+		if (connected->scope == net->scope)
+			scope_ports += connected->boundary.size();
+		// a top output is a load with no leaf pin
+		exact_outside = exact_outside && (!connected->scope->isTop() || connected->boundary.empty());
 	}
-	Anchor anchor = {
-		.role = Anchor::Role::Pin,
-		.ref_index = ref_index,
-		.scope_path = data_.snapshot.cellScopePath(view_, pin->inst),
-		.port = pin->port().name,
-		.bit = pin->bit,
-		.uncut = cut == PinCut::Uncut
-	};
-	anchorCell(pin->inst, anchor);
+	// a driver with a load inside would widen the ref to that load, the loads outside have just its paths
+	if (dir == RTLIL::PD_OUTPUT && has_load_inside)
+		inside = exact_outside ? loads_outside : PinList();
+	// the leaf pins have the paths of a second port of the scope too, the ref is then lost with the scope
+	if (dir != RTLIL::PD_INOUT && scope_ports > 1)
+		inside.clear();
+	return inside;
 }
 
-// port wire bit in the instance's module, or empty
-RTLIL::SigBit detail::portBit(const NetView &view, const Netlist::Pin *pin)
+void detail::CheckpointWriter::anchorIn(const Netlist::Instance *inst, RTLIL::Cell *cell, Anchor anchor)
 {
-	RTLIL::Module *module = view.module(pin->inst);
-	if (module == nullptr)
-		return {};
-	RTLIL::Wire *wire = module->wire(detail::escapedPortId(view.design(), nullptr, module, pin->port().name));
-	if (wire == nullptr || pin->bit >= wire->width)
-		return {};
-	return {wire, pin->bit};
-}
-
-void detail::CheckpointWriter::anchorBarrierInstancePin(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref)
-{
-	ref.origin.on_barrier_instance = true;
-	if (!with_barriers_)
-		return anchorDriversOfBarrierInstance(pin, ref_index, ref);
-	Anchor anchor = {
-		.role = Anchor::Role::Pin,
-		.ref_index = ref_index,
-		.port = pin->port().name,
-		.bit = pin->bit
-	};
-	std::string path = data_.snapshot.scopePath(view_, pin->inst->parent);
-	recordBarrierAnchor(view_.cell(pin->inst), path, anchor);
-}
-
-// unprotect removes the Barrier instance, an A pin ref moves to its drivers
-// a Y pin ref takes no anchor
-void detail::CheckpointWriter::anchorDriversOfBarrierInstance(const Netlist::Pin *pin, uint32_t ref_index, TrackedRef &ref)
-{
-	if (pin->dir() != Netlist::PortDir::Input)
-		return;
-	std::vector<const Netlist::Pin *> drivers;
-	AnchorHit barrier_hit = {.barrier = view_.cell(pin->inst), .barrier_scope = pin->inst->parent};
-	walker_.pins(barrier_hit, Anchor::Side::A, BufferRule::StopAtNewBuffer, drivers);
-	for (const Netlist::Pin *driver : drivers)
-		anchorPin(driver, ref_index, ref, PinCut::Cut);
-	ref.origin.anchored_on_drivers = !drivers.empty();
-}
-
-void detail::CheckpointWriter::anchorCell(const Netlist::Instance *inst, Anchor anchor)
-{
-	RTLIL::Cell *cell = view_.cell(inst);
-	anchor.in_shared_module = markIfShared(cell, cell->module);
-	data_.anchors.append(view_.design(), cell, anchor);
-}
-
-void detail::CheckpointWriter::anchorWires(const Netlist::Net *net, uint32_t ref_index)
-{
-	if (net == nullptr || net->constant != Netlist::Net::Const::None)
-		return;
-	std::string path = data_.snapshot.scopePath(view_, net->scope);
-	for (const RTLIL::SigBit &bit : view_.wireBits(net)) {
-		bool shared = markIfShared(bit.wire, bit.wire->module);
-		Anchor anchor = {
-			.role = Anchor::Role::Net,
-			.ref_index = ref_index,
-			.scope_path = detail::withOwnScope(path, bit.wire),
-			.bit = bit.offset,
-			.net_scope_path = path,
-			.in_shared_module = shared
-		};
-		data_.anchors.append(view_.design(), bit.wire, anchor);
+	detail::ensureHdlname(cell);
+	// flatten keeps the scope names of a cell in its hdlname only below a scope with a public name
+	// so a protected scope with a private name above the instance stays
+	for (const Netlist::Instance *above = inst->parent; protect_ && !above->isTop(); above = above->parent) {
+		if (!above->cell->name.isPublic())
+			detail::setOwnedAttribute(view_.design(), above->cell, ID::keep_hierarchy);
 	}
+	anchor.scope = detail::scopeNames(inst->parent, cell);
+	gone_scopes_by_module_[cell->module].insert(detail::scopeNames(view_.top(), cell));
+	append(cell, anchor);
 }
 
-bool detail::CheckpointWriter::markIfShared(RTLIL::AttrObject *object, RTLIL::Module *module)
+// the hdlname of an anchored cell names scopes that are gone, each scope of its module had them
+void detail::CheckpointWriter::noteScopes()
 {
-	if (view_.scopes(module).size() < 2)
-		return false;
-	detail::ensureScopename(object);
-	return true;
-}
-
-// without -scopename, flatten extends a private object's 'scopename' only if present
-void detail::ensureScopename(RTLIL::AttrObject *object)
-{
-	if (!detail::hasOwnScope(object))
-		object->attributes[ID::scopename] = RTLIL::Const(std::string());
-}
-
-bool detail::hasOwnScope(const RTLIL::AttrObject *object)
-{
-	return object->has_attribute(ID::hdlname) || object->has_attribute(ID::scopename);
-}
-
-std::vector<std::string> detail::ownScopeParts(const RTLIL::AttrObject *object)
-{
-	if (object->has_attribute(ID::hdlname)) {
-		std::vector<std::string> parts = object->get_hdlname_attribute();
-		if (!parts.empty())
-			parts.pop_back();
-		return parts;
+	for (const Netlist::Instance &scope : view_.instances()) {
+		if (scope.isLeaf())
+			continue;
+		std::string names = detail::scopeNames(&scope);
+		data_.scopes[names] = TrackData::Scope::Live;
+		for (const std::string &gone : gone_scopes_by_module_[scope.module])
+			data_.noteDissolved(names + gone);
+		if (scope.isTop())
+			continue;
+		std::string above = detail::scopeNames(scope.parent, scope.cell);
+		data_.noteDissolved(above);
+		Anchor anchor = {.role = Anchor::Role::Scope, .ref_index = 0, .scope = above};
+		anchor.own_name = names.substr(above.size());
+		append(scope.cell, anchor);
 	}
-	return split_tokens(object->get_string_attribute(ID::scopename), " ");
+	for (auto &[id, anchors] : data_.anchors_by_id.data)
+		std::ranges::stable_sort(anchors, {}, &Anchor::scope); // noteHits looks up a scope
 }
 
-std::string detail::withOwnScope(const std::string &path, const RTLIL::AttrObject *object)
+void detail::ensureHdlname(RTLIL::Cell *cell)
 {
-	return Netlist::joinPath({path, Netlist::joinPath(detail::ownScopeParts(object))});
+	if (cell->get_string_attribute(ID::hdlname).find(' ') == std::string::npos)
+		cell->set_string_attribute(ID::hdlname, cell->name.unescape());
 }
 
 YOSYS_NAMESPACE_END
