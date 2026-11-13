@@ -16,19 +16,28 @@ tests.
    cmake --preset default
    cmake --build build --target test --parallel $(nproc)
 
+To facilitate running the test suite, some of the recommended dependencies
+instead become required. In particular, ``vcd2fst`` (usually via GTKWave) and
+Tcl are required for the test suite. It is also required to install `iverilog`_
+
+.. _iverilog: https://steveicarus.github.io/iverilog/
+
+.. TODO:: consider checking for ``vcd2fst`` and ``iverilog`` from cmake
+.. TODO:: can we make ``vcd2fst`` and ``Tcl`` tests optional a la Verific
+
 .. warning::
 
    There are limitations when using ``Ninja`` as generator, so we suggest using
    ``Unix Makefiles`` to make running tests in parallel possible. However, it is
    possible to use it directly by running:
 
-.. code:: console
+   .. code:: console
 
-   cd tests
-   make -j9
+      cd tests
+      make -j9
 
-Please note that in this case default build directory is ``build`` but can be
-overwritten by providing :makevar:`BUILD_DIR` variable.
+   Please note that in this case default build directory is ``build`` but can be
+   overwritten by providing :makevar:`BUILD_DIR` variable.
 
 Vanilla tests
 ~~~~~~~~~~~~~

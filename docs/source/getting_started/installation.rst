@@ -91,7 +91,10 @@ A C++ compiler with C++20 support is required as well as some standard tools
 such as GNU Flex, GNU Bison (>=3.8), CMake (>=3.28), Make (or other CMake
 generator such as Ninja), and Python (>=3.11). Some additional tools: readline,
 libffi, Tcl and zlib; will be used if available but are optional. Graphviz and
-Xdot are used by the `show` command to display schematics.
+Xdot are used by the `show` command to display schematics. GTKWave provides
+``vcd2fst``, which is used by the `sim` command for ``.vcd`` file support.
+
+.. TODO:: mac instructions for ``vcd2fst``?
 
 Installing all prerequisites:
 
@@ -101,7 +104,7 @@ Installing all prerequisites:
 
       sudo apt-get install gawk git make python3 lld bison clang flex \
          libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
-         graphviz xdot
+         graphviz xdot gtkwave
       sudo snap install cmake --classic
 
 .. tab:: Ubuntu 24.04
@@ -110,7 +113,7 @@ Installing all prerequisites:
 
       sudo apt-get install gawk git cmake make python3 lld bison clang flex \
          libffi-dev libfl-dev libreadline-dev pkg-config tcl-dev zlib1g-dev \
-         graphviz xdot
+         graphviz xdot gtkwave
 
 .. tab:: macOS 13 (with Homebrew)
 
