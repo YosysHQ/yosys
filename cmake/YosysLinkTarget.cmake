@@ -3,14 +3,16 @@
 # 	yosys_cxx_library(<target> {SHARED|STATIC}
 # 		OUTPUT_NAME <name>
 # 		[INSTALL_IF <condition>]
+# 		[EXPORT <export_set>]
 # 	)
 #
-# Creates a libary target `<target>` with `SHARED` or `STATIC` scope called `<name>` (or `<target>` if
+# Creates a library target `<target>` with `SHARED` or `STATIC` scope called `<name>` (or `<target>` if
 # not specified), placed in the root of the build directory and prefixed with `${YOSYS_PROGRAM_PREFIX}`.
 # Target is built by default and installed only if `<condition>` (an `if()` expression) is true.
+# If installed and `EXPORT` is given, target is added to `<export_set>`.
 #
 function(yosys_cxx_library arg_TARGET arg_SCOPE)
-	cmake_parse_arguments(PARSE_ARGV 2 arg "" "OUTPUT_NAME;INSTALL_IF" "")
+	cmake_parse_arguments(PARSE_ARGV 2 arg "" "OUTPUT_NAME;INSTALL_IF;EXPORT" "")
 	if (NOT arg_OUTPUT_NAME)
 		message(FATAL_ERROR "OUTPUT_NAME argument is mandatory")
 	endif()
@@ -22,7 +24,11 @@ function(yosys_cxx_library arg_TARGET arg_SCOPE)
 		RUNTIME_OUTPUT_DIRECTORY ${YOSYS_CMAKE_BINARY_DIR}
 	)
 	if (${arg_INSTALL_IF})
-		install(TARGETS ${arg_TARGET} DESTINATION ${YOSYS_INSTALL_LIBDIR})
+		set(export_args)
+		if (arg_EXPORT)
+			set(export_args EXPORT ${arg_EXPORT})
+		endif()
+		install(TARGETS ${arg_TARGET} ${export_args} DESTINATION ${YOSYS_INSTALL_LIBDIR})
 	else()
 		set_target_properties(${arg_TARGET} PROPERTIES EXCLUDE_FROM_ALL TRUE)
 	endif()
