@@ -46,10 +46,14 @@ design -reset
 verific -sv basic.sv
 verific -import -v flopped
 
-# TODO global clock
 design -reset
 verific -sv basic.sv
 verific -import -v global_clocking
+
+# TODO should the non-standard (* gclk *) attribute get global clocking in PIR?
+design -reset
+verific -sv basic.sv
+verific -import -v gclk_attr
 
 # TODO :enable
 design -reset

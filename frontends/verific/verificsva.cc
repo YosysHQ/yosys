@@ -2173,7 +2173,11 @@ private:
 		auto *clock_net = inst->GetInput1();
 		auto *body_net = inst->GetInput2();
 
-		auto clock_expr = demux_clock_body(parse_clock_inner(clock_net), body_net);
+		bool global_clock = strcmp(clock_net->Name(), "$global_clock") == 0;
+		auto clock_expr = demux_clock_body(
+			global_clock ? property_ir::constant(true) : parse_clock_inner(clock_net),
+			body_net
+		);
 
 		return {clock_expr, body_net};
 	}

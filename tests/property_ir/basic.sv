@@ -194,6 +194,11 @@ module global_clocking (input clk, input a, b);
     assert property (@($global_clock) a |-> b);
 endmodule
 
+module gclk_attr (input a, b);
+    (* gclk *) reg clk;
+    assert property (@(clk) a |-> b);
+endmodule
+
 module assert_params (input clk, input a, b, c);
     property prop;
         @(posedge clk) a |-> ##1 b;
