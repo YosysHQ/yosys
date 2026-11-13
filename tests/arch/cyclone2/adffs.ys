@@ -1,0 +1,21 @@
+read_verilog -D NO_INIT ../common/adffs.v
+design -save read
+
+design -load read
+hierarchy -top adff
+proc
+equiv_opt -assert -async2sync -map +/cyclone2/cells_sim.v synth_cyclone2 -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adff # Constrain all select calls below inside the top module
+select -assert-count 1 t:LCELL_FF
+select -assert-none t:LCELL_FF %% t:* %D
+
+design -load read
+hierarchy -top adffn
+proc
+equiv_opt -assert -async2sync -map +/cyclone2/cells_sim.v synth_cyclone2 -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd adffn # Constrain all select calls below inside the top module
+select -assert-count 1 t:LCELL_FF
+select -assert-max 1 t:LCELL_COMB
+select -assert-none t:LCELL_COMB t:LCELL_FF %% t:* %D
