@@ -1,6 +1,7 @@
 add_subdirectory(aiger)
 add_subdirectory(ast)
 add_subdirectory(blif)
+add_subdirectory(common)
 add_subdirectory(json)
 add_subdirectory(liberty)
 add_subdirectory(rpc)

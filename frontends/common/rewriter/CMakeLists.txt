@@ -1,0 +1,16 @@
+yosys_pass(rewriter
+	pass.cc
+	passes/rewriter_box.cc
+	passes/rewriter_formal_nondet.cc
+	rewriter.cc
+	rewriter.h
+	PROVIDES
+		rewriter_box
+		rewriter_formal_nondet
+	REQUIRES
+		kernel
+	DATA_DIR
+		include/frontends/common/rewriter
+	DATA_FILES
+		rewriter.h
+)

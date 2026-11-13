@@ -2260,47 +2260,8 @@ RTLIL::SigSpec AstNode::genRTLIL(int width_hint, bool sign_hint)
 			}
 		} break;
 
-	case AST_FCALL: {
-			if (str == "\\$anyconst" || str == "\\$anyseq" || str == "\\$allconst" || str == "\\$allseq")
-			{
-				string myid = stringf("%s$%d", str.substr(1), ast_autoidx());
-				int width = width_hint;
 
-				if (GetSize(children) > 1)
-					input_error("System function %s got %d arguments, expected 1 or 0.\n",
-							RTLIL::unescape_id(str), GetSize(children));
-
-				if (GetSize(children) == 1) {
-					if (children[0]->type != AST_CONSTANT)
-						input_error("System function %s called with non-const argument!\n",
-								RTLIL::unescape_id(str));
-					width = children[0]->asInt(true);
-				}
-
-				if (width <= 0)
-					input_error("Failed to detect width of %s!\n", RTLIL::unescape_id(str));
-
-				IdString _type = current_module->twines().add(str.substr(1));
-				Cell *cell = current_module->addCell(myid, _type);
-				set_src_attr(cell, this);
-				cell->parameters[ID::WIDTH] = width;
-
-				if (attributes.count(ID::reg)) {
-					auto &attr = attributes.at(ID::reg);
-					if (attr->type != AST_CONSTANT)
-						input_error("Attribute `reg' with non-constant value!\n");
-					cell->attributes[ID::reg] =  attr->asAttrConst();
-				}
-
-				Wire *wire = current_module->addWire(myid + "_wire", width);
-				set_src_attr(wire, this);
-				cell->setPort(ID::Y, wire);
-
-				is_signed = sign_hint;
-				return SigSpec(wire);
-			}
-		}
-		YS_FALLTHROUGH
+	YS_FALLTHROUGH
 
 	// everything should have been handled above -> print error if not.
 	default:
