@@ -9,6 +9,11 @@ from contextlib import contextmanager
 yosys_basedir = os.path.relpath(os.path.join(os.path.dirname(__file__), ".."))
 common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk"))
 
+def remove_generated(pattern):
+    for f in glob.glob(pattern):
+        if os.path.isfile(f):
+            os.remove(f)
+
 def _cwd_base():
     return os.path.basename(os.getcwd())
 

@@ -7,7 +7,6 @@ import gen_tests_makefile
 
 import argparse
 import random
-from pathlib import Path
 from itertools import product
 
 TEMPLATE=r"""read_rtlil << EOT
@@ -60,8 +59,7 @@ if seed is None:
 print("alumacc PRNG seed: %d" % seed)
 random.seed(seed)
 
-for path in Path(".").glob("uut_*.ys*"):
-    path.unlink()
+gen_tests_makefile.remove_generated("uut_*.*")
 
 count = 0
 for c1_signed, c2, c2_signed, a_width in product(
