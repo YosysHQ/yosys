@@ -202,7 +202,7 @@ struct TechmapWorker
 		}
 
 		IdString orig_cell_ref = cell->name;
-		pool<string> extra_src_attrs = cell->get_strpool_attribute(ID::src);
+		const RTLIL::Cell *src_cell = cell;
 
 		for (auto tpl_cell : tpl->cells())
 			if (tpl_cell->name.ends_with("_TECHMAP_REPLACE_")) {
@@ -221,7 +221,7 @@ struct TechmapWorker
 			IdString m_ref = module->twines().add(m_name_id);
 			RTLIL::Memory *m = module->addMemory(m_ref, it.second);
 			if (m->has_attribute(ID::src))
-				m->add_strpool_attribute(ID::src, extra_src_attrs);
+				design->absorb_metadata(m, src_cell);
 			memory_renames[old_m_id] = m_name_id;
 			design->select(module, m);
 		}
@@ -263,10 +263,12 @@ struct TechmapWorker
 				w->port_output = false;
 				w->port_id = 0;
 				w->attributes.erase(ID::techmap_autopurge);
-				if (tpl_w->get_bool_attribute(ID::_techmap_special_))
+				if (tpl_w->get_bool_attribute(ID::_techmap_special_)) {
 					w->attributes.clear();
-				if (w->attributes.count(ID::src))
-					w->add_strpool_attribute(ID::src, extra_src_attrs);
+					w->set_src(SrcRef::Null);
+				}
+				if (w->has_attribute(ID::src))
+					design->absorb_metadata(w, src_cell);
 			}
 			design->select(module, w);
 
@@ -428,8 +430,7 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			if (c->attributes.count(ID::src))
-				c->add_strpool_attribute(ID::src, extra_src_attrs);
+			design->absorb_metadata(c, src_cell);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
@@ -567,8 +568,6 @@ struct TechmapWorker
 						{
 							extmapper_module = extmapper_design->addModule(m_name);
 							RTLIL::Cell *extmapper_cell = extmapper_module->addCell(cell->type, cell);
-
-							extmapper_cell->set_src_attribute(cell->get_src_attribute());
 
 							int port_counter = 1;
 							for (auto &c : extmapper_cell->connections_) {

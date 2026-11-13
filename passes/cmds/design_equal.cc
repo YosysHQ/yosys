@@ -303,6 +303,13 @@ public:
 		for (size_t i = 0; i < a->syncs.size(); i++)
 			if (std::string mismatch = compare_sync_rules(a->syncs[i], b->syncs[i]); !mismatch.empty())
 				return "sync " + std::to_string(i) + " " + mismatch;
+		std::vector<std::string> srcs_a, srcs_b;
+		a->walk_srcs([&](SrcRef src) { srcs_a.push_back(mod_a->design->srcs().str(src)); });
+		b->walk_srcs([&](SrcRef src) { srcs_b.push_back(mod_b->design->srcs().str(src)); });
+		log_assert(srcs_a.size() == srcs_b.size());
+		for (size_t i = 0; i < srcs_a.size(); i++)
+			if (srcs_a[i] != srcs_b[i])
+				return "source location mismatch: " + srcs_a[i] + " != " + srcs_b[i];
 		return "";
 	}
 

@@ -52,7 +52,7 @@ struct NullIdString {
 
 struct IdString {
 private:
-#ifdef YOSYS_ENABLE_TWINE_PROVENANCE
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
 	using bits_t = uint64_t;
 #else
 	using bits_t = uint32_t;
@@ -395,6 +395,9 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	size_t serial() const;
 	// Infers publicity from first character
 	IdString add(std::string_view s);
+	IdString place(size_t idx, TwineSpec t);
+	using HashConsPool::finish_placement;
+	using HashConsPool::size;
 	IdString copy_from(const TwinePool& src, IdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
@@ -404,6 +407,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	// Null unless the token names a live twine stamped by this pool
 	IdString ref_from_token(std::string_view token) const;
 	void check_owned(IdString ref) const;
+	bool shares_index_space_with(const TwinePool &other) const;
 
 private:
 	bool owns(IdString ref) const;
@@ -419,6 +423,8 @@ private:
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
 	int autoidx_;
+
+	friend struct SrcPool;
 };
 
 YOSYS_NAMESPACE_END

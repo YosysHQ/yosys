@@ -42,7 +42,7 @@ PRIVATE_NAMESPACE_BEGIN
  * Nested switches build branching trees of muxes.
  */
 
-using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, const Const*>>;
+using SnippetSourceMap = std::vector<dict<const RTLIL::CaseRule*, SrcRef>>;
 
 struct SnippetSourceMapBuilder
 {
@@ -51,8 +51,8 @@ struct SnippetSourceMapBuilder
 	void insert(int snippet, const RTLIL::CaseRule *cs, const RTLIL::SyncAction &action)
 	{
 		map.resize(std::max(map.size(), (size_t)snippet + 1));
-		if (action.src.size())
-			map[snippet][cs] = &action.src;
+		if (action.src != SrcRef::Null)
+			map[snippet][cs] = action.src;
 	}
 };
 
@@ -60,19 +60,18 @@ struct SnippetSourceMapper
 {
 	const SnippetSourceMap &map;
 
-	void try_map_into(pool<std::string> &sources, int snippet, const RTLIL::CaseRule *cs) const
+	void try_map_into(std::vector<SrcRef> &sources, int snippet, const RTLIL::CaseRule *cs) const
 	{
 		if ((size_t)snippet < map.size()) {
 			const auto &snippet_map = map[snippet];
 			auto src_it = snippet_map.find(cs);
 			if (src_it != snippet_map.end()) {
-				sources.insert(src_it->second->decode_string());
+				sources.push_back(src_it->second);
 				return;
 			}
 		}
-		auto cs_src = cs->get_src_attribute();
-		if (cs_src.size())
-			sources.insert(cs_src);
+		if (cs->src() != SrcRef::Null)
+			sources.push_back(cs->src());
 	}
 };
 
@@ -215,7 +214,7 @@ struct SnippetSwCache
 void apply_attrs(RTLIL::Cell *cell, const RTLIL::SwitchRule *sw, const RTLIL::CaseRule *cs)
 {
 	cell->attributes = sw->attributes;
-	cell->transfer_src_attribute(cs);
+	cell->set_src(cs->src() != SrcRef::Null ? cs->src() : sw->src());
 }
 
 struct MuxGenContext
@@ -229,7 +228,7 @@ struct MuxGenContext
 	bool ifxmode;
 	const SnippetSourceMapper &source_mapper;
 	int current_snippet;
-	pool<std::string> &snippet_sources;
+	std::vector<SrcRef> &snippet_sources;
 
 	// Returns signal for the select input of a mux
 	RTLIL::SigSpec gen_cmp()
@@ -238,7 +237,7 @@ struct MuxGenContext
 		sstr << "$procmux$" << (mod->twines().next_autoidx());
 
 		RTLIL::Wire *cmp_wire = mod->addWire(sstr.str() + "_CMP", 0);
-		cmp_wire->transfer_src_attribute(sw);
+		mod->design->absorb_metadata(cmp_wire, sw);
 
 		for (auto comp : *compare)
 		{
@@ -263,13 +262,9 @@ struct MuxGenContext
 				// create compare cell
 				RTLIL::Cell *eq_cell = mod->addCell(stringf("%s_CMP%d", sstr.str(), cmp_wire->width), ifxmode ? ID($eqx) : ID($eq));
 				apply_attrs(eq_cell, sw, cs);
-				pool<std::string> eq_sources;
-				if (cs->compare_src.size())
-					eq_sources.insert(cs->compare_src.decode_string());
-				if (sw->signal_src.size())
-					eq_sources.insert(sw->signal_src.decode_string());
-				if (eq_sources.size())
-					eq_cell->set_strpool_attribute(ID::src, eq_sources);
+				SrcRef eq_src = mod->srcs().merge(sw->signal_src, cs->compare_src);
+				if (eq_src != SrcRef::Null)
+					eq_cell->set_src(eq_src);
 
 				eq_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 				eq_cell->parameters[ID::B_SIGNED] = RTLIL::Const(0);
@@ -296,8 +291,8 @@ struct MuxGenContext
 			// reduce cmp vector to one logic signal
 			RTLIL::Cell *any_cell = mod->addCell(sstr.str() + "_ANY", ID($reduce_or));
 			apply_attrs(any_cell, sw, cs);
-			if (cs->compare_src.size())
-				any_cell->attributes[ID::src] = cs->compare_src;
+			if (cs->compare_src != SrcRef::Null)
+				any_cell->set_src(cs->compare_src);
 
 			any_cell->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 			any_cell->parameters[ID::A_WIDTH] = RTLIL::Const(cmp_wire->width);
@@ -502,7 +497,7 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 
 		// Detect groups of parallel cases
 		std::vector<int> pgroups = parallel_groups(ctx, sw);
-		pool<std::string> case_sources;
+		std::vector<SrcRef> case_sources;
 		// Create sources for default cases
 		for (auto cs2 : sw->cases) {
 			if (cs2->compare.empty()) {
@@ -545,9 +540,10 @@ RTLIL::SigSpec signal_to_mux_tree(MuxTreeContext ctx)
 			}
 		}
 		if (auto *mux = mux_gen_ctx.last_mux_cell) {
-			mux->set_strpool_attribute(ID::src, case_sources);
+			if (!case_sources.empty())
+				mux->set_src(ctx.mod->srcs().merge(std::span<const SrcRef>{case_sources}));
 			log_assert(mux->getPort(ID::Y).is_wire());
-			mux->getPort(ID::Y).as_wire()->transfer_src_attribute(mux);
+			ctx.mod->design->absorb_metadata(mux->getPort(ID::Y).as_wire(), mux);
 		}
 	}
 

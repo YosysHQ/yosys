@@ -130,15 +130,28 @@ struct JsonWriter
 		}
 	}
 
+	void write_parameter(bool &first, bool for_module, IdString name, const Const &value)
+	{
+		f << stringf("%s\n", first ? "" : ",");
+		f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(name));
+		write_parameter_value(value);
+		first = false;
+	}
+
 	void write_parameters(const dict<IdString, Const> &parameters, bool for_module=false)
 	{
 		bool first = true;
-		for (auto &param : parameters) {
-			f << stringf("%s\n", first ? "" : ",");
-			f << stringf("        %s%s: ", for_module ? "" : "    ", get_name(param.first));
-			write_parameter_value(param.second);
-			first = false;
-		}
+		for (auto &param : parameters)
+			write_parameter(first, for_module, param.first, param.second);
+	}
+
+	void write_attributes(const RTLIL::AttrObject *obj, bool for_module=false)
+	{
+		bool first = true;
+		if (obj->src() != SrcRef::Null)
+			write_parameter(first, for_module, ID::src, Const(design->get_src_attribute(obj)));
+		for (auto &attr : obj->attributes)
+			write_parameter(first, for_module, attr.first, attr.second);
 	}
 
 	void write_module(Module *module_)
@@ -158,7 +171,7 @@ struct JsonWriter
 		f << stringf("    %s: {\n", get_name(module->name));
 
 		f << stringf("      \"attributes\": {");
-		write_parameters(module->attributes, /*for_module=*/true);
+		write_attributes(module, /*for_module=*/true);
 		f << stringf("\n      },\n");
 
 		if (module->parameter_default_values.size()) {
@@ -210,7 +223,7 @@ struct JsonWriter
 			write_parameters(c->parameters);
 			f << stringf("\n          },\n");
 			f << stringf("          \"attributes\": {");
-			write_parameters(c->attributes);
+			write_attributes(c);
 			f << stringf("\n          },\n");
 			if (c->known()) {
 				f << stringf("          \"port_directions\": {");
@@ -248,7 +261,7 @@ struct JsonWriter
 				f << stringf("        %s: {\n", get_name(it.second->name));
 				f << stringf("          \"hide_name\": %s,\n", it.second->name.isPublic() ? "0" : "1");
 				f << stringf("          \"attributes\": {");
-				write_parameters(it.second->attributes);
+				write_attributes(it.second);
 				f << stringf("\n          },\n");
 				f << stringf("          \"width\": %d,\n", it.second->width);
 				f << stringf("          \"start_offset\": %d,\n", it.second->start_offset);
@@ -275,7 +288,7 @@ struct JsonWriter
 			if (w->is_signed)
 				f << stringf("          \"signed\": %d,\n", w->is_signed);
 			f << stringf("          \"attributes\": {");
-			write_parameters(w->attributes);
+			write_attributes(w);
 			f << stringf("\n          }\n");
 			f << stringf("        }");
 			first = false;

@@ -1813,7 +1813,7 @@ struct VerificSvaImporter
 					if (mode_assert) c = module->addLive(root_name, sig_a_q, sig_en_q);
 					if (mode_assume) c = module->addFair(root_name, sig_a_q, sig_en_q);
 
-					if (c) importer->import_attributes(c->attributes, root);
+					if (c) importer->import_attributes(c, root);
 
 					return;
 				}
@@ -1860,7 +1860,7 @@ struct VerificSvaImporter
 
 				if (c) {
 					c->set_bool_attribute(ID(keep));
-					importer->import_attributes(c->attributes, root);
+					importer->import_attributes(c, root);
 				}
 			}
 		}
@@ -1890,7 +1890,7 @@ struct VerificSvaImporter
 				if (mode_cover) c = module->addCover(root_name, State::Sx, State::Sx);
 
 				if (c) {
-					importer->import_attributes(c->attributes, root);
+					importer->import_attributes(c, root);
 					c->set_bool_attribute(ID(unsupported_sva));
 				}
 
