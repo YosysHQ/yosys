@@ -30,6 +30,7 @@ template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
 }
 
 struct Fingerprint;
+uint64_t mix64(uint64_t state, uint64_t value);
 struct ViewData;
 bool designAlive(const ViewData &data);
 RTLIL::Module *topModule(RTLIL::Design *design);
@@ -99,8 +100,7 @@ struct RecordStore {
 	uint32_t next_inst_id = 0;
 	uint32_t next_pin_id = 1;
 	uint32_t next_net_id = 1;
-
-      public:
+public:
 	Netlist::Instance *newInstance();
 	Netlist::Pin *newPin();
 	Netlist::Net *newNet();
@@ -129,8 +129,7 @@ struct NetRtlil {
 struct NetsByScopeBit {
 	Netlist::Net *get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const;
 	void set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net);
-
-      public:
+public:
 	dict<std::pair<uint32_t, uint64_t>, Netlist::Net *> data;
 };
 
@@ -172,8 +171,7 @@ struct ViewData {
 struct ViewBuilder {
 	ViewBuilder(const NetView &view, ViewData &data);
 	void build(RTLIL::Module *top);
-
-      private:
+private:
 	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
 	void buildScope(RTLIL::Module *module, Netlist::Instance *scope);
 	void makePins(Netlist::Instance *inst);
@@ -190,8 +188,7 @@ struct ViewBuilder {
 	void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const;
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	Netlist::Net *findOrMakeTieNet(Netlist::Instance *scope, const RTLIL::SigBit &canon);
-
-      private:
+private:
 	const NetView &view_;
 	ViewData &data_;
 	std::map<RTLIL::Module *, SigMap> sigmaps_;
