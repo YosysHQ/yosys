@@ -1839,11 +1839,10 @@ single_defparam_decl:
 /////////
 
 enum_type: TOK_ENUM {
-		static int enum_count;
 		// create parent node for the enum
 		extra->astbuf2 = std::make_unique<AstNode>(@$, AST_ENUM);
 		extra->astbuf2->str = std::string("$enum");
-		extra->astbuf2->str += std::to_string(enum_count++);
+		extra->astbuf2->str += std::to_string(ast_autoidx());
 		log_assert(!extra->cell_hack);
 		extra->cell_hack = extra->astbuf2.get();
 		extra->ast_stack.back()->children.push_back(std::move(extra->astbuf2));
