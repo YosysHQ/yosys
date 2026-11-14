@@ -10,10 +10,10 @@ bin_ext = ".exe" if os.name == "nt" else ""
 
 _share_candidate = os.path.join(__dir__, "share")
 if os.path.isdir(_share_candidate):
-    sys._pyosys_share_dirname = _share_candidate + os.path.sep
+	sys._pyosys_share_dirname = _share_candidate + os.path.sep
 
 _abc_candidate = os.path.join(__dir__, f"yosys-abc{bin_ext}")
 if os.path.isfile(_abc_candidate):
-    sys._pyosys_abc = _abc_candidate
+	sys._pyosys_abc = _abc_candidate
 
-__all__ = ["libyosys"]
+__all__ = ["libyosys"]  # noqa: F822
