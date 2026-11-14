@@ -84,6 +84,24 @@ RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cel
 	return (sub != nullptr && !sub->get_blackbox_attribute()) ? sub : nullptr;
 }
 
+std::string detail::flattenNames(const std::string &name)
+{
+	constexpr std::string_view prefix = "$flatten\\";
+	std::string_view rest = name;
+	if (!rest.starts_with(prefix))
+		return name;
+	rest.remove_prefix(prefix.size() - 1); // each scope name starts at its backslash
+	std::string names;
+	while (rest.starts_with('\\')) {
+		size_t dot = std::min(rest.find(".\\"), rest.find(".$"));
+		if (dot == std::string_view::npos)
+			return name;
+		names += std::string(rest.substr(1, dot - 1)) + " ";
+		rest.remove_prefix(dot + 1);
+	}
+	return names + std::string(rest);
+}
+
 // counts the records of one instance of a module, at most UINT32_MAX, false with a reason when a check fails
 bool detail::countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &counts, std::string &reason)
 {

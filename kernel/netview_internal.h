@@ -14,13 +14,21 @@ namespace detail
 {
 
 struct Fingerprint;
+RTLIL::IdString escapedPortId(RTLIL::Design *design, const Netlist::Instance *inst, const std::string &name);
+bool isVector(const RTLIL::Wire *wire);
+void modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out);
+bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 RTLIL::Module *topModule(RTLIL::Design *design);
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
-// the hdlname of a module or scope cell, else its name
+// $flatten\a.\b.$x gives "a b $x", flatten names a private object that way, another name stays
+std::string flattenNames(const std::string &name);
+// the hdlname of a module, cell or wire, else the flattenNames of its name
 // a uniquified module keeps its original name in hdlname, flatten names a scope that way
 template <typename T> std::string hdlName(const T *object)
 {
-	return object->has_attribute(ID::hdlname) ? object->get_string_attribute(ID::hdlname) : object->name.unescape();
+	if (object->has_attribute(ID::hdlname))
+		return object->get_string_attribute(ID::hdlname);
+	return flattenNames(object->name.unescape());
 }
 
 using RecordCounts = dict<RTLIL::Module *, uint64_t>;
@@ -29,20 +37,13 @@ enum class ModuleRole : uint8_t { Leaf, Scope };
 bool countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &counts, std::string &reason);
 bool countBody(RTLIL::Module *module, RecordCounts &counts, std::string &reason, uint64_t &count);
 
+std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
+using NetNameRank = std::tuple<bool, bool, std::string, int>;
+NetNameRank netNameRank(const RTLIL::SigBit &bit);
 constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr> marks an attr the tracker set
 constexpr std::string_view cut_attr = "\\netview_cut";
-void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
-std::vector<RTLIL::Cell *> statementOrder(RTLIL::Module *module);
 std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
-
-void modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out);
-bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
-
-using NetNameRank = std::tuple<bool, bool, std::string, int>;
-RTLIL::IdString escapedPortId(RTLIL::Design *design, const Netlist::Instance *inst, const std::string &name);
-bool isVector(const RTLIL::Wire *wire);
-NetNameRank netNameRank(const RTLIL::SigBit &bit);
-
+void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
 // the nets that ports join with a net, over the hierarchy
 std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net);
 
@@ -58,15 +59,15 @@ struct ViewBuilder {
 	ViewBuilder(NetView &view, Netlist::CellLibrary *library);
 	void build(RTLIL::Module *top);
 private:
+	const Netlist::CellType *typeOf(const RTLIL::Cell *cell, RTLIL::Module *module);
+	bool leafPorts(const RTLIL::Cell *cell, Netlist::CellType &type);
 	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
 	void buildScope(Netlist::Instance *scope);
 	void makePins(Netlist::Instance *inst);
-	const Netlist::CellType *typeOf(const RTLIL::Cell *cell, RTLIL::Module *module);
-	bool leafPorts(const RTLIL::Cell *cell, Netlist::CellType &type);
 	void nameNets(Netlist::Instance *scope);
-	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
 	SigMap &sigmapFor(RTLIL::Module *module);
 	void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const;
+	void setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit);
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	NetView &view_;
 	Netlist::CellLibrary *library_;
