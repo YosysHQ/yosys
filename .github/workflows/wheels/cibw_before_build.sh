@@ -8,3 +8,6 @@ if [ "$(uname)" != "Linux" ]; then
 fi
 python3 --version
 python3-config --includes
+
+ccache -s
+ccache -z
