@@ -70,11 +70,8 @@ void detail::TrackData::noteDissolved(std::string names)
 	}
 }
 
-std::string detail::scopeNames(const Netlist::Instance *scope, const RTLIL::AttrObject *object)
+std::string detail::scopeNames(const Netlist::Instance *scope, std::string names)
 {
-	std::string names;
-	if (object != nullptr)
-		names = object->get_string_attribute(ID::hdlname);
 	size_t last_space = names.rfind(' ');
 	names.resize(last_space == std::string::npos ? 0 : last_space + 1); // without the name of the object
 	for (; !scope->isTop(); scope = scope->parent)
@@ -146,7 +143,7 @@ void detail::CheckpointWriter::write(uint32_t ref_index, const TrackedRef &ref)
 		// the wire that names the net, none for a constant
 		RTLIL::IdString wire_name = detail::escapedPortId(view_.design(), net->scope, net->name.wire);
 		RTLIL::Wire *wire = net->scope->module->wire(wire_name);
-		std::string dissolved = detail::scopeNames(view_.top(), wire);
+		std::string dissolved = detail::scopeNames(view_.top(), wire != nullptr ? detail::hdlName(wire) : "");
 		gone_scopes_by_module_[net->scope->module].insert(dissolved);
 		bool on_port = !net->scope->isTop() && !net->boundary.empty();
 		data_.net_places_by_ref.add(ref_index, {detail::scopeNames(net->scope), dissolved, on_port, net->name});
@@ -241,8 +238,8 @@ void detail::CheckpointWriter::anchorIn(const Netlist::Instance *inst, RTLIL::Ce
 		if (!above->cell->name.isPublic())
 			detail::setOwnedAttribute(view_.design(), above->cell, ID::keep_hierarchy);
 	}
-	anchor.scope = detail::scopeNames(inst->parent, cell);
-	gone_scopes_by_module_[cell->module].insert(detail::scopeNames(view_.top(), cell));
+	anchor.scope = detail::scopeNames(inst->parent, detail::hdlName(cell));
+	gone_scopes_by_module_[cell->module].insert(detail::scopeNames(view_.top(), detail::hdlName(cell)));
 	append(cell, anchor);
 }
 
@@ -258,7 +255,7 @@ void detail::CheckpointWriter::noteScopes()
 			data_.noteDissolved(names + gone);
 		if (scope.isTop())
 			continue;
-		std::string above = detail::scopeNames(scope.parent, scope.cell);
+		std::string above = detail::scopeNames(scope.parent, detail::hdlName(scope.cell));
 		data_.noteDissolved(above);
 		Anchor anchor = {.role = Anchor::Role::Scope, .ref_index = 0, .scope = above};
 		anchor.own_name = names.substr(above.size());
@@ -271,7 +268,7 @@ void detail::CheckpointWriter::noteScopes()
 void detail::ensureHdlname(RTLIL::Cell *cell)
 {
 	if (cell->get_string_attribute(ID::hdlname).find(' ') == std::string::npos)
-		cell->set_string_attribute(ID::hdlname, cell->name.unescape());
+		cell->set_string_attribute(ID::hdlname, detail::flattenNames(cell->name.unescape()));
 }
 
 YOSYS_NAMESPACE_END

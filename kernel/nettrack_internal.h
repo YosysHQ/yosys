@@ -68,8 +68,8 @@ struct TrackData {
 	ListMap<uint32_t, NetPlace> net_places_by_ref;
 	// wire and offset at each inout pin of a cell ref, it has no barrier
 	ListMap<uint32_t, std::pair<std::string, int>> open_bits_by_ref;
-	int nextId(RTLIL::Design *design);
 	void noteDissolved(std::string names);
+	int nextId(RTLIL::Design *design);
 	const AnchorList &anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const;
 };
 
@@ -82,18 +82,18 @@ struct CheckpointWriter {
 	// after the last anchor, a cell with no anchor loses its id, a barrier gets a new one
 	void dropUnusedIds();
 private:
-	void countCutUsers(RTLIL::Module *module);
 	void append(RTLIL::AttrObject *object, const Anchor &anchor); // gives the cell or wire an id when it has none
 	void anchorPin(const Netlist::Pin *pin, uint32_t ref_index);
+	void anchorInnerPins(const Netlist::Net *net, RTLIL::PortDir dir, uint32_t ref_index);
 	// on a cell or barrier in the parent scope of the instance
 	void anchorIn(const Netlist::Instance *inst, RTLIL::Cell *cell, Anchor anchor);
-	void anchorInnerPins(const Netlist::Net *net, RTLIL::PortDir dir, uint32_t ref_index);
+	void countCutUsers(RTLIL::Module *module);
 	void protectDriver(const Netlist::Pin *pin, uint32_t ref_index);
+	// the only place that makes a Barrier anchor, false if the pin gets no barrier
+	bool cutPin(const Netlist::Pin *pin, uint32_t ref_index);
 	void keepCell(const Netlist::Instance *inst); // keep on a leaf cell, keep_hierarchy on a scope cell
 	void protectCell(const Netlist::Instance *inst, uint32_t ref_index); // keepCell and a barrier at each leaf pin
 	void protectNet(const Netlist::Net *net, uint32_t ref_index);
-	// the only place that makes a Barrier anchor, false if the pin gets no barrier
-	bool cutPin(const Netlist::Pin *pin, uint32_t ref_index);
 	// notes the wire bit at an inout pin, it gets no barrier
 	RTLIL::Cell *ensureBarrierAtPin(const Netlist::Pin *pin, uint32_t ref_index);
 	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, bool cut_on_a); // with a new cut wire
@@ -111,7 +111,7 @@ private:
 enum class WalkTarget : uint8_t { Drivers, Loads }; // the pins that a walk along a cut wire looks for
 
 enum class WalkReach : uint8_t {
-	CutSide, // stops at a barrier with anchors, fails when the target is outside the scope
+	CutSide, // stops at a barrier with anchors, fails when a load is outside the scope or the driver outside the top
 	AllLoads // passes both, a top output is a load
 };
 
@@ -121,6 +121,7 @@ struct CutWalk {
 	bool stop_at_scope = false; // a scope on the wire gives its pin, the walk does not go below
 	pool<std::pair<const Netlist::Instance *, const RTLIL::Cell *>> passed; // barriers and buffers
 	pool<std::pair<const Netlist::Instance *, RTLIL::SigBit>> seen;      // signals by scope
+	pool<std::tuple<const Netlist::Instance *, RTLIL::IdString, int>> exit_ports; // scope port bits the walk went up by
 	PinList pins;
 };
 
@@ -139,13 +140,15 @@ struct Resolver {
 	Resolver(const NetView &view, const TrackData &data);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
-	void resolveInstance(uint32_t ref_index, TrackedRef &ref);
 	// gives the scope its names, notes the hits of its cells and barriers, enters each new scope below
 	// one with a Scope anchor waits for its hit, one with the names of a checkpoint scope for enterNamedScopes
 	void enterScope(const Netlist::Instance *scope, const std::string &names);
 	// an anchor of the cell with the scope names of this place is a hit, with names that align it is a candidate
 	void noteHits(const Netlist::Instance *scope, const RTLIL::Cell *cell);
 	void addHit(const AnchorHit &hit);
+	// a scope with no anchor and the names of a checkpoint scope is that scope when the view has no other
+	// design -load brings cells with no id, submod can reuse the old name of a renamed scope, false when none
+	bool enterNamedScopes();
 	// the offset in old after the next scope that the view had at the checkpoint and has no more, else npos
 	// the names of scopes that flatten dissolved before the checkpoint go with it, an hdlname has them
 	size_t goneScopeEnd(std::string_view old, size_t at) const;
@@ -159,19 +162,18 @@ private:
 	void markCandidateScopesLive();
 	// those with names that still align and a cell of no other old place
 	std::vector<const AnchorHit *> alignedCandidates(const std::vector<AnchorHit> &hits) const;
-	// a scope with no anchor and the names of a checkpoint scope is that scope when the view has no other
-	// design -load brings cells with no id, submod can reuse the old name of a renamed scope, false when none
-	bool enterNamedScopes();
 	// the top pin at each anchored port wire by its name now, the net at each anchored net wire
 	void noteWires(const Netlist::Instance *scope);
 	// the net that each anchored wire at its old place names, or none, a net on a port only in its old scope
 	void noteNamedNet(const Netlist::Instance *scope, const RTLIL::Wire *wire, const Anchor &anchor);
 
+	void resolveInstance(uint32_t ref_index, TrackedRef &ref);
 	PinList resolvePin(uint32_t ref_index);
 	// the pin of each hit of a pin role, a hit with no such port gives none
 	PinList hitPins(uint32_t ref_index, Anchor::Role role);
 	// the leaf pins on the cut wire of the barrier
 	PinList cutPins(const AnchorHit &hit, WalkReach reach = WalkReach::CutSide);
+	const ModWalker &walkerOf(RTLIL::Module *module);
 	// the pins on the signal of the bit
 	bool addCutPins(const Netlist::Instance *scope, RTLIL::SigBit bit, WalkTarget target, CutWalk &walk);
 	// the pins at one user of the signal
@@ -180,9 +182,8 @@ private:
 	bool addLeafPin(const Netlist::Pin *pin, const PortBit &at, WalkTarget target, CutWalk &walk);
 	// walks on from each other one bit port of the cell
 	bool passCell(const Netlist::Instance *scope, const PortBit &at, WalkTarget target, CutWalk &walk);
-	const ModWalker &walkerOf(RTLIL::Module *module);
-	// the loads outside the scope on an output port of its module
-	bool addLoadsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, CutWalk &walk);
+	// the loads outside the scope on an output port of its module, or the drivers on an input port
+	bool addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target, CutWalk &walk);
 	// the loads inside a hierarchical instance on its input port, or the drivers on its output port
 	bool addPinsBelow(const Netlist::Instance *inst, const PortBit &at, WalkTarget target, CutWalk &walk);
 	InstanceList cellsBetween(uint32_t ref_index);
@@ -213,25 +214,25 @@ private:
 	std::vector<std::optional<std::string>> scope_names_;
 };
 
-// the names of the scopes of a cell from the top with a space after each, without a cell those of the scope
-// flatten keeps the names of the dissolved scopes of a cell in its hdlname
-std::string scopeNames(const Netlist::Instance *scope, const RTLIL::AttrObject *object = nullptr);
 // an hdlname on each scope cell, see ensureHdlname, then no two scopes of the view have the same scopeNames
 // a flatten copy with the names of another scope in its hdlname gets the name of its cell
 void makeScopeNamesUnique(const NetView &view);
-// an hdlname with the name of the cell, flatten then keeps that name and puts the scope names in front
-// a rename makes it stale, so each checkpoint sets it again when it has no scope names
-void ensureHdlname(RTLIL::Cell *cell);
+// the names of the scopes of an object from the top with a space after each, names is its hdlName
+// flatten keeps the names of the dissolved scopes there, without an object the names of the scope
+std::string scopeNames(const Netlist::Instance *scope, std::string names = {});
+std::optional<int> refIdOf(RTLIL::Design *design, const RTLIL::AttrObject *object);
+int keySeed(RTLIL::Design *design);
 Anchor pinAnchor(const Netlist::Pin *pin, uint32_t ref_index, Anchor::Role role = Anchor::Role::Pin);
 // the leaf pins on the net in its scope and below, they stand in when flatten dissolves the scope
 // PD_INPUT takes the loads, PD_OUTPUT the drivers, PD_INOUT both, an output with a load inside the loads outside
 // none when a second port of the scope is on the net
 PinList standInPins(const Netlist::Net *net, RTLIL::PortDir dir);
-int keySeed(RTLIL::Design *design);
+// an hdlname with the flattenNames of the cell name, flatten then keeps it and puts the scope names in front
+// a rename makes it stale, so each checkpoint sets it again when it has no scope names
+void ensureHdlname(RTLIL::Cell *cell);
+
 void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
 void removeOwnedKeeps(RTLIL::Design *design);
-
-std::optional<int> refIdOf(RTLIL::Design *design, const RTLIL::AttrObject *object);
 bool cutOnA(const RTLIL::Cell *barrier);
 RTLIL::SigBit cutBit(const RTLIL::Cell *barrier);
 std::vector<RTLIL::Cell *> trackedCells(RTLIL::Design *design); // the cells with an id
