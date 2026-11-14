@@ -20,7 +20,8 @@ inline Module *addInv(Design *design, const std::string &name)
 	return inv;
 }
 
-// top: in -> u_inv0 -> d0 -> u_sub (sub: a -> i1 -> y[0], a -> i2) -> p -> u_inv2 -> out
+// in -> u_inv0 -> d0 -> u_sub -> p -> u_inv2 -> out
+// in sub, a -> i1 -> y[0] and a -> i2
 class NetViewTest : public ::testing::Test
 {
       protected:
@@ -109,18 +110,15 @@ inline TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::K
 // view and its tracker
 struct TrackedView {
 	Design *design;
-	TrackMode mode;
-	std::unique_ptr<NetView> view = std::make_unique<NetView>();
+	std::unique_ptr<NetView> view = std::make_unique<NetView>(design);
 	NetTracker tracker;
 
-	explicit TrackedView(Design *design, TrackMode mode = TrackMode::Barriers) : design(design), mode(mode) { view->build(design); }
+	explicit TrackedView(Design *design) : design(design) {}
 	Netlist::Instance *child(const Cell *cell) const { return topChild(*view, cell); }
-	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs, mode); }
+	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs); }
 	void next(const std::vector<TrackedRef *> &refs)
 	{
-		pool<const Cell *> barriers = tracker.barrierInstances(design);
-		view = std::make_unique<NetView>();
-		view->build(design, {nullptr, &barriers});
+		view = std::make_unique<NetView>(design);
 		tracker.resolve(*view, refs);
 	}
 };
