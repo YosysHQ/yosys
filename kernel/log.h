@@ -410,6 +410,7 @@ public:
 	void suppressed();
 	void add_experimental(const std::string &str);
 	void add_deprecated(const std::string &feature, const std::string &earliest_removal);
+	bool first_use(const std::string &key) { return once.insert(key).second; }
 	void spacer();
 	void push();
 	void pop();
@@ -438,7 +439,7 @@ private:
 	int errors_count = 0;
 	int warnings_count = 0;
 	int warnings_count_noexpect = 0;
-	std::set<std::string> warnings, experimental, experimental_ignored;
+	std::set<std::string> warnings, experimental, experimental_ignored, once;
 	std::map<std::string, std::string> deprecated;
 
 	std::unique_ptr<Patterns> pat;
@@ -515,6 +516,13 @@ template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	logger().formatted_warning(LogSourceLocation{}, {}, fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
+inline void log_warning_once(const std::string &key, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	if (logger().first_use(key))
+		log_warning(fmt, args...);
 }
 
 inline void log_experimental(const std::string &str)
