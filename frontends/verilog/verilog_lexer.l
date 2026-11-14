@@ -555,17 +555,13 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 }
 
 "/*"[ \t]*(synopsys|synthesis)[ \t]*translate_off[ \t]*"*/" {
-	static bool printed_warning = false;
-	if (!printed_warning) {
-		log_warning(
-			"Encountered `translate_off' comment! Such legacy hot "
-			"comments are supported by Yosys, but are not part of "
-			"any formal language specification. Using a portable "
-			"and standards-compliant construct such as `ifdef is "
-			"recommended!\n"
-		);
-		printed_warning = true;
-	}
+	log_warning_once("verilog_translate_off",
+		"Encountered `translate_off' comment! Such legacy hot "
+		"comments are supported by Yosys, but are not part of "
+		"any formal language specification. Using a portable "
+		"and standards-compliant construct such as `ifdef is "
+		"recommended!\n"
+	);
 	BEGIN(SYNOPSYS_TRANSLATE_OFF);
 }
 <SYNOPSYS_TRANSLATE_OFF>.    /* ignore synopsys translate_off body */
@@ -576,31 +572,23 @@ supply1 { return parser::make_TOK_SUPPLY1(out_loc); }
 	BEGIN(SYNOPSYS_FLAGS);
 }
 <SYNOPSYS_FLAGS>full_case {
-	static bool printed_warning = false;
-	if (!printed_warning) {
-		log_warning(
-			"Encountered `full_case' comment! Such legacy hot "
-			"comments are supported by Yosys, but are not part of "
-			"any formal language specification. Using the Verilog "
-			"`full_case' attribute or the SystemVerilog `unique' "
-			"or `unique0' keywords is recommended!\n"
-		);
-		printed_warning = true;
-	}
+	log_warning_once("verilog_full_case",
+		"Encountered `full_case' comment! Such legacy hot "
+		"comments are supported by Yosys, but are not part of "
+		"any formal language specification. Using the Verilog "
+		"`full_case' attribute or the SystemVerilog `unique' "
+		"or `unique0' keywords is recommended!\n"
+	);
 	return parser::make_TOK_SYNOPSYS_FULL_CASE(out_loc);
 }
 <SYNOPSYS_FLAGS>parallel_case {
-	static bool printed_warning = false;
-	if (!printed_warning) {
-		log_warning(
-			"Encountered `parallel_case' comment! Such legacy hot "
-			"comments are supported by Yosys, but are not part of "
-			"any formal language specification. Using the Verilog "
-			"`parallel_case' attribute or the SystemVerilog "
-			"`unique' or `priority' keywords is recommended!\n"
-		);
-		printed_warning = true;
-	}
+	log_warning_once("verilog_parallel_case",
+		"Encountered `parallel_case' comment! Such legacy hot "
+		"comments are supported by Yosys, but are not part of "
+		"any formal language specification. Using the Verilog "
+		"`parallel_case' attribute or the SystemVerilog "
+		"`unique' or `priority' keywords is recommended!\n"
+	);
 	return parser::make_TOK_SYNOPSYS_PARALLEL_CASE(out_loc);
 }
 <SYNOPSYS_FLAGS>. /* ignore everything else */
