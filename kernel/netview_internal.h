@@ -14,6 +14,14 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail
 {
 
+template <typename K, typename V> struct ListMap {
+	void add(const K &key, V value) { data[key].push_back(value); }
+	const std::vector<V> &get(const K &key) const { return data.at(key, none); }
+	void clear() { data.clear(); }
+	dict<K, std::vector<V>> data;
+	std::vector<V> none;
+};
+
 template <typename T> T *recordAt(std::deque<T> &records, uint32_t at)
 {
 	if (at < records.size())
@@ -34,7 +42,6 @@ uint64_t portBits(RTLIL::Module *module);
 uint64_t wireBits(RTLIL::Module *module);
 uint64_t cellPinBits(RTLIL::Design *design, const RTLIL::Cell *cell);
 bool checkHierarchy(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, pool<RTLIL::Module *> &open, std::string &reason);
-bool checkUniquified(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &used, std::string &reason);
 bool checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason);
 bool checkIndices(RTLIL::Module *module, std::string &reason);
 
@@ -119,12 +126,20 @@ struct NetRtlil {
 	std::vector<Netlist::NetName> aliases;
 };
 
+struct NetsByScopeBit {
+	Netlist::Net *get(const Netlist::Instance *scope, const RTLIL::SigBit &bit) const;
+	void set(const Netlist::Instance *scope, const RTLIL::SigBit &bit, Netlist::Net *net);
+
+      public:
+	dict<std::pair<uint32_t, uint64_t>, Netlist::Net *> data;
+};
+
 struct RtlilIndex {
-	dict<uint32_t, Netlist::Instance *> instances_by_cell; // by cell hashidx_
-	dict<const RTLIL::Module *, Netlist::Instance *> scopes_by_module;
+	ListMap<uint32_t, Netlist::Instance *> instances_by_cell;	      // by cell hashidx_, one per unfolded occurrence of the cell
+	ListMap<const RTLIL::Module *, Netlist::Instance *> scopes_by_module; // the scopes whose body is the module
 	Netlist::IdMap<InstanceRtlil> instance_rtlil;
 	Netlist::IdMap<NetRtlil> net_rtlil;
-	dict<uint64_t, Netlist::Net *> nets_by_bit;
+	NetsByScopeBit nets_by_scope_bit;
 };
 
 struct BodyKeys {
