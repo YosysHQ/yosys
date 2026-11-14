@@ -59,6 +59,7 @@ yosys_core(kernel
 	mem.cc
 	mem.h
 	modtools.h
+	netbarrier.cc
 	netbuild.cc
 	netlist.cc
 	netlist.h

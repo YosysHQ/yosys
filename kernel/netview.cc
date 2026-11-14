@@ -8,6 +8,10 @@ YOSYS_NAMESPACE_BEGIN
 
 Netlist::CellLibrary::~CellLibrary() = default;
 
+bool Netlist::CellLibrary::isRegister(const Instance &) { return false; }
+
+bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
+
 NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
 
 NetView::~NetView() = default;
@@ -229,6 +233,9 @@ NetView::Counts detail::countRecords(RTLIL::Design *design, RTLIL::Module *modul
 	count.nets = std::min<uint64_t>(detail::wireBits(module) + 2, UINT32_MAX);
 	for (RTLIL::Cell *cell : module->cells()) {
 		NetView::Counts cell_count = {1, 0, detail::cellPinBits(design, cell)};
+		// A $barrier can be an instance with a net per bit
+		if (cell->type == ID($barrier))
+			cell_count.nets = cell_count.pins;
 		if (RTLIL::Module *sub = detail::childModule(design, cell))
 			cell_count.add(detail::countRecords(design, sub, counts));
 		count.add(cell_count);
@@ -349,7 +356,7 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	data_->library = options.library;
 	// A leaf type without ports errors out halfway, drop the partial view
 	try {
-		detail::ViewBuilder(*this, *data_).build(detail::topModule(design));
+		detail::ViewBuilder(*this, *data_, options.barrier_instances).build(detail::topModule(design));
 	} catch (...) {
 		clear();
 		throw;
@@ -538,6 +545,21 @@ void detail::nameChildren(Netlist::Instance *scope)
 	}
 }
 
+bool NetView::isRegister(const Netlist::Instance *inst) const
+{
+	if (data_->library != nullptr && data_->library->isRegister(*inst))
+		return true;
+	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+}
+
+bool NetView::isClockPin(const Netlist::Pin *pin) const
+{
+	if (data_->library != nullptr && data_->library->isClockPin(*pin))
+		return true;
+	const std::string &name = pin->port().name;
+	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+}
+
 uint64_t detail::mix64(uint64_t state, uint64_t value)
 {
 	uint64_t z = state + value + 0x9e3779b97f4a7c15;
@@ -724,6 +746,12 @@ bool NetView::upToDate() const
 	if (!built() || !detail::designAlive(*data_))
 		return false;
 	return detail::designFingerprint(data_->design, data_->watched_module_names) == data_->fingerprint;
+}
+
+void NetView::markUpToDate()
+{
+	log_assert(built());
+	data_->fingerprint = detail::designFingerprint(data_->design, data_->watched_module_names);
 }
 
 YOSYS_NAMESPACE_END
