@@ -1404,13 +1404,11 @@ AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
                                          std::unique_ptr<AstNode> original_ast)
 {
 	// The old module will be deleted. Rename and mark for deletion, using
-	// a static counter to make sure we get a unique name.
-	static unsigned counter;
+	// autoidx to make sure we get a unique name.
 	std::ostringstream new_name;
 	new_name << old_module->name.str()
 		 << "_before_process_and_replace_module_"
-		 << counter;
-	++counter;
+		 << ast_autoidx();
 
 	design->rename(old_module, new_name.str());
 	old_module->set_bool_attribute(ID::to_delete);
