@@ -12,6 +12,8 @@ bool Netlist::CellLibrary::isRegister(const Instance &) { return false; }
 
 bool Netlist::CellLibrary::isClockPin(const Pin &) { return false; }
 
+bool Netlist::CellLibrary::isBuffer(const Instance &) { return false; }
+
 NetView::NetView() : data_(std::make_unique<detail::ViewData>()) {}
 
 NetView::~NetView() = default;
@@ -315,7 +317,6 @@ bool NetView::buildable(RTLIL::Design *design, std::string &reason)
 	return true;
 }
 
-
 bool detail::checkModule(RTLIL::Design *design, RTLIL::Module *module, pool<RTLIL::Module *> &blackboxes, std::string &reason)
 {
 	if (!module->processes.empty()) {
@@ -363,9 +364,10 @@ void NetView::build(RTLIL::Design *design, const BuildOptions &options)
 	}
 	for (const std::string &type : data_->ports.types_not_in_library)
 		log_warning("NetView: no port model for leaf type %s, its instances take the host ports.\n", type);
+	data_->twines_serial = design->twines().serial();
 	for (const auto &[module, occurrences] : data_->index.scopes_by_module.data)
 		data_->watched_module_names.push_back(module->name);
-	data_->fingerprint = detail::designFingerprint(design, data_->watched_module_names);
+	markUpToDate();
 }
 
 void NetView::clear() { *data_ = detail::ViewData(); }
@@ -403,10 +405,23 @@ detail::NetNameRank detail::netNameRank(const RTLIL::SigBit &bit)
 {
 	const RTLIL::Wire *wire = bit.wire;
 	bool port = wire->port_id != 0;
-	bool keep = wire->get_bool_attribute(ID::keep);
+	bool keep = detail::hasUserKeep(wire);
 	bool pub = wire->name.isPublic();
 	size_t depth = detail::sourcePath(wire, wire->name.str()).size();
 	return {!port, !keep, !pub, depth, wire->name.str(), bit.offset};
+}
+
+bool detail::hasUserKeep(const RTLIL::Wire *wire)
+{
+	if (!wire->get_bool_attribute(ID::keep))
+		return false;
+	RTLIL::Design *design = wire->module->design;
+	return !wire->get_bool_attribute(design->twines().find(detail::ownedMarkerName(design, ID::keep)));
+}
+
+std::string detail::ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr)
+{
+	return std::string(detail::owned_marker_prefix) + detail::unescapedName({design, attr});
 }
 
 // $connect joins its two sides, as a module connection does
@@ -473,6 +488,7 @@ std::vector<Netlist::Net *> NetView::constNets(Netlist::Net::Const value) const
 		if (Netlist::Net *net = contents.tie_nets[value == Netlist::Net::Const::One])
 			nets.push_back(net);
 	}
+	std::sort(nets.begin(), nets.end(), detail::idLess<Netlist::Net>);
 	return nets;
 }
 
@@ -516,16 +532,16 @@ std::vector<const Netlist::Net *> detail::connectedNets(const Netlist::Net *net,
 	return nets;
 }
 
-
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
+	if (pin->dir() == Netlist::PortDir::Inout)
+		return true;
 	bool drivers = target == Netlist::WalkTarget::Drivers;
 	if (pin->inst->isLeaf())
 		return pin->isDriver() == drivers;
 	return pin->dir() == (drivers ? Netlist::PortDir::Output : Netlist::PortDir::Input);
 }
 
-// localName, the cell name where the localName repeats in the scope
 void detail::nameChildren(Netlist::Instance *scope)
 {
 	for (Netlist::Instance *child : scope->children)
@@ -549,7 +565,7 @@ bool NetView::isRegister(const Netlist::Instance *inst) const
 {
 	if (data_->library != nullptr && data_->library->isRegister(*inst))
 		return true;
-	return StaticCellTypes::categories.is_ff(cell(inst)->type);
+	return !inst->isTop() && StaticCellTypes::categories.is_ff(cell(inst)->type);
 }
 
 bool NetView::isClockPin(const Netlist::Pin *pin) const
@@ -557,7 +573,12 @@ bool NetView::isClockPin(const Netlist::Pin *pin) const
 	if (data_->library != nullptr && data_->library->isClockPin(*pin))
 		return true;
 	const std::string &name = pin->port().name;
-	return StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+	return !pin->inst->isTop() && StaticCellTypes::categories.is_ff(cell(pin->inst)->type) && (name == "C" || name == "CLK");
+}
+
+bool NetView::isBuffer(const Netlist::Instance *inst) const
+{
+	return (!inst->isTop() && cell(inst)->type == ID($_BUF_)) || (data_->library != nullptr && data_->library->isBuffer(*inst));
 }
 
 uint64_t detail::mix64(uint64_t state, uint64_t value)
@@ -608,10 +629,8 @@ uint64_t detail::BodyKeys::key(const NetView &view, const Netlist::Instance *sco
 		detail::Fingerprint fp;
 		fp.eat(uint64_t('P'));
 		fp.eat(port.name);
-		fp.eat(port.width);
-		fp.eat(port.from);
-		fp.eat(port.to);
-		fp.eat(int(port.dir));
+		fp.eat(port.width, port.from);
+		fp.eat(port.to, int(port.dir));
 		sum += fp.yield();
 	}
 	for (const Netlist::Pin *pin : scope->pins)
@@ -669,23 +688,18 @@ void detail::eatNet(Fingerprint &fp, const NetView &view, const Netlist::Net *ne
 		fp.eat(uint64_t(name.index));
 }
 
-void detail::hashDesign(Fingerprint &fp, RTLIL::Design *design)
+uint64_t detail::designModuleHash(RTLIL::Module *module)
 {
-	for (RTLIL::Module *module : design->modules()) {
-		fp.eat(module->name.str());
-		fp.eat(module->hashidx_);
-		bool blackbox = module->get_blackbox_attribute();
-		fp.eat(blackbox);
-		if (!blackbox)
-			continue;
-		for (RTLIL::IdString port : module->ports)
-			detail::hashWire(fp, module->wire(port));
-	}
-	RTLIL::Module *top = detail::topModule(design);
-	Hasher::hash_t top_idx = 0;
-	if (top != nullptr)
-		top_idx = top->hashidx_;
-	fp.eat(top_idx);
+	detail::Fingerprint fp;
+	fp.eat(module->name.str());
+	fp.eat(module->hashidx_);
+	bool blackbox = module->get_blackbox_attribute();
+	fp.eat(blackbox);
+	if (!blackbox)
+		return fp.yield();
+	for (RTLIL::IdString port : module->ports)
+		fp.eat(detail::wireHash(module->wire(port)));
+	return fp.yield();
 }
 
 void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
@@ -693,45 +707,69 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	fp.eat(module->hashidx_);
 	fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
+	uint64_t connections = 0;
 	for (const auto &[lhs, rhs] : module->connections()) {
-		fp.eat(GetSize(lhs));
-		fp.eat(lhs);
-		fp.eat(rhs);
+		detail::Fingerprint conn_fp;
+		conn_fp.eat(GetSize(lhs));
+		conn_fp.eat(lhs);
+		conn_fp.eat(rhs);
+		connections += conn_fp.yield();
 	}
+	fp.eat(connections);
+	uint64_t wires = 0;
 	for (RTLIL::Wire *wire : module->wires())
-		detail::hashWire(fp, wire);
+		wires += detail::wireHash(wire);
+	fp.eat(wires);
+	uint64_t cells = 0;
 	for (RTLIL::Cell *cell : module->cells())
-		detail::hashCell(fp, cell);
+		cells += detail::cellHash(cell);
+	fp.eat(cells);
 }
 
-void detail::hashWire(Fingerprint &fp, RTLIL::Wire *wire)
+uint64_t detail::wireHash(RTLIL::Wire *wire)
 {
+	detail::Fingerprint fp;
 	int flags = wire->upto | wire->port_input << 1 | wire->port_output << 2;
-	flags |= wire->get_bool_attribute(ID::keep) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
+	flags |= detail::hasUserKeep(wire) << 3 | wire->has_attribute(ID::single_bit_vector) << 4;
 	fp.eat(wire->name.str());
 	fp.eat(wire->hashidx_);
 	fp.eat(wire->width, wire->start_offset);
 	fp.eat(wire->port_id, flags);
 	fp.eat(wire->get_string_attribute(ID::hdlname));
+	return fp.yield();
 }
 
-void detail::hashCell(Fingerprint &fp, RTLIL::Cell *cell)
+uint64_t detail::cellHash(RTLIL::Cell *cell)
 {
+	detail::Fingerprint fp;
 	fp.eat(cell->name.str());
 	fp.eat(cell->hashidx_);
 	fp.eat(cell->type.str());
 	fp.eat(cell->get_string_attribute(ID::hdlname));
+	uint64_t ports = 0;
 	for (const auto &[port, sig] : cell->connections()) {
-		fp.eat(RTLIL::PooledName(cell->module, port).str());
-		fp.eat(GetSize(sig));
-		fp.eat(sig);
+		detail::Fingerprint port_fp;
+		port_fp.eat(RTLIL::PooledName(cell->module, port).str());
+		port_fp.eat(GetSize(sig));
+		port_fp.eat(sig);
+		ports += port_fp.yield();
 	}
+	fp.eat(ports);
+	return fp.yield();
 }
 
 uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names)
 {
+	uint64_t modules = 0;
+	for (RTLIL::Module *module : design->modules())
+		modules += detail::designModuleHash(module);
+	RTLIL::Module *top = detail::topModule(design);
 	detail::Fingerprint fp;
-	detail::hashDesign(fp, design);
+	fp.eat(modules);
+	Hasher::hash_t top_idx = 0;
+	if (top != nullptr)
+		top_idx = top->hashidx_;
+	fp.eat(top_idx);
 	for (const std::string &name : module_names) {
 		RTLIL::Module *module = design->module(name);
 		fp.eat(module != nullptr);
@@ -743,9 +781,10 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 
 bool NetView::upToDate() const
 {
-	if (!built() || !detail::designAlive(*data_))
+	const detail::ViewData &data = *data_;
+	if (!built() || !detail::designAlive(data) || data.design->twines().serial() != data.twines_serial)
 		return false;
-	return detail::designFingerprint(data_->design, data_->watched_module_names) == data_->fingerprint;
+	return detail::designFingerprint(data.design, data.watched_module_names) == data.fingerprint;
 }
 
 void NetView::markUpToDate()

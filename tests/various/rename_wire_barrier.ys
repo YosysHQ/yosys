@@ -1,0 +1,50 @@
+# a cell that drives a barrier cut takes the wire name after the barrier, a barrier on a load changes nothing
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire input 2 \b
+  wire output 3 \y
+  wire \n
+  wire $cut
+  wire $q
+  cell $_AND_ $and
+    connect \A \a
+    connect \B \b
+    connect \Y \n
+  end
+  cell $barrier $load
+    parameter \WIDTH 1
+    connect \A \n
+    connect \Y $cut
+  end
+  cell $_NOT_ $not
+    connect \A $cut
+    connect \Y $q
+  end
+  cell $barrier $driver
+    parameter \WIDTH 1
+    connect \A $q
+    connect \Y \y
+  end
+end
+EOT
+rename -wire -suffix _c t:$_AND_ t:$_NOT_
+select -assert-count 1 c:n_c t:$_AND_ %i
+select -assert-count 1 c:y_c t:$_NOT_ %i
+design -reset
+
+# barriers from optbarriers give no name twice
+read_verilog <<EOT
+module top(input clk, input [1:0] d, output [1:0] q, output r);
+  reg [1:0] qr;
+  always @(posedge clk) qr <= d;
+  assign q = qr;
+  assign r = qr[0];
+endmodule
+EOT
+synth -top top
+optbarriers
+opt_clean
+rename -wire
+rename -wire -suffix _reg
+rename -wire -move-to-cell

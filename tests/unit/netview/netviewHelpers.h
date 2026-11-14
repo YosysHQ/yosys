@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "kernel/netview.h"
+#include "kernel/nettrack.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"
@@ -90,6 +90,40 @@ inline void ensurePasses()
 }
 
 inline Netlist::Instance *topChild(const NetView &view, const Cell *cell) { return view.instance(cell, view.top()); }
+
+using Pins = std::vector<const Netlist::Pin *>;
+
+inline Pins sortedPins(Pins pins)
+{
+	std::sort(pins.begin(), pins.end());
+	return pins;
+}
+
+inline TrackedRef pinRef(const Pins &pins, TrackedRef::Kind kind = TrackedRef::Kind::Pin)
+{
+	TrackedRef ref{kind};
+	ref.pins = pins;
+	return ref;
+}
+
+// view and its tracker
+struct TrackedView {
+	Design *design;
+	TrackMode mode;
+	std::unique_ptr<NetView> view = std::make_unique<NetView>();
+	NetTracker tracker;
+
+	explicit TrackedView(Design *design, TrackMode mode = TrackMode::Barriers) : design(design), mode(mode) { view->build(design); }
+	Netlist::Instance *child(const Cell *cell) const { return topChild(*view, cell); }
+	void checkpoint(const std::vector<TrackedRef *> &refs) { tracker.checkpoint(*view, refs, mode); }
+	void next(const std::vector<TrackedRef *> &refs)
+	{
+		pool<const Cell *> barriers = tracker.barrierInstances(design);
+		view = std::make_unique<NetView>();
+		view->build(design, {nullptr, &barriers});
+		tracker.resolve(*view, refs);
+	}
+};
 
 YOSYS_NAMESPACE_END
 
