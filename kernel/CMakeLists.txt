@@ -62,6 +62,10 @@ yosys_core(kernel
 	netbuild.cc
 	netlist.cc
 	netlist.h
+	netresolve.cc
+	nettrack.cc
+	nettrack.h
+	nettrack_internal.h
 	netview.cc
 	netview.h
 	netview_internal.h
@@ -149,6 +153,7 @@ yosys_core(kernel
 		macc.h
 		modtools.h
 		netlist.h
+		nettrack.h
 		netview.h
 		mem.h
 		qcsat.h

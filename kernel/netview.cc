@@ -488,6 +488,28 @@ void detail::addLeafPins(const Netlist::Net *net, Netlist::WalkTarget target, st
 	}
 }
 
+std::vector<const Netlist::Net *> detail::connectedNets(const Netlist::Net *net, bool down)
+{
+	std::vector<const Netlist::Net *> nets;
+	pool<const Netlist::Net *> seen;
+	std::vector<const Netlist::Net *> todo = {net};
+	while (!todo.empty()) {
+		const Netlist::Net *at = todo.back();
+		todo.pop_back();
+		if (at == nullptr || !seen.insert(at).second)
+			continue;
+		nets.push_back(at);
+		for (const Netlist::Pin *port : at->boundary)
+			todo.push_back(port->net);
+		for (const Netlist::Pin *pin : at->pins) {
+			if (down && pin->inner != nullptr)
+				todo.push_back(pin->inner);
+		}
+	}
+	return nets;
+}
+
+
 bool detail::pinMatchesTarget(const Netlist::Pin *pin, Netlist::WalkTarget target)
 {
 	bool drivers = target == Netlist::WalkTarget::Drivers;
