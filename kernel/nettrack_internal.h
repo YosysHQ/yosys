@@ -77,6 +77,8 @@ struct TrackData {
 struct CheckpointWriter {
 	CheckpointWriter(const NetView &view, TrackData &data, bool protect);
 	void write(uint32_t ref_index, const TrackedRef &ref);
+	// after the last write, a word port is set once for all its cut bits
+	void setCutPorts();
 	// after the last write and makeScopeNamesUnique, anchors the cell of each scope, sorts each anchor list by scope
 	void noteScopes();
 	// after the last anchor, a cell with no anchor loses its id, a barrier gets a new one
@@ -101,6 +103,7 @@ private:
 	TrackData &data_;
 	bool protect_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
+	dict<std::pair<RTLIL::Cell *, RTLIL::IdString>, RTLIL::SigSpec> cut_ports_; // the signal of each port that a pin asked a barrier for
 	dict<RTLIL::SigBit, int> cut_users_; // by cut bit, the cell pins on it
 	std::vector<RTLIL::Cell *> tracked_cells_; // had an id before the checkpoint
 	pool<const RTLIL::AttrObject *> anchored_; // the cells and wires with an anchor

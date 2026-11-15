@@ -17,6 +17,7 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	detail::makeScopeNamesUnique(view);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++)
 		writer.write(ref_index, *refs[ref_index]);
+	writer.setCutPorts();
 	writer.noteScopes();
 	writer.dropUnusedIds();
 	view.markUpToDate();

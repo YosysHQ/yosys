@@ -141,7 +141,9 @@ RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pi
 	RTLIL::IdString port = detail::escapedPortId(view_.design(), pin->inst, pin->port().name);
 	if (!cell->hasPort(port) || pin->bit >= GetSize(cell->getPort(port)))
 		return nullptr;
-	RTLIL::SigSpec sig = cell->getPort(port);
+	RTLIL::SigSpec &sig = cut_ports_[{cell, port}];
+	if (sig.empty())
+		sig = cell->getPort(port);
 	RTLIL::SigBit bit = sig[pin->bit];
 	if (bit.wire == nullptr)
 		return nullptr;
@@ -156,8 +158,13 @@ RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pi
 		return existing;
 	RTLIL::Cell *barrier = createBarrierCell(cell->module, bit, cut_on_a);
 	sig[pin->bit] = detail::cutBit(barrier);
-	cell->setPort(port, sig);
 	return barrier;
+}
+
+void detail::CheckpointWriter::setCutPorts()
+{
+	for (const auto &[cell_port, sig] : cut_ports_)
+		cell_port.first->setPort(cell_port.second, sig);
 }
 
 RTLIL::Cell *detail::CheckpointWriter::createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, bool cut_on_a)
