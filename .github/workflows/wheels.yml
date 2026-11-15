@@ -13,27 +13,21 @@ jobs:
       matrix:
         os: [
             {
-              name: "Ubuntu 22.04",
+              name: "Ubuntu 26.04",
               family: "linux",
-              runner: "ubuntu-22.04",
+              runner: "ubuntu-26.04",
               archs: "x86_64",
             },
             {
-              name: "Ubuntu 22.04",
+              name: "Ubuntu 26.04",
               family: "linux",
-              runner: "ubuntu-22.04-arm",
+              runner: "ubuntu-26.04-arm",
               archs: "aarch64",
             },
             {
-              name: "macOS 15 x64",
+              name: "macOS 26",
               family: "macos",
-              runner: "macos-15-intel",
-              archs: "x86_64",
-            },
-            {
-              name: "macOS 15 arm64",
-              family: "macos",
-              runner: "macos-15",
+              runner: "macos-26",
               archs: "arm64",
             },
             ## Windows still has a couple issues.
@@ -117,7 +111,7 @@ jobs:
   upload_wheels:
     name: Upload Wheels
     if: (github.repository == 'YosysHQ/yosys') && (github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
     permissions:
