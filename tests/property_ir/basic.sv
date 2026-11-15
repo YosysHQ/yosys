@@ -230,14 +230,16 @@ module clocked_disable (input clk, input a, b, c);
 endmodule
 
 module clocked_outer (input clk_i, clk_o, input a);
-    property prop;
-        @(posedge clk_i) a;
-    endproperty
+    // These should be the same (assert a clocked by clk_i)
+    always @(posedge clk_i)
+        single_1: assert property (a);
+    single_2: assert property (@(posedge clk_i) a);
+
+    // These two are semantically different and should not be the same
     always @(posedge clk_o) begin
-        ap1: assert property (prop);
+        double_1: assert property (@(posedge clk_i) a);
     end
-    ap2: assert property (@(posedge clk_o) prop);
-    ap3: assert property (@(posedge clk_o) @(posedge clk_i) a);
+    double_2: assert property (@(posedge clk_o) @(posedge clk_i) a);
 endmodule
 
 module default_disable (input clk, rst, input a, b, c);
