@@ -30,6 +30,38 @@ PRIVATE_NAMESPACE_BEGIN
 #include "techlibs/xilinx/xilinx_dsp_CREG_pm.h"
 #include "techlibs/xilinx/xilinx_dsp_cascade_pm.h"
 
+// The matchers already reject a slice whose init is not 0 or x. The DSP
+// flop powers up as 0, so that slice can move. Other bits of the same
+// register stay in the fabric and keep their init. Walking the whole Q
+// asserted on a 1 outside the absorbed slice.
+static SigSpec xilinx_dsp_absorbed(const SigSpec &port, const SigSpec &q)
+{
+	pool<SigBit> used;
+	for (auto bit : port)
+		if (bit.wire)
+			used.insert(bit);
+	SigSpec absorbed;
+	for (auto bit : q)
+		if (bit.wire && used.count(bit))
+			absorbed.append(bit);
+	return absorbed;
+}
+
+static void xilinx_dsp_retire_init(const SigSpec &moved)
+{
+	for (auto c : moved.chunks()) {
+		if (!c.wire)
+			continue;
+		auto it = c.wire->attributes.find(ID::init);
+		if (it == c.wire->attributes.end())
+			continue;
+		for (int i = c.offset; i < c.offset+c.width; i++) {
+			log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
+			it->second.set(i, State::Sx);
+		}
+	}
+}
+
 static Cell* addDsp(Module *module) {
 	Cell *cell = module->addCell(NEW_ID, ID(DSP48E1));
 	cell->setParam(ID(ACASCREG), 0);
@@ -373,6 +405,8 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			// Before replace: that call swaps these Q bits for D.
+			SigSpec absorbed = xilinx_dsp_absorbed(pm.sigmap(A), Q);
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString::Null) {
@@ -392,15 +426,7 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			else
 				cell->setPort(ceport, State::S1);
 
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
+			xilinx_dsp_retire_init(absorbed);
 		};
 
 		if (st.ffA2) {
@@ -441,13 +467,13 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			cell->setParam(ID(DREG), 1);
 		}
 		if (st.ffM) {
-			SigSpec M; // unused
+			SigSpec M = st.sigM;
 			f(M, st.ffM, ID(CEM), ID(RSTM));
 			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
-			SigSpec P; // unused
+			SigSpec P = st.sigP;
 			f(P, st.ffP, ID(CEP), ID(RSTP));
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
@@ -560,6 +586,8 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			// Before replace: that call swaps these Q bits for D.
+			SigSpec absorbed = xilinx_dsp_absorbed(pm.sigmap(A), Q);
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString::Null) {
@@ -579,15 +607,7 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			else
 				cell->setPort(ceport, State::S1);
 
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
+			xilinx_dsp_retire_init(absorbed);
 		};
 
 		if (st.ffA0 || st.ffA1) {
@@ -624,13 +644,13 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			cell->setParam(ID(DREG), 1);
 		}
 		if (st.ffM) {
-			SigSpec M; // unused
+			SigSpec M = st.sigM;
 			f(M, st.ffM, ID(CEM), ID(RSTM));
 			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
-			SigSpec P; // unused
+			SigSpec P = st.sigP;
 			f(P, st.ffP, ID(CEP), ID(RSTP));
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
@@ -684,6 +704,8 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 		auto f = [&pm,cell](SigSpec &A, Cell* ff, IdString ceport, IdString rstport) {
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			// Before replace: that call swaps these Q bits for D.
+			SigSpec absorbed = xilinx_dsp_absorbed(pm.sigmap(A), Q);
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString::Null) {
@@ -703,15 +725,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 			else
 				cell->setPort(ceport, State::S1);
 
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
+			xilinx_dsp_retire_init(absorbed);
 		};
 
 		if (st.ffC) {

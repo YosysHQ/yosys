@@ -1,0 +1,161 @@
+# A 1 in a register bit that the DSP does not absorb used to abort
+# xilinx_dsp (the matcher only checks the absorbed slice, the mover
+# walked the whole Q). The bit stays in the fabric FF with its init.
+
+design -reset
+read_verilog <<EOT
+module outside(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
+  reg [15:0] r = 16'h0001;
+  always @(posedge clk) begin
+    r <= r + 1;
+    p <= $signed(r[15:8]) * x;
+  end
+endmodule
+EOT
+proc
+design -save gold
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load postopt
+cd outside
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:AREG=1 %i r:MREG=1'1 %i
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+select -assert-count 7 t:FDRE r:INIT=1'0 %i
+select -assert-count 8 t:FDRE r:INIT=1'x %i
+
+# The reported 32-bit counter: the 1 is in the low half, so only the
+# high half (init 0) is absorbed.
+design -reset
+read_verilog <<EOT
+module wide(input CLK, output [31:0] q);
+  reg [31:0] r = 32'h1;
+  always @(posedge CLK) r <= r + 32'd1;
+  reg [31:0] p;
+  always @(posedge CLK) p <= r[15:0] * r[31:16];
+  assign q = p;
+endmodule
+EOT
+synth_xilinx -arch xc7 -top wide -noiopad
+cd wide
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:AREG=0 %i r:BREG=1 %i r:MREG=1'1 %i
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+select -assert-count 15 t:FDRE r:INIT=1'0 %i
+select -assert-count 16 t:FDRE r:INIT=1'x %i
+
+# Issue body: 8x8 slices of the same counter.
+design -reset
+read_verilog <<EOT
+module minimal(input clk, output signed [15:0] p);
+  reg [31:0] r = 32'h1;
+  always @(posedge clk) r <= r + 1;
+  reg signed [15:0] pr = 0;
+  always @(posedge clk)
+    pr <= $signed(r[7:0]) * $signed(r[15:8]);
+  assign p = pr;
+endmodule
+EOT
+synth_xilinx -family xc7 -top minimal -noiopad
+cd minimal
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+
+# M register: the 1 sits above the product half.
+design -reset
+read_verilog <<EOT
+module mreg(input clk, input signed [7:0] a, b, input [7:0] c, output reg [23:0] q = 24'h010000);
+  always @(posedge clk) begin
+    q[15:0] <= a * b;
+    q[23:16] <= c;
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load postopt
+cd mreg
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:MREG=1'1 %i
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+select -assert-count 7 t:FDRE r:INIT=1'0 %i
+
+# P register, same shape, through the post-adder.
+design -reset
+read_verilog <<EOT
+module preg(input clk, input signed [7:0] a, b, input [15:0] c, input [7:0] d, output reg [23:0] q = 24'h010000);
+  always @(posedge clk) begin
+    q[15:0] <= a * b + c;
+    q[23:16] <= d;
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load postopt
+cd preg
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:PREG=1'1 %i
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+select -assert-count 7 t:FDRE r:INIT=1'0 %i
+
+# C register. The 1 is in the half that stays in the fabric.
+design -reset
+read_verilog <<EOT
+module creg(input clk, input signed [7:0] a, b, input [15:0] x, output [31:0] q);
+  reg [31:0] cr = 32'h1;
+  reg [31:0] pr = 0;
+  always @(posedge clk) begin
+    cr <= {x, x} + 1;
+    pr <= a * b + cr[31:16];
+  end
+  assign q = {pr[15:0], cr[15:0]};
+endmodule
+EOT
+synth_xilinx -family xc7 -top creg -noiopad
+cd creg
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:CREG=1 %i r:PREG=1'1 %i
+select -assert-count 1 t:FDRE r:INIT=1'1 %i
+select -assert-count 15 t:FDRE r:INIT=1'0 %i
+
+# DSP48A1 (xc6s) uses the same mover.
+design -reset
+read_verilog <<EOT
+module spartan(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
+  reg [15:0] r = 16'h0001;
+  always @(posedge clk) begin
+    r <= r + 1;
+    p <= $signed(r[15:8]) * x;
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+design -load postopt
+cd spartan
+select -assert-count 1 t:DSP48A1
+select -assert-count 1 t:DSP48A1 r:A1REG=1 %i r:MREG=1'1 %i
+select -assert-count 1 t:FDSE r:INIT=1'1 %i
+select -assert-count 7 t:FDRE r:INIT=1'0 %i
+select -assert-count 8 t:FDRE r:INIT=1'x %i
+
+# Cascade chain. The first pack used to abort before the chain was built.
+design -reset
+read_verilog <<EOT
+module chain(input clk, input [4:0] a, input [4:0] b, output [19:0] q);
+  reg [19:0] r = 20'h1;
+  always @(posedge clk) r <= r + 1;
+  reg [9:0] m, n;
+  reg [9:0] o;
+  always @(posedge clk) begin
+    m <= r[9:5] * r[4:0];
+    n <= r[14:10] * b + m;
+    o <= a * r[19:15] + n;
+  end
+  assign q = {r[19:10], o};
+endmodule
+EOT
+synth_xilinx -family xc7 -top chain -noiopad
+cd chain
+select -assert-count 3 t:DSP48E1
+select -assert-count 1 t:FDRE r:INIT=1'1 %i

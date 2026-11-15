@@ -27,6 +27,37 @@ PRIVATE_NAMESPACE_BEGIN
 #include "techlibs/microchip/microchip_dsp_cascade_pm.h"
 #include "techlibs/microchip/microchip_dsp_pm.h"
 
+// Same rule as xilinx_dsp: the matcher already rejected a non-zero init
+// on the absorbed slice. Only those bits are retired. A 1 elsewhere in
+// the register stays in the fabric with its init.
+static SigSpec microchip_dsp_absorbed(const SigSpec &port, const SigSpec &q)
+{
+	pool<SigBit> used;
+	for (auto bit : port)
+		if (bit.wire)
+			used.insert(bit);
+	SigSpec absorbed;
+	for (auto bit : q)
+		if (bit.wire && used.count(bit))
+			absorbed.append(bit);
+	return absorbed;
+}
+
+static void microchip_dsp_retire_init(const SigSpec &moved)
+{
+	for (auto c : moved.chunks()) {
+		if (!c.wire)
+			continue;
+		auto it = c.wire->attributes.find(ID::init);
+		if (it == c.wire->attributes.end())
+			continue;
+		for (int i = c.offset; i < c.offset + c.width; i++) {
+			log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
+			it->second.set(i, State::Sx);
+		}
+	}
+}
+
 void microchip_dsp_pack(microchip_dsp_pm &pm)
 {
 	auto &st = pm.st_microchip_dsp_pack;
@@ -90,6 +121,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			SigSpec absorbed = microchip_dsp_absorbed(pm.sigmap(A), Q);
 
 			if (!A.empty())
 				A.replace(Q, D);
@@ -122,15 +154,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
 
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset + c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
+			microchip_dsp_retire_init(absorbed);
 		};
 
 		// NOTE: flops are not autoremoved because it is possible that they
@@ -163,7 +187,7 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			cell->setPort(ID::D, D);
 		}
 		if (st.ffP) {
-			SigSpec P; // unused
+			SigSpec P = st.sigP;
 			f(P, st.ffP, ID(P_EN), ID(P_SRST_N), ID(P_BYPASS));
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 		}
@@ -207,6 +231,8 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
+			// Before replace: that call swaps these Q bits for D.
+			SigSpec absorbed = microchip_dsp_absorbed(pm.sigmap(A), Q);
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString::Null) {
@@ -238,15 +264,7 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
 
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset + c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
+			microchip_dsp_retire_init(absorbed);
 		};
 
 		if (st.ffC) {
