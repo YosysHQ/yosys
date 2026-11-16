@@ -7,4 +7,4 @@ import gen_tests_makefile
 
 gen_tests_makefile.check_iverilog()
 
-gen_tests_makefile.generate(["--yosys-scripts", "--bash"])
+gen_tests_makefile.generate(["--yosys-scripts", "--tcl-scripts", "--bash"])
