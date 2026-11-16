@@ -86,6 +86,24 @@ TEST_F(NetProtectTest, splitCellGivesTheCellsBetweenItsBarriers)
 	EXPECT_TRUE(cell.loads.empty());
 }
 
+// the side input comes from other logic, its cells are not between the barriers
+TEST_F(NetProtectTest, splitCellWithASideInputGivesOnlyTheNewCell)
+{
+	Module *and2 = addInv(d, "\\AND2");
+	and2->addWire(ID(B))->port_input = true;
+	and2->fixup_ports();
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	Cell *gate = top->addCell("\\gate", "\\AND2");
+	gate->setPort(ID(A), u_inv2->getPort(ID(A)));
+	gate->setPort(ID(B), d0);
+	gate->setPort(ID(Y), u_inv2->getPort(ID(Y)));
+	top->remove(u_inv2);
+	t.next({&cell});
+	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{t.child(gate)});
+}
+
 TEST_F(NetProtectTest, deletedCellGivesNoPins)
 {
 	TrackedView t(d);

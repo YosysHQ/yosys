@@ -22,6 +22,7 @@ using Netlist::NetList;
 using Netlist::PinList;
 using PortBit = ModWalker::PortBit;
 using ScopeNameSet = pool<std::string>;
+using CellSet = pool<const RTLIL::Cell *>;
 using CellInScope = std::pair<const Netlist::Instance *, const RTLIL::Cell *>;
 using BitInScope = std::pair<const Netlist::Instance *, RTLIL::SigBit>;
 using ScopePortBit = std::tuple<const Netlist::Instance *, RTLIL::IdString, int>;
@@ -190,6 +191,7 @@ private:
 	bool addPinsBelow(const Netlist::Instance *inst, const PortBit &at, WalkTarget target, CutWalk &walk);
 	InstanceList cellsBetween(uint32_t ref_index);
 	InstanceList cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends);
+	CellSet cellsToward(const HitList &hits, const pool<RTLIL::SigBit> &ends, WalkTarget target);
 	PinList loadsBehind(const AnchorHit &hit);
 	NetList resolveNet(uint32_t ref_index);
 	void addNetsAt(const NetPlace &place, const PinList &drivers, NetList &nets) const;

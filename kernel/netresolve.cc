@@ -539,35 +539,55 @@ detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
 	return cellsUpTo(hits, ends);
 }
 
+// cells on a path from an input cut wire to an output cut wire, a new cell can read a signal of other logic
+// with cuts on one side or an inout pin there is no such path, a path of one direction is then enough
 detail::InstanceList detail::Resolver::cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends)
 {
 	const Netlist::Instance *scope = hits[0].scope;
-	const ModWalker &walker = walkerOf(scope->module);
-	std::vector<RTLIL::SigBit> todo;
-	for (const AnchorHit &hit : hits)
-		todo.push_back(detail::cutBit(hit.cell));
-	pool<const RTLIL::Cell *> seen;
+	size_t output_cuts = std::ranges::count_if(hits, detail::cutOnA, &AnchorHit::cell);
+	bool one_direction = output_cuts == 0 || output_cuts == hits.size() || !ends.empty();
+	CellSet after_inputs = cellsToward(hits, ends, WalkTarget::Loads);
+	CellSet before_outputs = cellsToward(hits, ends, WalkTarget::Drivers);
+	if (one_direction)
+		after_inputs.insert(before_outputs.begin(), before_outputs.end());
 	InstanceList cells;
+	for (const RTLIL::Cell *cell : after_inputs) {
+		const Netlist::Instance *inst = view_.instance(cell, scope);
+		if (inst != nullptr && (one_direction || before_outputs.count(cell)))
+			cells.push_back(inst);
+	}
+	return detail::uniqueSorted(cells);
+}
+
+// cells behind the input cut wires toward the loads, or behind the output cut wires toward the drivers
+// a barrier or an end stops the walk
+detail::CellSet detail::Resolver::cellsToward(const HitList &hits, const pool<RTLIL::SigBit> &ends, WalkTarget target)
+{
+	const ModWalker &walker = walkerOf(hits[0].scope->module);
+	bool to_loads = target == WalkTarget::Loads;
+	const auto &users_by_bit = to_loads ? walker.signal_consumers : walker.signal_drivers;
+	const auto &next_bits_by_cell = to_loads ? walker.cell_outputs : walker.cell_inputs;
+	std::vector<RTLIL::SigBit> todo;
+	for (const AnchorHit &hit : hits) {
+		if (detail::cutOnA(hit.cell) != to_loads)
+			todo.push_back(detail::cutBit(hit.cell));
+	}
+	CellSet cells;
 	while (!todo.empty()) {
 		RTLIL::SigBit root = walker.sigmap(todo.back());
 		todo.pop_back();
-		if (ends.count(root))
+		auto users = users_by_bit.find(root);
+		if (ends.count(root) || users == users_by_bit.end())
 			continue;
-		pool<PortBit> users;
-		walker.get_drivers(users, root);
-		walker.get_consumers(users, root);
-		for (const PortBit &at : users) {
-			if (at.cell->type == ID($barrier) || !seen.insert(at.cell).second)
+		for (const PortBit &at : users->second) {
+			if (at.cell->type == ID($barrier) || !cells.insert(at.cell).second)
 				continue;
-			if (const Netlist::Instance *inst = view_.instance(at.cell, scope))
-				cells.push_back(inst);
-			for (const auto &[port, sig] : at.cell->connections()) {
-				for (const RTLIL::SigBit &bit : sig)
-					todo.push_back(bit); // a constant has no users
-			}
+			auto next_bits = next_bits_by_cell.find(at.cell);
+			if (next_bits != next_bits_by_cell.end())
+				todo.insert(todo.end(), next_bits->second.begin(), next_bits->second.end());
 		}
 	}
-	return detail::uniqueSorted(cells);
+	return cells;
 }
 
 // each path through the old cell goes into a load behind one of its output barriers
