@@ -1128,7 +1128,7 @@ struct RTLILFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		log("Input filename: %s\n", filename);
 

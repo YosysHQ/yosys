@@ -539,7 +539,7 @@ struct LibertyFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		if (flag_wb && flag_lib)
 			log_error("-wb and -lib cannot be specified together!\n");
