@@ -652,7 +652,7 @@ struct JsonFrontend : public Frontend {
 			// }
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		JsonNode root(*f);
 

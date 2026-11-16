@@ -1040,7 +1040,7 @@ struct HierarchyPass : public Pass {
 			if ((top_mod == nullptr && abstract_mod) || top_mod != nullptr) {
 				for (auto &para : parameters) {
 					SigSpec sig_value;
-					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+					if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second, design))
 						log_cmd_error("Can't decode value '%s'!\n", para.second);
 					RTLIL::Const c = sig_value.as_const();
 					c.tag_bare_integer_const(para.second);
@@ -1128,7 +1128,7 @@ struct HierarchyPass : public Pass {
 			dict<RTLIL::IdString, RTLIL::Const> top_parameters;
 			for (auto &para : parameters) {
 				SigSpec sig_value;
-				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second))
+				if (!RTLIL::SigSpec::parse(sig_value, NULL, para.second, design))
 					log_cmd_error("Can't decode value '%s'!\n", para.second);
 				RTLIL::Const c = sig_value.as_const();
 				c.tag_bare_integer_const(para.second);

@@ -771,22 +771,23 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 		if (f == NULL)
 			log_error("Can't open script file `%s' for reading: %s\n", filename, strerror(errno));
 
-		FILE *backup_script_file = Frontend::current_script_file;
-		std::string backup_script_filename = Frontend::current_script_filename;
-		int backup_script_lineno = Frontend::current_script_lineno;
-		Frontend::current_script_file = f;
-		Frontend::current_script_filename = filename;
-		Frontend::current_script_lineno = 0;
+		FrontendContext &ctx = *design->frontend_context;
+		FILE *backup_script_file = ctx.script_file;
+		std::string backup_script_filename = ctx.script_filename;
+		int backup_script_lineno = ctx.script_lineno;
+		ctx.script_file = f;
+		ctx.script_filename = filename;
+		ctx.script_lineno = 0;
 
 		try {
 			std::string command;
 			while (fgetline(f, command)) {
-				Frontend::current_script_lineno++;
+				ctx.script_lineno++;
 				while (!command.empty() && command[command.size()-1] == '\\') {
 					std::string next_line;
 					if (!fgetline(f, next_line))
 						break;
-					Frontend::current_script_lineno++;
+					ctx.script_lineno++;
 					command.resize(command.size()-1);
 					command += next_line;
 				}
@@ -800,22 +801,22 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 			if (!command.empty()) {
 				handle_label(command, from_to_active, run_from, run_to);
 				if (from_to_active) {
-					Frontend::current_script_lineno++;
+					ctx.script_lineno++;
 					Pass::call(design, command);
 					design->check();
 				}
 			}
 		}
 		catch (...) {
-			Frontend::current_script_file = backup_script_file;
-			Frontend::current_script_filename = backup_script_filename;
-			Frontend::current_script_lineno = backup_script_lineno;
+			ctx.script_file = backup_script_file;
+			ctx.script_filename = backup_script_filename;
+			ctx.script_lineno = backup_script_lineno;
 			throw;
 		}
 
-		Frontend::current_script_file = backup_script_file;
-		Frontend::current_script_filename = backup_script_filename;
-		Frontend::current_script_lineno = backup_script_lineno;
+		ctx.script_file = backup_script_file;
+		ctx.script_filename = backup_script_filename;
+		ctx.script_lineno = backup_script_lineno;
 
 		if (filename != "-")
 			fclose(f);

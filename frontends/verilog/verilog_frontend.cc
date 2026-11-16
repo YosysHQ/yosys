@@ -502,7 +502,7 @@ struct VerilogFrontend : public Frontend {
 		if (parse_mode.formal || !flag_nosynthesis)
 			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
 
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename);
 

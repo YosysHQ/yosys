@@ -697,7 +697,7 @@ struct BlifFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		parse_blif(design, *f, IdString::Null, design->twines().next_autoidx(), true, sop_mode, wideports);
 	}
