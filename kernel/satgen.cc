@@ -1214,7 +1214,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 		if (timestep == 1)
 		{
 			initial_state.add((*sigmap)(cell->getPort(ID::Q)));
-			if (model_undef && def_formal) {
+			if (model_undef && def_formal && cell->type == ID($anyinit)) {
 				std::vector<int> undef_q = importUndefSigSpec(cell->getPort(ID::Q), timestep);
 				ez->assume(ez->NOT(ez->vec_reduce_or(undef_q)));
 			}
