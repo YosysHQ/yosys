@@ -1,0 +1,14 @@
+read_verilog <<EOT
+module t (input clk, input d, output reg q);
+  always @(posedge clk) q <= d;
+endmodule
+EOT
+prep -top t
+async2sync
+formalff -clk2ff
+
+sat -seq 1 -set-init-undef -set-def-formal -set-any-undef-at 1 q -verify
+
+formalff -ff2anyinit
+select -assert-count 1 t/t:$anyinit
+sat -seq 1 -set-init-undef -set-def-formal -set-any-undef-at 1 q -falsify
