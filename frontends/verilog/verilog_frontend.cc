@@ -517,7 +517,6 @@ struct VerilogFrontend : public Frontend {
 				filename = std::string("+/") + filename.substr(share_path.length());
 			log("new filename %s\n", filename);
 		}
-		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
 		std::string code_after_preproc;
 
 		parse_state.lexin = f;
@@ -576,7 +575,7 @@ struct VerilogFrontend : public Frontend {
 			error_on_dpi_function(parse_state.current_ast);
 
 		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire, flag_unroll_limit);
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire, parse_mode.sv, flag_unroll_limit);
 
 
 		if (!flag_nopp)
