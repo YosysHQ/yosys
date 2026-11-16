@@ -329,7 +329,10 @@ void detail::CheckpointWriter::noteScopes()
 // a rename makes it stale, so each checkpoint sets it again unless it has scope names
 void detail::ensureHdlname(RTLIL::Cell *cell)
 {
-	if (cell->get_string_attribute(ID::hdlname).find(' ') == std::string::npos)
+	std::string hdlname = cell->get_string_attribute(ID::hdlname);
+	// makeScopeNamesUnique set the cell name, flattenNames would give the shared names again
+	bool is_unique_name = hdlname == cell->name.unescape();
+	if (hdlname.find(' ') == std::string::npos && !is_unique_name)
 		cell->set_string_attribute(ID::hdlname, detail::flattenNames(cell->name.unescape()));
 }
 

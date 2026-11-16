@@ -291,6 +291,18 @@ TEST_F(NetProtectTest, twinsOfADissolvedPrivateScopeLoseTheRef)
 	EXPECT_TRUE(cell.gone);
 }
 
+// a private cell with the flatten name of a scope below gets its cell name, the checkpoint must end
+TEST_F(NetProtectTest, flattenNamedTwinOfAScopeGetsItsCellName)
+{
+	Module *inner = d->addModule("\\inner");
+	inner->addCell("\\i", ID(INV));
+	sub->addCell("$x", "\\inner");
+	Cell *twin = top->addCell("$flatten\\u_sub.$x", "\\inner");
+	TrackedView t(d);
+	t.checkpoint({});
+	EXPECT_EQ(twin->get_string_attribute(ID::hdlname), "$flatten\\u_sub.$x");
+}
+
 // the barrier of a hierarchical pin is in the parent, flatten leaves it and the pin is the leaf pins behind it
 TEST_F(NetProtectTest, flattenMovesAHierPinToTheLeafPins)
 {
