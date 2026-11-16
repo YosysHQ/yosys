@@ -99,7 +99,7 @@ RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cel
 	return sub;
 }
 
-// $flatten\a.\b.$x gives "a b $x", flatten names a private object that way, another name stays
+// $flatten\a.\b.$x -> "a b $x", flatten names a private object that way, another name stays
 std::string detail::flattenNames(const std::string &name)
 {
 	constexpr std::string_view prefix = "$flatten\\";
@@ -118,10 +118,10 @@ std::string detail::flattenNames(const std::string &name)
 	return names + std::string(rest);
 }
 
-// counts the records of one instance of a module, at most UINT32_MAX, false with a reason when a check fails
+// records of one instance of a module, at most UINT32_MAX, false with a reason when a check fails
 bool detail::countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &counts, std::string &reason)
 {
-	constexpr uint64_t open = UINT64_MAX; // the walk is inside the module
+	constexpr uint64_t open = UINT64_MAX; // walk is inside the module
 	if (counts.count(module)) {
 		if (counts.at(module) == open)
 			reason = stringf("module %s contains itself", module);
@@ -133,7 +133,7 @@ bool detail::countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &
 			return false;
 		}
 	}
-	// the instance and its pins
+	// instance and its pins
 	uint64_t count = 1;
 	for (RTLIL::IdString port : module->ports)
 		count += std::max(module->wire(port)->width, 0);
@@ -196,7 +196,7 @@ NetView::NetView(RTLIL::Design *design, Netlist::CellLibrary *library) : design_
 	markUpToDate();
 }
 
-// cells() lists the newest cell first, reversed it is creation order until a cell is removed
+// cells() is newest first, reversed it is creation order until a cell is removed
 // a module sorted by name keeps name order
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 {
@@ -218,7 +218,7 @@ std::string detail::ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr)
 	return std::string(detail::owned_marker_prefix) + RTLIL::PooledName(design, attr).unescape();
 }
 
-// $connect joins its two sides, as a module connection does
+// $connect joins its two sides like a module connection
 void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
 {
 	for (RTLIL::Cell *cell : module->cells()) {
@@ -236,7 +236,7 @@ Netlist::Instance *NetView::instance(const RTLIL::Cell *cell, const Netlist::Ins
 	return instance_by_cell_scope_.at({cell->hashidx_, scope->id}, nullptr);
 }
 
-// the nets that ports join with a net, over the hierarchy
+// nets that ports join with this net, over the hierarchy
 Netlist::NetList detail::connectedNets(const Netlist::Net *net)
 {
 	Netlist::NetList nets;
@@ -332,7 +332,7 @@ void detail::hashModule(Fingerprint &fp, RTLIL::Module *module)
 	if (fp.body_keys == nullptr)
 		fp.eat(module->get_string_attribute(ID::hdlname));
 	fp.eat(GetSize(module->processes));
-	uint64_t body = 0; // of the connections, wires and cells in any order
+	uint64_t body = 0; // a sum, connections, wires and cells in any order
 	for (const auto &[lhs, rhs] : module->connections()) {
 		detail::Fingerprint conn_fp = {0, fp.body_keys};
 		conn_fp.eat(GetSize(lhs));
@@ -383,7 +383,7 @@ uint64_t detail::cellHash(RTLIL::Cell *cell, const BodyKeys *body_keys)
 	return fp.state;
 }
 
-// has module names, blackbox ports, top, and the wires, cells and connections of the view modules
+// module names, blackbox ports, top, and the wires, cells and connections of the view modules
 uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names)
 {
 	uint64_t modules = 0;
@@ -407,7 +407,7 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 
 bool NetView::upToDate() const
 {
-	// the design that a shared_ptr held at the build is gone
+	// design that a shared_ptr held at the build is gone
 	if (design_shared_ && design_owner_.expired())
 		return false;
 	bool names_changed = design_->twines().serial() != twines_serial_;
@@ -416,7 +416,7 @@ bool NetView::upToDate() const
 	return detail::designFingerprint(design_, watched_module_names_) == fingerprint_;
 }
 
-// a checkpoint calls it, a barrier and an owned keep do not change the view
+// for checkpoint, a barrier and an owned keep do not change the view
 void NetView::markUpToDate() { fingerprint_ = detail::designFingerprint(design_, watched_module_names_); }
 
 YOSYS_NAMESPACE_END

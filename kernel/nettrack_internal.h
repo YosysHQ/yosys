@@ -12,10 +12,10 @@ YOSYS_NAMESPACE_BEGIN
 namespace detail
 {
 
-constexpr std::string_view ref_attr = "\\netview_ref";        // the id of a cell, wire or $barrier
-constexpr std::string_view cut_on_a_attr = "\\netview_cut_a"; // a $barrier at a driver, its cut wire is on A
-constexpr char new_scope_mark = '\t';                         // on a new scope with the name of a live scope
-constexpr int noted_twins = 2;                                // noteHits notes so many moved cells of one id and names
+constexpr std::string_view ref_attr = "\\netview_ref";        // id of a cell, wire or $barrier
+constexpr std::string_view cut_on_a_attr = "\\netview_cut_a"; // $barrier at a driver, cut wire on A
+constexpr char new_scope_mark = '\t';                         // marks a new scope named as a live scope
+constexpr int noted_twins = 2;                                // moved cells that noteHits notes per id and names
 
 using Netlist::InstanceList;
 using Netlist::NetList;
@@ -38,19 +38,25 @@ template <typename K, typename V> struct ListMap {
 
 // where an object was at checkpoint, found by its id
 struct Anchor {
-	// a Pin is a leaf or scope pin with no barrier, a CutPin a leaf pin with one, for when the barrier is gone
-	// a StandIn is a leaf pin below a hierarchical pin or net, it stands in when flatten dissolved the scope
-	// a Net is on the wire that names a net, a Scope is on the cell of each scope of the view, of no ref
-	enum class Role : uint8_t { Pin, CutPin, StandIn, Cell, Barrier, Port, Net, Scope };
+	enum class Role : uint8_t {
+		Pin,     // leaf or scope pin, no barrier
+		CutPin,  // leaf pin with barrier, for when the barrier is gone
+		StandIn, // leaf pin below a hierarchical pin or net, for a dissolved scope
+		Cell,    // cell of an instance ref
+		Barrier, // barrier at a ref pin or at a pin of a ref cell
+		Port,    // wire of a top port
+		Net,     // wire that names a net
+		Scope    // each scope cell of the view, of no ref
+	};
 
 	Role role;
 	uint32_t ref_index;        // same in checkpoint and resolve
-	std::string scope = {};    // of the cell or barrier, see scopeNames, a wire has none
-	std::string own_name = {}; // of a Scope with a space after, scope and own_name are its scopeNames
+	std::string scope = {};    // scopeNames of the cell or barrier, none for a wire
+	std::string own_name = {}; // Scope only, name and a space, scope plus own_name is its scopeNames
 	std::string port = {};
 	int bit = 0;
-	int hdl_index = 0; // the declared index of the pin bit
-	int net_place = 0; // of a Net, the position of its NetPlace
+	int hdl_index = 0; // declared index of the pin bit
+	int net_place = 0; // Net only, index of its NetPlace
 	bool hier = false; // Barrier of a hierarchical pin
 };
 using AnchorList = std::vector<Anchor>;
@@ -58,25 +64,26 @@ using AnchorList = std::vector<Anchor>;
 // where a net of a net ref was at checkpoint
 struct NetPlace {
 	std::string scope;     // its scopeNames
-	std::string dissolved; // the scope names in the hdlname of its wire, flatten puts them there
-	bool on_port = false;  // flatten of its scope joins it with the net above, that net is not the old net
+	std::string dissolved; // scope names in the hdlname of its wire, flatten puts them there
+	bool on_port = false;  // flatten joins it with the net above, that is not the old net
 	Netlist::NetName name;
 };
 
 // what the last checkpoint knows, see NetTracker::checkpoint
 struct TrackData {
-	static inline int last_id = 0; // process wide, seeded by keySeed so the ids of another yosys run do not match
+	static inline int last_id = 0; // process wide, keySeed keeps ids of another yosys run apart
 
 	ListMap<int, Anchor> anchors_by_id; // each list sorted by scope, see noteScopes
 
-	enum class Scope : uint8_t { 
+	enum class Scope : uint8_t {
 		Live,     // view scope
 		Dissolved // dissolved by flatten
 	};
+
 	dict<std::string, Scope> scopes;            // by scopeNames
-	ListMap<uint32_t, Anchor> top_ports_by_ref; // a top pin is also found by its port name
+	ListMap<uint32_t, Anchor> top_ports_by_ref; // a top pin is also found by port name
 	ListMap<uint32_t, NetPlace> net_places_by_ref;
-	ListMap<uint32_t, WireBitName> open_bits_by_ref; // at each inout pin of a cell ref, it has no barrier
+	ListMap<uint32_t, WireBitName> open_bits_by_ref; // at each inout pin of a cell ref, no barrier there
 	void noteDissolved(std::string names);
 	int nextId(RTLIL::Design *design);
 	const AnchorList &anchorsOf(RTLIL::Design *design, const RTLIL::AttrObject *object) const;
@@ -108,27 +115,27 @@ private:
 	TrackData &data_;
 	bool protect_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
-	dict<CellPort, RTLIL::SigSpec> cut_ports_; // the new signal of each port with a cut bit
-	dict<RTLIL::SigBit, int> cut_users_;       // by cut bit, the cell pins on it
+	dict<CellPort, RTLIL::SigSpec> cut_ports_; // new signal of each port with a cut bit
+	dict<RTLIL::SigBit, int> cut_users_;       // cell pins on each cut bit
 	std::vector<RTLIL::Cell *> tracked_cells_; // had an id before the checkpoint
 	pool<const RTLIL::AttrObject *> anchored_;
 	dict<const RTLIL::Module *, ScopeNameSet> gone_scopes_by_module_; // from the hdlname of each anchored cell
 };
 
-enum class WalkTarget : uint8_t { Drivers, Loads }; // the pins that a walk along a cut wire looks for
+enum class WalkTarget : uint8_t { Drivers, Loads }; // pins a walk along a cut wire looks for
 
 enum class WalkReach : uint8_t {
-	CutSide, // stops at a barrier with anchors, fails when a load is outside the scope or the driver outside the top
+	CutSide, // stops at a barrier with anchors, fails on a load outside the scope or a driver outside the top
 	AllLoads // passes both, a top output is a load
 };
 
 // what a walk along a cut wire went through
 struct CutWalk {
 	WalkReach reach = WalkReach::CutSide;
-	bool stop_at_scope = false; // a scope on the wire gives its pin, the walk does not go below
+	bool stop_at_scope = false; // a scope on the wire gives its pin, no walk below
 	pool<CellInScope> passed;   // barriers and buffers
 	pool<BitInScope> seen;
-	pool<ScopePortBit> exit_ports; // the walk went up by them
+	pool<ScopePortBit> exit_ports; // walk went up through them
 	PinList pins;
 };
 
@@ -136,20 +143,22 @@ struct AnchorHit {
 	const Anchor *anchor;
 	const Netlist::Instance *scope; // holds the cell
 	const RTLIL::Cell *cell;        // of the instance, or the barrier
-	std::string now = {};           // of a candidate, the scope names of the cell in the view
+	std::string now = {};           // candidate only, scope names of the cell in the view
 };
 using HitList = std::vector<AnchorHit>;
 using HitPtrList = std::vector<const AnchorHit *>;
 
-// which anchors take their candidates, the scopes go first, they tell which scopes are gone
-enum class AnchorKind : uint8_t { Scopes, Objects };
+enum class AnchorKind : uint8_t {
+	Scopes, // take candidates first, they tell which scopes are gone
+	Objects
+};
 
 // finds the anchors in the view in build order, turns the hits of each ref into objects
 struct Resolver {
 	Resolver(const NetView &view, const TrackData &data);
 	void resolve(uint32_t ref_index, TrackedRef &ref);
 private:
-	using MovedCell = std::pair<const AnchorList *, std::string>; // the anchors of its id and its names now
+	using MovedCell = std::pair<const AnchorList *, std::string>; // anchors of its id and its names now
 	using PortPlace = std::tuple<uint32_t, std::string, int>;     // ref, port name and bit of the checkpoint
 
 	void enterScope(const Netlist::Instance *scope, const std::string &names);
@@ -171,7 +180,7 @@ private:
 	PinList hitPins(uint32_t ref_index, Anchor::Role role);
 	PinList cutPins(const AnchorHit &hit, WalkReach reach = WalkReach::CutSide);
 	const ModWalker &walkerOf(RTLIL::Module *module);
-	// the walk along a cut wire, false when the ref is lost
+	// walk along a cut wire, false when the ref is lost
 	bool addCutPins(const Netlist::Instance *scope, RTLIL::SigBit bit, WalkTarget target, CutWalk &walk);
 	bool passPorts(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target, CutWalk &walk);
 	bool addUserPins(const Netlist::Instance *scope, const PortBit &at, WalkTarget target, CutWalk &walk);
@@ -191,16 +200,15 @@ private:
 	ListMap<std::pair<uint32_t, Anchor::Role>, AnchorHit> hits_by_ref_role_;
 	ListMap<const Anchor *, AnchorHit> candidates_;
 	pool<const Anchor *> anchors_with_hit_;
-	dict<MovedCell, int> moved_cell_count_;           // the cells that are not at an old place
-	dict<CellInScope, const Anchor *> place_by_cell_; // the anchor of its first hit, a cell was at one place
-	InstanceList named_scopes_;                       // wait for enterNamedScopes
-	ScopeNameSet live_scopes_;                        // of each entered scope, and of each scope with a candidate
-	dict<PortPlace, const Netlist::Pin *> port_pin_by_place_; // the top pin at the anchored port wire
+	dict<MovedCell, int> moved_cell_count_;                   // cells not at an old place
+	dict<CellInScope, const Anchor *> place_by_cell_;         // anchor of its first hit, a cell was at one place
+	InstanceList named_scopes_;                               // wait for enterNamedScopes
+	ScopeNameSet live_scopes_;                                // entered scopes and scopes with a candidate
+	dict<PortPlace, const Netlist::Pin *> port_pin_by_place_; // top pin at the anchored port wire
 	ListMap<const NetPlace *, const Netlist::Net *> named_nets_by_place_;
 	std::map<uint32_t, NetsByName> nets_by_scope_name_; // by scope id, see netsByName
 	std::map<RTLIL::Module *, ModWalker> mod_walkers_;
-	// by instance id, the scopeNames of a scope at the checkpoint, a new scope has its names of now
-	// none for a scope that is not entered, twins and the scopes below them
+	// by instance id, checkpoint scopeNames or names of now for a new scope, none when not entered (twins and below)
 	std::vector<std::optional<std::string>> scope_names_;
 };
 
@@ -210,9 +218,9 @@ std::optional<int> refIdOf(RTLIL::Design *design, const RTLIL::AttrObject *objec
 int keySeed(RTLIL::Design *design);
 Anchor pinAnchor(const Netlist::Pin *pin, uint32_t ref_index, Anchor::Role role = Anchor::Role::Pin);
 bool isAtOrBelow(const Netlist::Instance *inst, const Netlist::Instance *scope);
-// the leaf pins on a net and the nets connected to it, by the side of a scope
+// leaf pins on a net and its connected nets, by the side of a scope
 struct LeafPinsOnNet {
-	PinList inside; // those of the wanted direction
+	PinList inside; // of the wanted direction
 	PinList loads_outside;
 	bool has_load_inside = false;
 };

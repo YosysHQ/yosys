@@ -37,11 +37,11 @@ void NetTracker::clear(RTLIL::Design *design)
 	}
 }
 
-// an hdlname on each scope cell, see ensureHdlname, then no two scopes of the view have the same scopeNames
-// a flatten copy with the names of another scope in its hdlname gets the name of its cell
+// hdlname on each scope cell, see ensureHdlname, then no two scopes of the view share their scopeNames
+// a flatten copy with names of another scope in its hdlname gets its cell name
 void detail::makeScopeNamesUnique(const NetView &view)
 {
-	// a new name changes the names of the scopes below, so count again until no name changes
+	// a new name changes the names below, so count again until no name changes
 	for (bool changed = true; changed;) {
 		changed = false;
 		dict<std::string, int> scope_count;
@@ -67,7 +67,7 @@ void detail::makeScopeNamesUnique(const NetView &view)
 	}
 }
 
-// each shorter list of the names is of a scope too, a known list has them all
+// each shorter list of the names is a scope too, a known list has them all
 void detail::TrackData::noteDissolved(std::string names)
 {
 	while (!names.empty() && scopes.emplace(names, Scope::Dissolved).second) {
@@ -77,8 +77,8 @@ void detail::TrackData::noteDissolved(std::string names)
 	}
 }
 
-// the names of the scopes of an object from the top with a space after each, names is its hdlName
-// flatten keeps the names of the dissolved scopes there, without an object the names of the scope
+// scope names of an object from the top, a space after each, names is its hdlName
+// flatten keeps the dissolved scope names there, with no object the names of the scope
 std::string detail::scopeNames(const Netlist::Instance *scope, std::string names)
 {
 	size_t last_space = names.rfind(' ');
@@ -123,7 +123,7 @@ std::optional<int> detail::refIdOf(RTLIL::Design *design, const RTLIL::AttrObjec
 	return object->attributes.at(attr).as_int();
 }
 
-// hash of the first design, fixed for the process, so the same commands give the same ids in each run
+// hash of the first design, fixed for the process, so the same commands give the same ids each run
 int detail::keySeed(RTLIL::Design *design)
 {
 	static std::optional<int> seed;
@@ -160,7 +160,7 @@ void detail::CheckpointWriter::write(uint32_t ref_index, const TrackedRef &ref)
 
 void detail::CheckpointWriter::anchorNet(const Netlist::Net *net, uint32_t ref_index)
 {
-	// the wire that names the net, none for a constant
+	// wire that names the net, none for a constant
 	RTLIL::IdString wire_name = detail::escapedPortId(view_.design(), net->scope, net->name.wire);
 	RTLIL::Wire *wire = net->scope->module->wire(wire_name);
 	std::string hdl_name;
@@ -239,8 +239,8 @@ bool detail::isAtOrBelow(const Netlist::Instance *inst, const Netlist::Instance 
 	return inst != nullptr;
 }
 
-// the leaf pins on the net in its scope and below, they stand in when flatten dissolves the scope
-// PD_INPUT takes the loads, PD_OUTPUT the drivers, PD_INOUT both, an output with a load inside the loads outside
+// leaf pins on the net in its scope and below, they stand in when flatten dissolves the scope
+// PD_INPUT takes loads, PD_OUTPUT drivers, PD_INOUT both, an output with a load inside the loads outside
 detail::PinList detail::standInPins(const Netlist::Net *net, RTLIL::PortDir dir)
 {
 	LeafPinsOnNet found;
@@ -261,7 +261,7 @@ detail::PinList detail::standInPins(const Netlist::Net *net, RTLIL::PortDir dir)
 		if (!has_top_port)
 			found.inside = found.loads_outside;
 	}
-	// the leaf pins have the paths of a second port of the scope too, the ref is then lost with the scope
+	// leaf pins have the paths of a second port of the scope too, the ref is then lost with the scope
 	if (dir != RTLIL::PD_INOUT && scope_ports > 1)
 		found.inside.clear();
 	return found.inside;
@@ -283,7 +283,7 @@ void detail::addLeafPins(const Netlist::Net *net, bool in_scope, RTLIL::PortDir 
 	}
 }
 
-// cell is the cell of the instance or a barrier at it, both are in the parent scope
+// cell is of the instance or a barrier at it, both are in the parent scope
 void detail::CheckpointWriter::anchorIn(const Netlist::Instance *inst, RTLIL::Cell *cell, Anchor anchor)
 {
 	detail::ensureHdlname(cell);
@@ -299,7 +299,7 @@ void detail::CheckpointWriter::anchorIn(const Netlist::Instance *inst, RTLIL::Ce
 	addAnchor(cell, anchor);
 }
 
-// the hdlname of an anchored cell names scopes that are gone, each scope of its module had them
+// hdlname of an anchored cell names scopes that are gone, each scope of its module had them
 void detail::CheckpointWriter::noteScopes()
 {
 	for (const Netlist::Instance &scope : view_.instances()) {
@@ -325,9 +325,8 @@ void detail::CheckpointWriter::noteScopes()
 		std::ranges::stable_sort(anchors, {}, &Anchor::scope); // noteHits looks up a scope
 }
 
-// an hdlname with the flattenNames of the cell name, flatten then keeps it and puts the scope names in front
-// a rename makes it stale, so each checkpoint sets it again when it has no scope names
-// it stays in the design
+// hdlname is the flattenNames of the cell name, flatten keeps it and puts scope names in front, it stays in the design
+// a rename makes it stale, so each checkpoint sets it again unless it has scope names
 void detail::ensureHdlname(RTLIL::Cell *cell)
 {
 	if (cell->get_string_attribute(ID::hdlname).find(' ') == std::string::npos)

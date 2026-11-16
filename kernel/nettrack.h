@@ -12,7 +12,7 @@ namespace detail
 struct TrackData;
 }
 
-// the caller fills kind and the list of that kind, resolve refills the lists
+// caller fills kind and the list of that kind, resolve refills the lists
 struct TrackedRef {
 	enum class Kind : uint8_t { Pin, Instance, Net };
 
@@ -22,13 +22,12 @@ struct TrackedRef {
 		Netlist::PinList pins; // now at its cut side, the loads behind an output with no new driver
 	};
 
-	Kind kind;                            // resolve makes a Net that is gone a Pin of the leaf pins that were on it
+	Kind kind;                            // a gone Net resolves to a Pin of its old leaf pins
 	Netlist::PinList pins = {};           // a resolved leaf pin is on its cut side
-	Netlist::InstanceList instances = {}; // when the cell is gone, the cells between its barriers
-	bool gone = false;                    // resolve did not find the object
-	// the loads behind a leaf Pin or an Instance that is a wire or a constant now, a checkpoint anchors them as pins
-	Netlist::PinList loads = {};
-	std::vector<PortCut> port_cuts = {}; // each old port of an Instance
+	Netlist::InstanceList instances = {}; // cells between its barriers when the cell is gone
+	bool gone = false;                    // not found by resolve
+	Netlist::PinList loads = {};          // behind a leaf Pin or Instance now a wire or constant, anchored as pins
+	std::vector<PortCut> port_cuts = {};  // each old port of an Instance
 	Netlist::NetList nets = {};
 };
 
@@ -42,7 +41,7 @@ struct NetTracker final {
 	// drops the old anchors, the view must be up to date
 	// protect puts a $barrier at each ref pin and a keep on each ref cell, without it a pass can remove the object
 	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool protect = true);
-	// takes the refs of the checkpoint in the same order, can rerun
+	// refs of the checkpoint in the same order, can rerun
 	// two moved cells that fit one ref lose it, a copy can get the ref of a deleted cell
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
 	// drops the ids and the anchors, barriers stay until unprotect

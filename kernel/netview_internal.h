@@ -21,8 +21,8 @@ bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 RTLIL::Module *topModule(RTLIL::Design *design);
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 std::string flattenNames(const std::string &name);
-// the hdlname of a module, cell or wire, else the flattenNames of its name
-// a uniquified module keeps its original name in hdlname, flatten names a scope that way
+// hdlname of a module, cell or wire, else flattenNames of its name
+// uniquify keeps the original module name in hdlname, flatten names a scope that way
 template <typename T> std::string hdlName(const T *object)
 {
 	if (object->has_attribute(ID::hdlname))
@@ -31,8 +31,10 @@ template <typename T> std::string hdlName(const T *object)
 }
 
 using RecordCounts = dict<RTLIL::Module *, uint64_t>;
-// a blackbox is a leaf, its body has no records
-enum class ModuleRole : uint8_t { Leaf, Scope };
+enum class ModuleRole : uint8_t {
+	Leaf, // blackbox, its body has no records
+	Scope
+};
 bool countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &counts, std::string &reason);
 bool countBody(RTLIL::Module *module, RecordCounts &counts, std::string &reason, uint64_t &count);
 

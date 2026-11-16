@@ -10,7 +10,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-// names are unescaped, a record id is its position, instances from 0 (top), pins and nets from 1
+// names unescaped, a record id is its position, instances from 0 (top), pins and nets from 1
 namespace Netlist
 {
 
@@ -24,28 +24,28 @@ using NetList = std::vector<const Net *>;
 struct Port {
 	std::string name;
 	int width = 0;
-	int from = 0; // left index of the declared range, to is the right one
-	int to = 0;
+	int from = 0; // left index of the declared range
+	int to = 0;   // right index
 	RTLIL::PortDir dir = RTLIL::PD_UNKNOWN;
 	bool vector = false;    // declared with a range
-	uint32_t first_pin = 0; // of bit 0 in Instance::pins
+	uint32_t first_pin = 0; // bit 0 in Instance::pins
 	int hdlIndex(int bit) const;
 };
 
-// one record per module or type of a library or blackbox, each other cell has its own with its connections as ports
+// one per module, library type or blackbox type, any other cell has its own with its connections as ports
 struct CellType {
 	enum class Kind : uint8_t { Module, LibraryCell, InternalCell };
 
 	std::string name;
-	std::string hdl_name;  // the source module name before uniquify, else name
-	uint64_t body_key = 0; // of a scope, equal for one source name and equal bodies
+	std::string hdl_name;  // source module name before uniquify, else name
+	uint64_t body_key = 0; // scope only, equal for one source name and equal bodies
 	Kind kind = Kind::Module;
 	bool is_buffer = false;
 	std::vector<Port> ports;
 };
 
 // a scope (top or submodule) has inner nets, a leaf (cell or blackbox) has none
-// the RTLIL pointers of a record are valid while the view is upToDate()
+// RTLIL pointers of a record are valid while the view is upToDate()
 struct Instance {
 	std::string name; // local
 	const CellType *type = nullptr;
@@ -55,15 +55,15 @@ struct Instance {
 	RTLIL::Module *module = nullptr; // none for leaves
 	std::vector<Pin *> pins;         // one per port bit, in port then bit order
 	std::vector<Instance *> children;
-	// one net per SigMap bit that a pin touches, a tie net per constant 0 and 1
-	// a $barrier joins its A and Y, a constant only from A
+	// one net per SigMap bit on a pin, a tie net per constant 0 and 1
+	// $barrier joins A and Y, a constant only from A
 	std::vector<Net *> nets;
 	bool isTop() const { return parent == nullptr; }
 	bool isLeaf() const { return type->kind != CellType::Kind::Module; }
 	Pin *findPin(const std::string &port, int bit) const;
 };
 
-// a top pin has only an inner net, top has no cell
+// a top pin has only an inner net
 struct Pin {
 	Instance *inst = nullptr;
 	Net *net = nullptr;   // outside, parent scope, from the cell connection
@@ -90,16 +90,16 @@ struct Net {
 	Instance *scope = nullptr;
 	uint32_t id = 0;
 	Const constant = Const::None;
-	std::vector<Pin *> pins;     // the pins in the scope on this net
-	std::vector<Pin *> boundary; // the pins of the scope whose inner net this is
+	std::vector<Pin *> pins;     // pins in the scope on this net
+	std::vector<Pin *> boundary; // scope pins with this as inner net
 	NetName name;                // ranks port, then public wire, a constant has none
-	RTLIL::SigBit name_bit;      // the wire bit that gives the name
+	RTLIL::SigBit name_bit;      // wire bit that gives the name
 };
 
-// what a cell library knows of the leaf cell types
+// what a cell library knows of leaf cell types
 struct CellLibrary {
 	virtual ~CellLibrary() = default;
-	// type has its name and kind, fills its ports and facts, false if it does not know the type
+	// type has name and kind, fills ports and facts, false for an unknown type
 	virtual bool describe(CellType &type) = 0;
 };
 
@@ -110,7 +110,7 @@ namespace detail
 struct ViewBuilder;
 }
 
-// the records are read only and live with the view
+// records are read only and live with the view
 struct NetView final {
 	// one instance per cell occurrence, depth first in statement order
 	// log_cmd_error if not buildable() or a leaf type has no port model

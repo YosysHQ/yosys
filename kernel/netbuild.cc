@@ -32,7 +32,7 @@ const Netlist::CellType *detail::ViewBuilder::typeOf(const RTLIL::Cell *cell, RT
 		bool is_internal = StaticCellTypes::categories.is_known(cell->type);
 		type.kind = is_internal ? Kind::InternalCell : Kind::LibraryCell;
 		shared = leafPorts(cell, type);
-		// the yosys cell types add to what the library knows
+		// yosys cell types add to what the library knows
 		if (cell->type == ID($_BUF_))
 			type.is_buffer = true;
 	}
@@ -46,7 +46,7 @@ const Netlist::CellType *detail::ViewBuilder::typeOf(const RTLIL::Cell *cell, RT
 	return &type;
 }
 
-// a leaf asks library -> blackbox -> yosys cell types, false when the ports are the connections of this cell only
+// library -> blackbox -> yosys cell types, false when the ports are the connections of this cell only
 bool detail::ViewBuilder::leafPorts(const RTLIL::Cell *cell, Netlist::CellType &type)
 {
 	if (library_ != nullptr && library_->describe(type))
@@ -67,7 +67,7 @@ bool detail::ViewBuilder::leafPorts(const RTLIL::Cell *cell, Netlist::CellType &
 Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent)
 {
 	Netlist::Instance *inst = &view_.instances_.emplace_back();
-	// the top has no cell, it is named after its module
+	// top has no cell, its module names it
 	inst->name = cell != nullptr ? cell->name.unescape() : module->name.unescape();
 	inst->type = typeOf(cell, module);
 	inst->id = view_.instances_.size() - 1;
@@ -185,7 +185,7 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 			bool a_has_net = a_root.wire != nullptr || a_is_const_01;
 			if (sigmap(y[b]).wire == nullptr || !a_has_net)
 				continue;
-			// the root is A, or Y when only A is a cut wire, a cut wire never names a net
+			// root is A, or Y when only A is a cut wire, a cut wire never names a net
 			bool a_is_cut = a[b].wire != nullptr && a[b].wire->get_bool_attribute(cut);
 			if (a_is_cut && !y[b].wire->get_bool_attribute(cut))
 				sigmap.add(a[b], y[b]);

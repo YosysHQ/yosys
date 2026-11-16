@@ -50,7 +50,7 @@ detail::CheckpointWriter::CheckpointWriter(const NetView &view, TrackData &data,
 		countCutUsers(module);
 }
 
-// the resolve knows the hdlname of each anchored cell, a copy with no anchor must not have its id
+// resolve knows the hdlname of each anchored cell, a copy with no anchor must not keep its id
 void detail::CheckpointWriter::dropUnusedIds()
 {
 	RTLIL::Design *design = view_.design();
@@ -86,7 +86,7 @@ void detail::CheckpointWriter::countCutUsers(RTLIL::Module *module)
 	}
 }
 
-// the first connected input of a driver stops opt_merge from merging a cell into it
+// first connected input of a driver stops opt_merge from merging a cell into it
 void detail::CheckpointWriter::protectDriver(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	for (const Netlist::Pin *input : pin->inst->pins) {
@@ -97,7 +97,7 @@ void detail::CheckpointWriter::protectDriver(const Netlist::Pin *pin, uint32_t r
 	}
 }
 
-// the only place that makes a Barrier anchor, false if the pin gets no barrier
+// only place that makes a Barrier anchor, false if the pin gets no barrier
 bool detail::CheckpointWriter::cutPin(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPin(pin, ref_index);
@@ -150,7 +150,7 @@ void detail::CheckpointWriter::protectNet(const Netlist::Net *net, uint32_t ref_
 		anchorInnerPins(net, RTLIL::PD_INOUT, ref_index);
 }
 
-// none for a constant, an unconnected pin and an inout pin, it notes the wire bit at an inout pin
+// none for a constant, an unconnected pin and an inout pin, notes the wire bit at an inout pin
 RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	RTLIL::Cell *cell = pin->inst->cell;
