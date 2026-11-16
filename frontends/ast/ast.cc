@@ -41,12 +41,6 @@ namespace AST {
 	bool sv_mode_but_global_and_used_for_literally_one_condition;
 }
 
-TwinePool &AST::ast_name_pool()
-{
-	static TwinePool pool;
-	return pool;
-}
-
 static std::recursive_mutex ast_mutex;
 static RTLIL::Design *ast_scoped_design = nullptr;
 
@@ -64,6 +58,43 @@ static RTLIL::Design *scoped_design()
 }
 
 int AST::ast_autoidx() { return scoped_design()->twines().next_autoidx(); }
+
+IdString AST::intern_attr_name(std::string_view name) { return scoped_design()->twines().add(name); }
+
+std::string AST::attr_name_str(IdString id) { return scoped_design()->twines().str(id); }
+
+static void visit_attr_names(const AstNode *node, const std::function<void(IdString)> &visit)
+{
+	for (auto &[key, value] : node->attributes) {
+		visit(key);
+		visit_attr_names(value.get(), visit);
+	}
+	for (auto &child : node->children)
+		visit_attr_names(child.get(), visit);
+}
+
+static void remap_attr_names(AstNode *node, TwinePool &dst, const TwinePool &src)
+{
+	std::map<IdString, std::unique_ptr<AstNode>> remapped;
+	for (auto &[key, value] : node->attributes) {
+		remap_attr_names(value.get(), dst, src);
+		remapped[dst.copy_from(src, key)] = std::move(value);
+	}
+	node->attributes = std::move(remapped);
+	for (auto &child : node->children)
+		remap_attr_names(child.get(), dst, src);
+}
+
+void AST::attr_name_roots(RTLIL::Design *design, const std::function<void(IdString)> &root)
+{
+	for (auto module : design->modules())
+		if (auto ast_module = dynamic_cast<AstModule*>(module); ast_module && ast_module->ast)
+			visit_attr_names(ast_module->ast.get(), root);
+	for (auto &node : design->verilog_packages)
+		visit_attr_names(node.get(), root);
+	for (auto &node : design->verilog_globals)
+		visit_attr_names(node.get(), root);
+}
 
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
@@ -1336,7 +1367,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 			log_assert((bool)attr.second.get());
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			const auto& node = ast->children[i];
@@ -1364,7 +1395,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				continue;
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (const auto& node : ast->children)
 			if (node->type == AST_PARAMETER)
@@ -1998,6 +2029,8 @@ void AstModule::copy_config_into(AstModule *new_mod) const
 {
 	DesignScope design_scope(new_mod->design);
 	new_mod->ast = ast->clone();
+	if (new_mod->design != design)
+		remap_attr_names(new_mod->ast.get(), new_mod->design->twines(), design->twines());
 	new_mod->nolatches = nolatches;
 	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;

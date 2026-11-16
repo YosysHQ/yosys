@@ -812,6 +812,8 @@ size_t RTLIL::Design::gc_twines()
 	for (auto &sel : selection_stack)
 		root_selection(sel);
 
+	AST::attr_name_roots(this, root);
+
 	size_t erased = twines_.gc(live);
 
 	int64_t time_ns = PerformanceTimer::query() - start;

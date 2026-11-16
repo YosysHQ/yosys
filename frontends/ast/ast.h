@@ -37,9 +37,9 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace AST
 {
-	TwinePool &ast_name_pool();
-	inline IdString intern_attr_name(std::string_view name) { return ast_name_pool().add(name); }
-	inline std::string attr_name_str(IdString id) { return ast_name_pool().str(id); }
+	IdString intern_attr_name(std::string_view name);
+	std::string attr_name_str(IdString id);
+	void attr_name_roots(RTLIL::Design *design, const std::function<void(IdString)> &root);
 
 	struct DesignScope {
 		explicit DesignScope(RTLIL::Design *design);
