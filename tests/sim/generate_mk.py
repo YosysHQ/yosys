@@ -3,23 +3,10 @@
 import sys
 sys.path.append("..")
 
-import shutil
-
-# ----------------------
-# Check if iverilog is installed
-# ----------------------
-if shutil.which("iverilog") is None:
-    print("Error: Icarus Verilog 'iverilog' not found.", file=sys.stderr)
-    sys.exit(1)
-
-# ----------------------
-# Check if vcd2fst is installed
-# ----------------------
-if shutil.which("vcd2fst") is None:
-    print("Error: GTKWave tool 'vcd2fst' not found.", file=sys.stderr)
-    sys.exit(1)
-
 import gen_tests_makefile
+
+gen_tests_makefile.check_iverilog()
+gen_tests_makefile.check_vcd2fst()
 
 import subprocess
 from pathlib import Path
