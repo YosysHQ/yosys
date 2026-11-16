@@ -13,30 +13,24 @@ jobs:
       matrix:
         os: [
             {
-              name: "Ubuntu 22.04",
+              name: "Ubuntu 26.04",
               family: "linux",
-              runner: "ubuntu-22.04",
+              runner: "ubuntu-26.04",
               archs: "x86_64",
             },
             {
-              name: "Ubuntu 22.04",
+              name: "Ubuntu 26.04",
               family: "linux",
-              runner: "ubuntu-22.04-arm",
+              runner: "ubuntu-26.04-arm",
               archs: "aarch64",
             },
             {
-              name: "macOS 15 x64",
+              name: "macOS 26",
               family: "macos",
-              runner: "macos-15-intel",
-              archs: "x86_64",
-            },
-            {
-              name: "macOS 15 arm64",
-              family: "macos",
-              runner: "macos-15",
+              runner: "macos-26",
               archs: "arm64",
             },
-            ## Windows still needs to be tested.
+            ## Windows still has a couple issues.
             # {
             #   name: "Windows Server 2025",
             #   family: "windows",
@@ -57,6 +51,20 @@ jobs:
           python-version: "3.x"
       ## Software installed by default in GitHub Action Runner VMs:
       ##  https://github.com/actions/runner-images
+      - id: get-ccache-dir
+        name: Set Ccache Directory
+        if: ${{ matrix.os.family != 'windows' }}
+        run: |
+          if test "$(uname)" = "Darwin"; then
+            echo "ccache_dir=$HOME/Library/Caches/ccache/" | tee -a $GITHUB_OUTPUT
+          else
+            echo "ccache_dir=$HOME/.cache/ccache/" | tee -a $GITHUB_OUTPUT
+          fi
+      - name: Cache Ccache Directory
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.get-ccache-dir.outputs.ccache_dir }}
+          key: pyosys-ccache-${{ matrix.os.family }}-${{ matrix.os.archs }}
       - if: ${{ matrix.os.family == 'windows' }}
         name: "[Windows] Flex/Bison"
         run: |
@@ -78,12 +86,22 @@ jobs:
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
           CIBW_BEFORE_ALL: bash ./.github/workflows/wheels/cibw_before_all.sh
           CIBW_CONFIG_SETTINGS: >
-            cmake="-DCMAKE_BUILD_TYPE=Release -DYOSYS_ENABLE_HOMEBREW:BOOL=OFF"
-          CIBW_ENVIRONMENT: >
+            cmake="
+              -DYOSYS_COMPILER_LAUNCHER=ccache
+              -DCMAKE_BUILD_TYPE=Release
+              -DYOSYS_ENABLE_HOMEBREW:BOOL=OFF
+              -DSLANG_USE_SYSTEM_FMT:BOOL=OFF
+            "
+          CIBW_ENVIRONMENT_MACOS: >
             OPTFLAGS=-O3
             PKG_CONFIG_PATH="$PWD/ffi/pfx/lib/pkgconfig:$PKG_CONFIG_PATH"
-            PATH="$PWD/bison/pfx/bin:$PWD/flex/pfx/bin:$PATH"
+            PATH="$PWD/ccache/bin:$PWD/bison/pfx/bin:$PWD/flex/pfx/bin:$PATH"
             MACOSX_DEPLOYMENT_TARGET=11
+          CIBW_ENVIRONMENT_LINUX: >
+            OPTFLAGS=-O3
+            PKG_CONFIG_PATH="$PWD/ffi/pfx/lib/pkgconfig:$PKG_CONFIG_PATH"
+            PATH="$PWD/ccache/bin:$PWD/bison/pfx/bin:$PWD/flex/pfx/bin:$PATH"
+            CCACHE_CONFIGPATH=/host/home/runner/.config/ccache/ccache.conf
           CIBW_BEFORE_BUILD: bash ./.github/workflows/wheels/cibw_before_build.sh
           CIBW_TEST_COMMAND: python3 {project}/tests/pyosys/run_tests.py
       - uses: actions/upload-artifact@v7
@@ -93,7 +111,7 @@ jobs:
   upload_wheels:
     name: Upload Wheels
     if: (github.repository == 'YosysHQ/yosys') && (github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     # Specifying a GitHub environment is optional, but strongly encouraged
     environment: pypi
     permissions:
