@@ -45,7 +45,7 @@ struct CellTableBuilder {
 		bool is_x_aware = false;
 		bool is_x_output = false;
 		bool is_combinatorial = false;
-		bool is_stateless = false;
+		bool is_stateless = true;
 		bool is_synthesizable = false;
 		bool is_stdcell = false;
 		bool is_ff = false;
@@ -79,7 +79,6 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_combinatorial = true;
-		features.is_stateless = true;
 		features.is_evaluable = is_evaluable; // not true for $tribuf, why isn't it valid? are z bits not valid from eval?
 		features.is_synthesizable = true;
 		features.is_stdcell = is_stdcell;
@@ -94,6 +93,7 @@ struct CellTableBuilder {
 		bool is_stdcell = false)
 	{
 		Features features {};
+		features.is_stateless = false;
 		features.is_synthesizable = true;
 		features.is_ff = true;
 		features.is_clocked = true;
@@ -106,6 +106,7 @@ struct CellTableBuilder {
 		bool is_stdcell = false)
 	{
 		Features features {};
+		features.is_stateless = false;
 		features.is_synthesizable = true;
 		features.is_ff = true;
 		features.is_clocked = false;
@@ -118,6 +119,7 @@ struct CellTableBuilder {
 	constexpr void setup_mem_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, bool is_clocked = true)
 	{
 		Features features {};
+		features.is_stateless = false;
 		features.is_synthesizable = true;
 		features.is_mem = true;
 		features.is_clocked = is_clocked;
@@ -144,7 +146,6 @@ struct CellTableBuilder {
 		Features features {};
 		features.is_formal = is_formal;
 		features.has_side_effect = true;
-		features.is_stateless = true;
 		setup_type(type, inputs, outputs, features);
 	}
 
@@ -153,7 +154,6 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_meta_info = true;
-		features.is_stateless = true;
 		setup_type(type, inputs, outputs, features);
 	}
 
@@ -166,7 +166,6 @@ struct CellTableBuilder {
 		// is this evaluable
 		features = {};
 		features.is_evaluable = false;
-		features.is_stateless = true;
 		setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
 
 		// has_side_effect, and !is_nondeterministic;
@@ -193,12 +192,10 @@ struct CellTableBuilder {
 
 		// combinatorial
 		features = {};
-		features.is_stateless = true;
 		setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
 		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
 
-		// !is_formal
 		setup_effects_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {});
 		setup_effects_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {});
 
@@ -213,7 +210,6 @@ struct CellTableBuilder {
 
 		// temporary helper cells
 		features = {};
-		features.is_stateless = true;
 		setup_type(ID($input_port), {}, {ID::Y}, features);
 		setup_type(ID($connect), {ID::A, ID::B}, {}, features);
 	}
@@ -299,6 +295,7 @@ struct CellTableBuilder {
 		// What?
 		Features features {};
 		features.is_clocked = true;
+		features.is_stateless = false;
 		setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT}, features);
 	}
 	constexpr void setup_stdcells_tristate()
