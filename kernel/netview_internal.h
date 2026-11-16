@@ -21,7 +21,6 @@ bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 RTLIL::Module *topModule(RTLIL::Design *design);
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
 std::string flattenNames(const std::string &name);
-// hdlname of a module, cell or wire, else flattenNames of its name
 // uniquify keeps the original module name in hdlname, flatten names a scope that way
 template <typename T> std::string hdlName(const T *object)
 {

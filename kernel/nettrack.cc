@@ -214,7 +214,7 @@ void detail::CheckpointWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_i
 	}
 	bool cut = protect_ && cutPin(pin, ref_index);
 	if (cut && !inst->isLeaf())
-		return; // its barrier finds a hierarchical pin
+		return;
 	if (cut && pin->isDriver())
 		protectDriver(pin, ref_index);
 	if (!inst->isLeaf())

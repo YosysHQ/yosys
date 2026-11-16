@@ -129,7 +129,6 @@ enum class WalkReach : uint8_t {
 	AllLoads // passes both, a top output is a load
 };
 
-// what a walk along a cut wire went through
 struct CutWalk {
 	WalkReach reach = WalkReach::CutSide;
 	bool stop_at_scope = false; // a scope on the wire gives its pin, no walk below

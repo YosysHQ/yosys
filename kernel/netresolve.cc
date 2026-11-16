@@ -25,7 +25,6 @@ detail::Resolver::Resolver(const NetView &view, const TrackData &data) : view_(v
 	}
 }
 
-// names the scope, notes hits of its cells and barriers, enters each new scope below
 // a scope with a Scope anchor waits for its hit, one named as a checkpoint scope for enterNamedScopes
 void detail::Resolver::enterScope(const Netlist::Instance *scope, const std::string &names)
 {
@@ -173,7 +172,6 @@ bool detail::Resolver::takeCandidates(AnchorKind kind)
 	return took_one;
 }
 
-// candidate that fits when it is the only one, none of two twins
 const detail::AnchorHit *detail::Resolver::onlyCandidate(const HitList &candidates) const
 {
 	HitPtrList aligned = alignedCandidates(candidates);
@@ -208,7 +206,6 @@ detail::HitPtrList detail::Resolver::alignedCandidates(const HitList &hits) cons
 	return aligned;
 }
 
-// top pin at each anchored port wire by its name now, the net at each anchored net wire
 void detail::Resolver::noteWires(const Netlist::Instance *scope)
 {
 	for (RTLIL::Wire *wire : scope->module->wires()) {
@@ -481,7 +478,6 @@ bool detail::Resolver::passCell(const Netlist::Instance *scope, const PortBit &a
 	return true;
 }
 
-// loads outside the scope on an output port of its module, or the drivers on an input port
 bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target,
                                     CutWalk &walk)
 {
@@ -509,7 +505,6 @@ bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBi
 	return true;
 }
 
-// loads inside a hierarchical instance on its input port, or the drivers on its output port
 // submod puts a driver behind an output, AllLoads also takes the readers of the old output and passes other ports
 bool detail::Resolver::addPinsBelow(const Netlist::Instance *inst, const PortBit &at, WalkTarget target, CutWalk &walk)
 {
@@ -544,7 +539,6 @@ detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
 	return cellsUpTo(hits, ends);
 }
 
-// cells from the cut wires up to a barrier or an end bit
 detail::InstanceList detail::Resolver::cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends)
 {
 	const Netlist::Instance *scope = hits[0].scope;

@@ -69,7 +69,7 @@ struct Pin {
 	Net *net = nullptr;   // outside, parent scope, from the cell connection
 	Net *inner = nullptr; // inside, instance scope, from the port wire
 	uint32_t id = 0;
-	uint32_t port_index = 0; // in inst->type->ports
+	uint32_t port_index = 0;
 	int bit = 0;
 	const Port &port() const;
 	RTLIL::PortDir dir() const;
@@ -90,13 +90,12 @@ struct Net {
 	Instance *scope = nullptr;
 	uint32_t id = 0;
 	Const constant = Const::None;
-	std::vector<Pin *> pins;     // pins in the scope on this net
+	std::vector<Pin *> pins;
 	std::vector<Pin *> boundary; // scope pins with this as inner net
 	NetName name;                // ranks port, then public wire, a constant has none
-	RTLIL::SigBit name_bit;      // wire bit that gives the name
+	RTLIL::SigBit name_bit;
 };
 
-// what a cell library knows of leaf cell types
 struct CellLibrary {
 	virtual ~CellLibrary() = default;
 	// type has name and kind, fills ports and facts, false for an unknown type

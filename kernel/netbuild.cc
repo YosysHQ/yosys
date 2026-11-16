@@ -67,7 +67,6 @@ bool detail::ViewBuilder::leafPorts(const RTLIL::Cell *cell, Netlist::CellType &
 Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent)
 {
 	Netlist::Instance *inst = &view_.instances_.emplace_back();
-	// top has no cell, its module names it
 	inst->name = cell != nullptr ? cell->name.unescape() : module->name.unescape();
 	inst->type = typeOf(cell, module);
 	inst->id = view_.instances_.size() - 1;
@@ -159,7 +158,6 @@ void detail::ViewBuilder::nameNets(Netlist::Instance *scope)
 	}
 }
 
-// made on first use, joins module connections, $connect and $barriers
 SigMap &detail::ViewBuilder::sigmapFor(RTLIL::Module *module)
 {
 	auto [it, added] = sigmaps_.try_emplace(module, module);
@@ -207,7 +205,6 @@ void detail::ViewBuilder::setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit
 	};
 }
 
-// each SigMap class bit finds the net of its canonical bit
 // bit must be a constant or a wire bit of the scope's module
 Netlist::Net *detail::ViewBuilder::findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit)
 {

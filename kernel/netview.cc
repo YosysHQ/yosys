@@ -39,7 +39,6 @@ RTLIL::IdString detail::escapedPortId(RTLIL::Design *design, const Netlist::Inst
 	return design->twines().find(name);
 }
 
-// declared with a range, also a one-bit range
 bool detail::isVector(const RTLIL::Wire *wire) { return wire->width > 1 || wire->has_attribute(ID::single_bit_vector); }
 
 void detail::modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out)
@@ -66,7 +65,6 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 	if (!yosys_celltypes.cell_known(cell->type))
 		return false;
 	for (const auto &[port_id, sig] : cell->connections()) {
-		// width-0 ports have no pins
 		if (sig.size() == 0)
 			continue;
 		Netlist::Port port = {
@@ -133,7 +131,6 @@ bool detail::countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &
 			return false;
 		}
 	}
-	// instance and its pins
 	uint64_t count = 1;
 	for (RTLIL::IdString port : module->ports)
 		count += std::max(module->wire(port)->width, 0);
