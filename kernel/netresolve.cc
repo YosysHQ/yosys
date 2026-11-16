@@ -417,6 +417,8 @@ bool detail::Resolver::addUserPins(const Netlist::Instance *scope, const PortBit
 {
 	if (at.cell->type == ID($barrier))
 		return passBarrier(scope, at, target, walk);
+	if (at.cell->type == ID($input_port))
+		return true;
 	const Netlist::Instance *inst = view_.instance(at.cell, scope);
 	if (inst == nullptr)
 		return false;

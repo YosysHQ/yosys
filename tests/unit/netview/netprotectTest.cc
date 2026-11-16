@@ -62,6 +62,21 @@ TEST_F(NetProtectTest, cellThatBecameAWireGivesTheLoadsBehindIt)
 	EXPECT_EQ(cell.port_cuts.size(), 2u);
 }
 
+// the view has no instance of an $input_port cell
+TEST_F(NetProtectTest, loadsBehindPassAnInputPortCell)
+{
+	Cell *port_cell = sub->addCell("$ip", ID($input_port));
+	port_cell->setParam(ID::WIDTH, 1);
+	port_cell->setPort(ID::Y, a);
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv0)}};
+	t.checkpoint({&cell});
+	top->connect(u_inv0->getPort(ID(Y)), u_inv0->getPort(ID(A)));
+	top->remove(u_inv0);
+	t.next({&cell});
+	EXPECT_EQ(cell.loads.size(), 2u); // i1 and i2
+}
+
 TEST_F(NetProtectTest, splitCellGivesTheCellsBetweenItsBarriers)
 {
 	TrackedView t(d);
