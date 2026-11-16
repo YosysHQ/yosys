@@ -48,10 +48,16 @@ void detail::modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out)
 		RTLIL::Wire *wire = module->wire(port_name);
 		if (wire->width <= 0)
 			continue;
-		RTLIL::PortDir dir = RTLIL::PortDir(wire->port_input * RTLIL::PD_INPUT | wire->port_output * RTLIL::PD_OUTPUT);
-		int from = wire->to_hdl_index(wire->width - 1), to = wire->to_hdl_index(0);
-		out.push_back({.name = wire->name.unescape(), .width = wire->width, .from = from, .to = to, .dir = dir,
-		               .vector = detail::isVector(wire)});
+		int dir = wire->port_input * RTLIL::PD_INPUT | wire->port_output * RTLIL::PD_OUTPUT;
+		Netlist::Port port = {
+			.name = wire->name.unescape(),
+			.width = wire->width,
+			.from = wire->to_hdl_index(wire->width - 1),
+			.to = wire->to_hdl_index(0),
+			.dir = RTLIL::PortDir(dir),
+			.vector = detail::isVector(wire),
+		};
+		out.push_back(std::move(port));
 	}
 }
 
@@ -63,8 +69,13 @@ bool detail::cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &
 		// width-0 ports have no pins
 		if (sig.size() == 0)
 			continue;
-		std::string name = RTLIL::PooledName(cell->module, port_id).unescape();
-		out.push_back({.name = name, .width = sig.size(), .from = sig.size() - 1, .dir = cell->port_dir(port_id)});
+		Netlist::Port port = {
+			.name = RTLIL::PooledName(cell->module, port_id).unescape(),
+			.width = sig.size(),
+			.from = sig.size() - 1,
+			.dir = cell->port_dir(port_id),
+		};
+		out.push_back(std::move(port));
 	}
 	return true;
 }
@@ -75,15 +86,20 @@ RTLIL::Module *detail::topModule(RTLIL::Design *design)
 		if (module->get_bool_attribute(ID::top))
 			return module;
 	}
-	return design->modules().size() == 1 ? *design->modules().begin() : nullptr;
+	if (design->modules().size() != 1)
+		return nullptr;
+	return *design->modules().begin();
 }
 
 RTLIL::Module *detail::childModule(RTLIL::Design *design, const RTLIL::Cell *cell)
 {
 	RTLIL::Module *sub = design->module(cell->type);
-	return (sub != nullptr && !sub->get_blackbox_attribute()) ? sub : nullptr;
+	if (sub == nullptr || sub->get_blackbox_attribute())
+		return nullptr;
+	return sub;
 }
 
+// $flatten\a.\b.$x gives "a b $x", flatten names a private object that way, another name stays
 std::string detail::flattenNames(const std::string &name)
 {
 	constexpr std::string_view prefix = "$flatten\\";
@@ -128,7 +144,6 @@ bool detail::countRecords(RTLIL::Module *module, ModuleRole role, RecordCounts &
 	return true;
 }
 
-// adds the nets and the cells of a module body
 bool detail::countBody(RTLIL::Module *module, RecordCounts &counts, std::string &reason, uint64_t &count)
 {
 	if (!module->processes.empty()) {
@@ -209,7 +224,8 @@ void detail::addConnectAliases(RTLIL::Module *module, SigMap &sigmap)
 	for (RTLIL::Cell *cell : module->cells()) {
 		if (cell->type != ID($connect))
 			continue;
-		RTLIL::SigSpec a = cell->getPort(ID::A), b = cell->getPort(ID::B);
+		RTLIL::SigSpec a = cell->getPort(ID::A);
+		RTLIL::SigSpec b = cell->getPort(ID::B);
 		for (int i = 0; i < GetSize(a) && i < GetSize(b); i++)
 			sigmap.add(a[i], b[i]);
 	}
@@ -220,11 +236,12 @@ Netlist::Instance *NetView::instance(const RTLIL::Cell *cell, const Netlist::Ins
 	return instance_by_cell_scope_.at({cell->hashidx_, scope->id}, nullptr);
 }
 
-std::vector<const Netlist::Net *> detail::connectedNets(const Netlist::Net *net)
+// the nets that ports join with a net, over the hierarchy
+Netlist::NetList detail::connectedNets(const Netlist::Net *net)
 {
-	std::vector<const Netlist::Net *> nets;
+	Netlist::NetList nets;
 	pool<const Netlist::Net *> seen;
-	std::vector<const Netlist::Net *> todo = {net};
+	Netlist::NetList todo = {net};
 	while (!todo.empty()) {
 		const Netlist::Net *at = todo.back();
 		todo.pop_back();
@@ -366,6 +383,7 @@ uint64_t detail::cellHash(RTLIL::Cell *cell, const BodyKeys *body_keys)
 	return fp.state;
 }
 
+// has module names, blackbox ports, top, and the wires, cells and connections of the view modules
 uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std::string> &module_names)
 {
 	uint64_t modules = 0;
@@ -374,7 +392,10 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 	RTLIL::Module *top = detail::topModule(design);
 	detail::Fingerprint fp;
 	fp.eat(modules);
-	fp.eat(top != nullptr ? top->hashidx_ : 0);
+	uint64_t top_identity = 0;
+	if (top != nullptr)
+		top_identity = top->hashidx_;
+	fp.eat(top_identity);
 	for (const std::string &name : module_names) {
 		RTLIL::Module *module = design->module(name);
 		fp.eat(module != nullptr);
@@ -386,11 +407,16 @@ uint64_t detail::designFingerprint(RTLIL::Design *design, const std::vector<std:
 
 bool NetView::upToDate() const
 {
-	if ((design_shared_ && design_owner_.expired()) || design_->twines().serial() != twines_serial_)
+	// the design that a shared_ptr held at the build is gone
+	if (design_shared_ && design_owner_.expired())
+		return false;
+	bool names_changed = design_->twines().serial() != twines_serial_;
+	if (names_changed)
 		return false;
 	return detail::designFingerprint(design_, watched_module_names_) == fingerprint_;
 }
 
+// a checkpoint calls it, a barrier and an owned keep do not change the view
 void NetView::markUpToDate() { fingerprint_ = detail::designFingerprint(design_, watched_module_names_); }
 
 YOSYS_NAMESPACE_END

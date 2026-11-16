@@ -17,10 +17,16 @@ detail::Resolver::Resolver(const NetView &view, const TrackData &data) : view_(v
 	scope_names_.resize(view.instances().size());
 	enterScope(view.top(), "");
 	// a taken scope adds candidates, so go on until no anchor takes one and no named scope waits
-	for (bool progress = true; progress;)
-		progress = takeCandidates(AnchorKind::Scopes) || enterNamedScopes() || takeCandidates(AnchorKind::Objects);
+	bool progress = true;
+	while (progress) {
+		progress = takeCandidates(AnchorKind::Scopes);
+		progress = progress || enterNamedScopes();
+		progress = progress || takeCandidates(AnchorKind::Objects);
+	}
 }
 
+// gives the scope its names, notes the hits of its cells and barriers, enters each new scope below
+// one with a Scope anchor waits for its hit, one with the names of a checkpoint scope for enterNamedScopes
 void detail::Resolver::enterScope(const Netlist::Instance *scope, const std::string &names)
 {
 	scope_names_[scope->id] = names;
@@ -46,12 +52,14 @@ void detail::Resolver::enterScope(const Netlist::Instance *scope, const std::str
 	noteWires(scope);
 }
 
+// an anchor of the cell with the scope names of this place is a hit, with names that align it is a candidate
 void detail::Resolver::noteHits(const Netlist::Instance *scope, const RTLIL::Cell *cell)
 {
 	const AnchorList &anchors = data_.anchorsOf(view_.design(), cell);
 	if (anchors.empty())
 		return;
-	std::string now = *scope_names_[scope->id] + detail::scopeNames(view_.top(), detail::hdlName(cell));
+	std::string dissolved = detail::scopeNames(view_.top(), detail::hdlName(cell));
+	std::string now = *scope_names_[scope->id] + dissolved;
 	bool is_barrier = cell->type == ID($barrier);
 	auto at_old_place = std::ranges::equal_range(anchors, now, {}, &Anchor::scope); // sorted, see noteScopes
 	for (const Anchor &anchor : at_old_place) {
@@ -60,7 +68,8 @@ void detail::Resolver::noteHits(const Netlist::Instance *scope, const RTLIL::Cel
 	}
 	if (!at_old_place.empty())
 		return; // a cell at its old place is of no other place
-	if (moved_cell_count_[{&anchors, now}]++ >= detail::noted_twins)
+	int moved_before = moved_cell_count_[{&anchors, now}]++;
+	if (moved_before >= detail::noted_twins)
 		return; // two cells with the same id and names are twins, more of them add nothing
 	for (const Anchor &anchor : anchors) {
 		if ((anchor.role == Anchor::Role::Barrier) == is_barrier && namesAlign(anchor.scope, now))
@@ -82,6 +91,8 @@ void detail::Resolver::addHit(const AnchorHit &hit)
 		enterScope(inst, hit.anchor->scope + hit.anchor->own_name);
 }
 
+// a scope with no anchor and the names of a checkpoint scope is that scope when the view has no other
+// design -load brings cells with no id, submod can reuse the old name of a renamed scope, false when none
 bool detail::Resolver::enterNamedScopes()
 {
 	InstanceList scopes = std::move(named_scopes_);
@@ -96,6 +107,8 @@ bool detail::Resolver::enterNamedScopes()
 	return !scopes.empty();
 }
 
+// the offset in old after the next scope that the view had at the checkpoint and has no more, else npos
+// the names of scopes that flatten dissolved before the checkpoint go with it, an hdlname has them
 size_t detail::Resolver::goneScopeEnd(std::string_view old, size_t at) const
 {
 	while (at < old.size()) {
@@ -107,6 +120,8 @@ size_t detail::Resolver::goneScopeEnd(std::string_view old, size_t at) const
 	return std::string::npos;
 }
 
+// true when now can be the place of old, now lacks the names of the scopes that are gone
+// and has one more name for each scope that is new since the checkpoint, submod makes one
 bool detail::Resolver::namesAlign(std::string_view old, std::string_view now) const
 {
 	size_t old_at = 0;
@@ -118,7 +133,8 @@ bool detail::Resolver::namesAlign(std::string_view old, std::string_view now) co
 		// the name is the next of old, or one below scopes that are gone, else it is of a new scope
 		size_t at = old_at;
 		while (at != std::string::npos && !old.substr(at).starts_with(name)) {
-			if (data_.scopes.count(std::string(old.substr(0, at)) + std::string(name)))
+			std::string other_scope = std::string(old.substr(0, at)) + std::string(name);
+			if (data_.scopes.count(other_scope))
 				return false; // of another scope of the checkpoint
 			at = goneScopeEnd(old, at);
 		}
@@ -130,23 +146,22 @@ bool detail::Resolver::namesAlign(std::string_view old, std::string_view now) co
 	return old_at == old.size();
 }
 
+// an anchor with no hit takes its one candidate, false when no anchor took one
 bool detail::Resolver::takeCandidates(AnchorKind kind)
 {
 	markCandidateScopesLive();
-	std::vector<AnchorHit> wanted;
-	dict<std::pair<const Netlist::Instance *, const RTLIL::Cell *>, pool<std::string>> old_places;
+	HitList wanted;
+	dict<CellInScope, ScopeNameSet> old_places;
 	for (const auto &[anchor, candidates] : candidates_.data) {
 		bool is_scope = anchor->role == Anchor::Role::Scope;
-		if (is_scope != (kind == AnchorKind::Scopes) || anchors_with_hit_.count(anchor))
+		bool is_wanted_kind = is_scope == (kind == AnchorKind::Scopes);
+		if (!is_wanted_kind || anchors_with_hit_.count(anchor))
 			continue;
-		std::vector<const AnchorHit *> aligned = alignedCandidates(candidates);
-		if (aligned.size() != 1)
-			continue; // none fits, or two that fit are twins
-		const AnchorList &cell_anchors = data_.anchorsOf(view_.design(), aligned[0]->cell);
-		if (moved_cell_count_.at({&cell_anchors, aligned[0]->now}) > detail::noted_twins)
-			continue; // noteHits did not note each of its twins
-		wanted.push_back(*aligned[0]);
-		old_places[{aligned[0]->scope, aligned[0]->cell}].insert(anchor->scope);
+		const AnchorHit *candidate = onlyCandidate(candidates);
+		if (candidate == nullptr)
+			continue;
+		wanted.push_back(*candidate);
+		old_places[{candidate->scope, candidate->cell}].insert(anchor->scope);
 	}
 	bool took_one = false;
 	for (const AnchorHit &hit : wanted) {
@@ -158,6 +173,20 @@ bool detail::Resolver::takeCandidates(AnchorKind kind)
 	return took_one;
 }
 
+// the candidate that fits when it is the only one, of two twins none
+const detail::AnchorHit *detail::Resolver::onlyCandidate(const HitList &candidates) const
+{
+	HitPtrList aligned = alignedCandidates(candidates);
+	if (aligned.size() != 1)
+		return nullptr;
+	const AnchorList &cell_anchors = data_.anchorsOf(view_.design(), aligned[0]->cell);
+	if (moved_cell_count_.at({&cell_anchors, aligned[0]->now}) > detail::noted_twins)
+		return nullptr; // noteHits did not note each of its twins
+	return aligned[0];
+}
+
+// a scope with a candidate lives, also when a twin keeps it out
+// a cell with no scope name is then no cell out of it, so they are all marked before an anchor takes one
 void detail::Resolver::markCandidateScopesLive()
 {
 	for (const auto &[anchor, candidates] : candidates_.data) {
@@ -167,9 +196,10 @@ void detail::Resolver::markCandidateScopesLive()
 	}
 }
 
-std::vector<const detail::AnchorHit *> detail::Resolver::alignedCandidates(const std::vector<AnchorHit> &hits) const
+// those with names that still align and a cell of no other old place
+detail::HitPtrList detail::Resolver::alignedCandidates(const HitList &hits) const
 {
-	std::vector<const AnchorHit *> aligned;
+	HitPtrList aligned;
 	for (const AnchorHit &candidate : hits) {
 		const Anchor *placed = place_by_cell_.at({candidate.scope, candidate.cell}, candidate.anchor);
 		if (placed->scope == candidate.anchor->scope && namesAlign(candidate.anchor->scope, candidate.now))
@@ -178,6 +208,7 @@ std::vector<const detail::AnchorHit *> detail::Resolver::alignedCandidates(const
 	return aligned;
 }
 
+// the top pin at each anchored port wire by its name now, the net at each anchored net wire
 void detail::Resolver::noteWires(const Netlist::Instance *scope)
 {
 	for (RTLIL::Wire *wire : scope->module->wires()) {
@@ -192,20 +223,38 @@ void detail::Resolver::noteWires(const Netlist::Instance *scope)
 	}
 }
 
+// the net that each anchored wire at its old place names, or none, a net on a port only in its old scope
 void detail::Resolver::noteNamedNet(const Netlist::Instance *scope, const RTLIL::Wire *wire, const Anchor &anchor)
 {
 	const NetPlace &place = data_.net_places_by_ref.get(anchor.ref_index)[anchor.net_place];
 	const std::string &names = *scope_names_[scope->id];
-	bool at_old_place = names + detail::scopeNames(view_.top(), detail::hdlName(wire)) == place.scope + place.dissolved;
-	if (!at_old_place || (place.on_port && names != place.scope))
+	std::string dissolved = detail::scopeNames(view_.top(), detail::hdlName(wire));
+	bool at_old_place = names + dissolved == place.scope + place.dissolved;
+	bool left_port_scope = place.on_port && names != place.scope;
+	if (!at_old_place || left_port_scope)
 		return;
-	std::map<Netlist::NetName, const Netlist::Net *> &nets = nets_by_scope_name_[scope->id];
+	const NetsByName &nets = netsByName(scope);
+	Netlist::NetName name_now = {
+		.wire = wire->name.unescape(),
+		.index = place.name.index,
+		.scalar = place.name.scalar,
+	};
+	const Netlist::Net *named_net = nullptr;
+	auto found = nets.find(name_now);
+	if (found != nets.end())
+		named_net = found->second;
+	named_nets_by_place_.add(&place, named_net);
+}
+
+// the first net of each name, made at the first Net anchor of the scope
+const detail::NetsByName &detail::Resolver::netsByName(const Netlist::Instance *scope)
+{
+	NetsByName &nets = nets_by_scope_name_[scope->id];
 	if (nets.empty()) {
 		for (const Netlist::Net *net : scope->nets)
 			nets.emplace(net->name, net);
 	}
-	auto net = nets.find({wire->name.unescape(), place.name.index, place.name.scalar});
-	named_nets_by_place_.add(&place, net != nets.end() ? net->second : nullptr);
+	return nets;
 }
 
 void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
@@ -243,8 +292,11 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 void detail::Resolver::resolveInstance(uint32_t ref_index, TrackedRef &ref)
 {
 	ref.port_cuts.clear();
-	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier}))
-		ref.port_cuts.push_back({hit.anchor->port, detail::cutOnA(hit.cell), cutPins(hit, WalkReach::AllLoads)});
+	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier})) {
+		bool is_output = detail::cutOnA(hit.cell);
+		PinList cut_side = cutPins(hit, WalkReach::AllLoads);
+		ref.port_cuts.push_back({hit.anchor->port, is_output, cut_side});
+	}
 	ref.instances.clear();
 	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, Anchor::Role::Cell}))
 		ref.instances.push_back(view_.instance(hit.cell, hit.scope));
@@ -262,7 +314,7 @@ void detail::Resolver::resolveInstance(uint32_t ref_index, TrackedRef &ref)
 // a leaf pin with a barrier resolves to its cut side, a lost barrier gives the pin of the anchored cell
 detail::PinList detail::Resolver::resolvePin(uint32_t ref_index)
 {
-	const std::vector<AnchorHit> &barrier_hits = hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier});
+	const HitList &barrier_hits = hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier});
 	PinList pins = hitPins(ref_index, Anchor::Role::Pin);
 	if (barrier_hits.empty())
 		std::ranges::copy(hitPins(ref_index, Anchor::Role::CutPin), std::back_inserter(pins));
@@ -285,7 +337,8 @@ detail::PinList detail::Resolver::hitPins(uint32_t ref_index, Anchor::Role role)
 {
 	PinList pins;
 	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, role})) {
-		if (const Netlist::Pin *pin = detail::findPortPin(view_.instance(hit.cell, hit.scope), *hit.anchor))
+		const Netlist::Instance *inst = view_.instance(hit.cell, hit.scope);
+		if (const Netlist::Pin *pin = detail::findPortPin(inst, *hit.anchor))
 			pins.push_back(pin);
 	}
 	return pins;
@@ -294,21 +347,27 @@ detail::PinList detail::Resolver::hitPins(uint32_t ref_index, Anchor::Role role)
 const Netlist::Pin *detail::findPortPin(const Netlist::Instance *inst, const Anchor &anchor)
 {
 	const Netlist::Pin *pin = inst->findPin(anchor.port, anchor.bit);
-	if (pin == nullptr && !inst->isLeaf())
-		pin = inst->findPin(stringf("%s[%d]", anchor.port, anchor.hdl_index), 0);
-	return pin;
+	if (pin != nullptr || inst->isLeaf())
+		return pin;
+	// splitnets -ports names a bit port[index]
+	std::string bit_port = stringf("%s[%d]", anchor.port, anchor.hdl_index);
+	return inst->findPin(bit_port, 0);
 }
 
-// the cut side has the drivers of a driver pin, else the loads
+// the leaf pins on the cut wire of the barrier, the cut side has the drivers of a driver pin, else the loads
 detail::PinList detail::Resolver::cutPins(const AnchorHit &hit, WalkReach reach)
 {
 	bool cut_on_a = detail::cutOnA(hit.cell);
 	WalkTarget target = cut_on_a ? WalkTarget::Drivers : WalkTarget::Loads;
-	CutWalk walk = {.reach = reach, .stop_at_scope = hit.anchor->hier};
+	CutWalk walk = {
+		.reach = reach,
+		.stop_at_scope = hit.anchor->hier,
+	};
 	walk.passed.insert({hit.scope, hit.cell});
 	if (!addCutPins(hit.scope, detail::cutBit(hit.cell), target, walk))
 		walk.pins.clear();
-	if (reach == WalkReach::AllLoads && walk.pins.empty() && cut_on_a)
+	bool wants_loads_behind = reach == WalkReach::AllLoads && cut_on_a;
+	if (wants_loads_behind && walk.pins.empty())
 		walk.pins = loadsBehind(hit); // the cell became a wire
 	return detail::uniqueSorted(walk.pins);
 }
@@ -318,23 +377,14 @@ const ModWalker &detail::Resolver::walkerOf(RTLIL::Module *module)
 	return mod_walkers_.try_emplace(module, module->design, module).first->second;
 }
 
-// false if a pass put another kind of user on the wire, the ref is then lost
+// a pass can put another kind of user on the wire
 bool detail::Resolver::addCutPins(const Netlist::Instance *scope, RTLIL::SigBit bit, WalkTarget target, CutWalk &walk)
 {
 	const ModWalker &walker = walkerOf(scope->module);
 	RTLIL::SigBit root = walker.sigmap(bit);
 	if (!walk.seen.insert({scope, root}).second)
 		return true;
-	// an output port on the wire has loads outside the scope, an input port has a driver there
-	bool to_loads = target == WalkTarget::Loads;
-	bool all_loads = walk.reach == WalkReach::AllLoads;
-	bool driver_above = !to_loads && !scope->isTop(); // submod can move a barrier into a scope below its driver
-	const pool<RTLIL::SigBit> &outside = to_loads ? walker.signal_outputs : walker.signal_inputs;
-	if (!all_loads && !driver_above && outside.count(root))
-		return false;
-	if (all_loads && walker.signal_outputs.count(root) && !addPinsAbove(scope, root, WalkTarget::Loads, walk))
-		return false;
-	if (driver_above && walker.signal_inputs.count(root) && !addPinsAbove(scope, root, target, walk))
+	if (!passPorts(scope, root, target, walk))
 		return false;
 	pool<PortBit> users;
 	walker.get_drivers(users, root);
@@ -343,6 +393,26 @@ bool detail::Resolver::addCutPins(const Netlist::Instance *scope, RTLIL::SigBit 
 		if (!walk.passed.count({scope, at.cell}) && !addUserPins(scope, at, target, walk))
 			return false;
 	}
+	return true;
+}
+
+// an output port on the wire has loads outside the scope, an input port has a driver there
+bool detail::Resolver::passPorts(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target, CutWalk &walk)
+{
+	const ModWalker &walker = walkerOf(scope->module);
+	bool on_output = walker.signal_outputs.count(root);
+	bool on_input = walker.signal_inputs.count(root);
+	bool to_loads = target == WalkTarget::Loads;
+	bool all_loads = walk.reach == WalkReach::AllLoads;
+	// submod can move a barrier into a scope below its driver
+	bool driver_above = !to_loads && !scope->isTop();
+	bool leaves_scope = to_loads ? on_output : on_input;
+	if (!all_loads && !driver_above && leaves_scope)
+		return false;
+	if (all_loads && on_output && !addPinsAbove(scope, root, WalkTarget::Loads, walk))
+		return false;
+	if (driver_above && on_input)
+		return addPinsAbove(scope, root, target, walk);
 	return true;
 }
 
@@ -357,7 +427,8 @@ bool detail::Resolver::addUserPins(const Netlist::Instance *scope, const PortBit
 		return true;
 	if (!inst->isLeaf() && !walk.stop_at_scope)
 		return addPinsBelow(inst, at, target, walk);
-	const Netlist::Pin *pin = inst->findPin(RTLIL::PooledName(at.cell->module, at.port).unescape(), at.offset);
+	std::string port_name = RTLIL::PooledName(at.cell->module, at.port).unescape();
+	const Netlist::Pin *pin = inst->findPin(port_name, at.offset);
 	if (pin == nullptr)
 		return false;
 	if (inst->isLeaf())
@@ -369,12 +440,16 @@ bool detail::Resolver::addUserPins(const Netlist::Instance *scope, const PortBit
 bool detail::Resolver::passBarrier(const Netlist::Instance *scope, const PortBit &at, WalkTarget target, CutWalk &walk)
 {
 	// the driver below a dissolved scope can have its own barrier, else a pass joined the cut wire with another signal
-	if (target == WalkTarget::Drivers)
-		return walk.stop_at_scope && at.port == ID::Y && passCell(scope, at, target, walk);
+	if (target == WalkTarget::Drivers) {
+		if (!walk.stop_at_scope || at.port != ID::Y)
+			return false;
+		return passCell(scope, at, target, walk);
+	}
 	if (at.port != ID::A)
 		return true; // on its Y the barrier is behind the walk
 	// a barrier with anchors hides the loads behind it, their refs find them, a hierarchical pin is each load
-	if (walk.reach == WalkReach::CutSide && !walk.stop_at_scope && !data_.anchorsOf(view_.design(), at.cell).empty())
+	bool stops_at_anchors = walk.reach == WalkReach::CutSide && !walk.stop_at_scope;
+	if (stops_at_anchors && !data_.anchorsOf(view_.design(), at.cell).empty())
 		return true;
 	return passCell(scope, at, target, walk);
 }
@@ -383,11 +458,13 @@ bool detail::Resolver::passBarrier(const Netlist::Instance *scope, const PortBit
 bool detail::Resolver::addLeafPin(const Netlist::Pin *pin, const PortBit &at, WalkTarget target, CutWalk &walk)
 {
 	bool to_loads = target == WalkTarget::Loads;
-	if (walk.reach == WalkReach::AllLoads && !to_loads && !pin->isDriver())
+	bool is_reader_of_old_output = walk.reach == WalkReach::AllLoads && !to_loads && !pin->isDriver();
+	if (is_reader_of_old_output)
 		return true; // new logic can read the old output on its cut wire
 	if (pin->dir() != RTLIL::PD_INOUT && pin->isDriver() == to_loads)
 		return false;
-	if (to_loads && pin->inst->type->is_buffer && data_.anchorsOf(view_.design(), at.cell).empty())
+	bool is_buffer_before_loads = to_loads && pin->inst->type->is_buffer;
+	if (is_buffer_before_loads && data_.anchorsOf(view_.design(), at.cell).empty())
 		return passCell(pin->inst->parent, at, target, walk);
 	walk.pins.push_back(pin);
 	return true;
@@ -397,13 +474,16 @@ bool detail::Resolver::passCell(const Netlist::Instance *scope, const PortBit &a
 {
 	walk.passed.insert({scope, at.cell});
 	for (const auto &[port, sig] : at.cell->connections()) {
-		if (port != at.port && GetSize(sig) == 1 && !addCutPins(scope, sig[0], target, walk))
+		bool is_other_bit_port = port != at.port && GetSize(sig) == 1;
+		if (is_other_bit_port && !addCutPins(scope, sig[0], target, walk))
 			return false;
 	}
 	return true;
 }
 
-bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target, CutWalk &walk)
+// the loads outside the scope on an output port of its module, or the drivers on an input port
+bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target,
+                                    CutWalk &walk)
 {
 	const ModWalker &walker = walkerOf(scope->module);
 	for (RTLIL::IdString port : scope->module->ports) {
@@ -415,9 +495,12 @@ bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBi
 			const Netlist::Pin *pin = scope->findPin(wire->name.unescape(), bit);
 			if (scope->isTop() && pin != nullptr)
 				walk.pins.push_back(pin);
-			if (scope->isTop() || !scope->cell->hasPort(wire->name) || bit >= GetSize(scope->cell->getPort(wire->name)))
+			if (scope->isTop() || !scope->cell->hasPort(wire->name))
 				continue;
-			RTLIL::SigBit outside = scope->cell->getPort(wire->name)[bit];
+			const RTLIL::SigSpec &outside_port = scope->cell->getPort(wire->name);
+			if (bit >= GetSize(outside_port))
+				continue;
+			RTLIL::SigBit outside = outside_port[bit];
 			walk.exit_ports.insert({scope, wire->name, bit});
 			if (!addCutPins(scope->parent, outside, target, walk))
 				return false;
@@ -426,23 +509,27 @@ bool detail::Resolver::addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBi
 	return true;
 }
 
+// the loads inside a hierarchical instance on its input port, or the drivers on its output port
 // submod puts a driver behind an output, AllLoads also takes the readers of the old output and passes other ports
 bool detail::Resolver::addPinsBelow(const Netlist::Instance *inst, const PortBit &at, WalkTarget target, CutWalk &walk)
 {
 	bool all_loads = walk.reach == WalkReach::AllLoads;
 	RTLIL::Wire *wire = inst->module->wire(at.port);
-	bool in_range = wire != nullptr && at.offset < wire->width;
-	if (in_range && wire->port_input && (target == WalkTarget::Loads || all_loads))
-		return addCutPins(inst, RTLIL::SigBit(wire, at.offset), WalkTarget::Loads, walk);
-	if (in_range && wire->port_output && target == WalkTarget::Drivers)
-		return addCutPins(inst, RTLIL::SigBit(wire, at.offset), WalkTarget::Drivers, walk);
+	if (wire == nullptr || at.offset >= wire->width)
+		return all_loads;
+	RTLIL::SigBit inside(wire, at.offset);
+	bool takes_loads = target == WalkTarget::Loads || all_loads;
+	if (wire->port_input && takes_loads)
+		return addCutPins(inst, inside, WalkTarget::Loads, walk);
+	if (wire->port_output && target == WalkTarget::Drivers)
+		return addCutPins(inst, inside, WalkTarget::Drivers, walk);
 	return all_loads;
 }
 
 // an inout pin has no barrier, its old net ends the new logic, none when a pass removed that net
 detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
 {
-	const std::vector<AnchorHit> &hits = hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier});
+	const HitList &hits = hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier});
 	if (hits.empty())
 		return {};
 	const Netlist::Instance *scope = hits[0].scope;
@@ -457,7 +544,8 @@ detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
 	return cellsUpTo(hits, ends);
 }
 
-detail::InstanceList detail::Resolver::cellsUpTo(const std::vector<AnchorHit> &hits, const pool<RTLIL::SigBit> &ends)
+// the cells from the cut wires up to a barrier or an end bit
+detail::InstanceList detail::Resolver::cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends)
 {
 	const Netlist::Instance *scope = hits[0].scope;
 	const ModWalker &walker = walkerOf(scope->module);
@@ -509,38 +597,50 @@ detail::NetList detail::Resolver::resolveNet(uint32_t ref_index)
 {
 	NetList nets;
 	PinList drivers = resolvePin(ref_index);
-	for (const NetPlace &place : data_.net_places_by_ref.get(ref_index)) {
-		const NetList &named = named_nets_by_place_.get(&place);
-		const Netlist::Net *named_net = named.size() == 1 ? named[0] : nullptr; // two wires with the id are twins
-		// a named net with no load is a dead stub of insbuf, each driver then tells the net
-		bool only_drivers = named_net != nullptr && std::ranges::all_of(named_net->pins, &Netlist::Pin::isDriver);
-		bool has_load = named_net != nullptr && !(only_drivers && named_net->boundary.empty());
-		size_t found = nets.size();
-		for (const Netlist::Pin *pin : drivers) {
-			if (!pin->isDriver())
-				continue; // a stand-in load can be on another net now
-			const Netlist::Net *net = netInScope(pin->inst->isTop() ? pin->inner : pin->net, place);
-			if (net != nullptr && (!has_load || net == named_net))
-				nets.push_back(net);
-		}
-		// insbuf can leave the wire on a dead stub, so it finds the net only when no driver does
-		if (nets.size() == found && named_net != nullptr)
-			nets.push_back(named_net);
-	}
+	for (const NetPlace &place : data_.net_places_by_ref.get(ref_index))
+		addNetsAt(place, drivers, nets);
 	return detail::uniqueSorted(nets);
+}
+
+void detail::Resolver::addNetsAt(const NetPlace &place, const PinList &drivers, NetList &nets) const
+{
+	const NetList &named = named_nets_by_place_.get(&place);
+	const Netlist::Net *named_net = named.size() == 1 ? named[0] : nullptr; // two wires with the id are twins
+	// a named net with no load is a dead stub of insbuf, each driver then tells the net
+	bool has_load = false;
+	if (named_net != nullptr) {
+		bool only_drivers = std::ranges::all_of(named_net->pins, &Netlist::Pin::isDriver);
+		has_load = !only_drivers || !named_net->boundary.empty();
+	}
+	size_t found = nets.size();
+	for (const Netlist::Pin *pin : drivers) {
+		if (!pin->isDriver())
+			continue; // a stand-in load can be on another net now
+		const Netlist::Net *pin_net = pin->inst->isTop() ? pin->inner : pin->net;
+		const Netlist::Net *net = netInScope(pin_net, place);
+		bool is_own_driver = !has_load || net == named_net;
+		if (net != nullptr && is_own_driver)
+			nets.push_back(net);
+	}
+	// insbuf can leave the wire on a dead stub, so it finds the net only when no driver does
+	if (nets.size() == found && named_net != nullptr)
+		nets.push_back(named_net);
 }
 
 // the connected net in the deepest scope that is the old scope or above it, else in a new scope below
 // flatten leaves the net of a dissolved scope in the scope above
 const Netlist::Net *detail::Resolver::netInScope(const Netlist::Net *net, const NetPlace &old) const
 {
-	std::map<int, NetList, std::greater<int>> found_by_depth;
+	using NetsDeepestFirst = std::map<int, NetList, std::greater<int>>;
+	NetsDeepestFirst found_by_depth;
 	for (const Netlist::Net *connected : detail::connectedNets(net)) {
 		const std::optional<std::string> &now = scope_names_[connected->scope->id];
-		if (!now || (old.on_port && *now != old.scope))
+		if (!now)
 			continue;
+		bool left_port_scope = old.on_port && *now != old.scope;
 		// design -load brings back the scopes of a flat net
-		if (!namesAlign(old.scope, *now) && *now != old.scope + old.dissolved)
+		bool at_flat_place = *now == old.scope + old.dissolved;
+		if (left_port_scope || (!namesAlign(old.scope, *now) && !at_flat_place))
 			continue;
 		// submod moves a whole net into a new scope, the one nearest to the old scope has it
 		int depth = now->size();

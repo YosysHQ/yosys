@@ -20,7 +20,6 @@ void modulePorts(RTLIL::Module *module, std::vector<Netlist::Port> &out);
 bool cellTypePorts(const RTLIL::Cell *cell, std::vector<Netlist::Port> &out);
 RTLIL::Module *topModule(RTLIL::Design *design);
 RTLIL::Module *childModule(RTLIL::Design *design, const RTLIL::Cell *cell);
-// $flatten\a.\b.$x gives "a b $x", flatten names a private object that way, another name stays
 std::string flattenNames(const std::string &name);
 // the hdlname of a module, cell or wire, else the flattenNames of its name
 // a uniquified module keeps its original name in hdlname, flatten names a scope that way
@@ -44,8 +43,7 @@ constexpr std::string_view owned_marker_prefix = "\\netview_"; // netview_<attr>
 constexpr std::string_view cut_attr = "\\netview_cut";
 std::string ownedMarkerName(RTLIL::Design *design, RTLIL::IdString attr);
 void addConnectAliases(RTLIL::Module *module, SigMap &sigmap);
-// the nets that ports join with a net, over the hierarchy
-std::vector<const Netlist::Net *> connectedNets(const Netlist::Net *net);
+Netlist::NetList connectedNets(const Netlist::Net *net);
 
 using BodyKeys = dict<RTLIL::IdString, uint64_t>; // by module name
 uint64_t bodyKey(RTLIL::Module *module, BodyKeys &keys);
@@ -64,6 +62,7 @@ private:
 	Netlist::Instance *newInstance(RTLIL::Cell *cell, RTLIL::Module *module, Netlist::Instance *parent);
 	void buildScope(Netlist::Instance *scope);
 	void makePins(Netlist::Instance *inst);
+	Netlist::Pin *newPin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net);
 	void nameNets(Netlist::Instance *scope);
 	SigMap &sigmapFor(RTLIL::Module *module);
 	void addBarrierAliases(RTLIL::Module *module, SigMap &sigmap) const;
@@ -71,7 +70,8 @@ private:
 	Netlist::Net *findOrMakeNet(Netlist::Instance *scope, const RTLIL::SigBit &bit);
 	NetView &view_;
 	Netlist::CellLibrary *library_;
-	dict<std::pair<uint32_t, RTLIL::SigBit>, Netlist::Net *> nets_by_scope_bit_; // by scope id and canonical bit
+	using BitInScopeId = std::pair<uint32_t, RTLIL::SigBit>; // scope id and canonical bit
+	dict<BitInScopeId, Netlist::Net *> nets_by_scope_bit_;
 	dict<RTLIL::IdString, const Netlist::CellType *> shared_types_;
 	BodyKeys body_keys_;
 	pool<std::string> types_not_in_library_;

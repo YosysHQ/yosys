@@ -4,6 +4,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
+// optbarriers -remove runs as a pass, so the pass hooks of the consumer see it
 void NetTracker::unprotect(RTLIL::Design *design)
 {
 	RTLIL::Selection barriers = RTLIL::Selection::EmptySelection(design);
@@ -26,14 +27,20 @@ detail::CheckpointWriter::CheckpointWriter(const NetView &view, TrackData &data,
 {
 	RTLIL::Design *design = view.design();
 	tracked_cells_ = detail::trackedCells(design);
-	for (RTLIL::Cell *cell : tracked_cells_)
-		TrackData::last_id = std::max(TrackData::last_id, *detail::refIdOf(design, cell));
-	pool<std::tuple<RTLIL::Module *, int, std::string>> seen_ids;
+	using IdInModule = std::tuple<RTLIL::Module *, int, std::string>; // module, id and hdlname
+	pool<IdInModule> seen_ids;
 	pool<RTLIL::Module *> modules;
+	RTLIL::IdString ref = design->twines().find(detail::ref_attr);
 	for (RTLIL::Cell *cell : tracked_cells_) {
+		int id = *detail::refIdOf(design, cell);
+		TrackData::last_id = std::max(TrackData::last_id, id);
+	}
+	for (RTLIL::Cell *cell : tracked_cells_) {
+		int id = *detail::refIdOf(design, cell);
 		std::string names = cell->get_string_attribute(ID::hdlname);
-		if (!seen_ids.insert({cell->module, *detail::refIdOf(design, cell), names}).second)
-			cell->attributes[design->twines().find(detail::ref_attr)] = RTLIL::Const(data.nextId(design));
+		bool is_copy = !seen_ids.insert({cell->module, id, names}).second;
+		if (is_copy)
+			cell->attributes[ref] = RTLIL::Const(data.nextId(design));
 		if (cell->type != ID($barrier))
 			continue;
 		barrier_by_cut_bit_[detail::cutBit(cell)] = cell;
@@ -83,11 +90,14 @@ void detail::CheckpointWriter::countCutUsers(RTLIL::Module *module)
 void detail::CheckpointWriter::protectDriver(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	for (const Netlist::Pin *input : pin->inst->pins) {
-		if (input->dir() == RTLIL::PD_INPUT && ensureBarrierAtPin(input, ref_index) != nullptr)
+		if (input->dir() != RTLIL::PD_INPUT)
+			continue;
+		if (ensureBarrierAtPin(input, ref_index) != nullptr)
 			break;
 	}
 }
 
+// the only place that makes a Barrier anchor, false if the pin gets no barrier
 bool detail::CheckpointWriter::cutPin(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	RTLIL::Cell *barrier = ensureBarrierAtPin(pin, ref_index);
@@ -96,15 +106,20 @@ bool detail::CheckpointWriter::cutPin(const Netlist::Pin *pin, uint32_t ref_inde
 			keepCell(pin->inst); // an inout pin gets no barrier
 		return false;
 	}
-	Anchor anchor = {.role = Anchor::Role::Barrier, .ref_index = ref_index, .port = pin->port().name};
-	anchor.hier = !pin->inst->isLeaf();
+	Anchor anchor = {
+		.role = Anchor::Role::Barrier,
+		.ref_index = ref_index,
+		.port = pin->port().name,
+		.hier = !pin->inst->isLeaf(),
+	};
 	anchorIn(pin->inst, barrier, anchor);
 	return true;
 }
 
 void detail::CheckpointWriter::keepCell(const Netlist::Instance *inst)
 {
-	detail::setOwnedAttribute(view_.design(), inst->cell, inst->isLeaf() ? ID::keep : ID::keep_hierarchy);
+	RTLIL::IdString keep_attr = inst->isLeaf() ? ID::keep : ID::keep_hierarchy;
+	detail::setOwnedAttribute(view_.design(), inst->cell, keep_attr);
 }
 
 void detail::CheckpointWriter::protectCell(const Netlist::Instance *inst, uint32_t ref_index)
@@ -135,6 +150,7 @@ void detail::CheckpointWriter::protectNet(const Netlist::Net *net, uint32_t ref_
 		anchorInnerPins(net, RTLIL::PD_INOUT, ref_index);
 }
 
+// none for a constant, an unconnected pin and an inout pin, it notes the wire bit at an inout pin
 RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pin, uint32_t ref_index)
 {
 	RTLIL::Cell *cell = pin->inst->cell;
@@ -154,17 +170,22 @@ RTLIL::Cell *detail::CheckpointWriter::ensureBarrierAtPin(const Netlist::Pin *pi
 	bool cut_on_a = pin->dir() == RTLIL::PD_OUTPUT; // a hierarchical output drives its net as a leaf driver does
 	// a barrier whose cut wire has more pins stands for all of them, this pin gets its own
 	RTLIL::Cell *existing = barrier_by_cut_bit_.at(bit, nullptr);
-	if (existing != nullptr && detail::cutOnA(existing) == cut_on_a && cut_users_.at(bit, 1) == 1)
+	bool same_side = existing != nullptr && detail::cutOnA(existing) == cut_on_a;
+	bool one_user = cut_users_.at(bit, 1) == 1;
+	if (same_side && one_user)
 		return existing;
 	RTLIL::Cell *barrier = createBarrierCell(cell->module, bit, cut_on_a);
 	sig[pin->bit] = detail::cutBit(barrier);
 	return barrier;
 }
 
+// runs after the last write, so a word port is set once for all its cut bits
 void detail::CheckpointWriter::setCutPorts()
 {
-	for (const auto &[cell_port, sig] : cut_ports_)
-		cell_port.first->setPort(cell_port.second, sig);
+	for (const auto &[cell_port, sig] : cut_ports_) {
+		const auto &[cell, port] = cell_port;
+		cell->setPort(port, sig);
+	}
 }
 
 RTLIL::Cell *detail::CheckpointWriter::createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, bool cut_on_a)
@@ -172,13 +193,17 @@ RTLIL::Cell *detail::CheckpointWriter::createBarrierCell(RTLIL::Module *module, 
 	RTLIL::Design *design = view_.design();
 	RTLIL::Wire *cut = module->addWire(NEW_ID);
 	cut->set_bool_attribute(design->twines().add(detail::cut_attr));
-	RTLIL::SigBit a = bit, y = cut;
+	RTLIL::SigBit a = bit;
+	RTLIL::SigBit y = cut;
 	if (cut_on_a)
 		std::swap(a, y);
 	RTLIL::Cell *barrier = module->addBarrier(NEW_ID, a, y);
 	barrier->set_bool_attribute(ID::keep);
-	barrier->attributes[design->twines().add(detail::ref_attr)] = RTLIL::Const(data_.nextId(design));
-	barrier->set_bool_attribute(design->twines().add(detail::cut_on_a_attr), cut_on_a);
+	int id = data_.nextId(design);
+	RTLIL::IdString ref = design->twines().add(detail::ref_attr);
+	barrier->attributes[ref] = RTLIL::Const(id);
+	RTLIL::IdString cut_side = design->twines().add(detail::cut_on_a_attr);
+	barrier->set_bool_attribute(cut_side, cut_on_a);
 	barrier_by_cut_bit_[cut] = barrier;
 	return barrier;
 }
@@ -188,13 +213,15 @@ void detail::setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object,
 	if (object->get_bool_attribute(attr))
 		return;
 	object->set_bool_attribute(attr);
-	object->set_bool_attribute(design->twines().add(detail::ownedMarkerName(design, attr)));
+	std::string marker = detail::ownedMarkerName(design, attr);
+	object->set_bool_attribute(design->twines().add(marker));
 }
 
 void detail::removeOwnedKeeps(RTLIL::Design *design)
 {
 	for (RTLIL::IdString attr : {ID::keep, ID::keep_hierarchy}) {
-		RTLIL::IdString marker = design->twines().find(detail::ownedMarkerName(design, attr));
+		std::string marker_name = detail::ownedMarkerName(design, attr);
+		RTLIL::IdString marker = design->twines().find(marker_name);
 		if (marker == RTLIL::IdString::Null)
 			continue;
 		for (RTLIL::Module *module : design->modules()) {
@@ -210,12 +237,14 @@ void detail::removeOwnedKeeps(RTLIL::Design *design)
 
 bool detail::cutOnA(const RTLIL::Cell *barrier)
 {
-	return barrier->get_bool_attribute(barrier->module->design->twines().find(detail::cut_on_a_attr));
+	RTLIL::IdString cut_side = barrier->module->design->twines().find(detail::cut_on_a_attr);
+	return barrier->get_bool_attribute(cut_side);
 }
 
 RTLIL::SigBit detail::cutBit(const RTLIL::Cell *barrier)
 {
-	return barrier->getPort(detail::cutOnA(barrier) ? ID::A : ID::Y)[0];
+	RTLIL::IdString cut_port = detail::cutOnA(barrier) ? ID::A : ID::Y;
+	return barrier->getPort(cut_port)[0];
 }
 
 std::vector<RTLIL::Cell *> detail::trackedCells(RTLIL::Design *design)

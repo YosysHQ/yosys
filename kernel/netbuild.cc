@@ -29,10 +29,12 @@ const Netlist::CellType *detail::ViewBuilder::typeOf(const RTLIL::Cell *cell, RT
 		detail::modulePorts(module, type.ports);
 	} else {
 		using Kind = Netlist::CellType::Kind;
-		type.kind = StaticCellTypes::categories.is_known(cell->type) ? Kind::InternalCell : Kind::LibraryCell;
+		bool is_internal = StaticCellTypes::categories.is_known(cell->type);
+		type.kind = is_internal ? Kind::InternalCell : Kind::LibraryCell;
 		shared = leafPorts(cell, type);
 		// the yosys cell types add to what the library knows
-		type.is_buffer = type.is_buffer || cell->type == ID($_BUF_);
+		if (cell->type == ID($_BUF_))
+			type.is_buffer = true;
 	}
 	uint32_t pins = 0;
 	for (Netlist::Port &port : type.ports) {
@@ -103,15 +105,14 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 		RTLIL::SigSpec sig;
 		if (cell != nullptr && cell->hasPort(port_id))
 			sig = cell->getPort(port_id);
-		RTLIL::Wire *inner_wire = module != nullptr ? module->wire(port_id) : nullptr;
+		RTLIL::Wire *inner_wire = nullptr;
+		if (module != nullptr)
+			inner_wire = module->wire(port_id);
 		for (int bit = 0; bit < port.width; bit++) {
-			Netlist::Net *net = bit < sig.size() ? findOrMakeNet(inst->parent, sig[bit]) : nullptr;
-			uint32_t id = view_.pins_.size() + 1;
-			view_.pins_.push_back({.inst = inst, .net = net, .id = id, .port_index = port_index, .bit = bit});
-			Netlist::Pin *pin = &view_.pins_.back();
-			inst->pins.push_back(pin);
-			if (net != nullptr)
-				net->pins.push_back(pin);
+			Netlist::Net *net = nullptr;
+			if (bit < sig.size())
+				net = findOrMakeNet(inst->parent, sig[bit]);
+			Netlist::Pin *pin = newPin(inst, port_index, bit, net);
 			if (inner_wire == nullptr || bit >= inner_wire->width)
 				continue;
 			pin->inner = findOrMakeNet(inst, RTLIL::SigBit(inner_wire, bit));
@@ -119,6 +120,23 @@ void detail::ViewBuilder::makePins(Netlist::Instance *inst)
 				pin->inner->boundary.push_back(pin);
 		}
 	}
+}
+
+Netlist::Pin *detail::ViewBuilder::newPin(Netlist::Instance *inst, uint32_t port_index, int bit, Netlist::Net *net)
+{
+	Netlist::Pin record = {
+		.inst = inst,
+		.net = net,
+		.id = uint32_t(view_.pins_.size() + 1),
+		.port_index = port_index,
+		.bit = bit,
+	};
+	view_.pins_.push_back(record);
+	Netlist::Pin *pin = &view_.pins_.back();
+	inst->pins.push_back(pin);
+	if (net != nullptr)
+		net->pins.push_back(pin);
+	return pin;
 }
 
 void detail::ViewBuilder::nameNets(Netlist::Instance *scope)
@@ -159,7 +177,8 @@ void detail::ViewBuilder::addBarrierAliases(RTLIL::Module *module, SigMap &sigma
 	for (RTLIL::Cell *cell : module->cells()) {
 		if (cell->type != ID($barrier))
 			continue;
-		RTLIL::SigSpec a = cell->getPort(ID::A), y = cell->getPort(ID::Y);
+		RTLIL::SigSpec a = cell->getPort(ID::A);
+		RTLIL::SigSpec y = cell->getPort(ID::Y);
 		for (int b = 0; b < GetSize(a) && b < GetSize(y); b++) {
 			RTLIL::SigBit a_root = sigmap(a[b]);
 			bool a_is_const_01 = a_root == RTLIL::State::S0 || a_root == RTLIL::State::S1;
@@ -181,7 +200,11 @@ void detail::ViewBuilder::setNameBit(Netlist::Net *net, const RTLIL::SigBit &bit
 {
 	net->name_bit = bit;
 	RTLIL::Wire *wire = bit.wire;
-	net->name = {wire->name.unescape(), wire->to_hdl_index(bit.offset), !detail::isVector(wire)};
+	net->name = {
+		.wire = wire->name.unescape(),
+		.index = wire->to_hdl_index(bit.offset),
+		.scalar = !detail::isVector(wire),
+	};
 }
 
 // each SigMap class bit finds the net of its canonical bit
