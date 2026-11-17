@@ -49,10 +49,6 @@ Cell properties
 
    These cells include all memory cells and do not include flip-flop or latch cells.
 
-.. cell:defprop:: is_anyinit
-
-   This only includes the $anyinit cell.
-
 .. cell:defprop:: is_tristate
 
    This category includes all tristate cells.

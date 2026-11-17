@@ -79,7 +79,7 @@ struct CellTableBuilder {
 	{
 		Features features {};
 		features.is_combinatorial = true;
-		features.is_evaluable = is_evaluable; // not true for $tribuf, why isn't it valid? are z bits not valid from eval?
+		features.is_evaluable = is_evaluable;
 		features.is_synthesizable = true;
 		features.is_stdcell = is_stdcell;
 		features.is_tristate = is_tristate;
@@ -319,9 +319,9 @@ struct CellTableBuilder {
 		setup_comb_type(ID($_ORNOT_), {ID::A, ID::B}, {ID::Y}, true, true, false);
 		setup_comb_type(ID($_MUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true, true, false);
 		setup_comb_type(ID($_NMUX_), {ID::A, ID::B, ID::S}, {ID::Y}, true, true, false);
-		setup_comb_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, true, true, false);
-		setup_comb_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, true, true, false);
-		setup_comb_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, true, true, false);
+		setup_comb_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, false, true, false);
+		setup_comb_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, false, true, false);
+		setup_comb_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, false, true, false);
 		setup_comb_type(ID($_AOI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true, true, false);
 		setup_comb_type(ID($_OAI3_), {ID::A, ID::B, ID::C}, {ID::Y}, true, true, false);
 		setup_comb_type(ID($_AOI4_), {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, true, true, false);
