@@ -87,6 +87,8 @@ class PyosysClass:
     :param name_pool: Whether this class's methods resolve names through its
         design's ``TwinePool``.
     :param shared: Whether Python holds this class through a ``std::shared_ptr``.
+    :param flatten_only: Whether this class is only wrapped as part of the
+        classes deriving from it, without a Python class of its own.
     """
 
     name: str
@@ -101,6 +103,8 @@ class PyosysClass:
     name_pool: bool = False
 
     shared: bool = False
+
+    flatten_only: bool = False
 
 
 @dataclass
@@ -178,6 +182,7 @@ pyosys_headers = [
         [PyosysClass("CellType", hash_expr="s.type"), PyosysClass("CellTypes")],
     ),
     PyosysHeader("kernel/consteval.h", [PyosysClass("ConstEval")]),
+    PyosysHeader("kernel/srcpool.h", [PyosysClass("SrcRef")]),
     PyosysHeader(
         "kernel/register.h",
         [
@@ -193,6 +198,7 @@ pyosys_headers = [
                 denylist=frozenset({"bits", "bitvectorize"}),
             ),
             PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
+            PyosysClass("ModuleChild", flatten_only=True),
             PyosysClass("Selection"),
             # PyosysClass("Monitor"), # Virtual methods, manually bridged
             PyosysClass("CaseRule"),
@@ -204,6 +210,7 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s.name",
+                denylist=frozenset({"srcs"}),
             ),
             PyosysClass("SigChunk"),
             PyosysClass("SigBit", hash_expr="s"),
@@ -214,6 +221,7 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
+                denylist=frozenset({"srcs"}),
             ),
             PyosysClass(
                 "Wire",
@@ -221,6 +229,7 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
+                denylist=frozenset({"srcs"}),
             ),
             PyosysClass(
                 "Memory",
@@ -228,6 +237,7 @@ pyosys_headers = [
                 name_pool=True,
                 string_expr="s.name.str()",
                 hash_expr="s",
+                denylist=frozenset({"srcs"}),
             ),
             PyosysClass(
                 "Module",
@@ -238,6 +248,7 @@ pyosys_headers = [
                 denylist=frozenset({
                     "Pow",  # has no implementation
                     "selected_members",  # bound manually to keep names tied to the design
+                    "srcs",
                 }),
             ),
             PyosysClass(
@@ -246,7 +257,7 @@ pyosys_headers = [
                 shared=True,
                 string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
                 hash_expr="s",
-                denylist=frozenset({"selected_whole_modules"}),  # deprecated
+                denylist=frozenset({"selected_whole_modules", "srcs"}),  # selected_whole_modules is deprecated
             ),
         ],
     ),
@@ -785,6 +796,8 @@ class PyosysWrapperGenerator(object):
         ]
         basename = full_path.pop()
         self.class_registry[basename] = (cls, metadata)
+        if metadata.flatten_only:
+            return
 
         declaration_namespace = "::".join(full_path)
         tpl_args = [basename]
