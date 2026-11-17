@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include "kernel/log.h"
 #include "kernel/rtlil.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -39,5 +40,26 @@ TEST(SrcPoolTest, CopyFromReinterns)
 
 	EXPECT_EQ(b.str(b.copy_from(a, ref)), "top.v:1.2-1.3");
 }
+
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+TEST(SrcPoolTest, ForeignHandleDies)
+{
+	TwinePool twines_a, twines_b;
+	SrcPool a(twines_a), b(twines_b);
+	SrcRef ref = a.add_parsed("top.v:1.2-1.3");
+	b.add_parsed("top.v:1.2-1.3");
+
+	EXPECT_DEATH({ logger().add_sink<ConsoleLogSink>(); b.str(ref); }, "ref.serial == 0");
+}
+
+TEST(SrcPoolTest, CollectedHandleDies)
+{
+	RTLIL::Design design;
+	SrcRef ref = design.srcs().add_parsed("top.v:1.2-1.3");
+	design.gc_twines();
+
+	EXPECT_DEATH({ logger().add_sink<ConsoleLogSink>(); design.srcs().str(ref); }, "is_live\\(ref\\)");
+}
+#endif
 
 YOSYS_NAMESPACE_END

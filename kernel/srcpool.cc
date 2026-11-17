@@ -22,6 +22,21 @@ bool SrcPool::Marks::insert(SrcRef ref) {
 	return true;
 }
 
+SrcRef SrcPool::stamp(SrcRef ref) const {
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+	if (ref != SrcRef::Null)
+		ref.serial = (uint32_t) twines.serial_;
+#endif
+	return ref;
+}
+
+void SrcPool::check_owned([[maybe_unused]] SrcRef ref) const {
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
+	log_assert(ref.serial == 0 || ref.serial == twines.serial_);
+	log_assert(is_live(ref));
+#endif
+}
+
 struct SrcEq {
 	const SrcPool &pool;
 	const SrcSet &node;
@@ -110,7 +125,7 @@ SrcRef SrcPool::place(size_t idx, std::span<const IdString> members) {
 	canonicalize_members(canon);
 	if (canon.empty())
 		return SrcRef::Null;
-	return HashConsPool::place(idx, SrcSet{std::move(canon)});
+	return stamp(HashConsPool::place(idx, SrcSet{std::move(canon)}));
 }
 
 SrcRef SrcPool::find_members(std::span<const IdString> members) const {
@@ -119,7 +134,7 @@ SrcRef SrcPool::find_members(std::span<const IdString> members) const {
 	if (canon.empty())
 		return SrcRef::Null;
 	SrcSet node{std::move(canon)};
-	return find_hashed(hash_node(node), SrcEq{*this, node});
+	return stamp(find_hashed(hash_node(node), SrcEq{*this, node}));
 }
 
 SrcRef SrcPool::copy_from(const SrcPool &other, SrcRef ref) {
@@ -238,11 +253,12 @@ SrcRef SrcPool::intern(std::vector<IdString> members) {
 	SrcSet node{std::move(members)};
 	SrcRef found = find_hashed(hash_node(node), SrcEq{*this, node});
 	if (found != SrcRef::Null)
-		return found;
-	return add_inner(std::move(node));
+		return stamp(found);
+	return stamp(add_inner(std::move(node)));
 }
 
-size_t SrcPoolIo::index(const SrcPool &, SrcRef ref) {
+size_t SrcPoolIo::index(const SrcPool &pool, SrcRef ref) {
+	pool.check_owned(ref);
 	return ref.raw();
 }
 
