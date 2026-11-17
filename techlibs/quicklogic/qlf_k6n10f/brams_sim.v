@@ -4669,6 +4669,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -4721,6 +4722,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -4796,6 +4798,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -4848,6 +4851,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -4923,6 +4927,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -4975,6 +4980,7 @@ module TDP36K_FIFO_ASYNC_A_X9_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5050,6 +5056,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5102,6 +5109,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5177,6 +5185,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5229,6 +5238,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5304,6 +5314,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5356,6 +5367,7 @@ module TDP36K_FIFO_ASYNC_A_X18_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5431,6 +5443,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5483,6 +5496,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5558,6 +5572,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5610,6 +5625,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5685,6 +5701,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5737,6 +5754,7 @@ module TDP36K_FIFO_ASYNC_A_X36_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5812,6 +5830,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5864,6 +5883,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -5939,6 +5959,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -5991,6 +6012,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6066,6 +6088,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6118,6 +6141,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6193,6 +6217,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6245,6 +6270,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X18_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6320,6 +6346,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6372,6 +6399,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6447,6 +6475,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6499,6 +6528,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6574,6 +6604,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6626,6 +6657,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6701,6 +6733,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6753,6 +6786,7 @@ module TDP36K_FIFO_ASYNC_A1_X18_B1_X9_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6828,6 +6862,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -6880,6 +6915,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -6955,6 +6991,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7007,6 +7044,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7082,6 +7120,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7134,6 +7173,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7209,6 +7249,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7261,6 +7302,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X18_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7336,6 +7378,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7388,6 +7431,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7463,6 +7507,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7515,6 +7560,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7590,6 +7636,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7642,6 +7689,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7717,6 +7765,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7769,6 +7818,7 @@ module TDP36K_FIFO_ASYNC_A1_X9_B1_X9_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7844,6 +7894,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -7896,6 +7947,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -7971,6 +8023,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8023,6 +8076,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8098,6 +8152,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8150,6 +8205,7 @@ module TDP36K_FIFO_SYNC_A_X9_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8225,6 +8281,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8277,6 +8334,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8352,6 +8410,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8404,6 +8463,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8479,6 +8539,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8531,6 +8592,7 @@ module TDP36K_FIFO_SYNC_A_X18_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8606,6 +8668,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X9_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8658,6 +8721,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X9_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8733,6 +8797,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X18_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8785,6 +8850,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X18_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8860,6 +8926,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X36_nonsplit (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -8912,6 +8979,7 @@ module TDP36K_FIFO_SYNC_A_X36_B_X36_nonsplit (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -8987,6 +9055,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9039,6 +9108,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9114,6 +9184,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9166,6 +9237,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9241,6 +9313,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9293,6 +9366,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9368,6 +9442,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9420,6 +9495,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X18_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9495,6 +9571,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9547,6 +9624,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9622,6 +9700,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9674,6 +9753,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9749,6 +9829,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9801,6 +9882,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -9876,6 +9958,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -9928,6 +10011,7 @@ module TDP36K_FIFO_SYNC_A1_X18_B1_X9_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10003,6 +10087,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10055,6 +10140,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10130,6 +10216,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10182,6 +10269,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10257,6 +10345,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10309,6 +10398,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10384,6 +10474,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10436,6 +10527,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X18_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10511,6 +10603,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X18_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10563,6 +10656,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X18_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10638,6 +10732,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X18_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10690,6 +10785,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X18_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10765,6 +10861,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X9_B2_X18_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10817,6 +10914,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X9_B2_X18_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -10892,6 +10990,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X9_B2_X9_split (
 		);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(FLUSH1_i => RDATA_A1_o[0]) = 0;
 		(FLUSH1_i => RDATA_A1_o[1]) = 0;
@@ -10944,6 +11043,7 @@ module TDP36K_FIFO_SYNC_A1_X9_B1_X9_A2_X9_B2_X9_split (
 		$setuphold(posedge CLK_B2_i, ADDR_B2_i, 0, 0);
 		$setuphold(posedge CLK_B2_i, WDATA_B2_i, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule

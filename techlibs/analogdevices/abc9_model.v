@@ -28,6 +28,7 @@
 module \$__ANALOGDEVICES_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
   assign O = S1 ? (S0 ? I3 : I2)
                 : (S0 ? I1 : I0);
+  `ifdef TIMING
   specify
     (I0 => O) = 294;
     (I1 => O) = 297;
@@ -36,4 +37,5 @@ module \$__ANALOGDEVICES_MUXF78 (output O, input I0, I1, I2, I3, S0, S1);
     (S0 => O) = 390;
     (S1 => O) = 273;
   endspecify
+  `endif // TIMING
 endmodule

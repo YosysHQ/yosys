@@ -46,9 +46,11 @@ module CFG1 (
 );
 	parameter [1:0] INIT = 2'h0;
 	assign Y = INIT >> A;
+	`ifdef TIMING
 	specify
 		(A => Y) = 127;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=1 *)
@@ -59,10 +61,12 @@ module CFG2 (
 );
 	parameter [3:0] INIT = 4'h0;
 	assign Y = INIT >> {B, A};
+	`ifdef TIMING
 	specify
 		(A => Y) = 238;
 		(B => Y) = 127;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=1 *)
@@ -74,11 +78,13 @@ module CFG3 (
 );
 	parameter [7:0] INIT = 8'h0;
 	assign Y = INIT >> {C, B, A};
+	`ifdef TIMING
 	specify
 		(A => Y) = 407;
 		(B => Y) = 238;
 		(C => Y) = 127;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=1 *)
@@ -91,12 +97,14 @@ module CFG4 (
 );
 	parameter [15:0] INIT = 16'h0;
 	assign Y = INIT >> {D, C, B, A};
+	`ifdef TIMING
 	specify
 		(A => Y) = 472;
 		(B => Y) = 407;
 		(C => Y) = 238;
 		(D => Y) = 127;
 	endspecify
+	`endif // TIMING
 endmodule
 
 module BUFF (
@@ -176,6 +184,7 @@ module MICROCHIP_SYNC_SET_DFF(
 		end
 	end
 
+	`ifdef TIMING
 	specify
 		$setup(D , posedge CLK &&& En && Set, 0); // neg setup not supported?
 		$setup(En, posedge CLK, 109);
@@ -183,6 +192,7 @@ module MICROCHIP_SYNC_SET_DFF(
 		if (En && !Set) (posedge CLK => (Q : 1'b1)) = 303;
 		if (En && Set) (posedge CLK => (Q : D)) = 303;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -203,6 +213,7 @@ module MICROCHIP_SYNC_RESET_DFF(
 		end
 	end
 
+	`ifdef TIMING
 	specify
 		$setup(D , posedge CLK &&& En && Reset, 0); // neg setup not supported?
 		$setup(En, posedge CLK, 109);
@@ -210,6 +221,7 @@ module MICROCHIP_SYNC_RESET_DFF(
 		if (En && !Reset) (posedge CLK => (Q : 1'b0)) = 303;
 		if (En && Reset) (posedge CLK => (Q : D)) = 303;
 	endspecify
+	`endif // TIMING
 endmodule
 
 module SLE (
@@ -272,6 +284,7 @@ module ARI1 (
 	wire P = INIT[19] ? 1'b1 : (INIT[18] ? Yout : 1'b0);
 	assign FCO = P ? FCI : G;
 
+	`ifdef TIMING
 	specify
 		//pin to pin path delay
 		(A => Y )	= 472;
@@ -289,6 +302,7 @@ module ARI1 (
 		(D => FCO ) = 177;
 		(FCI => FCO ) = 50;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* blackbox *)
@@ -480,9 +494,11 @@ module CLKBUF (
 );
 	parameter IOSTD = "";
 	assign Y = PAD;
+	`ifdef TIMING
 	specify
 	 	(PAD => Y) = 50;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* blackbox *)

@@ -63,6 +63,7 @@ module MISTRAL_FF(
 );
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     if (ENA && ACLR !== 1'b0 && !SCLR && !SLOAD) (posedge CLK => (Q : DATAIN)) = 731;
     if (ENA && SCLR) (posedge CLK => (Q : 1'b0)) = 890;
@@ -76,6 +77,7 @@ specify
 
     if (ACLR === 1'b0) (ACLR => Q) = 282;
 endspecify
+`endif // TIMING
 `endif
 
 initial begin

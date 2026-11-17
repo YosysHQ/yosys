@@ -247,6 +247,7 @@ module QL_DSP2_MULT ( // TODO: Name subject to change
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(a[0] => z[0]) = 0;
 		(a[1] => z[0]) = 0;
@@ -1693,6 +1694,7 @@ module QL_DSP2_MULT ( // TODO: Name subject to change
 		(b[16] => z[37]) = 0;
 		(b[17] => z[37]) = 0;
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -1751,6 +1753,7 @@ module QL_DSP2_MULT_REGIN ( // TODO: Name subject to change
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -1758,6 +1761,7 @@ module QL_DSP2_MULT_REGIN ( // TODO: Name subject to change
 		$setuphold(posedge clk, b, 0, 0);
 		$setuphold(posedge clk, feedback, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -1815,6 +1819,7 @@ module QL_DSP2_MULT_REGOUT ( // TODO: Name subject to change
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -1822,6 +1827,7 @@ module QL_DSP2_MULT_REGOUT ( // TODO: Name subject to change
 		$setuphold(posedge clk, b, 0, 0);
 		$setuphold(posedge clk, feedback, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -1879,6 +1885,7 @@ module QL_DSP2_MULT_REGIN_REGOUT ( // TODO: Name subject to change
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -1886,6 +1893,7 @@ module QL_DSP2_MULT_REGIN_REGOUT ( // TODO: Name subject to change
 		$setuphold(posedge clk, b, 0, 0);
 		$setuphold(posedge clk, feedback, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -1948,6 +1956,7 @@ module QL_DSP2_MULTADD (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(a[0] => z[0]) = 0;
 		(a[1] => z[0]) = 0;
@@ -3660,6 +3669,7 @@ module QL_DSP2_MULTADD (
 		(acc_fir[4] => z[37]) = 0;
 		(acc_fir[5] => z[37]) = 0;
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -3724,6 +3734,7 @@ module QL_DSP2_MULTADD_REGIN (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -3734,6 +3745,7 @@ module QL_DSP2_MULTADD_REGIN (
 		$setuphold(posedge clk, subtract, 0, 0);
 		$setuphold(posedge clk, acc_fir, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -3798,6 +3810,7 @@ module QL_DSP2_MULTADD_REGOUT (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -3808,6 +3821,7 @@ module QL_DSP2_MULTADD_REGOUT (
 		$setuphold(posedge clk, subtract, 0, 0);
 		$setuphold(posedge clk, acc_fir, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -3872,6 +3886,7 @@ module QL_DSP2_MULTADD_REGIN_REGOUT (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -3882,6 +3897,7 @@ module QL_DSP2_MULTADD_REGIN_REGOUT (
 		$setuphold(posedge clk, subtract, 0, 0);
 		$setuphold(posedge clk, acc_fir, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -3945,6 +3961,7 @@ module QL_DSP2_MULTACC (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -3954,6 +3971,7 @@ module QL_DSP2_MULTACC (
 		$setuphold(posedge clk, load_acc, 0, 0);
 		$setuphold(posedge clk, subtract, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -4017,6 +4035,7 @@ module QL_DSP2_MULTACC_REGIN (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -4026,6 +4045,7 @@ module QL_DSP2_MULTACC_REGIN (
 		$setuphold(posedge clk, load_acc, 0, 0);
 		$setuphold(posedge clk, subtract, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -4089,6 +4109,7 @@ module QL_DSP2_MULTACC_REGOUT (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -4098,6 +4119,7 @@ module QL_DSP2_MULTACC_REGOUT (
 		$setuphold(posedge clk, load_acc, 0, 0);
 		$setuphold(posedge clk, subtract, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule
@@ -4161,6 +4183,7 @@ module QL_DSP2_MULTACC_REGIN_REGOUT (
 	);
 
 `ifdef SDF_SIM
+	`ifdef TIMING
 	specify
 		(posedge clk => (z +: a)) = 0;
 		(posedge clk => (z +: b)) = 0;
@@ -4170,6 +4193,7 @@ module QL_DSP2_MULTACC_REGIN_REGOUT (
 		$setuphold(posedge clk, load_acc, 0, 0);
 		$setuphold(posedge clk, subtract, 0, 0);
 	endspecify
+	`endif // TIMING
 `endif
 
 endmodule

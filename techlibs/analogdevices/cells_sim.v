@@ -36,6 +36,7 @@ module INBUF(
   parameter IFD_DELAY_VALUE = "AUTO";
   parameter IOSTANDARD = "DEFAULT";
   assign O = I;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I => O) = 42;
@@ -46,6 +47,7 @@ module INBUF(
     (I => O) = 187;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module OUTBUF(
@@ -57,6 +59,7 @@ module OUTBUF(
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I => O) = 42;
@@ -67,12 +70,14 @@ module OUTBUF(
     (I => O) = 187;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=1 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 42;
@@ -83,6 +88,7 @@ module LUT1(output O, input I0);
     (I0 => O) = 187;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=2 *)
@@ -90,6 +96,7 @@ module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 42;
@@ -102,6 +109,7 @@ module LUT2(output O, input I0, I1);
     (I1 => O) = 176;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -110,6 +118,7 @@ module LUT3(output O, input I0, I1, I2);
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 54;
@@ -124,6 +133,7 @@ module LUT3(output O, input I0, I1, I2);
     (I2 => O) = 227;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=4 *)
@@ -133,6 +143,7 @@ module LUT4(output O, input I0, I1, I2, I3);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 96;
@@ -149,6 +160,7 @@ module LUT4(output O, input I0, I1, I2, I3);
     (I3 => O) = 160;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=5 *)
@@ -159,6 +171,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 99;
@@ -177,6 +190,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
     (I4 => O) = 169;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_lut=6 *)
@@ -188,6 +202,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 42;
@@ -208,6 +223,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
     (I5 => O) = 134;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module LUT6_D(output O6, output O5, input I0, I1, I2, I3, I4, I5);
@@ -230,6 +246,7 @@ endmodule
 //   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=12 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
+`ifdef TIMING
 `ifndef __ICARUS__
 `ifdef IS_T16FFC
   specify
@@ -254,12 +271,14 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
   endspecify
 `endif
 `endif
+`endif // TIMING
 endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
 //   cost of 3-input LUTs and is not intended to be instantiated
 (* abc9_lut=24 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
+`ifdef TIMING
 `ifndef __ICARUS__
 `ifdef IS_T16FFC
   specify
@@ -286,11 +305,13 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
   endspecify
 `endif
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
 module LUTMUX7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 95;
@@ -305,11 +326,13 @@ module LUTMUX7(output O, input I0, I1, S);
     (S => O) = 188;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
 module LUTMUX8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (I0 => O) = 59;
@@ -324,6 +347,7 @@ module LUTMUX8(output O, input I0, I1, S);
     (S => O) = 193;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -341,6 +365,7 @@ module CRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (CI     => CO[0]) = 69;
@@ -451,6 +476,7 @@ module CRY4(
     (S[3]   => O[3]) = 145;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -461,6 +487,7 @@ module CRY4INIT(
   input        CYINIT
 );
   assign CO = CYINIT;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     (CYINIT => CO) = 77;
@@ -471,6 +498,7 @@ module CRY4INIT(
     (CYINIT => CO) = 205;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Flip-flops.
@@ -487,6 +515,7 @@ module FFRE (
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
   always @(posedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 65);
@@ -505,6 +534,7 @@ module FFRE (
     if (!R && CE) (posedge C => (Q : D)) = 712;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -519,6 +549,7 @@ module FFRE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 65);
@@ -537,6 +568,7 @@ module FFRE_N (
     if (!R && CE) (negedge C => (Q : D)) = 712;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -551,6 +583,7 @@ module FFSE (
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 65);
@@ -569,6 +602,7 @@ module FFSE (
     if (!S && CE) (posedge C => (Q : D)) = 693;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -583,6 +617,7 @@ module FFSE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D , negedge C, 65);
@@ -601,6 +636,7 @@ module FFSE_N (
     if (!S && CE) (negedge C => (Q : D)) = 693;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -615,6 +651,7 @@ module FFCE (
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
   always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D , posedge C, 65);
@@ -637,6 +674,7 @@ module FFCE (
 `endif
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -651,6 +689,7 @@ module FFCE_N (
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D,   negedge C, 65);
@@ -673,6 +712,7 @@ module FFCE_N (
 `endif
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module FFPE (
@@ -686,6 +726,7 @@ module FFPE (
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D,   posedge C, 65);
@@ -708,6 +749,7 @@ module FFPE (
 `endif
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module FFPE_N (
@@ -721,6 +763,7 @@ module FFPE_N (
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(D,   negedge C, 64);
@@ -743,6 +786,7 @@ module FFPE_N (
 `endif
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // LUTRAM.
@@ -763,6 +807,7 @@ module RAMS32X1 (
   reg [31:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 62);
@@ -797,6 +842,7 @@ module RAMS32X1 (
     (posedge WCLK => (O : D)) = 1586;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -813,6 +859,7 @@ module RAMS64X1 (
   reg [63:0] mem = INIT;
   assign O = mem[a];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 65);
@@ -851,6 +898,7 @@ module RAMS64X1 (
     (posedge WCLK => (O : D)) = 1730;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Dual port.
@@ -872,6 +920,7 @@ module RAMD32X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 62);
@@ -918,6 +967,7 @@ module RAMD32X1 (
     (posedge WCLK => (DPO : D)) = 1586;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -937,6 +987,7 @@ module RAMD64X1 (
   assign SPO = mem[a];
   assign DPO = mem[dpra];
   always @(posedge WCLK) if (WE) mem[a] <= D;
+`ifdef TIMING
 `ifdef IS_T16FFC
   specify
     $setup(A0, posedge WCLK, 65);
@@ -989,6 +1040,7 @@ module RAMD64X1 (
     (posedge WCLK => (DPO : D)) = 1807;
   endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Shift registers.
@@ -1006,6 +1058,7 @@ module SRG16E (
   reg [15:0] r = INIT;
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) if (CE) r <= { r[14:0], D };
+  `ifdef TIMING
   specify
     $setup(D , posedge CLK, 173);
     if (CE) (posedge CLK => (Q : D)) = 1472;
@@ -1015,6 +1068,7 @@ module SRG16E (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 // DSP
@@ -1093,11 +1147,13 @@ parameter REG_SFT = 1'b0;
 parameter RST_SEL = 1'b0;
 parameter FF_SYNC_RST = 1'b0;
 
+`ifdef TIMING
 specify
   if (!REG_A)    (A *> P) = 1000;
   if (!REG_B)    (B *> P) = 1000;
   if (!REG_D)    (D *> P) = 1000;
 endspecify
+`endif // TIMING
 
 // Much of this functionality is TODO.
 
@@ -1146,6 +1202,7 @@ module RBRAM #(
 );
 
 // Timings simplified for now
+`ifdef TIMING
 specify
   $setup(DA,  posedge CLKA, 715);
   $setup(CEA, posedge CLKA, 414);
@@ -1158,6 +1215,7 @@ specify
   (posedge CLKA => (QA : DA)) = 2380;
   (posedge CLKB => (QB : DB)) = 2289;
 endspecify
+`endif // TIMING
 
 endmodule
 
@@ -1200,6 +1258,7 @@ module RBRAM2 #(
 );
 
 // Timings simplified for now
+`ifdef TIMING
 specify
   $setup(DA,  posedge CLKA, 2440);
   $setup(CEA, posedge CLKA, 1668);
@@ -1212,5 +1271,6 @@ specify
   (posedge CLKA => (QA : DA)) = 2227;
   (posedge CLKB => (QB : DB)) = 2189;
 endspecify
+`endif // TIMING
 
 endmodule

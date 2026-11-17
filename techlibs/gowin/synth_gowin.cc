@@ -270,8 +270,8 @@ struct SynthGowinPass : public ScriptPass
 
 		if (check_label("begin"))
 		{
-			run("read_verilog -specify -lib +/gowin/cells_sim.v");
-			run(stringf("read_verilog -specify -lib +/gowin/cells_xtra_%s.v", help_mode ? "<family>" : family));
+			run("read_verilog -specify -DTIMING=1 -lib +/gowin/cells_sim.v");
+			run(stringf("read_verilog -specify -DTIMING=1 -lib +/gowin/cells_xtra_%s.v", help_mode ? "<family>" : family));
 			run(stringf("hierarchy -check %s", help_mode ? "-top <top>" : top_opt));
 		}
 
@@ -372,7 +372,7 @@ struct SynthGowinPass : public ScriptPass
 		if (check_label("map_luts"))
 		{
 			run("sort");
-			run("read_verilog -icells -lib -specify +/abc9_model.v");
+			run("read_verilog -icells -lib -specify -DTIMING=1 +/abc9_model.v");
 			if (nowidelut) {
 				run("abc9 -maxlut 4 -W 500");
 			} else if (!nowidelut) {
