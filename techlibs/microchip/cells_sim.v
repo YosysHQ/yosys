@@ -242,9 +242,9 @@ module SLE (
 			q_latch <= !ADn;
 		end else if (CLK && EN) begin
 			if (!SLn)
-				q_ff <= SD;
+				q_latch <= SD;
 			else
-				q_ff <= D;
+				q_latch <= D;
 		end
 	end
 
