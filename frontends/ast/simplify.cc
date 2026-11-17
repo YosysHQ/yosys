@@ -6354,6 +6354,6 @@ std::string AstNode::try_pop_module_prefix() const
 	}
 	return str;
 }
-
+YOSYS_NAMESPACE_END
 
 
