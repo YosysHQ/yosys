@@ -430,8 +430,7 @@ struct TechmapWorker
 				c->setParam(ID::MEMID, Const(memid.c_str()));
 			}
 
-			if (c->has_src())
-				design->absorb_metadata(c, src_cell);
+			design->absorb_metadata(c, src_cell);
 
 			if (techmap_replace_cell) {
 				for (auto attr : cell->attributes)
