@@ -63,10 +63,15 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 		cell->attributes[twines.add(stringf("\\SB_CARRY.%s", twines.str(a.first)))] = a.second;
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[twines.add(stringf("\\SB_LUT4.%s", twines.str(a.first)))] = a.second;
-	if (st.carry->has_src())
+	if (st.carry->has_src()) {
 		cell->attributes[twines.add("\\SB_CARRY.\\src")] = Const(st.carry->srcs().str(st.carry->src()));
-	if (st.lut->has_src())
+		cell->set_src(st.carry->src());
+	}
+	if (st.lut->has_src()) {
 		cell->attributes[twines.add("\\SB_LUT4.\\src")] = Const(st.lut->srcs().str(st.lut->src()));
+		if (!st.carry->has_src())
+			cell->set_src(st.lut->src());
+	}
 	cell->attributes[twines.add("\\SB_LUT4.name")] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;
