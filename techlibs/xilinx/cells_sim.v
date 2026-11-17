@@ -488,7 +488,7 @@ module FDRE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -523,7 +523,7 @@ module FDRE_1 (
   input R
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
@@ -553,7 +553,7 @@ module FDSE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -588,7 +588,7 @@ module FDSE_1 (
   input S
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
@@ -623,7 +623,7 @@ module FDRSE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   wire c = C ^ IS_C_INVERTED;
   wire ce = CE ^ IS_CE_INVERTED;
   wire d = D ^ IS_D_INVERTED;
@@ -658,7 +658,7 @@ module FDRSE_1 (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   wire c = C ^ IS_C_INVERTED;
   wire ce = CE ^ IS_CE_INVERTED;
   wire d = D ^ IS_D_INVERTED;
@@ -689,7 +689,7 @@ module FDCE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
     2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -732,7 +732,7 @@ module FDCE_1 (
   input D
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
@@ -769,7 +769,7 @@ module FDPE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
     2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -811,7 +811,7 @@ module FDPE_1 (
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249

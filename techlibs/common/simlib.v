@@ -2192,7 +2192,7 @@ parameter WIDTH = 0;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
-initial Q <= 'bx;
+initial Q = 'bx;
 
 always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;
