@@ -141,6 +141,7 @@ bool FfMergeHelper::find_output_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pai
 			}
 		}
 
+		ff.src = module->srcs().merge(ff.src, cur_ff.src);
 		ff.width++;
 		ff.sig_d.append(cur_ff.sig_d[idx]);
 		ff.sig_ad.append(ff.has_aload ? cur_ff.sig_ad[idx] : State::Sx);
@@ -268,6 +269,7 @@ bool FfMergeHelper::find_input_ff(RTLIL::SigSpec sig, FfData &ff, pool<std::pair
 			}
 		}
 
+		ff.src = module->srcs().merge(ff.src, cur_ff.src);
 		ff.width++;
 		ff.sig_d.append((ff.has_clk || ff.has_gclk) ? cur_ff.sig_d[idx] : State::Sx);
 		ff.sig_ad.append(ff.has_aload ? cur_ff.sig_ad[idx] : State::Sx);
