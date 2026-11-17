@@ -31,7 +31,7 @@ When running symbolic model checking from within yosys, there are a few things t
    ``chformal -lower`` transforms ``$check`` cells into the appropriate ``$assert`` or ``$cover`` cells.
 2. Some frontends such as ``read_slang`` have different semantics regarding how they handle undriven bits.
    To canonicalize them you may want to run ``setundef -undriven -anyseq``.
-   This replaces all wires that are undriven or explicitely set as X with ``$anyseq`` cells.
+   This replaces all wires that are undriven or explicitly set as X with ``$anyseq`` cells.
 
 These are transformations that SBY and EQY performs for you so are only needed if you are not using them.
 
