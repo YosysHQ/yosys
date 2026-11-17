@@ -79,6 +79,8 @@ yosys_core(kernel
 	sexpr.cc
 	sexpr.h
 	sigtools.h
+	srcpool.cc
+	srcpool.h
 	tclapi.cc
 	threading.cc
 	threading.h
@@ -153,6 +155,7 @@ yosys_core(kernel
 		scopeinfo.h
 		sexpr.h
 		sigtools.h
+		srcpool.h
 		threading.h
 		timinginfo.h
 		twine.h
