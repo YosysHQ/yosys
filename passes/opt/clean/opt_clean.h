@@ -49,9 +49,10 @@ struct Flags {
 	bool verbose = false;
 };
 struct CleanRunContext {
-	static constexpr auto ct_reg = StaticCellTypes::Categories::join(
-		StaticCellTypes::Compat::mem_ff,
-		StaticCellTypes::categories.is_anyinit);
+	static constexpr auto ct_reg = StaticCellTypes::Categories::meet(
+		StaticCellTypes::categories.is_known,
+		StaticCellTypes::Categories::complement(
+			StaticCellTypes::categories.is_stateless));
 	NewCellTypes ct_all;
 	RmStats stats;
 	ParallelDispatchThreadPool thread_pool;

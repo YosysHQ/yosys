@@ -527,7 +527,6 @@ struct Categories {
 	Category is_stdcell {};
 	Category is_ff {};
 	Category is_mem {};
-	Category is_anyinit {};
 	Category is_tristate {};
 	Category has_side_effect {};
 	Category is_nondeterministic {};
