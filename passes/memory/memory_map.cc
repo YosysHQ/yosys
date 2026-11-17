@@ -40,8 +40,9 @@ struct MemoryMapWorker
 	SigMap sigmap;
 	FfInitVals initvals;
 
-	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::SigBit> decoder_cache;
+	std::map<std::pair<RTLIL::SigSpec, RTLIL::SigSpec>, RTLIL::Cell*> decoder_cache;
 
+	SrcRef mem_src;
 
 	pool<std::string> wire_names;
 
@@ -90,26 +91,35 @@ struct MemoryMapWorker
 		std::pair<RTLIL::SigSpec, RTLIL::SigSpec> key(addr_sig, addr_val);
 		log_assert(GetSize(addr_sig) == GetSize(addr_val));
 
-		if (decoder_cache.count(key) == 0) {
-			if (GetSize(addr_sig) < 2) {
-				decoder_cache[key] = module->Eq(NEW_ID, addr_sig, addr_val);
-			} else {
-				int split_at = GetSize(addr_sig) / 2;
-				RTLIL::SigBit left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
-				RTLIL::SigBit right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
-				decoder_cache[key] = module->And(NEW_ID, left_eq, right_eq);
+		RTLIL::Cell *&cell = decoder_cache[key];
+		if (cell != nullptr && module->srcs().merge(cell->src(), mem_src) == cell->src())
+			return cell->getPort(ID::Y).as_wire();
+
+		if (GetSize(addr_sig) < 2) {
+			if (cell == nullptr) {
+				RTLIL::Wire *y = module->addWire(NEW_ID);
+				cell = module->addEq(NEW_ID, addr_sig, addr_val, y, false, mem_src);
+			}
+		} else {
+			int split_at = GetSize(addr_sig) / 2;
+			RTLIL::Wire *left_eq = addr_decode(addr_sig.extract(0, split_at), addr_val.extract(0, split_at));
+			RTLIL::Wire *right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
+			if (cell == nullptr) {
+				RTLIL::Wire *y = module->addWire(NEW_ID);
+				cell = module->addAnd(NEW_ID, left_eq, right_eq, y, false, mem_src);
 			}
 		}
 
-		RTLIL::SigBit bit = decoder_cache.at(key);
-		log_assert(bit.wire != nullptr && GetSize(bit.wire) == 1);
-		return bit.wire;
+		cell->set_src(module->srcs().merge(cell->src(), mem_src));
+		return cell->getPort(ID::Y).as_wire();
 	}
 
 	void handle_memory(Mem &mem)
 	{
 		std::set<int> static_ports;
 		std::map<int, RTLIL::SigSpec> static_cells_map;
+
+		mem_src = mem.src();
 
 		SigSpec init_data = mem.get_init_data();
 
@@ -242,6 +252,7 @@ struct MemoryMapWorker
 					c->parameters[ID::CLK_POLARITY] = RTLIL::Const(refclock_pol);
 					c->setPort(ID::CLK, refclock);
 				}
+				c->set_src(mem_src);
 				c->parameters[ID::WIDTH] = mem.width;
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
@@ -297,6 +308,7 @@ struct MemoryMapWorker
 				for (size_t k = 0; k < rd_signals.size(); k++)
 				{
 					RTLIL::Cell *c = module->addCell(genid(mem.memid, "$rdmux", i, "", j, "", k), ID($mux));
+					c->set_src(mem_src);
 					c->parameters[ID::WIDTH] = GetSize(port.data);
 					c->setPort(ID::Y, rd_signals[k]);
 					c->setPort(ID::S, rd_addr.extract(abits-j-1, 1));
@@ -356,6 +368,7 @@ struct MemoryMapWorker
 						if (wr_bit != State::S1)
 						{
 							RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wren", addr, "", j, "", wr_offset), ID($and));
+							c->set_src(mem_src);
 							c->parameters[ID::A_SIGNED] = RTLIL::Const(0);
 							c->parameters[ID::B_SIGNED] = RTLIL::Const(0);
 							c->parameters[ID::A_WIDTH] = RTLIL::Const(1);
@@ -369,6 +382,7 @@ struct MemoryMapWorker
 						}
 
 						RTLIL::Cell *c = module->addCell(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset), ID($mux));
+						c->set_src(mem_src);
 						c->parameters[ID::WIDTH] = wr_width;
 						c->setPort(ID::A, sig.extract(wr_offset, wr_width));
 						c->setPort(ID::B, port.data.extract(wr_offset + sub * mem.width, wr_width));
