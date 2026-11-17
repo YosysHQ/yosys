@@ -53,6 +53,13 @@ struct QbfSolveOptions {
 	}
 };
 
+inline pool<std::string> src_location_strings(const RTLIL::Cell *cell) {
+	pool<std::string> out;
+	for (IdString loc : cell->srcs().locations(cell->src()))
+		out.insert(cell->twines().str(loc));
+	return out;
+}
+
 struct QbfSolutionType {
 	std::vector<std::string> stdout_lines = {};
 	dict<pool<std::string>, std::string> hole_to_value = {};
@@ -66,7 +73,7 @@ struct QbfSolutionType {
 		dict<RTLIL::SigBit, RTLIL::SigBit> anyconst_sigbit_to_wire_sigbit;
 
 		for (auto cell : module->cells()) {
-			pool<std::string> cell_src = cell->get_strpool_attribute(ID::src);
+			pool<std::string> cell_src = src_location_strings(cell);
 			auto pos = hole_to_value.find(cell_src);
 			if (pos != hole_to_value.end() && cell->type.in(ID($anyconst), ID($anyseq))) {
 				RTLIL::SigSpec port_y = cell->getPort(ID::Y);

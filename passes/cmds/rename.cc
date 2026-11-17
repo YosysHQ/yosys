@@ -396,11 +396,11 @@ struct RenamePass : public Pass {
 
 				for (auto wire : module->selected_wires())
 					if (!wire->name.isPublic())
-						new_wire_names.emplace(wire, module->uniquify(derive_name_from_src(module, wire->get_src_attribute(), counter++)));
+						new_wire_names.emplace(wire, module->uniquify(derive_name_from_src(module, wire->srcs().str(wire->src()), counter++)));
 
 				for (auto cell : module->selected_cells())
 					if (!cell->name.isPublic())
-						new_cell_names.emplace(cell, module->uniquify(derive_name_from_src(module, cell->get_src_attribute(), counter++)));
+						new_cell_names.emplace(cell, module->uniquify(derive_name_from_src(module, cell->srcs().str(cell->src()), counter++)));
 
 				for (auto &it : new_wire_names)
 					module->rename(it.first, it.second);

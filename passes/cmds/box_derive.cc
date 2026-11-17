@@ -76,6 +76,8 @@ struct BoxDerivePass : Pass {
 		extra_args(args, argidx, d);
 
 		IdString naming_attr_ref = naming_attr.empty() ? IdString::Null : d->twines().find(naming_attr);
+		if (RTLIL::Design::is_metadata(naming_attr_ref))
+			log_cmd_error("-naming_attr can't name metadata.\n");
 
 		Module *base_override = nullptr;
 		if (!base_name.empty()) {

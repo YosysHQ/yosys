@@ -440,7 +440,7 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 		dict<SigBit, int> bit_user_cnt;
 
 		for (auto wire : module->wires()) {
-			if (wire->name.isPublic() && wire->attributes.count(ID::src))
+			if (wire->name.isPublic() && wire->has_src())
 				sigmap.add(wire);
 		}
 
@@ -490,13 +490,13 @@ void mutate_list(Design *design, const mutate_opts_t &opts, const string &filena
 					entry.port = conn.first;
 					entry.portbit = i;
 
-					for (auto &s : cell->get_strpool_attribute(ID::src))
-						entry.src.insert(s);
+					for (IdString loc : cell->srcs().locations(cell->src()))
+						entry.src.insert(design->twines().str(loc));
 
 					SigBit bit = sigmap(conn.second[i]);
 					if (bit.wire && bit.wire->name.isPublic() && (cell->output(conn.first) || bit_user_cnt[bit] == 1)) {
-						for (auto &s : bit.wire->get_strpool_attribute(ID::src))
-							entry.src.insert(s);
+						for (IdString loc : bit.wire->srcs().locations(bit.wire->src()))
+							entry.src.insert(design->twines().str(loc));
 						entry.wire = bit.wire->name;
 						entry.wirebit = bit.offset;
 					}

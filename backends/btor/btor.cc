@@ -141,8 +141,8 @@ struct BtorWorker
 	{
 		string infostr = obj->name.unescape();
 		if (!srcsym && !print_internal_names && infostr[0] == '$') return "";
-		if (obj->attributes.count(ID::src)) {
-			string src = obj->attributes.at(ID::src).decode_string().c_str();
+		if (obj->has_src()) {
+			string src = module->design->srcs().str(obj->src());
 			if (srcsym && infostr[0] == '$') {
 				std::replace(src.begin(), src.end(), ' ', '_');
 				infostr = uniquify_srcsym(std::move(src));

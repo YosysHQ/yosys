@@ -427,7 +427,7 @@ public:
 	std::vector<std::string> sources(O *object) {
 		auto pair = parse_scopename(object);
 		std::vector<std::string> result = scope_sources(tree.cursor(pair.first));
-		result.push_back(object->get_src_attribute());
+		result.push_back(object->srcs().str(object->src()));
 		return result;
 	}
 };
