@@ -52,7 +52,7 @@ struct NullIdString {
 
 struct IdString {
 private:
-#ifdef YOSYS_ENABLE_TWINE_PROVENANCE
+#ifdef YOSYS_ENABLE_INDEX_PROVENANCE
 	using bits_t = uint64_t;
 #else
 	using bits_t = uint32_t;
