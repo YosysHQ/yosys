@@ -9,6 +9,7 @@ pkgs.mkShell.override { stdenv = yosys.stdenv; } {
     llvmPackages.clang-tools
     llvmPackages.bintools
     iverilog
+    gtkwave
     (python3.withPackages (ps: [
       ps.pybind11
       ps.cxxheaderparser
