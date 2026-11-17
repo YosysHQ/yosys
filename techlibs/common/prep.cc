@@ -73,6 +73,12 @@ struct PrepPass : public ScriptPass
 		log("        this limits the optimizations that can be applied to the design to only\n");
 		log("        those involving private wires.\n");
 		log("\n");
+		log("    -formal [multiclock]\n");
+		log("        preserve formal semantics before performing other optimizations;\n");
+		log("        replaces undefined bits and undriven signals with anyseq sources\n");
+		log("        for formal verification. run 'async2sync' by default, or\n");
+		log("        'clk2fflogic' when multiclock is specified.\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -85,7 +91,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers, formal, multiclock;
 
 	void clear_flags() override
 	{
@@ -99,6 +105,8 @@ struct PrepPass : public ScriptPass
 		nokeepdc = false;
 		rdff = false;
 		barriers = false;
+		formal = false;
+		multiclock = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -159,6 +167,14 @@ struct PrepPass : public ScriptPass
 				barriers = true;
 				continue;
 			}
+			if (args[argidx] == "-formal") {
+				formal = true;
+				if (argidx+1 < args.size() && args[argidx+1] == "multiclock") {
+					multiclock = true;
+					argidx++;
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -196,10 +212,29 @@ struct PrepPass : public ScriptPass
 		{
 			if (help_mode || barriers)
 				run("optbarriers", "(if -barriers)");
+			if (help_mode || formal)
+				run("setundef -undriven -anyseq", "(if -formal)");
 			if (help_mode)
 				run("proc [-ifx]");
 			else
 				run(ifxmode ? "proc -ifx" : "proc");
+
+			if (help_mode || formal) {
+				run("memory_nordff", "(if -formal)");
+			}
+
+			if (help_mode) {
+				run("async2sync", "(if -formal without multiclock)");
+				run("clk2fflogic", "(if -formal multiclock)");
+			} else if (formal)
+				run(multiclock ? "clk2fflogic" : "async2sync");
+
+			if (help_mode || formal) {
+				run("chformal -lower", "(if -formal)");
+				run("memory_map -formal", "(if -formal)");
+				run("formalff -setundef -clk2ff -ff2anyinit -hierarchy", "(if -formal)");
+			}
+
 			if (help_mode || flatten) {
 				run("check");
 				if (help_mode)
