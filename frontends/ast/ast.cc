@@ -1171,9 +1171,26 @@ IdString AST::intern_src_name(RTLIL::Design *design, const AstSrcLocType &locati
 			stringf("%s$%d", kind, idx)});
 }
 
-void AST::set_src_attr(RTLIL::AttrObject *obj, const AstNode *ast)
+SrcRef AST::src_ref(const AstNode *ast)
 {
-	obj->attributes[ID::src] = ast->loc_string();
+	SrcPool &srcs = current_module->srcs();
+	auto it = ast->attributes.find(ID::src);
+	if (it != ast->attributes.end()) {
+		if (it->second->type != AST_CONSTANT)
+			ast->input_error("Attribute `src' with non-constant value!\n");
+		RTLIL::Const value = it->second->asAttrConst();
+		if (!(value.flags & RTLIL::CONST_FLAG_STRING))
+			it->second->input_error("Attribute `src' must be a string!\n");
+		return srcs.add_parsed(value.decode_string());
+	}
+	const auto &loc = ast->location;
+	IdString file = srcs.file(*loc.begin.filename);
+	return srcs.add(srcs.location(file, loc.begin.line, loc.begin.column, loc.end.line, loc.end.column));
+}
+
+void AST::set_src(RTLIL::AttrObject *obj, const AstNode *ast)
+{
+	obj->set_src(src_ref(ast));
 }
 
 static bool param_has_no_default(const AstNode* param) {
@@ -1200,7 +1217,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 	module->ast = nullptr;
 	module->name = design->twines().add(ast->str);
-	set_src_attr(module, ast);
+	set_src(module, ast);
 	module->set_bool_attribute(ID::cells_not_processed);
 
 	current_ast_mod = ast;
@@ -1337,6 +1354,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 
 		for (auto &attr : ast->attributes) {
 			log_assert((bool)attr.second.get());
+			if (RTLIL::Design::is_metadata(attr.first))
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
@@ -1365,6 +1384,8 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	}
 	else {
 		for (auto &attr : ast->attributes) {
+			if (RTLIL::Design::is_metadata(attr.first))
+				continue;
 			if (attr.second->type != AST_CONSTANT)
 				continue;
 			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();

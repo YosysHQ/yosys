@@ -174,7 +174,10 @@ struct WrapcellPass : Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++) {
 			if (args[argidx] == "-setattr" && argidx+1 < args.size()) {
-				attributes.emplace_back(d->twines().add(RTLIL::escape_id(args[++argidx])), "");
+				IdString id = d->twines().add(RTLIL::escape_id(args[++argidx]));
+				if (RTLIL::Design::is_metadata(id))
+					log_cmd_error("-setattr can't set metadata, use -formatattr.\n");
+				attributes.emplace_back(id, "");
 			} else if (args[argidx] == "-formatattr" && argidx+2 < args.size()) {
 				IdString id = d->twines().add(RTLIL::escape_id(args[++argidx]));
 				attributes.emplace_back(id, args[++argidx]);
@@ -272,7 +275,10 @@ struct WrapcellPass : Pass {
 							log_error("Formatting error when processing cell '%s' in module '%s'\n",
 									  cell, module);
 
-						subm->set_string_attribute(rule.name, value.value());
+						if (RTLIL::Design::is_metadata(rule.name))
+							d->set_metadata_string(subm, rule.name, RTLIL::Const(value.value()));
+						else
+							subm->set_string_attribute(rule.name, value.value());
 					}
 				}
 

@@ -874,7 +874,7 @@ void prep_xaiger(RTLIL::Module *module, bool dff)
 			for (auto cell_name : it) {
 				auto cell = module->cell(cell_name);
 				log_assert(cell);
-				log("\t%s (%s @ %s)\n", cell, cell->type.unescape(), cell->get_src_attribute());
+				log("\t%s (%s @ %s)\n", cell, cell->type.unescape(), cell->srcs().str(cell->src()));
 			}
 		}
 	}

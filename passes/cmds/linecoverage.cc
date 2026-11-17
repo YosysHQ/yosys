@@ -95,8 +95,9 @@ struct CoveragePass : public Pass {
 		{
 			log_debug("Module %s:\n", module);
 			for (auto wire: module->wires()) {
-				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->get_src_attribute(), wire);
-				for (auto src: wire->get_strpool_attribute(ID::src)) {
+				log_debug("%s\t%s\t%s\n", module->selected(wire) ? "*" : " ", wire->srcs().str(wire->src()), wire);
+				for (IdString loc : wire->srcs().locations(wire->src())) {
+					std::string src = design->twines().str(loc);
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;
 					auto [begin, end] = extract_src_lines(src);
@@ -109,8 +110,9 @@ struct CoveragePass : public Pass {
 				}
 			}
 			for (auto cell: module->cells()) {
-				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->get_src_attribute(), cell);
-				for (auto src: cell->get_strpool_attribute(ID::src)) {
+				log_debug("%s\t%s\t%s\n", module->selected(cell) ? "*" : " ", cell->srcs().str(cell->src()), cell);
+				for (IdString loc : cell->srcs().locations(cell->src())) {
+					std::string src = design->twines().str(loc);
 					auto filename = extract_src_filename(src);
 					if (filename.empty()) continue;
 					auto [begin, end] = extract_src_lines(src);

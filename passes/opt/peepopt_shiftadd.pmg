@@ -106,7 +106,7 @@ code
 	log_assert(!(offset>0 && var_signed));
 
 	SigSpec old_a = port(shift, \A); // data
-	std::string location = shift->get_src_attribute();
+	std::string location = shift->srcs().str(shift->src());
 
 	if(shiftadd_max_ratio>0 && offset<0 && -offset*shiftadd_max_ratio > old_a.size()) {
 		log_warning("at %s: candiate for shiftadd optimization (shifting '%s' by '%s - %d' bits) "

@@ -412,6 +412,7 @@ struct RecoverModuleWorker {
                 new_wire->upto = gold_wire->upto;
                 for (const auto &attr : gold_wire->attributes)
                     new_wire->attributes[attr.first] = attr.second;
+                design->transfer_metadata(new_wire, gold_wire);
                 for (int i = 0; i < new_wire->width; i++)
                     unused_bits.insert(SigBit(new_wire, i));
             }

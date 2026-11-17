@@ -453,7 +453,6 @@ struct WreduceWorker
 	static int count_nontrivial_wire_attrs(RTLIL::Wire *w)
 	{
 		int count = w->attributes.size();
-		count -= w->attributes.count(ID::src);
 		return count;
 	}
 

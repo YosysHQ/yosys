@@ -450,8 +450,8 @@ struct CheckPass : public Pass {
 					Cell *driver = driver_cells.at(bit);
 
 					std::string driver_src;
-					if (driver->has_attribute(ID::src)) {
-						std::string src_attr = driver->get_src_attribute();
+					if (driver->has_src()) {
+						std::string src_attr = driver->srcs().str(driver->src());
 						driver_src = stringf(" source: %s", src_attr);
 					}
 
@@ -467,8 +467,8 @@ struct CheckPass : public Pass {
 
 					if (wire->name.isPublic()) {
 						std::string wire_src;
-						if (wire->has_attribute(ID::src)) {
-							std::string src_attr = wire->get_src_attribute();
+						if (wire->has_src()) {
+							std::string src_attr = wire->srcs().str(wire->src());
 							wire_src = stringf(" source: %s", src_attr);
 						}
 						message += stringf("    wire %s%s\n", log_signal(SigBit(wire, pair.second)), wire_src);

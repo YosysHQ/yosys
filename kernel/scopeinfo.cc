@@ -78,7 +78,7 @@ std::vector<std::string> ModuleHdlnameIndex::scope_sources(Cursor cursor)
 		result.push_back(scopeinfo_get_attribute(cell, ScopeinfoAttrs::Cell, ID::src).decode_string());
 	}
 
-	result.push_back(module->get_src_attribute());
+	result.push_back(module->srcs().str(module->src()));
 
 	std::reverse(result.begin(), result.end());
 

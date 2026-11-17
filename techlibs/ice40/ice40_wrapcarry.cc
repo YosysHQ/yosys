@@ -63,6 +63,10 @@ void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
 		cell->attributes[twines.add(stringf("\\SB_CARRY.%s", twines.str(a.first)))] = a.second;
 	for (const auto &a : st.lut->attributes)
 		cell->attributes[twines.add(stringf("\\SB_LUT4.%s", twines.str(a.first)))] = a.second;
+	if (st.carry->has_src())
+		cell->attributes[twines.add("\\SB_CARRY.\\src")] = Const(st.carry->srcs().str(st.carry->src()));
+	if (st.lut->has_src())
+		cell->attributes[twines.add("\\SB_LUT4.\\src")] = Const(st.lut->srcs().str(st.lut->src()));
 	cell->attributes[twines.add("\\SB_LUT4.name")] = Const(st.lut->name.str());
 	if (st.carry->get_bool_attribute(ID::keep) || st.lut->get_bool_attribute(ID::keep))
 		cell->attributes[ID::keep] = true;
@@ -135,25 +139,26 @@ struct Ice40WrapCarryPass : public Pass {
 					lut->setPort(ID::A, { I3, cell->getPort(ID::B), cell->getPort(ID::A), cell->getPort(ID(I0)) });
 					lut->setPort(ID::Y, cell->getPort(ID::O));
 
-					Const src;
+					SrcRef carry_src = cell->src(), lut_src = cell->src();
 					for (const auto &a : cell->attributes) {
 						std::string aname = twines.str(a.first);
-						if (aname.starts_with("\\SB_CARRY.\\"))
+						if ((aname == "\\SB_CARRY.\\src" || aname == "\\SB_LUT4.\\src") && !(a.second.flags & RTLIL::CONST_FLAG_STRING))
+							log_error("Attribute `%s' on cell %s must be a string.\n", aname, cell->name.unescape());
+						if (aname == "\\SB_CARRY.\\src")
+							carry_src = module->srcs().add_parsed(a.second.decode_string());
+						else if (aname == "\\SB_LUT4.\\src")
+							lut_src = module->srcs().add_parsed(a.second.decode_string());
+						else if (aname.starts_with("\\SB_CARRY.\\"))
 							carry->attributes[twines.add(aname.substr(strlen("\\SB_CARRY.")))] = a.second;
 						else if (aname.starts_with("\\SB_LUT4.\\"))
 							lut->attributes[twines.add(aname.substr(strlen("\\SB_LUT4.")))] = a.second;
-						else if (a.first == ID::src)
-							src = a.second;
 						else if (a.first.in(lut_name_attr, ID::keep, ID::module_not_derived))
 							continue;
 						else
 							log_abort();
 					}
-
-					if (!src.empty()) {
-						carry->attributes.insert(std::make_pair(ID::src, src));
-						lut->attributes.insert(std::make_pair(ID::src, src));
-					}
+					carry->set_src(carry_src);
+					lut->set_src(lut_src);
 
 					module->remove(cell);
 				}

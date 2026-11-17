@@ -280,7 +280,11 @@ static int tcl_get_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 
 	IdString attr_twine = yosys_design->twines().find(attr_id);
 
-	if (string_flag) {
+	if (RTLIL::Design::is_metadata(attr_twine)) {
+		if (!string_flag)
+			ERROR("metadata can only be read with -string")
+		Tcl_SetObjResult(interp, Tcl_NewStringObj(yosys_design->get_metadata_string(obj, attr_twine).c_str(), -1));
+	} else if (string_flag) {
 		Tcl_SetObjResult(interp, Tcl_NewStringObj(obj->get_string_attribute(attr_twine).c_str(), -1));
 	} else if (int_flag || uint_flag || sint_flag) {
 		if (!obj->has_attribute(attr_twine))
@@ -345,7 +349,9 @@ static int tcl_has_attr(ClientData, Tcl_Interp *interp, int argc, const char *ar
 	if (!obj)
 		ERROR("object not found")
 
-	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(obj->has_attribute(yosys_design->twines().find(attr_id))).c_str(), -1));
+	IdString attr_twine = yosys_design->twines().find(attr_id);
+	bool has = RTLIL::Design::is_metadata(attr_twine) ? !yosys_design->get_metadata_string(obj, attr_twine).empty() : obj->has_attribute(attr_twine);
+	Tcl_SetObjResult(interp, Tcl_NewStringObj(std::to_string(has).c_str(), -1));
 	return TCL_OK;
 }
 
@@ -402,7 +408,11 @@ static int tcl_set_attr(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj *const
 
 	IdString attr_twine = yosys_design->twines().add(attr_id);
 
-	if (string_flag) {
+	if (RTLIL::Design::is_metadata(attr_twine)) {
+		if (!string_flag)
+			ERROR("metadata can only be set with -string")
+		yosys_design->set_metadata_string(obj, attr_twine, RTLIL::Const(std::string(Tcl_GetString(objv[i++]))));
+	} else if (string_flag) {
 		obj->set_string_attribute(attr_twine, Tcl_GetString(objv[i++]));
 	} else if (sint_flag || uint_flag) {
 		RTLIL::Const const_;

@@ -184,29 +184,29 @@ struct RomWorker
 
 		mem.emit();
 
-		if (sw->has_attribute(ID::src)) {
-			mem.inits[0].cell->attributes[ID::src] = sw->attributes[ID::src];
-			mem.rd_ports[0].cell->attributes[ID::src] = sw->attributes[ID::src];
+		if (sw->has_src()) {
+			mem.inits[0].cell->set_src(sw->src());
+			mem.rd_ports[0].cell->set_src(sw->src());
 		}
 
 		for (auto cs: sw->cases)
 			delete cs;
 		sw->cases.clear();
 		sw->signal = sw->signal.extract(0, swsigbits);
-		Const action_src = mem.has_attribute(ID::src) ? mem.attributes[ID::src] : Const("");
+		SrcRef action_src = mem.src();
 		if (abits == GetSize(sw->signal)) {
 			sw->signal = SigSpec();
-			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
-			cs->actions.push_back({lhs, rdata, std::move(action_src)});
+			RTLIL::CaseRule *cs = new RTLIL::CaseRule(module);
+			cs->actions.push_back({lhs, rdata, action_src});
 			sw->cases.push_back(cs);
 		} else {
 			sw->signal = sw->signal.extract_end(abits);
-			RTLIL::CaseRule *cs = new RTLIL::CaseRule;
+			RTLIL::CaseRule *cs = new RTLIL::CaseRule(module);
 			cs->compare.push_back(Const(State::S0, GetSize(sw->signal)));
 			cs->actions.push_back({lhs, rdata, action_src});
 			sw->cases.push_back(cs);
-			RTLIL::CaseRule *cs2 = new RTLIL::CaseRule;
-			cs2->actions.push_back({lhs, default_val, std::move(action_src)});
+			RTLIL::CaseRule *cs2 = new RTLIL::CaseRule(module);
+			cs2->actions.push_back({lhs, default_val, action_src});
 			sw->cases.push_back(cs2);
 		}
 

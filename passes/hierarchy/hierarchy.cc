@@ -1244,7 +1244,7 @@ struct HierarchyPass : public Pass {
 					if (!cell->has_attribute(ID(unsupported_sva)))
 						continue;
 
-					auto src = cell->get_src_attribute();
+					auto src = cell->srcs().str(cell->src());
 
 					if (!src.empty())
 						src += ": ";

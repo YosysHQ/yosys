@@ -112,8 +112,8 @@ struct FlattenWorker
 	template<class T>
 	void map_attributes(RTLIL::Cell *cell, T *object, IdString orig_object_name)
 	{
-		if (!create_scopeinfo && object->has_attribute(ID::src))
-			object->add_strpool_attribute(ID::src, cell->get_strpool_attribute(ID::src));
+		if (!create_scopeinfo && object->has_src())
+			object->set_src(cell->module->design->srcs().merge(object->src(), cell->src()));
 
 		// Preserve original names via the hdlname attribute, but only for objects with a fully public name.
 		// If the '-scopename' option is used, also preserve the containing scope of private objects if their scope is fully public.
@@ -338,9 +338,13 @@ struct FlattenWorker
 				else
 					scopeinfo->attributes.emplace(design->twines().add(stringf("\\cell_%s", design->twines().unescaped_str(attr.first))), attr.second);
 			}
+			if (cell->has_src())
+				scopeinfo->attributes.emplace(design->twines().add(std::string("\\cell_src")), RTLIL::Const(cell->srcs().str(cell->src())));
 
 			for (auto const &attr : tpl->attributes)
 				scopeinfo->attributes.emplace(design->twines().add(stringf("\\module_%s", design->twines().unescaped_str(attr.first))), attr.second);
+			if (tpl->has_src())
+				scopeinfo->attributes.emplace(design->twines().add("\\module_src"), RTLIL::Const(tpl->srcs().str(tpl->src())));
 
 			scopeinfo->attributes.emplace(ID::module, RTLIL::Const(tpl->name.unescape()));
 		}
