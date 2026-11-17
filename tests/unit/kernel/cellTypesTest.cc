@@ -72,9 +72,10 @@ TEST(CellTypesTest, basic)
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
 		EXPECT_EQ(older.cell_known(type), newer.cell_known(type));
-		if (older.cell_evaluable(type) != newer.cell_evaluable(type))
-			std::cout << ID::unescaped_str(type) << "\n";
-		EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
+		if (type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_)))
+			EXPECT_FALSE(newer.cell_evaluable(type));
+		else
+			EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
 		for (auto port : StaticCellTypes::builder.cells.data()->inputs.ports)
 			check_port(type, port);
 		for (auto port : StaticCellTypes::builder.cells.data()->outputs.ports)
@@ -84,10 +85,10 @@ TEST(CellTypesTest, basic)
 
 	const auto &categories = StaticCellTypes::categories;
 
-	constexpr auto is_stateless_synthesizable = StaticCellTypes::Categories::meet(
+	const auto is_stateless_synthesizable = StaticCellTypes::Categories::meet(
 		categories.is_synthesizable, categories.is_stateless);
 
-	constexpr auto synthesizable_kinds = StaticCellTypes::Categories::join(
+	const auto synthesizable_kinds = StaticCellTypes::Categories::join(
 		categories.is_combinatorial, categories.is_ff, categories.is_mem);
 
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {

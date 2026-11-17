@@ -49,7 +49,7 @@ struct Flags {
 	bool verbose = false;
 };
 struct CleanRunContext {
-	static constexpr auto ct_reg = StaticCellTypes::Categories::meet(
+	static inline const auto ct_reg = StaticCellTypes::Categories::meet(
 		StaticCellTypes::categories.is_known,
 		StaticCellTypes::Categories::complement(
 			StaticCellTypes::categories.is_stateless));

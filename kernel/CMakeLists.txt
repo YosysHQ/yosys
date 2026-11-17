@@ -59,6 +59,7 @@ yosys_core(kernel
 	mem.cc
 	mem.h
 	modtools.h
+	newcelltypes.cc
 	newcelltypes.h
 	pattern.h
 	qcsat.cc

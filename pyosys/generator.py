@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #  yosys -- Yosys Open SYnthesis Suite
 #
 #  Copyright (C) 2012  Claire Xenia Wolf <claire@yosyshq.com>
@@ -30,33 +29,35 @@ Please run ruff on this file in particular to make sure it parses with Python
 <= 3.12. There is so much f-string use here that the outer quote thing
 is a common problem. ``ruff check pyosys/generator.py`` suffices.
 """
-import os
-import io
-import shutil
+
 import argparse
+import io
+import os
+import shutil
+from collections.abc import Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 from sysconfig import get_paths
-from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterable, Tuple, Union, Optional, List
+from typing import Any
 
 import pybind11
-from cxxheaderparser.simple import parse_file, ClassScope, NamespaceScope, EnumDecl
 from cxxheaderparser.options import ParserOptions
 from cxxheaderparser.preprocessor import make_gcc_preprocessor
+from cxxheaderparser.simple import ClassScope, EnumDecl, NamespaceScope, parse_file
 from cxxheaderparser.types import (
-    PQName,
-    Type,
-    Pointer,
-    Reference,
-    MoveReference,
-    AnonymousName,
-    Method,
-    Function,
-    Field,
-    Variable,
-    Array,
-    FundamentalSpecifier,
-    FunctionType,
+	AnonymousName,
+	Array,
+	Field,
+	Function,
+	FunctionType,
+	FundamentalSpecifier,
+	Method,
+	MoveReference,
+	Pointer,
+	PQName,
+	Reference,
+	Type,
+	Variable,
 )
 
 __file_dir__ = Path(__file__).absolute().parent
@@ -65,873 +66,880 @@ __yosys_root__ = __file_dir__.parent
 
 @dataclass
 class PyosysClass:
-    """
-    Metadata about classes or structs intended to be wrapped using Pyosys.
+	"""
+	Metadata about classes or structs intended to be wrapped using Pyosys.
 
-    :param name: The base name of the class (without extra qualifiers)
-    :param ref_only: Whether this class can be copied to Python, or only
-        referenced.
-    :param string_expr:
-        A C++ expression that will be used for the ``__str__`` method in Python.
+	:param name: The base name of the class (without extra qualifiers)
+	:param ref_only: Whether this class can be copied to Python, or only
+	    referenced.
+	:param string_expr:
+	    A C++ expression that will be used for the ``__str__`` method in Python.
 
-        The object will be available as a const reference with the identifier
-        `s`.
-    :param hash_expr:
-        A C++ expression that will be fed to ``run_hash`` to declare a
-        ``__hash__`` method for Python.
+	    The object will be available as a const reference with the identifier
+	    `s`.
+	:param hash_expr:
+	    A C++ expression that will be fed to ``run_hash`` to declare a
+	    ``__hash__`` method for Python.
 
-        The object will be vailable as a const reference with the identifier
-        `s`.
-    :param denylist: If specified, one or more methods can be excluded from
-        wrapping.
-    :param name_pool: Whether this class's methods resolve names through its
-        design's ``TwinePool``.
-    :param shared: Whether Python holds this class through a ``std::shared_ptr``.
-    """
+	    The object will be vailable as a const reference with the identifier
+	    `s`.
+	:param denylist: If specified, one or more methods can be excluded from
+	    wrapping.
+	:param name_pool: Whether this class's methods resolve names through its
+	    design's ``TwinePool``.
+	:param shared: Whether Python holds this class through a ``std::shared_ptr``.
+	"""
 
-    name: str
-    ref_only: bool = False
+	name: str
+	ref_only: bool = False
 
-    # in the format s.(method or property) (or just s)
-    string_expr: Optional[str] = None
-    hash_expr: Optional[str] = None
+	# in the format s.(method or property) (or just s)
+	string_expr: str | None = None
+	hash_expr: str | None = None
 
-    denylist: FrozenSet[str] = frozenset({})
+	denylist: frozenset[str] = frozenset({})
 
-    name_pool: bool = False
+	name_pool: bool = False
 
-    shared: bool = False
+	shared: bool = False
 
 
 @dataclass
 class PyosysHeader:
-    """
-    :param name: The name of the header, i.e., its relative path to the Yosys root
-    :param classes: A list of ``PyosysClass`` classes to be wrapped
-    :param enums: A list of enums to be wrapped
-    """
+	"""
+	:param name: The name of the header, i.e., its relative path to the Yosys root
+	:param classes: A list of ``PyosysClass`` classes to be wrapped
+	:param enums: A list of enums to be wrapped
+	"""
 
-    name: str
-    classes: List[PyosysClass] = field(default_factory=lambda: [])
+	name: str
+	classes: list[PyosysClass] = field(default_factory=list)
 
-    def __post_init__(self):
-        self.classes_by_name = {}
-        if classes := self.classes:
-            for cls in classes:
-                self.classes_by_name[cls.name] = cls
+	def __post_init__(self):
+		self.classes_by_name = {}
+		if classes := self.classes:
+			for cls in classes:
+				self.classes_by_name[cls.name] = cls
 
 
 # MARK: Inclusion and Exclusion
 global_denylist = frozenset(
-    {
-        # deprecated
-        "builtin_ff_cell_types",
-        # no implementation
-        "set_verific_logging",
-        ## function pointers
-        "log_error_atexit",
-        "log_verific_callback",
-        # incomplete type
-        "yosys_get_tcl_interp",
-        # owning containers
-        "saved_designs",
-        "pushed_designs",
-    }
+	{
+		# deprecated
+		"builtin_ff_cell_types",
+		# no implementation
+		"set_verific_logging",
+		## function pointers
+		"log_error_atexit",
+		"log_verific_callback",
+		# incomplete type
+		"yosys_get_tcl_interp",
+		# owning containers
+		"saved_designs",
+		"pushed_designs",
+	}
 )
 name_lookup_methods = frozenset(
-    {
-        "cell",
-        "count_id",
-        "driverPort",
-        "getParam",
-        "getPort",
-        "get_bool_attribute",
-        "get_intvec_attribute",
-        "get_string_attribute",
-        "get_strpool_attribute",
-        "has",
-        "hasParam",
-        "hasPort",
-        "has_attribute",
-        "input",
-        "module",
-        "output",
-        "port_dir",
-        "selected_member",
-        "selected_module",
-        "selected_whole_module",
-        "unsetParam",
-        "unsetPort",
-        "wire",
-    }
+	{
+		"cell",
+		"count_id",
+		"driverPort",
+		"getParam",
+		"getPort",
+		"get_bool_attribute",
+		"get_intvec_attribute",
+		"get_string_attribute",
+		"get_strpool_attribute",
+		"has",
+		"hasParam",
+		"hasPort",
+		"has_attribute",
+		"input",
+		"module",
+		"output",
+		"port_dir",
+		"selected_member",
+		"selected_module",
+		"selected_whole_module",
+		"unsetParam",
+		"unsetPort",
+		"wire",
+	}
 )
 pyosys_headers = [
-    # Headers for incomplete types
-    PyosysHeader("libs/sha1/sha1.h"),
-    # Headers for globals
-    PyosysHeader("kernel/log.h"),
-    PyosysHeader("kernel/yosys.h"),
-    PyosysHeader("kernel/cost.h"),
-    # Headers with classes
-    PyosysHeader(
-        "kernel/celltypes.h",
-        [PyosysClass("CellType", hash_expr="s.type"), PyosysClass("CellTypes")],
-    ),
-    PyosysHeader("kernel/consteval.h", [PyosysClass("ConstEval")]),
-    PyosysHeader(
-        "kernel/register.h",
-        [
-            # PyosysClass("Pass") # Virtual methods, manually bridged
-        ],
-    ),
-    PyosysHeader(
-        "kernel/rtlil.h",
-        [
-            PyosysClass(
-                "Const",
-                string_expr="s.as_string()",
-                denylist=frozenset({"bits", "bitvectorize"}),
-            ),
-            PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
-            PyosysClass("Selection"),
-            # PyosysClass("Monitor"), # Virtual methods, manually bridged
-            PyosysClass("CaseRule"),
-            PyosysClass("SwitchRule"),
-            PyosysClass("SyncRule"),
-            PyosysClass(
-                "Process",
-                ref_only=True,
-                name_pool=True,
-                string_expr="s.name.str()",
-                hash_expr="s.name",
-            ),
-            PyosysClass("SigChunk"),
-            PyosysClass("SigBit", hash_expr="s"),
-            PyosysClass("SigSpec", hash_expr="s", denylist=frozenset({"chunks"})),
-            PyosysClass(
-                "Cell",
-                ref_only=True,
-                name_pool=True,
-                string_expr="s.name.str()",
-                hash_expr="s",
-            ),
-            PyosysClass(
-                "Wire",
-                ref_only=True,
-                name_pool=True,
-                string_expr="s.name.str()",
-                hash_expr="s",
-            ),
-            PyosysClass(
-                "Memory",
-                ref_only=True,
-                name_pool=True,
-                string_expr="s.name.str()",
-                hash_expr="s",
-            ),
-            PyosysClass(
-                "Module",
-                ref_only=True,
-                name_pool=True,
-                string_expr="s.name.str()",
-                hash_expr="s",
-                denylist=frozenset({
-                    "Pow",  # has no implementation
-                    "selected_members",  # bound manually to keep names tied to the design
-                }),
-            ),
-            PyosysClass(
-                "Design",
-                name_pool=True,
-                shared=True,
-                string_expr="std::to_string((size_t)&s)", # there is no better identitification string for a Design for good reasons
-                hash_expr="s",
-                denylist=frozenset({"selected_whole_modules"}),  # deprecated
-            ),
-        ],
-    ),
+	# Headers for incomplete types
+	PyosysHeader("libs/sha1/sha1.h"),
+	# Headers for globals
+	PyosysHeader("kernel/log.h"),
+	PyosysHeader("kernel/yosys.h"),
+	PyosysHeader("kernel/cost.h"),
+	# Headers with classes
+	PyosysHeader(
+		"kernel/celltypes.h",
+		[PyosysClass("CellType", hash_expr="s.type"), PyosysClass("CellTypes")],
+	),
+	PyosysHeader("kernel/consteval.h", [PyosysClass("ConstEval")]),
+	PyosysHeader(
+		"kernel/register.h",
+		[
+			# PyosysClass("Pass") # Virtual methods, manually bridged
+		],
+	),
+	PyosysHeader(
+		"kernel/rtlil.h",
+		[
+			PyosysClass(
+				"Const",
+				string_expr="s.as_string()",
+				denylist=frozenset({"bits", "bitvectorize"}),
+			),
+			PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
+			PyosysClass("Selection"),
+			# PyosysClass("Monitor"), # Virtual methods, manually bridged
+			PyosysClass("CaseRule"),
+			PyosysClass("SwitchRule"),
+			PyosysClass("SyncRule"),
+			PyosysClass(
+				"Process",
+				ref_only=True,
+				name_pool=True,
+				string_expr="s.name.str()",
+				hash_expr="s.name",
+			),
+			PyosysClass("SigChunk"),
+			PyosysClass("SigBit", hash_expr="s"),
+			PyosysClass("SigSpec", hash_expr="s", denylist=frozenset({"chunks"})),
+			PyosysClass(
+				"Cell",
+				ref_only=True,
+				name_pool=True,
+				string_expr="s.name.str()",
+				hash_expr="s",
+			),
+			PyosysClass(
+				"Wire",
+				ref_only=True,
+				name_pool=True,
+				string_expr="s.name.str()",
+				hash_expr="s",
+			),
+			PyosysClass(
+				"Memory",
+				ref_only=True,
+				name_pool=True,
+				string_expr="s.name.str()",
+				hash_expr="s",
+			),
+			PyosysClass(
+				"Module",
+				ref_only=True,
+				name_pool=True,
+				string_expr="s.name.str()",
+				hash_expr="s",
+				denylist=frozenset(
+					{
+						"Pow",  # has no implementation
+						"selected_members",  # bound manually to keep names tied to the design
+					}
+				),
+			),
+			PyosysClass(
+				"Design",
+				name_pool=True,
+				shared=True,
+				string_expr="std::to_string((size_t)&s)",  # there is no better identitification string for a Design for good reasons
+				hash_expr="s",
+				denylist=frozenset({"selected_whole_modules"}),  # deprecated
+			),
+		],
+	),
 ]
 
 
 @dataclass(frozen=True)  # hashable
 class PyosysType:
-    """
-    Bit of a hacky object all-around: this is more or less used to encapsulate
-    container types so they can be later made opaque using pybind.
-    """
-
-    base: str
-    specialization: Tuple["PyosysType", ...]
-    const: bool = False
-
-    @classmethod
-    def from_type(Self, type_obj, drop_const=False) -> "PyosysType":
-        const = hasattr(type_obj, "const") and type_obj.const and not drop_const
-        if isinstance(type_obj, Pointer):
-            ptr_to = Self.from_type(type_obj.ptr_to)
-            return Self("ptr", (ptr_to,), const)
-        elif isinstance(type_obj, Reference):
-            ref_to = Self.from_type(type_obj.ref_to)
-            return Self("ref", (ref_to,), const)
-        elif isinstance(type_obj, FunctionType):
-            ret_type = Self.from_type(type_obj.return_type)
-            param_types = (Self.from_type(p.type) for p in type_obj.parameters)
-            return Self("fn", (ret_type, *param_types), False)
-        assert isinstance(
-            type_obj, Type
-        ), f"unexpected c++ type object of type {type(type_obj)}"
-        last_segment = type_obj.typename.segments[-1]
-        base = last_segment.name
-        specialization = tuple()
-        if (
-            hasattr(last_segment, "specialization")
-            and last_segment.specialization is not None
-        ):
-            for template_arg in last_segment.specialization.args:
-                specialization = (*specialization, Self.from_type(template_arg.arg))
-        return Self(base, specialization, const)
-
-    def generate_identifier(self):
-        title = self.base.title()
-        if len(self.specialization) == 0:
-            return title
-
-        if title == "Dict":
-            key, value = self.specialization
-            return f"{key.generate_identifier()}To{value.generate_identifier()}{title}"
-        elif title == "Fn":
-            identifier = self.specialization[0].generate_identifier()
-            if identifier == "Void":
-                identifier = ""
-            else:
-                identifier += "From"
-            identifier += "And".join(
-                p.generate_identifier() for p in self.specialization[1:]
-            )
-            return identifier
-
-        return (
-            "".join(spec.generate_identifier() for spec in self.specialization) + title
-        )
-
-    def generate_cpp_name(self):
-        const_prefix = "const " * self.const
-        if len(self.specialization) == 0:
-            return const_prefix + self.base
-        elif self.base == "ptr":
-            return const_prefix + f"{self.specialization[0].generate_cpp_name()} *"
-        elif self.base == "ref":
-            return const_prefix + f"{self.specialization[0].generate_cpp_name()} &"
-        elif self.base == "fn":
-            param_cpp_names = (s.generate_cpp_name() for s in self.specialization[1:])
-            return f"{self.specialization[0].generate_cpp_name()}({','.join(param_cpp_names)})"
-        else:
-            return (
-                const_prefix
-                + f"{self.base}<{', '.join(spec.generate_cpp_name() for spec in self.specialization)}>"
-            )
-
-
-class PyosysWrapperGenerator(object):
-    def __init__(
-        self,
-        from_headers: Iterable[PyosysHeader],
-        wrapper_stream: io.TextIOWrapper,
-        header_stream: io.TextIOWrapper,
-    ):
-        self.headers = from_headers
-        self.f = wrapper_stream
-        self.f_inc = header_stream
-        self.found_containers: Dict[PyosysType, Any] = {}
-        self.class_registry: Dict[str, Tuple[ClassScope, PyosysClass]] = {}
-
-    # entry point
-    def generate(self, build_dir):
-        tpl = __file_dir__ / "wrappers_tpl.cc"
-        preprocessor_opts = self.make_preprocessor_options(build_dir)
-        with open(tpl, encoding="utf8") as f:
-            do_line_directive = True
-            for i, line in enumerate(f):
-                if do_line_directive:
-                    self.f.write(f'#line {i + 1} "{tpl}"\n')
-                    do_line_directive = False
-                if "<!-- generated includes -->" in line:
-                    for header in self.headers:
-                        self.f.write(f'#include "{header.name}"\n')
-                    do_line_directive = True
-                elif "<!-- generated pymod-level code -->" in line:
-                    for header in self.headers:
-                        header_path = __yosys_root__ / header.name
-                        parsed = parse_file(header_path, options=preprocessor_opts)
-                        self.process_namespace(header, parsed.namespace)
-                else:
-                    self.f.write(line)
-
-        for container, _ in self.found_containers.items():
-            identifier = container.generate_identifier()
-            print(
-                f"using {identifier} = {container.generate_cpp_name()};",
-                file=self.f_inc,
-            )
-            print(f"PYBIND11_MAKE_OPAQUE({identifier})", file=self.f_inc)
-
-        print(
-            f"static void bind_autogenerated_opaque_containers(py::module &m) {{",
-            file=self.f_inc,
-        )
-        for container, _ in self.found_containers.items():
-            identifier = container.generate_identifier()
-            cxx = container.generate_cpp_name()
-            tpl_args = [cxx]
-            for spec in container.specialization:
-                tpl_args.append(spec.generate_cpp_name())
-            print(
-                f'\tpy::hashlib::bind_{container.base}<{", ".join(tpl_args)}>(m, "{container.generate_identifier()}");',
-                file=self.f_inc,
-            )
-            print(
-                f"\tpy::implicitly_convertible<py::iterable, {identifier}>();",
-                file=self.f_inc,
-            )
-        print(f"}}", file=self.f_inc)
-
-    # helpers
-    def make_preprocessor_options(self, build_dir):
-        py_include = get_paths()["include"]
-        cxx_bin = os.getenv("CXX") or shutil.which("clang++") or "c++"
-        if ccache := os.getenv("CCACHE"):
-            compiler = [ccache, cxx_bin]
-        else:
-            compiler = [cxx_bin]
-        cxx_std = os.getenv("CXX_STD", "c++20")
-        return ParserOptions(
-            preprocessor=make_gcc_preprocessor(
-                defines=["_YOSYS_", "YOSYS_ENABLE_PYTHON"],
-                gcc_args=[*compiler, f"-std={cxx_std}", "-fsyntax-only"],
-                include_paths=[str(__yosys_root__), py_include, pybind11.get_include(), build_dir],
-            ),
-        )
-
-    @staticmethod
-    def find_containers(
-        containers: Iterable[str], type_info: Any
-    ) -> Dict[PyosysType, Any]:
-        if isinstance(type_info, Pointer):
-            return PyosysWrapperGenerator.find_containers(containers, type_info.ptr_to)
-        if isinstance(type_info, MoveReference):
-            return PyosysWrapperGenerator.find_containers(
-                containers, type_info.moveref_to
-            )
-        if isinstance(type_info, Reference):
-            return PyosysWrapperGenerator.find_containers(containers, type_info.ref_to)
-        if not isinstance(type_info, Type):
-            return {}
-        segments = type_info.typename.segments
-        containers_found = {}
-        for segment in segments:
-            if isinstance(segment, FundamentalSpecifier):
-                continue
-            if segment.name in containers:
-                containers_found.update(
-                    {PyosysType.from_type(type_info, drop_const=True): type_info}
-                )
-            if segment.specialization is not None:
-                for arg in segment.specialization.args:
-                    sub_containers = PyosysWrapperGenerator.find_containers(
-                        containers, arg.arg
-                    )
-                    containers_found.update(sub_containers)
-        return containers_found
-
-    @staticmethod
-    def find_anonymous_union(cls: ClassScope):
-        if cls.class_decl.typename.classkey != "union":
-            return None
-        for s in cls.class_decl.typename.segments:
-            if isinstance(s, AnonymousName):
-                return s
-        return None  # named union
-
-    @staticmethod
-    def type_basename(type_info: Any) -> Optional[str]:
-        if isinstance(type_info, Reference):
-            type_info = type_info.ref_to
-        if not isinstance(type_info, Type):
-            return None
-        return type_info.typename.segments[-1].name
-
-    @staticmethod
-    def is_idstring(type_info: Any) -> bool:
-        return PyosysWrapperGenerator.type_basename(type_info) == "IdString"
-
-    @staticmethod
-    def is_owned_id(type_info: Any) -> bool:
-        return PyosysWrapperGenerator.type_basename(type_info) in (
-            "ModuleNameId",
-            "WireNameId",
-            "CellNameId",
-            "MemoryNameId",
-            "ProcessNameId",
-            "CellTypeId",
-        )
-
-    @staticmethod
-    def get_parameter_types(function: Function) -> str:
-        return ", ".join(p.type.format() for p in function.parameters)
-
-    def register_containers(self, target: Union[Function, Field, Variable]) -> bool:
-        supported = ("dict", "idict", "pool", "set", "vector")
-        found = False
-        if isinstance(target, Function):
-            return_type_containers = self.find_containers(supported, target.return_type)
-            found = found or len(return_type_containers)
-            self.found_containers.update(return_type_containers)
-
-            for parameter in target.parameters:
-                parameter_containers = self.find_containers(supported, parameter.type)
-                found = found or len(parameter_containers)
-                self.found_containers.update(parameter_containers)
-        else:
-            variable_containers = self.find_containers(supported, target.type)
-            found = found or len(variable_containers)
-            self.found_containers.update(variable_containers)
-        return found
-
-    # processors
-    def get_overload_cast(
-        self, function: Function, class_basename: Optional[str]
-    ) -> str:
-        is_method = isinstance(function, Method)
-        function_return_type = function.return_type.format()
-        if class_basename in {"Const","IdString"} and function_return_type in {
-            "iterator",
-            "const_iterator",
-        }:
-            # HACK: qualify Const's iterators
-            function_return_type = f"{class_basename}::{function_return_type}"
-
-        pointer_kind = (
-            f"{class_basename}::*" if (is_method and not function.static) else "*"
-        )
-
-        retval = f"static_cast <"
-        retval += function_return_type
-        retval += f"({pointer_kind})"
-        retval += f"({self.get_parameter_types(function)})"
-        if is_method and function.const:
-            retval += " const"
-        retval += ">"
-        retval += "(&"
-        if is_method:
-            retval += f"{class_basename}::"
-        retval += function.name.segments[-1].format()
-        retval += ")"
-        return retval
-
-    def get_definition_args(
-        self,
-        function: Function,
-        class_basename: Optional[str],
-        python_name_override: Optional[str] = None,
-        callable_expr: Optional[str] = None,
-    ) -> List[str]:
-        function_basename = function.name.segments[-1].format()
-
-        python_function_basename = python_name_override or keyword_aliases.get(
-            function_basename, function_basename
-        )
-
-        def_args = [f'"{python_function_basename}"']
-        def_args.append(callable_expr or self.get_overload_cast(function, class_basename))
-        for i, parameter in enumerate(function.parameters):
-            name = parameter.name or f"arg{i}"
-            parameter_arg = f'py::arg("{name}")'
-            if parameter.default is not None:
-                parameter_arg += f" = {parameter.default.format()}"
-            def_args.append(parameter_arg)
-
-        return def_args
-
-    def process_method(self, metadata: PyosysClass, function: Method):
-        if (
-            function.deleted
-            or function.template
-            or function.vararg
-            or function.access != "public"
-            or function.pure_virtual
-            or function.destructor
-        ):
-            return
-
-        if any(isinstance(p.type, MoveReference) for p in function.parameters):
-            # skip move constructors
-            return
-
-        if len(function.name.segments) > 1:
-            # can't handle, skip
-            return
-
-        if function.constructor:
-            if (
-                not metadata.ref_only
-            ):  # ref-only classes should not be constructed from python
-                print(
-                    f"\t\t\t.def(py::init<{self.get_parameter_types(function)}>())",
-                    file=self.f,
-                )
-            return
-
-        python_name_override = None
-        if function.operator is not None:
-            if function.operator == "==":
-                python_name_override = "__eq__"
-            elif function.operator == "!=":
-                python_name_override = "__ne__"
-            elif function.operator == "<":
-                python_name_override = "__lt__"
-            elif function.operator == "[]" and function.const:
-                python_name_override = "__getitem__"
-            else:
-                return
-
-        self.register_containers(function)
-
-        definition_fn = "def"
-        if function.static:
-            definition_fn = "def_static"
-
-        callable_expr = None
-        if self.takes_or_returns_name(metadata, function):
-            callable_expr = self.get_name_resolving_lambda(metadata, function)
-
-        definition_args = self.get_definition_args(
-            function, metadata.name, python_name_override, callable_expr
-        )
-
-        print(
-            f"\t\t\t.{definition_fn}({', '.join(definition_args)})",
-            file=self.f,
-        )
-
-    def takes_or_returns_name(self, metadata: PyosysClass, function: Method) -> bool:
-        if not metadata.name_pool or function.static:
-            return False
-        return self.is_idstring(function.return_type) or any(
-            self.is_idstring(p.type) for p in function.parameters
-        )
-
-    def get_name_resolving_lambda(self, metadata: PyosysClass, function: Method) -> str:
-        function_basename = function.name.segments[-1].format()
-        create = "false" if function_basename in name_lookup_methods else "true"
-
-        lambda_params = [f"{metadata.name} &self"]
-        call_args = []
-        for i, parameter in enumerate(function.parameters):
-            if self.is_idstring(parameter.type):
-                lambda_params.append(f"const pyosys::NameArg &arg{i}")
-                call_args.append(f"pyosys::resolve_name(self, arg{i}, {create})")
-            else:
-                lambda_params.append(f"{parameter.type.format()} arg{i}")
-                call_args.append(f"arg{i}")
-
-        call = f"self.{function_basename}({', '.join(call_args)})"
-        if self.is_idstring(function.return_type):
-            body = f"-> pyosys::PyName {{ return pyosys::pooled_name(self, {call}); }}"
-        else:
-            body = f"-> decltype(auto) {{ return {call}; }}"
-        return f"[]({', '.join(lambda_params)}) {body}"
-
-    def process_function(self, function: Function):
-        if function.deleted or function.template or function.vararg or function.static:
-            return
-
-        if function.operator is not None:
-            # Python doesn't do global operators
-            return
-
-        if function.name.segments[-1].format() in global_denylist:
-            return
-
-        self.register_containers(function)
-
-        print(
-            f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});",
-            file=self.f,
-        )
-
-    def process_field(self, metadata: PyosysClass, field: Field):
-        if field.access != "public":
-            return
-
-        if field.name is None:
-            # anonymous structs and unions
-            # unions handled in calling function
-            # ASSUMPTION: No anonymous structs in the yosys codebase
-            # 			  (they're not in the C++ standard anyway)
-            return
-
-        unique_ptrs = self.find_containers(("unique_ptr",), field.type)
-        if len(unique_ptrs):
-            # TODO: figure out how to bridge unique pointers maybe does anyone
-            # care
-            return
-
-        self.register_containers(field)
-        field_python_basename = keyword_aliases.get(field.name, field.name)
-
-        if self.is_owned_id(field.type):
-            getter = f"[]({metadata.name} &self) {{ return pyosys::pooled_name(self, self.{field.name}); }}"
-            setter = f"[]({metadata.name} &self, const pyosys::NameArg &name) {{ self.{field.name} = pyosys::resolve_name(self, name, true); }}"
-            print(
-                f'\t\t\t.def_property("{field_python_basename}", {getter}, {setter})',
-                file=self.f,
-            )
-            return
-
-        rvp = "py::return_value_policy::copy"
-        if isinstance(field.type, Pointer):
-            rvp = "py::return_value_policy::reference_internal"
-
-        definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
-        if field.static:
-            definition_fn += "_static"
-
-        def_args = [
-            f'"{field_python_basename}"',
-            f"&{metadata.name}::{field.name}",
-        ]
-        def_args.append(rvp)
-        print(
-            f"\t\t\t.{definition_fn}({', '.join(def_args)})",
-            file=self.f,
-        )
-
-    def process_variable(self, variable: Variable):
-        if isinstance(variable.type, Array) or variable.template:
-            return
-
-        variable_basename = variable.name.segments[-1].format()
-        if variable_basename in global_denylist:
-            return
-
-        self.register_containers(variable)
-
-        definition_fn = (
-            f"def_{'readonly' if (variable.type.const or variable.constexpr) else 'readwrite'}_static"
-        )
-
-        variable_python_basename = keyword_aliases.get(
-            variable_basename, variable_basename
-        )
-        variable_name = variable.name.format()
-
-        print(
-            f'\t\t\tglobal_variables.{definition_fn}("{variable_python_basename}", &{variable_name});',
-            file=self.f,
-        )
-
-    def process_class_members(
-        self,
-        metadata: PyosysClass,
-        base_metadata: PyosysClass,
-        cls: ClassScope,
-        basename: str,
-    ):
-        for method in cls.methods:
-            if method.name.segments[-1].name in base_metadata.denylist:
-                continue
-            self.process_method(metadata, method)
-
-        visited_anonymous_unions = set()
-        for field_ in cls.fields:
-            if field_.name in base_metadata.denylist:
-                continue
-            self.process_field(metadata, field_)
-
-            # Handle anonymous unions
-            for subclass in cls.classes:
-                if subclass.class_decl.access != "public":
-                    continue
-                if au := self.find_anonymous_union(subclass):
-                    if au.id in visited_anonymous_unions:
-                        continue
-                    visited_anonymous_unions.add(au.id)
-                    for subfield in subclass.fields:
-                        self.process_field(metadata, subfield)
-
-        for base in cls.class_decl.bases:
-            if base.access != "public":
-                continue
-            name = base.typename.segments[-1].format()
-            if processed := self.class_registry.get(name):
-                base_scope, base_metadata = processed
-                self.process_class_members(
-                    metadata, base_metadata, base_scope, basename
-                )
-
-    def process_class(
-        self,
-        metadata: PyosysClass,
-        cls: ClassScope,
-        namespace_components: Tuple[str, ...],
-    ):
-        pqname: PQName = cls.class_decl.typename
-        full_path = list(namespace_components) + [
-            segment.format() for segment in pqname.segments
-        ]
-        basename = full_path.pop()
-        self.class_registry[basename] = (cls, metadata)
-
-        declaration_namespace = "::".join(full_path)
-        tpl_args = [basename]
-        if metadata.ref_only:
-            tpl_args.append(f"std::unique_ptr<{basename}, py::nodelete>")
-        elif metadata.shared:
-            tpl_args.append(f"std::shared_ptr<{basename}>")
-        print(
-            f'\t\t{{using namespace {declaration_namespace}; py::class_<{", ".join(tpl_args)}>(m, "{basename}")',
-            file=self.f,
-        )
-
-        self.process_class_members(metadata, metadata, cls, basename)
-
-        if basename == "Design":
-            print(
-                '\t\t\t.def("run_pass", [](Design &s, std::vector<std::string> cmd) { Pass::call(&s, cmd); })',
-                file=self.f,
-            )
-            print(
-                '\t\t\t.def("run_pass", [](Design &s, std::string cmd) { Pass::call(&s, cmd); })',
-                file=self.f,
-            )
-
-        if expr := metadata.string_expr:
-            print(
-                f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})',
-                file=self.f,
-            )
-            print(
-                f'\t\t.def("__repr__", [](const {basename} &s) {{ std::stringstream ss; ss << "<{basename} " << {expr} << ">"; return ss.str(); }})',
-                file=self.f,
-            )
-
-        if expr := metadata.hash_expr:
-            print(
-                f'\t\t.def("__hash__", [](const {basename} &s) {{ return run_hash({expr}); }})',
-                file=self.f,
-            )
-
-        print(f"\t\t;}}", file=self.f)
-
-    def process_enum(
-        self,
-        enum: EnumDecl,
-        namespace_components: Tuple[str, ...],
-    ):
-        pqname: PQName = enum.typename
-        full_path = list(namespace_components) + [
-            segment.format() for segment in pqname.segments
-        ]
-        basename = full_path.pop()
-
-        declaration_namespace = "::".join(full_path)
-        print(
-            f'\t\t{{using namespace {declaration_namespace}; py::native_enum<{basename}>(m, "{basename}", "enum.Enum")',
-            file=self.f,
-        )
-        enum_class = enum.typename.classkey == "enum class"
-        for value in enum.values:
-            enum_class_qualifier = f"{basename}::" * enum_class
-            print(
-                f'\t\t\t.value("{value.name}", {enum_class_qualifier}{value.name})',
-                file=self.f,
-            )
-        print(f"\t\t\t.finalize();}}", file=self.f)
-
-    def process_namespace(
-        self,
-        header: PyosysHeader,
-        ns: NamespaceScope,
-        namespace_components: Tuple[str, ...] = (),
-    ):
-        for name, subns in ns.namespaces.items():
-            self.process_namespace(header, subns, (*namespace_components, name))
-
-        for enum in ns.enums:
-            self.process_enum(enum, namespace_components)
-
-        if len(namespace_components) and (len(ns.functions) + len(ns.variables)):
-            # TODO: Not essential but maybe move namespace usage into
-            # process_function for consistency?
-            print(
-                f"\t\t{{ using namespace {'::'.join(namespace_components)};",
-                file=self.f,
-            )
-            for function in ns.functions:
-                self.process_function(function)
-            for variable in ns.variables:
-                self.process_variable(variable)
-            print(f"\t\t}}", file=self.f)
-        for cls in ns.classes:
-            pqname = cls.class_decl.typename
-            declared_name_str = pqname.segments[-1].format()
-            if cls_metadata := header.classes_by_name.get(declared_name_str):
-                self.process_class(cls_metadata, cls, namespace_components)
+	"""
+	Bit of a hacky object all-around: this is more or less used to encapsulate
+	container types so they can be later made opaque using pybind.
+	"""
+
+	base: str
+	specialization: tuple["PyosysType", ...]
+	const: bool = False
+
+	@classmethod
+	def from_type(Self, type_obj, drop_const=False) -> "PyosysType":
+		const = hasattr(type_obj, "const") and type_obj.const and not drop_const
+		if isinstance(type_obj, Pointer):
+			ptr_to = Self.from_type(type_obj.ptr_to)
+			return Self("ptr", (ptr_to,), const)
+		elif isinstance(type_obj, Reference):
+			ref_to = Self.from_type(type_obj.ref_to)
+			return Self("ref", (ref_to,), const)
+		elif isinstance(type_obj, FunctionType):
+			ret_type = Self.from_type(type_obj.return_type)
+			param_types = (Self.from_type(p.type) for p in type_obj.parameters)
+			return Self("fn", (ret_type, *param_types), False)
+		assert isinstance(type_obj, Type), (
+			f"unexpected c++ type object of type {type(type_obj)}"
+		)
+		last_segment = type_obj.typename.segments[-1]
+		base = last_segment.name
+		specialization = ()
+		if (
+			hasattr(last_segment, "specialization")
+			and last_segment.specialization is not None
+		):
+			for template_arg in last_segment.specialization.args:
+				specialization = (*specialization, Self.from_type(template_arg.arg))
+		return Self(base, specialization, const)
+
+	def generate_identifier(self):
+		title = self.base.title()
+		if len(self.specialization) == 0:
+			return title
+
+		if title == "Dict":
+			key, value = self.specialization
+			return f"{key.generate_identifier()}To{value.generate_identifier()}{title}"
+		elif title == "Fn":
+			identifier = self.specialization[0].generate_identifier()
+			if identifier == "Void":
+				identifier = ""
+			else:
+				identifier += "From"
+			identifier += "And".join(
+				p.generate_identifier() for p in self.specialization[1:]
+			)
+			return identifier
+
+		return (
+			"".join(spec.generate_identifier() for spec in self.specialization) + title
+		)
+
+	def generate_cpp_name(self):
+		const_prefix = "const " * self.const
+		if len(self.specialization) == 0:
+			return const_prefix + self.base
+		elif self.base == "ptr":
+			return const_prefix + f"{self.specialization[0].generate_cpp_name()} *"
+		elif self.base == "ref":
+			return const_prefix + f"{self.specialization[0].generate_cpp_name()} &"
+		elif self.base == "fn":
+			param_cpp_names = (s.generate_cpp_name() for s in self.specialization[1:])
+			return f"{self.specialization[0].generate_cpp_name()}({','.join(param_cpp_names)})"
+		else:
+			return (
+				const_prefix
+				+ f"{self.base}<{', '.join(spec.generate_cpp_name() for spec in self.specialization)}>"
+			)
+
+
+class PyosysWrapperGenerator:
+	def __init__(
+		self,
+		from_headers: Iterable[PyosysHeader],
+		wrapper_stream: io.TextIOWrapper,
+		header_stream: io.TextIOWrapper,
+	):
+		self.headers = from_headers
+		self.f = wrapper_stream
+		self.f_inc = header_stream
+		self.found_containers: dict[PyosysType, Any] = {}
+		self.class_registry: dict[str, tuple[ClassScope, PyosysClass]] = {}
+
+	# entry point
+	def generate(self, build_dir):
+		tpl = __file_dir__ / "wrappers_tpl.cc"
+		preprocessor_opts = self.make_preprocessor_options(build_dir)
+		with open(tpl, encoding="utf8") as f:
+			do_line_directive = True
+			for i, line in enumerate(f):
+				if do_line_directive:
+					self.f.write(f'#line {i + 1} "{tpl}"\n')
+					do_line_directive = False
+				if "<!-- generated includes -->" in line:
+					for header in self.headers:
+						self.f.write(f'#include "{header.name}"\n')
+					do_line_directive = True
+				elif "<!-- generated pymod-level code -->" in line:
+					for header in self.headers:
+						header_path = __yosys_root__ / header.name
+						parsed = parse_file(header_path, options=preprocessor_opts)
+						self.process_namespace(header, parsed.namespace)
+				else:
+					self.f.write(line)
+
+		for container in self.found_containers:
+			identifier = container.generate_identifier()
+			print(
+				f"using {identifier} = {container.generate_cpp_name()};",
+				file=self.f_inc,
+			)
+			print(f"PYBIND11_MAKE_OPAQUE({identifier})", file=self.f_inc)
+
+		print(
+			f"static void bind_autogenerated_opaque_containers(py::module &m) {{",
+			file=self.f_inc,
+		)
+		for container in self.found_containers:
+			identifier = container.generate_identifier()
+			cxx = container.generate_cpp_name()
+			tpl_args = [cxx]
+			for spec in container.specialization:
+				tpl_args.append(spec.generate_cpp_name())
+			print(
+				f'\tpy::hashlib::bind_{container.base}<{", ".join(tpl_args)}>(m, "{container.generate_identifier()}");',
+				file=self.f_inc,
+			)
+			print(
+				f"\tpy::implicitly_convertible<py::iterable, {identifier}>();",
+				file=self.f_inc,
+			)
+		print(f"}}", file=self.f_inc)
+
+	# helpers
+	def make_preprocessor_options(self, build_dir):
+		py_include = get_paths()["include"]
+		cxx_bin = os.getenv("CXX") or shutil.which("clang++") or "c++"
+		if ccache := os.getenv("CCACHE"):
+			compiler = [ccache, cxx_bin]
+		else:
+			compiler = [cxx_bin]
+		cxx_std = os.getenv("CXX_STD", "c++20")
+		return ParserOptions(
+			preprocessor=make_gcc_preprocessor(
+				defines=["_YOSYS_", "YOSYS_ENABLE_PYTHON"],
+				gcc_args=[*compiler, f"-std={cxx_std}", "-fsyntax-only"],
+				include_paths=[
+					str(__yosys_root__),
+					py_include,
+					pybind11.get_include(),
+					build_dir,
+				],
+			),
+		)
+
+	@staticmethod
+	def find_containers(
+		containers: Iterable[str], type_info: Any
+	) -> dict[PyosysType, Any]:
+		if isinstance(type_info, Pointer):
+			return PyosysWrapperGenerator.find_containers(containers, type_info.ptr_to)
+		if isinstance(type_info, MoveReference):
+			return PyosysWrapperGenerator.find_containers(
+				containers, type_info.moveref_to
+			)
+		if isinstance(type_info, Reference):
+			return PyosysWrapperGenerator.find_containers(containers, type_info.ref_to)
+		if not isinstance(type_info, Type):
+			return {}
+		segments = type_info.typename.segments
+		containers_found = {}
+		for segment in segments:
+			if isinstance(segment, FundamentalSpecifier):
+				continue
+			if segment.name in containers:
+				containers_found.update(
+					{PyosysType.from_type(type_info, drop_const=True): type_info}
+				)
+			if segment.specialization is not None:
+				for arg in segment.specialization.args:
+					sub_containers = PyosysWrapperGenerator.find_containers(
+						containers, arg.arg
+					)
+					containers_found.update(sub_containers)
+		return containers_found
+
+	@staticmethod
+	def find_anonymous_union(cls: ClassScope):
+		if cls.class_decl.typename.classkey != "union":
+			return None
+		for s in cls.class_decl.typename.segments:
+			if isinstance(s, AnonymousName):
+				return s
+		return None  # named union
+
+	@staticmethod
+	def type_basename(type_info: Any) -> str | None:
+		if isinstance(type_info, Reference):
+			type_info = type_info.ref_to
+		if not isinstance(type_info, Type):
+			return None
+		return type_info.typename.segments[-1].name
+
+	@staticmethod
+	def is_idstring(type_info: Any) -> bool:
+		return PyosysWrapperGenerator.type_basename(type_info) == "IdString"
+
+	@staticmethod
+	def is_owned_id(type_info: Any) -> bool:
+		return PyosysWrapperGenerator.type_basename(type_info) in (
+			"ModuleNameId",
+			"WireNameId",
+			"CellNameId",
+			"MemoryNameId",
+			"ProcessNameId",
+			"CellTypeId",
+		)
+
+	@staticmethod
+	def get_parameter_types(function: Function) -> str:
+		return ", ".join(p.type.format() for p in function.parameters)
+
+	def register_containers(self, target: Function | Field | Variable) -> bool:
+		supported = ("dict", "idict", "pool", "set", "vector")
+		found = False
+		if isinstance(target, Function):
+			return_type_containers = self.find_containers(supported, target.return_type)
+			found = found or len(return_type_containers)
+			self.found_containers.update(return_type_containers)
+
+			for parameter in target.parameters:
+				parameter_containers = self.find_containers(supported, parameter.type)
+				found = found or len(parameter_containers)
+				self.found_containers.update(parameter_containers)
+		else:
+			variable_containers = self.find_containers(supported, target.type)
+			found = found or len(variable_containers)
+			self.found_containers.update(variable_containers)
+		return found
+
+	# processors
+	def get_overload_cast(self, function: Function, class_basename: str | None) -> str:
+		is_method = isinstance(function, Method)
+		function_return_type = function.return_type.format()
+		if class_basename in {"Const", "IdString"} and function_return_type in {
+			"iterator",
+			"const_iterator",
+		}:
+			# HACK: qualify Const's iterators
+			function_return_type = f"{class_basename}::{function_return_type}"
+
+		pointer_kind = (
+			f"{class_basename}::*" if (is_method and not function.static) else "*"
+		)
+
+		retval = f"static_cast <"
+		retval += function_return_type
+		retval += f"({pointer_kind})"
+		retval += f"({self.get_parameter_types(function)})"
+		if is_method and function.const:
+			retval += " const"
+		retval += ">"
+		retval += "(&"
+		if is_method:
+			retval += f"{class_basename}::"
+		retval += function.name.segments[-1].format()
+		retval += ")"
+		return retval
+
+	def get_definition_args(
+		self,
+		function: Function,
+		class_basename: str | None,
+		python_name_override: str | None = None,
+		callable_expr: str | None = None,
+	) -> list[str]:
+		function_basename = function.name.segments[-1].format()
+
+		python_function_basename = python_name_override or keyword_aliases.get(
+			function_basename, function_basename
+		)
+
+		def_args = [f'"{python_function_basename}"']
+		def_args.append(
+			callable_expr or self.get_overload_cast(function, class_basename)
+		)
+		for i, parameter in enumerate(function.parameters):
+			name = parameter.name or f"arg{i}"
+			parameter_arg = f'py::arg("{name}")'
+			if parameter.default is not None:
+				parameter_arg += f" = {parameter.default.format()}"
+			def_args.append(parameter_arg)
+
+		return def_args
+
+	def process_method(self, metadata: PyosysClass, function: Method):
+		if (
+			function.deleted
+			or function.template
+			or function.vararg
+			or function.access != "public"
+			or function.pure_virtual
+			or function.destructor
+		):
+			return
+
+		if any(isinstance(p.type, MoveReference) for p in function.parameters):
+			# skip move constructors
+			return
+
+		if len(function.name.segments) > 1:
+			# can't handle, skip
+			return
+
+		if function.constructor:
+			if (
+				not metadata.ref_only
+			):  # ref-only classes should not be constructed from python
+				print(
+					f"\t\t\t.def(py::init<{self.get_parameter_types(function)}>())",
+					file=self.f,
+				)
+			return
+
+		python_name_override = None
+		if function.operator is not None:
+			if function.operator == "==":
+				python_name_override = "__eq__"
+			elif function.operator == "!=":
+				python_name_override = "__ne__"
+			elif function.operator == "<":
+				python_name_override = "__lt__"
+			elif function.operator == "[]" and function.const:
+				python_name_override = "__getitem__"
+			else:
+				return
+
+		self.register_containers(function)
+
+		definition_fn = "def"
+		if function.static:
+			definition_fn = "def_static"
+
+		callable_expr = None
+		if self.takes_or_returns_name(metadata, function):
+			callable_expr = self.get_name_resolving_lambda(metadata, function)
+
+		definition_args = self.get_definition_args(
+			function, metadata.name, python_name_override, callable_expr
+		)
+
+		print(
+			f"\t\t\t.{definition_fn}({', '.join(definition_args)})",
+			file=self.f,
+		)
+
+	def takes_or_returns_name(self, metadata: PyosysClass, function: Method) -> bool:
+		if not metadata.name_pool or function.static:
+			return False
+		return self.is_idstring(function.return_type) or any(
+			self.is_idstring(p.type) for p in function.parameters
+		)
+
+	def get_name_resolving_lambda(self, metadata: PyosysClass, function: Method) -> str:
+		function_basename = function.name.segments[-1].format()
+		create = "false" if function_basename in name_lookup_methods else "true"
+
+		lambda_params = [f"{metadata.name} &self"]
+		call_args = []
+		for i, parameter in enumerate(function.parameters):
+			if self.is_idstring(parameter.type):
+				lambda_params.append(f"const pyosys::NameArg &arg{i}")
+				call_args.append(f"pyosys::resolve_name(self, arg{i}, {create})")
+			else:
+				lambda_params.append(f"{parameter.type.format()} arg{i}")
+				call_args.append(f"arg{i}")
+
+		call = f"self.{function_basename}({', '.join(call_args)})"
+		if self.is_idstring(function.return_type):
+			body = f"-> pyosys::PyName {{ return pyosys::pooled_name(self, {call}); }}"
+		else:
+			body = f"-> decltype(auto) {{ return {call}; }}"
+		return f"[]({', '.join(lambda_params)}) {body}"
+
+	def process_function(self, function: Function):
+		if function.deleted or function.template or function.vararg or function.static:
+			return
+
+		if function.operator is not None:
+			# Python doesn't do global operators
+			return
+
+		if function.name.segments[-1].format() in global_denylist:
+			return
+
+		self.register_containers(function)
+
+		print(
+			f"\t\t\tm.def({', '.join(self.get_definition_args(function, None))});",
+			file=self.f,
+		)
+
+	def process_field(self, metadata: PyosysClass, field: Field):
+		if field.access != "public":
+			return
+
+		if field.name is None:
+			# anonymous structs and unions
+			# unions handled in calling function
+			# ASSUMPTION: No anonymous structs in the yosys codebase
+			# 			  (they're not in the C++ standard anyway)
+			return
+
+		unique_ptrs = self.find_containers(("unique_ptr",), field.type)
+		if len(unique_ptrs):
+			# TODO: figure out how to bridge unique pointers maybe does anyone
+			# care
+			return
+
+		self.register_containers(field)
+		field_python_basename = keyword_aliases.get(field.name, field.name)
+
+		if self.is_owned_id(field.type):
+			getter = f"[]({metadata.name} &self) {{ return pyosys::pooled_name(self, self.{field.name}); }}"
+			setter = f"[]({metadata.name} &self, const pyosys::NameArg &name) {{ self.{field.name} = pyosys::resolve_name(self, name, true); }}"
+			print(
+				f'\t\t\t.def_property("{field_python_basename}", {getter}, {setter})',
+				file=self.f,
+			)
+			return
+
+		rvp = "py::return_value_policy::copy"
+		if isinstance(field.type, Pointer):
+			rvp = "py::return_value_policy::reference_internal"
+
+		definition_fn = f"def_{'readonly' if field.type.const else 'readwrite'}"
+		if field.static:
+			definition_fn += "_static"
+
+		def_args = [
+			f'"{field_python_basename}"',
+			f"&{metadata.name}::{field.name}",
+		]
+		def_args.append(rvp)
+		print(
+			f"\t\t\t.{definition_fn}({', '.join(def_args)})",
+			file=self.f,
+		)
+
+	def process_variable(self, variable: Variable):
+		if isinstance(variable.type, Array) or variable.template:
+			return
+
+		variable_basename = variable.name.segments[-1].format()
+		if variable_basename in global_denylist:
+			return
+
+		self.register_containers(variable)
+
+		definition_fn = f"def_{'readonly' if (variable.type.const or variable.constexpr) else 'readwrite'}_static"
+
+		variable_python_basename = keyword_aliases.get(
+			variable_basename, variable_basename
+		)
+		variable_name = variable.name.format()
+
+		print(
+			f'\t\t\tglobal_variables.{definition_fn}("{variable_python_basename}", &{variable_name});',
+			file=self.f,
+		)
+
+	def process_class_members(
+		self,
+		metadata: PyosysClass,
+		base_metadata: PyosysClass,
+		cls: ClassScope,
+		basename: str,
+	):
+		for method in cls.methods:
+			if method.name.segments[-1].name in base_metadata.denylist:
+				continue
+			self.process_method(metadata, method)
+
+		visited_anonymous_unions = set()
+		for field_ in cls.fields:
+			if field_.name in base_metadata.denylist:
+				continue
+			self.process_field(metadata, field_)
+
+			# Handle anonymous unions
+			for subclass in cls.classes:
+				if subclass.class_decl.access != "public":
+					continue
+				if au := self.find_anonymous_union(subclass):
+					if au.id in visited_anonymous_unions:
+						continue
+					visited_anonymous_unions.add(au.id)
+					for subfield in subclass.fields:
+						self.process_field(metadata, subfield)
+
+		for base in cls.class_decl.bases:
+			if base.access != "public":
+				continue
+			name = base.typename.segments[-1].format()
+			if processed := self.class_registry.get(name):
+				base_scope, base_metadata = processed
+				self.process_class_members(
+					metadata, base_metadata, base_scope, basename
+				)
+
+	def process_class(
+		self,
+		metadata: PyosysClass,
+		cls: ClassScope,
+		namespace_components: tuple[str, ...],
+	):
+		pqname: PQName = cls.class_decl.typename
+		full_path = list(namespace_components) + [
+			segment.format() for segment in pqname.segments
+		]
+		basename = full_path.pop()
+		self.class_registry[basename] = (cls, metadata)
+
+		declaration_namespace = "::".join(full_path)
+		tpl_args = [basename]
+		if metadata.ref_only:
+			tpl_args.append(f"std::unique_ptr<{basename}, py::nodelete>")
+		elif metadata.shared:
+			tpl_args.append(f"std::shared_ptr<{basename}>")
+		print(
+			f'\t\t{{using namespace {declaration_namespace}; py::class_<{", ".join(tpl_args)}>(m, "{basename}")',
+			file=self.f,
+		)
+
+		self.process_class_members(metadata, metadata, cls, basename)
+
+		if basename == "Design":
+			print(
+				'\t\t\t.def("run_pass", [](Design &s, std::vector<std::string> cmd) { Pass::call(&s, cmd); })',
+				file=self.f,
+			)
+			print(
+				'\t\t\t.def("run_pass", [](Design &s, std::string cmd) { Pass::call(&s, cmd); })',
+				file=self.f,
+			)
+
+		if expr := metadata.string_expr:
+			print(
+				f'\t\t.def("__str__", [](const {basename} &s) {{ return {expr}; }})',
+				file=self.f,
+			)
+			print(
+				f'\t\t.def("__repr__", [](const {basename} &s) {{ std::stringstream ss; ss << "<{basename} " << {expr} << ">"; return ss.str(); }})',
+				file=self.f,
+			)
+
+		if expr := metadata.hash_expr:
+			print(
+				f'\t\t.def("__hash__", [](const {basename} &s) {{ return run_hash({expr}); }})',
+				file=self.f,
+			)
+
+		print(f"\t\t;}}", file=self.f)
+
+	def process_enum(
+		self,
+		enum: EnumDecl,
+		namespace_components: tuple[str, ...],
+	):
+		pqname: PQName = enum.typename
+		full_path = list(namespace_components) + [
+			segment.format() for segment in pqname.segments
+		]
+		basename = full_path.pop()
+
+		declaration_namespace = "::".join(full_path)
+		print(
+			f'\t\t{{using namespace {declaration_namespace}; py::native_enum<{basename}>(m, "{basename}", "enum.Enum")',
+			file=self.f,
+		)
+		enum_class = enum.typename.classkey == "enum class"
+		for value in enum.values:
+			enum_class_qualifier = f"{basename}::" * enum_class
+			print(
+				f'\t\t\t.value("{value.name}", {enum_class_qualifier}{value.name})',
+				file=self.f,
+			)
+		print(f"\t\t\t.finalize();}}", file=self.f)
+
+	def process_namespace(
+		self,
+		header: PyosysHeader,
+		ns: NamespaceScope,
+		namespace_components: tuple[str, ...] = (),
+	):
+		for name, subns in ns.namespaces.items():
+			self.process_namespace(header, subns, (*namespace_components, name))
+
+		for enum in ns.enums:
+			self.process_enum(enum, namespace_components)
+
+		if len(namespace_components) and (len(ns.functions) + len(ns.variables)):
+			# TODO: Not essential but maybe move namespace usage into
+			# process_function for consistency?
+			print(
+				f"\t\t{{ using namespace {'::'.join(namespace_components)};",
+				file=self.f,
+			)
+			for function in ns.functions:
+				self.process_function(function)
+			for variable in ns.variables:
+				self.process_variable(variable)
+			print(f"\t\t}}", file=self.f)
+		for cls in ns.classes:
+			pqname = cls.class_decl.typename
+			declared_name_str = pqname.segments[-1].format()
+			if cls_metadata := header.classes_by_name.get(declared_name_str):
+				self.process_class(cls_metadata, cls, namespace_components)
 
 
 keyword_aliases = {
-    "False": "False_",
-    "None": "None_",
-    "True": "True_",
-    "and": "and_",
-    "as": "as_",
-    "assert": "assert_",
-    "break": "break_",
-    "class": "class_",
-    "continue": "continue_",
-    "def": "def_",
-    "del": "del_",
-    "elif": "elif_",
-    "else": "else_",
-    "except": "except_",
-    "for": "for_",
-    "from": "from_",
-    "global": "global_",
-    "if": "if_",
-    "import": "import_",
-    "in": "in_",
-    "is": "is_",
-    "lambda": "lambda_",
-    "nonlocal": "nonlocal_",
-    "not": "not_",
-    "or": "or_",
-    "pass": "pass_",
-    "raise": "raise_",
-    "return": "return_",
-    "try": "try_",
-    "while": "while_",
-    "with": "with_",
-    "yield": "yield_",
+	"False": "False_",
+	"None": "None_",
+	"True": "True_",
+	"and": "and_",
+	"as": "as_",
+	"assert": "assert_",
+	"break": "break_",
+	"class": "class_",
+	"continue": "continue_",
+	"def": "def_",
+	"del": "del_",
+	"elif": "elif_",
+	"else": "else_",
+	"except": "except_",
+	"for": "for_",
+	"from": "from_",
+	"global": "global_",
+	"if": "if_",
+	"import": "import_",
+	"in": "in_",
+	"is": "is_",
+	"lambda": "lambda_",
+	"nonlocal": "nonlocal_",
+	"not": "not_",
+	"or": "or_",
+	"pass": "pass_",
+	"raise": "raise_",
+	"return": "return_",
+	"try": "try_",
+	"while": "while_",
+	"with": "with_",
+	"yield": "yield_",
 }
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--debug", default=0, type=int)
-    ap.add_argument("--build-dir", default=".", type=str)
-    group = ap.add_mutually_exclusive_group(required=True)
-    group.add_argument("output", nargs="?")
-    ns = ap.parse_args()
-    build_dir = Path(ns.build_dir)
-    out_path = Path(ns.output)
-    out_inc = out_path.parent / (out_path.stem + ".inc.cc")
-    out_dep = out_path.parent / (out_path.name + ".d")
-    with (open(out_path, "w", encoding="utf8") as f,
-          open(out_inc,  "w", encoding="utf8") as inc_f,
-          open(out_dep,  "w", encoding="utf8") as dep_f):
-        generator = PyosysWrapperGenerator(
-            from_headers=pyosys_headers, wrapper_stream=f, header_stream=inc_f
-        )
-        generator.generate(ns.build_dir)
-        for header in pyosys_headers:
-            print(f"{out_path} {out_inc}: {__yosys_root__ / header.name}", file=dep_f)
+	ap = argparse.ArgumentParser()
+	ap.add_argument("--debug", default=0, type=int)
+	ap.add_argument("--build-dir", default=".", type=str)
+	group = ap.add_mutually_exclusive_group(required=True)
+	group.add_argument("output", nargs="?")
+	ns = ap.parse_args()
+	build_dir = Path(ns.build_dir)
+	out_path = Path(ns.output)
+	out_inc = out_path.parent / (out_path.stem + ".inc.cc")
+	out_dep = out_path.parent / (out_path.name + ".d")
+	with (
+		open(out_path, "w", encoding="utf8") as f,
+		open(out_inc, "w", encoding="utf8") as inc_f,
+		open(out_dep, "w", encoding="utf8") as dep_f,
+	):
+		generator = PyosysWrapperGenerator(
+			from_headers=pyosys_headers, wrapper_stream=f, header_stream=inc_f
+		)
+		generator.generate(ns.build_dir)
+		for header in pyosys_headers:
+			print(f"{out_path} {out_inc}: {__yosys_root__ / header.name}", file=dep_f)

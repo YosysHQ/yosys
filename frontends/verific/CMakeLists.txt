@@ -48,8 +48,17 @@ else()
 endif()
 
 yosys_frontend(verific
+	read.cc
 	verific.cc
 	verific.h
+	verific_pass.cc
+	$<${YOSYS_ENABLE_VERIFIC}:verific_clocking.cc>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_clocking.h>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_command.cc>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_command.h>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_extnets.cc>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_importer.cc>
+	$<${YOSYS_ENABLE_VERIFIC}:verific_importer.h>
 	$<${YOSYS_ENABLE_VERIFIC}:verificsva.cc>
 	DEFINITIONS
 		$<$<IN_LIST:hier_tree,${YOSYS_VERIFIC_FEATURES}>:VERIFIC_HIER_TREE_SUPPORT>
