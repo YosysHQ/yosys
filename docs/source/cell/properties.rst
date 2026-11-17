@@ -26,11 +26,11 @@ Cell properties
 
 .. cell:defprop:: is_synthesizable
 
-   These are cells that can be synthesized into standard cell libraries.
+   These are cells that can be synthesized into standard cell libraries. They fall into the following categories:
 
 .. code-block:: none
 
-   is_synthesizable == is_combinatorial + is_ff + is_mem - the definition of combinational changed, is this definition now circular?
+   is_synthesizable == (is_combinatorial || is_ff || is_mem)
 
 .. cell:defprop:: is_stdcell
 
