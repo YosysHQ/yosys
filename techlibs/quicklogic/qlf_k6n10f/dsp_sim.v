@@ -4349,19 +4349,19 @@ module dsp_t1_sim_cfg_ports # (
 	reg [NBITS_ACC-1:0] acc;
 
 	initial begin
-		r_a          <= 0;
-		r_b          <= 0;
+		r_a          = 0;
+		r_b          = 0;
 
-		r_acc_fir    <= 0;
-		r_unsigned_a <= 0;
-		r_unsigned_b <= 0;
-		r_feedback   <= 0;
-		r_shift_d1   <= 0;
-		r_shift_d2   <= 0;
-		r_subtract   <= 0;
-		r_load_acc   <= 0;
-		r_sat        <= 0;
-		r_rnd        <= 0;
+		r_acc_fir    = 0;
+		r_unsigned_a = 0;
+		r_unsigned_b = 0;
+		r_feedback   = 0;
+		r_shift_d1   = 0;
+		r_shift_d2   = 0;
+		r_subtract   = 0;
+		r_load_acc   = 0;
+		r_sat        = 0;
+		r_rnd        = 0;
 	end
 
 	always @(posedge clock_i or posedge s_reset) begin
@@ -4458,7 +4458,7 @@ module dsp_t1_sim_cfg_ports # (
 	wire [NBITS_ACC-1:0] add_o = add_a + add_b;
 
 	// Accumulator
-	initial acc <= 0;
+	initial acc = 0;
 
 	always @(posedge clock_i or posedge s_reset)
 		if (s_reset) acc <= 'h0;
@@ -4496,7 +4496,7 @@ module dsp_t1_sim_cfg_ports # (
 	assign z0 = mult_xtnd[NBITS_Z-1:0];
 	assign z2 = acc_sat[NBITS_Z-1:0];
 
-	initial z1 <= 0;
+	initial z1 = 0;
 
 	always @(posedge clock_i or posedge s_reset)
 		if (s_reset)
@@ -4516,7 +4516,7 @@ module dsp_t1_sim_cfg_ports # (
 						   z1;  // if output_select_i == 3'h7
 
 	// B input delayed passthrough
-	initial dly_b_o <= 0;
+	initial dly_b_o = 0;
 
 	always @(posedge clock_i or posedge s_reset)
 		if (s_reset)
