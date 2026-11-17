@@ -395,6 +395,9 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	size_t serial() const;
 	// Infers publicity from first character
 	IdString add(std::string_view s);
+	IdString place(size_t idx, TwineSpec t);
+	using HashConsPool::finish_placement;
+	using HashConsPool::size;
 	IdString copy_from(const TwinePool& src, IdString ref);
 	// Non-mutating counterpart of copy_from
 	IdString find_from(const TwinePool& src, IdString ref) const;
@@ -406,6 +409,7 @@ struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
 	void check_owned(IdString ref) const;
 
 private:
+	bool shares_index_space_with(const TwinePool &other) const;
 	bool owns(IdString ref) const;
 	IdString stamp(IdString ref) const;
 	void append_str(IdString ref, std::string& out) const;
@@ -419,6 +423,8 @@ private:
 	dict<const std::string *, IdString> auto_prefixes;
 	size_t serial_;
 	int autoidx_;
+
+	friend struct SrcPool;
 };
 
 YOSYS_NAMESPACE_END

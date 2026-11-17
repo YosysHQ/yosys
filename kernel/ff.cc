@@ -38,6 +38,7 @@ void manufacture_info(InputType flop, OutputType& info, FfInitVals *initvals) {
 		info.sig_q = cell->getPort(ID::Q);
 		info.width = GetSize(info.sig_q);
 		info.attributes = cell->attributes;
+		info.src = cell->src();
 		if (initvals)
 			info.val_init = (*initvals)(info.sig_q);
 	}
@@ -358,6 +359,7 @@ FfData FfData::slice(const std::vector<int> &bits) {
 	res.pol_clr = pol_clr;
 	res.pol_set = pol_set;
 	res.attributes = attributes;
+	res.src = src;
 	std::optional<Const::Builder> arst_bits;
 	if (has_arst)
 		arst_bits.emplace(bits.size());
@@ -747,6 +749,7 @@ Cell *FfData::emit() {
 		}
 	}
 	cell->attributes = attributes;
+	cell->set_src(src);
 	return cell;
 }
 
