@@ -1,19 +1,23 @@
 (* abc9_lut=1 *)
 module LUT1(output F, input I0);
 	parameter [1:0] INIT = 0;
+	`ifdef TIMING
 	specify
 		(I0 => F) = (555, 902);
 	endspecify
+	`endif // TIMING
 	assign F = I0 ? INIT[1] : INIT[0];
 endmodule
 
 (* abc9_lut=1 *)
 module LUT2(output F, input I0, I1);
 	parameter [3:0] INIT = 0;
+	`ifdef TIMING
 	specify
 		(I0 => F) = (867, 1184);
 		(I1 => F) = (555, 902);
 	endspecify
+	`endif // TIMING
 	wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
 	assign F = I0 ? s1[1] : s1[0];
 endmodule
@@ -21,11 +25,13 @@ endmodule
 (* abc9_lut=1 *)
 module LUT3(output F, input I0, I1, I2);
 	parameter [7:0] INIT = 0;
+	`ifdef TIMING
 	specify
 		(I0 => F) = (1054, 1486);
 		(I1 => F) = (867, 1184);
 		(I2 => F) = (555, 902);
 	endspecify
+	`endif // TIMING
 	wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign F = I0 ? s1[1] : s1[0];
@@ -34,12 +40,14 @@ endmodule
 (* abc9_lut=1 *)
 module LUT4(output F, input I0, I1, I2, I3);
 	parameter [15:0] INIT = 0;
+	`ifdef TIMING
 	specify
 		(I0 => F) = (1054, 1486);
 		(I1 => F) = (1053, 1583);
 		(I2 => F) = (867, 1184);
 		(I3 => F) = (555, 902);
 	endspecify
+	`endif // TIMING
 	wire [ 7: 0] s3 = I3 ? INIT[15: 8] : INIT[ 7: 0];
 	wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
@@ -48,6 +56,7 @@ endmodule
 
 (* abc9_lut=2 *)
 module __APICULA_LUT5(output F, input I0, I1, I2, I3, M0);
+	`ifdef TIMING
 	specify
 		(I0 => F) = (1187, 1638);
 		(I1 => F) = (1184, 1638);
@@ -55,10 +64,12 @@ module __APICULA_LUT5(output F, input I0, I1, I2, I3, M0);
 		(I3 => F) = (808, 1116);
 		(M0 => F) = (486, 680);
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=4 *)
 module __APICULA_LUT6(output F, input I0, I1, I2, I3, M0, M1);
+	`ifdef TIMING
 	specify
 		(I0 => F) = (1187 + 136, 1638 + 255);
 		(I1 => F) = (1184 + 136, 1638 + 255);
@@ -67,10 +78,12 @@ module __APICULA_LUT6(output F, input I0, I1, I2, I3, M0, M1);
 		(M0 => F) = (486 + 136, 680 + 255);
 		(M1 => F) = (478, 723);
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=8 *)
 module __APICULA_LUT7(output F, input I0, I1, I2, I3, M0, M1, M2);
+	`ifdef TIMING
 	specify
 		(I0 => F) = (1187 + 136 + 136, 1638 + 255 + 255);
 		(I1 => F) = (1184 + 136 + 136, 1638 + 255 + 255);
@@ -80,10 +93,12 @@ module __APICULA_LUT7(output F, input I0, I1, I2, I3, M0, M1, M2);
 		(M1 => F) = (478 + 136, 723 + 255);
 		(M2 => F) = (478, 723);
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=16 *)
 module __APICULA_LUT8(output F, input I0, I1, I2, I3, M0, M1, M2, M3);
+		`ifdef TIMING
 		specify
 		(I0 => F) = (1187 + 136 + 136 + 136, 1638 + 255 + 255 + 255);
 		(I1 => F) = (1184 + 136 + 136 + 136, 1638 + 255 + 255 + 255);
@@ -94,6 +109,7 @@ module __APICULA_LUT8(output F, input I0, I1, I2, I3, M0, M1, M2, M3);
 		(M2 => F) = (478 + 136, 723 + 255);
 		(M3 => F) = (478, 723);
 		endspecify
+		`endif // TIMING
 	endmodule
 
 module MUX2 (O, I0, I1, S0);
@@ -101,11 +117,13 @@ module MUX2 (O, I0, I1, S0);
   input S0;
   output O;
 
+	`ifdef TIMING
 	specify
 		(I0 => O) = (141, 160);
 		(I1 => O) = (141, 160);
 		(S0 => O) = (486, 680);
 	endspecify
+	`endif // TIMING
 
   assign O = S0 ? I1 : I0;
 endmodule
@@ -115,11 +133,13 @@ module MUX2_LUT5 (O, I0, I1, S0);
   input S0;
   output O;
 
+	`ifdef TIMING
 	specify
 		(I0 => O) = (141, 160);
 		(I1 => O) = (141, 160);
 		(S0 => O) = (486, 680);
 	endspecify
+	`endif // TIMING
 
   MUX2 mux2_lut5 (O, I0, I1, S0);
 endmodule
@@ -129,11 +149,13 @@ module MUX2_LUT6 (O, I0, I1, S0);
   input S0;
   output O;
 
+	`ifdef TIMING
 	specify
 		(I0 => O) = (136, 255);
 		(I1 => O) = (136, 255);
 		(S0 => O) = (478, 723);
 	endspecify
+	`endif // TIMING
 
   MUX2 mux2_lut6 (O, I0, I1, S0);
 endmodule
@@ -143,11 +165,13 @@ module MUX2_LUT7 (O, I0, I1, S0);
   input S0;
   output O;
 
+	`ifdef TIMING
 	specify
 		(I0 => O) = (136, 255);
 		(I1 => O) = (136, 255);
 		(S0 => O) = (478, 723);
 	endspecify
+	`endif // TIMING
 
   MUX2 mux2_lut7 (O, I0, I1, S0);
 endmodule
@@ -157,11 +181,13 @@ module MUX2_LUT8 (O, I0, I1, S0);
   input S0;
   output O;
 
+	`ifdef TIMING
 	specify
 		(I0 => O) = (136, 255);
 		(I1 => O) = (136, 255);
 		(S0 => O) = (478, 723);
 	endspecify
+	`endif // TIMING
 
   MUX2 mux2_lut8 (O, I0, I1, S0);
 endmodule
@@ -171,10 +197,12 @@ module DFF (output reg Q, input CLK, D);
 	parameter [0:0] INIT = 1'b0;
 	initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK, 576);
 	endspecify
+	`endif // TIMING
 
 	always @(posedge CLK)
 		Q <= D;
@@ -185,11 +213,13 @@ module DFFE (output reg Q, input D, CLK, CE);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK) begin
     if (CE)
@@ -202,11 +232,13 @@ module DFFS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK, 576);
 		$setup(SET, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK) begin
     if (SET)
@@ -221,12 +253,14 @@ module DFFSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 		$setup(SET, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK) begin
     if (SET)
@@ -241,11 +275,13 @@ module DFFR (output reg Q, input D, CLK, RESET);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK, 576);
 		$setup(RESET, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK) begin
     if (RESET)
@@ -260,12 +296,14 @@ module DFFRE (output reg Q, input D, CLK, CE, RESET);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 		$setup(RESET, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK) begin
     if (RESET)
@@ -280,11 +318,13 @@ module DFFP (output reg Q, input D, CLK, PRESET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
 		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -299,12 +339,14 @@ module DFFPE (output reg Q, input D, CLK, CE, PRESET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
 		(PRESET => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -319,11 +361,13 @@ module DFFC (output reg Q, input D, CLK, CLEAR);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(posedge CLK => (Q : D)) = (480, 660);
 		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK, 576);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK or posedge CLEAR) begin
     if(CLEAR)
@@ -338,12 +382,14 @@ module DFFCE (output reg Q, input D, CLK, CE, CLEAR);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (posedge CLK => (Q : D)) = (480, 660);
 		(CLEAR => Q) = (1800, 2679);
 		$setup(D, posedge CLK &&& CE, 576);
 		$setup(CE, posedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(posedge CLK or posedge CLEAR) begin
     if(CLEAR)
@@ -358,10 +404,12 @@ module DFFN (output reg Q, input CLK, D);
 	parameter [0:0] INIT = 1'b0;
 	initial Q = INIT;
 
+  `ifdef TIMING
   specify
     (negedge CLK => (Q : D)) = (480, 660);
     $setup(D, negedge CLK, 576);
   endspecify
+  `endif // TIMING
 
 	always @(negedge CLK)
 		Q <= D;
@@ -372,11 +420,13 @@ module DFFNE (output reg Q, input D, CLK, CE);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK) begin
     if (CE)
@@ -389,11 +439,13 @@ module DFFNS (output reg Q, input D, CLK, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK, 576);
 		$setup(SET, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK) begin
     if (SET)
@@ -408,12 +460,14 @@ module DFFNSE (output reg Q, input D, CLK, CE, SET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 		$setup(SET, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK) begin
     if (SET)
@@ -428,11 +482,13 @@ module DFFNR (output reg Q, input D, CLK, RESET);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK, 576);
 		$setup(RESET, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK) begin
     if (RESET)
@@ -447,12 +503,14 @@ module DFFNRE (output reg Q, input D, CLK, CE, RESET);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 		$setup(RESET, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK) begin
     if (RESET)
@@ -467,11 +525,13 @@ module DFFNP (output reg Q, input D, CLK, PRESET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
 		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -486,12 +546,14 @@ module DFFNPE (output reg Q, input D, CLK, CE, PRESET);
   parameter [0:0] INIT = 1'b1;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		(PRESET => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK or posedge PRESET) begin
     if(PRESET)
@@ -506,11 +568,13 @@ module DFFNC (output reg Q, input D, CLK, CLEAR);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		(negedge CLK => (Q : D)) = (480, 660);
 		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK, 576);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK or posedge CLEAR) begin
     if(CLEAR)
@@ -525,12 +589,14 @@ module DFFNCE (output reg Q, input D, CLK, CE, CLEAR);
   parameter [0:0] INIT = 1'b0;
   initial Q = INIT;
 
+	`ifdef TIMING
 	specify
 		if (CE) (negedge CLK => (Q : D)) = (480, 660);
 		(CLEAR => Q) = (1800, 2679);
 		$setup(D, negedge CLK &&& CE, 576);
 		$setup(CE, negedge CLK, 63);
 	endspecify
+	`endif // TIMING
 
   always @(negedge CLK or posedge CLEAR) begin
     if(CLEAR)
@@ -647,18 +713,22 @@ endmodule
 
 module IBUF(output O, input I);
 
+	`ifdef TIMING
 	specify
 		(I => O) = 0;
 	endspecify
+	`endif // TIMING
 
 	assign O = I;
 endmodule
 
 module OBUF(output O, input I);
 
+	`ifdef TIMING
 	specify
 		(I => O) = 0;
 	endspecify
+	`endif // TIMING
 
 	assign O = I;
 endmodule
@@ -1047,6 +1117,7 @@ parameter ALU_MODE = 0;
 
 reg S, C;
 
+`ifdef TIMING
 specify
 	(I0 => SUM) = (1043, 1432);
 	(I1 => SUM) = (775, 1049);
@@ -1057,6 +1128,7 @@ specify
 	(I3  => COUT) = (483, 792);
 	(CIN => COUT) = (49, 82);
 endspecify
+`endif // TIMING
 
 assign SUM = S ^ CIN;
 assign COUT = S? CIN : C;
@@ -1119,6 +1191,7 @@ output DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(AD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1126,6 +1199,7 @@ specify
 	$setup(AD, posedge CLK, 62);
 	(posedge CLK => (DO : 1'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem;
 
@@ -1155,6 +1229,7 @@ output [1:0] DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(AD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1162,6 +1237,7 @@ specify
 	$setup(AD, posedge CLK, 62);
 	(posedge CLK => (DO : 2'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem0, mem1;
 
@@ -1196,6 +1272,7 @@ output [3:0] DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(AD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1203,6 +1280,7 @@ specify
 	$setup(AD, posedge CLK, 62);
 	(posedge CLK => (DO : 4'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem0, mem1, mem2, mem3;
 
@@ -1241,6 +1319,7 @@ output DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(RAD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1248,6 +1327,7 @@ specify
 	$setup(WAD, posedge CLK, 62);
 	(posedge CLK => (DO : 1'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem;
 
@@ -1278,6 +1358,7 @@ output [1:0] DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(RAD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1285,6 +1366,7 @@ specify
 	$setup(WAD, posedge CLK, 62);
 	(posedge CLK => (DO : 2'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem0, mem1;
 
@@ -1320,6 +1402,7 @@ output [3:0] DO;
 input CLK;
 input WRE;
 
+`ifdef TIMING
 specify
 	(RAD *> DO) = (270, 405);
 	$setup(DI, posedge CLK, 62);
@@ -1327,6 +1410,7 @@ specify
 	$setup(WAD, posedge CLK, 62);
 	(posedge CLK => (DO : 4'bx)) = (474, 565);
 endspecify
+`endif // TIMING
 
 reg [15:0] mem0, mem1, mem2, mem3;
 
@@ -1612,6 +1696,7 @@ input CEA, CEB;
 input OCE;
 input RESETA, RESETB;
 
+`ifdef TIMING
 specify
 	(posedge CLKB => (DO : DI)) = (419, 493);
 	$setup(RESETA, posedge CLKA, 62);
@@ -1627,6 +1712,7 @@ specify
 	$setup(ADB, posedge CLKB, 62);
 	$setup(BLKSEL, posedge CLKA, 62);
 endspecify
+`endif // TIMING
 
 endmodule
 
@@ -1713,6 +1799,7 @@ input CEA, CEB;
 input OCE;
 input RESETA, RESETB;
 
+`ifdef TIMING
 specify
 	(posedge CLKB => (DO : DI)) = (419, 493);
 	$setup(RESETA, posedge CLKA, 62);
@@ -1728,6 +1815,7 @@ specify
 	$setup(ADB, posedge CLKB, 62);
 	$setup(BLKSEL, posedge CLKA, 62);
 endspecify
+`endif // TIMING
 
 endmodule
 

@@ -342,7 +342,7 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (check_label("begin")) {
 			std::string read_args;
-			read_args += " -lib -specify +/xilinx/cells_sim.v";
+			read_args += " -lib -specify -DTIMING=1 +/xilinx/cells_sim.v";
 			run("read_verilog" + read_args);
 
 			run("read_verilog -lib +/xilinx/cells_xtra.v");
@@ -646,7 +646,7 @@ struct SynthXilinxPass : public ScriptPass
 			if (help_mode)
 				run("abc9 -luts 2:2,3,6:5[,10,20] [-dff] [-D 1]", "(option for '-nowidelut', '-dff')");
 			else {
-				run("read_verilog -icells -lib -specify +/xilinx/abc9_model.v");
+				run("read_verilog -icells -lib -specify -DTIMING=1 +/xilinx/abc9_model.v");
 				std::string abc9_opts;
 				std::string k = "synth_xilinx.abc9.W";
 				if (active_design && active_design->scratchpad.count(k))

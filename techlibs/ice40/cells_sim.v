@@ -186,6 +186,7 @@ module SB_LUT4 (
 	wire [3:0] s2 = I2 ?       s3[ 7:4] :       s3[3:0];
 	wire [1:0] s1 = I1 ?       s2[ 3:2] :       s2[1:0];
 	assign O = I0 ? s1[1] : s1[0];
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L80
@@ -222,11 +223,13 @@ module SB_LUT4 (
 		(I3 => O) = (861, 874);
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* lib_whitebox *)
 module SB_CARRY (output CO, input I0, I1, CI);
 	assign CO = (I0 && I1) || ((I0 || I1) && CI);
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
@@ -257,6 +260,7 @@ module SB_CARRY (output CO, input I0, I1, CI);
 		(I1 => CO) = (609, 358);
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Positive Edge SiliconBlue FF Cells
@@ -270,6 +274,7 @@ module SB_DFF (
 
 	always @(posedge C)
 		Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -297,6 +302,7 @@ module SB_DFF (
 		(posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -311,6 +317,7 @@ module SB_DFFE (
 	always @(posedge C)
 		if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -344,6 +351,7 @@ module SB_DFFE (
 		if (E) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -358,6 +366,7 @@ module SB_DFFSR (
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -394,6 +403,7 @@ module SB_DFFSR (
 		if (!R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -408,6 +418,7 @@ module SB_DFFR (
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -465,6 +476,7 @@ module SB_DFFR (
 		if (!R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -479,6 +491,7 @@ module SB_DFFSS (
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -515,6 +528,7 @@ module SB_DFFSS (
 		if (!S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -529,6 +543,7 @@ module SB_DFFS (
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -586,6 +601,7 @@ module SB_DFFS (
 		if (!S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -605,6 +621,7 @@ module SB_DFFESR (
 			else
 				Q <= D;
 		end
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -647,6 +664,7 @@ module SB_DFFESR (
 		if (E && !R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -664,6 +682,7 @@ module SB_DFFER (
 			Q <= 0;
 		else if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -727,6 +746,7 @@ module SB_DFFER (
 		if (E && !R) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -746,6 +766,7 @@ module SB_DFFESS (
 			else
 				Q <= D;
 		end
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -788,6 +809,7 @@ module SB_DFFESS (
 		if (E && !S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -805,6 +827,7 @@ module SB_DFFES (
 			Q <= 1;
 		else if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -868,6 +891,7 @@ module SB_DFFES (
 		if (E && !S) (posedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Negative Edge SiliconBlue FF Cells
@@ -881,6 +905,7 @@ module SB_DFFN (
 
 	always @(negedge C)
 		Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -908,6 +933,7 @@ module SB_DFFN (
 		(negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -922,6 +948,7 @@ module SB_DFFNE (
 	always @(negedge C)
 		if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -955,6 +982,7 @@ module SB_DFFNE (
 		if (E) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -969,6 +997,7 @@ module SB_DFFNSR (
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1005,6 +1034,7 @@ module SB_DFFNSR (
 		if (!R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -1019,6 +1049,7 @@ module SB_DFFNR (
 			Q <= 0;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1076,6 +1107,7 @@ module SB_DFFNR (
 		if (!R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -1090,6 +1122,7 @@ module SB_DFFNSS (
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1126,6 +1159,7 @@ module SB_DFFNSS (
 		if (!S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1140,6 +1174,7 @@ module SB_DFFNS (
 			Q <= 1;
 		else
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1197,6 +1232,7 @@ module SB_DFFNS (
 		if (!S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -1216,6 +1252,7 @@ module SB_DFFNESR (
 			else
 				Q <= D;
 		end
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1258,6 +1295,7 @@ module SB_DFFNESR (
 		if (E && !R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1275,6 +1313,7 @@ module SB_DFFNER (
 			Q <= 0;
 		else if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1338,6 +1377,7 @@ module SB_DFFNER (
 		if (E && !R) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -1357,6 +1397,7 @@ module SB_DFFNESS (
 			else
 				Q <= D;
 		end
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1399,6 +1440,7 @@ module SB_DFFNESS (
 		if (E && !S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1416,6 +1458,7 @@ module SB_DFFNES (
 			Q <= 1;
 		else if (E)
 			Q <= D;
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L74
@@ -1480,6 +1523,7 @@ module SB_DFFNES (
 		if (E && !S) (negedge C => (Q : D)) = 1391;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // SiliconBlue RAM Cells
@@ -1655,6 +1699,7 @@ module SB_RAM40_4K (
 		end
 	end
 `endif
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
@@ -1721,6 +1766,7 @@ module SB_RAM40_4K (
 		(posedge RCLK *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module SB_RAM40_4KNR (
@@ -1791,6 +1837,7 @@ module SB_RAM40_4KNR (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
@@ -1857,6 +1904,7 @@ module SB_RAM40_4KNR (
 		(posedge RCLKN *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module SB_RAM40_4KNW (
@@ -1927,6 +1975,7 @@ module SB_RAM40_4KNW (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
@@ -1993,6 +2042,7 @@ module SB_RAM40_4KNW (
 		(posedge RCLK *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 module SB_RAM40_4KNRNW (
@@ -2063,6 +2113,7 @@ module SB_RAM40_4KNRNW (
 		.MASK (MASK ),
 		.WDATA(WDATA)
 	);
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L343-L358
@@ -2129,6 +2180,7 @@ module SB_RAM40_4KNRNW (
 		(posedge RCLKN *> (RDATA : 16'bx)) = 1179;
 	endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // Packed IceStorm Logic Cells
@@ -2224,7 +2276,6 @@ specify
 	$setuphold(negedge CLK, posedge SR, 0:0:0, 0:0:0);
 	$setuphold(negedge CLK, negedge SR, 0:0:0, 0:0:0);
 endspecify
-`endif
 `ifdef ICE40_HX
 specify
 	// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_hx1k.txt#L79
@@ -2417,6 +2468,7 @@ specify
 	$setuphold(negedge CLK, negedge SR, 131:170:207, 0:0:0);
 endspecify
 `endif
+`endif // TIMING
 endmodule
 
 // SiliconBlue PLL Cells
@@ -2637,6 +2689,7 @@ module SB_SPRAM256KA (
 `endif
 `endif
 `ifdef ICE40_U
+	`ifdef TIMING
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13169-L13182
 		$setup(posedge ADDRESS, posedge CLOCK, 268);
@@ -2657,6 +2710,7 @@ module SB_SPRAM256KA (
 		// https://github.com/YosysHQ/icestorm/blob/95949315364f8d9b0c693386aefadf44b28e2cf6/icefuzz/timings_up5k.txt#L13223-L13238
 		(posedge SLEEP *> (DATAOUT : 16'b0)) = 1099;
 	endspecify
+	`endif // TIMING
 `endif
 endmodule
 

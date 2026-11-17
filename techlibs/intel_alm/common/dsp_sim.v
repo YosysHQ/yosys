@@ -6,6 +6,7 @@ module MISTRAL_MUL27X27(input [26:0] A, input [26:0] B, output [53:0] Y);
 parameter A_SIGNED = 1;
 parameter B_SIGNED = 1;
 
+`ifdef TIMING
 `ifdef cyclonev
 specify
     (A *> Y) = 3732;
@@ -26,6 +27,7 @@ specify
     (B *> Y) = 3928;
 endspecify
 `endif
+`endif // TIMING
 
 wire [53:0] A_, B_;
 
@@ -49,6 +51,7 @@ module MISTRAL_MUL18X18(input [17:0] A, input [17:0] B, output [35:0] Y);
 parameter A_SIGNED = 1;
 parameter B_SIGNED = 1;
 
+`ifdef TIMING
 `ifdef cyclonev
 specify
     (A *> Y) = 3180;
@@ -69,6 +72,7 @@ specify
     (B *> Y) = 3982;
 endspecify
 `endif
+`endif // TIMING
 
 wire [35:0] A_, B_;
 
@@ -92,6 +96,7 @@ module MISTRAL_MUL9X9(input [8:0] A, input [8:0] B, output [17:0] Y);
 parameter A_SIGNED = 1;
 parameter B_SIGNED = 1;
 
+`ifdef TIMING
 `ifdef cyclonev
 specify
     (A *> Y) = 2818;
@@ -112,6 +117,7 @@ specify
     (B *> Y) = 3051;
 endspecify
 `endif
+`endif // TIMING
 
 wire [17:0] A_, B_;
 

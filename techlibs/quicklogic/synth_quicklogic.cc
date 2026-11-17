@@ -223,7 +223,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 		}
 
 		if (check_label("begin")) {
-			std::string read_simlibs = stringf("read_verilog -lib -specify %scommon/cells_sim.v %s%s/cells_sim.v", lib_path, lib_path, family);
+			std::string read_simlibs = stringf("read_verilog -lib -specify -DTIMING=1 %scommon/cells_sim.v %s%s/cells_sim.v", lib_path, lib_path, family);
 			if (family == "qlf_k6n10f") {
 				read_simlibs += stringf(" %sqlf_k6n10f/brams_sim.v", lib_path);
 				if (bramTypes)
@@ -343,7 +343,7 @@ struct SynthQuickLogicPass : public ScriptPass {
 			if (latches.policy == LatchPolicy::Error || help_mode)
 				run("check -latchonly -assert", "(only if -latches error, the default)");
 			run("techmap -map " + lib_path + family + "/latches_map.v");
-			run("read_verilog -lib -specify -icells " + lib_path + family + "/abc9_model.v");
+			run("read_verilog -lib -specify -DTIMING=1 -icells " + lib_path + family + "/abc9_model.v");
 			run("techmap -map " + lib_path + family + "/abc9_map.v");
 			run("abc9 -maxlut 4 -dff");
 			run("techmap -map " + lib_path + family + "/abc9_unmap.v");
