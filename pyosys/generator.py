@@ -718,6 +718,10 @@ class PyosysWrapperGenerator:
 		if isinstance(variable.type, Array) or variable.template:
 			return
 
+		if len(variable.name.segments) > 1:
+			# out-of-class definition of a static member
+			return
+
 		variable_basename = variable.name.segments[-1].format()
 		if variable_basename in global_denylist:
 			return
