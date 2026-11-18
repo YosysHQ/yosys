@@ -50,6 +50,8 @@ struct CellTableBuilder {
 		bool is_stdcell = false;
 		bool is_ff = false;
 		bool is_mem = false;
+		[[deprecated("Use is_mem instead")]]
+		bool is_mem_noff = false;
 		bool is_clocked = false;
 		bool is_tristate = false;
 		bool has_side_effect = false;
@@ -65,12 +67,7 @@ struct CellTableBuilder {
 	std::array<CellInfo, MAX_CELLS> cells{};
 	size_t count = 0;
 
-	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features) {
-		Features features_copy = features;
-		features_copy.is_internal = true;
-		cells[count++] = {type, PortList(inputs), PortList(outputs), features_copy};
-
-	}
+	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features);
 
 	// Setup combinatorial cell type which is synthesizable and evaluable (by default)
 	constexpr void setup_comb_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,

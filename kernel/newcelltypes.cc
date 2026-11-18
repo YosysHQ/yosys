@@ -4,6 +4,13 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace StaticCellTypes {
 
+constexpr void CellTableBuilder::setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features) {
+	Features features_copy = features;
+	features_copy.is_mem_noff = features.is_mem;
+	features_copy.is_internal = true;
+	cells[count++] = {type, PortList(inputs), PortList(outputs), features_copy};
+}
+
 constexpr void CellTableBuilder::setup_comb_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
 	bool is_evaluable, bool is_stdcell, bool is_tristate,
 	bool is_x_aware, bool is_x_output)
