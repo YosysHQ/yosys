@@ -345,7 +345,7 @@ struct Async2syncPass : public Pass {
 						module->connect(ff.sig_q, new_d);
 					}
 
-					ff.sig_d = new_d;
+					ff.sig_d = ff.sig_q;
 					ff.sig_q = new_q;
 					ff.has_aload = false;
 					ff.has_arst = false;

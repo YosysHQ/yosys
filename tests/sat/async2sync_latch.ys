@@ -1,0 +1,7 @@
+read_verilog -icells <<EOT
+module top(input r, output q);
+  \$_DLATCH_PP1_ l (.E(1'b0), .R(r), .D(1'b0), .Q(q));
+endmodule
+EOT
+async2sync
+sat -verify -seq 2 -set-at 1 r 1 -prove q 1
