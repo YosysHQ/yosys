@@ -18,7 +18,7 @@ Cell properties
 
 .. code-block:: none
 
-   is_stateless == is_internal - ({$anyinit} || is_ff || is_mem)
+   is_stateless == is_known - ({$anyinit, $initstate, $fsm} || is_ff || is_mem)
 
 .. cell:defprop:: is_combinatorial
 

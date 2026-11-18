@@ -91,11 +91,21 @@ TEST(CellTypesTest, basic)
 	const auto synthesizable_kinds = StaticCellTypes::Categories::join(
 		categories.is_combinatorial, categories.is_ff, categories.is_mem);
 
+	StaticCellTypes::Categories::Category other;
+	other.set_id(ID($anyinit));
+	other.set_id(ID($initstate));
+	other.set_id(ID($fsm));
+	const auto stateful_kinds = StaticCellTypes::Categories::join(
+		other, categories.is_ff, categories.is_mem);
+	const auto expected_stateless = StaticCellTypes::Categories::meet(
+		categories.is_known, StaticCellTypes::Categories::complement(stateful_kinds));
+
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
 		SCOPED_TRACE(ID::unescaped_str(type));
 		EXPECT_EQ(categories.is_combinatorial(type), is_stateless_synthesizable(type));
 		EXPECT_EQ(categories.is_synthesizable(type), synthesizable_kinds(type));
+		EXPECT_EQ(categories.is_stateless(type),     expected_stateless(type));
 	}
 }
 
