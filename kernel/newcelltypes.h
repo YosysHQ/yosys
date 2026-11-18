@@ -69,32 +69,6 @@ struct CellTableBuilder {
 
 	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features);
 
-	// Setup combinatorial cell type which is synthesizable and evaluable (by default)
-	constexpr void setup_comb_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-			bool is_evaluable = true, bool is_stdcell = false, bool is_tristate = false,
-			bool is_x_aware = false, bool is_x_output = false);
-
-	// Setup builtin ff cell type which is synthesizable
-	constexpr void setup_ff_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-		bool is_stdcell = false);
-
-	constexpr void setup_latch_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-		bool is_stdcell = false);
-
-	// Setup builtin mem cell type which is synthesizable
-	constexpr void setup_mem_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, bool is_clocked = true);
-
-	// Setup formal cell type which may be combinatorial, and may have effects
-	constexpr void setup_formal_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-			bool has_side_effect = false, bool is_nondeterministic = false, bool is_stateless = true);
-
-	// Setup cell type which has effects, and may be formal
-	constexpr void setup_effects_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-			bool is_formal = false);
-
-	// Setup meta-info cell type
-	constexpr void setup_metainfo_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs);
-
 	constexpr void setup_internals_other();
 	constexpr void setup_internals_eval();
 	constexpr void setup_internals_ff();

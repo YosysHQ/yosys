@@ -11,90 +11,13 @@ constexpr void CellTableBuilder::setup_type(RTLIL::IdString type, std::initializ
 	cells[count++] = {type, PortList(inputs), PortList(outputs), features_copy};
 }
 
-constexpr void CellTableBuilder::setup_comb_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-	bool is_evaluable, bool is_stdcell, bool is_tristate,
-	bool is_x_aware, bool is_x_output)
-{
-	Features features {};
-	features.is_combinatorial = true;
-	features.is_evaluable = is_evaluable;
-	features.is_synthesizable = true;
-	features.is_stdcell = is_stdcell;
-	features.is_tristate = is_tristate;
-	features.is_x_aware = is_x_aware;
-	features.is_x_output = is_x_output;
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_ff_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-	bool is_stdcell)
-{
-	Features features {};
-	features.is_stateless = false;
-	features.is_synthesizable = true;
-	features.is_ff = true;
-	features.is_clocked = true;
-	features.is_stdcell = is_stdcell;
-
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_latch_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-	bool is_stdcell)
-{
-	Features features {};
-	features.is_stateless = false;
-	features.is_synthesizable = true;
-	features.is_ff = true;
-	features.is_clocked = false;
-	features.is_stdcell = is_stdcell;
-
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_mem_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, bool is_clocked)
-{
-	Features features {};
-	features.is_stateless = false;
-	features.is_synthesizable = true;
-	features.is_mem = true;
-	features.is_clocked = is_clocked;
-
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_formal_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-	bool has_side_effect, bool is_nondeterministic, bool is_stateless)
-{
-	Features features {};
-	features.is_formal = true;
-	features.is_stateless = is_stateless;
-	features.has_side_effect = has_side_effect; // assert
-	features.is_nondeterministic = is_nondeterministic; // anyseq
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_effects_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs,
-	bool is_formal)
-{
-	Features features {};
-	features.is_formal = is_formal;
-	features.has_side_effect = true;
-	setup_type(type, inputs, outputs, features);
-}
-
-constexpr void CellTableBuilder::setup_metainfo_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs)
-{
-	Features features {};
-	features.is_meta_info = true;
-	setup_type(type, inputs, outputs, features);
-}
-
 constexpr void CellTableBuilder::setup_internals_other()
 {
 	Features features {};
-	// synthesizable
-	setup_comb_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, /*is_evaluable=*/ false, /*is_stdcell=*/ false, /*is_tristate=*/ true);
+	features.is_combinatorial = true;
+	features.is_synthesizable = true;
+	features.is_tristate = true;
+	setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
 
 	// is this evaluable
 	features = {};
@@ -104,17 +27,35 @@ constexpr void CellTableBuilder::setup_internals_other()
 	std::initializer_list<RTLIL::IdString> formal_checks = {
 		ID($assert), ID($assume), ID($live), ID($fair), ID($cover)
 	};
+	features = {};
+	features.is_formal = true;
+	features.has_side_effect = true;
 	for (const auto& id : formal_checks)
-		setup_formal_type(id, {ID::A, ID::EN}, {},         /*has_side_effect=*/ true,  /*is_nondeterministic=*/ false);
-	setup_formal_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, /*has_side_effect=*/ false, /*is_nondeterministic=*/ false);
-	setup_formal_type(ID($initstate), {}, {ID::Y},         /*has_side_effect=*/ false, /*is_nondeterministic=*/ false, /*is_stateless=*/ false);
+		setup_type(id, {ID::A, ID::EN}, {}, features);
+
+	features = {};
+	features.is_formal = true;
+	setup_type(ID($equiv), {ID::A, ID::B}, {ID::Y}, features);
+
+	features = {};
+	features.is_formal = true;
+	features.is_stateless = false;
+	setup_type(ID($initstate), {}, {ID::Y}, features);
 
 	std::initializer_list<RTLIL::IdString> formal_values = {
 		ID($anyconst), ID($anyseq), ID($allconst), ID($allseq)
 	};
+	features = {};
+	features.is_formal = true;
+	features.is_nondeterministic = true;
 	for (auto type : formal_values)
-		setup_formal_type(type, {}, {ID::Y},          /*has_side_effect=*/ false, /*is_nondeterministic=*/ true);
-	setup_formal_type(ID($anyinit), {ID::D}, {ID::Q}, /*has_side_effect=*/ false, /*is_nondeterministic=*/ true, /*is_stateless=*/ false);
+		setup_type(type, {}, {ID::Y}, features);
+
+	features = {};
+	features.is_formal = true;
+	features.is_nondeterministic = true;
+	features.is_stateless = false;
+	setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
 
 	// combinatorial
 	features = {};
@@ -122,20 +63,26 @@ constexpr void CellTableBuilder::setup_internals_other()
 	setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 	setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
 
-	setup_effects_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {});
-	setup_effects_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {});
+	features = {};
+	features.has_side_effect = true;
+	setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {}, features);
+	setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {}, features);
 
-	setup_formal_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y});
-	setup_formal_type(ID($get_tag), {ID::A}, {ID::Y});
-	setup_formal_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, {});
+	features = {};
+	features.is_formal = true;
+	setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y}, features);
+	setup_type(ID($get_tag), {ID::A}, {ID::Y}, features);
+	setup_type(ID($overwrite_tag), {ID::A, ID::SET, ID::CLR}, {}, features);
+
 	std::initializer_list<RTLIL::IdString> formal_passthroughs = {
 		ID($original_tag), ID($future_ff)
 	};
 	for (auto type : formal_passthroughs)
-		setup_formal_type(type, {ID::A}, {ID::Y});
+		setup_type(type, {ID::A}, {ID::Y}, features);
 
-	// meta-info
-	setup_metainfo_type(ID($scopeinfo), {}, {});
+	features = {};
+	features.is_meta_info = true;
+	setup_type(ID($scopeinfo), {}, {}, features);
 
 	// temporary helper cells
 	features = {};
@@ -167,79 +114,116 @@ constexpr void CellTableBuilder::setup_internals_eval()
 		ID($shiftx), ID($div), ID($mod),
 	};
 
-	for (auto type : unary_ops)
-		setup_comb_type(type, {ID::A}, {ID::Y});
-
-	for (auto type : binary_ops)
-		setup_comb_type(type, {ID::A, ID::B}, {ID::Y});
-
-	for (auto type : binary_ops_x_aware)
-		setup_comb_type(type, {ID::A, ID::B}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ false, /*is_tristate=*/ false, /*is_x_aware=*/ true);
-
-	for (auto type : binary_ops_x_out)
-		setup_comb_type(type, {ID::A, ID::B}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ false, /*is_tristate=*/ false, /*is_x_aware=*/ false, /*is_x_output=*/ true);
-
 	std::initializer_list<RTLIL::IdString> mux_ops = {
 		ID($mux), ID($bwmux)
 	};
-	for (auto type : mux_ops)
-		setup_comb_type(type, {ID::A, ID::B, ID::S}, {ID::Y});
-
-	setup_comb_type(ID($pmux), {ID::A, ID::B, ID::S}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ false, /*is_tristate=*/ false, /*is_x_aware=*/ false, /*is_x_output=*/ true);
 
 	std::initializer_list<RTLIL::IdString> demux_ops = {
 		ID($bmux), ID($demux)
 	};
-	for (auto type : demux_ops)
-		setup_comb_type(type, {ID::A, ID::S}, {ID::Y});
 
-	setup_comb_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO});
-	setup_comb_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO});
-	setup_comb_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y});
-	setup_comb_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y});
+	Features features {};
+	features.is_combinatorial = true;
+	features.is_evaluable = true;
+	features.is_synthesizable = true;
+
+	for (auto type : unary_ops)
+		setup_type(type, {ID::A}, {ID::Y}, features);
+
+	for (auto type : binary_ops)
+		setup_type(type, {ID::A, ID::B}, {ID::Y}, features);
+
+	for (auto type : mux_ops)
+		setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, features);
+
+	for (auto type : demux_ops)
+		setup_type(type, {ID::A, ID::S}, {ID::Y}, features);
+
+	setup_type(ID($lcu), {ID::P, ID::G, ID::CI}, {ID::CO}, features);
+	setup_type(ID($alu), {ID::A, ID::B, ID::CI, ID::BI}, {ID::X, ID::Y, ID::CO}, features);
+	setup_type(ID($macc_v2), {ID::A, ID::B, ID::C}, {ID::Y}, features);
+	setup_type(ID($fa), {ID::A, ID::B, ID::C}, {ID::X, ID::Y}, features);
+
+	features = {};
+	features.is_combinatorial = true;
+	features.is_evaluable = true;
+	features.is_synthesizable = true;
+	features.is_x_aware = true;
+	for (auto type : binary_ops_x_aware)
+		setup_type(type, {ID::A, ID::B}, {ID::Y}, features);
+
+	features = {};
+	features.is_combinatorial = true;
+	features.is_evaluable = true;
+	features.is_synthesizable = true;
+	features.is_x_output = true;
+	for (auto type : binary_ops_x_out)
+		setup_type(type, {ID::A, ID::B}, {ID::Y}, features);
+	setup_type(ID($pmux), {ID::A, ID::B, ID::S}, {ID::Y}, features);
 }
 
 constexpr void CellTableBuilder::setup_internals_ff()
 {
-	setup_ff_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q});
-	setup_ff_type(ID($ff), {ID::D}, {ID::Q});
-	setup_ff_type(ID($dff), {ID::CLK, ID::D}, {ID::Q});
-	setup_ff_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q});
-	setup_ff_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q});
-	setup_ff_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q});
-	setup_ff_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q});
-	setup_ff_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q});
-	setup_ff_type(ID($aldff), {ID::CLK, ID::ALOAD, ID::AD, ID::D}, {ID::Q});
-	setup_ff_type(ID($aldffe), {ID::CLK, ID::ALOAD, ID::AD, ID::D, ID::EN}, {ID::Q});
-	setup_ff_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q});
+
+	Features features {};
+	features.is_stateless = false;
+	features.is_synthesizable = true;
+	features.is_ff = true;
+	features.is_clocked = true;
+
+	setup_type(ID($sr), {ID::SET, ID::CLR}, {ID::Q}, features);
+	setup_type(ID($ff), {ID::D}, {ID::Q}, features);
+	setup_type(ID($dff), {ID::CLK, ID::D}, {ID::Q}, features);
+	setup_type(ID($dffe), {ID::CLK, ID::EN, ID::D}, {ID::Q}, features);
+	setup_type(ID($dffsr), {ID::CLK, ID::SET, ID::CLR, ID::D}, {ID::Q}, features);
+	setup_type(ID($dffsre), {ID::CLK, ID::SET, ID::CLR, ID::D, ID::EN}, {ID::Q}, features);
+	setup_type(ID($adff), {ID::CLK, ID::ARST, ID::D}, {ID::Q}, features);
+	setup_type(ID($adffe), {ID::CLK, ID::ARST, ID::D, ID::EN}, {ID::Q}, features);
+	setup_type(ID($aldff), {ID::CLK, ID::ALOAD, ID::AD, ID::D}, {ID::Q}, features);
+	setup_type(ID($aldffe), {ID::CLK, ID::ALOAD, ID::AD, ID::D, ID::EN}, {ID::Q}, features);
+	setup_type(ID($sdff), {ID::CLK, ID::SRST, ID::D}, {ID::Q}, features);
 	std::initializer_list<RTLIL::IdString> sdff_enable = {
 		ID($sdffe), ID($sdffce)
 	};
 	for (auto type : sdff_enable)
-		setup_ff_type(type, {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q});
+		setup_type(type, {ID::CLK, ID::SRST, ID::D, ID::EN}, {ID::Q}, features);
 
-	setup_latch_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q});
-	setup_latch_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q});
-	setup_latch_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q});
+	features = {};
+	features.is_stateless = false;
+	features.is_synthesizable = true;
+	features.is_ff = true;
+
+	setup_type(ID($dlatch), {ID::EN, ID::D}, {ID::Q}, features);
+	setup_type(ID($adlatch), {ID::EN, ID::D, ID::ARST}, {ID::Q}, features);
+	setup_type(ID($dlatchsr), {ID::EN, ID::SET, ID::CLR, ID::D}, {ID::Q}, features);
 }
 
 constexpr void CellTableBuilder::setup_internals_mem_noff()
 {
-	setup_mem_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA});
-	setup_mem_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA});
+	Features features {};
+	features.is_stateless = false;
+	features.is_synthesizable = true;
+	features.is_mem = true;
+	features.is_clocked = true;
+
+	setup_type(ID($memrd), {ID::CLK, ID::EN, ID::ADDR}, {ID::DATA}, features);
+	setup_type(ID($memrd_v2), {ID::CLK, ID::EN, ID::ARST, ID::SRST, ID::ADDR}, {ID::DATA}, features);
 	std::initializer_list<RTLIL::IdString> mem_writes = {
 		ID($memwr), ID($memwr_v2)
 	};
 	for (auto type : mem_writes)
-		setup_mem_type(type, {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, {});
+		setup_type(type, {ID::CLK, ID::EN, ID::ADDR, ID::DATA}, {}, features);
 
-	setup_mem_type(ID($meminit), {ID::ADDR, ID::DATA}, {},            /*is_clocked=*/ false);
-	setup_mem_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, {}, /*is_clocked=*/ false);
-	setup_mem_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
-	setup_mem_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA});
+	features.is_clocked = false;
+	setup_type(ID($meminit), {ID::ADDR, ID::DATA}, {}, features);
+	setup_type(ID($meminit_v2), {ID::ADDR, ID::DATA, ID::EN}, {}, features);
+
+	features.is_clocked = true;
+	setup_type(ID($mem), {ID::RD_CLK, ID::RD_EN, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA}, features);
+	setup_type(ID($mem_v2), {ID::RD_CLK, ID::RD_EN, ID::RD_ARST, ID::RD_SRST, ID::RD_ADDR, ID::WR_CLK, ID::WR_EN, ID::WR_ADDR, ID::WR_DATA}, {ID::RD_DATA}, features);
 
 	// What?
-	Features features {};
+	features = {};
 	features.is_clocked = true;
 	features.is_stateless = false;
 	setup_type(ID($fsm), {ID::CLK, ID::ARST, ID::CTRL_IN}, {ID::CTRL_OUT}, features);
@@ -247,68 +231,79 @@ constexpr void CellTableBuilder::setup_internals_mem_noff()
 
 constexpr void CellTableBuilder::setup_stdcells_tristate()
 {
-	setup_comb_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, /*is_evaluable=*/ false, /*is_stdcell=*/ true, /*is_tristate=*/ true);
+	Features features {};
+	features.is_combinatorial = true;
+	features.is_synthesizable = true;
+	features.is_stdcell = true;
+	features.is_tristate = true;
+	setup_type(ID($_TBUF_), {ID::A, ID::E}, {ID::Y}, features);
 }
 
 constexpr void CellTableBuilder::setup_stdcells_eval()
 {
+	Features features {};
+	features.is_combinatorial = true;
+	features.is_evaluable = true;
+	features.is_synthesizable = true;
+	features.is_stdcell = true;
+
 	std::initializer_list<RTLIL::IdString> unary_ops = {
 		ID($_BUF_), ID($_NOT_)
 	};
 	for (auto type : unary_ops)
-		setup_comb_type(type, {ID::A}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+		setup_type(type, {ID::A}, {ID::Y}, features);
 
 	std::initializer_list<RTLIL::IdString> binary_ops = {
 		ID($_AND_), ID($_NAND_), ID($_OR_), ID($_NOR_),
 		ID($_XOR_), ID($_XNOR_), ID($_ANDNOT_), ID($_ORNOT_)
 	};
 	for (auto type : binary_ops)
-		setup_comb_type(type, {ID::A, ID::B}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+		setup_type(type, {ID::A, ID::B}, {ID::Y}, features);
 
 	std::initializer_list<RTLIL::IdString> mux_ops = {
 		ID($_MUX_), ID($_NMUX_)
 	};
 	for (auto type : mux_ops)
-		setup_comb_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+		setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, features);
 
-	setup_comb_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, /*is_evaluable=*/ false, /*is_stdcell=*/ true, /*is_tristate=*/ false);
-	setup_comb_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, /*is_evaluable=*/ false, /*is_stdcell=*/ true, /*is_tristate=*/ false);
-	setup_comb_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, /*is_evaluable=*/ false, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+	features.is_evaluable = false;
+	setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, features);
+	setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, features);
+	setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, features);
+
+	features.is_evaluable = true;
 	std::initializer_list<RTLIL::IdString> triple_ops = {
 		ID($_AOI3_), ID($_OAI3_)
 	};
 	for (auto type : triple_ops)
-		setup_comb_type(type, {ID::A, ID::B, ID::C}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+		setup_type(type, {ID::A, ID::B, ID::C}, {ID::Y}, features);
 
 	std::initializer_list<RTLIL::IdString> quad_ops = {
 		ID($_AOI4_), ID($_OAI4_)
 	};
 	for (auto type : quad_ops)
-		setup_comb_type(type, {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, /*is_evaluable=*/ true, /*is_stdcell=*/ true, /*is_tristate=*/ false);
+		setup_type(type, {ID::A, ID::B, ID::C, ID::D}, {ID::Y}, features);
 }
 
 constexpr void CellTableBuilder::setup_stdcells_ff() {
-
-	std::initializer_list<RTLIL::IdString> sr = {
-		ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
-	};
-	for (auto type : sr) {
-		setup_ff_type(type, {ID::S, ID::R}, {ID::Q}, /*is_stdcell=*/ true);
-	}
-
-	setup_ff_type(ID($_FF_), {ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+	Features features {};
+	features.is_stateless = false;
+	features.is_synthesizable = true;
+	features.is_stdcell = true;
+	features.is_ff = true;
+	features.is_clocked = true;
 
 	std::initializer_list<RTLIL::IdString> dff_no_reset = {
 		ID($_DFF_N_), ID($_DFF_P_)
 	};
 	for (auto type : dff_no_reset)
-		setup_ff_type(type, {ID::C, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::D}, {ID::Q}, features);
 
 	std::initializer_list<RTLIL::IdString> dffe = {
 		ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)
 	};
 	for (auto type : dffe) {
-		setup_ff_type(type, {ID::C, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::D, ID::E}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dff = {
@@ -316,7 +311,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DFF_PN0_), ID($_DFF_PN1_), ID($_DFF_PP0_), ID($_DFF_PP1_)
 	};
 	for (auto type : dff) {
-		setup_ff_type(type, {ID::C, ID::R, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::R, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dffe_reset = {
@@ -326,14 +321,14 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DFFE_PP0N_), ID($_DFFE_PP0P_), ID($_DFFE_PP1N_), ID($_DFFE_PP1P_)
 	};
 	for (auto type : dffe_reset) {
-		setup_ff_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> aldff = {
 		ID($_ALDFF_NN_), ID($_ALDFF_NP_), ID($_ALDFF_PN_), ID($_ALDFF_PP_)
 	};
 	for (auto type : aldff) {
-		setup_ff_type(type, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::L, ID::AD, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> aldffe = {
@@ -341,7 +336,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_ALDFFE_PNN_), ID($_ALDFFE_PNP_), ID($_ALDFFE_PPN_), ID($_ALDFFE_PPP_)
 	};
 	for (auto type : aldffe) {
-		setup_ff_type(type, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::L, ID::AD, ID::D, ID::E}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dffsr = {
@@ -349,7 +344,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DFFSR_PNN_), ID($_DFFSR_PNP_), ID($_DFFSR_PPN_), ID($_DFFSR_PPP_)
 	};
 	for (auto type : dffsr) {
-		setup_ff_type(type, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::S, ID::R, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dffsre = {
@@ -359,7 +354,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DFFSRE_PPNN_), ID($_DFFSRE_PPNP_), ID($_DFFSRE_PPPN_), ID($_DFFSRE_PPPP_)
 	};
 	for (auto type : dffsre) {
-		setup_ff_type(type, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::S, ID::R, ID::D, ID::E}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> sdff = {
@@ -367,7 +362,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_SDFF_PN0_), ID($_SDFF_PN1_), ID($_SDFF_PP0_), ID($_SDFF_PP1_)
 	};
 	for (auto type : sdff) {
-		setup_ff_type(type, {ID::C, ID::R, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::R, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> sdffe = {
@@ -377,7 +372,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_SDFFE_PP0N_), ID($_SDFFE_PP0P_), ID($_SDFFE_PP1N_), ID($_SDFFE_PP1P_)
 	};
 	for (auto type : sdffe) {
-		setup_ff_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> sdffce = {
@@ -387,14 +382,30 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_SDFFCE_PP0N_), ID($_SDFFCE_PP0P_), ID($_SDFFCE_PP1N_), ID($_SDFFCE_PP1P_)
 	};
 	for (auto type : sdffce) {
-		setup_ff_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::C, ID::R, ID::D, ID::E}, {ID::Q}, features);
 	}
+
+	features = {};
+	features.is_stateless = false;
+	features.is_synthesizable = true;
+	features.is_stdcell = true;
+	features.is_ff = true;
+	features.is_clocked = false;
+
+	std::initializer_list<RTLIL::IdString> sr = {
+		ID($_SR_NN_), ID($_SR_NP_), ID($_SR_PN_), ID($_SR_PP_)
+	};
+	for (auto type : sr) {
+		setup_type(type, {ID::S, ID::R}, {ID::Q}, features);
+	}
+
+	setup_type(ID($_FF_), {ID::D}, {ID::Q}, features);
 
 	std::initializer_list<RTLIL::IdString> dlatch = {
 		ID($_DLATCH_N_), ID($_DLATCH_P_)
 	};
 	for (auto type : dlatch) {
-		setup_ff_type(type, {ID::E, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::E, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dlatch_reset = {
@@ -402,7 +413,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DLATCH_PN0_), ID($_DLATCH_PN1_), ID($_DLATCH_PP0_), ID($_DLATCH_PP1_)
 	};
 	for (auto type : dlatch_reset) {
-		setup_ff_type(type, {ID::E, ID::R, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::E, ID::R, ID::D}, {ID::Q}, features);
 	}
 
 	std::initializer_list<RTLIL::IdString> dlatchsr = {
@@ -410,7 +421,7 @@ constexpr void CellTableBuilder::setup_stdcells_ff() {
 		ID($_DLATCHSR_PNN_), ID($_DLATCHSR_PNP_), ID($_DLATCHSR_PPN_), ID($_DLATCHSR_PPP_)
 	};
 	for (auto type : dlatchsr) {
-		setup_ff_type(type, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, /*is_stdcell=*/ true);
+		setup_type(type, {ID::E, ID::S, ID::R, ID::D}, {ID::Q}, features);
 	}
 }
 
