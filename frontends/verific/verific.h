@@ -17,95 +17,40 @@
  *
  */
 
+#ifndef VERIFIC_H
+#define VERIFIC_H
+
 #ifdef YOSYS_ENABLE_VERIFIC
 
+#include <condition_variable>
+#include <mutex>
+
 #include "DataBase.h"
+
+#include "frontends/verific/verific_clocking.h"
+#include "frontends/verific/verific_importer.h"
 
 YOSYS_NAMESPACE_BEGIN
 
 extern int verific_verbose;
 
+bool check_noverific_env();
+void verific_setup();
+
+struct VerificSession {
+	~VerificSession();
+	static void begin(Design *design);
+	static std::unique_ptr<VerificSession> deferred_end(Design *design);
+private:
+	static inline std::mutex mutex;
+	static inline std::condition_variable cv;
+	static inline Design *owner = nullptr;
+};
+
 extern bool verific_import_pending;
 extern std::string verific_import(Design *design, const std::map<std::string,std::string> &parameters, std::string top = std::string());
 
 extern pool<int> verific_sva_prims;
-
-struct VerificImporter;
-
-struct VerificClocking {
-	RTLIL::Module *module = nullptr;
-	Verific::Net *clock_net = nullptr;
-	Verific::Net *enable_net = nullptr;
-	Verific::Net *disable_net = nullptr;
-	Verific::Net *body_net = nullptr;
-	Verific::Net *cond_net = nullptr;
-	SigBit clock_sig = State::Sx;
-	SigBit enable_sig = State::S1;
-	SigBit disable_sig = State::S0;
-	bool posedge = true;
-	bool gclk = false;
-	bool cond_pol = true;
-
-	VerificClocking() { }
-	VerificClocking(VerificImporter *importer, Verific::Net *net, bool sva_at_only = false);
-	RTLIL::Cell *addDff(IdString name, SigSpec sig_d, SigSpec sig_q, Const init_value = Const());
-	RTLIL::Cell *addAdff(IdString name, RTLIL::SigSpec sig_arst, SigSpec sig_d, SigSpec sig_q, Const arst_value);
-	RTLIL::Cell *addDffsr(IdString name, RTLIL::SigSpec sig_set, RTLIL::SigSpec sig_clr, SigSpec sig_d, SigSpec sig_q);
-	RTLIL::Cell *addAldff(IdString name, RTLIL::SigSpec sig_aload, RTLIL::SigSpec sig_adata, SigSpec sig_d, SigSpec sig_q);
-	YS_NAME_FWD_POOL(addDff, module->twines()) YS_NAME_FWD_POOL(addAdff, module->twines())
-	YS_NAME_FWD_POOL(addDffsr, module->twines()) YS_NAME_FWD_POOL(addAldff, module->twines())
-
-	bool property_matches_sequence(const VerificClocking &seq) const {
-		if (clock_net != seq.clock_net)
-			return false;
-		if (enable_net != seq.enable_net)
-			return false;
-		if (posedge != seq.posedge)
-			return false;
-		return true;
-	}
-};
-
-struct VerificImporter
-{
-private:
-	void recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memory *memory, Verific::Net *net, const char *&ascii_initdata, int max_bits_in_addr, const RTLIL::SigSpec &prefix, Verific::TypeRange *typeRange = nullptr);
-public:
-	RTLIL::Module *module;
-	Verific::Netlist *netlist;
-
-	std::map<Verific::Net*, RTLIL::SigBit> net_map;
-	std::map<Verific::Net*, Verific::Net*> sva_posedge_map;
-	pool<Verific::Net*> any_all_nets;
-
-	bool mode_gates, mode_keep, mode_nosva, mode_sva_continue, mode_names, mode_verific;
-	bool mode_autocover, mode_fullinit;
-
-	int num_sva_continue = 0;
-
-	VerificImporter(bool mode_gates, bool mode_keep, bool mode_nosva, bool mode_sva_continue, bool mode_names, bool mode_verific, bool mode_autocover, bool mode_fullinit);
-
-	RTLIL::SigBit net_map_at(Verific::Net *net);
-
-	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
-	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj, Verific::Netlist  *nl = nullptr, int wire_width_hint = -1);
-
-	RTLIL::SigBit netToSigBit(Verific::Net *net);
-	RTLIL::SigSpec operatorInput(Verific::Instance *inst);
-	RTLIL::SigSpec operatorInput1(Verific::Instance *inst);
-	RTLIL::SigSpec operatorInput2(Verific::Instance *inst);
-	RTLIL::SigSpec operatorInport(Verific::Instance *inst, const char *portname);
-	RTLIL::SigSpec operatorInportCase(Verific::Instance *inst, const char *portname);
-	RTLIL::SigSpec operatorOutput(Verific::Instance *inst, const pool<Verific::Net*> *any_all_nets = nullptr);
-
-	bool import_netlist_instance_gates(Verific::Instance *inst, RTLIL::IdString inst_name);
-	bool import_netlist_instance_cells(Verific::Instance *inst, RTLIL::IdString inst_name);
-
-	void merge_past_ffs_clock(pool<RTLIL::Cell*> &candidates, SigBit clock, bool clock_pol);
-	void merge_past_ffs(pool<RTLIL::Cell*> &candidates);
-
-	void import_netlist(RTLIL::Design *design, Verific::Netlist *nl, std::map<std::string,Verific::Netlist*> &nl_todo, bool norename = false);
-};
 
 void verific_import_sva_assert(VerificImporter *importer, Verific::Instance *inst);
 void verific_import_sva_assume(VerificImporter *importer, Verific::Instance *inst);
@@ -115,6 +60,16 @@ bool verific_is_sva_net(VerificImporter *importer, Verific::Net *net);
 
 extern int verific_sva_fsm_limit;
 
+extern std::string verific_error_msg;
+
+std::string get_full_netlist_name(Verific::Netlist *nl);
+void save_blackbox_msg_state();
+void restore_blackbox_msg_state();
+void import_all(const char* work, std::map<std::string,Verific::Netlist*> *nl_todo, Verific::Map *parameters, bool show_message, std::string ppfile);
+std::set<std::string> import_tops(const char* work, std::map<std::string,Verific::Netlist*> *nl_todo, Verific::Map *parameters, bool show_message, std::string ppfile, std::vector<std::string> &tops, std::string *top = nullptr);
+void verific_extnets(const std::map<std::string,Verific::Netlist*> &nl_todo);
+
 YOSYS_NAMESPACE_END
 
+#endif
 #endif

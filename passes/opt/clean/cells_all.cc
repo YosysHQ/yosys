@@ -137,8 +137,7 @@ struct ConflictLogs {
 struct CellTraversal {
 	ConcurrentWorkQueue<int> queue;
 	Wire2Drivers wire2driver;
-	dict<std::string, pool<int>> mem2cells;
-	CellTraversal(int num_threads) : queue(num_threads), wire2driver(), mem2cells() {}
+	CellTraversal(int num_threads) : queue(num_threads), wire2driver() {}
 };
 
 struct CellAnalysis {
@@ -176,14 +175,14 @@ struct CellAnalysis {
 	}
 };
 
-ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const SigMap& wire_map, AnalysisContext& actx, CleanRunContext &clean_ctx) {
+ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, dict<std::string, pool<int>> &mem2cells, const SigMap& wire_map, AnalysisContext& actx, CleanRunContext &clean_ctx) {
 	ConflictLogs logs(actx.subpool);
 	Wire2Drivers::Builder wire2driver_builder(actx.subpool);
 	ShardedVector<std::pair<std::string, int>> mem2cells_vector(actx.subpool);
 
 	// Enqueue kept cells into traversal.queue
 	// Prepare input cone traversal into traversal.wire2driver
-	// Prepare "input cone" traversal from memory to write port or meminit as analysis.mem2cells
+	// Prepare "input cone" traversal from memory to write port or meminit as mem2cells
 	// Also check driver conflicts
 	// Also mark cells unused to true unless keep (we override this later)
 	actx.subpool.run([&analysis, &traversal, &logs, &wire_map, &mem2cells_vector, &wire2driver_builder, &actx, &clean_ctx](const ParallelDispatchThreadPool::RunCtx &ctx) {
@@ -228,19 +227,25 @@ ConflictLogs explore(CellAnalysis& analysis, CellTraversal& traversal, const Sig
 	traversal.wire2driver = wire2driver_builder;
 
 	for (std::pair<std::string, int> &mem2cell : mem2cells_vector)
-		traversal.mem2cells[mem2cell.first].insert(mem2cell.second);
+		mem2cells[mem2cell.first].insert(mem2cell.second);
 
 	return logs;
 }
 
 struct MemAnalysis {
 	std::vector<std::atomic<bool>> unused;
-	dict<std::string, int> indices;
-	MemAnalysis(const RTLIL::Module* mod) : unused(mod->memories.size()), indices() {
-		for (int i = 0; i < GetSize(mod->memories); ++i) {
+	const dict<std::string, int> indices;
+	const dict<std::string, pool<int>> mem2cells;
+	static dict<std::string, int> build_indices(const RTLIL::Module* mod) {
+		dict<std::string, int> indices;
+		for (int i = 0; i < GetSize(mod->memories); ++i)
 			indices[mod->twines().str(mod->memories.element(i)->first)] = i;
-			unused[i].store(true, std::memory_order_relaxed);
-		}
+		return indices;
+	}
+	MemAnalysis(const RTLIL::Module* mod, dict<std::string, pool<int>> &&mem2cells)
+	: unused(mod->memories.size()), indices(build_indices(mod)), mem2cells(std::move(mem2cells)) {
+		for (auto &u : unused)
+			u.store(true, std::memory_order_relaxed);
 	}
 };
 
@@ -263,10 +268,10 @@ void fixup_unused_cells_and_mems(CellAnalysis& analysis, MemAnalysis& mem_analys
 
 				if (cell->type.in(ID($memrd), ID($memrd_v2))) {
 					std::string mem_id = cell->getParam(ID::MEMID).decode_string();
-					if (mem_analysis.indices.count(mem_id)) {
-						int mem_index = mem_analysis.indices[mem_id];
+					auto mem_it = mem_analysis.indices.find(mem_id);
+					if (mem_it != mem_analysis.indices.end()) {
 						// Memory fixup
-						if (mem_analysis.unused[mem_index].exchange(false, std::memory_order_relaxed))
+						if (mem_analysis.unused[mem_it->second].exchange(false, std::memory_order_relaxed))
 							mems.insert(mem_id);
 					}
 				}
@@ -282,10 +287,11 @@ void fixup_unused_cells_and_mems(CellAnalysis& analysis, MemAnalysis& mem_analys
 			bits.clear();
 
 			for (auto mem : mems) {
-				if (traversal.mem2cells.count(mem) == 0)
+				auto cells_it = mem_analysis.mem2cells.find(mem);
+				if (cells_it == mem_analysis.mem2cells.end())
 					continue;
 				// Cells fixup
-				for (int cell_idx : traversal.mem2cells.at(mem))
+				for (int cell_idx : cells_it->second)
 					analysis.mark_used_and_enqueue(cell_idx, traversal.queue, ctx);
 			}
 			mems.clear();
@@ -348,13 +354,14 @@ void rmunused_module_cells(Module *module, ParallelDispatchThreadPool::Subpool &
 	CellTraversal traversal(subpool.num_threads());
 	// Mark all unkept cells as unused initially
 	// and queue up cell traversal from those cells
-	auto logs = explore(analysis, traversal, wire_map, actx, clean_ctx);
+	dict<std::string, pool<int>> mem2cells;
+	auto logs = explore(analysis, traversal, mem2cells, wire_map, actx, clean_ctx);
 	// Mark cells that drive kept wires into cell_queue and those bits as used
 	// and queue up cell traversal from those cells
 	pool<SigBit> used_raw_bits = analysis.analyze_kept_wires(traversal, actx.assign_map, wire_map, subpool.num_threads());
 
 	// Mark all memories as unused initially
-	MemAnalysis mem_analysis(module);
+	MemAnalysis mem_analysis(module, std::move(mem2cells));
 	// Marked all used cells and mems as used by traversing with cell queue
 	fixup_unused_cells_and_mems(analysis, mem_analysis, traversal, actx, clean_ctx);
 	// Analyses are now fully correct

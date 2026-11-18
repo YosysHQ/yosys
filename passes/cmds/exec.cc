@@ -20,6 +20,7 @@
 #include "kernel/yosys.h"
 #include "kernel/log_help.h"
 #include <cstdio>
+#include <regex>
 
 #if defined(_WIN32)
 #  include <csignal>

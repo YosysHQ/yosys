@@ -1,0 +1,103 @@
+# cover statements are not currently compatible with eventually properties
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_immediate
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_mixed
+logger -check-expected
+
+# even if there is a mux or disable in the way
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_sequential
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_sequential_disable
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_implication_disable
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported eventually cover" 1
+verific -import -sva-continue-on-err cover_clock_enable
+logger -check-expected
+
+# other kinds of nesting, e.g. and, are also unsupported (though here it is
+# generally unsupported not just because of the cover)
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "currently unsupported" 1
+verific -import -sva-continue-on-err cover_and
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "currently unsupported" 1
+verific -import -sva-continue-on-err cover_if
+logger -check-expected
+
+# asserts import fine, regardless of nesting
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_immediate
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_sequential
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_sequential_disable
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_clock_enable
+
+design -reset
+verific -formal sva_eventually.sv
+verific -import assert_nested_disable
+logger -check-expected
+
+# bounded eventually properties are not currently supported
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported bounded eventually" 1
+verific -import -sva-continue-on-err assert_bounded
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+logger -expect warning "Unsupported bounded eventually" 1
+verific -import -sva-continue-on-err assert_bounded_implication
+logger -check-expected
+
+design -reset
+verific -formal sva_eventually.sv
+
+# disabling a clocked property is currently not supported
+logger -expect warning "sva_disable_iff" 1
+verific -import -sva-continue-on-err assert_nested_disable_outer
+logger -check-expected

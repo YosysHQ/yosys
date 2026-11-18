@@ -15,13 +15,13 @@
 -void print_set(char *nam, cfset_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
 +void print_set(const char *nam, full_addmap_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
 +void print_set(const char *nam, cfset_t &s, int max_nprint = MAX_NPRINT, ostream &ostr = cerr);
- 
+
  int MAX_TARGET_DEPTH(coeff_t t) {
      if(DEPTH_LIMITS.find(t)==DEPTH_LIMITS.end()) return MAX_DEPTH;
 --- a/bhm.cpp
 +++ b/bhm.cpp
 @@ -1,6 +1,6 @@
- 
+
  /****************************************************************************/
 -void print_set(char *nam, cfset_t &s, int max_nprint, ostream &ostr) {
 +void print_set(const char *nam, cfset_t &s, int max_nprint, ostream &ostr) {
@@ -31,7 +31,7 @@
 @@ -10,7 +10,7 @@
      }
  }
- 
+
 -void print_set(char *nam, full_addmap_t &s, int max_nprint, ostream &ostr) {
 +void print_set(const char *nam, full_addmap_t &s, int max_nprint, ostream &ostr) {
      int nprinted = 0;

@@ -1523,6 +1523,20 @@ struct VerificSvaImporter
 			fsm.getFirstAcceptReject(accept_p, reject_p);
 	}
 
+	void check_eventually(Instance *inst)
+	{
+		if (mode_cover || mode_trigger)
+			parser_error("Unsupported eventually cover", inst);
+
+		const char *sva_low_s = inst->GetAttValue("sva:low");
+		const char *sva_high_s = inst->GetAttValue("sva:high");
+		int sva_low = atoi(sva_low_s);
+		bool sva_inf = !strcmp(sva_high_s, "$");
+
+		if (sva_low != 0 || !sva_inf)
+			parser_error("Unsupported bounded eventually", inst);
+	}
+
 	bool eventually_property(Net *&net, SigBit &trig)
 	{
 		Instance *inst = net_to_ast_driver(net);
@@ -1540,8 +1554,7 @@ struct VerificSvaImporter
 
 		if (inst->Type() == PRIM_SVA_S_EVENTUALLY || inst->Type() == PRIM_SVA_EVENTUALLY)
 		{
-			if (mode_cover || mode_trigger)
-				parser_error(inst);
+			check_eventually(inst);
 
 			net = inst->GetInput();
 			clocking.cond_net = nullptr;
@@ -1563,8 +1576,7 @@ struct VerificSvaImporter
 			if (consequent_inst->Type() != PRIM_SVA_S_EVENTUALLY && consequent_inst->Type() != PRIM_SVA_EVENTUALLY)
 				return false;
 
-			if (mode_cover || mode_trigger)
-				parser_error(consequent_inst);
+			check_eventually(consequent_inst);
 
 			int node;
 

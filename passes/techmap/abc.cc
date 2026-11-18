@@ -1169,33 +1169,9 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 }
 
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
-static bool is_abc_prompt(const std::string &line, std::string &rest) {
-	size_t pos = 0;
-	while (true) {
-		// The prompt may not start at the start of the line, because
-		// ABC can output progress and maybe other data that isn't
-		// newline-terminated.
-		size_t start = line.find("abc ", pos);
-		if (start == std::string::npos)
-			return false;
-		pos = start + 4;
-
-		size_t digits = 0;
-		while (pos + digits < line.size() && line[pos + digits] >= '0' && line[pos + digits] <= '9')
-			++digits;
-		if (digits < 2)
-			return false;
-		if (line.substr(pos + digits, 2) == "> ") {
-			rest = line.substr(pos + digits + 2);
-			return true;
-		}
-	}
-}
-
 bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 	std::string line;
 	char buf[1024];
-	bool seen_source_cmd = false;
 	bool seen_yosys_abc_done = false;
 	while (true) {
 		int ret;
@@ -1218,23 +1194,16 @@ bool read_until_abc_done(abc_output_filter &filt, int fd, DeferredLogs &logs) {
 			line.append(start, upto - start);
 			start = upto;
 
-			std::string rest;
-			bool is_prompt = is_abc_prompt(line, rest);
-			if (is_prompt && seen_source_cmd) {
-				// This is the first prompt after we sourced the script.
-				// We are done here.
-				// We won't have seen a newline yet since ABC is waiting at the prompt.
-				if (!seen_yosys_abc_done)
-					logs.log_error("ABC script did not complete successfully\n");
-				return seen_yosys_abc_done;
-			}
 			if (line.empty() || line[line.size() - 1] != '\n') {
 				// No newline yet, wait for more text
 				continue;
 			}
+			if (line.substr(0, 13) == "YOSYS_ABC_END") {
+				if (!seen_yosys_abc_done)
+					logs.log_error("ABC script did not complete successfully\n");
+				return seen_yosys_abc_done;
+			}
 			filt.next_line(line);
-			if (is_prompt && rest.substr(0, 7) == "source ")
-				seen_source_cmd = true;
 			if (line.substr(0, 14) == "YOSYS_ABC_DONE")
 				seen_yosys_abc_done = true;
 			line.clear();
@@ -1439,7 +1408,8 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 				}
 			std::string cmd = stringf(
 					"empty\n"
-					"source %s\n", tmp_script_name);
+					"source %s\n"
+					"echo YOSYS_ABC_END\n", tmp_script_name);
 			ret = write(process.to_child_pipe, cmd.c_str(), cmd.size());
 			if (ret != static_cast<int>(cmd.size())) {
 				logs.log_error("write failed\n");

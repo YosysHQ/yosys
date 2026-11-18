@@ -216,6 +216,9 @@ struct VerilogFrontend : public Frontend {
 		log("    -noautowire\n");
 		log("        make the default of `default_nettype be \"none\" instead of \"wire\".\n");
 		log("\n");
+		log("    -unroll-limit <limit (default=4000)>\n");
+		log("        set the limit for how many loop unrolls occur by default\n");
+		log("\n");
 		log("    -setattr <attribute_name>\n");
 		log("        set the specified attribute (to the value 1) on all loaded modules\n");
 		log("\n");
@@ -276,6 +279,7 @@ struct VerilogFrontend : public Frontend {
 		bool flag_nosynthesis = false;
 		bool flag_yydebug = false;
 		bool flag_relative_share = false;
+		int  flag_unroll_limit = 4000;
 		define_map_t defines_map;
 
 		std::list<std::string> include_dirs;
@@ -449,6 +453,11 @@ struct VerilogFrontend : public Frontend {
 				parse_state.default_nettype_wire = false;
 				continue;
 			}
+			if (arg == "-unroll-limit" && argidx+1 < args.size()) {
+				flag_unroll_limit = stoi(args[++argidx]);
+				if (flag_unroll_limit < 0) log_error("Cannot choose negative value for -unroll-limit");
+				continue;
+			}
 			if (arg == "-setattr" && argidx+1 < args.size()) {
 				attributes.push_back(RTLIL::escape_id(args[++argidx]));
 				continue;
@@ -565,7 +574,7 @@ struct VerilogFrontend : public Frontend {
 			error_on_dpi_function(parse_state.current_ast);
 
 		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire);
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire, flag_unroll_limit);
 
 
 		if (!flag_nopp)

@@ -1,0 +1,18 @@
+# An input left unconnected on an abc9_bypass cell must stay unconnected
+read_verilog -specify <<EOT
+(* abc9_box *)
+module PRIM(input C, D, E, output reg Q);
+	always @(posedge C) Q <= D;
+	specify
+		(C => Q) = 100;
+	endspecify
+endmodule
+module top(input clk, d, output q);
+	PRIM p(.C(clk), .D(d), .Q(q));
+endmodule
+EOT
+setattr -mod -set whitebox 1 PRIM
+hierarchy -top top
+abc9 -lut 4
+delete -port =PRIM/E
+hierarchy -check

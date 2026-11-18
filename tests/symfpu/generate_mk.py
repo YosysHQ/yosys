@@ -4,12 +4,9 @@ import sys
 sys.path.append("..")
 import gen_tests_makefile
 
-from pathlib import Path
 from textwrap import dedent
 
-cwd = Path.cwd()
-for path in cwd.glob("*_edges.*"):
-    path.unlink()
+gen_tests_makefile.remove_generated("*_edges.*")
 
 for op, defs in {
     # standard ops

@@ -1,0 +1,14 @@
+verific -sv <<EOF
+(* blackbox *)
+module bbox(input a, output y);
+endmodule
+
+module top(input a, output y);
+  bbox u_bbox(.a(a), .y(y));
+endmodule
+EOF
+verific -import top
+hierarchy -top top
+write_verilog -noattr /dev/stdout
+select -assert-count 1 top/u_bbox %co:+[y] top/w:y %i
+check -assert

@@ -1119,7 +1119,7 @@ void AstNode::detectSignWidthWorker(int &width_hint, bool &sign_hint, bool *foun
 		while (children.at(0)->simplify(true, 1, -1, false)) { }
 		if (children.at(0)->type != AST_CONSTANT)
 			input_error("Static cast with non constant expression!\n");
-		children.at(1)->detectSignWidthWorker(width_hint, sign_hint);
+		children.at(1)->detectSignWidthWorker(sub_width_hint, sign_hint);
 		this_width = children.at(0)->bitsAsConst().as_int();
 		width_hint = max(width_hint, this_width);
 		if (width_hint <= 0)

@@ -1,0 +1,5 @@
+verific -sv bug6409.sv
+verific -import top
+proc
+opt_clean
+hierarchy -top top

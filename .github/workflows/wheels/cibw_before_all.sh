@@ -5,10 +5,40 @@ set -o pipefail
 # Build-time dependencies
 ## Linux Docker Images
 if command -v apk &> /dev/null; then
-    apk add flex bison
+	apk add flex bison
 fi
 
 ## Platform-independent
+### Installing ccache on RHEL is a pain and pulls in libfmt on macOS which
+### slang jumps on immediately and refuses to compile its own libfmt, causing
+### wheel delocation to fail (Homebrew libraries are built per-OS).
+###
+### might as well just install them all the same way, each tarball is like 2MiB
+CCACHE_VER=4.14.3
+if ! command -v ccache &> /dev/null; then
+	CCACHE_BIN=$(mktemp -d)
+	id=$(uname)-$(uname -m)
+	case $id in
+		Linux-x86_64)
+			id=linux-x86_64-musl-static
+			CCACHE_SHA256SUM="e4583fd653b794a480b9915358679a75cdd7a7010dd865eaf4cbdc61e665a3f0"
+			;;
+		Linux-aarch64)
+			id=linux-aarch64-musl-static
+			CCACHE_SHA256SUM="4b0ecece7929cbaf548ff1ab9a24074b240132ab8176bc3865a27d88c457a0d8"
+			;;
+		Darwin*)
+			# universal
+			id=darwin
+			CCACHE_SHA256SUM="764dd2a8100ff83e6bbd7b9a1e2016cc401be34bee8a70ea99698186622c34d5"
+			;;
+	esac
+	mkdir -p $PWD/ccache/bin
+	curl --connect-timeout 5 --retry 3 -L https://github.com/ccache/ccache/releases/download/v$CCACHE_VER/ccache-$CCACHE_VER-$id.tar.gz > ccache/ccache.tgz
+	echo "$CCACHE_SHA256SUM ccache/ccache.tgz" | sha256sum -c -
+	tar -xzC $PWD/ccache/bin --strip-components 1 -f ccache/ccache.tgz
+fi
+
 ### just build bison if it's missing or out of date
 BISON_VER="3.8.2"
 BISON_SHA256SUM="9bba0214ccf7f1079c5d59210045227bcf619519840ebfa80cd3849cff5a5bf2"
@@ -23,7 +53,7 @@ if ! printf '%s\n' '%require "3.8"' '%%' 'start: ;' | bison -o /dev/null /dev/st
 		curl --connect-timeout 5 --retry 3 -L https://ftp.gnu.org/gnu/bison/bison-${BISON_VER}.tar.xz > bison.tar.xz
 		echo "$BISON_SHA256SUM bison.tar.xz" | sha256sum -c -
 		tar --strip-components=1 -xJC . -f bison.tar.xz
-		./configure --prefix=$PREFIX
+		./configure --prefix=$PREFIX CC="ccache ${CC:-cc}" CXX="ccache ${CXX:-c++}"
 		make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)
 	)
 	rm -rf $BISON_SRC
@@ -51,7 +81,7 @@ if ! ( printf "\n%%%%\n. { }\n%%%%\n" | flex -+ -o $TMP_LEXER && grep "yyFlexLex
 		curl --connect-timeout 5 --retry 3 -L https://github.com/westes/flex/releases/download/v${FLEX_VER}/flex-${FLEX_VER}.tar.gz > flex.tar.gz
 		echo "$FLEX_SHA256SUM flex.tar.gz" | sha256sum -c -
 		tar --strip-components=1 -xzC . -f flex.tar.gz
-		./configure --prefix=$PREFIX --disable-shared --disable-silent-rules CFLAGS=-D_GNU_SOURCE
+		./configure --prefix=$PREFIX --disable-shared --disable-silent-rules CFLAGS=-D_GNU_SOURCE CC="ccache ${CC:-cc}" CXX="ccache ${CXX:-c++}"
 		make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)
 	)
 	rm -rf $FLEX_SRC
@@ -73,7 +103,7 @@ if ! echo "int main() {}" | cc -x c -l:libffi.a - ; then
 		echo "$LIBFFI_SHA256SUM libffi.tar.gz" | sha256sum -c -
 		tar --strip-components=1 -xzC . -f libffi.tar.gz
 		## Ultimate libyosys.so will be shared, so we need fPIC for the static libraries
-		LDFLAGS=-fPIC CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure --prefix=$PREFIX --enable-static --disable-shared
+		CC="ccache ${CC:-cc}" CXX="ccache ${CXX:-c++}" LDFLAGS=-fPIC CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure --prefix=$PREFIX --enable-static --disable-shared
 		make install -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)
 	)
 	rm -rf $LIBFFI_SRC

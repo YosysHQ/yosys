@@ -1,0 +1,16 @@
+read_verilog <<EOT
+module top(input signed [2:0] sh, output [1:0] y);
+	assign y = (sh >= 0) ? ((sh > 2) ? 2'h3 : (2'd1 << sh)) : (2'd1 >> -sh);
+endmodule
+EOT
+proc
+copy top merged
+
+# alumacc makes the negation an $alu with an empty A port
+alumacc merged
+share -aggressive merged
+select -assert-count 2 merged/t:$alu
+opt_clean merged
+
+miter -equiv -flatten -make_assert top merged miter
+sat -verify -prove-asserts -set-def-inputs -enable_undef miter

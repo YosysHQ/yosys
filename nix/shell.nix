@@ -7,9 +7,13 @@ pkgs.mkShell.override { stdenv = yosys.stdenv; } {
 
   packages = with pkgs; [
     llvmPackages.clang-tools
+    llvmPackages.bintools
+    iverilog
+    gtkwave
     (python3.withPackages (ps: [
       ps.pybind11
       ps.cxxheaderparser
+      ps.click
     ]))
   ];
 

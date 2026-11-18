@@ -59,6 +59,8 @@ if seed is None:
 print("alumacc PRNG seed: %d" % seed)
 random.seed(seed)
 
+gen_tests_makefile.remove_generated("uut_*.*")
+
 count = 0
 for c1_signed, c2, c2_signed, a_width in product(
     SIGNED, [EQ, LGE, ARITH], SIGNED, WIDTH

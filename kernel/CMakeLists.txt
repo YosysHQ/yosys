@@ -15,6 +15,7 @@ foreach (library simlib simcells)
 endforeach()
 
 yosys_core(kernel
+	bitpattern.cc
 	bitpattern.h
 	calc.cc
 	cellaigs.cc
@@ -67,6 +68,7 @@ yosys_core(kernel
 	netview.cc
 	netview.h
 	netview_internal.h
+	newcelltypes.cc
 	newcelltypes.h
 	pattern.h
 	qcsat.cc

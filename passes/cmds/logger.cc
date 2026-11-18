@@ -19,6 +19,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/log_help.h"
+#include <regex>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN

@@ -121,7 +121,6 @@ std::istream* uncompressed(const std::string filename, std::ios_base::openmode m
 	}
 	if (n == 3 && magic[0] == 0x1f && magic[1] == 0x8b) {
 #ifdef YOSYS_ENABLE_ZLIB
-		log("Found gzip magic in file `%s', decompressing using zlib.\n", filename);
 		if (magic[2] != 8)
 			log_cmd_error("gzip file `%s' uses unsupported compression type %02x\n",
 				filename, unsigned(magic[2]));

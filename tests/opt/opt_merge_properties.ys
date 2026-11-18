@@ -13,3 +13,65 @@ chformal -lower
 clean
 opt_merge
 select -assert-count 2 t:$cover
+
+design -reset
+read_verilog -sv <<EOF
+module top (input clk, input a, input b);
+    always @(posedge clk) begin
+        label1: assert (a == b);
+    end
+    always @(posedge clk) begin
+        label2: assert (a == b);
+    end
+endmodule
+EOF
+
+proc
+opt_clean
+setattr -unset keep t:$check
+opt_merge
+select -assert-count 2 t:$check
+
+design -reset
+read_verilog <<EOF
+module top (input clk);
+    always @(posedge clk) $display("hi");
+    always @(posedge clk) $display("hi");
+endmodule
+EOF
+
+proc
+opt_clean
+opt_merge
+select -assert-count 2 t:$print
+
+design -reset
+read_rtlil <<EOF
+module \top
+  wire input 1 \d
+  wire width 2 output 2 \q
+  wire width 2 output 3 \y
+  cell $anyinit \q1
+    parameter \WIDTH 1
+    connect \D \d
+    connect \Q \q [0]
+  end
+  cell $anyinit \q2
+    parameter \WIDTH 1
+    connect \D \d
+    connect \Q \q [1]
+  end
+  cell $anyseq \y1
+    parameter \WIDTH 1
+    connect \Y \y [0]
+  end
+  cell $anyseq \y2
+    parameter \WIDTH 1
+    connect \Y \y [1]
+  end
+end
+EOF
+
+opt_merge -share_all
+select -assert-count 2 t:$anyinit
+select -assert-count 2 t:$anyseq

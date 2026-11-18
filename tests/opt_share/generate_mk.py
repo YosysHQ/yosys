@@ -8,7 +8,6 @@ import gen_tests_makefile
 import argparse
 import sys
 import random
-from pathlib import Path
 
 def random_plus_x():
     return "%s x" % random.choice(['+', '+', '+', '-', '-', '|', '&', '^'])
@@ -30,9 +29,7 @@ if seed is None:
 print("opt_share PRNG seed: %d" % seed)
 random.seed(seed)
 
-for path in Path(".").glob("uut_*.*"):
-    if path.is_file():
-        path.unlink()
+gen_tests_makefile.remove_generated("uut_*.*")
 
 for idx in range(args.count):
     with open('uut_%05d.v' % idx, 'w') as f:

@@ -147,15 +147,9 @@ namespace RTLIL {
 	}
 
 	static inline std::string unescape_id(const std::string &str) {
-		if (str.size() < 2)
-			return str;
-		if (str[0] != '\\')
-			return str;
-		if (str[1] == '$' || str[1] == '\\')
-			return str;
-		if (str[1] >= '0' && str[1] <= '9')
-			return str;
-		return str.substr(1);
+		if (str.size() > 0 && str[0] == '\\')
+			return str.substr(1);
+		return str;
 	}
 
 	template <typename T> using sort_by_name_id = IdString::compare_ptr_by_name<T>;
