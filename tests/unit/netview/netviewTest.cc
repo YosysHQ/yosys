@@ -23,7 +23,7 @@ TEST_F(NetViewTest, namesAndConstants)
 	EXPECT_EQ(d0_net->pins.size(), 2u);
 	EXPECT_EQ(d0_net->name, (Netlist::NetName{"d0", 0, true}));
 	EXPECT_FALSE(t->nets.empty());
-	EXPECT_EQ(topChild(view, u_inv0)->nets.size(), 0u); // leaves own none
+	EXPECT_EQ(topChild(view, u_inv0)->nets.size(), 0u); // a leaf owns no nets, its pins are on the nets of its parent
 	EXPECT_EQ(topChild(view, u_sub)->findPin("y", 1)->hdlIndex(), 2); // y counts 0 up to 3, offset 1 holds y[2]
 }
 
@@ -96,7 +96,6 @@ TEST_F(NetViewTest, buildableRefusesRangeOverflow)
 	EXPECT_NE(reason.find("INV"), std::string::npos) << reason;
 }
 
-// u_$x is a legal Verilog name, the default '.' separates first
 TEST(NetViewNameTest, publicNamesAreUnescaped)
 {
 	Design design;

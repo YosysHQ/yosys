@@ -33,18 +33,24 @@ select -assert-count 1 c:n_c t:$_AND_ %i
 select -assert-count 1 c:y_c t:$_NOT_ %i
 design -reset
 
-# barriers from optbarriers give no name twice
-read_verilog <<EOT
-module top(input clk, input [1:0] d, output [1:0] q, output r);
-  reg [1:0] qr;
-  always @(posedge clk) qr <= d;
-  assign q = qr;
-  assign r = qr[0];
-endmodule
+# both barriers of a chain derive y$barrier, the second keeps its own name because y$barrier is in use
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire $p
+  wire output 2 \y
+  cell $barrier $b1
+    parameter \WIDTH 1
+    connect \A \a
+    connect \Y $p
+  end
+  cell $barrier $b2
+    parameter \WIDTH 1
+    connect \A $p
+    connect \Y \y
+  end
+end
 EOT
-synth -top top
-optbarriers
-opt_clean
 rename -wire
-rename -wire -suffix _reg
-rename -wire -move-to-cell
+select -assert-count 1 c:y$barrier
+select -assert-count 1 c:$b1 c:$b2
