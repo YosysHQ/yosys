@@ -14,7 +14,11 @@ Cell properties
 
 .. cell:defprop:: is_stateless
 
-   These are cells that have no hidden state. This relationship should hold true:
+   This relationship should hold true:
+
+.. code-block:: none
+
+   is_stateless == is_internal - ({$anyinit} || is_ff || is_mem)
 
 .. cell:defprop:: is_combinatorial
 
