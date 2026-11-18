@@ -19,7 +19,6 @@ constexpr void CellTableBuilder::setup_internals_other()
 	features.is_tristate = true;
 	setup_type(ID($tribuf), {ID::A, ID::EN}, {ID::Y}, features);
 
-	// is this evaluable
 	features = {};
 	features.is_evaluable = false;
 	setup_type(ID($barrier), {ID::A}, {ID::Y}, features);
@@ -57,7 +56,6 @@ constexpr void CellTableBuilder::setup_internals_other()
 	features.is_stateless = false;
 	setup_type(ID($anyinit), {ID::D}, {ID::Q}, features);
 
-	// combinatorial
 	features = {};
 	setup_type(ID($specify2), {ID::EN, ID::SRC, ID::DST}, {}, features);
 	setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
@@ -84,7 +82,6 @@ constexpr void CellTableBuilder::setup_internals_other()
 	features.is_meta_info = true;
 	setup_type(ID($scopeinfo), {}, {}, features);
 
-	// temporary helper cells
 	features = {};
 	setup_type(ID($input_port), {}, {ID::Y}, features);
 	setup_type(ID($connect), {ID::A, ID::B}, {}, features);
