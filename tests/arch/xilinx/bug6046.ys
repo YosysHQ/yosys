@@ -1,6 +1,8 @@
 # A 1 in a register bit that the DSP does not absorb used to abort
 # xilinx_dsp (the matcher only checks the absorbed slice, the mover
-# walked the whole Q). The bit stays in the fabric FF with its init.
+# walked the whole Q). The register stays in the fabric with its init.
+# equiv_opt does not look at init values, so each case is also checked
+# with a bounded SAT run from the init state.
 
 design -reset
 read_verilog <<EOT
@@ -13,15 +15,17 @@ module outside(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
 endmodule
 EOT
 proc
-design -save gold
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
 cd outside
 select -assert-count 1 t:DSP48E1
 select -assert-count 1 t:DSP48E1 r:AREG=1 %i r:MREG=1'1 %i
 select -assert-count 1 t:FDRE r:INIT=1'1 %i
-select -assert-count 7 t:FDRE r:INIT=1'0 %i
-select -assert-count 8 t:FDRE r:INIT=1'x %i
+select -assert-count 15 t:FDRE r:INIT=1'0 %i
 
 # The reported 32-bit counter: the 1 is in the low half, so only the
 # high half (init 0) is absorbed.
@@ -40,8 +44,7 @@ cd wide
 select -assert-count 1 t:DSP48E1
 select -assert-count 1 t:DSP48E1 r:AREG=0 %i r:BREG=1 %i r:MREG=1'1 %i
 select -assert-count 1 t:FDRE r:INIT=1'1 %i
-select -assert-count 15 t:FDRE r:INIT=1'0 %i
-select -assert-count 16 t:FDRE r:INIT=1'x %i
+select -assert-count 31 t:FDRE r:INIT=1'0 %i
 
 # Issue body: 8x8 slices of the same counter.
 design -reset
@@ -72,6 +75,10 @@ endmodule
 EOT
 proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
 cd mreg
 select -assert-count 1 t:DSP48E1
@@ -91,6 +98,10 @@ endmodule
 EOT
 proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
 cd preg
 select -assert-count 1 t:DSP48E1
@@ -131,13 +142,16 @@ endmodule
 EOT
 proc
 equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
 cd spartan
 select -assert-count 1 t:DSP48A1
 select -assert-count 1 t:DSP48A1 r:A1REG=1 %i r:MREG=1'1 %i
 select -assert-count 1 t:FDSE r:INIT=1'1 %i
-select -assert-count 7 t:FDRE r:INIT=1'0 %i
-select -assert-count 8 t:FDRE r:INIT=1'x %i
+select -assert-count 15 t:FDRE r:INIT=1'0 %i
 
 # Cascade chain. The first pack used to abort before the chain was built.
 design -reset
@@ -159,3 +173,74 @@ synth_xilinx -family xc7 -top chain -noiopad
 cd chain
 select -assert-count 3 t:DSP48E1
 select -assert-count 1 t:FDRE r:INIT=1'1 %i
+
+# A pre-adder input from a shift register. The matcher takes the same FF
+# as A2 and A1 and checks r[7:3]; the A port ends on r[5:2]. The ports
+# used to be set past both registers and then moved again.
+design -reset
+read_verilog <<EOT
+module preadd(input clk, input in, input signed [3:0] d, input signed [4:0] b, output reg signed [9:0] p = 0);
+  reg [7:0] r = 8'h04;
+  always @(posedge clk) begin
+    r <= {r[6:0], in};
+    p <= ($signed(r[7:4]) + d) * b;
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
+design -load postopt
+cd preadd
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:AREG=2 %i
+select -assert-none t:FDRE r:INIT=1'x %i
+
+# Same through the D port.
+design -reset
+read_verilog <<EOT
+module preadd_d(input clk, input in, input signed [3:0] d, input signed [4:0] b, output reg signed [9:0] p = 0);
+  reg [7:0] r = 8'h08;
+  always @(posedge clk) begin
+    r <= {r[6:0], in};
+    p <= (d + $signed(r[7:4])) * b;
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
+design -load postopt
+cd preadd_d
+select -assert-count 1 t:DSP48E1
+select -assert-count 1 t:DSP48E1 r:DREG=1 %i
+select -assert-none t:FDRE r:INIT=1'x %i
+
+# DSP48A1 pre-adder (on the B operand), shift register on B.
+design -reset
+read_verilog <<EOT
+module spartan_preadd(input clk, input in, input signed [3:0] d, input signed [4:0] b, output reg signed [9:0] p = 0);
+  reg [7:0] r = 8'h08;
+  always @(posedge clk) begin
+    r <= {r[6:0], in};
+    p <= b * (d + $signed(r[7:4]));
+  end
+endmodule
+EOT
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+design -load preopt
+equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+miter -equiv -flatten -make_assert gold gate miter
+sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
+design -load postopt
+cd spartan_preadd
+select -assert-count 1 t:DSP48A1
+select -assert-count 1 t:DSP48A1 r:B0REG=1 %i
+select -assert-none t:FDRE r:INIT=1'x %i

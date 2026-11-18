@@ -27,37 +27,6 @@ PRIVATE_NAMESPACE_BEGIN
 #include "techlibs/microchip/microchip_dsp_cascade_pm.h"
 #include "techlibs/microchip/microchip_dsp_pm.h"
 
-// Same rule as xilinx_dsp: the matcher already rejected a non-zero init
-// on the absorbed slice. Only those bits are retired. A 1 elsewhere in
-// the register stays in the fabric with its init.
-static SigSpec microchip_dsp_absorbed(const SigSpec &port, const SigSpec &q)
-{
-	pool<SigBit> used;
-	for (auto bit : port)
-		if (bit.wire)
-			used.insert(bit);
-	SigSpec absorbed;
-	for (auto bit : q)
-		if (bit.wire && used.count(bit))
-			absorbed.append(bit);
-	return absorbed;
-}
-
-static void microchip_dsp_retire_init(const SigSpec &moved)
-{
-	for (auto c : moved.chunks()) {
-		if (!c.wire)
-			continue;
-		auto it = c.wire->attributes.find(ID::init);
-		if (it == c.wire->attributes.end())
-			continue;
-		for (int i = c.offset; i < c.offset + c.width; i++) {
-			log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-			it->second.set(i, State::Sx);
-		}
-	}
-}
-
 void microchip_dsp_pack(microchip_dsp_pm &pm)
 {
 	auto &st = pm.st_microchip_dsp_pack;
@@ -71,13 +40,17 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, st.preAdderStatic->type.unescape());
 		bool D_SIGNED = st.preAdderStatic->getParam(ID::B_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdderStatic->getParam(ID::A_SIGNED).as_bool();
-		st.sigB.extend_u0(18, B_SIGNED);
-		st.sigD.extend_u0(18, D_SIGNED);
+		// The pre-adder inputs, before the A, B and D registers: those are
+		// folded in below, as on the path without a pre-adder.
+		SigSpec B = pm.sigmap(st.preAdderStatic->getPort(ID::A));
+		SigSpec D = pm.sigmap(st.preAdderStatic->getPort(ID::B));
+		B.extend_u0(18, B_SIGNED);
+		D.extend_u0(18, D_SIGNED);
 		if (st.moveBtoA) {
-			cell->setPort(ID::A, st.sigA); // if pre-adder feeds into A, original sigB will be moved to port A
+			cell->setPort(ID::A, pm.sigmap(cell->getPort(ID::B))); // if pre-adder feeds into A, original B will be moved to port A
 		}
-		cell->setPort(ID::B, st.sigB);
-		cell->setPort(ID::D, st.sigD);
+		cell->setPort(ID::B, B);
+		cell->setPort(ID::D, D);
 		// MACC_PA supports both addition and subtraction with the pre-adder.
 		//   Affects the sign of the 'D' port.
 		if (st.preAdderStatic->type == ID($add))
@@ -121,7 +94,6 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
-			SigSpec absorbed = microchip_dsp_absorbed(pm.sigmap(A), Q);
 
 			if (!A.empty())
 				A.replace(Q, D);
@@ -153,8 +125,6 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
-
-			microchip_dsp_retire_init(absorbed);
 		};
 
 		// NOTE: flops are not autoremoved because it is possible that they
@@ -187,8 +157,17 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 			cell->setPort(ID::D, D);
 		}
 		if (st.ffP) {
-			SigSpec P = st.sigP;
+			SigSpec P; // unused
 			f(P, st.ffP, ID(P_EN), ID(P_SRST_N), ID(P_BYPASS));
+			// The DSP drives these bits now and powers up as 0. Input
+			// registers keep their init: their FF stays in the fabric.
+			for (auto bit : st.sigP) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 		}
 
@@ -231,8 +210,6 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 			// input/output ports
 			SigSpec D = ff->getPort(ID::D);
 			SigSpec Q = pm.sigmap(ff->getPort(ID::Q));
-			// Before replace: that call swaps these Q bits for D.
-			SigSpec absorbed = microchip_dsp_absorbed(pm.sigmap(A), Q);
 			if (!A.empty())
 				A.replace(Q, D);
 			if (rstport != IdString::Null) {
@@ -263,8 +240,6 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
-
-			microchip_dsp_retire_init(absorbed);
 		};
 
 		if (st.ffC) {
