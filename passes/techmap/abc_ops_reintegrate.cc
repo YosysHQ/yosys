@@ -432,6 +432,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::copy_attr_dict(cell->parameters, mapped_cell->parameters, mapped_mod->design, design);
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
 
+			// Name recovery code will go here, but since it's not ready yet, just remove the source attribute.
+			cell->attributes.erase(ID::abc9_src);
+
 			for (auto &mapped_conn : mapped_cell->connections()) {
 				RTLIL::SigSpec newsig;
 				for (auto c : mapped_conn.second.chunks()) {
