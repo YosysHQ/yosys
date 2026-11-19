@@ -1902,6 +1902,7 @@ public:
 	};
 
 private:
+	RTLIL::SigSpec inputs;
 	std::optional<property_ir::BoolExpr> disable_cond = std::nullopt;
 	property_ir::SExprPrinter *printer;
 
@@ -2031,8 +2032,8 @@ public:
 		auto *property_cell = module->addCell(module->twines().add(NEW_ID), ID($property));
 		property_cell->setParam(ID::DATA, output.str());
 
-		property_cell->setParam(ID::A_WIDTH, 0);
-		property_cell->setPort(ID::A, SigSpec());
+		property_cell->setParam(ID::A_WIDTH, inputs.size());
+		property_cell->setPort(ID::A, inputs);
 
 		RTLIL::SigBit sig_en = module->addWire(module->twines().add(NEW_ID), 1);
 		property_cell->setParam(ID::Y_WIDTH, 1);
@@ -2044,6 +2045,8 @@ public:
 			check_cell->setPort(ID::A, sig_en);
 			check_cell->setPort(ID::EN, sig_en);
 		}
+
+		// TODO connect trigger/match signals to root->GetOutput()
 	}
 
 private:
@@ -2064,6 +2067,8 @@ private:
 		auto it = parse_input_cache.find(net);
 		if (it != parse_input_cache.end())
 			return it->second;
+
+		inputs.append(importer->net_map_at(net));
 
 		using namespace property_ir;
 		BoolId result(net->Name());
