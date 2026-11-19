@@ -249,6 +249,7 @@ AstNode::AstNode(AstSrcLocType loc, AstNodeType type, std::unique_ptr<AstNode> c
 	range_right = 0;
 	unpacked_dimensions = 0;
 	packed_dimensions_before_signed_element = 0;
+	is_implicit_cast = false;
 	integer = 0;
 	realvalue = 0;
 	id2ast = NULL;
@@ -307,6 +308,7 @@ void AstNode::cloneInto(AstNode &other) const
 	other.dimensions = dimensions;
 	other.unpacked_dimensions = unpacked_dimensions;
 	other.packed_dimensions_before_signed_element = packed_dimensions_before_signed_element;
+	other.is_implicit_cast = is_implicit_cast;
 	other.id2ast = id2ast;
 	other.basic_prep = basic_prep;
 	other.lookahead = lookahead;

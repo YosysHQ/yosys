@@ -222,6 +222,8 @@ namespace AST
 		int unpacked_dimensions;
 		// Number of packed dimensions in front of a signed typedef.
 		int packed_dimensions_before_signed_element;
+		// Is a cast that simplify() inserted, not a cast the user wrote.
+		bool is_implicit_cast;
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode* id2ast;

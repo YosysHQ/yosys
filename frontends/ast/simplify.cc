@@ -631,7 +631,7 @@ AstNode *AstNode::get_struct_member() const
 // (IEEE 1800-2023 §7.4.1).
 bool AstNode::selects_one_signed_element(const AstNode *declaration) const
 {
-	if (!declaration->packed_dimensions_before_signed_element)
+	if (children.empty() || !declaration->packed_dimensions_before_signed_element)
 		return false;
 
 	const auto &select = children[0];
@@ -2211,8 +2211,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					newNode->children.insert(newNode->children.begin(), packed->clone());
 				else
 					prepend_ranges(newNode->children[0], packed.get());
-				const int packed_dimensions = packed->type == AST_MULTIRANGE ? GetSize(packed->children) : 1;
-				newNode->packed_dimensions_before_signed_element = newNode->is_signed ? packed_dimensions : 0;
+				const bool has_signed_elements = newNode->is_signed || newNode->packed_dimensions_before_signed_element;
+				// The typedef already has a count if it is itself an array of a signed typedef.
+				if (has_signed_elements)
+					newNode->packed_dimensions_before_signed_element += packed->type == AST_MULTIRANGE ? GetSize(packed->children) : 1;
 				// A packed array of a signed typedef is unsigned (IEEE 1800-2023 §7.4.1).
 				newNode->is_signed = false;
 			}
@@ -2442,6 +2444,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		const bool reads_signed_element = selects_signed_element && !in_lvalue;
 		if (reads_signed_element) {
 			newNode = std::make_unique<AstNode>(location, AST_TO_SIGNED, clone());
+			newNode->is_implicit_cast = true;
 			goto apply_newNode;
 		}
 	}
@@ -2520,8 +2523,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 							newNode->integer = children[0]->children.size();
 					}
 					newNode->basic_prep = true;
-					if (item_node->is_signed)
+					const bool selects_whole_signed_member = item_node->is_signed && children.empty();
+					const bool reads_signed_element = !in_lvalue && selects_one_signed_element(item_node);
+					if (selects_whole_signed_member || reads_signed_element) {
 						newNode = std::make_unique<AstNode>(location, AST_TO_SIGNED, std::move(newNode));
+						newNode->is_implicit_cast = true;
+					}
 					goto apply_newNode;
 				}
 			}
@@ -4073,8 +4080,7 @@ skip_dynamic_range_lvalue_expansion:;
 					}
 				}
 				auto buf = children[0]->clone();
-				// Look through the sign cast of a signed element or struct member.
-				if (buf->type == AST_TO_SIGNED && buf->children[0]->type == AST_IDENTIFIER)
+				if (buf->is_implicit_cast)
 					buf = std::move(buf->children[0]);
 				int mem_depth = 1;
 				int result, high = 0, low = 0, left = 0, right = 0, width = 1; // defaults for a simple wire
@@ -5979,6 +5985,10 @@ bool AstNode::replace_variables(std::map<std::string, AstNode::varinfo_t> &varia
 			if (!children.at(0)->replace_variables(variables, fcall, must_succeed))
 				return false;
 			while (simplify(true, 1, -1, false)) { }
+			// simplify() may have wrapped the identifier in AST_TO_SIGNED. Evaluate the
+			// identifier inside; the cast stays around the constant and keeps it signed.
+			if (type == AST_TO_SIGNED)
+				return children.at(0)->replace_variables(variables, fcall, must_succeed);
 			if (!children.at(0)->range_valid) {
 				if (!must_succeed)
 					return false;
