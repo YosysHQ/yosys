@@ -1087,11 +1087,17 @@ struct VerilogWriter
 		return IdString();
 	}
 
-	void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, RTLIL::IdString port, bool gen_signed = true)
+	void dump_cell_expr_port(std::ostream &f, RTLIL::Cell *cell, RTLIL::IdString port, bool gen_signed = true, bool gen_unsigned = false)
 	{
 		IdString signed_param = gen_signed ? signed_param_of(port) : IdString();
-		if (signed_param != IdString::Null && cell->parameters.count(signed_param) > 0 && cell->parameters[signed_param].as_bool()) {
-			f << stringf("$signed(");
+		if (signed_param == IdString::Null || cell->parameters.count(signed_param) == 0) {
+			dump_sigspec(f, cell->getPort(port));
+			return;
+		}
+
+		bool port_signed = cell->parameters[signed_param].as_bool();
+		if (port_signed || gen_unsigned) {
+			f << (port_signed ? "$signed(" : "$unsigned(");
 			dump_sigspec(f, cell->getPort(port));
 			f << stringf(")");
 		} else {
@@ -1147,13 +1153,19 @@ struct VerilogWriter
 
 	void dump_cell_expr_binop(std::ostream &f, std::string indent, RTLIL::Cell *cell, std::string op)
 	{
+		// Zero padding on the $pow base, when present, may be removed by wreduce.
+		// The exponent is self-determined and is not extended to the result width.
+		// Verilog interprets bare operands using their declared signedness, while
+		// the result signedness of ** depends on the base.
+		bool cast_unsigned = cell->type == ID($pow);
+
 		f << stringf("%s" "assign ", indent);
 		dump_sigspec(f, cell->getPort(ID::Y));
 		f << stringf(" = ");
-		dump_cell_expr_port(f, cell, ID::A, true);
+		dump_cell_expr_port(f, cell, ID::A, true, cast_unsigned);
 		f << stringf(" %s ", op);
 		dump_attributes(f, "", cell->attributes, " ");
-		dump_cell_expr_port(f, cell, ID::B, true);
+		dump_cell_expr_port(f, cell, ID::B, true, cast_unsigned);
 		f << stringf(";\n");
 	}
 
