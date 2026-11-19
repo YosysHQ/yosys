@@ -406,9 +406,11 @@ class ReadWitness:
             return sum([sig.width for sig in self.signals if not sig.init_only])
 
     def first_step(self):
+        initial = self.step(0)
         values = WitnessValues()
-        # may have issues when non_init_bits is 0
-        values.unpack(WitnessSigMap([sig for sig in self.signals if not sig.init_only]), self.bits[0][-self.non_init_bits():])
+        for sig in self.signals:
+            if not sig.init_only:
+                values[sig] = initial[sig]
         return values
 
     def step(self, t):
