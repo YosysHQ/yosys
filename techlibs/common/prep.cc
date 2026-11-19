@@ -206,22 +206,19 @@ struct PrepPass : public ScriptPass
 				} else
 					run(stringf("hierarchy -check -top %s", top_module));
 			}
-		}
 
-		if (check_label("coarse"))
-		{
 			if (help_mode || barriers)
 				run("optbarriers", "(if -barriers)");
-			if (help_mode || formal)
-				run("setundef -undriven -anyseq", "(if -formal)");
 			if (help_mode)
 				run("proc [-ifx]");
 			else
 				run(ifxmode ? "proc -ifx" : "proc");
+		}
 
-			if (help_mode || formal) {
-				run("memory_nordff", "(if -formal)");
-			}
+		if (formal && check_label("formal", "(if -formal)"))
+		{
+			run("setundef -undriven -anyseq");
+			run("memory_nordff");
 
 			if (help_mode) {
 				run("async2sync", "(if -formal without multiclock)");
@@ -229,11 +226,14 @@ struct PrepPass : public ScriptPass
 			} else if (formal)
 				run(multiclock ? "clk2fflogic" : "async2sync");
 
-			if (help_mode || formal) {
-				run("chformal -lower", "(if -formal)");
-				run("memory_map -formal", "(if -formal)");
-				run("formalff -setundef -clk2ff -ff2anyinit -hierarchy", "(if -formal)");
-			}
+			run("chformal -lower");
+			run("memory_map -formal");
+			run("formalff -setundef -clk2ff -ff2anyinit -hierarchy");
+
+		}
+
+		if (check_label("coarse"))
+		{
 
 			if (help_mode || flatten) {
 				run("check");
