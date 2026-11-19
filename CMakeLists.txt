@@ -561,6 +561,14 @@ set(makefile_depends
 )
 
 if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
+	set(jobserver_warning)
+	if (NOT CMAKE_GENERATOR MATCHES "Makefiles")
+		set(jobserver_warning
+			COMMAND ${CMAKE_COMMAND} -DGENERATOR=${CMAKE_GENERATOR}
+				-P ${YOSYS_CMAKE_SOURCE_DIR}/cmake/WarnNoJobserver.cmake
+		)
+	endif()
+
 	# Tests.
 	add_subdirectory(tests/unit)
 
@@ -571,6 +579,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 	)
 
 	add_custom_target(test-vanilla
+		${jobserver_warning}
 		COMMAND make vanilla-test ${makefile_vars}
 			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/tests
@@ -580,6 +589,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 	)
 
 	add_custom_target(test-functional
+		${jobserver_warning}
 		COMMAND make functional ${makefile_vars}
 			ENABLE_FUNCTIONAL_TESTS=$<IF:$<BOOL:${YOSYS_ENABLE_FUNCTIONAL_TESTS}>,1,0>
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/tests
@@ -594,6 +604,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 
 	# Docs.
 	add_custom_target(docs-prepare
+		${jobserver_warning}
 		COMMAND make gen ${makefile_vars}
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
@@ -607,6 +618,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 		)
 	endforeach()
 	add_custom_target(test-docs
+		${jobserver_warning}
 		COMMAND make test ${makefile_vars}
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
