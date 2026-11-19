@@ -1,7 +1,7 @@
 #start:The following commands are executed by this synthesis command:
 #end:blif:
 begin:
-    read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v
+    read_verilog -D ICE40_HX -lib -specify -DTIMING=1 +/ice40/cells_sim.v
     hierarchy -check -top <top>
     proc
 
