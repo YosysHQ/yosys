@@ -5,6 +5,8 @@ sys.path.append("..")
 
 import gen_tests_makefile
 
+gen_tests_makefile.check_iverilog()
+
 def initial_display():
     gen_tests_makefile.generate_cmd_test("initial_display", [
         f"$(YOSYS) -p \"read_verilog initial_display.v\" | awk '/<<<BEGIN>>>/,/<<<END>>>/ {{print $$0}}' >yosys-initial_display.log 2>&1",

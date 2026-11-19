@@ -5,6 +5,9 @@ sys.path.append("..")
 
 import gen_tests_makefile
 
+gen_tests_makefile.check_iverilog()
+gen_tests_makefile.check_vcd2fst()
+
 import subprocess
 from pathlib import Path
 

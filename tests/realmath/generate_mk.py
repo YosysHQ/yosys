@@ -2,7 +2,11 @@
 
 import sys
 sys.path.append("..")
+
 import gen_tests_makefile
+
+gen_tests_makefile.check_iverilog()
+
 import argparse
 import sys
 import random
