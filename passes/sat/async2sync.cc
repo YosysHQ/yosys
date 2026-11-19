@@ -285,23 +285,20 @@ struct Async2syncPass : public Pass {
 					initvals.remove_init(ff.sig_q);
 
 					Wire *new_q = module->addWire(NEW_ID, ff.width);
-					Wire *new_d;
+					SigSpec new_d = new_q;
 
 					if (ff.has_aload) {
-						new_d = module->addWire(NEW_ID, ff.width);
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								new_d = module->Mux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload);
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								new_d = module->MuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								new_d = module->Mux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload);
 							else
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								new_d = module->MuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload);
 						}
-					} else {
-						new_d = new_q;
 					}
 
 					if (ff.has_sr) {
@@ -324,27 +321,26 @@ struct Async2syncPass : public Pass {
 
 						if (!ff.is_fine) {
 							SigSpec tmp = module->Or(NEW_ID, new_d, sig_set);
-							module->addAnd(NEW_ID, tmp, sig_clr, ff.sig_q);
+							new_d = module->And(NEW_ID, tmp, sig_clr);
 						} else {
 							SigSpec tmp = module->OrGate(NEW_ID, new_d, sig_set);
-							module->addAndGate(NEW_ID, tmp, sig_clr, ff.sig_q);
+							new_d = module->AndGate(NEW_ID, tmp, sig_clr);
 						}
 					} else if (ff.has_arst) {
 						if (ff.pol_arst) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_d, ff.val_arst, ff.sig_arst, ff.sig_q);
+								new_d = module->Mux(NEW_ID, new_d, ff.val_arst, ff.sig_arst);
 							else
-								module->addMuxGate(NEW_ID, new_d, ff.val_arst[0], ff.sig_arst, ff.sig_q);
+								new_d = module->MuxGate(NEW_ID, new_d, ff.val_arst[0], ff.sig_arst);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.val_arst, new_d, ff.sig_arst, ff.sig_q);
+								new_d = module->Mux(NEW_ID, ff.val_arst, new_d, ff.sig_arst);
 							else
-								module->addMuxGate(NEW_ID, ff.val_arst[0], new_d, ff.sig_arst, ff.sig_q);
+								new_d = module->MuxGate(NEW_ID, ff.val_arst[0], new_d, ff.sig_arst);
 						}
-					} else {
-						module->connect(ff.sig_q, new_d);
 					}
 
+					module->connect(ff.sig_q, new_d);
 					ff.sig_d = new_d;
 					ff.sig_q = new_q;
 					ff.has_aload = false;
