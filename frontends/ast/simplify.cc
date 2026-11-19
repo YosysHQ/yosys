@@ -626,6 +626,28 @@ AstNode *AstNode::get_struct_member() const
 	return nullptr;
 }
 
+// Returns true if the select picks one whole signed element: one index for every
+// unpacked dimension and for every packed dimension in front of a signed typedef
+// (IEEE 1800-2023 §7.4.1).
+bool AstNode::selects_one_signed_element(const AstNode *declaration) const
+{
+	if (!declaration->packed_dimensions_before_signed_element)
+		return false;
+
+	const auto &select = children[0];
+	const int index_count = select->type == AST_MULTIRANGE ? GetSize(select->children) : 1;
+	if (index_count != declaration->unpacked_dimensions + declaration->packed_dimensions_before_signed_element)
+		return false;
+
+	for (int i = declaration->unpacked_dimensions; i < index_count; i++) {
+		const auto &packed_index = select->type == AST_MULTIRANGE ? select->children[i] : select;
+		const bool is_part_select = GetSize(packed_index->children) != 1;
+		if (is_part_select)
+			return false;
+	}
+	return true;
+}
+
 static void add_members_to_scope(AstNode *snode, std::string name)
 {
 	// add all the members in a struct or union to local scope
@@ -2189,9 +2211,9 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 					newNode->children.insert(newNode->children.begin(), packed->clone());
 				else
 					prepend_ranges(newNode->children[0], packed.get());
-				// IEEE 1800-2023 §7.4.1: the array is unsigned, and its elements keep the typedef's sign.
-				int packed_dimensions = packed->type == AST_MULTIRANGE ? GetSize(packed->children) : 1;
-				newNode->signed_element_dimensions = newNode->is_signed ? packed_dimensions : 0;
+				const int packed_dimensions = packed->type == AST_MULTIRANGE ? GetSize(packed->children) : 1;
+				newNode->packed_dimensions_before_signed_element = newNode->is_signed ? packed_dimensions : 0;
+				// A packed array of a signed typedef is unsigned (IEEE 1800-2023 §7.4.1).
 				newNode->is_signed = false;
 			}
 
@@ -2372,13 +2394,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		// Save original number of dimensions for $size() etc.
 		integer = dims_sel;
 
-		// Assignments expect an lvalue to stay a bare identifier, and its sign never matters.
-		int packed_dims_sel = dims_sel - id2ast->unpacked_dimensions;
-		bool selects_signed_element = !in_lvalue && id2ast->signed_element_dimensions > 0 && packed_dims_sel == id2ast->signed_element_dimensions;
-		for (int i = id2ast->unpacked_dimensions; selects_signed_element && i < dims_sel; i++) {
-			auto& range = children[0]->type == AST_MULTIRANGE ? children[0]->children[i] : children[0];
-			selects_signed_element = GetSize(range->children) == 1;
-		}
+		// Checked before the indices are flattened into one range.
+		const bool selects_signed_element = selects_one_signed_element(id2ast);
 
 		// Split access into unpacked and packed parts.
 		std::unique_ptr<AstNode> unpacked_range = nullptr;
@@ -2420,7 +2437,10 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		basic_prep = true;
 		did_something = true;
 
-		if (selects_signed_element) {
+		// Leave an assignment target unwrapped: simplify() expands a write with a
+		// non-constant index, or a write to a memory, only if the target is an AST_IDENTIFIER.
+		const bool reads_signed_element = selects_signed_element && !in_lvalue;
+		if (reads_signed_element) {
 			newNode = std::make_unique<AstNode>(location, AST_TO_SIGNED, clone());
 			goto apply_newNode;
 		}

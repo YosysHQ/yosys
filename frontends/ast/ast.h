@@ -220,8 +220,8 @@ namespace AST
 		std::vector<dimension_t> dimensions;
 		// Number of unpacked dimensions.
 		int unpacked_dimensions;
-		// Number of packed dimensions around elements of a signed typedef.
-		int signed_element_dimensions;
+		// Number of packed dimensions in front of a signed typedef.
+		int packed_dimensions_before_signed_element;
 
 		// this is set by simplify and used during RTLIL generation
 		AstNode* id2ast;
@@ -394,6 +394,7 @@ namespace AST
 		// helpers for indexing
 		std::unique_ptr<AstNode> make_index_range(AstNode *node, bool unpacked_range = false);
 		AstNode *get_struct_member() const;
+		bool selects_one_signed_element(const AstNode *declaration) const;
 
 		// helper to print errors from simplify/genrtlil code
 		[[noreturn]] void formatted_input_error(std::string_view format, std::string str) const;
