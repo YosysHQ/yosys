@@ -49,7 +49,7 @@ public:
 
 	RTLIL::SigBit net_map_at(Verific::Net *net);
 
-	RTLIL::IdString new_verific_id(Verific::DesignObj *obj);
+	RTLIL::IdString new_verific_id(Verific::DesignObj *obj, std::string note = "");
 	void import_attributes(dict<RTLIL::IdString, RTLIL::Const> &attributes, Verific::DesignObj *obj, Verific::Netlist  *nl = nullptr, int wire_width_hint = -1);
 
 	RTLIL::SigBit netToSigBit(Verific::Net *net);

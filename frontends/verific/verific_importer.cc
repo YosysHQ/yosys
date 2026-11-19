@@ -23,6 +23,7 @@
 #include "kernel/log.h"
 #include "kernel/utils.h"
 #include "libs/sha1/sha1.h"
+#include <ranges>
 
 #include "frontends/verific/verific.h"
 
@@ -94,9 +95,9 @@ static bool is_blackbox(Netlist *nl)
 	return false;
 }
 
-RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj)
+RTLIL::IdString VerificImporter::new_verific_id(Verific::DesignObj *obj, std::string note)
 {
-	std::string s = stringf("$verific$%s", obj->Name());
+	std::string s = stringf("$verific%s$%s", note, obj->Name());
 	if (obj->Linefile())
 		s += stringf("$%s:%d", RTLIL::encode_filename(Verific::LineFile::GetFileName(obj->Linefile())), Verific::LineFile::GetLineNo(obj->Linefile()));
 	s += stringf("$%d", module->twines().next_autoidx());
@@ -1292,6 +1293,82 @@ static std::string sha1_if_contain_spaces(std::string str)
 	return str;
 }
 
+auto iter_port_refs(Instance const& inst) {
+	return std::views::iota((unsigned int)0, inst.NumOfPortRefs())
+		| std::views::transform([&](auto i) { return inst.GetPortRefAt(i); });
+}
+
+
+
+template<class PortFilter>
+struct BfsRange {
+	Instance const& inst;
+	PortFilter filter;
+
+	struct BfsBegin {
+		std::deque<Instance const*> todo;
+		pool<Instance const*> visited;
+		PortFilter filter;
+
+		BfsBegin(Instance const& i) : todo({ &i }) { }
+
+		void push_children(Instance const* next) {
+			visited.insert(next);
+			for (auto pr : iter_port_refs(*next)) {
+				log_assert(pr->GetInst() == next);
+				if (filter(pr)) {
+					auto n = pr->GetNet();
+					log_assert(!n->IsMultipleDriven());
+					if (n && n->Driver() != nullptr) {
+						todo.push_back(n->Driver());
+					}
+				}
+			}
+		}
+
+		void operator++() {
+			log_assert(todo.size() != 0);
+			push_children(todo[0]);
+		    todo.pop_front();
+			while (todo.size() != 0) {
+				auto next = todo[0];
+				if (0 != visited.count(next)) {
+					todo.pop_front();
+				} else {
+					break;
+				}
+			}
+		}
+
+		Instance const* operator*() const {
+			log_assert(todo.size() != 0);
+			return todo[0];
+		}
+	};
+
+	struct BfsEnd {
+		friend bool operator!=(BfsBegin const& begin, BfsEnd const&) {
+			return begin.todo.size() != 0;
+		}
+	};
+
+	BfsBegin begin() {
+		return BfsBegin(inst);
+	}
+
+
+	BfsEnd end() { return BfsEnd{}; }
+};
+
+/**
+ * Returns a breadth-first search std::range that traverses all `Instance`s connected to `inst`.
+ * The ports to traverse can be filtered using the predicate `filter`.
+ */
+template<class PortFilter>
+auto iter_bfs(Instance const& inst, PortFilter filter) {
+	return BfsRange<PortFilter> { inst, std::move(filter) };
+}
+
 void VerificImporter::recurse_mem_dimensions(RTLIL::Module *module, RTLIL::Memory *memory, Net *net, const char *&ascii_initdata, int max_bits_in_addr, const RTLIL::SigSpec &prefix, TypeRange *typeRange) {
 	if (typeRange == nullptr)
 		typeRange = net->GetOrigTypeRange();
@@ -2054,6 +2131,69 @@ void VerificImporter::import_netlist(RTLIL::Design *design, Netlist *nl, std::ma
 
 			if (!mode_keep)
 				continue;
+		}
+
+		{
+			auto find_sampled_clock = [&]() -> std::optional<VerificClocking> {
+				Net* clock = nullptr;
+				for (auto x : iter_bfs(*inst,
+							[](auto pr) { return pr->GetPort()->IsInput() || pr->GetPort()->IsInout(); })) {
+					auto c = x->GetClock();
+					if (c) {
+						log_assert(!clock || c == clock);
+						clock = c;
+						break;
+					}
+				}
+				if (clock)
+					return {VerificClocking(this, clock)};
+				else
+					return {};
+			};
+			auto addSampledDff = [&](std::optional<VerificClocking>& clocking, auto in_, auto out_) {
+				if (out_ == nullptr) {
+					/* output bit is not connnected to anything */
+					return;
+				}
+				auto in = net_map_at(in_);
+				auto out = net_map_at(out_);
+
+				if (clocking) {
+					if (in.wire->attributes.count(ID::init)) {
+						out.wire->attributes[ID::init] = in.wire->attributes[ID::init];
+						log_assert(out.wire->attributes[ID::init].empty()
+								|| in.wire->attributes[ID::init] == out.wire->attributes[ID::init]);
+					}
+					clocking->addDff(new_verific_id(inst, "$sampled"), in, out);
+				} else {
+					/* constant-valued expression $sampled is redundant */
+					module->connect(out, in);
+				}
+			};
+
+			if (inst->Type() == PRIM_SVA_SAMPLED)
+			{
+				auto clocking = find_sampled_clock();
+
+				addSampledDff(clocking, inst->GetInput1(), inst->GetOutput());
+
+				if (!mode_keep)
+					continue;
+			}
+
+
+			if (inst->Type() == OPER_SVA_SAMPLED)
+			{
+				auto clocking = find_sampled_clock();
+
+				log_assert(inst->Input1Size() == inst->OutputSize());
+				for (unsigned i  = 0; i < inst->Input1Size(); i++) {
+					addSampledDff(clocking, inst->GetInput1Bit(i), inst->GetOutputBit(i));
+				}
+
+				if (!mode_keep)
+					continue;
+			}
 		}
 #endif
 
