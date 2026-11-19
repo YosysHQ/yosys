@@ -67,6 +67,7 @@ struct ShowWorker
 	bool abbreviateIds;
 	bool notitle;
 	bool href;
+	bool pack;
 	int page_counter;
 
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
@@ -424,7 +425,9 @@ struct ShowWorker
 		dot_id2num_store.clear();
 		net_conn_map.clear();
 
-		fprintf(f, "digraph \"%s\" { subgraph \"cluster_1\" {\n", escape(module->name.str()));
+		fprintf(f, "digraph \"%s\" {\n", escape(module->name.str()));
+		if (pack)
+			fprintf(f, " subgraph \"cluster_1\" {");
 		if (!notitle)
 			fprintf(f, "label=\"%s\";\n", escape(module->name.str()));
 		fprintf(f, "rankdir=\"LR\";\n");
@@ -624,16 +627,17 @@ struct ShowWorker
 				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.first.c_str(), nextColor(it.second.color).c_str(), widthLabel(it2.second).c_str());
 		}
 
-		fprintf(f, "}}\n");
+		if (pack) fprintf(f, "}");
+		fprintf(f, "}\n");
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<std::unique_ptr<RTLIL::Design>> &libs, uint32_t colorSeed, bool genWidthLabels,
-			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
+			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href, bool pack,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
-			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
+			notitle(notitle), href(href), pack(pack), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -952,7 +956,7 @@ struct ShowPass : public Pass {
 			yosys_output_files.insert(dot_file);
 		if (f == nullptr)
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, flag_pack, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		if (worker.page_counter == 0)
