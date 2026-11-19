@@ -285,23 +285,20 @@ struct Async2syncPass : public Pass {
 					initvals.remove_init(ff.sig_q);
 
 					Wire *new_q = module->addWire(NEW_ID, ff.width);
-					SigSpec new_d;
+					SigSpec new_d = new_q;
 
 					if (ff.has_aload) {
-						new_d = module->addWire(NEW_ID, ff.width);
 						if (ff.pol_aload) {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								new_d = module->Mux(NEW_ID, new_q, ff.sig_ad, ff.sig_aload);
 							else
-								module->addMuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload, new_d);
+								new_d = module->MuxGate(NEW_ID, new_q, ff.sig_ad, ff.sig_aload);
 						} else {
 							if (!ff.is_fine)
-								module->addMux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								new_d = module->Mux(NEW_ID, ff.sig_ad, new_q, ff.sig_aload);
 							else
-								module->addMuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload, new_d);
+								new_d = module->MuxGate(NEW_ID, ff.sig_ad, new_q, ff.sig_aload);
 						}
-					} else {
-						new_d = new_q;
 					}
 
 					if (ff.has_sr) {
