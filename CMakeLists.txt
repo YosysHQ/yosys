@@ -24,6 +24,7 @@ include(PmgenCommand)
 include(YosysVersion)
 include(YosysInstallDirs)
 include(YosysConfigScript)
+include(YosysPackageConfig)
 include(YosysComponent)
 include(YosysLinkTarget)
 include(YosysAbc)
@@ -459,8 +460,20 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY)
 	yosys_cxx_library(libyosys ${libyosys_type}
 		OUTPUT_NAME libyosys
 		INSTALL_IF ${YOSYS_INSTALL_LIBRARY}
+		EXPORT Yosys
 	)
 	yosys_link_components(libyosys PRIVATE ${library_components})
+	# Settings for consumers
+	# - Header paths for either shared build tree or relative install location
+	target_include_directories(libyosys INTERFACE
+		$<BUILD_INTERFACE:${YOSYS_CMAKE_BINARY_DIR}/share/include>
+		$<INSTALL_INTERFACE:${YOSYS_INSTALL_DATADIR}/include>
+	)
+	# - Forward C++ standard
+	target_compile_features(libyosys INTERFACE cxx_std_${CMAKE_CXX_STANDARD})
+	# - Set define _YOSYS_
+	target_compile_definitions(libyosys INTERFACE _YOSYS_)
+	# Library
 	add_library(Yosys::libyosys ALIAS libyosys)
 	if (MINGW)
 		set_target_properties(libyosys PROPERTIES
@@ -537,6 +550,14 @@ endif()
 yosys_config_script(BUILD)
 if (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY)
 	yosys_config_script(INSTALL)
+endif()
+
+# Package definition.
+# Limit it to dynamic library as static would require more (third-party) component exports.
+# Only generated if libyosys is installed, as it is otherwise not part of the default build.
+if (NOT YOSYS_BUILD_PYTHON_ONLY AND BUILD_SHARED_LIBS AND YOSYS_INSTALL_LIBRARY)
+	yosys_package_config(BUILD)
+	yosys_package_config(INSTALL)
 endif()
 
 # Configuration for Makefile-based steps.
