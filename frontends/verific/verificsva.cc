@@ -1894,7 +1894,9 @@ struct VerificPIRImporter
 {
 public:
 	VerificImporter *importer = nullptr;
-	Instance *root;
+	Module *module = nullptr;
+
+	Instance *root = nullptr;
 
 	struct ParserErrorException {
 	};
@@ -1940,6 +1942,22 @@ public:
 
 		log("  [new] %s (%s):\n", root->Name(), root->View()->Owner()->Name());
 
+		bool is_user_declared = root->IsUserDeclared();
+
+		// FIXME (?)
+		if (!is_user_declared) {
+			const char *name = root->Name();
+			for (int i = 0; name[i]; i++) {
+				if (i ? (name[i] < '0' || name[i] > '9') : (name[i] != 'i')) {
+					is_user_declared = true;
+					break;
+				}
+			}
+		}
+
+		RTLIL::IdString check_name = module->uniquify(importer->mode_names || is_user_declared ? module->twines().add(RTLIL::escape_id(root->Name())) : module->twines().add(NEW_ID));
+		RTLIL::Cell *check_cell = nullptr;
+
 		using namespace property_ir;
 		std::ostringstream output;
 		printer = new SExprPrinter(output);
@@ -1978,19 +1996,26 @@ public:
 		property_ir::option::EvaluationScope eval_scope(scope);
 		property_ir::option::DisableIff disable_iff(disable_cond);
 
+		// TODO distinguish live/fair from assert/assume
+		// TODO use $check?
 		switch (root->Type()) {
 			case PRIM_SVA_ASSERT:
 				emit(*printer, assert_property(prop, eval_scope, disable_iff));
+				check_cell = module->addCell(check_name, ID($assert));
 				// TODO autocover
 				break;
 			case PRIM_SVA_ASSUME:
 				emit(*printer, assume_property(prop, eval_scope, disable_iff));
+				check_cell = module->addCell(check_name, ID($assume));
 				break;
 			case PRIM_SVA_COVER:
 				emit(*printer, cover_property(prop, eval_scope, disable_iff));
+				check_cell = module->addCell(check_name, ID($cover));
 				break;
 			case PRIM_SVA_RESTRICT:
 				emit(*printer, restrict_property(prop, eval_scope, disable_iff));
+				// TODO distinguish between assume and restrict?
+				check_cell = module->addCell(check_name, ID($assume));
 				break;
 			// case PRIM_SVA_TRIGGERED:
 				// emit(*printer, trigger_sequence(prop, eval_scope, disable_iff));
@@ -2002,6 +2027,7 @@ public:
 		if (verific_verbose >= 2)
 			log_lines(output.str());
 
+		// TODO derive name from check_name?
 		auto *property_cell = module->addCell(module->twines().add(NEW_ID), ID($property));
 		property_cell->setParam(ID::DATA, output.str());
 
@@ -2011,6 +2037,13 @@ public:
 		RTLIL::SigBit sig_en = module->addWire(module->twines().add(NEW_ID), 1);
 		property_cell->setParam(ID::Y_WIDTH, 1);
 		property_cell->setPort(ID::Y, sig_en);
+
+		if (check_cell != nullptr) {
+			check_cell->set_bool_attribute(ID(keep));
+			importer->import_attributes(check_cell->attributes, root);
+			check_cell->setPort(ID::A, sig_en);
+			check_cell->setPort(ID::EN, sig_en);
+		}
 	}
 
 private:
