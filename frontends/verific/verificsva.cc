@@ -1936,6 +1936,8 @@ private:
 public:
 	void import()
 	{
+		module = importer->module;
+
 		log("  [new] %s (%s):\n", root->Name(), root->View()->Owner()->Name());
 
 		using namespace property_ir;
@@ -1963,8 +1965,10 @@ public:
 			}
 		}
 
+		// TODO trigger needs parse_sequence
 		auto result = parse_property(prop_net);
 		// TODO better auto names?
+		// ClkPropId prop(module->twines().unescaped_str(check_name));
 		ClkPropId prop(root->Name());
 		auto declaration = declare(prop, result);
 		// TODO when to use declare-rec
@@ -1975,12 +1979,9 @@ public:
 		property_ir::option::DisableIff disable_iff(disable_cond);
 
 		switch (root->Type()) {
-			// TODO parameters
 			case PRIM_SVA_ASSERT:
 				emit(*printer, assert_property(prop, eval_scope, disable_iff));
 				// TODO autocover
-				// if (autocover)
-				// 	emit(*printer, cover_property(prop, eval_scope, disable_iff));
 				break;
 			case PRIM_SVA_ASSUME:
 				emit(*printer, assume_property(prop, eval_scope, disable_iff));
@@ -1997,7 +1998,19 @@ public:
 				parser_error(root);
 		}
 		printer->end_list();
-		log_lines(output.str());
+
+		if (verific_verbose >= 2)
+			log_lines(output.str());
+
+		auto *property_cell = module->addCell(module->twines().add(NEW_ID), ID($property));
+		property_cell->setParam(ID::DATA, output.str());
+
+		property_cell->setParam(ID::A_WIDTH, 0);
+		property_cell->setPort(ID::A, SigSpec());
+
+		RTLIL::SigBit sig_en = module->addWire(module->twines().add(NEW_ID), 1);
+		property_cell->setParam(ID::Y_WIDTH, 1);
+		property_cell->setPort(ID::Y, sig_en);
 	}
 
 private:

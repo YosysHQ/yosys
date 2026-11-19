@@ -85,6 +85,7 @@ struct CellTableBuilder {
 		setup_type(ID($specify3), {ID::EN, ID::SRC, ID::DST, ID::DAT}, {}, features);
 		setup_type(ID($specrule), {ID::SRC_EN, ID::DST_EN, ID::SRC, ID::DST}, {}, features);
 		setup_type(ID($print), {ID::EN, ID::ARGS, ID::TRG}, {}, features);
+		setup_type(ID($property), {ID::A}, {ID::Y}, features);
 		setup_type(ID($check), {ID::A, ID::EN, ID::ARGS, ID::TRG}, {}, features);
 		setup_type(ID($set_tag), {ID::A, ID::SET, ID::CLR}, {ID::Y}, features);
 		setup_type(ID($get_tag), {ID::A}, {ID::Y}, features);

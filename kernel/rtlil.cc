@@ -2246,6 +2246,14 @@ namespace {
 				return;
 			}
 
+			if (cell->type == ID($property)) {
+				param(ID::DATA);
+				port(ID::A, param(ID::A_WIDTH));
+				port(ID::Y, param(ID::Y_WIDTH));
+				check_expected();
+				return;
+			}
+
 			if (cell->type == ID($check)) {
 				std::string flavor = param_string(ID(FLAVOR));
 				if (!(flavor == "assert" || flavor == "assume" || flavor == "live" || flavor == "fair" || flavor == "cover"))
