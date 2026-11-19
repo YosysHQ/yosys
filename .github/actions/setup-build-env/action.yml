@@ -56,7 +56,45 @@ runs:
       if: runner.os == 'macOS'
       shell: bash
       run: |
-        brew install bison flex gawk libffi git pkg-config python3 bash googletest tcl-tk llvm
+        brew install bison gawk libffi git pkg-config python3 bash googletest tcl-tk llvm
+
+    - name: Install Homebrew flex 2.6.4_2
+      if: runner.os == 'macOS'
+      env:
+        HOMEBREW_DEVELOPER: 1
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        case "$(uname -m):$(sw_vers -productVersion | cut -d. -f1)" in
+          arm64:26)
+            tag=arm64_tahoe
+            sha=62ca8b8763bc2c97fe3ec02a4f55e410a6bf80ab26c291b0914313a82d004afe
+            ;;
+          arm64:27)
+            tag=arm64_golden_gate
+            sha=c13235c5d79d815518424d61ded84ede60fcd46e8644493fa3cea9d546665220
+            ;;
+          *)
+            echo '::error::No flex 2.6.4_2 bottle configured for this runner'
+            exit 1
+            ;;
+        esac
+
+        bottle="$RUNNER_TEMP/flex--2.6.4_2.$tag.bottle.tar.gz"
+        token=$(curl -fsSL --retry 3 \
+          'https://ghcr.io/token?service=ghcr.io&scope=repository:homebrew/core/flex:pull' \
+          | jq -er '.token')
+
+        curl -fsSL --retry 3 -H "Authorization: Bearer $token" \
+          "https://ghcr.io/v2/homebrew/core/flex/blobs/sha256:$sha" -o "$bottle"
+        printf '%s  %s\n' "$sha" "$bottle" | shasum -a 256 -c -
+
+        brew reinstall -f "$bottle"
+
+        flex_bin="$(brew --prefix flex)/bin"
+        "$flex_bin/flex" --version
+        printf '%s\n' "$flex_bin" >> "$GITHUB_PATH"
 
     - name: Linux runtime environment
       if: runner.os == 'Linux'
@@ -72,7 +110,7 @@ runs:
         echo "${{ github.workspace }}/.local/bin" >> $GITHUB_PATH
         echo "$(brew --prefix llvm)/bin" >> $GITHUB_PATH
         echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
-        echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+        # echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
         echo "procs=$(sysctl -n hw.ncpu)" >> $GITHUB_ENV
 
     - name: Setup iverilog
