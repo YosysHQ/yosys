@@ -121,8 +121,6 @@ jobs:
     if: github.event_name != 'push' && needs.pre_job.outputs.should_skip != 'true'
     env:
       CC: clang
-    # Ignore macOS tests for now, until flex is
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
