@@ -47,4 +47,6 @@ endmodule
 EOT
 synth_microchip -family polarfire -top preadd -run begin:coarse -noiopad
 select -assert-count 1 t:MACC_PA
+logger -expect log "connect .D .*r .6:3." 1
+dump t:MACC_PA
 select -assert-count 1 w:r a:init=8'b00001000 %i
