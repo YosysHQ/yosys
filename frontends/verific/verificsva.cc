@@ -1005,6 +1005,7 @@ struct VerificSvaImporter
 
 		if (inst->Type() == PRIM_SVA_ROSE || inst->Type() == PRIM_SVA_FELL ||
 				inst->Type() == PRIM_SVA_STABLE || inst->Type() == OPER_SVA_STABLE ||
+				inst->Type() == PRIM_SVA_SAMPLED || inst->Type() == OPER_SVA_SAMPLED ||
 				inst->Type() == PRIM_SVA_PAST || inst->Type() == PRIM_SVA_TRIGGERED)
 			return nullptr;
 
