@@ -101,3 +101,9 @@ verific -import -v -d zzz.v -sva-continue-on-err clocked_outer
 # design -reset
 # verific -sv basic.sv
 # verific -import -v -sva-continue-on-err clock_ctrl_nested
+
+# TODO vacuity
+# can we get assertion control from verific?
+design -reset
+verific -sv basic.sv
+verific -import -v vacuity

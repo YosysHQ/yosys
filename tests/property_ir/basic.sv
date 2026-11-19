@@ -284,3 +284,13 @@ module clock_enable (input clk, ce, rst, input a);
         c_edge: assert property (ce ? a : 1'b1);
     end
 endmodule
+
+module vacuity (input clk, input a);
+    always @(posedge clk) begin
+        ap_default: assert property (a);
+        $assertnonvacuouson();
+        ap_on: assert property (a);
+        $assertnonvacuousoff();
+        ap_off: assert property (a);
+    end
+endmodule
