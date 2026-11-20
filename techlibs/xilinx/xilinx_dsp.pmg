@@ -488,6 +488,10 @@ match ff
 	// DSP48E1 does not support clock inversion
 	select param(ff, \CLK_POLARITY).as_bool()
 
+	// Check that reset value, if present, is fully 0 (RSTM/RSTP reset to
+	// zero; absorbing a nonzero sync-load constant would corrupt it)
+	filter ff->type.in($dff, $dffe) || param(ff, \SRST_VALUE).is_fully_zero()
+
 	slice offset GetSize(port(ff, \D))
 	index <SigBit> port(ff, \D)[offset] === argD[0]
 
