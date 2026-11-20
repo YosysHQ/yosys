@@ -1,0 +1,14 @@
+# Every swap stage reads both outputs of the previous one: 2^32 mux paths,
+# which proc_dlatch must not walk one by one.
+read_verilog <<EOT
+module top(input en, input d0, d1, input [31:0] s, output reg a, b);
+integer i;
+always @* begin
+	if (en) begin a = d0; b = d1; end
+	for (i = 0; i < 32; i = i + 1)
+		if (s[i]) {a, b} = {b, a};
+end
+endmodule
+EOT
+proc
+select -assert-count 2 t:$dlatch

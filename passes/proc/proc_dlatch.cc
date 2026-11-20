@@ -44,6 +44,10 @@ struct proc_dlatch_db_t
 	dict<SigBit, int> extra_readers;
 	bool all_processes_muxed = true;
 
+	// Results of the current find_mux_feedback/find_mux_constant query.  The
+	// mux network is a DAG, and re-walking shared subtrees is exponential.
+	dict<SigBit, int> feedback_memo;
+
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
 		initvals.set(&sigmap, module);
@@ -262,11 +266,21 @@ struct proc_dlatch_db_t
 
 	int find_mux_feedback(SigBit haystack, SigBit needle, bool set_undef)
 	{
+		feedback_memo.clear();
+		return find_mux_feedback_rec(haystack, needle, set_undef);
+	}
+
+	int find_mux_feedback_rec(SigBit haystack, SigBit needle, bool set_undef)
+	{
 		if (sigusers[haystack] > 1)
 			set_undef = false;
 
 		if (haystack == needle)
 			return true_node;
+
+		auto memo_it = feedback_memo.find(haystack);
+		if (memo_it != feedback_memo.end())
+			return memo_it->second;
 
 		auto it = mux_drivers.find(haystack);
 		if (it == mux_drivers.end())
@@ -286,7 +300,7 @@ struct proc_dlatch_db_t
 
 		pool<int> children;
 
-		int n = find_mux_feedback(sig_a[index], needle, set_undef);
+		int n = find_mux_feedback_rec(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == needle) {
 				SigSpec sig = cell->getPort(ID::A);
@@ -309,7 +323,7 @@ struct proc_dlatch_db_t
 		}
 
 		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
-			n = find_mux_feedback(sig_b[i*width + index], needle, set_undef);
+			n = find_mux_feedback_rec(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
 					SigSpec sig = cell->getPort(ID::B);
@@ -329,19 +343,33 @@ struct proc_dlatch_db_t
 
 		active_bits.erase(haystack);
 
-		if (children.empty())
+		if (children.empty()) {
+			feedback_memo[haystack] = false_node;
 			return false_node;
+		}
 
-		return make_inner(children);
+		int result = make_inner(children);
+		feedback_memo[haystack] = result;
+		return result;
 	}
 
 	int find_mux_constant(SigBit haystack, State needle, bool set_undef)
+	{
+		feedback_memo.clear();
+		return find_mux_constant_rec(haystack, needle, set_undef);
+	}
+
+	int find_mux_constant_rec(SigBit haystack, State needle, bool set_undef)
 	{
 		if (sigusers[haystack] > 1)
 			set_undef = false;
 
 		if (haystack == SigBit(needle))
 			return true_node;
+
+		auto memo_it = feedback_memo.find(haystack);
+		if (memo_it != feedback_memo.end())
+			return memo_it->second;
 
 		auto it = mux_drivers.find(haystack);
 		if (it == mux_drivers.end())
@@ -361,7 +389,7 @@ struct proc_dlatch_db_t
 
 		pool<int> children;
 
-		int n = find_mux_constant(sig_a[index], needle, set_undef);
+		int n = find_mux_constant_rec(sig_a[index], needle, set_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == SigBit(needle)) {
 				SigSpec sig = cell->getPort(ID::A);
@@ -378,7 +406,7 @@ struct proc_dlatch_db_t
 		}
 
 		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
-			n = find_mux_constant(sig_b[i*width + index], needle, set_undef);
+			n = find_mux_constant_rec(sig_b[i*width + index], needle, set_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
 					SigSpec sig = cell->getPort(ID::B);
@@ -391,10 +419,14 @@ struct proc_dlatch_db_t
 
 		active_bits.erase(haystack);
 
-		if (children.empty())
+		if (children.empty()) {
+			feedback_memo[haystack] = false_node;
 			return false_node;
+		}
 
-		return make_inner(children);
+		int result = make_inner(children);
+		feedback_memo[haystack] = result;
+		return result;
 	}
 
 	SigBit make_hold(int n, string &src)
