@@ -40,6 +40,7 @@ Pass *current_pass;
 
 std::map<std::string, Frontend*> frontend_register;
 std::map<std::string, Pass*> pass_register;
+std::vector<void (*)(Pass *pass, RTLIL::Design *design)> Pass::pre_call_hooks;
 std::map<std::string, Backend*> backend_register;
 std::map<std::string, Target> target_register;
 
@@ -99,6 +100,7 @@ void Pass::done_register()
 	frontend_register.clear();
 	pass_register.clear();
 	backend_register.clear();
+	pre_call_hooks.clear();
 	log_assert(first_queued_pass == NULL);
 }
 
@@ -291,6 +293,8 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0]);
 	Pass *pass = pass_register[args[0]];
+	for (auto hook : pre_call_hooks)
+		hook(pass, design);
 
 	// Collect garbage before the next pass if requested. No need to collect garbage after the last pass.
 	try_collect_garbage();

@@ -92,6 +92,9 @@ struct Pass
 	void cmd_error(const std::vector<std::string> &args, size_t argidx, std::string msg);
 	void extra_args(std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool select = true);
 
+	// kinda hacky, call() runs each before the pass and its garbage collection, frontend_call() and backend_call() don't
+	static std::vector<void (*)(Pass *pass, RTLIL::Design *design)> pre_call_hooks;
+
 	static void call(RTLIL::Design *design, std::string command);
 	static void call(RTLIL::Design *design, std::vector<std::string> args);
 

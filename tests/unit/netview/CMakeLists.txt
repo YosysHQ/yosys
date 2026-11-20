@@ -1,0 +1,11 @@
+yosys_gtest(netview
+	netprotectTest.cc
+	netviewHelpers.h
+	netviewTest.cc
+	COMPONENTS
+		design
+		flatten
+		optbarriers
+		rename
+		splitnets
+)

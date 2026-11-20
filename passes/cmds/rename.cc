@@ -70,7 +70,7 @@ static IdString derive_name_from_src(RTLIL::Module *module, const std::string &s
 	return module->twines().add(base, stringf("$%d", counter));
 }
 
-static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix, bool move_to_cell)
+static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, string suffix, bool move_to_cell, const dict<RTLIL::SigBit, RTLIL::SigBit> &cuts)
 {
 	// Find output
 	const SigSpec *output = nullptr;
@@ -85,8 +85,10 @@ static IdString derive_name_from_cell_output_wire(const RTLIL::Cell *cell, strin
 	if (num_outputs != 1) // Skip cells thad drive multiple outputs
 		return cell->name;
 
+	RTLIL::SigSpec named = *output;
+	named.replace(cuts);
 	std::string name = "";
-	for (auto &chunk : output->chunks()) {
+	for (auto &chunk : named.chunks()) {
 		// Skip cells that drive privately named wires
 		if (!chunk.wire || chunk.wire->name.str()[0] == '$')
 			return cell->name;
@@ -416,9 +418,16 @@ struct RenamePass : public Pass {
 
 			for (auto module : design->selected_modules()) {
 				dict<RTLIL::Cell *, IdString> new_cell_names;
+				// A cell that drives a private barrier input takes the wire name after the barrier
+				dict<RTLIL::SigBit, RTLIL::SigBit> cuts;
+				for (auto cell : module->cells())
+					if (cell->type == ID($barrier))
+						for (int i = 0; i < GetSize(cell->getPort(ID::A)); i++)
+							if (cell->getPort(ID::A)[i].wire && !cell->getPort(ID::A)[i].wire->name.isPublic())
+								cuts[cell->getPort(ID::A)[i]] = cell->getPort(ID::Y)[i];
 				for (auto cell : module->selected_cells())
 					if (!cell->name.isPublic())
-						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix, flag_move_to_cell);
+						new_cell_names[cell] = derive_name_from_cell_output_wire(cell, cell_suffix, flag_move_to_cell, cuts);
 				for (auto &[cell, new_name] : new_cell_names) {
 					if (flag_move_to_cell) {
 						RTLIL::Wire *found_wire = module->wire(new_name);
@@ -435,7 +444,8 @@ struct RenamePass : public Pass {
 							module->rename(found_wire, found_wire->name.str() + wire_suffix);
 						}
 					}
-					module->rename(cell, new_name);
+					if (new_name == cell->name || module->count_id(new_name) == 0)
+						module->rename(cell, new_name);
 				}
 			}
 		}

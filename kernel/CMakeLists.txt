@@ -59,6 +59,15 @@ yosys_core(kernel
 	mem.cc
 	mem.h
 	modtools.h
+	netbarrier.cc
+	netbuild.cc
+	netresolve.cc
+	nettrack.cc
+	nettrack.h
+	nettrack_internal.h
+	netview.cc
+	netview.h
+	netview_internal.h
 	newcelltypes.cc
 	newcelltypes.h
 	pattern.h
@@ -143,6 +152,8 @@ yosys_core(kernel
 		log.h
 		macc.h
 		modtools.h
+		nettrack.h
+		netview.h
 		mem.h
 		qcsat.h
 		register.h
