@@ -129,10 +129,17 @@ struct proc_dlatch_db_t
 		return sigusers[bit] + extra_readers[bit];
 	}
 
-	void count_hold_uses(SigBit bit, SigBit q, dict<SigBit, int> &hold_uses, pool<SigBit> &reaches_q)
+	struct hold_cone_t
+	{
+		SigBit q;
+		dict<SigBit, int> uses; // reads of each bit by the cone muxes
+		pool<SigBit> reaches_q; // bits whose value can come from q
+	};
+
+	void count_hold_uses(SigBit bit, hold_cone_t &cone)
 	{
 		auto it = mux_drivers.find(bit);
-		if (bit == q || it == mux_drivers.end())
+		if (bit == cone.q || it == mux_drivers.end())
 			return;
 
 		auto [cell, index] = it->second;
@@ -149,12 +156,11 @@ struct proc_dlatch_db_t
 			for (int i = 0; i < GetSize(sig_b) / width; i++)
 				inputs.append(sig_b[i*width + index]);
 
-		
 		for (auto input : inputs) {
-			if (hold_uses[input]++ == 0)
-				count_hold_uses(input, q, hold_uses, reaches_q);
-			if (reaches_q.count(input))
-				reaches_q.insert(bit);
+			if (cone.uses[input]++ == 0)
+				count_hold_uses(input, cone);
+			if (cone.reaches_q.count(input))
+				cone.reaches_q.insert(bit);
 		}
 	}
 
@@ -163,13 +169,12 @@ struct proc_dlatch_db_t
 	{
 		if (!all_processes_muxed || readers(d) != 1)
 			return false;
-		dict<SigBit, int> hold_uses;
-		pool<SigBit> reaches_q = {q};
-		count_hold_uses(d, q, hold_uses, reaches_q);
-		for (auto [bit, uses] : hold_uses)
-			if (reaches_q.count(bit) && readers(bit) != uses)
+		hold_cone_t cone = {q, {}, {q}};
+		count_hold_uses(d, cone);
+		for (auto [bit, uses] : cone.uses)
+			if (cone.reaches_q.count(bit) && readers(bit) != uses)
 				return false;
-		return hold_uses.count(q);
+		return cone.uses.count(q);
 	}
 
 	bool quickcheck(const SigSpec &haystack, const SigSpec &needle)
