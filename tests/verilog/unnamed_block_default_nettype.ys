@@ -1,0 +1,10 @@
+logger -expect error "Local declaration in unnamed block is only supported in SystemVerilog mode!" 1
+read_verilog <<EOT
+`default_nettype none
+module top;
+    initial begin
+        integer x;
+        x = 0;
+    end
+endmodule
+EOT

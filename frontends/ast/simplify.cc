@@ -1970,6 +1970,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		backup_memwr_visible = current_memwr_visible;
 		final_memwr_visible = current_memwr_visible;
 	}
+	// check for local objects in unnamed block
 	if (type == AST_BLOCK && str.empty())
 	{
 		for (size_t i = 0; i < children.size(); i++)
@@ -2795,8 +2796,6 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		delete_children();
 		did_something = true;
 	}
-
-	// check for local objects in unnamed block
 
 
 	// transform block with name
