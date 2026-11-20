@@ -72,14 +72,40 @@ TEST(CellTypesTest, basic)
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
 		EXPECT_EQ(older.cell_known(type), newer.cell_known(type));
-		if (older.cell_evaluable(type) != newer.cell_evaluable(type))
-			std::cout << ID::unescaped_str(type) << "\n";
-		EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
+		if (type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_)))
+			EXPECT_FALSE(newer.cell_evaluable(type));
+		else
+			EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
 		for (auto port : StaticCellTypes::builder.cells.data()->inputs.ports)
 			check_port(type, port);
 		for (auto port : StaticCellTypes::builder.cells.data()->outputs.ports)
 			check_port(type, port);
 		EXPECT_EQ(expected_ff_types.count(type) > 0, StaticCellTypes::categories.is_ff(type));
+	}
+
+	const auto &categories = StaticCellTypes::categories;
+
+	const auto is_stateless_synthesizable = StaticCellTypes::Categories::meet(
+		categories.is_synthesizable, categories.is_stateless);
+
+	const auto synthesizable_kinds = StaticCellTypes::Categories::join(
+		categories.is_combinatorial, categories.is_ff, categories.is_mem);
+
+	StaticCellTypes::Categories::Category other;
+	other.set_id(ID($anyinit));
+	other.set_id(ID($initstate));
+	other.set_id(ID($fsm));
+	const auto stateful_kinds = StaticCellTypes::Categories::join(
+		other, categories.is_ff, categories.is_mem);
+	const auto expected_stateless = StaticCellTypes::Categories::meet(
+		categories.is_known, StaticCellTypes::Categories::complement(stateful_kinds));
+
+	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
+		IdString type(i);
+		SCOPED_TRACE(ID::unescaped_str(type));
+		EXPECT_EQ(categories.is_combinatorial(type), is_stateless_synthesizable(type));
+		EXPECT_EQ(categories.is_synthesizable(type), synthesizable_kinds(type));
+		EXPECT_EQ(categories.is_stateless(type),     expected_stateless(type));
 	}
 }
 
