@@ -1,0 +1,11 @@
+logger -expect error "Assignment to non-local variable in constant function" 1
+read_verilog <<EOT
+module top;
+    integer g;
+    function integer f;
+        input integer i;
+        g = i;
+    endfunction
+    localparam P = f(1);
+endmodule
+EOT

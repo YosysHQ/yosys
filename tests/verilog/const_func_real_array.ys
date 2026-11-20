@@ -1,0 +1,9 @@
+logger -expect error "real variables cannot have unpacked dimensions." 1
+read_verilog <<EOT
+module top;
+    function integer f;
+        input integer i;
+        real r [1:0];
+    endfunction
+endmodule
+EOT
