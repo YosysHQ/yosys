@@ -21,9 +21,11 @@
 module LUT1(output wire O, input wire I0);
 	parameter [1:0] INIT = 0;
 	assign O = I0 ? INIT[1] : INIT[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 74;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=2 *)
@@ -31,10 +33,12 @@ module LUT2(output wire O, input wire I0, I1);
 	parameter [3:0] INIT = 0;
 	wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
 	assign O = I0 ? s1[1] : s1[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 116;
 		(I1 => O) = 74;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -43,11 +47,13 @@ module LUT3(output wire O, input wire I0, I1, I2);
 	wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign O = I0 ? s1[1] : s1[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 162;
 		(I1 => O) = 116;
 		(I2 => O) = 174;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -57,12 +63,14 @@ module LUT4(output wire O, input wire I0, I1, I2, I3);
 	wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign O = I0 ? s1[1] : s1[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 201;
 		(I1 => O) = 162;
 		(I2 => O) = 116;
 		(I3 => O) = 74;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -73,6 +81,7 @@ module LUT5(output wire O, input wire I0, I1, I2, I3, I4);
 	wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign O = I0 ? s1[1] : s1[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 228;
 		(I1 => O) = 189;
@@ -80,6 +89,7 @@ module LUT5(output wire O, input wire I0, I1, I2, I3, I4);
 		(I3 => O) = 100;
 		(I4 => O) = 55;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_lut=5 *)
@@ -91,6 +101,7 @@ module LUT6(output wire O, input wire I0, I1, I2, I3, I4, I5);
 	wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
 	wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
 	assign O = I0 ? s1[1] : s1[0];
+	`ifdef TIMING
 	specify
 		(I0 => O) = 251;
 		(I1 => O) = 212;
@@ -99,6 +110,7 @@ module LUT6(output wire O, input wire I0, I1, I2, I3, I4, I5);
 		(I4 => O) = 77;
 		(I5 => O) = 43;
 	endspecify
+	`endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -113,10 +125,12 @@ module sh_dff(
 		always @(posedge C)
 				Q <= D;
 
+		`ifdef TIMING
 		specify
 			(posedge C => (Q +: D)) = 0;
 			$setuphold(posedge C, D, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -134,6 +148,7 @@ module adder_carry(
 		assign sumout = p ^ cin;
 		assign cout = p ? cin : g;
 
+		`ifdef TIMING
 		specify
 				(p => sumout) = 35;
 				(g => sumout) = 35;
@@ -142,6 +157,7 @@ module adder_carry(
 				(g => cout) = 65;
 				(cin => cout) = 69;
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -157,10 +173,12 @@ module dff(
 		always @(posedge C)
 			Q <= D;
 
+		`ifdef TIMING
 		specify
 			(posedge C=>(Q+:D)) = 285;
 			$setuphold(posedge C, D, 56, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -176,10 +194,12 @@ module dffn(
 		always @(negedge C)
 			Q <= D;
 
+		`ifdef TIMING
 		specify
 			(negedge C=>(Q+:D)) = 285;
 			$setuphold(negedge C, D, 56, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -203,6 +223,7 @@ module dffsre(
 			else if (E)
 				Q <= D;
 
+		`ifdef TIMING
 		specify
 			(posedge C => (Q +: D)) = 280;
 			(R => Q) = 0;
@@ -214,6 +235,7 @@ module dffsre(
 			$recrem(posedge R, posedge C, 0, 0);
 			$recrem(posedge S, posedge C, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -237,6 +259,7 @@ module dffnsre(
 			else if (E)
 				Q <= D;
 
+		`ifdef TIMING
 		specify
 			(negedge C => (Q +: D)) = 280;
 			(R => Q) = 0;
@@ -248,6 +271,7 @@ module dffnsre(
 			$recrem(posedge R, negedge C, 0, 0);
 			$recrem(posedge S, negedge C, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -271,6 +295,7 @@ module sdffsre(
 			else if (E)
 				Q <= D;
 
+		`ifdef TIMING
 		specify
 				(posedge C => (Q +: D)) = 280;
 				$setuphold(posedge C, D, 56, 0);
@@ -278,6 +303,7 @@ module sdffsre(
 				$setuphold(posedge C, S, 0, 0);
 				$setuphold(posedge C, E, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -301,6 +327,7 @@ module sdffnsre(
 			else if (E)
 				Q <= D;
 
+		`ifdef TIMING
 		specify
 				(negedge C => (Q +: D)) = 280;
 				$setuphold(negedge C, D, 56, 0);
@@ -308,6 +335,7 @@ module sdffnsre(
 				$setuphold(negedge C, S, 0, 0);
 				$setuphold(negedge C, E, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -332,6 +360,7 @@ module latchsre (
 					Q <= D;
 			end
 
+		`ifdef TIMING
 		specify
 			(posedge G => (Q +: D)) = 0;
 			$setuphold(posedge G, D, 0, 0);
@@ -339,6 +368,7 @@ module latchsre (
 			$setuphold(posedge G, R, 0, 0);
 			$setuphold(posedge G, S, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule
 
@@ -363,6 +393,7 @@ module latchnsre (
 					Q <= D;
 			end
 
+		`ifdef TIMING
 		specify
 			(negedge G => (Q +: D)) = 0;
 			$setuphold(negedge G, D, 0, 0);
@@ -370,5 +401,6 @@ module latchnsre (
 			$setuphold(negedge G, R, 0, 0);
 			$setuphold(negedge G, S, 0, 0);
 		endspecify
+		`endif // TIMING
 
 endmodule

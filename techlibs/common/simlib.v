@@ -1875,6 +1875,10 @@ input [DST_WIDTH-1:0] DST;
 localparam SD = SRC_DST_PEN ? (SRC_DST_POL ? 1 : 2) : 0;
 
 `ifdef SIMLIB_SPECIFY
+`define TIMING
+`endif // SIMLIB_SPECIFY
+
+`ifdef TIMING
 specify
 	if (EN && SD==0 && !FULL) (SRC  => DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 	if (EN && SD==0 &&  FULL) (SRC  *> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
@@ -1883,7 +1887,7 @@ specify
 	if (EN && SD==2 && !FULL) (SRC -=> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 	if (EN && SD==2 &&  FULL) (SRC -*> DST) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 endspecify
-`endif
+`endif // TIMING
 
 endmodule
 
@@ -1921,7 +1925,7 @@ localparam ED = EDGE_EN     ? (EDGE_POL    ? 1 : 2) : 0;
 localparam SD = SRC_DST_PEN ? (SRC_DST_POL ? 1 : 2) : 0;
 localparam DD = DAT_DST_PEN ? (DAT_DST_POL ? 1 : 2) : 0;
 
-`ifdef SIMLIB_SPECIFY
+`ifdef TIMING
 specify
 	// DD=0
 
@@ -1992,7 +1996,7 @@ specify
 	if (EN && DD==2 && SD==2 && ED==2 && !FULL) (negedge SRC -=> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 	if (EN && DD==2 && SD==2 && ED==2 &&  FULL) (negedge SRC -*> (DST -: DAT)) = (T_RISE_MIN:T_RISE_TYP:T_RISE_MAX, T_FALL_MIN:T_FALL_TYP:T_FALL_MAX);
 endspecify
-`endif
+`endif // TIMING
 
 endmodule
 
@@ -2018,11 +2022,11 @@ input SRC_EN, DST_EN;
 input [SRC_WIDTH-1:0] SRC;
 input [DST_WIDTH-1:0] DST;
 
-`ifdef SIMLIB_SPECIFY
+`ifdef TIMING
 specify
 	// TBD
 endspecify
-`endif
+`endif // TIMING
 
 endmodule
 
@@ -2192,7 +2196,7 @@ parameter WIDTH = 0;
 input [WIDTH-1:0] D;
 output reg [WIDTH-1:0] Q;
 
-initial Q <= 'bx;
+initial Q = 'bx;
 
 always @(`SIMLIB_GLOBAL_CLOCK) begin
 	Q <= D;

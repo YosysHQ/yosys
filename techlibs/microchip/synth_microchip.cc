@@ -260,7 +260,7 @@ struct SynthMicrochipPass : public ScriptPass {
 
 		if (check_label("begin")) {
 			std::string read_args;
-			read_args += " -lib -specify +/microchip/cells_sim.v";
+			read_args += " -lib -specify -DTIMING=1 +/microchip/cells_sim.v";
 			run("read_verilog" + read_args);
 
 			run(stringf("hierarchy -check %s", top_opt));

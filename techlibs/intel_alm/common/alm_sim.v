@@ -83,6 +83,7 @@ module MISTRAL_ALUT6(input A, B, C, D, E, F, output Q);
 parameter [63:0] LUT = 64'h0000_0000_0000_0000;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 605;
     (B => Q) = 583;
@@ -91,6 +92,7 @@ specify
     (E => Q) = 400;
     (F => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = LUT >> {F, E, D, C, B, A};
@@ -104,6 +106,7 @@ module MISTRAL_ALUT5(input A, B, C, D, E, output Q);
 parameter [31:0] LUT = 32'h0000_0000;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 583;
     (B => Q) = 510;
@@ -111,6 +114,7 @@ specify
     (D => Q) = 400;
     (E => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = LUT >> {E, D, C, B, A};
@@ -124,12 +128,14 @@ module MISTRAL_ALUT4(input A, B, C, D, output Q);
 parameter [15:0] LUT = 16'h0000;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 510;
     (B => Q) = 512;
     (C => Q) = 400;
     (D => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = LUT >> {D, C, B, A};
@@ -143,11 +149,13 @@ module MISTRAL_ALUT3(input A, B, C, output Q);
 parameter [7:0] LUT = 8'h00;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 510;
     (B => Q) = 400;
     (C => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = LUT >> {C, B, A};
@@ -161,10 +169,12 @@ module MISTRAL_ALUT2(input A, B, output Q);
 parameter [3:0] LUT = 4'h0;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 400;
     (B => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = LUT >> {B, A};
@@ -176,9 +186,11 @@ endmodule
 module MISTRAL_NOT(input A, output Q);
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A => Q) = 97;
 endspecify
+`endif // TIMING
 `endif
 
 assign Q = ~A;
@@ -192,6 +204,7 @@ parameter LUT0 = 16'h0000;
 parameter LUT1 = 16'h0000;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     (A  => SO) = 1342;
     (B  => SO) = 1323;
@@ -207,6 +220,7 @@ specify
     (D1 => CO) = 1198;
     (CI => CO) = 36; // Divided by 2 to account for there being two ALUT_ARITHs in an ALM)
 endspecify
+`endif // TIMING
 `endif
 
 wire q0, q1;

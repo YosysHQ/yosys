@@ -348,7 +348,7 @@ struct Abc9Pass : public ScriptPass
 		}
 
 		if (check_label("pre")) {
-			run("read_verilog -icells -lib -specify +/abc9_model.v");
+			run("read_verilog -icells -lib -specify -DTIMING=1 +/abc9_model.v");
 			if (help_mode)
 				run("abc9_ops -break_scc -prep_delays -prep_xaiger [-dff]", "(option for -dff)");
 			else

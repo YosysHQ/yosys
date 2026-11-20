@@ -3,9 +3,11 @@ module inpad (
   (* iopad_external_pin *)
   input P
 );
+  `ifdef TIMING
   specify
     (P => Q) = 0;
   endspecify
+  `endif // TIMING
   assign Q = P;
 endmodule
 
@@ -14,9 +16,11 @@ module outpad (
   output P,
   input A
 );
+  `ifdef TIMING
   specify
     (A => P) = 0;
   endspecify
+  `endif // TIMING
   assign P = A;
 endmodule
 
@@ -25,9 +29,11 @@ module ckpad (
   (* iopad_external_pin *)
   input P
 );
+  `ifdef TIMING
   specify
     (P => Q) = 0;
   endspecify
+  `endif // TIMING
   assign Q = P;
 endmodule
 
@@ -147,6 +153,7 @@ module dffepc (
 );
   parameter [0:0] INIT = 1'b0;
 
+  `ifdef TIMING
   specify
     if (EN) (posedge CLK => (Q : D)) = 1701; // QCK -> QZ
     if (CLR) (CLR => Q) = 967; // QRT -> QZ
@@ -154,6 +161,7 @@ module dffepc (
     $setup(D, posedge CLK, 216); // QCK -> QDS
     $setup(EN, posedge CLK, 590); // QCK -> QEN
   endspecify
+  `endif // TIMING
 
   initial Q = INIT;
   always @(posedge CLK or posedge CLR or posedge PRE)
@@ -168,10 +176,12 @@ module AND2I0 (
   output Q,
   input A, B
 );
+  `ifdef TIMING
   specify
     (A => Q) = 698; // FS -> FZ
     (B => Q) = 639; // F2 -> FZ
   endspecify
+  `endif // TIMING
 
   assign Q = A ? B : 0;
 endmodule
@@ -181,11 +191,13 @@ module mux2x0 (
   output Q,
   input S, A, B
 );
+  `ifdef TIMING
   specify
     (S => Q) = 698; // FS -> FZ
     (A => Q) = 639; // F1 -> FZ
     (B => Q) = 639; // F2 -> FZ
   endspecify
+  `endif // TIMING
 
   assign Q = S ? B : A;
 endmodule
@@ -195,11 +207,13 @@ module mux2x1 (
   output Q,
   input S, A, B
 );
+  `ifdef TIMING
   specify
     (S => Q) = 698; // FS -> FZ
     (A => Q) = 639; // F1 -> FZ
     (B => Q) = 639; // F2 -> FZ
   endspecify
+  `endif // TIMING
 
   assign Q = S ? B : A;
 endmodule
@@ -209,6 +223,7 @@ module mux4x0 (
   output Q,
   input S0, S1, A, B, C, D
 );
+  `ifdef TIMING
   specify
     (S0 => Q) = 1251; // TAB -> TZ
     (S1 => Q) = 1406; // TSL -> TZ
@@ -217,6 +232,7 @@ module mux4x0 (
     (C => Q) = 1669;  // TB1 -> TZ
     (D => Q) = 1679;  // TB2 -> TZ
   endspecify
+  `endif // TIMING
 
   assign Q = S1 ? (S0 ? D : C) : (S0 ? B : A);
 endmodule
@@ -238,6 +254,7 @@ module mux8x0 (
   output Q,
   input S0, S1, S2, A, B, C, D, E, F, G, H
 );
+  `ifdef TIMING
   specify
     (S0 => Q) = 1593; // ('TSL', 'BSL') -> CZ
     (S1 => Q) = 1437; // ('TAB', 'BAB') -> CZ
@@ -251,6 +268,7 @@ module mux8x0 (
     (G => Q) = 1749; // BB1 -> CZ
     (H => Q) = 1723; // BB2 -> CZ
   endspecify
+  `endif // TIMING
 
   assign Q = S2 ? (S1 ? (S0 ? H : G) : (S0 ? F : E)) : (S1 ? (S0 ? D : C) : (S0 ? B : A));
 endmodule
@@ -337,9 +355,11 @@ module LUT1 (
   parameter EQN = "(I0)";
 
   // These timings are for PolarPro 3E; other families will need updating.
+  `ifdef TIMING
   specify
     (I0 => O) = 698; // FS -> FZ
   endspecify
+  `endif // TIMING
 
   assign O = I0 ? INIT[1] : INIT[0];
 endmodule
@@ -354,10 +374,12 @@ module LUT2 (
   parameter EQN = "(I0)";
 
   // These timings are for PolarPro 3E; other families will need updating.
+  `ifdef TIMING
   specify
     (I0 => O) = 1251; // TAB -> TZ
     (I1 => O) = 1406; // TSL -> TZ
   endspecify
+  `endif // TIMING
 
   wire [1:0] s1 = I1 ? INIT[3:2] : INIT[1:0];
   assign O = I0 ? s1[1] : s1[0];
@@ -372,11 +394,13 @@ module LUT3 (
   parameter EQN = "(I0)";
 
   // These timings are for PolarPro 3E; other families will need updating.
+  `ifdef TIMING
   specify
     (I0 => O) = 1251; // TAB -> TZ
     (I1 => O) = 1406; // TSL -> TZ
     (I2 => O) = 1699; // ('TA1', 'TA2', 'TB1', 'TB2') -> TZ
   endspecify
+  `endif // TIMING
 
   wire [3:0] s2 = I2 ? INIT[7:4] : INIT[3:0];
   wire [1:0] s1 = I1 ? s2[3:2] : s2[1:0];
@@ -392,12 +416,14 @@ module LUT4 (
   parameter EQN = "(I0)";
 
   // These timings are for PolarPro 3E; other families will need updating.
+  `ifdef TIMING
   specify
     (I0 => O) = 995;  // TBS -> CZ
     (I1 => O) = 1437; // ('TAB', 'BAB') -> CZ
     (I2 => O) = 1593; // ('TSL', 'BSL') -> CZ
     (I3 => O) = 1887; // ('TA1', 'TA2', 'TB1', 'TB2', 'BA1', 'BA2', 'BB1', 'BB2') -> CZ
   endspecify
+  `endif // TIMING
 
   wire [7:0] s3 = I3 ? INIT[15:8] : INIT[7:0];
   wire [3:0] s2 = I2 ? s3[7:4] : s3[3:0];
