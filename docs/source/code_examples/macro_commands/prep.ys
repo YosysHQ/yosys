@@ -5,7 +5,7 @@ begin:
     optbarriers    (if -barriers)
     proc [-ifx]
 
-formal:
+formal:    (if -formal)
     setundef -undriven -anyseq
     memory_nordff
     async2sync    (if -formal without multiclock)
