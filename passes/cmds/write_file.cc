@@ -50,7 +50,7 @@ struct WriteFileFrontend : public Frontend {
 		log("    EOT\n");
 		log("\n");
 	}
-	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design*) override
+	void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) override
 	{
 		bool append_mode = false;
 		std::string output_filename;
@@ -70,7 +70,7 @@ struct WriteFileFrontend : public Frontend {
 		else
 			log_cmd_error("Missing output filename.\n");
 
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		FILE *of = fopen(output_filename.c_str(), append_mode ? "a" : "w");
 		yosys_output_files.insert(output_filename);

@@ -345,7 +345,7 @@ struct VlogHammerReporter
 				invert_pattern = true;
 				pattern = pattern.substr(1);
 			}
-			if (!RTLIL::SigSpec::parse(sig, NULL, pattern) || !sig.is_fully_const())
+			if (!RTLIL::SigSpec::parse(sig, NULL, pattern, design) || !sig.is_fully_const())
 				log_error("Failed to parse pattern %s!\n", pattern);
 			if (sig.size() < total_input_width)
 				log_error("Pattern %s is to short!\n", pattern);

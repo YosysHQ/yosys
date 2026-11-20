@@ -32,13 +32,13 @@ struct setunset_t
 
 	setunset_t(std::string unset_name) : name(RTLIL::escape_id(unset_name)), value(), unset(true) { }
 
-	setunset_t(std::string set_name, std::string set_value) : name(RTLIL::escape_id(set_name)), value(), unset(false)
+	setunset_t(std::string set_name, std::string set_value, const RTLIL::Design *design) : name(RTLIL::escape_id(set_name)), value(), unset(false)
 	{
 		if (set_value.compare(0, 1, "\"") == 0 && set_value.compare(GetSize(set_value)-1, std::string::npos, "\"") == 0) {
 			value = RTLIL::Const(set_value.substr(1, GetSize(set_value)-2));
 		} else {
 			RTLIL::SigSpec sig_value;
-			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value))
+			if (!RTLIL::SigSpec::parse(sig_value, nullptr, set_value, design))
 				log_cmd_error("Can't decode value '%s'!\n", set_value);
 			value = sig_value.as_const();
 			value.tag_bare_integer_const(set_value);
@@ -84,7 +84,7 @@ struct SetattrPass : public Pass {
 			if (arg == "-set" && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, design));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -170,7 +170,7 @@ struct SetparamPass : public Pass {
 			if (arg == "-set" && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, design));
 				continue;
 			}
 			if (arg == "-unset" && argidx+1 < args.size()) {
@@ -226,7 +226,7 @@ struct ChparamPass : public Pass {
 			if (arg == "-set" && argidx+2 < args.size()) {
 				string set_key = args[++argidx];
 				string set_val = args[++argidx];
-				setunset_list.push_back(setunset_t(set_key, set_val));
+				setunset_list.push_back(setunset_t(set_key, set_val, design));
 				continue;
 			}
 			if (arg == "-list") {

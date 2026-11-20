@@ -32,6 +32,7 @@
 #include "kernel/yosys.h"
 #include "frontends/ast/ast.h"
 
+#include <optional>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -39,11 +40,19 @@ YOSYS_NAMESPACE_BEGIN
 
 namespace VERILOG_FRONTEND
 {
+	struct VerilogDefaultsFreeze {
+		VerilogDefaultsFreeze();
+		~VerilogDefaultsFreeze();
+		VerilogDefaultsFreeze(const VerilogDefaultsFreeze &) = delete;
+		VerilogDefaultsFreeze &operator=(const VerilogDefaultsFreeze &) = delete;
+	};
+
 	/* Ephemeral context class */
 	struct ConstParser {
 		AST::AstSrcLocType loc;
 		// original constant text, used in diagnostics when loc has no source file
 		std::string code_str = {};
+		const RTLIL::Design *design = nullptr;
 	private:
 		void log_maybe_loc_error(std::string msg);
 		void log_maybe_loc_warn(std::string msg);
@@ -54,6 +63,13 @@ namespace VERILOG_FRONTEND
 		// parse a binary, decimal, hexadecimal or octal number with support for special bits ('x', 'z' and '?')
 		void my_strtobin(std::vector<RTLIL::State> &data, const char *str, int len_in_bits, int base, char case_type, bool is_unsized);
 	public:
+		struct Parsed {
+			std::vector<RTLIL::State> bits;
+			bool is_signed;
+			bool is_unsized;
+			bool is_string;
+		};
+		std::optional<Parsed> parse(std::string code, char case_type = 0);
 		// convert the Verilog code for a constant to an AST node
 		std::unique_ptr<AST::AstNode> const2ast(std::string code, char case_type = 0, bool warn_z = false);
 

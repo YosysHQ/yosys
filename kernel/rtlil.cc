@@ -812,6 +812,8 @@ size_t RTLIL::Design::gc_twines()
 	for (auto &sel : selection_stack)
 		root_selection(sel);
 
+	AST::attr_name_roots(this, root);
+
 	size_t erased = twines_.gc(live);
 
 	int64_t time_ns = PerformanceTimer::query() - start;
@@ -1012,7 +1014,7 @@ void RTLIL::Selection::clear()
 }
 
 RTLIL::Design::Design()
-  : verilog_defines (new define_map_t)
+  : verilog_defines (new define_map_t), frontend_context (new FrontendContext)
 {
 	refcount_modules_ = 0;
 	selected_active_module.clear();
@@ -5683,7 +5685,7 @@ static RTLIL::Wire *sigspec_parse_wire(RTLIL::Module *module, const std::string 
 	return module->wire(netname);
 }
 
-bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str)
+bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str, const RTLIL::Design *design)
 {
 	std::vector<std::string> tokens;
 	sigspec_parse_split(tokens, str, ',');
@@ -5699,10 +5701,11 @@ bool RTLIL::SigSpec::parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::stri
 
 		if (('0' <= netname[0] && netname[0] <= '9') || netname[0] == '\'') {
 			VERILOG_FRONTEND::ConstParser p{Location()};
-			auto ast = p.const2ast(netname);
-			if (ast == nullptr)
+			p.design = design ? design : module ? module->design : nullptr;
+			auto parsed = p.parse(netname);
+			if (!parsed)
 				return false;
-			sig.append(RTLIL::Const(ast->bits));
+			sig.append(RTLIL::Const(parsed->bits));
 			continue;
 		}
 

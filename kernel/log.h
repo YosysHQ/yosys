@@ -23,6 +23,8 @@
 #include "kernel/yosys_common.h"
 
 #include <time.h>
+#include <atomic>
+#include <mutex>
 
 #define YS_REGEX_COMPILE(param) std::regex(param, \
 				std::regex_constants::nosubs | \
@@ -211,6 +213,7 @@ public:
 	{
 		auto sink = std::make_unique<T>(std::forward<Args>(args)...);
 		T &ref = *sink;
+		std::lock_guard<std::recursive_mutex> lock(mutex);
 		sinks.push_back(std::move(sink));
 		return ref;
 	}
@@ -218,23 +221,26 @@ public:
 	template<typename F>
 	void for_each_sink(F &&func)
 	{
+		std::lock_guard<std::recursive_mutex> lock(mutex);
 		for (auto &sink : sinks)
 			func(*sink);
 	}
 
-	bool empty() { return sinks.empty(); }
-	void clear() { sinks.clear(); }
+	bool empty() { std::lock_guard<std::recursive_mutex> lock(mutex); return sinks.empty(); }
+	void clear() { std::lock_guard<std::recursive_mutex> lock(mutex); sinks.clear(); }
 	void clear_original();
-	void flush() { for (auto &sink : sinks) sink->flush(); }
+	void flush() { std::lock_guard<std::recursive_mutex> lock(mutex); for (auto &sink : sinks) sink->flush(); }
 
 	class Scoped
 	{
 	public:
 		explicit Scoped(LogManager &manager) :
-			manager(manager),
-			backup_sinks(std::move(manager.sinks)),
-			backup_verbose_level(manager.verbose_level)
+			manager(manager)
 		{
+			std::lock_guard<std::recursive_mutex> lock(manager.mutex);
+			backup_sinks = std::move(manager.sinks);
+			backup_verbose_level = manager.verbose_level;
+			manager.sinks.clear();
 			manager.sinks.reserve(backup_sinks.size());
 
 			for (const auto &sink : backup_sinks)
@@ -243,6 +249,7 @@ public:
 
 		~Scoped()
 		{
+			std::lock_guard<std::recursive_mutex> lock(manager.mutex);
 			manager.sinks.clear();
 			manager.sinks = std::move(backup_sinks);
 			manager.verbose_level = backup_verbose_level;
@@ -410,6 +417,7 @@ public:
 	void suppressed();
 	void add_experimental(const std::string &str);
 	void add_deprecated(const std::string &feature, const std::string &earliest_removal);
+	bool first_use(const std::string &key) { std::lock_guard<std::recursive_mutex> lock(mutex); return once.insert(key).second; }
 	void spacer();
 	void push();
 	void pop();
@@ -438,7 +446,7 @@ private:
 	int errors_count = 0;
 	int warnings_count = 0;
 	int warnings_count_noexpect = 0;
-	std::set<std::string> warnings, experimental, experimental_ignored;
+	std::set<std::string> warnings, experimental, experimental_ignored, once;
 	std::map<std::string, std::string> deprecated;
 
 	std::unique_ptr<Patterns> pat;
@@ -448,10 +456,11 @@ private:
 	std::map<std::string, std::set<std::string>> hdump;
 	bool hdump_all = false;
 
-	int debug_suppressed = 0;
-	int make_debug = 0;
-	int force_debug = 0;
+	std::atomic<int> debug_suppressed = 0;
+	std::atomic<int> make_debug = 0;
+	std::atomic<int> force_debug = 0;
 	std::unique_ptr<SHA1> hasher;
+	std::recursive_mutex mutex;
 };
 
 LogManager &logger();
@@ -515,6 +524,13 @@ template <typename... Args>
 inline void log_warning_noprefix(FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
 {
 	logger().formatted_warning(LogSourceLocation{}, {}, fmt.format_string(), fmt.format(args...));
+}
+
+template <typename... Args>
+inline void log_warning_once(const std::string &key, FmtString<TypeIdentity<Args>...> fmt, const Args &... args)
+{
+	if (logger().first_use(key))
+		log_warning(fmt, args...);
 }
 
 inline void log_experimental(const std::string &str)

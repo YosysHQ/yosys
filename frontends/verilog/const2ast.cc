@@ -48,8 +48,8 @@ using namespace VERILOG_FRONTEND;
 void ConstParser::log_maybe_loc_error(std::string msg) {
 	if (loc.begin.filename)
 		log_file_error(loc.to_loc(), "%s\n", msg);
-	else if (!Frontend::current_script_filename.empty())
-		log_file_error(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
+	else if (design && !design->frontend_context->script_filename.empty())
+		log_file_error(LogSourceLocation(design->frontend_context->script_filename, design->frontend_context->script_lineno),
 			"Failed to parse constant `%s': %s\n", code_str, msg);
 	else
 		log_error("Failed to parse constant `%s': %s\n", code_str, msg);
@@ -58,8 +58,8 @@ void ConstParser::log_maybe_loc_error(std::string msg) {
 void ConstParser::log_maybe_loc_warn(std::string msg) {
 	if (loc.begin.filename)
 		log_file_warning(loc.to_loc(), "%s\n", msg);
-	else if (!Frontend::current_script_filename.empty())
-		log_file_warning(LogSourceLocation(Frontend::current_script_filename, Frontend::current_script_lineno),
+	else if (design && !design->frontend_context->script_filename.empty())
+		log_file_warning(LogSourceLocation(design->frontend_context->script_filename, design->frontend_context->script_lineno),
 			"While parsing constant `%s': %s\n", code_str, msg);
 	else
 		log_warning("While parsing constant `%s': %s\n", code_str, msg);
@@ -171,14 +171,20 @@ void ConstParser::my_strtobin(std::vector<RTLIL::State> &data, const char *str, 
 // convert the Verilog code for a constant to an AST node
 std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type, bool warn_z)
 {
-	code_str = code;
+	auto parsed = parse(code, case_type);
+	if (!parsed)
+		return nullptr;
+	if (warn_z && std::find(parsed->bits.begin(), parsed->bits.end(), RTLIL::State::Sz) != parsed->bits.end())
+		log_maybe_loc_warn("Yosys has only limited support for tri-state logic at the moment.");
+	auto ast = AstNode::mkconst_bits(loc, parsed->bits, parsed->is_signed, parsed->is_unsized);
+	if (parsed->is_string)
+		ast->str = code;
+	return ast;
+}
 
-	if (warn_z) {
-		auto ret = const2ast(code, case_type);
-		if (ret != nullptr && std::find(ret->bits.begin(), ret->bits.end(), RTLIL::State::Sz) != ret->bits.end())
-			log_maybe_loc_warn("Yosys has only limited support for tri-state logic at the moment.");
-		return ret;
-	}
+std::optional<ConstParser::Parsed> ConstParser::parse(std::string code, char case_type)
+{
+	code_str = code;
 
 	const char *str = code.c_str();
 
@@ -194,9 +200,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 				ch = ch >> 1;
 			}
 		}
-		auto ast = AstNode::mkconst_bits(loc, data, false);
-		ast->str = code;
-		return ast;
+		return Parsed{std::move(data), false, false, true};
 	}
 
 	for (size_t i = 0; i < code.size(); i++)
@@ -213,7 +217,7 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 		my_strtobin(data, str, -1, 10, case_type, false);
 		if (data.back() == State::S1)
 			data.push_back(State::S0);
-		return AstNode::mkconst_bits(loc, data, true);
+		return Parsed{std::move(data), true, false, false};
 	}
 
 	// unsized constant
@@ -254,17 +258,17 @@ std::unique_ptr<AstNode> ConstParser::const2ast(std::string code, char case_type
 				is_unsized = true;
 				my_strtobin(data, endptr+1, 1, 2, case_type, is_unsized);
 			} else {
-				return NULL;
+				return std::nullopt;
 			}
 		}
 		if (len_in_bits < 0) {
 			if (is_signed && data.back() == State::S1)
 				data.push_back(State::S0);
 		}
-		return AstNode::mkconst_bits(loc, data, is_signed, is_unsized);
+		return Parsed{std::move(data), is_signed, is_unsized, false};
 	}
 
-	return NULL;
+	return std::nullopt;
 }
 
 

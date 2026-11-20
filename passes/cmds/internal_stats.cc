@@ -23,7 +23,6 @@
 #include "kernel/celltypes.h"
 #include "passes/techmap/libparse.h"
 #include "kernel/cost.h"
-#include "frontends/ast/ast.h"
 #include "libs/json11/json11.hpp"
 
 #if defined(__APPLE__) && defined(__MACH__)
@@ -107,8 +106,6 @@ struct InternalStatsPass : public Pass {
 			if (auto mem = current_mem_bytes()) {
 				log("   \"memory_now\": %s,\n", std::to_string(*mem));
 			}
-			auto ast_bytes = AST::astnode_count() * (unsigned long long) sizeof(AST::AstNode);
-			log("   \"memory_ast\": %s,\n", std::to_string(ast_bytes));
 		}
 
 		// stats go here

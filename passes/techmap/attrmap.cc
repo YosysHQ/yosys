@@ -23,13 +23,13 @@
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-Const make_value(string &value)
+Const make_value(string &value, const RTLIL::Design *design)
 {
 	if (GetSize(value) >= 2 && value.front() == '"' && value.back() == '"')
 		return Const(value.substr(1, GetSize(value)-2));
 
 	SigSpec sig;
-	SigSpec::parse(sig, nullptr, value);
+	SigSpec::parse(sig, nullptr, value, design);
 	return sig.as_const();
 }
 
@@ -63,7 +63,7 @@ bool match_name(string &name, const string &id, bool ignore_case=false)
 	return str1 == str2;
 }
 
-bool match_value(string &value, Const &val, bool ignore_case=false)
+bool match_value(string &value, Const &val, const RTLIL::Design *design, bool ignore_case=false)
 {
 	if (ignore_case && ((val.flags & RTLIL::CONST_FLAG_STRING) != 0) && GetSize(value) && value.front() == '"' && value.back() == '"') {
 		string str1 = value.substr(1, GetSize(value)-2);
@@ -71,10 +71,11 @@ bool match_value(string &value, Const &val, bool ignore_case=false)
 		return string_compare_nocase(str1, str2);
 	}
 
-	return make_value(value) == val;
+	return make_value(value, design) == val;
 }
 
 struct AttrmapAction {
+	const RTLIL::Design *design = nullptr;
 	virtual ~AttrmapAction() { }
 	virtual bool apply(string &id, Const &val) = 0;
 };
@@ -102,9 +103,9 @@ struct AttrmapMap : AttrmapAction {
 	string old_name, new_name;
 	string old_value, new_value;
 	bool apply(string &id, Const &val) override {
-		if (match_name(old_name, id) && match_value(old_value, val, true)) {
+		if (match_name(old_name, id) && match_value(old_value, val, design, true)) {
 			id = RTLIL::escape_id(new_name);
-			val = make_value(new_value);
+			val = make_value(new_value, design);
 		}
 		return true;
 	}
@@ -114,7 +115,7 @@ struct AttrmapRemove : AttrmapAction {
 	bool has_value;
 	string name, value;
 	bool apply(string &id, Const &val) override {
-		return !(match_name(name, id) && (!has_value || match_value(value, val)));
+		return !(match_name(name, id) && (!has_value || match_value(value, val, design)));
 	}
 };
 
@@ -166,12 +167,13 @@ void log_attrmap_paramap_options()
 	log("        Remove attributes matching this pattern.\n");
 }
 
-bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &args, vector<std::unique_ptr<AttrmapAction>> &actions)
+bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &args, vector<std::unique_ptr<AttrmapAction>> &actions, const RTLIL::Design *design)
 {
 	std::string arg = args[argidx];
 	if (arg == "-tocase" && argidx+1 < args.size()) {
 		auto action = new AttrmapTocase;
 		action->name = args[++argidx];
+		action->design = design;
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
@@ -179,6 +181,7 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 		auto action = new AttrmapRename;
 		action->old_name = args[++argidx];
 		action->new_name = args[++argidx];
+		action->design = design;
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
@@ -202,6 +205,7 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 		action->new_name = arg2;
 		action->old_value = val1;
 		action->new_value = val2;
+		action->design = design;
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
@@ -216,6 +220,7 @@ bool parse_attrmap_paramap_options(size_t &argidx, std::vector<std::string> &arg
 		action->name = arg1;
 		action->has_value = (p != string::npos);
 		action->value = val1;
+		action->design = design;
 		actions.push_back(std::unique_ptr<AttrmapAction>(action));
 		return true;
 	}
@@ -254,7 +259,7 @@ struct AttrmapPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (parse_attrmap_paramap_options(argidx, args, actions))
+			if (parse_attrmap_paramap_options(argidx, args, actions, design))
 				continue;
 			if (args[argidx] == "-modattr") {
 				modattr_mode = true;
@@ -323,7 +328,7 @@ struct ParamapPass : public Pass {
 		size_t argidx;
 		for (argidx = 1; argidx < args.size(); argidx++)
 		{
-			if (parse_attrmap_paramap_options(argidx, args, actions))
+			if (parse_attrmap_paramap_options(argidx, args, actions, design))
 				continue;
 			break;
 		}

@@ -973,7 +973,7 @@ struct AigerFrontend : public Frontend {
 			}
 			break;
 		}
-		extra_args(f, filename, args, argidx, true);
+		extra_args(f, filename, args, argidx, design, true);
 
 		if (module_name.empty()) {
 #ifdef _WIN32

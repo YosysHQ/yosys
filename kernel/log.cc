@@ -253,7 +253,8 @@ void LogManager::logv_string(LogSeverity severity, LogSourceLocation src, std::s
 
 void LogManager::formatted_string(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string str)
 {
-	log_assert(!Multithreading::active());
+	std::lock_guard<std::recursive_mutex> lock(mutex);
+	log_assert(sinks.empty() || !Multithreading::active());
 
 	if (make_debug && !is_debug(1))
 		return;
@@ -262,7 +263,8 @@ void LogManager::formatted_string(LogSeverity severity, LogSourceLocation src, s
 
 void LogManager::formatted_header(RTLIL::Design *design, std::string_view format, std::string str)
 {
-	log_assert(!Multithreading::active());
+	std::lock_guard<std::recursive_mutex> lock(mutex);
+	log_assert(sinks.empty() || !Multithreading::active());
 
 	spacer();
 	if (header_count.size() > 0)
@@ -293,7 +295,8 @@ void LogManager::formatted_header(RTLIL::Design *design, std::string_view format
 
 void LogManager::formatted_warning(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
-	log_assert(!Multithreading::active());
+	std::lock_guard<std::recursive_mutex> lock(mutex);
+	log_assert(sinks.empty() || !Multithreading::active());
 
 	bool suppressed = false;
 
@@ -349,15 +352,17 @@ void LogManager::formatted_warning(LogSourceLocation src, std::string_view prefi
 }
 
 void LogManager::suppressed() {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	if (debug_suppressed && !make_debug) {
 		constexpr const char* format = "<suppressed ~%d debug messages>\n";
-		logv_string(LogSeverity::Info, LogSourceLocation{}, {}, format, stringf(format, debug_suppressed));
+		logv_string(LogSeverity::Info, LogSourceLocation{}, {}, format, stringf(format, debug_suppressed.load()));
 		debug_suppressed = 0;
 	}
 }
 
 void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	int bak_make_debug = make_debug;
 	make_debug = 0;
 	if (severity == LogSeverity::Error)
@@ -410,6 +415,7 @@ void LogManager::formatted_nonfatal_error(LogSourceLocation src, std::string_vie
 
 void LogManager::add_experimental(const std::string &str)
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	if (experimental_ignored.count(str) == 0 && experimental.count(str) == 0) {
 		log_warning("Feature '%s' is experimental.\n", str);
 		experimental.insert(str);
@@ -418,6 +424,7 @@ void LogManager::add_experimental(const std::string &str)
 
 void LogManager::add_deprecated(const std::string &feature, const std::string &earliest_removal)
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	if (deprecated.count(feature) == 0) {
 		if (earliest_removal.empty())
 			log_warning("Feature '%s' is deprecated.\n", feature);
@@ -445,6 +452,7 @@ void log_yosys_abort_message(std::string_view file, int line, std::string_view f
 void LogManager::formatted_cmd_error(std::string_view format, std::string message)
 {
 	if (cmd_error_throw) {
+		std::lock_guard<std::recursive_mutex> lock(mutex);
 		formatted_string(LogSeverity::Error, LogSourceLocation{}, "ERROR: ", format, message);
 		flush();
 
@@ -456,22 +464,26 @@ void LogManager::formatted_cmd_error(std::string_view format, std::string messag
 
 void LogManager::spacer()
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	if (newline_count < 2) log("\n");
 	if (newline_count < 2) log("\n");
 }
 
 void LogManager::clear_original()
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	std::erase_if(sinks, [](const auto &sink) { return dynamic_cast<LogSinkRef *>(sink.get()) != nullptr; });
 }
 
 void LogManager::push()
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	header_count.push_back(0);
 }
 
 void LogManager::pop()
 {
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	header_count.pop_back();
 	flush();
 }
@@ -617,6 +629,7 @@ std::string log_const(const RTLIL::Const &value, bool autoint)
 void LogManager::log_lines(std::string_view text, LogSeverity severity)
 {
 	log_assert(severity == LogSeverity::Debug || severity == LogSeverity::Comment || severity == LogSeverity::Info);
+	std::lock_guard<std::recursive_mutex> lock(mutex);
 	while (!text.empty()) {
 		size_t pos = text.find('\n');
 		std::string_view line = text.substr(0, pos);
