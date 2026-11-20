@@ -137,6 +137,9 @@ global_denylist = frozenset(
 		# owning containers
 		"saved_designs",
 		"pushed_designs",
+		"frontend_register",
+		"backend_register",
+		"target_register"
 	}
 )
 name_lookup_methods = frozenset(
