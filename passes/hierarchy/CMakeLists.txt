@@ -7,6 +7,7 @@ yosys_pass(hierarchy
 	util/generate.cc
 	util/interfaces.cc
 	util/misc.cc
+	util/ports.cc
 	util/positionals.cc
 	util/top.cc
 	util/verilog.cc
