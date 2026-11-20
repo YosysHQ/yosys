@@ -66,6 +66,7 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 		ABC_USE_STDINT_H=1
 		ABC_USE_CUDD=1
 		ABC_NO_HISTORY=1
+		ABC_STDIO_REDIRECT=1
 		ABC_NO_DYNAMIC_LINKING
 		$<${YOSYS_ENABLE_THREADS}:ABC_USE_PTHREADS>
 		$<${YOSYS_ENABLE_READLINE}:ABC_USE_READLINE>
@@ -77,6 +78,8 @@ function(yosys_abc_target arg_LIBNAME arg_EXENAME)
 	target_compile_options(${arg_LIBNAME} PRIVATE
 		$<$<CXX_COMPILER_ID:MSVC>:/wd4576>
 		$<$<CXX_COMPILER_ID:MSVC>:/Zc:strictStrings->
+        $<$<CXX_COMPILER_ID:MSVC>:/FI misc/util/abc_stdio.h>
+        $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-include misc/util/abc_stdio.h>
 	)
 
 	target_safe_compile_options(${arg_LIBNAME} PRIVATE
