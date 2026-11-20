@@ -1,0 +1,52 @@
+# Same init bug as xilinx_dsp: a 1 outside the absorbed slice must not
+# abort microchip_dsp, and the register keeps its init. Full
+# synth_microchip still rejects an initialized fabric FF in dfflegalize,
+# so this stops once the DSP is packed.
+
+design -reset
+read_verilog <<EOT
+module outside(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
+  reg [15:0] r = 16'h0001;
+  always @(posedge clk) begin
+    r <= r + 1;
+    p <= $signed(r[15:8]) * x;
+  end
+endmodule
+EOT
+synth_microchip -family polarfire -top outside -run begin:coarse -noiopad
+select -assert-count 1 t:MACC_PA
+select -assert-count 1 w:r a:init=16'b0000000000000001 %i
+
+design -reset
+read_verilog <<EOT
+module creg(input clk, input signed [7:0] a, b, input [15:0] x, output [31:0] q);
+  reg [31:0] cr = 32'h1;
+  reg [31:0] pr = 0;
+  always @(posedge clk) begin
+    cr <= {x, x} + 1;
+    pr <= a * b + cr[31:16];
+  end
+  assign q = {pr[15:0], cr[15:0]};
+endmodule
+EOT
+synth_microchip -family polarfire -top creg -run begin:coarse -noiopad
+select -assert-count 1 t:MACC_PA
+select -assert-count 1 w:cr a:init=32'b00000000000000000000000000000001 %i
+
+# A pre-adder input from a shift register: the 1 in r[3] is on the D
+# side of the D register, outside the slice the matcher checked.
+design -reset
+read_verilog <<EOT
+module preadd(input clk, input in, input signed [3:0] d, input signed [4:0] b, output reg signed [9:0] p = 0);
+  reg [7:0] r = 8'h08;
+  always @(posedge clk) begin
+    r <= {r[6:0], in};
+    p <= (d + $signed(r[7:4])) * b;
+  end
+endmodule
+EOT
+synth_microchip -family polarfire -top preadd -run begin:coarse -noiopad
+select -assert-count 1 t:MACC_PA
+logger -expect log "connect .D .*r .6:3." 1
+dump t:MACC_PA
+select -assert-count 1 w:r a:init=8'b00001000 %i

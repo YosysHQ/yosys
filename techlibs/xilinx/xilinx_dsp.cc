@@ -287,10 +287,14 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		bool D_SIGNED = preAdder->getParam(ID::B_SIGNED).as_bool();
 		if (st.sigA == preAdder->getPort(ID::B))
 			std::swap(A_SIGNED, D_SIGNED);
-		st.sigA.extend_u0(30, A_SIGNED);
-		st.sigD.extend_u0(25, D_SIGNED);
-		cell->setPort(ID::A, st.sigA);
-		cell->setPort(ID::D, st.sigD);
+		// The pre-adder inputs, before the A and D registers: those are
+		// folded in below, as on the path without a pre-adder.
+		SigSpec A = pm.sigmap(preAdder->getPort(st.preAdd ? ID::A : ID::B));
+		SigSpec D = pm.sigmap(preAdder->getPort(st.preAdd ? ID::B : ID::A));
+		A.extend_u0(30, A_SIGNED);
+		D.extend_u0(25, D_SIGNED);
+		cell->setPort(ID::A, A);
+		cell->setPort(ID::D, D);
 		if (preAdder->type == ID($add))
 			cell->setPort(ID(INMODE), Const::from_string("00100"));
 		else
@@ -391,16 +395,6 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 			}
 			else
 				cell->setPort(ceport, State::S1);
-
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
 		};
 
 		if (st.ffA2) {
@@ -443,12 +437,28 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		if (st.ffM) {
 			SigSpec M; // unused
 			f(M, st.ffM, ID(CEM), ID(RSTM));
+			// The DSP drives these bits now and powers up as 0. Input
+			// registers keep their init: their FF stays in the fabric.
+			for (auto bit : st.sigM) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
 			f(P, st.ffP, ID(CEP), ID(RSTP));
+			for (auto bit : st.sigP) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
 		}
@@ -514,10 +524,14 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		log("  preadder %s (%s)\n", st.preAdd, st.preAdd->type.unescape());
 		bool D_SIGNED = st.preAdd->getParam(ID::A_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdd->getParam(ID::B_SIGNED).as_bool();
-		st.sigB.extend_u0(18, B_SIGNED);
-		st.sigD.extend_u0(18, D_SIGNED);
-		cell->setPort(ID::B, st.sigB);
-		cell->setPort(ID::D, st.sigD);
+		// The pre-adder inputs, before the B0 and D registers: those are
+		// folded in below, as on the path without a pre-adder.
+		SigSpec B = pm.sigmap(st.preAdd->getPort(ID::B));
+		SigSpec D = pm.sigmap(st.preAdd->getPort(ID::A));
+		B.extend_u0(18, B_SIGNED);
+		D.extend_u0(18, D_SIGNED);
+		cell->setPort(ID::B, B);
+		cell->setPort(ID::D, D);
 		opmode[4] = State::S1;
 		if (st.preAdd->type == ID($add))
 			opmode[6] = State::S0;
@@ -578,16 +592,6 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 			}
 			else
 				cell->setPort(ceport, State::S1);
-
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
 		};
 
 		if (st.ffA0 || st.ffA1) {
@@ -626,12 +630,28 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		if (st.ffM) {
 			SigSpec M; // unused
 			f(M, st.ffM, ID(CEM), ID(RSTM));
+			// The DSP drives these bits now and powers up as 0. Input
+			// registers keep their init: their FF stays in the fabric.
+			for (auto bit : st.sigM) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffM->connections_.at(ID::Q).replace(st.sigM, pm.module->addWire(NEW_ID, GetSize(st.sigM)));
 			cell->setParam(ID(MREG), State::S1);
 		}
 		if (st.ffP) {
 			SigSpec P; // unused
 			f(P, st.ffP, ID(CEP), ID(RSTP));
+			for (auto bit : st.sigP) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 			cell->setParam(ID(PREG), State::S1);
 		}
@@ -702,16 +722,6 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 			}
 			else
 				cell->setPort(ceport, State::S1);
-
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset+c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
 		};
 
 		if (st.ffC) {

@@ -40,13 +40,17 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		log("  static PASUB preadder %s (%s)\n", st.preAdderStatic, st.preAdderStatic->type.unescape());
 		bool D_SIGNED = st.preAdderStatic->getParam(ID::B_SIGNED).as_bool();
 		bool B_SIGNED = st.preAdderStatic->getParam(ID::A_SIGNED).as_bool();
-		st.sigB.extend_u0(18, B_SIGNED);
-		st.sigD.extend_u0(18, D_SIGNED);
+		// The pre-adder inputs, before the A, B and D registers: those are
+		// folded in below, as on the path without a pre-adder.
+		SigSpec B = pm.sigmap(st.preAdderStatic->getPort(ID::A));
+		SigSpec D = pm.sigmap(st.preAdderStatic->getPort(ID::B));
+		B.extend_u0(18, B_SIGNED);
+		D.extend_u0(18, D_SIGNED);
 		if (st.moveBtoA) {
-			cell->setPort(ID::A, st.sigA); // if pre-adder feeds into A, original sigB will be moved to port A
+			cell->setPort(ID::A, pm.sigmap(cell->getPort(ID::B))); // if pre-adder feeds into A, original B will be moved to port A
 		}
-		cell->setPort(ID::B, st.sigB);
-		cell->setPort(ID::D, st.sigD);
+		cell->setPort(ID::B, B);
+		cell->setPort(ID::D, D);
 		// MACC_PA supports both addition and subtraction with the pre-adder.
 		//   Affects the sign of the 'D' port.
 		if (st.preAdderStatic->type == ID($add))
@@ -121,16 +125,6 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
-
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset + c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
 		};
 
 		// NOTE: flops are not autoremoved because it is possible that they
@@ -165,6 +159,15 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 		if (st.ffP) {
 			SigSpec P; // unused
 			f(P, st.ffP, ID(P_EN), ID(P_SRST_N), ID(P_BYPASS));
+			// The DSP drives these bits now and powers up as 0. Input
+			// registers keep their init: their FF stays in the fabric.
+			for (auto bit : st.sigP) {
+				auto it = bit.wire->attributes.find(ID::init);
+				if (it == bit.wire->attributes.end())
+					continue;
+				log_assert(it->second[bit.offset] == State::S0 || it->second[bit.offset] == State::Sx);
+				it->second.set(bit.offset, State::Sx);
+			}
 			st.ffP->connections_.at(ID::Q).replace(st.sigP, pm.module->addWire(NEW_ID, GetSize(st.sigP)));
 		}
 
@@ -237,16 +240,6 @@ void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
 
 			// bypass set to 0
 			cell->setPort(bypass, State::S0);
-
-			for (auto c : Q.chunks()) {
-				auto it = c.wire->attributes.find(ID::init);
-				if (it == c.wire->attributes.end())
-					continue;
-				for (int i = c.offset; i < c.offset + c.width; i++) {
-					log_assert(it->second[i] == State::S0 || it->second[i] == State::Sx);
-					it->second.set(i, State::Sx);
-				}
-			}
 		};
 
 		if (st.ffC) {
