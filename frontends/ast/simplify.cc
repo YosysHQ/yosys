@@ -4076,6 +4076,9 @@ skip_dynamic_range_lvalue_expansion:;
 					if (!id_ast)
 						input_error("Failed to resolve identifier %s for width detection!\n", buf->str);
 
+					if (id_ast->type == AST_AUTOWIRE)
+						log_file_warning(location.to_loc(), "Identifier `%s' is implicitly declared.\n", buf->str);
+
 					if (id_ast->type == AST_WIRE || id_ast->type == AST_MEMORY) {
 						// Check for item in packed struct / union
 						AstNode *item_node = buf->get_struct_member();

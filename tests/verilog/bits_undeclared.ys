@@ -1,0 +1,35 @@
+logger -expect warning "Identifier `\\nosuch' is implicitly declared." 1
+read_verilog -sv <<EOT
+module top(output logic [7:0] w);
+    assign w = $bits(nosuch);
+endmodule
+EOT
+logger -check-expected
+design -reset
+
+logger -expect warning "Identifier `\\u\.x' is implicitly declared." 1
+read_verilog -sv <<EOT
+module sub(input logic [3:0] x);
+endmodule
+module top(input logic [3:0] d, output logic [7:0] w);
+    sub u(.x(d));
+    assign w = $bits(u.x);
+endmodule
+EOT
+logger -check-expected
+design -reset
+
+logger -expect warning "Identifier `\\n[1-8]' is implicitly declared." 8
+read_verilog -sv <<EOT
+module top(output logic [7:0] w1, w2, w3, w4, w5, w6, w7, w8);
+    assign w1 = $size(n1);
+    assign w2 = $left(n2);
+    assign w3 = $right(n3);
+    assign w4 = $high(n4);
+    assign w5 = $low(n5);
+    assign w6 = $increment(n6);
+    assign w7 = $dimensions(n7);
+    assign w8 = $unpacked_dimensions(n8);
+endmodule
+EOT
+logger -check-expected
