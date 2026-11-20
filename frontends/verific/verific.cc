@@ -829,6 +829,12 @@ std::ostream& operator<<(std::ostream& out, LogVerificDesignObj const& o) {
 	out << obj.Name();
 	if (depth == 0) return out;
 	auto log_rec = [&](Verific::DesignObj const * obj) { return LogVerificDesignObj { .obj = obj, .depth = depth > 0 ? depth - 1 : -1, }; };
+	auto log_port_inner = [](auto port) {
+		return (port->IsInput()) ? "in"
+			: port->IsOutput() ? "out"
+			: port->IsInout() ? "inout"
+			: "???";
+	};
 	auto maybe_comma = [&, first = false]() mutable {
 		if (!first) { out << ", "; };
 		first = false;
@@ -837,24 +843,12 @@ std::ostream& operator<<(std::ostream& out, LogVerificDesignObj const& o) {
 		out << "Inst: " << inst->Type();
 		out << "(";
 
-#define LOG_OUTPUT_INPUT_BITS(N) \
-		for (unsigned i = 0; i < inst->Input ## N ## Size(); i++) { \
-            maybe_comma(); \
-			out << "in" #N "[" << i << "]:" << log_rec(inst->GetInput ## N ## Bit(i));  \
-		} \
-
-#define LOG_OUTPUT_INPUT(N) \
-		if (inst->GetInput ## N ()) { \
-			maybe_comma();  \
-			out << "in" #N ":" << log_rec(inst->GetInput ## N());  \
+		for (unsigned i = 0; i < inst->NumOfPortRefs(); i++) {
+			maybe_comma();
+			auto p = inst->GetPortRefAt(i);
+			out << i << log_port_inner(p) << "(" << log_rec(p->GetNet()) << ")";
 		}
 
-		LOG_OUTPUT_INPUT(1) LOG_OUTPUT_INPUT_BITS(1)
-		LOG_OUTPUT_INPUT(2) LOG_OUTPUT_INPUT_BITS(2)
-		LOG_OUTPUT_INPUT(3)
-
-#undef OUTPUT_INPUT
-#undef OUTPUT_INPUT_BITS
 		out << ")";
 	} else if (auto net = dynamic_cast<Verific::Net const*>(&obj) ){
 		out << "Net(";
@@ -869,11 +863,7 @@ std::ostream& operator<<(std::ostream& out, LogVerificDesignObj const& o) {
 		}
 		out << ")";
 	} else if(auto port = dynamic_cast<Verific::Port const*>(&obj) ) {
-		out << "Port(";
-		if (port->IsInput()) out << "in";
-		if (port->IsOutput()) out << "out";
-		if (port->IsInout()) out << "inout";
-		out << ")";
+		out << "Port(" << log_port_inner(port) << ")";
 	} else {
 		out << "<unimplemented output operator>";
 	}
