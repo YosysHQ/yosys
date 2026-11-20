@@ -44,14 +44,9 @@ struct proc_dlatch_db_t
 	dict<SigBit, int> extra_readers;
 	bool all_processes_muxed = true;
 
-	// Per-query memoization for find_mux_feedback: the mux network is a DAG
-	// (a bit can be driven through many muxes whose inputs share deeper
-	// nodes), and the un-memoized recursion re-explores every shared subtree
-	// once per path, which is exponential in practice (a 16-entry TLB
-	// update_flush with ~950 muxes and nodes shared 16 ways never finishes).
-	// Valid only within one top-level (haystack, needle) query — cleared on
-	// entry.  Indexed by [set_undef], since the flag changes the walk.
-	dict<SigBit, int> feedback_memo[2];
+	// Results of the current find_mux_feedback/find_mux_constant query.  The
+	// mux network is a DAG, and re-walking shared subtrees is exponential.
+	dict<SigBit, int> feedback_memo;
 
 	proc_dlatch_db_t(Module *module) : module(module), sigmap(module)
 	{
@@ -271,8 +266,7 @@ struct proc_dlatch_db_t
 
 	int find_mux_feedback(SigBit haystack, SigBit needle, bool set_undef)
 	{
-		feedback_memo[0].clear();
-		feedback_memo[1].clear();
+		feedback_memo.clear();
 		return find_mux_feedback_rec(haystack, needle, set_undef);
 	}
 
@@ -284,8 +278,8 @@ struct proc_dlatch_db_t
 		if (haystack == needle)
 			return true_node;
 
-		auto memo_it = feedback_memo[set_undef].find(haystack);
-		if (memo_it != feedback_memo[set_undef].end())
+		auto memo_it = feedback_memo.find(haystack);
+		if (memo_it != feedback_memo.end())
 			return memo_it->second;
 
 		auto it = mux_drivers.find(haystack);
@@ -350,19 +344,18 @@ struct proc_dlatch_db_t
 		active_bits.erase(haystack);
 
 		if (children.empty()) {
-			feedback_memo[set_undef][haystack] = false_node;
+			feedback_memo[haystack] = false_node;
 			return false_node;
 		}
 
 		int result = make_inner(children);
-		feedback_memo[set_undef][haystack] = result;
+		feedback_memo[haystack] = result;
 		return result;
 	}
 
 	int find_mux_constant(SigBit haystack, State needle, bool set_undef)
 	{
-		feedback_memo[0].clear();
-		feedback_memo[1].clear();
+		feedback_memo.clear();
 		return find_mux_constant_rec(haystack, needle, set_undef);
 	}
 
@@ -374,8 +367,8 @@ struct proc_dlatch_db_t
 		if (haystack == SigBit(needle))
 			return true_node;
 
-		auto memo_it = feedback_memo[set_undef].find(haystack);
-		if (memo_it != feedback_memo[set_undef].end())
+		auto memo_it = feedback_memo.find(haystack);
+		if (memo_it != feedback_memo.end())
 			return memo_it->second;
 
 		auto it = mux_drivers.find(haystack);
@@ -427,12 +420,12 @@ struct proc_dlatch_db_t
 		active_bits.erase(haystack);
 
 		if (children.empty()) {
-			feedback_memo[set_undef][haystack] = false_node;
+			feedback_memo[haystack] = false_node;
 			return false_node;
 		}
 
 		int result = make_inner(children);
-		feedback_memo[set_undef][haystack] = result;
+		feedback_memo[haystack] = result;
 		return result;
 	}
 

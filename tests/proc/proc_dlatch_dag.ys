@@ -1,8 +1,5 @@
-# proc_dlatch walks the mux network driving a latched signal looking for its
-# feedback path.  The network is a DAG: here every swap stage reads BOTH
-# outputs of the previous stage, so there are 2^32 paths from the outputs back
-# to the latched values.  Without memoizing the walk this never finishes
-# (each stage doubles the runtime); with it the whole pass is instant.
+# Every swap stage reads both outputs of the previous one: 2^32 mux paths,
+# which proc_dlatch must not walk one by one.
 read_verilog <<EOT
 module top(input en, input d0, d1, input [31:0] s, output reg a, b);
 integer i;
