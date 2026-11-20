@@ -3,6 +3,13 @@ yosys_pass(flatten
 )
 yosys_pass(hierarchy
 	hierarchy.cc
+	util/clean.cc
+	util/generate.cc
+	util/interfaces.cc
+	util/misc.cc
+	util/positionals.cc
+	util/top.cc
+	util/verilog.cc
 	LIBRARIES
 		verific
 	REQUIRES
