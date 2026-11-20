@@ -129,15 +129,22 @@ struct proc_dlatch_db_t
 		return sigusers[bit] + extra_readers[bit];
 	}
 
-	int count_hold_uses(SigBit bit, SigBit q)
+	struct hold_cone_t
+	{
+		SigBit q;
+		dict<SigBit, int> uses; // reads of each bit by the cone muxes
+		pool<SigBit> reaches_q; // bits whose value can come from q
+	};
+
+	void count_hold_uses(SigBit bit, hold_cone_t &cone)
 	{
 		auto it = mux_drivers.find(bit);
-		if (it == mux_drivers.end())
-			return 0;
+		if (bit == cone.q || it == mux_drivers.end())
+			return;
 
 		auto [cell, index] = it->second;
 		if (cell->has_keep_attr())
-			return 0;
+			return;
 
 		SigSpec sig_a = sigmap(cell->getPort(ID::A));
 		SigSpec sig_b = sigmap(cell->getPort(ID::B));
@@ -149,22 +156,25 @@ struct proc_dlatch_db_t
 			for (int i = 0; i < GetSize(sig_b) / width; i++)
 				inputs.append(sig_b[i*width + index]);
 
-		int uses = 0;
 		for (auto input : inputs) {
-			if (input == q)
-				uses++;
-			else if (readers(input) == 1)
-				uses += count_hold_uses(input, q);
+			if (cone.uses[input]++ == 0)
+				count_hold_uses(input, cone);
+			if (cone.reaches_q.count(input))
+				cone.reaches_q.insert(bit);
 		}
-		return uses;
 	}
 
-	// latch output only feeds its own hold path
+	// q and every mux bit it reaches only feed the hold path
 	bool is_unused_latch(SigBit q, SigBit d)
 	{
-		if (!all_processes_muxed)
+		if (!all_processes_muxed || readers(d) != 1)
 			return false;
-		return readers(d) == 1 && count_hold_uses(d, q) == readers(q);
+		hold_cone_t cone = {q, {}, {q}};
+		count_hold_uses(d, cone);
+		for (auto [bit, uses] : cone.uses)
+			if (cone.reaches_q.count(bit) && readers(bit) != uses)
+				return false;
+		return cone.uses.count(q);
 	}
 
 	bool quickcheck(const SigSpec &haystack, const SigSpec &needle)
@@ -264,15 +274,15 @@ struct proc_dlatch_db_t
 					cell->type, module->name, cell->name, cell->get_src_attribute());
 	}
 
-	int find_mux_feedback(SigBit haystack, SigBit needle, bool set_undef)
+	int find_mux_feedback(SigBit haystack, SigBit needle, bool set_undef, bool force_undef = false)
 	{
 		feedback_memo.clear();
-		return find_mux_feedback_rec(haystack, needle, set_undef);
+		return find_mux_feedback_rec(haystack, needle, set_undef, force_undef);
 	}
 
-	int find_mux_feedback_rec(SigBit haystack, SigBit needle, bool set_undef)
+	int find_mux_feedback_rec(SigBit haystack, SigBit needle, bool set_undef, bool force_undef)
 	{
-		if (sigusers[haystack] > 1)
+		if (sigusers[haystack] > 1 && !force_undef)
 			set_undef = false;
 
 		if (haystack == needle)
@@ -300,7 +310,7 @@ struct proc_dlatch_db_t
 
 		pool<int> children;
 
-		int n = find_mux_feedback_rec(sig_a[index], needle, set_undef);
+		int n = find_mux_feedback_rec(sig_a[index], needle, set_undef, force_undef);
 		if (n != false_node) {
 			if (set_undef && sig_a[index] == needle) {
 				SigSpec sig = cell->getPort(ID::A);
@@ -323,7 +333,7 @@ struct proc_dlatch_db_t
 		}
 
 		for (int i = 0; i < (is_bwmux ? 1 : GetSize(sig_s)); i++) {
-			n = find_mux_feedback_rec(sig_b[i*width + index], needle, set_undef);
+			n = find_mux_feedback_rec(sig_b[i*width + index], needle, set_undef, force_undef);
 			if (n != false_node) {
 				if (set_undef && sig_b[i*width + index] == needle) {
 					SigSpec sig = cell->getPort(ID::B);
@@ -581,7 +591,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 		sr->actions.clear();
 	}
 
-	bool may_drop_latch = !proc->get_bool_attribute(ID::always_comb) && !proc->get_bool_attribute(ID::always_latch);
+	bool may_drop_latch = !proc->get_bool_attribute(ID::always_latch);
 
 	latches_out_in.sort();
 	for (auto &it : latches_out_in) {
@@ -593,7 +603,7 @@ void proc_dlatch(proc_dlatch_db_t &db, RTLIL::Process *proc, LatchPolicy policy)
 
 		// cut the hold path and leave the output undriven
 		if (may_drop_latch && db.is_unused_latch(it.first, it.second)) {
-			db.find_mux_feedback(it.second, it.first, true);
+			db.find_mux_feedback(it.second, it.first, true, true);
 			db.initvals.remove_init(it.first);
 			continue;
 		}

@@ -1,0 +1,47 @@
+# https://github.com/YosysHQ/yosys/issues/6519
+# unused latch in an always_comb process is dropped
+read_verilog -sv <<EOT
+module top(input logic en, input logic [3:0] a, output logic [2:0] cnt);
+integer i;
+always_comb begin
+	cnt = 0;
+	if (en)
+		for (i = 0; i < 4; i = i + 1)
+			if (a[i]) cnt = cnt + 1;
+end
+endmodule
+EOT
+proc -latches error
+select -assert-none t:$dlatch t:$adlatch
+check -assert
+
+design -reset
+
+# hold path of t branches and merges again
+read_verilog -sv <<EOT
+module top(input logic v1, b0, b1, input logic [3:0] a, output logic [3:0] y);
+logic [1:0] t;
+always @* begin
+	y = '0;
+	if (b0) begin t = a[1:0]; y = 4'(t); end
+	if (v1)
+		if (b1) begin t = a[3:2]; y = y + 4'(t); end
+end
+endmodule
+EOT
+proc -latches error
+select -assert-none t:$dlatch t:$adlatch
+check -assert
+
+design -reset
+
+# latch value read outside the process is still an error
+read_verilog -sv <<EOT
+module top(input logic en, d, output logic y);
+logic t;
+always_comb if (en) t = d;
+assign y = t;
+endmodule
+EOT
+logger -expect error "^Latch inferred for signal `\\top\.\\t' from always_comb process" 1
+proc
