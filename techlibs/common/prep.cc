@@ -212,23 +212,24 @@ struct PrepPass : public ScriptPass
 			if (help_mode)
 				run("proc [-ifx]");
 			else
-				run(ifxmode ? "proc -ifx" : "proc");
+				run(ifxmode ? "proc -ifx -noopt" : "proc");
 		}
 
 		if (check_label("formal", "(if -formal)") && (formal || help_mode))
 		{
 			run("setundef -undriven -anyseq");
 			run("memory_nordff");
+			run("peepopt -formalclk");
 
 			if (help_mode) {
 				run("async2sync", "(if -formal without multiclock)");
-				run("clk2fflogic", "(if -formal multiclock)");
+				run("clk2fflogic -nopeepopt -nolower", "(if -formal multiclock)");
 			} else
 				run(multiclock ? "clk2fflogic" : "async2sync");
 
 			run("chformal -lower");
 			run("memory_map -formal");
-			run("formalff -setundef -clk2ff -ff2anyinit -hierarchy");
+			run("formalff -setundef -ff2anyinit -hierarchy");
 
 		}
 

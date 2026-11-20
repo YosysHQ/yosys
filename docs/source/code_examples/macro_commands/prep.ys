@@ -8,11 +8,12 @@ begin:
 formal:    (if -formal)
     setundef -undriven -anyseq
     memory_nordff
+    peepopt -formalclk
     async2sync    (if -formal without multiclock)
-    clk2fflogic    (if -formal multiclock)
+    clk2fflogic -nopeepopt -nolower    (if -formal multiclock)
     chformal -lower
     memory_map -formal
-    formalff -setundef -clk2ff -ff2anyinit -hierarchy
+    formalff -setundef -ff2anyinit -hierarchy
 
 coarse:
     check
