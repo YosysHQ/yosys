@@ -181,12 +181,32 @@ module clock_ctrl_nested (input clk, a, b, c, d, input x, y);
     a8: assert property (@(posedge clk) p8);
 endmodule
 
-module recursive (input clk, input done, busy);
-    property busy_until_done;
-        done or (busy and (1'b1 |=> busy_until_done));
+module recursive (input clk, input p);
+    property check_p;
+        p and (1'b1 |=> check_p);
     endproperty
 
-    assert property (@(posedge clk) busy_until_done);
+    assert property (@(posedge clk) check_p);
+endmodule
+
+module mutual_recursive (input clk, input s1, s2, p1, p2);
+    property check_p1;
+        s1 |-> (p1 and (1'b1 |=> check_p2));
+    endproperty
+    property check_p2;
+        s2 |-> (p2 and (1'b1 |=> check_p1));
+    endproperty
+
+    ap1: assert property (@(posedge clk) check_p1);
+endmodule
+
+module non_recursive_ref (input clk, input a, b, c);
+    property p;
+        a ##1 b;
+    endproperty
+    always @(posedge clk) begin
+        assert property(p and (c |-> p));
+    end
 endmodule
 
 module global_clocking (input clk, input a, b);
@@ -292,5 +312,16 @@ module vacuity (input clk, input a);
         ap_on: assert property (a);
         $assertnonvacuousoff();
         ap_off: assert property (a);
+    end
+endmodule
+
+module parametric_prop (input clk, input a, b, c);
+    property check(p, q);
+        p and q;
+    endproperty;
+
+    always @(posedge clk) begin
+        ab: assert property (check(a, b));
+        bc: assert property (check(b, c));
     end
 endmodule

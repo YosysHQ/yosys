@@ -1996,8 +1996,11 @@ public:
 		// option parsing
 		property_ir::option::EvaluationScope eval_scope(scope);
 		property_ir::option::DisableIff disable_iff(disable_cond);
+		// TODO :enable
 
 		// TODO distinguish live/fair from assert/assume
+		// - uses PropertyType::Safety / PropertyType::Liveness
+		// - what does default None mean in this context?
 		// TODO use $check?
 		switch (root->Type()) {
 			case PRIM_SVA_ASSERT:
@@ -2025,9 +2028,10 @@ public:
 		}
 		printer->end_list();
 
-		if (verific_verbose >= 2)
+		if (verific_verbose)
 			log_lines(output.str());
 
+		// generate $property cell
 		// TODO derive name from check_name?
 		auto *property_cell = module->addCell(module->twines().add(NEW_ID), ID($property));
 		property_cell->setParam(ID::DATA, output.str());
@@ -2290,9 +2294,51 @@ private:
 		}
 	}
 
+	// track properties for recursion detection
+	dict<Net *, property_ir::ClkPropId> pending_props;
+	// verific appears to always give a new net for each instance of a
+	// property (except when that property references itself), so there's
+	// currently no reason to track properties except for recursion
+	dict<Net *, property_ir::ClkPropId> recursive_props;
+
 	property_ir::ClkPropExpr parse_property(Net *net)
 	{
 		log_assert(net != nullptr);
+		auto it = recursive_props.find(net);
+		if (it != recursive_props.end()) {
+			return it->second;
+		}
+
+		it = pending_props.find(net);
+		if (it != pending_props.end()) {
+			auto prop_id = it->second;
+			recursive_props.emplace(net, prop_id);
+			return prop_id;
+		}
+
+		using namespace property_ir;
+		ClkPropId prop_id(net->Name());
+		pending_props.emplace(net, prop_id);
+		auto prop = parse_property_uncached(net);
+		pending_props.erase(net);
+
+		// check for recursion
+		// TODO do we need to check for illegal recursion?
+		if (recursive_props.count(net)) {
+			// TODO collect into a single declare-rec?
+			printer->begin_list();
+			printer->identifier("declare-rec");
+			printer->lines();
+			emit(*printer, declare(prop_id, prop));
+			printer->end_list();
+			return prop_id;
+		}
+
+		return prop;
+	}
+
+	property_ir::ClkPropExpr parse_property_uncached(Net *net)
+	{
 		auto type = PRIM_END;
 		auto *inst = net->Driver();
 		if (inst != nullptr && !net->IsMultipleDriven())

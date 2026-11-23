@@ -25,6 +25,14 @@ design -reset
 verific -sv basic.sv
 verific -import -v clock_ctrl
 
+design -reset
+verific -sv basic.sv
+verific -import -v global_clocking
+
+design -reset
+verific -sv basic.sv
+verific -import -v parametric_prop
+
 ## not yet handled by new importer
 # TODO figure out immediates
 # design -reset
@@ -45,10 +53,6 @@ verific -import -vv mod
 design -reset
 verific -sv basic.sv
 verific -import -v flopped
-
-design -reset
-verific -sv basic.sv
-verific -import -v global_clocking
 
 # TODO should the non-standard (* gclk *) attribute get global clocking in PIR?
 design -reset
@@ -85,18 +89,25 @@ design -reset
 verific -sv basic.sv
 verific -import -v -sva-continue-on-err clock_enable
 
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err recursive
+
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err mutual_recursive
+
+design -reset
+verific -sv basic.sv
+verific -import -v -sva-continue-on-err non_recursive_ref
+
 # TODO :enable
 # currently impossible to distinguish?
 design -reset
 verific -sv basic.sv
-verific -import -v -d zzz.v -sva-continue-on-err clocked_outer
+verific -import -v -sva-continue-on-err clocked_outer
 
 ## these aren't compatible with either
-# TODO recursion
-# design -reset
-# verific -sv basic.sv
-# verific -import -v -sva-continue-on-err recursive
-
 # more :enable edge cases
 # design -reset
 # verific -sv basic.sv
