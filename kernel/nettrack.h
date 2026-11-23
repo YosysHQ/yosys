@@ -46,7 +46,7 @@ struct NetTracker final {
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
 	// drops the ids and the anchors, barriers stay until unprotect
 	void clear(RTLIL::Design *design);
-	// removes barriers and keeps, the anchors stay, a later checkpoint needs protect = false
+	// removes barriers and keeps, the anchors stay, a later checkpoint with protect puts them back
 	void unprotect(RTLIL::Design *design);
 private:
 	std::unique_ptr<detail::TrackData> data_;
