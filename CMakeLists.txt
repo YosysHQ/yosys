@@ -608,6 +608,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 		COMMAND make gen ${makefile_vars}
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		USES_TERMINAL
 		JOB_SERVER_AWARE TRUE
 	)
 	foreach (format html latexpdf)
@@ -615,6 +616,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 			COMMAND make ${format}
 			WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/docs
 			DEPENDS docs-prepare
+			USES_TERMINAL
 		)
 	endforeach()
 	add_custom_target(test-docs
@@ -622,6 +624,7 @@ if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 		COMMAND make test ${makefile_vars}
 		WORKING_DIRECTORY ${YOSYS_CMAKE_SOURCE_DIR}/docs
 		DEPENDS ${makefile_depends}
+		USES_TERMINAL
 		JOB_SERVER_AWARE TRUE
 	)
 endif()
