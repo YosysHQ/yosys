@@ -9,19 +9,13 @@ yosys_pass(ice40_opt
 		opt_dff
 		opt_clean
 )
-pmgen_command(ice40_dsp
-	ice40_dsp.pmg
-)
 yosys_pass(ice40_dsp
 	ice40_dsp.cc
-	${PMGEN_ice40_dsp_OUTPUT}
-)
-pmgen_command(ice40_wrapcarry
-	ice40_wrapcarry.pmg
+	ice40_dsp.h
 )
 yosys_pass(ice40_wrapcarry
 	ice40_wrapcarry.cc
-	${PMGEN_ice40_wrapcarry_OUTPUT}
+	ice40_wrapcarry.h
 )
 
 yosys_pass(synth_ice40

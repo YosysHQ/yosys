@@ -16,20 +16,18 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-#include "kernel/sigtools.h"
 #include "kernel/yosys.h"
+#include "techlibs/microchip/microchip_dsp.h"
+#include "techlibs/microchip/microchip_dsp_CREG.h"
+#include "techlibs/microchip/microchip_dsp_cascade.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "techlibs/microchip/microchip_dsp_CREG_pm.h"
-#include "techlibs/microchip/microchip_dsp_cascade_pm.h"
-#include "techlibs/microchip/microchip_dsp_pm.h"
-
-void microchip_dsp_pack(microchip_dsp_pm &pm)
+void microchip_dsp_pack(MicrochipDspPack &pm, const MicrochipDspPack::Match &m)
 {
-	auto &st = pm.st_microchip_dsp_pack;
+	MicrochipDspPack::Match st = m;
 
 	log("Analysing %s.%s for Microchip MACC_PA packing.\n", pm.module, st.dsp);
 
@@ -190,10 +188,8 @@ void microchip_dsp_pack(microchip_dsp_pm &pm)
 }
 
 // For packing cascaded DSPs
-void microchip_dsp_packC(microchip_dsp_CREG_pm &pm)
+void microchip_dsp_packC(MicrochipDspPackC &pm, const MicrochipDspPackC::Match &st)
 {
-	auto &st = pm.st_microchip_dsp_packC;
-
 	log_debug("Analysing %s.%s for Microchip DSP packing (REG_C).\n", pm.module, st.dsp);
 	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
 
@@ -333,8 +329,8 @@ struct MicrochipDspPass : public Pass {
 				//   check for an accumulator pattern based on whether
 				//   a post-adder and PREG are both present AND
 				//   if PREG feeds into this post-adder.
-				microchip_dsp_pm pm(module, module->selected_cells());
-				pm.run_microchip_dsp_pack(microchip_dsp_pack);
+				MatchContext ctx(module);
+				MicrochipDspPack(ctx, module->selected_cells()).run(microchip_dsp_pack);
 			}
 
 			// Separating out CREG packing is necessary since there
@@ -346,14 +342,14 @@ struct MicrochipDspPass : public Pass {
 			//   PREG of an upstream DSP that had not been visited
 			//   yet
 			{
-				microchip_dsp_CREG_pm pm(module, module->selected_cells());
-				pm.run_microchip_dsp_packC(microchip_dsp_packC);
+				MatchContext ctx(module);
+				MicrochipDspPackC(ctx, module->selected_cells()).run(microchip_dsp_packC);
 			}
 
 			// Lastly, identify and utilise PCOUT -> PCIN chains
 			{
-				microchip_dsp_cascade_pm pm(module, module->selected_cells());
-				pm.run_microchip_dsp_cascade();
+				MatchContext ctx(module);
+				MicrochipDspCascade(ctx, module->selected_cells()).run();
 			}
 		}
 	}

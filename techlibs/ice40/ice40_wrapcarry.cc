@@ -18,17 +18,13 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
+#include "techlibs/ice40/ice40_wrapcarry.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "techlibs/ice40/ice40_wrapcarry_pm.h"
-
-void create_ice40_wrapcarry(ice40_wrapcarry_pm &pm)
+void create_ice40_wrapcarry(Ice40Wrapcarry &pm, const Ice40Wrapcarry::Match &st)
 {
-	auto &st = pm.st_ice40_wrapcarry;
-
 #if 0
 	log("\n");
 	log("carry: %s\n", st.carry ? st.carry->name.unescape() : "--");
@@ -111,7 +107,8 @@ struct Ice40WrapCarryPass : public Pass {
 
 		for (auto module : design->selected_modules()) {
 			if (!unwrap) {
-				ice40_wrapcarry_pm(module, module->selected_cells()).run_ice40_wrapcarry(create_ice40_wrapcarry);
+				MatchContext ctx(module);
+				Ice40Wrapcarry(ctx, module->selected_cells()).run(create_ice40_wrapcarry);
 			} else {
 				for (auto cell : module->selected_cells()) {
 					if (cell->type != ID($__ICE40_CARRY_WRAPPER))

@@ -4,12 +4,9 @@ yosys_pass(ql_bram_merge
 yosys_pass(ql_bram_types
 	ql_bram_types.cc
 )
-pmgen_command(ql_dsp_macc
-	ql_dsp_macc.pmg
-)
 yosys_pass(ql_dsp_macc
 	ql_dsp_macc.cc
-	${PMGEN_ql_dsp_macc_OUTPUT}
+	ql_dsp_macc.h
 )
 yosys_pass(ql_dsp_simd
 	ql_dsp_simd.cc

@@ -505,8 +505,6 @@ signals.  `setattr` removes the now unnecessary ``mul2dsp`` attribute.
 rewriting, the ``-fine`` option just enables more fine-grain optimizations.
 Then we perform width reduction a final time and clear the selection.
 
-.. todo:: ``ice40_dsp`` is pmgen
-
 Finally we have `ice40_dsp`: similar to the `memory_dff` command we saw in the
 previous section, this merges any surrounding registers into the ``SB_MAC16``
 cell.  This includes not just the input/output registers, but also pipeline

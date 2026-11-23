@@ -76,18 +76,13 @@ yosys_pass(opt_balance_tree
 	opt_balance_tree.cc
 )
 
-pmgen_command(peepopt
-	peepopt_shiftmul_right.pmg
-	peepopt_shiftmul_left.pmg
-	peepopt_shiftadd.pmg
-	peepopt_shiftpow2.pmg
-	peepopt_muldiv.pmg
-	peepopt_muldiv_c.pmg
-	peepopt_formal_clockgateff.pmg
-	PREFIX
-		peepopt
-)
 yosys_pass(peepopt
 	peepopt.cc
-	${PMGEN_peepopt_OUTPUT}
+	peepopt_shiftmul_right.h
+	peepopt_shiftmul_left.h
+	peepopt_shiftadd.h
+	peepopt_shiftpow2.h
+	peepopt_muldiv.h
+	peepopt_muldiv_c.h
+	peepopt_formal_clockgateff.h
 )
