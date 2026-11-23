@@ -62,6 +62,7 @@ option(YOSYS_WITHOUT_EDITLINE "Disable editline integration" OFF)
 option(YOSYS_WITHOUT_SLANG "Disable Slang integration" OFF)
 option(YOSYS_WITHOUT_TCL "Disable Tcl integration" OFF)
 option(YOSYS_WITH_PYTHON "Enable Python integration" OFF)
+option(STUBGEN "Enable Pyosys stub generation" OFF)
 
 option(YOSYS_USE_BUNDLED_LIBS "Use bundled third-party libraries" OFF)
 
@@ -504,29 +505,31 @@ if (YOSYS_ENABLE_PYTHON)
 		add_dependencies(pyosys yosys-abc)
 	endif()
 
-	set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/pyosys-stubs")
-	set(stub_package "${stub_dir}/pyosys")
-	set(stub_file "${stub_package}/libyosys.pyi")
+	if (STUBGEN)
+		set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/pyosys-stubs")
+		set(stub_package "${stub_dir}/pyosys")
+		set(stub_file "${stub_package}/libyosys.pyi")
 
-	add_custom_command(
-		OUTPUT "${stub_file}"
-		BYPRODUCTS "${stub_package}/__init__.py" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
-		DEPENDS pyosys pyosys/modinit.py
-		COMMAND "${CMAKE_COMMAND}" -E make_directory "${stub_package}"
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-			"${CMAKE_CURRENT_SOURCE_DIR}/pyosys/modinit.py" "${stub_package}/__init__.py"
-		COMMAND "${CMAKE_COMMAND}" -E copy_if_different
-			"$<TARGET_FILE:pyosys>" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
-		COMMAND "${CMAKE_COMMAND}" -E chdir "${stub_dir}"
-			"${Python3_EXECUTABLE}" -m pybind11_stubgen
-			--exit-code -o "${stub_dir}"
-			--enum-class-locations "^(State|LogSeverity|SelectPartials|SelectBoxes)$:pyosys.libyosys"
-			pyosys.libyosys
-		VERBATIM
-		COMMENT "Generating Pyosys stubs"
-	)
+		add_custom_command(
+			OUTPUT "${stub_file}"
+			BYPRODUCTS "${stub_package}/__init__.py" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
+			DEPENDS pyosys pyosys/modinit.py pyosys/fix_stub_defaults.py
+			COMMAND "${CMAKE_COMMAND}" -E make_directory "${stub_package}"
+			COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+				"${CMAKE_CURRENT_SOURCE_DIR}/pyosys/modinit.py" "${stub_package}/__init__.py"
+			COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+				"$<TARGET_FILE:pyosys>" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
+			COMMAND "${CMAKE_COMMAND}" -E chdir "${stub_dir}"
+				"${Python3_EXECUTABLE}" -m pybind11_stubgen
+				--exit-code -o "${stub_dir}"
+				--enum-class-locations "^(State|LogSeverity|SelectPartials|SelectBoxes)$:pyosys.libyosys"
+				pyosys.libyosys
+			VERBATIM
+			COMMENT "Generating Pyosys stubs"
+		)
 
-	add_custom_target(pyosys_stubs DEPENDS "${stub_file}")
+		add_custom_target(pyosys_stubs DEPENDS "${stub_file}")
+	endif()
 
 	if (YOSYS_INSTALL_PYTHON)
 		string(REPLACE "-" "_" PYOSYS_MODULE_PREFIX "${YOSYS_PROGRAM_PREFIX}")
@@ -542,6 +545,9 @@ if (YOSYS_ENABLE_PYTHON)
 			RENAME libyosys${CMAKE_SHARED_MODULE_SUFFIX}
 			DESTINATION ${pyosys_install_dir}
 		)
+		if (STUBGEN)
+			install(FILES "${stub_file}" DESTINATION ${pyosys_install_dir} OPTIONAL)
+		endif()
 		if (YOSYS_ENABLE_ABC AND YOSYS_ABC_EXECUTABLE STREQUAL "")
 			# If ABC is vendored it needs to be installed as a part of pyosys.
 			install(TARGETS yosys-abc
