@@ -186,6 +186,9 @@ or port).
     log("%d %d %d\n", sigmap(a) == sigmap(x), sigmap(x) == sigmap(y),
                       sigmap(y) == sigmap(a)); // will print "1 1 1"
 
+For a bit-level netlist of the unfolded hierarchy, see
+:doc:`/yosys_internals/netview`.
+
 Printing log messages
 ~~~~~~~~~~~~~~~~~~~~~
 
