@@ -446,16 +446,23 @@ Frontend::~Frontend()
 void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
 	FrontendContext &ctx = *design->frontend_context;
-	log_assert(ctx.next_args.empty());
-	do {
-		std::istream *f = NULL;
-		ctx.next_args.clear();
-		auto state = pre_execute();
-		execute(f, std::string(), args, design);
-		post_execute(state);
-		args = ctx.next_args;
-		delete f;
-	} while (!args.empty());
+	std::vector<std::string> outer_next_args = std::move(ctx.next_args);
+	try {
+		do {
+			std::istream *f = NULL;
+			ctx.next_args.clear();
+			auto state = pre_execute();
+			execute(f, std::string(), args, design);
+			post_execute(state);
+			args = std::move(ctx.next_args);
+			delete f;
+		} while (!args.empty());
+	}
+	catch (...) {
+		ctx.next_args = std::move(outer_next_args);
+		throw;
+	}
+	ctx.next_args = std::move(outer_next_args);
 }
 
 void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool bin_input)
