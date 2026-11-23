@@ -91,6 +91,12 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 		}
 	}
 
+	// The register in front of the given input of next, clocked like prev
+	DspFf cascade_reg(Cell *prev, Cell *next, IdString portname) const
+	{
+		return ff_index.in_dffe(*this, dsp_unextend(port(next, portname)), port(prev, ID::CLK));
+	}
+
 	bool acascade_dff_compatible(const DspFf &dff, Cell *prev) const
 	{
 		if (!dff.cell->type.in(ID($sdff), ID($sdffe)) && port(prev, ID::RSTA, State::S0) != State::S0)
@@ -331,9 +337,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 						n.AREG = 0;
 				}
 				else {
-					SigSpec argQ = dsp_unextend(port(n.next, ID::A));
-					SigBit clock = port(prev, ID::CLK);
-					DspFf areg = ff_index.in_dffe(*this, argQ, clock);
+					DspFf areg = cascade_reg(prev, n.next, ID::A);
 					if (areg.cell && acascade_dff_compatible(areg, prev))
 						n.AREG = 1;
 				}
@@ -358,9 +362,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 						n.BREG = 0;
 				}
 				else {
-					SigSpec argQ = dsp_unextend(port(n.next, ID::B));
-					SigBit clock = port(prev, ID::CLK);
-					DspFf breg = ff_index.in_dffe(*this, argQ, clock);
+					DspFf breg = cascade_reg(prev, n.next, ID::B);
 					if (breg.cell && bcascade_dff_compatible(breg, n.next, prev))
 						n.BREG = 1;
 				}

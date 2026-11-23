@@ -66,15 +66,21 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 		}
 	}
 
-	void code_mux_in_pattern(const Match &m)
+	// Explores flag false, then flag true
+	void branch(const Match &m, bool Match::*flag, Stage next)
 	{
 		Match n = m;
-		n.mux_in_pattern = false;
-		match_mul(n);
+		n.*flag = false;
+		(this->*next)(n);
 		if (unwinding())
 			return;
-		n.mux_in_pattern = true;
-		match_mul(n);
+		n.*flag = true;
+		(this->*next)(n);
+	}
+
+	void code_mux_in_pattern(const Match &m)
+	{
+		branch(m, &Match::mux_in_pattern, &QlDspMacc::match_mul);
 	}
 
 	// The multiplier is at the center of our pattern
@@ -95,13 +101,7 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 
 	void code_output_registered(const Match &m)
 	{
-		Match n = m;
-		n.output_registered = false;
-		match_add(n);
-		if (unwinding())
-			return;
-		n.output_registered = true;
-		match_add(n);
+		branch(m, &Match::output_registered, &QlDspMacc::match_add);
 	}
 
 	void match_add(const Match &m)

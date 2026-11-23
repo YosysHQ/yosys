@@ -152,6 +152,46 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 		return same_arst_as_inputs(m, ff);
 	}
 
+	using Compatible = bool (Ice40Dsp::*)(const Match &, Cell *) const;
+
+	// Returns true when the stage must return
+	bool absorb_in(Match &n, Cell *Match::*ff, SigSpec Match::*sig, Compatible compatible = nullptr)
+	{
+		n.argQ = n.*sig;
+		in_dffe(n);
+		if (unwinding())
+			return true;
+		if (dff && (!compatible || (this->*compatible)(n, dff))) {
+			n.*ff = dff;
+			n.clock = dffclock;
+			n.clock_pol = dffclock_pol;
+			n.*sig = dffD;
+		}
+		return false;
+	}
+
+	// Returns true when the stage must return
+	bool absorb_out(Match &n, Cell *Match::*ff, SigSpec Match::*sig, Compatible compatible)
+	{
+		n.argD = n.*sig;
+		n.argSdff = false;
+		out_dffe(n);
+		if (unwinding())
+			return true;
+		if (dff && (this->*compatible)(n, dff)) {
+			n.*ff = dff;
+			n.clock = dffclock;
+			n.clock_pol = dffclock_pol;
+			n.*sig = dffQ;
+		}
+		return false;
+	}
+
+	bool clock_mismatch(const Match &m) const
+	{
+		return m.clock != SigBit() && (port(m.ff, ID::CLK)[0] != m.clock || param(m.ff, ID::CLK_POLARITY).as_bool() != m.clock_pol);
+	}
+
 	void match_mul(const Match &m)
 	{
 		match_each(m, mul_cells, &Match::mul, &Ice40Dsp::code_signals);
@@ -198,36 +238,18 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	void code_ffA(const Match &m)
 	{
 		Match n = m;
-		if (n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::A_REG).as_bool()) {
-			n.argQ = n.sigA;
-			in_dffe(n);
-			if (unwinding())
+		if (n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::A_REG).as_bool())
+			if (absorb_in(n, &Match::ffA, &Match::sigA))
 				return;
-			if (dff) {
-				n.ffA = dff;
-				n.clock = dffclock;
-				n.clock_pol = dffclock_pol;
-				n.sigA = dffD;
-			}
-		}
 		code_ffB(n);
 	}
 
 	void code_ffB(const Match &m)
 	{
 		Match n = m;
-		if (n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::B_REG).as_bool()) {
-			n.argQ = n.sigB;
-			in_dffe(n);
-			if (unwinding())
+		if (n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::B_REG).as_bool())
+			if (absorb_in(n, &Match::ffB, &Match::sigB))
 				return;
-			if (dff) {
-				n.ffB = dff;
-				n.clock = dffclock;
-				n.clock_pol = dffclock_pol;
-				n.sigB = dffD;
-			}
-		}
 		code_ffFJKG(n);
 	}
 
@@ -236,19 +258,9 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 		Match n = m;
 		if (nusers(n.sigH) == 2 &&
 				(n.mul->type != ID::SB_MAC16 ||
-				 (!param(n.mul, ID::TOP_8x8_MULT_REG).as_bool() && !param(n.mul, ID::BOT_8x8_MULT_REG).as_bool() && !param(n.mul, ID::PIPELINE_16x16_MULT_REG1).as_bool() && !param(n.mul, ID::PIPELINE_16x16_MULT_REG1).as_bool()))) {
-			n.argD = n.sigH;
-			n.argSdff = false;
-			out_dffe(n);
-			if (unwinding())
+				 (!param(n.mul, ID::TOP_8x8_MULT_REG).as_bool() && !param(n.mul, ID::BOT_8x8_MULT_REG).as_bool() && !param(n.mul, ID::PIPELINE_16x16_MULT_REG1).as_bool() && !param(n.mul, ID::PIPELINE_16x16_MULT_REG1).as_bool())))
+			if (absorb_out(n, &Match::ffFJKG, &Match::sigH, &Ice40Dsp::ffFJKG_compatible))
 				return;
-			if (dff && ffFJKG_compatible(n, dff)) {
-				n.ffFJKG = dff;
-				n.clock = dffclock;
-				n.clock_pol = dffclock_pol;
-				n.sigH = dffQ;
-			}
-		}
 		code_ffH(n);
 	}
 
@@ -256,19 +268,9 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	{
 		Match n = m;
 		if (n.ffFJKG && nusers(n.sigH) == 2 &&
-				(n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::PIPELINE_16x16_MULT_REG2).as_bool())) {
-			n.argD = n.sigH;
-			n.argSdff = false;
-			out_dffe(n);
-			if (unwinding())
+				(n.mul->type != ID::SB_MAC16 || !param(n.mul, ID::PIPELINE_16x16_MULT_REG2).as_bool()))
+			if (absorb_out(n, &Match::ffH, &Match::sigH, &Ice40Dsp::ffH_compatible))
 				return;
-			if (dff && ffH_compatible(n, dff)) {
-				n.ffH = dff;
-				n.clock = dffclock;
-				n.clock_pol = dffclock_pol;
-				n.sigH = dffQ;
-			}
-		}
 
 		n.sigO = n.sigH;
 		match_add(n);
@@ -403,18 +405,9 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	{
 		Match n = m;
 		if (!n.sigCD.empty() && n.sigCD != n.sigO &&
-				(n.mul->type != ID::SB_MAC16 || (!param(n.mul, ID::C_REG).as_bool() && !param(n.mul, ID::D_REG).as_bool()))) {
-			n.argQ = n.sigCD;
-			in_dffe(n);
-			if (unwinding())
+				(n.mul->type != ID::SB_MAC16 || (!param(n.mul, ID::C_REG).as_bool() && !param(n.mul, ID::D_REG).as_bool())))
+			if (absorb_in(n, &Match::ffCD, &Match::sigCD, &Ice40Dsp::ffCD_compatible))
 				return;
-			if (dff && ffCD_compatible(n, dff)) {
-				n.ffCD = dff;
-				n.clock = dffclock;
-				n.clock_pol = dffclock_pol;
-				n.sigCD = dffD;
-			}
-		}
 		code_extend_sigCD(n);
 	}
 
@@ -462,12 +455,8 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 
 	void in_dffe_code_found(const Match &m)
 	{
-		if (m.clock != SigBit()) {
-			if (port(m.ff, ID::CLK)[0] != m.clock)
-				return;
-			if (param(m.ff, ID::CLK_POLARITY).as_bool() != m.clock_pol)
-				return;
-		}
+		if (clock_mismatch(m))
+			return;
 
 		SigSpec Q = port(m.ff, ID::Q);
 		dff = m.ff;
@@ -510,12 +499,8 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 
 	void out_dffe_code_found(const Match &m)
 	{
-		if (m.clock != SigBit()) {
-			if (port(m.ff, ID::CLK)[0] != m.clock)
-				return;
-			if (param(m.ff, ID::CLK_POLARITY).as_bool() != m.clock_pol)
-				return;
-		}
+		if (clock_mismatch(m))
+			return;
 		SigSpec D = port(m.ff, ID::D);
 		SigSpec Q = port(m.ff, ID::Q);
 		SigSpec argQ = m.argD;

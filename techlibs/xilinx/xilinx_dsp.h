@@ -203,18 +203,23 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 
 	// (3) Match the driver of the 'A' and 'D' inputs for a possible $add cell
 	//     (pre-adder)
-	void match_preAdd(const Match &m)
+	void match_preadder(const Match &m, const MatchIndex<SigSpec> &index, Cell *Match::*state, Stage next)
 	{
 		if (preadder_usable(m)) {
 			MatchFrame frame(ctx);
-			for (Cell *preAdd : candidates(preAdd_index.find(m.sigA))) {
+			for (Cell *cell : candidates(index.find(m.sigA))) {
 				Match n = m;
-				n.preAdd = preAdd;
-				if (descend(frame, preAdd, &XilinxDspPack::code_preAdd, n))
+				n.*state = cell;
+				if (descend(frame, cell, next, n))
 					return;
 			}
 		}
-		match_none(m, &Match::preAdd, &XilinxDspPack::code_preAdd);
+		match_none(m, state, next);
+	}
+
+	void match_preAdd(const Match &m)
+	{
+		match_preadder(m, preAdd_index, &Match::preAdd, &XilinxDspPack::code_preAdd);
 	}
 
 	void code_preAdd(const Match &m)
@@ -231,16 +236,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	//     (pre-adder)
 	void match_preSub(const Match &m)
 	{
-		if (preadder_usable(m)) {
-			MatchFrame frame(ctx);
-			for (Cell *preSub : candidates(preSub_index.find(m.sigA))) {
-				Match n = m;
-				n.preSub = preSub;
-				if (descend(frame, preSub, &XilinxDspPack::code_preSub, n))
-					return;
-			}
-		}
-		match_none(m, &Match::preSub, &XilinxDspPack::code_preSub);
+		match_preadder(m, preSub_index, &Match::preSub, &XilinxDspPack::code_preSub);
 	}
 
 	void code_preSub(const Match &m)

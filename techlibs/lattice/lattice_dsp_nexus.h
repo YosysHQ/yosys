@@ -31,14 +31,9 @@ inline bool nexus_operand_is(SigSpec operand, bool add_signed, const SigSpec &va
 
 struct NexusMac9_4LaneMatch
 {
-	Cell *add3 = nullptr;
-	Cell *mul3 = nullptr;
-	Cell *add2 = nullptr;
-	Cell *mul2 = nullptr;
-	Cell *add1 = nullptr;
-	Cell *mul1 = nullptr;
-	Cell *add0 = nullptr;
-	Cell *mul0 = nullptr;
+	Cell *add[4] = {};
+	Cell *mul[4] = {};
+	int lane = {};
 };
 
 // maccmap -unmap adds the addends first, then one product per $add:
@@ -71,95 +66,92 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 
 	void match_add3(const Match &m)
 	{
-		match_each(m, add3_cells, &Match::add3, &NexusMac9_4Lane::match_mul3);
-	}
-
-	void match_mul3(const Match &m)
-	{
-		match_each(m, mul_index.find(port(m.add3, ID::B)[0]), &Match::mul3, &NexusMac9_4Lane::match_add2);
-	}
-
-	void match_add2(const Match &m)
-	{
-		match_each(m, add_index.find(port(m.add3, ID::A)[0]), &Match::add2, &NexusMac9_4Lane::match_mul2);
-	}
-
-	void match_mul2(const Match &m)
-	{
-		match_each(m, mul_index.find(port(m.add2, ID::B)[0]), &Match::mul2, &NexusMac9_4Lane::match_add1);
-	}
-
-	void match_add1(const Match &m)
-	{
-		match_each(m, add_index.find(port(m.add2, ID::A)[0]), &Match::add1, &NexusMac9_4Lane::match_mul1);
-	}
-
-	void match_mul1(const Match &m)
-	{
-		match_each(m, mul_index.find(port(m.add1, ID::B)[0]), &Match::mul1, &NexusMac9_4Lane::match_add0);
-	}
-
-	// C + P0
-	void match_add0(const Match &m)
-	{
 		MatchFrame frame(ctx);
-		for (Cell *add0 : candidates(add_index.find(port(m.add1, ID::A)[0]))) {
+		for (Cell *add3 : candidates(add3_cells)) {
 			Match n = m;
-			n.add0 = add0;
-			if (descend(frame, add0, &NexusMac9_4Lane::match_mul0, n))
+			n.add[3] = add3;
+			n.lane = 3;
+			if (descend(frame, add3, &NexusMac9_4Lane::match_mul, n))
 				return;
 		}
-		match_none(m, &Match::add0, &NexusMac9_4Lane::match_mul0);
 	}
 
-	void match_mul0(const Match &m)
+	// The product of lane m.lane: the B operand of its adder, or without C
+	// the A operand of add[1]
+	void match_mul(const Match &m)
 	{
-		match_each(m, mul_index.find(m.add0 ? port(m.add0, ID::B)[0] : port(m.add1, ID::A)[0]), &Match::mul0, &NexusMac9_4Lane::code_accept);
+		SigBit y = m.add[m.lane] ? port(m.add[m.lane], ID::B)[0] : port(m.add[1], ID::A)[0];
+		Stage next = m.lane == 0 ? &NexusMac9_4Lane::code_accept : &NexusMac9_4Lane::match_add;
+		MatchFrame frame(ctx);
+		for (Cell *mul : candidates(mul_index.find(y))) {
+			Match n = m;
+			n.mul[m.lane] = mul;
+			if (descend(frame, mul, next, n))
+				return;
+		}
+	}
+
+	// The partial sum below lane m.lane; C + P0 is optional
+	void match_add(const Match &m)
+	{
+		MatchFrame frame(ctx);
+		for (Cell *add : candidates(add_index.find(port(m.add[m.lane], ID::A)[0]))) {
+			Match n = m;
+			n.add[m.lane - 1] = add;
+			n.lane = m.lane - 1;
+			if (descend(frame, add, &NexusMac9_4Lane::match_mul, n))
+				return;
+		}
+		if (m.lane == 1) {
+			Match n = m;
+			n.lane = 0;
+			match_mul(n);
+		}
 	}
 
 	void code_accept(const Match &m)
 	{
-		int width = GetSize(port(m.add3, ID::Y));
-		bool is_signed = param(m.mul0, ID::A_SIGNED).as_bool();
-		for (auto mul : {m.mul0, m.mul1, m.mul2, m.mul3})
+		int width = GetSize(port(m.add[3], ID::Y));
+		bool is_signed = param(m.mul[0], ID::A_SIGNED).as_bool();
+		for (auto mul : {m.mul[0], m.mul[1], m.mul[2], m.mul[3]})
 			if (param(mul, ID::A_SIGNED).as_bool() != is_signed || param(mul, ID::B_SIGNED).as_bool() != is_signed)
 				return;
 
 		// Each adder must see the exact products and partial sums in the width of the top one
-		SigSpec p0 = nexus_product_bits(m.mul0, port(m.mul0, ID::Y), width);
-		SigSpec p1 = nexus_product_bits(m.mul1, port(m.mul1, ID::Y), width);
-		SigSpec p2 = nexus_product_bits(m.mul2, port(m.mul2, ID::Y), width);
-		SigSpec p3 = nexus_product_bits(m.mul3, port(m.mul3, ID::Y), width);
-		SigSpec s1 = m.add0 ? nexus_sum_bits(port(m.add0, ID::Y), width) : p0;
-		SigSpec s2 = nexus_sum_bits(port(m.add1, ID::Y), width);
-		SigSpec s3 = nexus_sum_bits(port(m.add2, ID::Y), width);
-		if (!nexus_operand_is(port(m.add3, ID::A), nexus_add_signed(m.add3), s3) || !nexus_operand_is(port(m.add3, ID::B), nexus_add_signed(m.add3), p3))
+		SigSpec p0 = nexus_product_bits(m.mul[0], port(m.mul[0], ID::Y), width);
+		SigSpec p1 = nexus_product_bits(m.mul[1], port(m.mul[1], ID::Y), width);
+		SigSpec p2 = nexus_product_bits(m.mul[2], port(m.mul[2], ID::Y), width);
+		SigSpec p3 = nexus_product_bits(m.mul[3], port(m.mul[3], ID::Y), width);
+		SigSpec s1 = m.add[0] ? nexus_sum_bits(port(m.add[0], ID::Y), width) : p0;
+		SigSpec s2 = nexus_sum_bits(port(m.add[1], ID::Y), width);
+		SigSpec s3 = nexus_sum_bits(port(m.add[2], ID::Y), width);
+		if (!nexus_operand_is(port(m.add[3], ID::A), nexus_add_signed(m.add[3]), s3) || !nexus_operand_is(port(m.add[3], ID::B), nexus_add_signed(m.add[3]), p3))
 			return;
-		if (!nexus_operand_is(port(m.add2, ID::A), nexus_add_signed(m.add2), s2) || !nexus_operand_is(port(m.add2, ID::B), nexus_add_signed(m.add2), p2))
+		if (!nexus_operand_is(port(m.add[2], ID::A), nexus_add_signed(m.add[2]), s2) || !nexus_operand_is(port(m.add[2], ID::B), nexus_add_signed(m.add[2]), p2))
 			return;
-		if (!nexus_operand_is(port(m.add1, ID::A), nexus_add_signed(m.add1), s1) || !nexus_operand_is(port(m.add1, ID::B), nexus_add_signed(m.add1), p1))
+		if (!nexus_operand_is(port(m.add[1], ID::A), nexus_add_signed(m.add[1]), s1) || !nexus_operand_is(port(m.add[1], ID::B), nexus_add_signed(m.add[1]), p1))
 			return;
-		if (m.add0 && !nexus_operand_is(port(m.add0, ID::B), nexus_add_signed(m.add0), p0))
+		if (m.add[0] && !nexus_operand_is(port(m.add[0], ID::B), nexus_add_signed(m.add[0]), p0))
 			return;
 
 		SigSpec sigC = {};
-		if (m.add0) {
-			sigC = port(m.add0, ID::A);
-			sigC.extend_u0(width, nexus_add_signed(m.add0));
+		if (m.add[0]) {
+			sigC = port(m.add[0], ID::A);
+			sigC.extend_u0(width, nexus_add_signed(m.add[0]));
 			// C must not read cells that are removed
-			for (auto cell : {m.mul0, m.mul1, m.mul2, m.mul3, m.add0, m.add1, m.add2, m.add3})
+			for (auto cell : {m.mul[0], m.mul[1], m.mul[2], m.mul[3], m.add[0], m.add[1], m.add[2], m.add[3]})
 				if (!sigC.extract(port(cell, ID::Y)).empty())
 					return;
 		}
 		sigC.extend_u0(54, false);
 
-		SigSpec sigY = port(m.add3, ID::Y);
+		SigSpec sigY = port(m.add[3], ID::Y);
 		if (width < 54)
 			sigY.append(module->addWire(NEW_ID, 54 - width));
 
 		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
 		int i = 0;
-		for (auto mul : {m.mul0, m.mul1, m.mul2, m.mul3}) {
+		for (auto mul : {m.mul[0], m.mul[1], m.mul[2], m.mul[3]}) {
 			SigSpec sigA = port(mul, ID::A);
 			SigSpec sigB = port(mul, ID::B);
 			sigA.extend_u0(9, is_signed);
@@ -172,7 +164,7 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 		mac->setPort(ID::Y, sigY);
 		mac->setParam(ID::SIGNED, is_signed ? State::S1 : State::S0);
 
-		for (auto cell : {m.mul0, m.mul1, m.mul2, m.mul3, m.add0, m.add1, m.add2, m.add3})
+		for (auto cell : {m.mul[0], m.mul[1], m.mul[2], m.mul[3], m.add[0], m.add[1], m.add[2], m.add[3]})
 			autoremove(cell);
 
 		accept(m);
@@ -428,8 +420,6 @@ struct NexusPreadd18 : MatchPattern<NexusPreadd18, NexusPreadd18Match>
 struct NexusMulRegMatch
 {
 	SigBit clk = {};
-	SigSpec argQ = {};
-	SigSpec argD = {};
 	Cell *ffA = nullptr;
 	Cell *ffB = nullptr;
 	Cell *ffY = nullptr;
@@ -493,32 +483,33 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 		match_each(m, mul_cells, &Match::mul, &NexusMulReg::code_ffA);
 	}
 
+	// Returns true when the stage must return
+	bool absorb(Match &n, Cell *Match::*ff, const MatchIndex<SigSpec> &index, IdString mul_port, IdString ff_port)
+	{
+		match_ff(n, index, port(n.mul, mul_port), ff_port);
+		if (unwinding())
+			return true;
+		if (dff) {
+			n.*ff = dff;
+			n.clk = dffclk;
+		}
+		return false;
+	}
+
 	// Absorb the pipeline FF on each mul input
 	void code_ffA(const Match &m)
 	{
 		Match n = m;
-		n.argQ = port(n.mul, ID::A);
-		in_ff(n);
-		if (unwinding())
+		if (absorb(n, &Match::ffA, in_ff_index, ID::A, ID::Q))
 			return;
-		if (dff) {
-			n.ffA = dff;
-			n.clk = dffclk;
-		}
 		code_ffB(n);
 	}
 
 	void code_ffB(const Match &m)
 	{
 		Match n = m;
-		n.argQ = port(n.mul, ID::B);
-		in_ff(n);
-		if (unwinding())
+		if (absorb(n, &Match::ffB, in_ff_index, ID::B, ID::Q))
 			return;
-		if (dff) {
-			n.ffB = dff;
-			n.clk = dffclk;
-		}
 		code_ffY(n);
 	}
 
@@ -526,14 +517,8 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 	void code_ffY(const Match &m)
 	{
 		Match n = m;
-		n.argD = port(n.mul, ID::Y);
-		out_ff(n);
-		if (unwinding())
+		if (absorb(n, &Match::ffY, out_ff_index, ID::Y, ID::D))
 			return;
-		if (dff) {
-			n.ffY = dff;
-			n.clk = dffclk;
-		}
 		code_accept(n);
 	}
 
@@ -615,76 +600,26 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 		accept(m);
 	}
 
-	// Find the input pipeline FF whose Q feeds argQ
-	void in_ff(const Match &m)
+	// Find the pipeline FF whose ff_port is arg: Q for an input, D for the output
+	void match_ff(const Match &m, const MatchIndex<SigSpec> &index, const SigSpec &arg, IdString ff_port)
 	{
 		dff = nullptr;
-		in_ff_match_ff(m);
-	}
-
-	void in_ff_match_ff(const Match &m)
-	{
 		MatchFrame frame(ctx);
-		for (Cell *ff : candidates(in_ff_index.find(m.argQ))) {
+		for (Cell *ff : candidates(index.find(arg))) {
 			if (!ff->type.in(ID($dff), ID($dffe)) && !param(ff, ID::SRST_VALUE).is_fully_zero())
 				continue;
-			if (GetSize(port(ff, ID::Q)) != GetSize(m.argQ))
+			if (GetSize(port(ff, ff_port)) != GetSize(arg))
 				continue;
-			if (nusers(port(ff, ID::Q)) != 2)
+			if (nusers(port(ff, ff_port)) != 2)
 				continue;
 			Match n = m;
 			n.ff = ff;
-			if (descend(frame, ff, &NexusMulReg::in_ff_code_found, n))
+			if (descend(frame, ff, &NexusMulReg::code_found_ff, n))
 				return;
 		}
 	}
 
-	void in_ff_code_found(const Match &m)
-	{
-		if (m.clk != SigBit() && sigmap(port(m.ff, ID::CLK)[0]) != m.clk)
-			return;
-
-		for (auto bit : sigmap(port(m.ff, ID::Q))) {
-			if (!bit.wire)
-				continue;
-			auto it = bit.wire->attributes.find(ID::init);
-			if (it == bit.wire->attributes.end())
-				continue;
-			if (bit.offset < GetSize(it->second)) {
-				State s = it->second[bit.offset];
-				if (s != State::Sx && s != State::S0)
-					return;
-			}
-		}
-
-		dff = m.ff;
-		dffclk = sigmap(port(m.ff, ID::CLK)[0]);
-	}
-
-	void out_ff(const Match &m)
-	{
-		dff = nullptr;
-		out_ff_match_ff(m);
-	}
-
-	void out_ff_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (Cell *ff : candidates(out_ff_index.find(m.argD))) {
-			if (!ff->type.in(ID($dff), ID($dffe)) && !param(ff, ID::SRST_VALUE).is_fully_zero())
-				continue;
-			if (GetSize(port(ff, ID::D)) != GetSize(m.argD))
-				continue;
-			if (nusers(port(ff, ID::D)) != 2)
-				continue;
-			Match n = m;
-			n.ff = ff;
-			if (descend(frame, ff, &NexusMulReg::out_ff_code_found, n))
-				return;
-		}
-	}
-
-	void out_ff_code_found(const Match &m)
+	void code_found_ff(const Match &m)
 	{
 		if (m.clk != SigBit() && sigmap(port(m.ff, ID::CLK)[0]) != m.clk)
 			return;
