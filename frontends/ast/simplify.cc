@@ -1934,17 +1934,12 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		}
 	}
 
-	if (type == AST_CONDX && children.size() > 0 && children.at(0)->type == AST_CONSTANT) {
-		for (auto &bit : children.at(0)->bits)
-			if (bit == State::Sz || bit == State::Sx)
-				bit = State::Sa;
-	}
-
-	if (type == AST_CONDZ && children.size() > 0 && children.at(0)->type == AST_CONSTANT) {
-		for (auto &bit : children.at(0)->bits)
-			if (bit == State::Sz)
-				bit = State::Sa;
-	}
+	if (type == AST_CONDX || type == AST_CONDZ)
+		for (auto &child : children)
+			if (child->type == AST_CONSTANT)
+				for (auto &bit : child->bits)
+					if (bit == State::Sz || (type == AST_CONDX && bit == State::Sx))
+						bit = State::Sa;
 
 	if (const_fold && type == AST_CASE)
 	{

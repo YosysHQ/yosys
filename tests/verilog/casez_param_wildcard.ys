@@ -1,0 +1,11 @@
+read_verilog <<EOT
+module top(input [3:0] x, output reg y);
+	localparam [1:0] DC = 2'b??;
+	always @* casez (x)
+		4'b0001, {DC, 2'b10}: y = 1;
+		default: y = 0;
+	endcase
+endmodule
+EOT
+proc
+sat -verify -prove y 1 -set x 4'b1110
