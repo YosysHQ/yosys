@@ -504,6 +504,30 @@ if (YOSYS_ENABLE_PYTHON)
 		add_dependencies(pyosys yosys-abc)
 	endif()
 
+	set(stub_dir "${CMAKE_CURRENT_BINARY_DIR}/pyosys-stubs")
+	set(stub_package "${stub_dir}/pyosys")
+	set(stub_file "${stub_package}/libyosys.pyi")
+
+	add_custom_command(
+		OUTPUT "${stub_file}"
+		BYPRODUCTS "${stub_package}/__init__.py" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
+		DEPENDS pyosys pyosys/modinit.py
+		COMMAND "${CMAKE_COMMAND}" -E make_directory "${stub_package}"
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+			"${CMAKE_CURRENT_SOURCE_DIR}/pyosys/modinit.py" "${stub_package}/__init__.py"
+		COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+			"$<TARGET_FILE:pyosys>" "${stub_package}/libyosys${CMAKE_SHARED_MODULE_SUFFIX}"
+		COMMAND "${CMAKE_COMMAND}" -E chdir "${stub_dir}"
+			"${Python3_EXECUTABLE}" -m pybind11_stubgen
+			--exit-code -o "${stub_dir}"
+			--enum-class-locations "^(State|LogSeverity|SelectPartials|SelectBoxes)$:pyosys.libyosys"
+			pyosys.libyosys
+		VERBATIM
+		COMMENT "Generating Pyosys stubs"
+	)
+
+	add_custom_target(pyosys_stubs DEPENDS "${stub_file}")
+
 	if (YOSYS_INSTALL_PYTHON)
 		string(REPLACE "-" "_" PYOSYS_MODULE_PREFIX "${YOSYS_PROGRAM_PREFIX}")
 		if (YOSYS_INSTALL_PYTHON_SITEDIR STREQUAL "")
