@@ -2268,6 +2268,24 @@ input [ARGS_WIDTH-1:0] ARGS;
 endmodule
 
 // --------------------------------------------------------
+//* ver 2
+//* title Property IR cell
+//* group formal
+//- This cell stores textual Property IR code.
+//-
+module \$property (A, Y);
+
+parameter DATA = "";
+
+parameter A_WIDTH = 0;
+parameter Y_WIDTH = 0;
+
+input [A_WIDTH-1:0] A;
+output [Y_WIDTH-1:0] Y;
+
+endmodule
+
+// --------------------------------------------------------
 //* group debug
 
 module \$check (A, EN, TRG, ARGS);
