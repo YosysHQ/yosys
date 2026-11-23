@@ -442,6 +442,23 @@ TEST_F(NetProtectTest, checkpointOfAWireRefAnchorsItsLoads)
 	EXPECT_TRUE(ref.loads.empty());
 }
 
+// an instance ref cannot hold pins, its loads must not stand in for its cells
+TEST_F(NetProtectTest, checkpointOfAWireCellRefSkipsItsLoads)
+{
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv0)}};
+	t.checkpoint({&cell});
+	top->connect(u_inv0->getPort(ID(Y)), u_inv0->getPort(ID(A)));
+	top->remove(u_inv0);
+	t.next({&cell});
+	ASSERT_FALSE(cell.loads.empty()); // i1 and i2 in u_sub
+	t.checkpoint({&cell});
+	t.next({&cell});
+	EXPECT_TRUE(cell.gone);
+	EXPECT_TRUE(cell.instances.empty());
+	EXPECT_TRUE(cell.port_cuts.empty());
+}
+
 // flatten copies a barrier with its id
 TEST_F(NetProtectTest, copyOfABarrierGetsItsOwnId)
 {

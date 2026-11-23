@@ -143,8 +143,10 @@ void detail::CheckpointWriter::write(uint32_t ref_index, const TrackedRef &ref)
 {
 	for (const Netlist::Pin *pin : ref.pins)
 		anchorPin(pin, ref_index);
-	for (const Netlist::Pin *pin : ref.loads)
-		anchorPin(pin, ref_index);
+	if (ref.kind == TrackedRef::Kind::Pin) {
+		for (const Netlist::Pin *pin : ref.loads)
+			anchorPin(pin, ref_index);
+	}
 	for (const Netlist::Instance *inst : ref.instances) {
 		log_assert(!inst->isTop());
 		protectCell(inst, ref_index);
