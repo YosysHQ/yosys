@@ -90,10 +90,15 @@ runs:
           "https://ghcr.io/v2/homebrew/core/flex/blobs/sha256:$sha" -o "$bottle"
         printf '%s  %s\n' "$sha" "$bottle" | shasum -a 256 -c -
 
-        brew reinstall -f "$bottle"
+        (cd "$RUNNER_TEMP" && brew install --formula --no-ask "${bottle##*/}")
 
-        flex_bin="$(brew --prefix flex)/bin"
-        "$flex_bin/flex" --version
+        flex_bin="$(brew --cellar flex)/2.6.4_2/bin"
+        flex_version="$("$flex_bin/flex" --version)"
+        if [[ "$flex_version" != "flex 2.6.4" ]]; then
+          echo "::error::Expected flex 2.6.4, got $flex_version"
+          exit 1
+        fi
+        printf '%s\n' "$flex_version"
         printf '%s\n' "$flex_bin" >> "$GITHUB_PATH"
 
     - name: Linux runtime environment
