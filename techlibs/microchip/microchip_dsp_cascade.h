@@ -94,17 +94,7 @@ struct MicrochipDspCascade : MatchPattern<MicrochipDspCascade, MicrochipDspCasca
 	//     (b) doesn't already use the 'PCOUT' port
 	void match_first(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *first : first_cells) {
-			if (blacklisted(first))
-				continue;
-			Match n = m;
-			n.first = first;
-			frame.enter(first);
-			code_chain(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, first_cells, &Match::first, &MicrochipDspCascade::code_chain);
 	}
 
 	// (4) The longest chain is then divided into chunks of no more than

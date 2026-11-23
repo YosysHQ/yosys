@@ -154,17 +154,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : mul_cells) {
-			if (blacklisted(mul))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			frame.enter(mul);
-			code_signals(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_cells, &Match::mul, &Ice40Dsp::code_signals);
 	}
 
 	void code_signals(const Match &m)

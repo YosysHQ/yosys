@@ -54,17 +54,7 @@ struct XilinxDspPackC : MatchPattern<XilinxDspPackC, XilinxDspPackCMatch>
 	//     and (b) uses the 'C' port
 	void match_dsp(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *dsp : dsp_cells) {
-			if (blacklisted(dsp))
-				continue;
-			Match n = m;
-			n.dsp = dsp;
-			frame.enter(dsp);
-			code_signals(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, dsp_cells, &Match::dsp, &XilinxDspPackC::code_signals);
 	}
 
 	void code_signals(const Match &m)

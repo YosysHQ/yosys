@@ -156,17 +156,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	// (1) Starting from a DSP48E1 cell
 	void match_dsp(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *dsp : dsp_cells) {
-			if (blacklisted(dsp))
-				continue;
-			Match n = m;
-			n.dsp = dsp;
-			frame.enter(dsp);
-			code_signals(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, dsp_cells, &Match::dsp, &XilinxDspPack::code_signals);
 	}
 
 	void code_signals(const Match &m)

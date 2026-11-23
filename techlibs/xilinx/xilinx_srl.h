@@ -144,17 +144,7 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 
 	void setup(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *first : first_cells) {
-			if (blacklisted(first))
-				continue;
-			Match n = m;
-			n.first = first;
-			frame.enter(first);
-			setup_code_ports(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, first_cells, &Match::first, &XilinxSrlFixed::setup_code_ports);
 	}
 
 	void setup_code_ports(const Match &m)

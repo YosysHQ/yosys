@@ -71,92 +71,32 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 
 	void match_add3(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *add3 : add3_cells) {
-			if (blacklisted(add3))
-				continue;
-			Match n = m;
-			n.add3 = add3;
-			frame.enter(add3);
-			match_mul3(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, add3_cells, &Match::add3, &NexusMac9_4Lane::match_mul3);
 	}
 
 	void match_mul3(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul3 : mul_index.find(port(m.add3, ID::B)[0])) {
-			if (blacklisted(mul3))
-				continue;
-			Match n = m;
-			n.mul3 = mul3;
-			frame.enter(mul3);
-			match_add2(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_index.find(port(m.add3, ID::B)[0]), &Match::mul3, &NexusMac9_4Lane::match_add2);
 	}
 
 	void match_add2(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *add2 : add_index.find(port(m.add3, ID::A)[0])) {
-			if (blacklisted(add2))
-				continue;
-			Match n = m;
-			n.add2 = add2;
-			frame.enter(add2);
-			match_mul2(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, add_index.find(port(m.add3, ID::A)[0]), &Match::add2, &NexusMac9_4Lane::match_mul2);
 	}
 
 	void match_mul2(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul2 : mul_index.find(port(m.add2, ID::B)[0])) {
-			if (blacklisted(mul2))
-				continue;
-			Match n = m;
-			n.mul2 = mul2;
-			frame.enter(mul2);
-			match_add1(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_index.find(port(m.add2, ID::B)[0]), &Match::mul2, &NexusMac9_4Lane::match_add1);
 	}
 
 	void match_add1(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *add1 : add_index.find(port(m.add2, ID::A)[0])) {
-			if (blacklisted(add1))
-				continue;
-			Match n = m;
-			n.add1 = add1;
-			frame.enter(add1);
-			match_mul1(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, add_index.find(port(m.add2, ID::A)[0]), &Match::add1, &NexusMac9_4Lane::match_mul1);
 	}
 
 	void match_mul1(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul1 : mul_index.find(port(m.add1, ID::B)[0])) {
-			if (blacklisted(mul1))
-				continue;
-			Match n = m;
-			n.mul1 = mul1;
-			frame.enter(mul1);
-			match_add0(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_index.find(port(m.add1, ID::B)[0]), &Match::mul1, &NexusMac9_4Lane::match_add0);
 	}
 
 	// C + P0
@@ -180,17 +120,7 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 
 	void match_mul0(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul0 : mul_index.find(m.add0 ? port(m.add0, ID::B)[0] : port(m.add1, ID::A)[0])) {
-			if (blacklisted(mul0))
-				continue;
-			Match n = m;
-			n.mul0 = mul0;
-			frame.enter(mul0);
-			code_accept(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_index.find(m.add0 ? port(m.add0, ID::B)[0] : port(m.add1, ID::A)[0]), &Match::mul0, &NexusMac9_4Lane::code_accept);
 	}
 
 	void code_accept(const Match &m)
@@ -298,17 +228,7 @@ struct NexusMac : MatchPattern<NexusMac, NexusMacMatch>
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : mul_cells) {
-			if (blacklisted(mul))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			frame.enter(mul);
-			match_add(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_cells, &Match::mul, &NexusMac::match_add);
 	}
 
 	void match_add(const Match &m)
@@ -446,32 +366,12 @@ struct NexusPreadd18 : MatchPattern<NexusPreadd18, NexusPreadd18Match>
 
 	void match_preadd(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *preadd : preadd_cells) {
-			if (blacklisted(preadd))
-				continue;
-			Match n = m;
-			n.preadd = preadd;
-			frame.enter(preadd);
-			match_mul(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, preadd_cells, &Match::preadd, &NexusPreadd18::match_mul);
 	}
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : mul_index.find(port(m.preadd, ID::Y)[0])) {
-			if (blacklisted(mul))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			frame.enter(mul);
-			match_pipe_ff(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_index.find(port(m.preadd, ID::Y)[0]), &Match::mul, &NexusPreadd18::match_pipe_ff);
 	}
 
 	void match_pipe_ff(const Match &m)
@@ -612,17 +512,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : mul_cells) {
-			if (blacklisted(mul))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			frame.enter(mul);
-			code_ffA(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_cells, &Match::mul, &NexusMulReg::code_ffA);
 	}
 
 	// Absorb the pipeline FF on each mul input

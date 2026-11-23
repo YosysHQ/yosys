@@ -101,17 +101,7 @@ struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
 
 	void setup(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *first : first_cells) {
-			if (blacklisted(first))
-				continue;
-			Match n = m;
-			n.first = first;
-			frame.enter(first);
-			setup_code_portname(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, first_cells, &Match::first, &TestPmgenReduce::setup_code_portname);
 	}
 
 	void setup_code_portname(const Match &m)
@@ -127,17 +117,7 @@ struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
 
 	void setup_match_next(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *next : next_index.find({m.first->type, port(m.first, m.portname)})) {
-			if (blacklisted(next))
-				continue;
-			Match n = m;
-			n.next = next;
-			frame.enter(next);
-			setup_code_mark(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, next_index.find({m.first->type, port(m.first, m.portname)}), &Match::next, &TestPmgenReduce::setup_code_mark);
 	}
 
 	void setup_code_mark(const Match &m)

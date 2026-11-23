@@ -28,32 +28,12 @@ struct Ice40Wrapcarry : MatchPattern<Ice40Wrapcarry, Ice40WrapcarryMatch>
 
 	void match_carry(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *carry : carry_cells) {
-			if (blacklisted(carry))
-				continue;
-			Match n = m;
-			n.carry = carry;
-			frame.enter(carry);
-			match_lut(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, carry_cells, &Match::carry, &Ice40Wrapcarry::match_lut);
 	}
 
 	void match_lut(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *lut : lut_index.find({port(m.carry, ID::I0), port(m.carry, ID::I1)})) {
-			if (blacklisted(lut))
-				continue;
-			Match n = m;
-			n.lut = lut;
-			frame.enter(lut);
-			accept(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, lut_index.find({port(m.carry, ID::I0), port(m.carry, ID::I1)}), &Match::lut, &Ice40Wrapcarry::accept);
 	}
 };
 

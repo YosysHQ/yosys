@@ -68,17 +68,7 @@ struct PeepoptMuldivC : MatchPattern<PeepoptMuldivC, PeepoptMuldivCMatch>
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : mul_cells) {
-			if (blacklisted(mul))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			frame.enter(mul);
-			code_operands(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, mul_cells, &Match::mul, &PeepoptMuldivC::code_operands);
 	}
 
 	void code_operands(const Match &m)

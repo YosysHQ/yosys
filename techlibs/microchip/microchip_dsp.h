@@ -110,17 +110,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	// (1) Starting from a DSP cell
 	void match_dsp(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *dsp : dsp_cells) {
-			if (blacklisted(dsp))
-				continue;
-			Match n = m;
-			n.dsp = dsp;
-			frame.enter(dsp);
-			code_signals(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, dsp_cells, &Match::dsp, &MicrochipDspPack::code_signals);
 	}
 
 	// detect existing signals connected to DSP

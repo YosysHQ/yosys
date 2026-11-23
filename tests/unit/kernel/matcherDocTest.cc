@@ -41,17 +41,7 @@ struct Foobar : MatchPattern<Foobar, FoobarMatch>
 
 	void match_ff(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *ff : ff_cells) {
-			if (blacklisted(ff))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			match_mul(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, ff_cells, &Match::ff, &Foobar::match_mul);
 	}
 
 	// [match_mul]
@@ -236,17 +226,7 @@ struct EqPmux : MatchPattern<EqPmux, EqPmuxMatch>
 
 	void match_eq(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *eq : eq_cells) {
-			if (blacklisted(eq))
-				continue;
-			Match n = m;
-			n.eq = eq;
-			frame.enter(eq);
-			match_pmux(n);
-			if (frame.leave())
-				return;
-		}
+		match_each(m, eq_cells, &Match::eq, &EqPmux::match_pmux);
 	}
 
 	// [match_pmux]

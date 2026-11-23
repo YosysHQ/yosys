@@ -232,6 +232,22 @@ struct MatchPattern : MatchPatternBase
 			on_accept(*static_cast<Pattern *>(this), m);
 		return unwinding();
 	}
+
+	template <typename Cells, typename Next>
+	void match_each(const Match &m, const Cells &cells, Cell *Match::*state, Next next)
+	{
+		MatchFrame frame(ctx);
+		for (Cell *cell : cells) {
+			if (blacklisted(cell))
+				continue;
+			Match n = m;
+			n.*state = cell;
+			frame.enter(cell);
+			(static_cast<Pattern *>(this)->*next)(n);
+			if (frame.leave())
+				return;
+		}
+	}
 };
 
 YOSYS_NAMESPACE_END
