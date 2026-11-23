@@ -143,7 +143,6 @@ yosys_core(kernel
 		json.h
 		log.h
 		macc.h
-		matcher.h
 		modtools.h
 		mem.h
 		qcsat.h

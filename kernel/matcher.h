@@ -1,3 +1,4 @@
+// Internal. Request publishing this header if you need it
 #ifndef MATCHER_H
 #define MATCHER_H
 
