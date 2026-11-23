@@ -562,7 +562,7 @@ set(makefile_depends
 
 if (NOT YOSYS_BUILD_PYTHON_ONLY AND YOSYS_ENABLE_UNIT_TESTS)
 	set(jobserver_warning)
-	if (NOT CMAKE_GENERATOR MATCHES "Makefiles")
+	if (NOT CMAKE_GENERATOR MATCHES "^(Unix|MinGW|MSYS) Makefiles$")
 		set(jobserver_warning
 			COMMAND ${CMAKE_COMMAND} -DGENERATOR=${CMAKE_GENERATOR}
 				-P ${YOSYS_CMAKE_SOURCE_DIR}/cmake/WarnNoJobserver.cmake
