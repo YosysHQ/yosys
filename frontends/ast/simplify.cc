@@ -1970,7 +1970,19 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 		backup_memwr_visible = current_memwr_visible;
 		final_memwr_visible = current_memwr_visible;
 	}
-
+	if (type == AST_BLOCK && str.empty())
+	{
+		for (size_t i = 0; i < children.size(); i++)
+			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
+			{
+				string errmsg = "";
+				if (sv_mode_but_global_and_used_for_literally_one_condition)
+					errmsg = "requires explicit begin-end wrap";
+				else
+					errmsg = "is only supported in SystemVerilog mode";
+				children[i]->input_error("Local declaration in unnamed block %s!\n", errmsg);
+			}
+	}
 	// simplify all children first
 	// (iterate by index as e.g. auto wires can add new children in the process)
 	for (size_t i = 0; i < children.size(); i++) {
@@ -2785,19 +2797,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 	}
 
 	// check for local objects in unnamed block
-	if (type == AST_BLOCK && str.empty())
-	{
-		for (size_t i = 0; i < children.size(); i++)
-			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
-			{
-				string errmsg = "";
-				if (sv_mode_but_global_and_used_for_literally_one_condition)
-					errmsg = "requires explicit begin-end wrap";
-				else
-					errmsg = "is only supported in SystemVerilog mode";
-				children[i]->input_error("Local declaration in unnamed block %s!\n", errmsg);
-			}
-	}
+
 
 	// transform block with name
 	if (type == AST_BLOCK && !str.empty())
