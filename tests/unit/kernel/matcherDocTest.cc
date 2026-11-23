@@ -58,9 +58,7 @@ struct Foobar : MatchPattern<Foobar, FoobarMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.mul = nullptr;
-		code_width(n);
+		match_none(m, &Match::mul, &Foobar::code_width);
 	}
 	// [/match_mul]
 
@@ -376,11 +374,8 @@ struct AndTree : MatchPattern<AndTree, AndTreeMatch>
 				return;
 		}
 
-		if (!found_any_match) {
-			Match n = m;
-			n.next = nullptr;
-			code_extend(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::next, &AndTree::code_extend);
 
 		if (should_generate(found_any_match, 10, 0)) {
 			SigSpec Y = port(stack.back(), m.portAB);

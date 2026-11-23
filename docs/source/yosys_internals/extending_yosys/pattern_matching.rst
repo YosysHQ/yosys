@@ -196,8 +196,8 @@ Finally, the conditions in the loop narrow down the remaining list of cells. For
 performance reasons they should only be used for things that can't be done in
 the constructor or with an index.
 
-The call to the next stage with ``mul`` set to ``nullptr`` after the loop marks
-an optional match. That is, the matcher will also explore the case where ``mul``
+The ``match_none()`` call after the loop, which calls the next stage with ``mul``
+set to ``nullptr``, marks an optional match. That is, the matcher will also explore the case where ``mul``
 is set to ``nullptr``. Without it a match may only be assigned ``nullptr`` when
 its guard evaluates to ``false``.
 

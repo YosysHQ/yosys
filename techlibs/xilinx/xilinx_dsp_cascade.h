@@ -272,11 +272,8 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 			if (descend(frame, nextP, &XilinxDspCascade::tail_match_nextP_shift17, n))
 				return;
 		}
-		if (!found_any_match) {
-			Match n = m;
-			n.nextP = nullptr;
-			tail_match_nextP_shift17(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::nextP, &XilinxDspCascade::tail_match_nextP_shift17);
 	}
 
 	// (2.2) For DSP48E1 only, same as (2.1) but with the 'C' port driven
@@ -284,9 +281,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 	void tail_match_nextP_shift17(const Match &m)
 	{
 		if (m.nextP) {
-			Match n = m;
-			n.nextP_shift17 = nullptr;
-			tail_code_next(n);
+			match_none(m, &Match::nextP_shift17, &XilinxDspCascade::tail_code_next);
 			return;
 		}
 		bool found_any_match = false;
@@ -298,11 +293,8 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 			if (descend(frame, nextP_shift17, &XilinxDspCascade::tail_code_next, n))
 				return;
 		}
-		if (!found_any_match) {
-			Match n = m;
-			n.nextP_shift17 = nullptr;
-			tail_code_next(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::nextP_shift17, &XilinxDspCascade::tail_code_next);
 	}
 
 	void tail_code_next(const Match &m)

@@ -133,11 +133,8 @@ struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
 				return;
 		}
 
-		if (!found_any_match) {
-			Match n = m;
-			n.next = nullptr;
-			tail_code_extend(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::next, &TestPmgenReduce::tail_code_extend);
 
 		if (should_generate(found_any_match, 10, 0)) {
 			SigSpec A = module->addWire(NEW_ID);

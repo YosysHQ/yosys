@@ -175,9 +175,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.preAdd = nullptr;
-		code_preAdd(n);
+		match_none(m, &Match::preAdd, &XilinxDsp48aPack::code_preAdd);
 	}
 
 	void code_preAdd(const Match &m)
@@ -285,9 +283,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.postAdd = nullptr;
-		code_postAdd(n);
+		match_none(m, &Match::postAdd, &XilinxDsp48aPack::code_postAdd);
 	}
 
 	void code_postAdd(const Match &m)
@@ -342,9 +338,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.postAddMux = nullptr;
-		code_postAddMux(n);
+		match_none(m, &Match::postAddMux, &XilinxDsp48aPack::code_postAddMux);
 	}
 
 	void code_postAddMux(const Match &m)

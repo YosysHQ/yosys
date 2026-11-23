@@ -293,9 +293,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 			}
 		}
 
-		Match n = m;
-		n.add = nullptr;
-		code_add(n);
+		match_none(m, &Match::add, &Ice40Dsp::code_add);
 	}
 
 	void code_add(const Match &m)
@@ -331,9 +329,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 				return;
 		}
 
-		Match n = m;
-		n.mux = nullptr;
-		code_mux(n);
+		match_none(m, &Match::mux, &Ice40Dsp::code_mux);
 	}
 
 	void code_mux(const Match &m)

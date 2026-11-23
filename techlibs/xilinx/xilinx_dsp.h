@@ -219,9 +219,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.preAdd = nullptr;
-		code_preAdd(n);
+		match_none(m, &Match::preAdd, &XilinxDspPack::code_preAdd);
 	}
 
 	void code_preAdd(const Match &m)
@@ -247,9 +245,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.preSub = nullptr;
-		code_preSub(n);
+		match_none(m, &Match::preSub, &XilinxDspPack::code_preSub);
 	}
 
 	void code_preSub(const Match &m)
@@ -379,9 +375,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.postAdd = nullptr;
-		code_postAdd(n);
+		match_none(m, &Match::postAdd, &XilinxDspPack::code_postAdd);
 	}
 
 	void code_postAdd(const Match &m)
@@ -436,9 +430,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.postAddMux = nullptr;
-		code_postAddMux(n);
+		match_none(m, &Match::postAddMux, &XilinxDspPack::code_postAddMux);
 	}
 
 	void code_postAddMux(const Match &m)
@@ -465,9 +457,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 					return;
 			}
 		}
-		Match n = m;
-		n.overflow = nullptr;
-		accept(n);
+		match_none(m, &Match::overflow, &XilinxDspPack::accept);
 	}
 };
 

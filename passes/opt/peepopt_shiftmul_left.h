@@ -69,9 +69,7 @@ struct PeepoptShiftmulLeft : MatchPattern<PeepoptShiftmulLeft, PeepoptShiftmulLe
 	void match_neg(const Match &m)
 	{
 		if (!m.shift->type.in(ID($shift), ID($shiftx))) {
-			Match n = m;
-			n.neg = nullptr;
-			code_shift_amount(n);
+			match_none(m, &Match::neg, &PeepoptShiftmulLeft::code_shift_amount);
 			return;
 		}
 		MatchFrame frame(ctx);

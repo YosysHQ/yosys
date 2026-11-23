@@ -109,9 +109,7 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 			if (descend(frame, add0, &NexusMac9_4Lane::match_mul0, n))
 				return;
 		}
-		Match n = m;
-		n.add0 = nullptr;
-		match_mul0(n);
+		match_none(m, &Match::add0, &NexusMac9_4Lane::match_mul0);
 	}
 
 	void match_mul0(const Match &m)
@@ -254,9 +252,7 @@ struct NexusMac : MatchPattern<NexusMac, NexusMacMatch>
 			if (descend(frame, mux, &NexusMac::code_accept, n))
 				return;
 		}
-		Match n = m;
-		n.mux = nullptr;
-		code_accept(n);
+		match_none(m, &Match::mux, &NexusMac::code_accept);
 	}
 
 	void code_accept(const Match &m)
@@ -373,9 +369,7 @@ struct NexusPreadd18 : MatchPattern<NexusPreadd18, NexusPreadd18Match>
 			if (descend(frame, pipe_ff, &NexusPreadd18::code_accept, n))
 				return;
 		}
-		Match n = m;
-		n.pipe_ff = nullptr;
-		code_accept(n);
+		match_none(m, &Match::pipe_ff, &NexusPreadd18::code_accept);
 	}
 
 	void code_accept(const Match &m)

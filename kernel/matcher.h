@@ -288,6 +288,14 @@ struct MatchPattern : MatchPatternBase
 		return frame.leave();
 	}
 
+	template <typename Next>
+	void match_none(const Match &m, Cell *Match::*state, Next next)
+	{
+		Match n = m;
+		n.*state = nullptr;
+		(static_cast<Pattern *>(this)->*next)(n);
+	}
+
 	template <typename Cells, typename Next>
 	void match_each(const Match &m, const Cells &cells, Cell *Match::*state, Next next)
 	{

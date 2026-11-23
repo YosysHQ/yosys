@@ -184,9 +184,7 @@ struct MicrochipDspCascade : MatchPattern<MicrochipDspCascade, MicrochipDspCasca
 				return;
 		}
 
-		Match n = m;
-		n.nextP = nullptr;
-		tail_code_next(n);
+		match_none(m, &Match::nextP, &MicrochipDspCascade::tail_code_next);
 	}
 
 	void tail_code_next(const Match &m)

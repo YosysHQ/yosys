@@ -126,9 +126,7 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 	void match_mux(const Match &m)
 	{
 		if (!m.mux_in_pattern) {
-			Match n = m;
-			n.mux = nullptr;
-			match_ff(n);
+			match_none(m, &Match::mux, &QlDspMacc::match_ff);
 			return;
 		}
 		MatchFrame frame(ctx);

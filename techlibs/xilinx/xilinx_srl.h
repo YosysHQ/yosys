@@ -182,11 +182,8 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 				return;
 		}
 
-		if (!found_any_match) {
-			Match n = m;
-			n.next = nullptr;
-			tail_code_extend(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::next, &XilinxSrlFixed::tail_code_extend);
 
 		if (should_generate(found_any_match, 100, 0)) {
 			Cell *cell = module->addCell(NEW_ID, chain.back()->type);
@@ -387,11 +384,8 @@ struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatc
 				return;
 		}
 
-		if (!found_any_match) {
-			Match n = m;
-			n.next = nullptr;
-			tail_code_extend(n);
-		}
+		if (!found_any_match)
+			match_none(m, &Match::next, &XilinxSrlVariable::tail_code_extend);
 
 		if (should_generate(found_any_match, 100, 0)) {
 			if (GetSize(chain) < m.shiftx_width) {
