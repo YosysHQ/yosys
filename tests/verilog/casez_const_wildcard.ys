@@ -1,0 +1,19 @@
+read_verilog <<EOT
+module top #(parameter [3:0] S = 4'b1110) (output y, output z);
+	localparam [1:0] DC = 2'b??;
+	function automatic f(input [3:0] s);
+		casez (s)
+			4'b0001, {DC, 2'b10}: f = 1;
+			default: f = 0;
+		endcase
+	endfunction
+	localparam R = f(S);
+	assign z = R;
+	generate casez (S)
+		4'b??10: assign y = 1;
+		default: assign y = 0;
+	endcase endgenerate
+endmodule
+EOT
+hierarchy -top top
+sat -verify -prove y 1 -prove z 1
