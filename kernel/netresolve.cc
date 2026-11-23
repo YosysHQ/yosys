@@ -360,7 +360,7 @@ detail::PinList detail::Resolver::cutPins(const AnchorHit &hit, WalkReach reach)
 		.reach = reach,
 		.stop_at_scope = hit.anchor->hier,
 	};
-	walk.passed.insert({hit.scope, hit.cell});
+	walk.passed.insert({hit.scope, hit.cell, 0});
 	if (!addCutPins(hit.scope, detail::cutBit(hit.cell), target, walk))
 		walk.pins.clear();
 	bool wants_loads_behind = reach == WalkReach::AllLoads && cut_on_a;
@@ -387,7 +387,7 @@ bool detail::Resolver::addCutPins(const Netlist::Instance *scope, RTLIL::SigBit 
 	walker.get_drivers(users, root);
 	walker.get_consumers(users, root);
 	for (const PortBit &at : users) {
-		if (!walk.passed.count({scope, at.cell}) && !addUserPins(scope, at, target, walk))
+		if (!walk.passed.count({scope, at.cell, at.offset}) && !addUserPins(scope, at, target, walk))
 			return false;
 	}
 	return true;
@@ -471,10 +471,11 @@ bool detail::Resolver::addLeafPin(const Netlist::Pin *pin, const PortBit &at, Wa
 
 bool detail::Resolver::passCell(const Netlist::Instance *scope, const PortBit &at, WalkTarget target, CutWalk &walk)
 {
-	walk.passed.insert({scope, at.cell});
+	walk.passed.insert({scope, at.cell, at.offset});
+	int width = GetSize(at.cell->getPort(at.port));
 	for (const auto &[port, sig] : at.cell->connections()) {
-		bool is_other_bit_port = port != at.port && GetSize(sig) == 1;
-		if (is_other_bit_port && !addCutPins(scope, sig[0], target, walk))
+		bool is_other_port = port != at.port && GetSize(sig) == width;
+		if (is_other_port && !addCutPins(scope, sig[at.offset], target, walk))
 			return false;
 	}
 	return true;
@@ -601,7 +602,7 @@ detail::PinList detail::Resolver::loadsBehind(const AnchorHit &hit)
 	if (cut.wire != nullptr && !walker.has_drivers(RTLIL::SigSpec(cut)))
 		return {};
 	CutWalk walk = {.reach = WalkReach::AllLoads};
-	walk.passed.insert({hit.scope, hit.cell});
+	walk.passed.insert({hit.scope, hit.cell, 0});
 	if (!addCutPins(hit.scope, hit.cell->getPort(ID::Y)[0], WalkTarget::Loads, walk))
 		return {};
 	return walk.pins;

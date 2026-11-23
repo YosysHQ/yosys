@@ -459,6 +459,42 @@ TEST_F(NetProtectTest, checkpointOfAWireCellRefSkipsItsLoads)
 	EXPECT_TRUE(cell.port_cuts.empty());
 }
 
+// BUF4 is a buffer with 4-bit ports
+struct BusBufferLibrary : Netlist::CellLibrary {
+	bool describe(Netlist::CellType &type) override
+	{
+		if (type.name != "BUF4")
+			return false;
+		type.ports = {{.name = "A", .width = 4, .from = 3, .dir = RTLIL::PD_INPUT, .vector = true},
+			      {.name = "Y", .width = 4, .from = 3, .dir = RTLIL::PD_OUTPUT, .vector = true}};
+		type.is_buffer = true;
+		return true;
+	}
+};
+
+// the loads behind a bus buffer are the loads of each bit the wire feeds
+TEST_F(NetProtectTest, loadsBehindPassABusBuffer)
+{
+	Wire *bo = top->addWire("\\bo", 4);
+	bo->port_output = true;
+	top->fixup_ports();
+	SigSpec buf_a = {State::S0, State::S0, out, out}; // bits 0 and 1 read out
+	Cell *u_buf = top->addCell("\\u_buf", "\\BUF4");
+	u_buf->setPort(ID(A), buf_a);
+	u_buf->setPort(ID(Y), bo);
+	BusBufferLibrary library;
+	auto view = std::make_unique<NetView>(d, &library);
+	NetTracker tracker;
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {topChild(*view, u_inv2)}};
+	tracker.checkpoint(*view, {&cell});
+	top->connect(u_inv2->getPort(ID(Y)), u_inv2->getPort(ID(A)));
+	top->remove(u_inv2);
+	view = std::make_unique<NetView>(d, &library);
+	tracker.resolve(*view, {&cell});
+	Pins loads = {view->top()->findPin("out", 0), view->top()->findPin("bo", 0), view->top()->findPin("bo", 1)};
+	EXPECT_EQ(sortedPins(cell.loads), sortedPins(loads));
+}
+
 // flatten copies a barrier with its id
 TEST_F(NetProtectTest, copyOfABarrierGetsItsOwnId)
 {

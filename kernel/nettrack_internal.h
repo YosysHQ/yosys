@@ -24,6 +24,7 @@ using PortBit = ModWalker::PortBit;
 using ScopeNameSet = pool<std::string>;
 using CellSet = pool<const RTLIL::Cell *>;
 using CellInScope = std::pair<const Netlist::Instance *, const RTLIL::Cell *>;
+using CellBitInScope = std::tuple<const Netlist::Instance *, const RTLIL::Cell *, int>;
 using BitInScope = std::pair<const Netlist::Instance *, RTLIL::SigBit>;
 using ScopePortBit = std::tuple<const Netlist::Instance *, RTLIL::IdString, int>;
 using CellPort = std::pair<RTLIL::Cell *, RTLIL::IdString>;
@@ -132,8 +133,8 @@ enum class WalkReach : uint8_t {
 
 struct CutWalk {
 	WalkReach reach = WalkReach::CutSide;
-	bool stop_at_scope = false; // a scope on the wire gives its pin, no walk below
-	pool<CellInScope> passed;   // barriers and buffers
+	bool stop_at_scope = false;  // a scope on the wire gives its pin, no walk below
+	pool<CellBitInScope> passed; // barriers and buffers, per bit
 	pool<BitInScope> seen;
 	pool<ScopePortBit> exit_ports; // walk went up through them
 	PinList pins;
