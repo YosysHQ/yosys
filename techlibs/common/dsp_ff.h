@@ -34,6 +34,18 @@ inline SigSpec dsp_unextend(const SigSpec &sig)
 	return sig.extract(0, i);
 }
 
+// Number of low bits of P that have users besides the DSP
+inline int dsp_used_width(const MatchPatternBase &pm, const SigSpec &P)
+{
+	int i = {};
+	for (i = GetSize(P)-1; i >= 0; i--)
+		if (pm.nusers(P[i]) > 1)
+			break;
+	i++;
+	log_assert(pm.nusers(P.extract_end(i)) <= 1);
+	return i;
+}
+
 inline bool dsp_same_ff_controls(const MatchPatternBase &pm, Cell *ff, Cell *other)
 {
 	if (ff->type != other->type)

@@ -129,12 +129,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 
 		SigSpec P = port(n.dsp, ID::P);
 		// Only care about bits that are used
-		int i = {};
-		for (i = GetSize(P)-1; i >= 0; i--)
-			if (nusers(P[i]) > 1)
-				break;
-		i++;
-		log_assert(nusers(P.extract_end(i)) <= 1);
+		int i = dsp_used_width(*this, P);
 		// This sigP could have no users if downstream sinks (e.g. $add) is
 		//   narrower than $mul result, for example
 		if (i == 0)

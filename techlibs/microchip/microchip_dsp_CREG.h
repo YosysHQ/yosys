@@ -80,12 +80,7 @@ struct MicrochipDspPackC : MatchPattern<MicrochipDspPackC, MicrochipDspPackCMatc
 		SigSpec P = port(n.dsp, ID::P);
 
 		// Only care about those bits that are used
-		int i = {};
-		for (i = GetSize(P)-1; i >= 0; i--)
-			if (nusers(P[i]) > 1)
-				break;
-		i++;
-		log_assert(nusers(P.extract_end(i)) <= 1);
+		int i = dsp_used_width(*this, P);
 		n.sigP = P.extract(0, i);
 
 		n.clock = port(n.dsp, ID::CLK, SigBit());

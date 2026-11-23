@@ -1,7 +1,7 @@
 #ifndef XILINX_DSP48A_H
 #define XILINX_DSP48A_H
 
-#include "techlibs/common/dsp_ff.h"
+#include "techlibs/xilinx/xilinx_dsp_stages.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -128,12 +128,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 
 		SigSpec P = port(n.dsp, ID::P);
 		// Only care about those bits that are used
-		int i = {};
-		for (i = GetSize(P)-1; i >= 0; i--)
-			if (nusers(P[i]) > 1)
-				break;
-		i++;
-		log_assert(nusers(P.extract_end(i)) <= 1);
+		int i = dsp_used_width(*this, P);
 		// This sigM could have no users if downstream sinks (e.g. $add) is
 		//   narrower than $mul result, for example
 		if (i == 0)
@@ -217,12 +212,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 	// (7) Match 'P' output that exclusively drives an MREG
 	void code_ffM(const Match &m)
 	{
-		Match n = m;
-		if (param(n.dsp, ID::MREG).as_int() == 0 && nusers(n.sigM) == 2) {
-			ff_index.absorb_out(*this, n, &Match::ffM, &Match::sigM);
-		}
-		n.sigP = n.sigM;
-		match_postAdd(n);
+		xilinx_dsp_code_ffM(*this, m);
 	}
 
 	// (8) Match 'P' output that exclusively drives one of two inputs to an $add
@@ -233,46 +223,18 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 	void match_postAdd(const Match &m)
 	{
 		// Ensure that Z mux is not already used
-		if (port(m.dsp, ID::OPMODE, SigSpec()).extract(2,2).is_fully_zero()) {
-			MatchFrame frame(ctx);
-			for (auto &[postAdd, AB] : candidates(postAdd_index.find(m.sigP[0]))) {
-				if (GetSize(port(postAdd, AB)) < GetSize(m.sigP))
-					continue;
-				if (port(postAdd, AB).extract(0, GetSize(m.sigP)) != m.sigP)
-					continue;
-				// Check that remainder of AB is a sign- or zero-extension
-				if (!dsp_is_extension_of(port(postAdd, AB), m.sigP))
-					continue;
-				Match n = m;
-				n.postAdd = postAdd;
-				n.postAddAB = AB;
-				if (descend(frame, postAdd, &XilinxDsp48aPack::code_postAdd, n))
-					return;
-			}
-		}
-		match_none(m, &Match::postAdd, &XilinxDsp48aPack::code_postAdd);
+		xilinx_dsp_match_postAdd(*this, m, port(m.dsp, ID::OPMODE, SigSpec()).extract(2,2).is_fully_zero());
 	}
 
 	void code_postAdd(const Match &m)
 	{
-		Match n = m;
-		if (n.postAdd) {
-			n.sigC = port(n.postAdd, n.postAddAB == ID::A ? ID::B : ID::A);
-			n.sigP = port(n.postAdd, ID::Y);
-		}
-		code_ffP(n);
+		xilinx_dsp_code_postAdd(*this, m);
 	}
 
 	// (9) Match 'P' output that exclusively drives a PREG
 	void code_ffP(const Match &m)
 	{
-		Match n = m;
-		if (param(n.dsp, ID::PREG).as_int() == 0) {
-			if (nusers(n.sigP) == 2) {
-				ff_index.absorb_out(*this, n, &Match::ffP, &Match::sigP);
-			}
-		}
-		match_postAddMux(n);
+		xilinx_dsp_code_ffP(*this, m);
 	}
 
 	// (10) If post-adder and PREG both present, match for a $mux cell driving
@@ -290,17 +252,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 	//          +----+       \-------/
 	void match_postAddMux(const Match &m)
 	{
-		if (m.postAdd && m.ffP) {
-			MatchFrame frame(ctx);
-			for (auto &[postAddMux, AB] : candidates(postAddMux_index.find({m.sigP, m.sigC}))) {
-				Match n = m;
-				n.postAddMux = postAddMux;
-				n.postAddMuxAB = AB;
-				if (descend(frame, postAddMux, &XilinxDsp48aPack::code_postAddMux, n))
-					return;
-			}
-		}
-		match_none(m, &Match::postAddMux, &XilinxDsp48aPack::code_postAddMux);
+		xilinx_dsp_match_postAddMux(*this, m);
 	}
 
 	void code_postAddMux(const Match &m)

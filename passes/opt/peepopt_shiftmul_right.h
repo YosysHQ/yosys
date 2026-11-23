@@ -1,7 +1,7 @@
 #ifndef PEEPOPT_SHIFTMUL_RIGHT_H
 #define PEEPOPT_SHIFTMUL_RIGHT_H
 
-#include "kernel/matcher.h"
+#include "passes/opt/peepopt_shiftmul.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -69,24 +69,7 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 		if (n.shift->type.in(ID($shr)) || !param(n.shift, ID::B_SIGNED).as_bool())
 			n.shift_amount.append(State::S0);
 
-		// at this point shift_amount is signed, make
-		// sure we can never go negative
-		if (n.shift_amount.bits().back() != State::S0)
-			return;
-
-		while (n.shift_amount.bits().back() == State::S0) {
-			n.shift_amount.remove(GetSize(n.shift_amount) - 1);
-			if (n.shift_amount.empty()) return;
-		}
-
-		n.log2scale = 0;
-		while (n.shift_amount[0] == State::S0) {
-			n.shift_amount.remove(0);
-			if (n.shift_amount.empty()) return;
-			n.log2scale++;
-		}
-
-		if (GetSize(n.shift_amount) > 20)
+		if (!peepopt_shiftmul_normalize(n.shift_amount, n.log2scale))
 			return;
 
 		match_mul(n);
@@ -94,23 +77,7 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (auto &[mul, constport, varport] : candidates(mul_index.find(m.shift_amount))) {
-			if (param(mul, ID::A_SIGNED).as_bool())
-				continue;
-			if (!port(mul, constport).is_fully_const())
-				continue;
-			Match n = m;
-			n.mul = mul;
-			n.mul_const = SigSpec({port(mul, constport), SigSpec(State::S0, n.log2scale)}).as_const();
-			// get mul_din unmapped (so no `port()` shorthand)
-			// because we will be using it to set the \A port
-			// on the shift cell, and we want to stay close
-			// to the original design
-			n.mul_din = mul->getPort(varport);
-			if (descend(frame, mul, &PeepoptShiftmulRight::code_rewrite, n))
-				return;
-		}
+		peepopt_shiftmul_match_mul(*this, m);
 	}
 
 	void code_rewrite(const Match &m)

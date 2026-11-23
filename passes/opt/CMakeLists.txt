@@ -79,6 +79,7 @@ yosys_pass(opt_balance_tree
 yosys_pass(peepopt
 	peepopt.cc
 	peepopt_shiftmul_right.h
+	peepopt_shiftmul.h
 	peepopt_shiftmul_left.h
 	peepopt_shiftadd.h
 	peepopt_shiftpow2.h

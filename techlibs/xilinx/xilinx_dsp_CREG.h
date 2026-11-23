@@ -66,12 +66,7 @@ struct XilinxDspPackC : MatchPattern<XilinxDspPackC, XilinxDspPackCMatch>
 		if (!n.dsp->type.in(ID::DSP48E1) ||
 				param(n.dsp, ID::USE_MULT).decode_string() == "MULTIPLY") {
 			// Only care about those bits that are used
-			int i = {};
-			for (i = GetSize(P)-1; i >= 0; i--)
-				if (nusers(P[i]) > 1)
-					break;
-			i++;
-			log_assert(nusers(P.extract_end(i)) <= 1);
+			int i = dsp_used_width(*this, P);
 			n.sigP = P.extract(0, i);
 		}
 		else
