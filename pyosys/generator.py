@@ -563,7 +563,7 @@ class PyosysWrapperGenerator:
 			callable_expr or self.get_overload_cast(function, class_basename)
 		)
 		for i, parameter in enumerate(function.parameters):
-			name = parameter.name or f"arg{i}"
+			name = keyword_aliases.get(parameter.name, parameter.name) or f"arg{i}"
 			parameter_arg = f'py::arg("{name}")'
 			if parameter.default is not None:
 				parameter_arg += f" = {parameter.default.format()}"
