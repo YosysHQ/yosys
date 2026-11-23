@@ -56,6 +56,11 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 		}
 	}
 
+	static vector<Cell*> lane_cells(const Match &m)
+	{
+		return {m.mul[0], m.mul[1], m.mul[2], m.mul[3], m.add[0], m.add[1], m.add[2], m.add[3]};
+	}
+
 	// Bits [0, width) of a partial sum, or empty if it is narrower
 	static SigSpec nexus_sum_bits(const SigSpec &sum_y, int width)
 	{
@@ -113,25 +118,23 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 	{
 		int width = GetSize(port(m.add[3], ID::Y));
 		bool is_signed = param(m.mul[0], ID::A_SIGNED).as_bool();
-		for (auto mul : {m.mul[0], m.mul[1], m.mul[2], m.mul[3]})
+		for (auto mul : m.mul)
 			if (param(mul, ID::A_SIGNED).as_bool() != is_signed || param(mul, ID::B_SIGNED).as_bool() != is_signed)
 				return;
 
 		// Each adder must see the exact products and partial sums in the width of the top one
-		SigSpec p0 = nexus_product_bits(m.mul[0], port(m.mul[0], ID::Y), width);
-		SigSpec p1 = nexus_product_bits(m.mul[1], port(m.mul[1], ID::Y), width);
-		SigSpec p2 = nexus_product_bits(m.mul[2], port(m.mul[2], ID::Y), width);
-		SigSpec p3 = nexus_product_bits(m.mul[3], port(m.mul[3], ID::Y), width);
-		SigSpec s1 = m.add[0] ? nexus_sum_bits(port(m.add[0], ID::Y), width) : p0;
-		SigSpec s2 = nexus_sum_bits(port(m.add[1], ID::Y), width);
-		SigSpec s3 = nexus_sum_bits(port(m.add[2], ID::Y), width);
-		if (!nexus_operand_is(port(m.add[3], ID::A), nexus_add_signed(m.add[3]), s3) || !nexus_operand_is(port(m.add[3], ID::B), nexus_add_signed(m.add[3]), p3))
-			return;
-		if (!nexus_operand_is(port(m.add[2], ID::A), nexus_add_signed(m.add[2]), s2) || !nexus_operand_is(port(m.add[2], ID::B), nexus_add_signed(m.add[2]), p2))
-			return;
-		if (!nexus_operand_is(port(m.add[1], ID::A), nexus_add_signed(m.add[1]), s1) || !nexus_operand_is(port(m.add[1], ID::B), nexus_add_signed(m.add[1]), p1))
-			return;
-		if (m.add[0] && !nexus_operand_is(port(m.add[0], ID::B), nexus_add_signed(m.add[0]), p0))
+		SigSpec p[4] = {};
+		for (int i = 0; i < 4; i++)
+			p[i] = nexus_product_bits(m.mul[i], port(m.mul[i], ID::Y), width);
+		// add[i] adds p[i] to the partial sum s[i]
+		SigSpec s[4] = {};
+		s[1] = m.add[0] ? nexus_sum_bits(port(m.add[0], ID::Y), width) : p[0];
+		for (int i = 2; i < 4; i++)
+			s[i] = nexus_sum_bits(port(m.add[i-1], ID::Y), width);
+		for (int i = 3; i >= 1; i--)
+			if (!nexus_operand_is(port(m.add[i], ID::A), nexus_add_signed(m.add[i]), s[i]) || !nexus_operand_is(port(m.add[i], ID::B), nexus_add_signed(m.add[i]), p[i]))
+				return;
+		if (m.add[0] && !nexus_operand_is(port(m.add[0], ID::B), nexus_add_signed(m.add[0]), p[0]))
 			return;
 
 		SigSpec sigC = {};
@@ -139,7 +142,7 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 			sigC = port(m.add[0], ID::A);
 			sigC.extend_u0(width, nexus_add_signed(m.add[0]));
 			// C must not read cells that are removed
-			for (auto cell : {m.mul[0], m.mul[1], m.mul[2], m.mul[3], m.add[0], m.add[1], m.add[2], m.add[3]})
+			for (auto cell : lane_cells(m))
 				if (!sigC.extract(port(cell, ID::Y)).empty())
 					return;
 		}
@@ -150,21 +153,19 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 			sigY.append(module->addWire(NEW_ID, 54 - width));
 
 		Cell *mac = module->addCell(NEW_ID, "$__NX_MAC9X9WIDE_4LANE");
-		int i = 0;
-		for (auto mul : {m.mul[0], m.mul[1], m.mul[2], m.mul[3]}) {
-			SigSpec sigA = port(mul, ID::A);
-			SigSpec sigB = port(mul, ID::B);
+		for (int i = 0; i < 4; i++) {
+			SigSpec sigA = port(m.mul[i], ID::A);
+			SigSpec sigB = port(m.mul[i], ID::B);
 			sigA.extend_u0(9, is_signed);
 			sigB.extend_u0(9, is_signed);
 			mac->setPort(stringf("\\A%d", i), sigA);
 			mac->setPort(stringf("\\B%d", i), sigB);
-			i++;
 		}
 		mac->setPort(ID::C, sigC);
 		mac->setPort(ID::Y, sigY);
 		mac->setParam(ID::SIGNED, is_signed ? State::S1 : State::S0);
 
-		for (auto cell : {m.mul[0], m.mul[1], m.mul[2], m.mul[3], m.add[0], m.add[1], m.add[2], m.add[3]})
+		for (auto cell : lane_cells(m))
 			autoremove(cell);
 
 		accept(m);
@@ -537,11 +538,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 			prim = ID($__NX_MUL18X18);
 			A_PINS = 18;
 			B_PINS = 18;
-		} else if (aw <= 36 && bw <= 18) {
-			prim = ID($__NX_MUL36X18);
-			A_PINS = 36;
-			B_PINS = 18;
-		} else if (aw <= 18 && bw <= 36) {
+		} else if ((aw <= 36 && bw <= 18) || (aw <= 18 && bw <= 36)) {
 			prim = ID($__NX_MUL36X18);
 			A_PINS = 36;
 			B_PINS = 18;
@@ -582,15 +579,17 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 		cell->setParam(ID::RESETMODE, std::string("SYNC"));
 
 		cell->setPort(ID::CLK, m.clk != SigBit() ? m.clk : State::S0);
-		cell->setPort(ID::CEA, ce_of(ffa));
-		cell->setPort(ID::RSTA, rst_of(ffa));
-		cell->setPort(ID::CEB, ce_of(ffb));
-		cell->setPort(ID::RSTB, rst_of(ffb));
-		cell->setPort(ID::CEOUT, ce_of(m.ffY));
-		cell->setPort(ID::RSTOUT, rst_of(m.ffY));
-		cell->setParam(ID::REGINPUTA, ffa ? std::string("REGISTER") : std::string("BYPASS"));
-		cell->setParam(ID::REGINPUTB, ffb ? std::string("REGISTER") : std::string("BYPASS"));
-		cell->setParam(ID::REGOUTPUT, m.ffY ? std::string("REGISTER") : std::string("BYPASS"));
+		struct { Cell *ff; IdString ce, rst, reg; } regs[] = {
+			{ffa, ID::CEA, ID::RSTA, ID::REGINPUTA},
+			{ffb, ID::CEB, ID::RSTB, ID::REGINPUTB},
+			{m.ffY, ID::CEOUT, ID::RSTOUT, ID::REGOUTPUT},
+		};
+		for (auto &r : regs) {
+			cell->setPort(r.ce, ce_of(r.ff));
+			cell->setPort(r.rst, rst_of(r.ff));
+		}
+		for (auto &r : regs)
+			cell->setParam(r.reg, r.ff ? std::string("REGISTER") : std::string("BYPASS"));
 
 		if (ffa) autoremove(ffa);
 		if (ffb && ffb != ffa) autoremove(ffb);

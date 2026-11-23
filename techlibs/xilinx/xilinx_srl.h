@@ -54,13 +54,19 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 		else log_abort();
 	}
 
+	bool same_inversion(Cell *next, Cell *first) const
+	{
+		for (IdString inverted : {ID::IS_C_INVERTED, ID::IS_D_INVERTED, ID::IS_R_INVERTED})
+			if (param(next, inverted).as_bool() != param(first, inverted).as_bool())
+				return false;
+		return true;
+	}
+
 	bool next_compatible(const Match &m, Cell *next) const
 	{
 		return port(next, m.clk_port) == port(m.first, m.clk_port) &&
 				(m.en_port == IdString::Null || port(next, m.en_port) == port(m.first, m.en_port)) &&
-				(!m.first->type.in(ID::FDRE) || param(next, ID::IS_C_INVERTED).as_bool() == param(m.first, ID::IS_C_INVERTED).as_bool()) &&
-				(!m.first->type.in(ID::FDRE) || param(next, ID::IS_D_INVERTED).as_bool() == param(m.first, ID::IS_D_INVERTED).as_bool()) &&
-				(!m.first->type.in(ID::FDRE) || param(next, ID::IS_R_INVERTED).as_bool() == param(m.first, ID::IS_R_INVERTED).as_bool()) &&
+				(!m.first->type.in(ID::FDRE) || same_inversion(next, m.first)) &&
 				(!m.first->type.in(ID::FDRE, ID::FDRE_1) || port(next, ID::R, State::S0).is_fully_zero());
 	}
 
