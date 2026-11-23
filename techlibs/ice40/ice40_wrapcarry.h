@@ -5,19 +5,18 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct Ice40Wrapcarry : MatchPattern
+struct Ice40WrapcarryMatch
 {
-	struct Match {
-		Cell *carry = nullptr;
-		Cell *lut = nullptr;
-	};
-	using Callback = void (*)(Ice40Wrapcarry &, const Match &);
+	Cell *carry = nullptr;
+	Cell *lut = nullptr;
+};
 
+struct Ice40Wrapcarry : MatchPattern<Ice40Wrapcarry, Ice40WrapcarryMatch>
+{
 	vector<Cell*> carry_cells = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>> lut_index = {};
-	Callback on_accept = nullptr;
 
-	Ice40Wrapcarry(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	Ice40Wrapcarry(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &Ice40Wrapcarry::match_carry)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID::SB_CARRY))
@@ -25,22 +24,6 @@ struct Ice40Wrapcarry : MatchPattern
 			if (cell->type.in(ID::SB_LUT4))
 				lut_index.add({port(cell, ID::I1), port(cell, ID::I2)}, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_carry(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_carry(const Match &m)

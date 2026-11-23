@@ -5,15 +5,15 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct TestPmgenReduce : MatchPattern
+struct TestPmgenReduceMatch
 {
-	struct Match {
-		IdString portname = {};
-		Cell *first = nullptr;
-		Cell *next = nullptr;
-	};
-	using Callback = void (*)(TestPmgenReduce &, const Match &);
+	IdString portname = {};
+	Cell *first = nullptr;
+	Cell *next = nullptr;
+};
 
+struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
+{
 	vector<pair<Cell*, IdString>> chain = {};
 	vector<pair<Cell*, IdString>> longest_chain = {};
 	pool<Cell*> non_first_cells = {};
@@ -21,9 +21,8 @@ struct TestPmgenReduce : MatchPattern
 
 	vector<Cell*> first_cells = {};
 	MatchIndex<std::tuple<IdString, SigSpec>> next_index = {};
-	Callback on_accept = nullptr;
 
-	TestPmgenReduce(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	TestPmgenReduce(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &TestPmgenReduce::start)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($_AND_), ID($_OR_), ID($_XOR_)))
@@ -31,22 +30,6 @@ struct TestPmgenReduce : MatchPattern
 			if (cell->type.in(ID($_AND_), ID($_OR_), ID($_XOR_)) && nusers(port(cell, ID::Y)) == 2)
 				next_index.add({cell->type, port(cell, ID::Y)}, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		start(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void start(const Match &m)
@@ -217,20 +200,20 @@ struct TestPmgenReduce : MatchPattern
 	}
 };
 
-struct TestPmgenEqpmux : MatchPattern
+struct TestPmgenEqpmuxMatch
 {
-	struct Match {
-		bool eq_ne_signed = {};
-		SigSpec eq_inA = {};
-		SigSpec eq_inB = {};
-		int pmux_slice_eq = {};
-		int pmux_slice_ne = {};
-		Cell *eq = nullptr;
-		Cell *pmux = nullptr;
-		Cell *ne = nullptr;
-	};
-	using Callback = void (*)(TestPmgenEqpmux &, const Match &);
+	bool eq_ne_signed = {};
+	SigSpec eq_inA = {};
+	SigSpec eq_inB = {};
+	int pmux_slice_eq = {};
+	int pmux_slice_ne = {};
+	Cell *eq = nullptr;
+	Cell *pmux = nullptr;
+	Cell *ne = nullptr;
+};
 
+struct TestPmgenEqpmux : MatchPattern<TestPmgenEqpmux, TestPmgenEqpmuxMatch>
+{
 	struct PmuxSlice {
 		Cell *cell = nullptr;
 		int idx = {};
@@ -240,9 +223,8 @@ struct TestPmgenEqpmux : MatchPattern
 	MatchIndex<SigBit, PmuxSlice> pmux_index = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec, int>> ne_index = {};
 	MatchIndex<std::tuple<Cell*, SigBit>, PmuxSlice> pmux2_index = {};
-	Callback on_accept = nullptr;
 
-	TestPmgenEqpmux(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	TestPmgenEqpmux(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &TestPmgenEqpmux::match_eq)
 	{
 		for (auto cell : cells) {
 			if (cell->type == ID($eq))
@@ -259,22 +241,6 @@ struct TestPmgenEqpmux : MatchPattern
 					ne_index.add({port(cell, AB), port(cell, BA), int(param(cell, ID::A_SIGNED).as_bool())}, cell);
 				}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_eq(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_eq(const Match &m)

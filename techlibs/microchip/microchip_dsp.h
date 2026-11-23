@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_H
 #define MICROCHIP_DSP_H
 
-#include "kernel/matcher.h"
+#include "techlibs/microchip/microchip_dsp_common.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -37,55 +37,42 @@ YOSYS_NAMESPACE_BEGIN
 //            |MULT|------ | adder |   +----+
 //            +----+       \-------/
 
-struct MicrochipDspPack : MatchPattern
+struct MicrochipDspPackMatch
 {
-	struct Match {
-		SigBit clock = {};
-		SigSpec sigA = {};
-		SigSpec sigB = {};
-		SigSpec sigC = {};
-		SigSpec sigD = {};
-		SigSpec sigP = {};
-		Cell *ffA = nullptr;
-		Cell *ffB = nullptr;
-		Cell *ffD = nullptr;
-		Cell *ffP = nullptr;
-		Cell *preAdderStatic = nullptr;
-		Cell *postAdderStatic = nullptr;
-		bool moveBtoA = {};
-		bool useFeedBack = {};
-		Cell *dsp = nullptr;
-		// static ports, used to detect dsp configuration
-		SigSpec bypassA = {};
-		SigSpec bypassB = {};
-		SigSpec bypassD = {};
-		SigSpec bypassP = {};
-		SigSpec bypassPASUB = {};
-		// Variables used for subpatterns
-		SigSpec argQ = {};
-		SigSpec argD = {};
-		IdString postAddAB = {};
-		Cell *postAdd = nullptr;
-		Cell *preAdd = nullptr;
-		Cell *ff = nullptr;
-	};
-	using Callback = void (*)(MicrochipDspPack &, const Match &);
+	SigBit clock = {};
+	SigSpec sigA = {};
+	SigSpec sigB = {};
+	SigSpec sigC = {};
+	SigSpec sigD = {};
+	SigSpec sigP = {};
+	Cell *ffA = nullptr;
+	Cell *ffB = nullptr;
+	Cell *ffD = nullptr;
+	Cell *ffP = nullptr;
+	Cell *preAdderStatic = nullptr;
+	Cell *postAdderStatic = nullptr;
+	bool moveBtoA = {};
+	bool useFeedBack = {};
+	Cell *dsp = nullptr;
+	// static ports, used to detect dsp configuration
+	SigSpec bypassA = {};
+	SigSpec bypassB = {};
+	SigSpec bypassD = {};
+	SigSpec bypassP = {};
+	SigSpec bypassPASUB = {};
+	// Variables used for subpatterns
+	IdString postAddAB = {};
+	Cell *postAdd = nullptr;
+	Cell *preAdd = nullptr;
+};
 
+struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
+{
 	struct PortChoice {
 		Cell *cell = nullptr;
 		IdString AB = {};
 	};
 
-	struct FfSlice {
-		Cell *cell = nullptr;
-		int offset = {};
-	};
-
-	bool allowAsync = {};
-	SigSpec dffD = {};
-	SigSpec dffQ = {};
-	SigBit dffclock = {};
-	Cell *dff = nullptr;
 	Cell *u_preAdderStatic = nullptr;
 	Cell *u_postAdderStatic = nullptr;
 	IdString u_postAddAB = {};
@@ -93,11 +80,9 @@ struct MicrochipDspPack : MatchPattern
 	vector<Cell*> dsp_cells = {};
 	MatchIndex<SigBit, PortChoice> postAdd_index = {};
 	vector<Cell*> preAdd_cells = {};
-	MatchIndex<SigBit, FfSlice> in_ff_index = {};
-	MatchIndex<SigBit, FfSlice> out_ff_index = {};
-	Callback on_accept = nullptr;
+	MicrochipDspFfIndex ff_index = {};
 
-	MicrochipDspPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	MicrochipDspPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &MicrochipDspPack::match_dsp)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID::MACC_PA))
@@ -117,48 +102,9 @@ struct MicrochipDspPack : MatchPattern
 					GetSize(port(cell, ID::A)) <= 18 &&
 					GetSize(port(cell, ID::B)) <= 18)
 				preAdd_cells.push_back(cell);
-			// reg D has async rst
-			// reg A, B has sync rst
-			// does not support clock inversion
-			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($adff), ID($adffe)) && param(cell, ID::CLK_POLARITY).as_bool()) {
-				// it is possible that only part of a dff output matches argQ
-				for (int offset = 0; offset < GetSize(port(cell, ID::D)); offset++)
-					in_ff_index.add(port(cell, ID::Q)[offset], {cell, offset});
-			}
-			// does not support clock inversion
-			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe)) && param(cell, ID::CLK_POLARITY).as_bool())
-				for (int offset = 0; offset < GetSize(port(cell, ID::D)); offset++)
-					out_ff_index.add(port(cell, ID::D)[offset], {cell, offset});
+			ff_index.add_input(*this, cell);
+			ff_index.add_output(*this, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_dsp(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
-	}
-
-	//helper function to remove unused bits
-	static SigSpec unextend(const SigSpec &sig)
-	{
-		int i = {};
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
 	}
 
 	// (1) Starting from a DSP cell
@@ -183,8 +129,8 @@ struct MicrochipDspPack : MatchPattern
 	{
 		Match n = m;
 		//unextend to remove unused bits
-		n.sigA = unextend(port(n.dsp, ID::A));
-		n.sigB = unextend(port(n.dsp, ID::B));
+		n.sigA = microchip_dsp_unextend(port(n.dsp, ID::A));
+		n.sigB = microchip_dsp_unextend(port(n.dsp, ID::B));
 
 		//update signals
 		n.sigC = port(n.dsp, ID::C, SigSpec());
@@ -279,15 +225,11 @@ struct MicrochipDspPack : MatchPattern
 	{
 		Match n = m;
 		if (n.bypassA.is_fully_ones()){
-			n.argQ = n.sigA;
-			allowAsync = false;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffA = dff;
-				n.clock = dffclock;
-				n.sigA = dffD;
+			MicrochipDspFf areg = ff_index.in_dffe(*this, n.sigA, n.clock, false);
+			if (areg.cell) {
+				n.ffA = areg.cell;
+				n.clock = areg.clock;
+				n.sigA = areg.sig;
 			}
 		}
 		code_ffB(n);
@@ -298,15 +240,11 @@ struct MicrochipDspPack : MatchPattern
 	{
 		Match n = m;
 		if (n.bypassB.is_fully_ones()){
-			n.argQ = n.sigB;
-			allowAsync = false;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffB = dff;
-				n.clock = dffclock;
-				n.sigB = dffD;
+			MicrochipDspFf breg = ff_index.in_dffe(*this, n.sigB, n.clock, false);
+			if (breg.cell) {
+				n.ffB = breg.cell;
+				n.clock = breg.clock;
+				n.sigB = breg.sig;
 			}
 		}
 		code_ffD(n);
@@ -317,15 +255,11 @@ struct MicrochipDspPack : MatchPattern
 	{
 		Match n = m;
 		if (n.bypassD.is_fully_ones()){
-			n.argQ = n.sigD;
-			allowAsync = true;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffD = dff;
-				n.clock = dffclock;
-				n.sigD = dffD;
+			MicrochipDspFf dreg = ff_index.in_dffe(*this, n.sigD, n.clock, true);
+			if (dreg.cell) {
+				n.ffD = dreg.cell;
+				n.clock = dreg.clock;
+				n.sigD = dreg.sig;
 			}
 		}
 		code_ffP(n);
@@ -336,15 +270,11 @@ struct MicrochipDspPack : MatchPattern
 	{
 		Match n = m;
 		if (n.bypassP.is_fully_ones() && nusers(n.sigP) == 2) {
-			n.argD = n.sigP;
-			allowAsync = false;
-			out_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffP = dff;
-				n.clock = dffclock;
-				n.sigP = dffQ;
+			MicrochipDspFf preg = ff_index.out_dffe(*this, n.sigP, n.clock);
+			if (preg.cell) {
+				n.ffP = preg.cell;
+				n.clock = preg.clock;
+				n.sigP = preg.sig;
 			}
 		}
 		code_useFeedBack(n);
@@ -462,129 +392,6 @@ struct MicrochipDspPack : MatchPattern
 	void preAddMatching_code_found(const Match &m)
 	{
 		u_preAdderStatic = m.preAdd;
-	}
-
-	// #######################
-	// Subpattern for matching against input registers, based on knowledge of the
-	//   'Q' input.
-	void in_dffe(const Match &m)
-	{
-		dff = nullptr;
-		if (m.argQ.empty())
-			return;
-		for (const auto &c : m.argQ.chunks()) {
-			// Abandon matches when 'Q' is a constant
-			if (!c.wire)
-				return;
-			// Abandon matches when 'Q' has the keep attribute set
-			if (c.wire->get_bool_attribute(ID::keep))
-				return;
-			// Abandon matches when 'Q' has a non-zero init attribute set
-			Const init = c.wire->attributes.at(ID::init, Const());
-			if (!init.empty())
-				for (auto b : init.extract(c.offset, c.width))
-					if (b != State::Sx && b != State::S0)
-						return;
-		}
-		in_dffe_match_ff(m);
-	}
-
-	void in_dffe_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : in_ff_index.find(m.argQ[0])) {
-			if (blacklisted(ff))
-				continue;
-			// Check that the rest of argQ is present
-			if (!(GetSize(port(ff, ID::Q)) >= offset + GetSize(m.argQ)))
-				continue;
-			if (!(port(ff, ID::Q).extract(offset, GetSize(m.argQ)) == m.argQ))
-				continue;
-			// only consider async rst flops when flag is set
-			if (ff->type.in(ID($adff), ID($adffe)) && !allowAsync)
-				continue;
-			// clock must be consistent
-			if (!(m.clock == SigBit() || port(ff, ID::CLK)[0] == m.clock))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			in_dffe_code_found(n);
-			if (frame.leave())
-				return;
-		}
-	}
-
-	void in_dffe_code_found(const Match &m)
-	{
-		// Check that reset value, if present, is fully 0.
-		bool noResetFlop = m.ff->type.in(ID($dff), ID($dffe));
-		bool srstZero = m.ff->type.in(ID($sdff), ID($sdffe)) && param(m.ff, ID::SRST_VALUE).is_fully_zero();
-		bool arstZero = m.ff->type.in(ID($adff), ID($adffe)) && param(m.ff, ID::ARST_VALUE).is_fully_zero();
-		bool resetLegal = noResetFlop || srstZero || arstZero;
-		if (resetLegal)
-		{
-			SigSpec Q = port(m.ff, ID::Q);
-			dff = m.ff;
-			dffclock = port(m.ff, ID::CLK);
-			dffD = m.argQ;
-			SigSpec D = port(m.ff, ID::D);
-			dffD.replace(Q, D);
-		}
-	}
-
-	// #######################
-	void out_dffe(const Match &m)
-	{
-		dff = nullptr;
-		for (auto c : m.argD.chunks())
-			// Abandon matches when 'D' has the keep attribute set
-			if (c.wire->get_bool_attribute(ID::keep))
-				return;
-		out_dffe_match_ff(m);
-	}
-
-	void out_dffe_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : out_ff_index.find(m.argD[0])) {
-			if (blacklisted(ff))
-				continue;
-			// Check that the rest of argD is present
-			if (!(GetSize(port(ff, ID::D)) >= offset + GetSize(m.argD)))
-				continue;
-			if (!(port(ff, ID::D).extract(offset, GetSize(m.argD)) == m.argD))
-				continue;
-			if (!(m.clock == SigBit() || port(ff, ID::CLK)[0] == m.clock))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			out_dffe_code_found(n);
-			if (frame.leave())
-				return;
-		}
-	}
-
-	void out_dffe_code_found(const Match &m)
-	{
-		SigSpec D = port(m.ff, ID::D);
-		SigSpec Q = port(m.ff, ID::Q);
-		SigSpec argQ = m.argD;
-		argQ.replace(D, Q);
-
-		// Abandon matches when 'Q' has a non-zero init attribute set
-		for (auto c : argQ.chunks()) {
-			Const init = c.wire->attributes.at(ID::init, Const());
-			if (!init.empty())
-				for (auto b : init.extract(c.offset, c.width))
-					if (b != State::Sx && b != State::S0)
-						return;
-		}
-
-		dff = m.ff;
-		dffQ = argQ;
-		dffclock = port(m.ff, ID::CLK);
 	}
 };
 

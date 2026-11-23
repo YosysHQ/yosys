@@ -5,25 +5,24 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct PeepoptMuldiv : MatchPattern
+struct PeepoptMuldivMatch
 {
-	struct Match {
-		SigSpec t = {};
-		SigSpec x = {};
-		SigSpec y = {};
-		bool is_signed = {};
-		Cell *mul = nullptr;
-		Cell *div = nullptr;
-	};
-	using Callback = void (*)(PeepoptMuldiv &, const Match &);
+	SigSpec t = {};
+	SigSpec x = {};
+	SigSpec y = {};
+	bool is_signed = {};
+	Cell *mul = nullptr;
+	Cell *div = nullptr;
+};
 
+struct PeepoptMuldiv : MatchPattern<PeepoptMuldiv, PeepoptMuldivMatch>
+{
 	bool did_something = {};
 
 	vector<Cell*> mul_cells = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>> div_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptMuldiv(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptMuldiv(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptMuldiv::match_mul)
 	{
 		for (auto cell : cells) {
 			if (cell->type == ID($mul) && GetSize(port(cell, ID::A)) + GetSize(port(cell, ID::B)) <= GetSize(port(cell, ID::Y)))
@@ -31,22 +30,6 @@ struct PeepoptMuldiv : MatchPattern
 			if (cell->type.in(ID($div)))
 				div_index.add({port(cell, ID::A), port(cell, ID::B)}, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_mul(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_mul(const Match &m)

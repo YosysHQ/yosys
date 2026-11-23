@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_CREG_H
 #define MICROCHIP_DSP_CREG_H
 
-#include "kernel/matcher.h"
+#include "techlibs/microchip/microchip_dsp_common.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 //       and (b) uses the 'C' port
 //   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
 //       (attached to at most two $mux cells that implement clock-enable or
-//        reset functionality, using a subpattern discussed below)
+//        reset functionality, using a subpattern in microchip_dsp_common.h)
 // Notes:
 //   - Running CREG packing after microchip_dsp_pack is necessary since there is no
 //     guarantee that the cell ordering corresponds to the "expected" case (i.e.
@@ -42,72 +42,27 @@ YOSYS_NAMESPACE_BEGIN
 //     executed after the pattern contained in microchip_dsp.h, it is necessary
 //     to reconstruct this database.
 
-struct MicrochipDspPackC : MatchPattern
+struct MicrochipDspPackCMatch
 {
-	struct Match {
-		SigBit clock = {};
-		SigSpec sigC = {};
-		SigSpec sigP = {};
-		Cell *ffC = nullptr;
-		Cell *dsp = nullptr;
-		// Variables used for subpatterns
-		SigSpec argQ = {};
-		Cell *ff = nullptr;
-	};
-	using Callback = void (*)(MicrochipDspPackC &, const Match &);
+	SigBit clock = {};
+	SigSpec sigC = {};
+	SigSpec sigP = {};
+	Cell *ffC = nullptr;
+	Cell *dsp = nullptr;
+};
 
-	struct FfSlice {
-		Cell *cell = nullptr;
-		int offset = {};
-	};
-
-	SigSpec dffD = {};
-	SigBit dffclock = {};
-	Cell *dff = nullptr;
-
+struct MicrochipDspPackC : MatchPattern<MicrochipDspPackC, MicrochipDspPackCMatch>
+{
 	vector<Cell*> dsp_cells = {};
-	MatchIndex<SigBit, FfSlice> ff_index = {};
-	Callback on_accept = nullptr;
+	MicrochipDspFfIndex ff_index = {};
 
-	MicrochipDspPackC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	MicrochipDspPackC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &MicrochipDspPackC::match_dsp)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID::MACC_PA) && port(cell, ID::C_BYPASS, SigSpec()).is_fully_ones() && nusers(port(cell, ID::C, SigSpec())) > 1)
 				dsp_cells.push_back(cell);
-			// does not support clock inversion
-			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe), ID($adff), ID($adffe)) && param(cell, ID::CLK_POLARITY).as_bool())
-				for (int offset = 0; offset < GetSize(port(cell, ID::D)); offset++)
-					ff_index.add(port(cell, ID::Q)[offset], {cell, offset});
+			ff_index.add_input(*this, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_dsp(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
-	}
-
-	//helper function to remove unused bits
-	static SigSpec unextend(const SigSpec &sig)
-	{
-		int i = {};
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
 	}
 
 	// (1) Starting from a DSP cell that (a) doesn't have a CREG already,
@@ -130,7 +85,7 @@ struct MicrochipDspPackC : MatchPattern
 	void code_signals(const Match &m)
 	{
 		Match n = m;
-		n.sigC = unextend(port(n.dsp, ID::C, SigSpec()));
+		n.sigC = microchip_dsp_unextend(port(n.dsp, ID::C, SigSpec()));
 
 		SigSpec P = port(n.dsp, ID::P);
 
@@ -153,14 +108,11 @@ struct MicrochipDspPackC : MatchPattern
 	void code_ffC(const Match &m)
 	{
 		Match n = m;
-		n.argQ = n.sigC;
-		in_dffe(n);
-		if (unwinding())
-			return;
-		if (dff) {
-			n.ffC = dff;
-			n.clock = dffclock;
-			n.sigC = dffD;
+		MicrochipDspFf creg = ff_index.in_dffe(*this, n.sigC, n.clock, true);
+		if (creg.cell) {
+			n.ffC = creg.cell;
+			n.clock = creg.clock;
+			n.sigC = creg.sig;
 		}
 		code_accept(n);
 	}
@@ -169,72 +121,6 @@ struct MicrochipDspPackC : MatchPattern
 	{
 		if (m.ffC)
 			accept(m);
-	}
-
-	// #######################
-
-	// Subpattern for matching against input registers, based on knowledge of the
-	//   'Q' input.
-	void in_dffe(const Match &m)
-	{
-		dff = nullptr;
-		if (m.argQ.empty())
-			return;
-		for (const auto &c : m.argQ.chunks()) {
-			// Abandon matches when 'Q' is a constant
-			if (!c.wire)
-				return;
-			// Abandon matches when 'Q' has the keep attribute set
-			if (c.wire->get_bool_attribute(ID::keep))
-				return;
-			// Abandon matches when 'Q' has a non-zero init attribute set
-			Const init = c.wire->attributes.at(ID::init, Const());
-			if (!init.empty())
-				for (auto b : init.extract(c.offset, c.width))
-					if (b != State::Sx && b != State::S0)
-						return;
-		}
-		in_dffe_match_ff(m);
-	}
-
-	void in_dffe_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : ff_index.find(m.argQ[0])) {
-			if (blacklisted(ff))
-				continue;
-			// Check that the rest of argQ is present
-			if (!(GetSize(port(ff, ID::Q)) >= offset + GetSize(m.argQ)))
-				continue;
-			if (!(port(ff, ID::Q).extract(offset, GetSize(m.argQ)) == m.argQ))
-				continue;
-			if (!(m.clock == SigBit() || port(ff, ID::CLK)[0] == m.clock))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			in_dffe_code_found(n);
-			if (frame.leave())
-				return;
-		}
-	}
-
-	void in_dffe_code_found(const Match &m)
-	{
-		// Check that reset value, if present, is fully 0.
-		bool noResetFlop = m.ff->type.in(ID($dff), ID($dffe));
-		bool srstZero = m.ff->type.in(ID($sdff), ID($sdffe)) && param(m.ff, ID::SRST_VALUE).is_fully_zero();
-		bool arstZero = m.ff->type.in(ID($adff), ID($adffe)) && param(m.ff, ID::ARST_VALUE).is_fully_zero();
-		bool resetLegal = noResetFlop || srstZero || arstZero;
-		if (resetLegal)
-		{
-			SigSpec Q = port(m.ff, ID::Q);
-			dff = m.ff;
-			dffclock = port(m.ff, ID::CLK);
-			dffD = m.argQ;
-			SigSpec D = port(m.ff, ID::D);
-			dffD.replace(Q, D);
-		}
 	}
 };
 

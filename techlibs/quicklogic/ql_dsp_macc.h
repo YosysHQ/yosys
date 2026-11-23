@@ -15,22 +15,22 @@ YOSYS_NAMESPACE_BEGIN
 //         |              |
 //          --------------
 
-struct QlDspMacc : MatchPattern
+struct QlDspMaccMatch
 {
-	struct Match {
-		Cell *mul = nullptr;
-		Cell *add = nullptr;
-		Cell *mux = nullptr;
-		Cell *ff = nullptr;
-		IdString add_ba = {};
-		IdString mux_ab = {};
-		// Is the output taken from before or after the FF?
-		bool output_registered = {};
-		// Is there a mux in the pattern?
-		bool mux_in_pattern = {};
-	};
-	using Callback = void (*)(QlDspMacc &, const Match &);
+	Cell *mul = nullptr;
+	Cell *add = nullptr;
+	Cell *mux = nullptr;
+	Cell *ff = nullptr;
+	IdString add_ba = {};
+	IdString mux_ab = {};
+	// Is the output taken from before or after the FF?
+	bool output_registered = {};
+	// Is there a mux in the pattern?
+	bool mux_in_pattern = {};
+};
 
+struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
+{
 	struct AddChoice {
 		Cell *cell = nullptr;
 		IdString BA = {};
@@ -45,9 +45,8 @@ struct QlDspMacc : MatchPattern
 	MatchIndex<SigSpec, AddChoice> add_index = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>, MuxChoice> mux_index = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>> ff_index = {};
-	Callback on_accept = nullptr;
 
-	QlDspMacc(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	QlDspMacc(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &QlDspMacc::code_mux_in_pattern)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($mul)) && nusers(port(cell, ID::Y)) <= 3)
@@ -65,22 +64,6 @@ struct QlDspMacc : MatchPattern
 			if (cell->type.in(ID($dff), ID($adff), ID($dffe), ID($adffe)) && param(cell, ID::CLK_POLARITY).as_bool())
 				ff_index.add({port(cell, ID::D), port(cell, ID::Q)}, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		code_mux_in_pattern(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void code_mux_in_pattern(const Match &m)

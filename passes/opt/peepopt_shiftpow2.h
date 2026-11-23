@@ -10,39 +10,22 @@ YOSYS_NAMESPACE_BEGIN
 // when W is a power of two and the multiply has been folded away.
 //
 
-struct PeepoptShiftpow2 : MatchPattern
+struct PeepoptShiftpow2Match
 {
-	struct Match {
-		Cell *shift = nullptr;
-	};
-	using Callback = void (*)(PeepoptShiftpow2 &, const Match &);
+	Cell *shift = nullptr;
+};
 
+struct PeepoptShiftpow2 : MatchPattern<PeepoptShiftpow2, PeepoptShiftpow2Match>
+{
 	bool did_something = {};
 
 	vector<Cell*> shift_cells = {};
-	Callback on_accept = nullptr;
 
-	PeepoptShiftpow2(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptShiftpow2(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptShiftpow2::match_shift)
 	{
 		for (auto cell : cells)
 			if (cell->type.in(ID($shift), ID($shiftx), ID($shr)))
 				shift_cells.push_back(cell);
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_shift(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_shift(const Match &m)

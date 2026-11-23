@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_CASCADE_H
 #define MICROCHIP_DSP_CASCADE_H
 
-#include "kernel/matcher.h"
+#include "techlibs/microchip/microchip_dsp_common.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -38,15 +38,15 @@ YOSYS_NAMESPACE_BEGIN
 //       height of a DSP column) with each DSP in each chunk being rewritten
 //       to use [ABP]COUT -> [ABP]CIN cascading as appropriate
 
-struct MicrochipDspCascade : MatchPattern
+struct MicrochipDspCascadeMatch
 {
-	struct Match {
-		Cell *next = nullptr;
-		Cell *first = nullptr;
-		Cell *nextP = nullptr;
-	};
-	using Callback = void (*)(MicrochipDspCascade &, const Match &);
+	Cell *next = nullptr;
+	Cell *first = nullptr;
+	Cell *nextP = nullptr;
+};
 
+struct MicrochipDspCascade : MatchPattern<MicrochipDspCascade, MicrochipDspCascadeMatch>
+{
 	// Maximum of 24 cascaded blocks
 	static constexpr int MAX_DSP_CASCADE = 24;
 
@@ -61,9 +61,8 @@ struct MicrochipDspCascade : MatchPattern
 
 	vector<Cell*> first_cells = {};
 	vector<Cell*> nextP_cells = {};
-	Callback on_accept = nullptr;
 
-	MicrochipDspCascade(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	MicrochipDspCascade(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &MicrochipDspCascade::match_first)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID::MACC_PA) && port(cell, ID::CDIN_FDBK_SEL, Const(0, 2)) == Const::from_string("00") &&
@@ -88,35 +87,6 @@ struct MicrochipDspCascade : MatchPattern
 					nusers(port(cell, ID::ARSHFT17, SigSpec())) == 0)
 				nextP_cells.push_back(cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_first(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
-	}
-
-	// Helper function to remove unused bits
-	static SigSpec unextend(const SigSpec &sig)
-	{
-		int i = {};
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
 	}
 
 	// (1) Starting from a DSP cell that
@@ -260,7 +230,7 @@ struct MicrochipDspCascade : MatchPattern
 			chain.emplace_back(m.next, shift);
 			visited.insert(m.next);
 
-			SigSpec sigC = unextend(port(m.next, ID::C));
+			SigSpec sigC = microchip_dsp_unextend(port(m.next, ID::C));
 
 			// Make sure driverDSP.P === DSP.C
 			if (GetSize(sigC) + shift <= GetSize(driver_sigP) && driver_sigP.extract(shift, GetSize(sigC)) == sigC)

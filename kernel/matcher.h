@@ -104,16 +104,15 @@ struct MatchIndex
 	}
 };
 
-struct MatchPattern
+struct MatchPatternBase
 {
 	MatchContext &ctx;
 	Module *module = nullptr;
 	SigMap &sigmap;
-	int accept_cnt = 0;
 
-	MatchPattern(MatchContext &ctx) : ctx(ctx), module(ctx.module), sigmap(ctx.sigmap) {}
-	MatchPattern(const MatchPattern &) = delete;
-	MatchPattern &operator=(const MatchPattern &) = delete;
+	MatchPatternBase(MatchContext &ctx) : ctx(ctx), module(ctx.module), sigmap(ctx.sigmap) {}
+	MatchPatternBase(const MatchPatternBase &) = delete;
+	MatchPatternBase &operator=(const MatchPatternBase &) = delete;
 
 	SigSpec port(Cell *cell, IdString portname) const
 	{
@@ -200,17 +199,37 @@ struct MatchPattern
 	{
 		return ctx.generate_mode && rng(100) < (found_any_match ? matched_pct : unmatched_pct);
 	}
+};
 
-	void begin_run()
+template <typename Pattern, typename M>
+struct MatchPattern : MatchPatternBase
+{
+	using Match = M;
+	using Callback = void (*)(Pattern &, const Match &);
+	using Stage = void (Pattern::*)(const Match &);
+
+	Stage first_stage = nullptr;
+	Callback on_accept = nullptr;
+	int accept_cnt = 0;
+
+	MatchPattern(MatchContext &ctx, Stage first_stage) : MatchPatternBase(ctx), first_stage(first_stage) {}
+
+	int run(Callback callback = nullptr)
 	{
+		on_accept = callback;
 		accept_cnt = 0;
 		ctx.rollback = 0;
-	}
-
-	int end_run()
-	{
+		(static_cast<Pattern *>(this)->*first_stage)(Match{});
 		log_assert(ctx.rollback_cache.empty());
 		return accept_cnt;
+	}
+
+	bool accept(const Match &m)
+	{
+		accept_cnt++;
+		if (on_accept)
+			on_accept(*static_cast<Pattern *>(this), m);
+		return unwinding();
 	}
 };
 

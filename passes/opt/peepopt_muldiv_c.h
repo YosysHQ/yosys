@@ -11,24 +11,23 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct PeepoptMuldivC : MatchPattern
+struct PeepoptMuldivCMatch
 {
-	struct Match {
-		SigSpec a = {};
-		SigSpec b_const = {};
-		SigSpec mul_y = {};
-		Cell *mul = nullptr;
-		Cell *div = nullptr;
-	};
-	using Callback = void (*)(PeepoptMuldivC &, const Match &);
+	SigSpec a = {};
+	SigSpec b_const = {};
+	SigSpec mul_y = {};
+	Cell *mul = nullptr;
+	Cell *div = nullptr;
+};
 
+struct PeepoptMuldivC : MatchPattern<PeepoptMuldivC, PeepoptMuldivCMatch>
+{
 	bool did_something = {};
 
 	vector<Cell*> mul_cells = {};
 	MatchIndex<SigSpec> div_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptMuldivC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptMuldivC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptMuldivC::match_mul)
 	{
 		for (auto cell : cells) {
 			// Select multiplier
@@ -38,22 +37,6 @@ struct PeepoptMuldivC : MatchPattern
 			if (cell->type == ID($div))
 				div_index.add(remove_bottom_padding(port(cell, ID::A)), cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_mul(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	// Helper function, removes LSB 0s

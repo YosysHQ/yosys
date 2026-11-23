@@ -9,22 +9,22 @@ YOSYS_NAMESPACE_BEGIN
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
 
-struct PeepoptShiftmulLeft : MatchPattern
+struct PeepoptShiftmulLeftMatch
 {
-	struct Match {
-		Cell *shift = nullptr;
-		Cell *neg = nullptr;
-		// the left shift amount
-		SigSpec shift_amount = {};
-		// log2 scale factor in interpreting of shift_amount
-		// due to zero padding on the shift cell's B port
-		int log2scale = {};
-		SigSpec mul_din = {};
-		Const mul_const = {};
-		Cell *mul = nullptr;
-	};
-	using Callback = void (*)(PeepoptShiftmulLeft &, const Match &);
+	Cell *shift = nullptr;
+	Cell *neg = nullptr;
+	// the left shift amount
+	SigSpec shift_amount = {};
+	// log2 scale factor in interpreting of shift_amount
+	// due to zero padding on the shift cell's B port
+	int log2scale = {};
+	SigSpec mul_din = {};
+	Const mul_const = {};
+	Cell *mul = nullptr;
+};
 
+struct PeepoptShiftmulLeft : MatchPattern<PeepoptShiftmulLeft, PeepoptShiftmulLeftMatch>
+{
 	struct MulChoice {
 		Cell *cell = nullptr;
 		IdString constport = {};
@@ -36,9 +36,8 @@ struct PeepoptShiftmulLeft : MatchPattern
 	vector<Cell*> shift_cells = {};
 	MatchIndex<SigSpec> neg_index = {};
 	MatchIndex<SigSpec, MulChoice> mul_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptShiftmulLeft(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptShiftmulLeft(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptShiftmulLeft::match_shift)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($shift), ID($shiftx), ID($shl)) && (cell->type.in(ID($shl)) || param(cell, ID::B_SIGNED).as_bool()))
@@ -52,22 +51,6 @@ struct PeepoptShiftmulLeft : MatchPattern
 				}
 			}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_shift(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_shift(const Match &m)

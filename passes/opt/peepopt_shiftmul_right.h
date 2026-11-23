@@ -9,21 +9,21 @@ YOSYS_NAMESPACE_BEGIN
 // Optimize mul+shift pairs that result from expressions such as foo[s*W+:W]
 //
 
-struct PeepoptShiftmulRight : MatchPattern
+struct PeepoptShiftmulRightMatch
 {
-	struct Match {
-		Cell *shift = nullptr;
-		// the right shift amount
-		SigSpec shift_amount = {};
-		// log2 scale factor in interpreting of shift_amount
-		// due to zero padding on the shift cell's B port
-		int log2scale = {};
-		SigSpec mul_din = {};
-		Const mul_const = {};
-		Cell *mul = nullptr;
-	};
-	using Callback = void (*)(PeepoptShiftmulRight &, const Match &);
+	Cell *shift = nullptr;
+	// the right shift amount
+	SigSpec shift_amount = {};
+	// log2 scale factor in interpreting of shift_amount
+	// due to zero padding on the shift cell's B port
+	int log2scale = {};
+	SigSpec mul_din = {};
+	Const mul_const = {};
+	Cell *mul = nullptr;
+};
 
+struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmulRightMatch>
+{
 	struct MulChoice {
 		Cell *cell = nullptr;
 		IdString constport = {};
@@ -34,9 +34,8 @@ struct PeepoptShiftmulRight : MatchPattern
 
 	vector<Cell*> shift_cells = {};
 	MatchIndex<SigSpec, MulChoice> mul_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptShiftmulRight(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptShiftmulRight(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptShiftmulRight::match_shift)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($shift), ID($shiftx), ID($shr)))
@@ -48,22 +47,6 @@ struct PeepoptShiftmulRight : MatchPattern
 				}
 			}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_shift(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_shift(const Match &m)

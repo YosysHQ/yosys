@@ -12,25 +12,25 @@ YOSYS_NAMESPACE_BEGIN
 // this can then be optimized using peepopt_shiftmul_right.h
 //
 
-struct PeepoptShiftadd : MatchPattern
+struct PeepoptShiftaddMatch
 {
-	struct Match {
-		Cell *shift = nullptr;
-		// the right shift amount
-		SigSpec shift_amount = {};
-		// log2 scale factor in interpreting of shift_amount
-		// due to zero padding on the shift cell's B port
-		int log2scale = {};
-		// zeros at the MSB position make it unsigned
-		bool msb_zeros = {};
-		bool var_signed = {};
-		SigSpec var_signal = {};
-		// offset: signed constant value c in data[var+c +:W1] (constant shift-right amount)
-		int offset = {};
-		Cell *add = nullptr;
-	};
-	using Callback = void (*)(PeepoptShiftadd &, const Match &);
+	Cell *shift = nullptr;
+	// the right shift amount
+	SigSpec shift_amount = {};
+	// log2 scale factor in interpreting of shift_amount
+	// due to zero padding on the shift cell's B port
+	int log2scale = {};
+	// zeros at the MSB position make it unsigned
+	bool msb_zeros = {};
+	bool var_signed = {};
+	SigSpec var_signal = {};
+	// offset: signed constant value c in data[var+c +:W1] (constant shift-right amount)
+	int offset = {};
+	Cell *add = nullptr;
+};
 
+struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
+{
 	struct AddChoice {
 		Cell *cell = nullptr;
 		IdString constport = {};
@@ -47,9 +47,8 @@ struct PeepoptShiftadd : MatchPattern
 
 	vector<Cell*> shift_cells = {};
 	MatchIndex<SigSpec, AddChoice> add_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptShiftadd(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptShiftadd(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptShiftadd::match_shift)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($shift), ID($shiftx), ID($shr)))
@@ -97,22 +96,6 @@ struct PeepoptShiftadd : MatchPattern
 				}
 			}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_shift(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_shift(const Match &m)

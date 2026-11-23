@@ -6,6 +6,7 @@ yosys_pass(microchip_dsp
 	microchip_dsp.h
 	microchip_dsp_cascade.h
 	microchip_dsp_CREG.h
+	microchip_dsp_common.h
 )
 
 yosys_pass(synth_microchip

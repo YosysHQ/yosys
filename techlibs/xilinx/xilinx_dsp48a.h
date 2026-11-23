@@ -1,7 +1,7 @@
 #ifndef XILINX_DSP48A_H
 #define XILINX_DSP48A_H
 
-#include "kernel/matcher.h"
+#include "techlibs/xilinx/xilinx_dsp_common.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -40,60 +40,44 @@ YOSYS_NAMESPACE_BEGIN
 //            +----+       \-------/
 // Notes: see the notes in xilinx_dsp.h
 
-struct XilinxDsp48aPack : MatchPattern
+struct XilinxDsp48aPackMatch
 {
-	struct Match {
-		SigBit clock = {};
-		SigSpec sigA = {};
-		SigSpec sigB = {};
-		SigSpec sigC = {};
-		SigSpec sigD = {};
-		SigSpec sigM = {};
-		SigSpec sigP = {};
-		IdString postAddAB = {};
-		IdString postAddMuxAB = {};
-		Cell *ffA0 = nullptr;
-		Cell *ffA1 = nullptr;
-		Cell *ffB0 = nullptr;
-		Cell *ffB1 = nullptr;
-		Cell *ffD = nullptr;
-		Cell *ffM = nullptr;
-		Cell *ffP = nullptr;
-		Cell *dsp = nullptr;
-		Cell *preAdd = nullptr;
-		Cell *postAdd = nullptr;
-		Cell *postAddMux = nullptr;
-		// Variables used for subpatterns
-		SigSpec argQ = {};
-		SigSpec argD = {};
-		Cell *ff = nullptr;
-	};
-	using Callback = void (*)(XilinxDsp48aPack &, const Match &);
+	SigBit clock = {};
+	SigSpec sigA = {};
+	SigSpec sigB = {};
+	SigSpec sigC = {};
+	SigSpec sigD = {};
+	SigSpec sigM = {};
+	SigSpec sigP = {};
+	IdString postAddAB = {};
+	IdString postAddMuxAB = {};
+	Cell *ffA0 = nullptr;
+	Cell *ffA1 = nullptr;
+	Cell *ffB0 = nullptr;
+	Cell *ffB1 = nullptr;
+	Cell *ffD = nullptr;
+	Cell *ffM = nullptr;
+	Cell *ffP = nullptr;
+	Cell *dsp = nullptr;
+	Cell *preAdd = nullptr;
+	Cell *postAdd = nullptr;
+	Cell *postAddMux = nullptr;
+};
 
+struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
+{
 	struct PortChoice {
 		Cell *cell = nullptr;
 		IdString AB = {};
 	};
 
-	struct FfSlice {
-		Cell *cell = nullptr;
-		int offset = {};
-	};
-
-	SigSpec dffD = {};
-	SigSpec dffQ = {};
-	SigBit dffclock = {};
-	Cell *dff = nullptr;
-
 	vector<Cell*> dsp_cells = {};
 	MatchIndex<SigSpec> preAdd_index = {};
 	MatchIndex<SigBit, PortChoice> postAdd_index = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>, PortChoice> postAddMux_index = {};
-	MatchIndex<SigBit, FfSlice> in_ff_index = {};
-	MatchIndex<SigBit, FfSlice> out_ff_index = {};
-	Callback on_accept = nullptr;
+	XilinxDspFfIndex ff_index = {};
 
-	XilinxDsp48aPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	XilinxDsp48aPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxDsp48aPack::match_dsp)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID::DSP48A, ID::DSP48A1))
@@ -114,42 +98,9 @@ struct XilinxDsp48aPack : MatchPattern
 			if (cell->type.in(ID($mux)) && nusers(port(cell, ID::Y)) == 2)
 				for (IdString AB : {ID::A, ID::B})
 					postAddMux_index.add({port(cell, AB), port(cell, ID::Y)}, {cell, AB});
-			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe)) &&
-					// DSP48E1 does not support clock inversion
-					param(cell, ID::CLK_POLARITY).as_bool())
-				for (int offset = 0; offset < GetSize(port(cell, ID::D)); offset++) {
-					in_ff_index.add(port(cell, ID::Q)[offset], {cell, offset});
-					out_ff_index.add(port(cell, ID::D)[offset], {cell, offset});
-				}
+			ff_index.add_input(*this, cell);
+			ff_index.add_output(*this, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_dsp(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
-	}
-
-	static SigSpec unextend(const SigSpec &sig)
-	{
-		int i = {};
-		for (i = GetSize(sig)-1; i > 0; i--)
-			if (sig[i] != sig[i-1])
-				break;
-		// Do not remove non-const sign bit
-		if (sig[i].wire)
-			++i;
-		return sig.extract(0, i);
 	}
 
 	bool preadder_usable(const Match &m) const
@@ -158,25 +109,6 @@ struct XilinxDsp48aPack : MatchPattern
 				param(m.dsp, ID::B0REG).as_int() == 0 &&
 				// Ensure that preAdder not already used
 				port(m.dsp, ID::OPMODE, SigSpec()).extract(4, 1).is_fully_zero();
-	}
-
-	bool same_ff_controls(Cell *ff, Cell *other) const
-	{
-		if (ff->type != other->type)
-			return false;
-		if (ff->type.in(ID($sdff), ID($sdffe), ID($sdffce))) {
-			if (param(ff, ID::SRST_POLARITY) != param(other, ID::SRST_POLARITY))
-				return false;
-			if (port(ff, ID::SRST) != port(other, ID::SRST))
-				return false;
-		}
-		if (ff->type.in(ID($dffe), ID($sdffe), ID($sdffce))) {
-			if (param(ff, ID::EN_POLARITY) != param(other, ID::EN_POLARITY))
-				return false;
-			if (port(ff, ID::EN) != port(other, ID::EN))
-				return false;
-		}
-		return true;
 	}
 
 	// (1) Starting from a DSP48A/DSP48A1 cell
@@ -198,8 +130,8 @@ struct XilinxDsp48aPack : MatchPattern
 	void code_signals(const Match &m)
 	{
 		Match n = m;
-		n.sigA = unextend(port(n.dsp, ID::A));
-		n.sigB = unextend(port(n.dsp, ID::B));
+		n.sigA = xilinx_dsp_unextend(port(n.dsp, ID::A));
+		n.sigB = xilinx_dsp_unextend(port(n.dsp, ID::B));
 
 		n.sigC = port(n.dsp, ID::C, SigSpec());
 		n.sigD = port(n.dsp, ID::D, SigSpec());
@@ -224,20 +156,17 @@ struct XilinxDsp48aPack : MatchPattern
 
 	// (2) Match the driver of the 'B' input to a possible $dff cell (B1REG)
 	//     (attached to at most two $mux cells that implement clock-enable or
-	//      reset functionality, using a subpattern discussed above)
+	//      reset functionality, using a subpattern in xilinx_dsp_common.h)
 	//     If matched, treat 'B' input as input of B1REG
 	void code_ffB1(const Match &m)
 	{
 		Match n = m;
 		if (param(n.dsp, ID::B1REG).as_int() == 0 && param(n.dsp, ID::B0REG).as_int() == 0 && port(n.dsp, ID::OPMODE, SigSpec()).extract(4, 1).is_fully_zero()) {
-			n.argQ = n.sigB;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffB1 = dff;
-				n.clock = dffclock;
-				n.sigB = dffD;
+			XilinxDspFf b1reg = ff_index.in_dffe(*this, n.sigB, n.clock);
+			if (b1reg.cell) {
+				n.ffB1 = b1reg.cell;
+				n.clock = b1reg.clock;
+				n.sigB = b1reg.sig;
 			}
 		}
 		match_preAdd(n);
@@ -280,14 +209,11 @@ struct XilinxDsp48aPack : MatchPattern
 	{
 		Match n = m;
 		if (param(n.dsp, ID::B0REG).as_int() == 0) {
-			n.argQ = n.sigB;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff && (!n.ffB1 || same_ff_controls(dff, n.ffB1))) {
-				n.ffB0 = dff;
-				n.clock = dffclock;
-				n.sigB = dffD;
+			XilinxDspFf b0reg = ff_index.in_dffe(*this, n.sigB, n.clock);
+			if (b0reg.cell && (!n.ffB1 || xilinx_dsp_same_ff_controls(*this, b0reg.cell, n.ffB1))) {
+				n.ffB0 = b0reg.cell;
+				n.clock = b0reg.clock;
+				n.sigB = b0reg.sig;
 			}
 		}
 		code_ffA(n);
@@ -299,24 +225,18 @@ struct XilinxDsp48aPack : MatchPattern
 	{
 		Match n = m;
 		if (param(n.dsp, ID::A0REG).as_int() == 0 && param(n.dsp, ID::A1REG).as_int() == 0) {
-			n.argQ = n.sigA;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffA1 = dff;
-				n.clock = dffclock;
-				n.sigA = dffD;
+			XilinxDspFf a1reg = ff_index.in_dffe(*this, n.sigA, n.clock);
+			if (a1reg.cell) {
+				n.ffA1 = a1reg.cell;
+				n.clock = a1reg.clock;
+				n.sigA = a1reg.sig;
 
 				// Now attempt to match A0
-				n.argQ = n.sigA;
-				in_dffe(n);
-				if (unwinding())
-					return;
-				if (dff && same_ff_controls(dff, n.ffA1)) {
-					n.ffA0 = dff;
-					n.clock = dffclock;
-					n.sigA = dffD;
+				XilinxDspFf a0reg = ff_index.in_dffe(*this, n.sigA, n.clock);
+				if (a0reg.cell && xilinx_dsp_same_ff_controls(*this, a0reg.cell, n.ffA1)) {
+					n.ffA0 = a0reg.cell;
+					n.clock = a0reg.clock;
+					n.sigA = a0reg.sig;
 				}
 			}
 		}
@@ -328,14 +248,11 @@ struct XilinxDsp48aPack : MatchPattern
 	{
 		Match n = m;
 		if (param(n.dsp, ID::DREG).as_int() == 0) {
-			n.argQ = n.sigD;
-			in_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffD = dff;
-				n.clock = dffclock;
-				n.sigD = dffD;
+			XilinxDspFf dreg = ff_index.in_dffe(*this, n.sigD, n.clock);
+			if (dreg.cell) {
+				n.ffD = dreg.cell;
+				n.clock = dreg.clock;
+				n.sigD = dreg.sig;
 			}
 		}
 		code_ffM(n);
@@ -346,14 +263,11 @@ struct XilinxDsp48aPack : MatchPattern
 	{
 		Match n = m;
 		if (param(n.dsp, ID::MREG).as_int() == 0 && nusers(n.sigM) == 2) {
-			n.argD = n.sigM;
-			out_dffe(n);
-			if (unwinding())
-				return;
-			if (dff) {
-				n.ffM = dff;
-				n.clock = dffclock;
-				n.sigM = dffQ;
+			XilinxDspFf mreg = ff_index.out_dffe(*this, n.sigM, n.clock);
+			if (mreg.cell) {
+				n.ffM = mreg.cell;
+				n.clock = mreg.clock;
+				n.sigM = mreg.sig;
 			}
 		}
 		n.sigP = n.sigM;
@@ -378,7 +292,7 @@ struct XilinxDsp48aPack : MatchPattern
 				if (port(postAdd, AB).extract(0, GetSize(m.sigP)) != m.sigP)
 					continue;
 				// Check that remainder of AB is a sign- or zero-extension
-				if (!(port(postAdd, AB).extract_end(GetSize(m.sigP)) == SigSpec(m.sigP[GetSize(m.sigP)-1], GetSize(port(postAdd, AB))-GetSize(m.sigP)) || port(postAdd, AB).extract_end(GetSize(m.sigP)) == SigSpec(State::S0, GetSize(port(postAdd, AB))-GetSize(m.sigP))))
+				if (!xilinx_dsp_is_extension_of(port(postAdd, AB), m.sigP))
 					continue;
 				Match n = m;
 				n.postAdd = postAdd;
@@ -410,14 +324,11 @@ struct XilinxDsp48aPack : MatchPattern
 		Match n = m;
 		if (param(n.dsp, ID::PREG).as_int() == 0) {
 			if (nusers(n.sigP) == 2) {
-				n.argD = n.sigP;
-				out_dffe(n);
-				if (unwinding())
-					return;
-				if (dff) {
-					n.ffP = dff;
-					n.clock = dffclock;
-					n.sigP = dffQ;
+				XilinxDspFf preg = ff_index.out_dffe(*this, n.sigP, n.clock);
+				if (preg.cell) {
+					n.ffP = preg.cell;
+					n.clock = preg.clock;
+					n.sigP = preg.sig;
 				}
 			}
 		}
@@ -464,136 +375,6 @@ struct XilinxDsp48aPack : MatchPattern
 		if (n.postAddMux)
 			n.sigC = port(n.postAddMux, n.postAddMuxAB == ID::A ? ID::B : ID::A);
 		accept(n);
-	}
-
-	// #######################
-
-	// Subpattern for matching against input registers, based on knowledge of the
-	//   'Q' input.
-	void in_dffe(const Match &m)
-	{
-		dff = nullptr;
-		if (m.argQ.empty())
-			return;
-		for (const auto &c : m.argQ.chunks()) {
-			// Abandon matches when 'Q' is a constant
-			if (!c.wire)
-				return;
-			// Abandon matches when 'Q' has the keep attribute set
-			if (c.wire->get_bool_attribute(ID::keep))
-				return;
-			// Abandon matches when 'Q' has a non-zero init attribute set
-			// (not supported by DSP48E1)
-			Const init = c.wire->attributes.at(ID::init, Const());
-			if (!init.empty())
-				for (auto b : init.extract(c.offset, c.width))
-					if (b != State::Sx && b != State::S0)
-						return;
-		}
-		in_dffe_match_ff(m);
-	}
-
-	void in_dffe_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : in_ff_index.find(m.argQ[0])) {
-			if (blacklisted(ff))
-				continue;
-			// Check that reset value, if present, is fully 0.
-			if (!(ff->type.in(ID($dff), ID($dffe)) || param(ff, ID::SRST_VALUE).is_fully_zero()))
-				continue;
-			// Check that the rest of argQ is present
-			if (GetSize(port(ff, ID::Q)) < offset + GetSize(m.argQ))
-				continue;
-			if (port(ff, ID::Q).extract(offset, GetSize(m.argQ)) != m.argQ)
-				continue;
-			if (!(m.clock == SigBit() || port(ff, ID::CLK)[0] == m.clock))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			in_dffe_code_found(n);
-			if (frame.leave())
-				return;
-		}
-	}
-
-	void in_dffe_code_found(const Match &m)
-	{
-		SigSpec Q = port(m.ff, ID::Q);
-		dff = m.ff;
-		dffclock = port(m.ff, ID::CLK);
-		dffD = m.argQ;
-		SigSpec D = port(m.ff, ID::D);
-		dffD.replace(Q, D);
-	}
-
-	// #######################
-
-	// Subpattern for matching against output registers, based on knowledge of the
-	//   'D' input.
-	// At a high level:
-	//   (1) Starting from an optional $mux cell that implements clock enable
-	//       semantics --- one where the given 'D' argument (partially or fully)
-	//       drives one of its two inputs
-	//   (2) Starting from, or continuing onto, another optional $mux cell that
-	//       implements synchronous reset semantics --- one where the given 'D'
-	//       argument (or the clock enable $mux output) drives one of its two inputs
-	//       and where the other input is fully zero
-	//   (3) Match for a $dff cell (whose 'D' input is the 'D' argument, or the
-	//       output of the previous clock enable or reset $mux cells)
-	void out_dffe(const Match &m)
-	{
-		dff = nullptr;
-		for (auto c : m.argD.chunks())
-			// Abandon matches when 'D' has the keep attribute set
-			if (c.wire->get_bool_attribute(ID::keep))
-				return;
-		out_dffe_match_ff(m);
-	}
-
-	void out_dffe_match_ff(const Match &m)
-	{
-		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : out_ff_index.find(m.argD[0])) {
-			if (blacklisted(ff))
-				continue;
-			// Check that the rest of argD is present
-			if (GetSize(port(ff, ID::D)) < offset + GetSize(m.argD))
-				continue;
-			if (port(ff, ID::D).extract(offset, GetSize(m.argD)) != m.argD)
-				continue;
-			if (!(m.clock == SigBit() || port(ff, ID::CLK)[0] == m.clock))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			frame.enter(ff);
-			out_dffe_code_found(n);
-			if (frame.leave())
-				return;
-		}
-	}
-
-	void out_dffe_code_found(const Match &m)
-	{
-		SigSpec D = port(m.ff, ID::D);
-		SigSpec Q = port(m.ff, ID::Q);
-		SigSpec argQ = m.argD;
-		argQ.replace(D, Q);
-
-		// Abandon matches when 'Q' has a non-zero init attribute set
-		// (not supported by DSP48E1)
-		for (auto c : argQ.chunks()) {
-			Const init = c.wire->attributes.at(ID::init, Const());
-			if (!init.empty())
-				for (auto b : init.extract(c.offset, c.width))
-					if (b != State::Sx && b != State::S0)
-						return;
-		}
-
-		dff = m.ff;
-		dffQ = argQ;
-		dffclock = port(m.ff, ID::CLK);
 	}
 };
 

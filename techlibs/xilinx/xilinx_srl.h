@@ -5,16 +5,16 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct XilinxSrlFixed : MatchPattern
+struct XilinxSrlFixedMatch
 {
-	struct Match {
-		IdString clk_port = {};
-		IdString en_port = {};
-		Cell *first = nullptr;
-		Cell *next = nullptr;
-	};
-	using Callback = void (*)(XilinxSrlFixed &, const Match &);
+	IdString clk_port = {};
+	IdString en_port = {};
+	Cell *first = nullptr;
+	Cell *next = nullptr;
+};
 
+struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
+{
 	vector<Cell*> chain = {};
 	vector<Cell*> longest_chain = {};
 	pool<Cell*> non_first_cells = {};
@@ -22,9 +22,8 @@ struct XilinxSrlFixed : MatchPattern
 
 	vector<Cell*> first_cells = {};
 	MatchIndex<std::tuple<IdString, SigBit>> next_index = {};
-	Callback on_accept = nullptr;
 
-	XilinxSrlFixed(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	XilinxSrlFixed(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxSrlFixed::start)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID::FDRE, ID::FDRE_1) &&
@@ -39,22 +38,6 @@ struct XilinxSrlFixed : MatchPattern
 					nusers(port(cell, ID::Q)) == 2)
 				next_index.add({cell->type, SigBit(port(cell, ID::Q))}, cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		start(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	static void assign_ports(Match &n)
@@ -255,19 +238,19 @@ struct XilinxSrlFixed : MatchPattern
 	}
 };
 
-struct XilinxSrlVariable : MatchPattern
+struct XilinxSrlVariableMatch
 {
-	struct Match {
-		IdString clk_port = {};
-		IdString en_port = {};
-		int shiftx_width = {};
-		int slice = {};
-		Cell *shiftx = nullptr;
-		Cell *first = nullptr;
-		Cell *next = nullptr;
-	};
-	using Callback = void (*)(XilinxSrlVariable &, const Match &);
+	IdString clk_port = {};
+	IdString en_port = {};
+	int shiftx_width = {};
+	int slice = {};
+	Cell *shiftx = nullptr;
+	Cell *first = nullptr;
+	Cell *next = nullptr;
+};
 
+struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatch>
+{
 	struct FfSlice {
 		Cell *cell = nullptr;
 		int idx = {};
@@ -280,9 +263,8 @@ struct XilinxSrlVariable : MatchPattern
 	vector<Cell*> shiftx_cells = {};
 	MatchIndex<SigBit, FfSlice> first_index = {};
 	MatchIndex<std::tuple<IdString, SigBit, SigBit>, FfSlice> next_index = {};
-	Callback on_accept = nullptr;
 
-	XilinxSrlVariable(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	XilinxSrlVariable(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxSrlVariable::start)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($shiftx)) &&
@@ -302,22 +284,6 @@ struct XilinxSrlVariable : MatchPattern
 					if (nusers(port(cell, ID::Q)[idx]) <= 3)
 						next_index.add({cell->type, port(cell, ID::Q)[idx], port(cell, ID::Q)[idx]}, {cell, idx});
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		start(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void start(const Match &m)

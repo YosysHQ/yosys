@@ -5,37 +5,37 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-struct Ice40Dsp : MatchPattern
+struct Ice40DspMatch
 {
-	struct Match {
-		SigBit clock = {};
-		bool clock_pol = {};
-		bool cd_signed = {};
-		bool o_lo = {};
-		SigSpec sigA = {};
-		SigSpec sigB = {};
-		SigSpec sigCD = {};
-		SigSpec sigH = {};
-		SigSpec sigO = {};
-		Cell *add = nullptr;
-		Cell *mux = nullptr;
-		IdString addAB = {};
-		IdString muxAB = {};
-		Cell *ffA = nullptr;
-		Cell *ffB = nullptr;
-		Cell *ffCD = nullptr;
-		Cell *ffFJKG = nullptr;
-		Cell *ffH = nullptr;
-		Cell *ffO = nullptr;
-		Cell *mul = nullptr;
-		// subpattern
-		bool argSdff = {};
-		SigSpec argQ = {};
-		SigSpec argD = {};
-		Cell *ff = nullptr;
-	};
-	using Callback = void (*)(Ice40Dsp &, const Match &);
+	SigBit clock = {};
+	bool clock_pol = {};
+	bool cd_signed = {};
+	bool o_lo = {};
+	SigSpec sigA = {};
+	SigSpec sigB = {};
+	SigSpec sigCD = {};
+	SigSpec sigH = {};
+	SigSpec sigO = {};
+	Cell *add = nullptr;
+	Cell *mux = nullptr;
+	IdString addAB = {};
+	IdString muxAB = {};
+	Cell *ffA = nullptr;
+	Cell *ffB = nullptr;
+	Cell *ffCD = nullptr;
+	Cell *ffFJKG = nullptr;
+	Cell *ffH = nullptr;
+	Cell *ffO = nullptr;
+	Cell *mul = nullptr;
+	// subpattern
+	bool argSdff = {};
+	SigSpec argQ = {};
+	SigSpec argD = {};
+	Cell *ff = nullptr;
+};
 
+struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
+{
 	struct PortChoice {
 		Cell *cell = nullptr;
 		IdString AB = {};
@@ -56,9 +56,8 @@ struct Ice40Dsp : MatchPattern
 	MatchIndex<SigSpec, PortChoice> mux_index = {};
 	MatchIndex<SigBit, FfSlice> in_ff_index = {};
 	MatchIndex<SigBit, FfSlice> out_ff_index = {};
-	Callback on_accept = nullptr;
 
-	Ice40Dsp(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	Ice40Dsp(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &Ice40Dsp::match_mul)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($mul), ID::SB_MAC16) && GetSize(cell->getPort(ID::A)) + GetSize(cell->getPort(ID::B)) > 10)
@@ -80,22 +79,6 @@ struct Ice40Dsp : MatchPattern
 				for (int offset = 0; offset < GetSize(port(cell, ID::D)); offset++)
 					out_ff_index.add(port(cell, ID::D)[offset], {cell, offset});
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_mul(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	static SigSpec unextend_signed(const SigSpec &sig)

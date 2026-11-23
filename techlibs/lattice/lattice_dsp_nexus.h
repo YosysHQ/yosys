@@ -29,28 +29,27 @@ inline bool nexus_operand_is(SigSpec operand, bool add_signed, const SigSpec &va
 	return operand == value;
 }
 
+struct NexusMac9_4LaneMatch
+{
+	Cell *add3 = nullptr;
+	Cell *mul3 = nullptr;
+	Cell *add2 = nullptr;
+	Cell *mul2 = nullptr;
+	Cell *add1 = nullptr;
+	Cell *mul1 = nullptr;
+	Cell *add0 = nullptr;
+	Cell *mul0 = nullptr;
+};
+
 // maccmap -unmap adds the addends first, then one product per $add:
 // (((C + P0) + P1) + P2) + P3, or ((P0 + P1) + P2) + P3 without C
-struct NexusMac9_4Lane : MatchPattern
+struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 {
-	struct Match {
-		Cell *add3 = nullptr;
-		Cell *mul3 = nullptr;
-		Cell *add2 = nullptr;
-		Cell *mul2 = nullptr;
-		Cell *add1 = nullptr;
-		Cell *mul1 = nullptr;
-		Cell *add0 = nullptr;
-		Cell *mul0 = nullptr;
-	};
-	using Callback = void (*)(NexusMac9_4Lane &, const Match &);
-
 	vector<Cell*> add3_cells = {};
 	MatchIndex<SigBit> mul_index = {};
 	MatchIndex<SigBit> add_index = {};
-	Callback on_accept = nullptr;
 
-	NexusMac9_4Lane(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	NexusMac9_4Lane(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &NexusMac9_4Lane::match_add3)
 	{
 		for (auto cell : cells) {
 			if (cell->type == ID($add) && GetSize(port(cell, ID::Y)) <= 54)
@@ -60,22 +59,6 @@ struct NexusMac9_4Lane : MatchPattern
 			if (cell->type == ID($add) && nusers(port(cell, ID::Y)) == 2)
 				add_index.add(port(cell, ID::Y)[0], cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_add3(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	// Bits [0, width) of a partial sum, or empty if it is narrower
@@ -272,19 +255,19 @@ struct NexusMac9_4Lane : MatchPattern
 	}
 };
 
-struct NexusMac : MatchPattern
+struct NexusMacMatch
 {
-	struct Match {
-		IdString add_AB = {};
-		IdString add_C = {};
-		IdString mux_add = {};
-		IdString mux_mul = {};
-		Cell *mul = nullptr;
-		Cell *add = nullptr;
-		Cell *mux = nullptr;
-	};
-	using Callback = void (*)(NexusMac &, const Match &);
+	IdString add_AB = {};
+	IdString add_C = {};
+	IdString mux_add = {};
+	IdString mux_mul = {};
+	Cell *mul = nullptr;
+	Cell *add = nullptr;
+	Cell *mux = nullptr;
+};
 
+struct NexusMac : MatchPattern<NexusMac, NexusMacMatch>
+{
 	struct PortChoice {
 		Cell *cell = nullptr;
 		IdString AB = {};
@@ -294,9 +277,8 @@ struct NexusMac : MatchPattern
 	vector<Cell*> mul_cells = {};
 	MatchIndex<SigBit, PortChoice> add_index = {};
 	MatchIndex<SigSpec, PortChoice> mux_index = {};
-	Callback on_accept = nullptr;
 
-	NexusMac(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	NexusMac(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &NexusMac::match_mul)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($mul)) && param(cell, ID::A_SIGNED).as_bool() == param(cell, ID::B_SIGNED).as_bool() && GetSize(port(cell, ID::A)) <= 36 && GetSize(port(cell, ID::B)) <= 36)
@@ -312,22 +294,6 @@ struct NexusMac : MatchPattern
 					mux_index.add(port(cell, AB), {cell, AB, BA});
 				}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_mul(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_mul(const Match &m)
@@ -452,21 +418,20 @@ struct NexusMac : MatchPattern
 	}
 };
 
-struct NexusPreadd18 : MatchPattern
+struct NexusPreadd18Match
 {
-	struct Match {
-		Cell *preadd = nullptr;
-		Cell *mul = nullptr;
-		Cell *pipe_ff = nullptr;
-	};
-	using Callback = void (*)(NexusPreadd18 &, const Match &);
+	Cell *preadd = nullptr;
+	Cell *mul = nullptr;
+	Cell *pipe_ff = nullptr;
+};
 
+struct NexusPreadd18 : MatchPattern<NexusPreadd18, NexusPreadd18Match>
+{
 	vector<Cell*> preadd_cells = {};
 	MatchIndex<SigBit> mul_index = {};
 	MatchIndex<SigBit> pipe_ff_index = {};
-	Callback on_accept = nullptr;
 
-	NexusPreadd18(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	NexusPreadd18(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &NexusPreadd18::match_preadd)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($add), ID($sub)) && GetSize(port(cell, ID::Y)) <= 19 && nusers(port(cell, ID::Y)) == 2)
@@ -477,22 +442,6 @@ struct NexusPreadd18 : MatchPattern
 			if (cell->type.in(ID($dff), ID($dffe), ID($sdff), ID($sdffe)))
 				pipe_ff_index.add(port(cell, ID::D)[0], cell);
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_preadd(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_preadd(const Match &m)
@@ -598,29 +547,28 @@ struct NexusPreadd18 : MatchPattern
 	}
 };
 
-struct NexusMulReg : MatchPattern
+struct NexusMulRegMatch
 {
-	struct Match {
-		SigBit clk = {};
-		SigSpec argQ = {};
-		SigSpec argD = {};
-		Cell *ffA = nullptr;
-		Cell *ffB = nullptr;
-		Cell *ffY = nullptr;
-		Cell *mul = nullptr;
-		Cell *ff = nullptr;
-	};
-	using Callback = void (*)(NexusMulReg &, const Match &);
+	SigBit clk = {};
+	SigSpec argQ = {};
+	SigSpec argD = {};
+	Cell *ffA = nullptr;
+	Cell *ffB = nullptr;
+	Cell *ffY = nullptr;
+	Cell *mul = nullptr;
+	Cell *ff = nullptr;
+};
 
+struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
+{
 	Cell *dff = nullptr;
 	SigBit dffclk = {};
 
 	vector<Cell*> mul_cells = {};
 	MatchIndex<SigSpec> in_ff_index = {};
 	MatchIndex<SigSpec> out_ff_index = {};
-	Callback on_accept = nullptr;
 
-	NexusMulReg(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	NexusMulReg(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &NexusMulReg::match_mul)
 	{
 		for (auto cell : cells) {
 			if (cell->type.in(ID($mul)) && GetSize(port(cell, ID::A)) <= 36 && GetSize(port(cell, ID::B)) <= 36 && GetSize(port(cell, ID::Y)) <= 72)
@@ -630,22 +578,6 @@ struct NexusMulReg : MatchPattern
 				out_ff_index.add(port(cell, ID::D), cell);
 			}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_mul(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	SigBit ce_of(Cell *ff)

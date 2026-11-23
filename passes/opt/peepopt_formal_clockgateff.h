@@ -22,19 +22,19 @@ YOSYS_NAMESPACE_BEGIN
 // always @(posedge clk) flopped_en <= en;
 // assign gated_clk_o = flopped_en & clk_i;
 
-struct PeepoptFormalClockgateff : MatchPattern
+struct PeepoptFormalClockgateffMatch
 {
-	struct Match {
-		SigSpec clk = {};
-		SigSpec en = {};
-		SigSpec latched_en = {};
-		SigSpec gated_clk = {};
-		IdString latched_en_port_name = {};
-		Cell *latch = nullptr;
-		Cell *and_gate = nullptr;
-	};
-	using Callback = void (*)(PeepoptFormalClockgateff &, const Match &);
+	SigSpec clk = {};
+	SigSpec en = {};
+	SigSpec latched_en = {};
+	SigSpec gated_clk = {};
+	IdString latched_en_port_name = {};
+	Cell *latch = nullptr;
+	Cell *and_gate = nullptr;
+};
 
+struct PeepoptFormalClockgateff : MatchPattern<PeepoptFormalClockgateff, PeepoptFormalClockgateffMatch>
+{
 	struct AndGateChoice {
 		Cell *cell = nullptr;
 		IdString latch_port = {};
@@ -44,9 +44,8 @@ struct PeepoptFormalClockgateff : MatchPattern
 
 	vector<Cell*> latch_cells = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>, AndGateChoice> and_gate_index = {};
-	Callback on_accept = nullptr;
 
-	PeepoptFormalClockgateff(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx)
+	PeepoptFormalClockgateff(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &PeepoptFormalClockgateff::match_latch)
 	{
 		for (auto cell : cells) {
 			if (cell->type == ID($dlatch) && param(cell, ID::WIDTH) == 1 && param(cell, ID::EN_POLARITY).as_bool() == false)
@@ -59,22 +58,6 @@ struct PeepoptFormalClockgateff : MatchPattern
 				}
 			}
 		}
-	}
-
-	int run(Callback callback = nullptr)
-	{
-		on_accept = callback;
-		begin_run();
-		match_latch(Match{});
-		return end_run();
-	}
-
-	bool accept(const Match &m)
-	{
-		accept_cnt++;
-		if (on_accept)
-			on_accept(*this, m);
-		return unwinding();
 	}
 
 	void match_latch(const Match &m)
