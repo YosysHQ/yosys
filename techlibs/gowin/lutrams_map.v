@@ -20,8 +20,7 @@ endfunction
 
 generate
 
-casez(BITS_USED)
-4'b000z:
+if ((BITS_USED >> 1) == 0)
 RAM16SDP1 #(
 	.INIT_0(init_slice(0)),
 ) _TECHMAP_REPLACE_ (
@@ -32,7 +31,7 @@ RAM16SDP1 #(
 	.CLK(PORT_W_CLK),
 	.WRE(PORT_W_WR_EN)
 );
-4'b00zz:
+else if ((BITS_USED >> 2) == 0)
 RAM16SDP2 #(
 	.INIT_0(init_slice(0)),
 	.INIT_1(init_slice(1)),
@@ -44,7 +43,7 @@ RAM16SDP2 #(
 	.CLK(PORT_W_CLK),
 	.WRE(PORT_W_WR_EN)
 );
-default:
+else
 RAM16SDP4 #(
 	.INIT_0(init_slice(0)),
 	.INIT_1(init_slice(1)),
@@ -58,7 +57,6 @@ RAM16SDP4 #(
 	.CLK(PORT_W_CLK),
 	.WRE(PORT_W_WR_EN)
 );
-endcase
 
 endgenerate
 
