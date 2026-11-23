@@ -1,7 +1,7 @@
 #ifndef XILINX_DSP_CREG_H
 #define XILINX_DSP_CREG_H
 
-#include "techlibs/xilinx/xilinx_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -12,7 +12,7 @@ YOSYS_NAMESPACE_BEGIN
 //       and (b) uses the 'C' port
 //   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
 //       (attached to at most two $mux cells that implement clock-enable or
-//        reset functionality, using a subpattern in xilinx_dsp_common.h)
+//        reset functionality, using a subpattern in dsp_ff.h)
 // Notes:
 //   - Running CREG packing after xilinx_dsp_pack is necessary since there is no
 //     guarantee that the cell ordering corresponds to the "expected" case (i.e.
@@ -37,7 +37,7 @@ struct XilinxDspPackCMatch
 struct XilinxDspPackC : MatchPattern<XilinxDspPackC, XilinxDspPackCMatch>
 {
 	vector<Cell*> dsp_cells = {};
-	XilinxDspFfIndex ff_index = {};
+	DspFfIndex ff_index = {};
 
 	XilinxDspPackC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxDspPackC::match_dsp)
 	{
@@ -60,7 +60,7 @@ struct XilinxDspPackC : MatchPattern<XilinxDspPackC, XilinxDspPackCMatch>
 	void code_signals(const Match &m)
 	{
 		Match n = m;
-		n.sigC = xilinx_dsp_unextend(port(n.dsp, ID::C, SigSpec()));
+		n.sigC = dsp_unextend(port(n.dsp, ID::C, SigSpec()));
 
 		SigSpec P = port(n.dsp, ID::P);
 		if (!n.dsp->type.in(ID::DSP48E1) ||
@@ -87,12 +87,7 @@ struct XilinxDspPackC : MatchPattern<XilinxDspPackC, XilinxDspPackCMatch>
 	void code_ffC(const Match &m)
 	{
 		Match n = m;
-		XilinxDspFf creg = ff_index.in_dffe(*this, n.sigC, n.clock);
-		if (creg.cell) {
-			n.ffC = creg.cell;
-			n.clock = creg.clock;
-			n.sigC = creg.sig;
-		}
+		ff_index.absorb_in(*this, n, &Match::ffC, &Match::sigC);
 		code_accept(n);
 	}
 

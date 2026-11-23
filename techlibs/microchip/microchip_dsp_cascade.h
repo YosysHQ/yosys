@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_CASCADE_H
 #define MICROCHIP_DSP_CASCADE_H
 
-#include "techlibs/microchip/microchip_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -214,7 +214,7 @@ struct MicrochipDspCascade : MatchPattern<MicrochipDspCascade, MicrochipDspCasca
 			chain.emplace_back(m.next, shift);
 			visited.insert(m.next);
 
-			SigSpec sigC = microchip_dsp_unextend(port(m.next, ID::C));
+			SigSpec sigC = dsp_unextend(port(m.next, ID::C));
 
 			// Make sure driverDSP.P === DSP.C
 			if (GetSize(sigC) + shift <= GetSize(driver_sigP) && driver_sigP.extract(shift, GetSize(sigC)) == sigC)

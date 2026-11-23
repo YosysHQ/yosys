@@ -1,7 +1,7 @@
 #ifndef XILINX_DSP_CASCADE_H
 #define XILINX_DSP_CASCADE_H
 
-#include "techlibs/xilinx/xilinx_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -68,7 +68,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 	vector<Cell*> first_cells = {};
 	MatchIndex<SigBit> nextP_index = {};
 	MatchIndex<SigBit> nextP_shift17_index = {};
-	XilinxDspFfIndex ff_index = {};
+	DspFfIndex ff_index = {};
 
 	XilinxDspCascade(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxDspCascade::match_first)
 	{
@@ -91,7 +91,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 		}
 	}
 
-	bool acascade_dff_compatible(const XilinxDspFf &dff, Cell *prev) const
+	bool acascade_dff_compatible(const DspFf &dff, Cell *prev) const
 	{
 		if (!dff.cell->type.in(ID($sdff), ID($sdffe)) && port(prev, ID::RSTA, State::S0) != State::S0)
 			return false;
@@ -107,10 +107,10 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 			return false;
 		if (dff.cell->type.in(ID($dffe), ID($sdffe)) && (port(dff.cell, ID::EN) != port(prev, CEA, State::S0) || !param(dff.cell, ID::EN_POLARITY).as_bool()))
 			return false;
-		return dff.sig == xilinx_dsp_unextend(port(prev, ID::A));
+		return dff.sig == dsp_unextend(port(prev, ID::A));
 	}
 
-	bool bcascade_dff_compatible(const XilinxDspFf &dff, Cell *next, Cell *prev) const
+	bool bcascade_dff_compatible(const DspFf &dff, Cell *next, Cell *prev) const
 	{
 		if (!dff.cell->type.in(ID($sdff), ID($sdffe)) && port(prev, ID::RSTB, State::S0) != State::S0)
 			return false;
@@ -131,7 +131,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 			return false;
 		if (dff.cell->type.in(ID($dffe), ID($sdffe)) && (port(dff.cell, ID::EN) != port(prev, CEB, State::S0) || !param(dff.cell, ID::EN_POLARITY).as_bool()))
 			return false;
-		if (dff.sig == xilinx_dsp_unextend(port(prev, ID::B))) {
+		if (dff.sig == dsp_unextend(port(prev, ID::B))) {
 			if (next->type.in(ID::DSP48A, ID::DSP48A1) && param(prev, ID::B0REG) != 0)
 				return false;
 			return true;
@@ -331,9 +331,9 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 						n.AREG = 0;
 				}
 				else {
-					SigSpec argQ = xilinx_dsp_unextend(port(n.next, ID::A));
+					SigSpec argQ = dsp_unextend(port(n.next, ID::A));
 					SigBit clock = port(prev, ID::CLK);
-					XilinxDspFf areg = ff_index.in_dffe(*this, argQ, clock);
+					DspFf areg = ff_index.in_dffe(*this, argQ, clock);
 					if (areg.cell && acascade_dff_compatible(areg, prev))
 						n.AREG = 1;
 				}
@@ -358,9 +358,9 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 						n.BREG = 0;
 				}
 				else {
-					SigSpec argQ = xilinx_dsp_unextend(port(n.next, ID::B));
+					SigSpec argQ = dsp_unextend(port(n.next, ID::B));
 					SigBit clock = port(prev, ID::CLK);
-					XilinxDspFf breg = ff_index.in_dffe(*this, argQ, clock);
+					DspFf breg = ff_index.in_dffe(*this, argQ, clock);
 					if (breg.cell && bcascade_dff_compatible(breg, n.next, prev))
 						n.BREG = 1;
 				}
@@ -376,7 +376,7 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 		if (m.next) {
 			chain.emplace_back(m.next, m.nextP_shift17 ? 17 : m.nextP ? 0 : -1, m.AREG, m.BREG);
 
-			SigSpec sigC = xilinx_dsp_unextend(port(m.next, ID::C));
+			SigSpec sigC = dsp_unextend(port(m.next, ID::C));
 
 			if (m.nextP_shift17) {
 				if (GetSize(sigC)+17 <= GetSize(port(std::get<0>(chain.back()), ID::P)) &&

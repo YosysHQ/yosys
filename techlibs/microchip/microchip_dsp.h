@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_H
 #define MICROCHIP_DSP_H
 
-#include "techlibs/microchip/microchip_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -80,7 +80,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	vector<Cell*> dsp_cells = {};
 	MatchIndex<SigBit, PortChoice> postAdd_index = {};
 	vector<Cell*> preAdd_cells = {};
-	MicrochipDspFfIndex ff_index = {};
+	DspFfIndex ff_index = {};
 
 	MicrochipDspPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &MicrochipDspPack::match_dsp)
 	{
@@ -119,8 +119,8 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		Match n = m;
 		//unextend to remove unused bits
-		n.sigA = microchip_dsp_unextend(port(n.dsp, ID::A));
-		n.sigB = microchip_dsp_unextend(port(n.dsp, ID::B));
+		n.sigA = dsp_unextend(port(n.dsp, ID::A));
+		n.sigB = dsp_unextend(port(n.dsp, ID::B));
 
 		//update signals
 		n.sigC = port(n.dsp, ID::C, SigSpec());
@@ -215,12 +215,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		Match n = m;
 		if (n.bypassA.is_fully_ones()){
-			MicrochipDspFf areg = ff_index.in_dffe(*this, n.sigA, n.clock, false);
-			if (areg.cell) {
-				n.ffA = areg.cell;
-				n.clock = areg.clock;
-				n.sigA = areg.sig;
-			}
+			ff_index.absorb_in(*this, n, &Match::ffA, &Match::sigA);
 		}
 		code_ffB(n);
 	}
@@ -230,12 +225,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		Match n = m;
 		if (n.bypassB.is_fully_ones()){
-			MicrochipDspFf breg = ff_index.in_dffe(*this, n.sigB, n.clock, false);
-			if (breg.cell) {
-				n.ffB = breg.cell;
-				n.clock = breg.clock;
-				n.sigB = breg.sig;
-			}
+			ff_index.absorb_in(*this, n, &Match::ffB, &Match::sigB);
 		}
 		code_ffD(n);
 	}
@@ -245,12 +235,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		Match n = m;
 		if (n.bypassD.is_fully_ones()){
-			MicrochipDspFf dreg = ff_index.in_dffe(*this, n.sigD, n.clock, true);
-			if (dreg.cell) {
-				n.ffD = dreg.cell;
-				n.clock = dreg.clock;
-				n.sigD = dreg.sig;
-			}
+			ff_index.absorb_in_async(*this, n, &Match::ffD, &Match::sigD);
 		}
 		code_ffP(n);
 	}
@@ -260,12 +245,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		Match n = m;
 		if (n.bypassP.is_fully_ones() && nusers(n.sigP) == 2) {
-			MicrochipDspFf preg = ff_index.out_dffe(*this, n.sigP, n.clock);
-			if (preg.cell) {
-				n.ffP = preg.cell;
-				n.clock = preg.clock;
-				n.sigP = preg.sig;
-			}
+			ff_index.absorb_out(*this, n, &Match::ffP, &Match::sigP);
 		}
 		code_useFeedBack(n);
 	}

@@ -7,7 +7,7 @@ yosys_pass(xilinx_dsp
 	xilinx_dsp48a.h
 	xilinx_dsp_CREG.h
 	xilinx_dsp_cascade.h
-	xilinx_dsp_common.h
+	../common/dsp_ff.h
 )
 yosys_pass(xilinx_srl
 	xilinx_srl.cc

@@ -17,7 +17,7 @@
 #ifndef MICROCHIP_DSP_CREG_H
 #define MICROCHIP_DSP_CREG_H
 
-#include "techlibs/microchip/microchip_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -28,7 +28,7 @@ YOSYS_NAMESPACE_BEGIN
 //       and (b) uses the 'C' port
 //   (2) Match the driver of the 'C' input to a possible $dff cell (CREG)
 //       (attached to at most two $mux cells that implement clock-enable or
-//        reset functionality, using a subpattern in microchip_dsp_common.h)
+//        reset functionality, using a subpattern in dsp_ff.h)
 // Notes:
 //   - Running CREG packing after microchip_dsp_pack is necessary since there is no
 //     guarantee that the cell ordering corresponds to the "expected" case (i.e.
@@ -54,7 +54,7 @@ struct MicrochipDspPackCMatch
 struct MicrochipDspPackC : MatchPattern<MicrochipDspPackC, MicrochipDspPackCMatch>
 {
 	vector<Cell*> dsp_cells = {};
-	MicrochipDspFfIndex ff_index = {};
+	DspFfIndex ff_index = {};
 
 	MicrochipDspPackC(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &MicrochipDspPackC::match_dsp)
 	{
@@ -75,7 +75,7 @@ struct MicrochipDspPackC : MatchPattern<MicrochipDspPackC, MicrochipDspPackCMatc
 	void code_signals(const Match &m)
 	{
 		Match n = m;
-		n.sigC = microchip_dsp_unextend(port(n.dsp, ID::C, SigSpec()));
+		n.sigC = dsp_unextend(port(n.dsp, ID::C, SigSpec()));
 
 		SigSpec P = port(n.dsp, ID::P);
 
@@ -98,12 +98,7 @@ struct MicrochipDspPackC : MatchPattern<MicrochipDspPackC, MicrochipDspPackCMatc
 	void code_ffC(const Match &m)
 	{
 		Match n = m;
-		MicrochipDspFf creg = ff_index.in_dffe(*this, n.sigC, n.clock, true);
-		if (creg.cell) {
-			n.ffC = creg.cell;
-			n.clock = creg.clock;
-			n.sigC = creg.sig;
-		}
+		ff_index.absorb_in_async(*this, n, &Match::ffC, &Match::sigC);
 		code_accept(n);
 	}
 

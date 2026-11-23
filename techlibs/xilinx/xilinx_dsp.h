@@ -1,7 +1,7 @@
 #ifndef XILINX_DSP_H
 #define XILINX_DSP_H
 
-#include "techlibs/xilinx/xilinx_dsp_common.h"
+#include "techlibs/common/dsp_ff.h"
 
 YOSYS_NAMESPACE_BEGIN
 
@@ -53,7 +53,7 @@ YOSYS_NAMESPACE_BEGIN
 //     (though the latter is currently untested)
 //   - Since the $sdffe pattern is used
 //     for each *REG match, it has been factored out into two subpatterns:
-//     in_dffe and out_dffe in xilinx_dsp_common.h.
+//     in_dffe and out_dffe in dsp_ff.h.
 //   - Matching for pattern detector features is currently incomplete. For
 //     example, matching for underflow as well as overflow detection is
 //     possible, as would auto-reset, enabling saturated arithmetic, detecting
@@ -99,7 +99,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	MatchIndex<SigBit, PortChoice> postAdd_index = {};
 	MatchIndex<std::tuple<SigSpec, SigSpec>, PortChoice> postAddMux_index = {};
 	MatchIndex<SigSpec> overflow_index = {};
-	XilinxDspFfIndex ff_index = {};
+	DspFfIndex ff_index = {};
 
 	XilinxDspPack(MatchContext &ctx, const vector<Cell*> &cells) : MatchPattern(ctx, &XilinxDspPack::match_dsp)
 	{
@@ -162,8 +162,8 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	void code_signals(const Match &m)
 	{
 		Match n = m;
-		n.sigA = xilinx_dsp_unextend(port(n.dsp, ID::A));
-		n.sigB = xilinx_dsp_unextend(port(n.dsp, ID::B));
+		n.sigA = dsp_unextend(port(n.dsp, ID::A));
+		n.sigB = dsp_unextend(port(n.dsp, ID::B));
 
 		n.sigC = port(n.dsp, ID::C, SigSpec());
 		n.sigD = port(n.dsp, ID::D, SigSpec());
@@ -196,12 +196,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		Match n = m;
 		if (param(n.dsp, ID::ADREG).as_int() == 0) {
-			XilinxDspFf adreg = ff_index.in_dffe(*this, n.sigA, n.clock);
-			if (adreg.cell) {
-				n.ffAD = adreg.cell;
-				n.clock = adreg.clock;
-				n.sigA = adreg.sig;
-			}
+			ff_index.absorb_in(*this, n, &Match::ffAD, &Match::sigA);
 		}
 		match_preAdd(n);
 	}
@@ -268,12 +263,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 		//   (otherwise ffA2 would have been matched as ffAD)
 		if (n.preAdd || n.preSub) {
 			if (param(n.dsp, ID::AREG).as_int() == 0) {
-				XilinxDspFf a2reg = ff_index.in_dffe(*this, n.sigA, n.clock);
-				if (a2reg.cell) {
-					n.ffA2 = a2reg.cell;
-					n.clock = a2reg.clock;
-					n.sigA = a2reg.sig;
-				}
+				ff_index.absorb_in(*this, n, &Match::ffA2, &Match::sigA);
 			}
 		}
 		// And if there wasn't a pre-adder,
@@ -284,14 +274,8 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 		}
 
 		// Now attempt to match A1
-		if (n.ffA2) {
-			XilinxDspFf a1reg = ff_index.in_dffe(*this, n.sigA, n.clock);
-			if (a1reg.cell && xilinx_dsp_same_ff_controls(*this, a1reg.cell, n.ffA2)) {
-				n.ffA1 = a1reg.cell;
-				n.clock = a1reg.clock;
-				n.sigA = a1reg.sig;
-			}
-		}
+		if (n.ffA2)
+			ff_index.absorb_in(*this, n, &Match::ffA1, &Match::sigA, n.ffA2);
 		code_ffB(n);
 	}
 
@@ -300,22 +284,10 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	void code_ffB(const Match &m)
 	{
 		Match n = m;
-		if (param(n.dsp, ID::BREG).as_int() == 0) {
-			XilinxDspFf b2reg = ff_index.in_dffe(*this, n.sigB, n.clock);
-			if (b2reg.cell) {
-				n.ffB2 = b2reg.cell;
-				n.clock = b2reg.clock;
-				n.sigB = b2reg.sig;
-
+		if (param(n.dsp, ID::BREG).as_int() == 0)
+			if (ff_index.absorb_in(*this, n, &Match::ffB2, &Match::sigB))
 				// Now attempt to match B1
-				XilinxDspFf b1reg = ff_index.in_dffe(*this, n.sigB, n.clock);
-				if (b1reg.cell && xilinx_dsp_same_ff_controls(*this, b1reg.cell, n.ffB2)) {
-					n.ffB1 = b1reg.cell;
-					n.clock = b1reg.clock;
-					n.sigB = b1reg.sig;
-				}
-			}
-		}
+				ff_index.absorb_in(*this, n, &Match::ffB1, &Match::sigB, n.ffB2);
 		code_ffD(n);
 	}
 
@@ -324,12 +296,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		Match n = m;
 		if (param(n.dsp, ID::DREG).as_int() == 0) {
-			XilinxDspFf dreg = ff_index.in_dffe(*this, n.sigD, n.clock);
-			if (dreg.cell) {
-				n.ffD = dreg.cell;
-				n.clock = dreg.clock;
-				n.sigD = dreg.sig;
-			}
+			ff_index.absorb_in(*this, n, &Match::ffD, &Match::sigD);
 		}
 		code_ffM(n);
 	}
@@ -339,12 +306,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		Match n = m;
 		if (param(n.dsp, ID::MREG).as_int() == 0 && nusers(n.sigM) == 2) {
-			XilinxDspFf mreg = ff_index.out_dffe(*this, n.sigM, n.clock);
-			if (mreg.cell) {
-				n.ffM = mreg.cell;
-				n.clock = mreg.clock;
-				n.sigM = mreg.sig;
-			}
+			ff_index.absorb_out(*this, n, &Match::ffM, &Match::sigM);
 		}
 		n.sigP = n.sigM;
 		match_postAdd(n);
@@ -366,7 +328,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 				if (port(postAdd, AB).extract(0, GetSize(m.sigP)) != m.sigP)
 					continue;
 				// Check that remainder of AB is a sign- or zero-extension
-				if (!xilinx_dsp_is_extension_of(port(postAdd, AB), m.sigP))
+				if (!dsp_is_extension_of(port(postAdd, AB), m.sigP))
 					continue;
 				Match n = m;
 				n.postAdd = postAdd;
@@ -394,12 +356,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 		Match n = m;
 		if (param(n.dsp, ID::PREG).as_int() == 0) {
 			if (nusers(n.sigP) == 2) {
-				XilinxDspFf preg = ff_index.out_dffe(*this, n.sigP, n.clock);
-				if (preg.cell) {
-					n.ffP = preg.cell;
-					n.clock = preg.clock;
-					n.sigP = preg.sig;
-				}
+				ff_index.absorb_out(*this, n, &Match::ffP, &Match::sigP);
 			}
 		}
 		match_postAddMux(n);
