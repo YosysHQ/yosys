@@ -7,6 +7,7 @@ yosys_pass(hierarchy
 		verific
 	REQUIRES
 		read_rtlil
+		read_verific
 		read_verilog
 )
 yosys_pass(keep_hierarchy
