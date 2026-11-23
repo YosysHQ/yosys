@@ -84,9 +84,6 @@ Netlist::Instance *detail::ViewBuilder::newInstance(RTLIL::Cell *cell, RTLIL::Mo
 void detail::ViewBuilder::buildScope(Netlist::Instance *scope)
 {
 	for (RTLIL::Cell *cell : detail::statementOrder(scope->module)) {
-		// transparent cells have no instance
-		if (cell->type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo)))
-			continue;
 		Netlist::Instance *inst = newInstance(cell, detail::childModule(view_.design_, cell), scope);
 		if (!inst->isLeaf())
 			buildScope(inst);

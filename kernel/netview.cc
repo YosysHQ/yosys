@@ -194,10 +194,15 @@ NetView::NetView(RTLIL::Design *design, Netlist::CellLibrary *library) : design_
 }
 
 // cells() is newest first, reversed it is creation order until a cell is removed
-// a module sorted by name keeps name order
+// a module sorted by name keeps name order, the barriers of a later checkpoint do not count
 std::vector<RTLIL::Cell *> detail::statementOrder(RTLIL::Module *module)
 {
-	std::vector<RTLIL::Cell *> cells = module->cells();
+	std::vector<RTLIL::Cell *> cells;
+	for (RTLIL::Cell *cell : module->cells()) {
+		// transparent cells have no instance
+		if (!cell->type.in(ID($barrier), ID($connect), ID($input_port), ID($scopeinfo)))
+			cells.push_back(cell);
+	}
 	if (!std::is_sorted(cells.begin(), cells.end(), RTLIL::sort_by_name_str<RTLIL::Cell>()))
 		std::reverse(cells.begin(), cells.end());
 	return cells;

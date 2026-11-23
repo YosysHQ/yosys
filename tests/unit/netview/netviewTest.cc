@@ -177,6 +177,17 @@ TEST_F(NetViewTest, barrierFromALiteralConstantIsConstant)
 	EXPECT_EQ(topChild(view, u_inv2)->pins[0]->net->constant, Netlist::Net::Const::One);
 }
 
+// cells() lists $b2 before $b1, the barriers must not undo the name order of the sort
+TEST_F(NetViewTest, barriersKeepTheNameOrderOfASortedModule)
+{
+	d->sort();
+	top->addBarrier("$b1", in, top->addWire("$y1"));
+	top->addBarrier("$b2", in, top->addWire("$y2"));
+	NetView view(d);
+	std::vector<Netlist::Instance *> name_order = {topChild(view, u_inv0), topChild(view, u_inv2), topChild(view, u_sub)};
+	EXPECT_EQ(view.top()->children, name_order);
+}
+
 static Module *addWrapper(Design *design, const std::string &name, const std::string &child, const std::string &type)
 {
 	Module *module = design->addModule(name);
