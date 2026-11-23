@@ -8,6 +8,9 @@ requires = [
 backend-path = ["pyosys/build"]
 build-backend = "local_backend"
 
+[tool.pyright]
+extraPaths = ["build-dbg/pyosys-stubs"]
+
 [tool.ruff]
 target-version = "py310"
 include = ["pyosys/*.py"]
