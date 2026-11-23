@@ -31,16 +31,12 @@ struct PeepoptShiftpow2 : MatchPattern<PeepoptShiftpow2, PeepoptShiftpow2Match>
 	void match_shift(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *shift : shift_cells) {
-			if (blacklisted(shift))
-				continue;
+		for (Cell *shift : candidates(shift_cells)) {
 			if (port(shift, ID::B).empty())
 				continue;
 			Match n = m;
 			n.shift = shift;
-			frame.enter(shift);
-			code_rewrite(n);
-			if (frame.leave())
+			if (descend(frame, shift, &PeepoptShiftpow2::code_rewrite, n))
 				return;
 		}
 	}

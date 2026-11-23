@@ -168,14 +168,10 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 	{
 		if (preadder_usable(m)) {
 			MatchFrame frame(ctx);
-			for (Cell *preAdd : preAdd_index.find(m.sigB)) {
-				if (blacklisted(preAdd))
-					continue;
+			for (Cell *preAdd : candidates(preAdd_index.find(m.sigB))) {
 				Match n = m;
 				n.preAdd = preAdd;
-				frame.enter(preAdd);
-				code_preAdd(n);
-				if (frame.leave())
+				if (descend(frame, preAdd, &XilinxDsp48aPack::code_preAdd, n))
 					return;
 			}
 		}
@@ -274,9 +270,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 		// Ensure that Z mux is not already used
 		if (port(m.dsp, ID::OPMODE, SigSpec()).extract(2,2).is_fully_zero()) {
 			MatchFrame frame(ctx);
-			for (auto &[postAdd, AB] : postAdd_index.find(m.sigP[0])) {
-				if (blacklisted(postAdd))
-					continue;
+			for (auto &[postAdd, AB] : candidates(postAdd_index.find(m.sigP[0]))) {
 				if (GetSize(port(postAdd, AB)) < GetSize(m.sigP))
 					continue;
 				if (port(postAdd, AB).extract(0, GetSize(m.sigP)) != m.sigP)
@@ -287,9 +281,7 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 				Match n = m;
 				n.postAdd = postAdd;
 				n.postAddAB = AB;
-				frame.enter(postAdd);
-				code_postAdd(n);
-				if (frame.leave())
+				if (descend(frame, postAdd, &XilinxDsp48aPack::code_postAdd, n))
 					return;
 			}
 		}
@@ -342,15 +334,11 @@ struct XilinxDsp48aPack : MatchPattern<XilinxDsp48aPack, XilinxDsp48aPackMatch>
 	{
 		if (m.postAdd && m.ffP) {
 			MatchFrame frame(ctx);
-			for (auto &[postAddMux, AB] : postAddMux_index.find({m.sigP, m.sigC})) {
-				if (blacklisted(postAddMux))
-					continue;
+			for (auto &[postAddMux, AB] : candidates(postAddMux_index.find({m.sigP, m.sigC}))) {
 				Match n = m;
 				n.postAddMux = postAddMux;
 				n.postAddMuxAB = AB;
-				frame.enter(postAddMux);
-				code_postAddMux(n);
-				if (frame.leave())
+				if (descend(frame, postAddMux, &XilinxDsp48aPack::code_postAddMux, n))
 					return;
 			}
 		}

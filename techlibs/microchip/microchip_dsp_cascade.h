@@ -174,17 +174,13 @@ struct MicrochipDspCascade : MatchPattern<MicrochipDspCascade, MicrochipDspCasca
 	void tail(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *nextP : nextP_cells) {
-			if (blacklisted(nextP))
-				continue;
+		for (Cell *nextP : candidates(nextP_cells)) {
 			// current DSP cell can be cascaded with the back of the cascade chain
 			if (!(port(nextP, ID::C)[0] == port(std::get<0>(chain.back()), ID::P)[0] || port(nextP, ID::C)[0] == port(std::get<0>(chain.back()), ID::P)[17]))
 				continue;
 			Match n = m;
 			n.nextP = nextP;
-			frame.enter(nextP);
-			tail_code_next(n);
-			if (frame.leave())
+			if (descend(frame, nextP, &MicrochipDspCascade::tail_code_next, n))
 				return;
 		}
 

@@ -54,16 +54,12 @@ struct PeepoptMuldiv : MatchPattern<PeepoptMuldiv, PeepoptMuldivMatch>
 	void match_div(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *div : div_index.find({m.t, m.x})) {
-			if (blacklisted(div))
-				continue;
+		for (Cell *div : candidates(div_index.find({m.t, m.x}))) {
 			if (param(div, ID::A_SIGNED).as_bool() != m.is_signed)
 				continue;
 			Match n = m;
 			n.div = div;
-			frame.enter(div);
-			code_replace(n);
-			if (frame.leave())
+			if (descend(frame, div, &PeepoptMuldiv::code_replace, n))
 				return;
 		}
 	}

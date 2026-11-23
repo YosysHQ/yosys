@@ -103,14 +103,10 @@ struct NexusMac9_4Lane : MatchPattern<NexusMac9_4Lane, NexusMac9_4LaneMatch>
 	void match_add0(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *add0 : add_index.find(port(m.add1, ID::A)[0])) {
-			if (blacklisted(add0))
-				continue;
+		for (Cell *add0 : candidates(add_index.find(port(m.add1, ID::A)[0]))) {
 			Match n = m;
 			n.add0 = add0;
-			frame.enter(add0);
-			match_mul0(n);
-			if (frame.leave())
+			if (descend(frame, add0, &NexusMac9_4Lane::match_mul0, n))
 				return;
 		}
 		Match n = m;
@@ -234,18 +230,14 @@ struct NexusMac : MatchPattern<NexusMac, NexusMacMatch>
 	void match_add(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[add, AB, BA] : add_index.find(port(m.mul, ID::Y)[0])) {
-			if (blacklisted(add))
-				continue;
+		for (auto &[add, AB, BA] : candidates(add_index.find(port(m.mul, ID::Y)[0]))) {
 			if (add->type != ID($add) && AB != ID::B)
 				continue;
 			Match n = m;
 			n.add = add;
 			n.add_AB = AB;
 			n.add_C = BA;
-			frame.enter(add);
-			match_mux(n);
-			if (frame.leave())
+			if (descend(frame, add, &NexusMac::match_mux, n))
 				return;
 		}
 	}
@@ -254,16 +246,12 @@ struct NexusMac : MatchPattern<NexusMac, NexusMacMatch>
 	void match_mux(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[mux, AB, BA] : mux_index.find(port(m.add, ID::Y))) {
-			if (blacklisted(mux))
-				continue;
+		for (auto &[mux, AB, BA] : candidates(mux_index.find(port(m.add, ID::Y)))) {
 			Match n = m;
 			n.mux = mux;
 			n.mux_add = AB;
 			n.mux_mul = BA;
-			frame.enter(mux);
-			code_accept(n);
-			if (frame.leave())
+			if (descend(frame, mux, &NexusMac::code_accept, n))
 				return;
 		}
 		Match n = m;
@@ -377,16 +365,12 @@ struct NexusPreadd18 : MatchPattern<NexusPreadd18, NexusPreadd18Match>
 	void match_pipe_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *pipe_ff : pipe_ff_index.find(port(m.mul, ID::Y)[0])) {
-			if (blacklisted(pipe_ff))
-				continue;
+		for (Cell *pipe_ff : candidates(pipe_ff_index.find(port(m.mul, ID::Y)[0]))) {
 			if (nusers(port(m.mul, ID::Y)) != 2)
 				continue;
 			Match n = m;
 			n.pipe_ff = pipe_ff;
-			frame.enter(pipe_ff);
-			code_accept(n);
-			if (frame.leave())
+			if (descend(frame, pipe_ff, &NexusPreadd18::code_accept, n))
 				return;
 		}
 		Match n = m;
@@ -647,9 +631,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 	void in_ff_match_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *ff : in_ff_index.find(m.argQ)) {
-			if (blacklisted(ff))
-				continue;
+		for (Cell *ff : candidates(in_ff_index.find(m.argQ))) {
 			if (!ff->type.in(ID($dff), ID($dffe)) && !param(ff, ID::SRST_VALUE).is_fully_zero())
 				continue;
 			if (GetSize(port(ff, ID::Q)) != GetSize(m.argQ))
@@ -658,9 +640,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 				continue;
 			Match n = m;
 			n.ff = ff;
-			frame.enter(ff);
-			in_ff_code_found(n);
-			if (frame.leave())
+			if (descend(frame, ff, &NexusMulReg::in_ff_code_found, n))
 				return;
 		}
 	}
@@ -696,9 +676,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 	void out_ff_match_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *ff : out_ff_index.find(m.argD)) {
-			if (blacklisted(ff))
-				continue;
+		for (Cell *ff : candidates(out_ff_index.find(m.argD))) {
 			if (!ff->type.in(ID($dff), ID($dffe)) && !param(ff, ID::SRST_VALUE).is_fully_zero())
 				continue;
 			if (GetSize(port(ff, ID::D)) != GetSize(m.argD))
@@ -707,9 +685,7 @@ struct NexusMulReg : MatchPattern<NexusMulReg, NexusMulRegMatch>
 				continue;
 			Match n = m;
 			n.ff = ff;
-			frame.enter(ff);
-			out_ff_code_found(n);
-			if (frame.leave())
+			if (descend(frame, ff, &NexusMulReg::out_ff_code_found, n))
 				return;
 		}
 	}

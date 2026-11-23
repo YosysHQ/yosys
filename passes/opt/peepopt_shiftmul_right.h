@@ -52,16 +52,12 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 	void match_shift(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *shift : shift_cells) {
-			if (blacklisted(shift))
-				continue;
+		for (Cell *shift : candidates(shift_cells)) {
 			if (port(shift, ID::B).empty())
 				continue;
 			Match n = m;
 			n.shift = shift;
-			frame.enter(shift);
-			code_shift_amount(n);
-			if (frame.leave())
+			if (descend(frame, shift, &PeepoptShiftmulRight::code_shift_amount, n))
 				return;
 		}
 	}
@@ -99,9 +95,7 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 	void match_mul(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[mul, constport, varport] : mul_index.find(m.shift_amount)) {
-			if (blacklisted(mul))
-				continue;
+		for (auto &[mul, constport, varport] : candidates(mul_index.find(m.shift_amount))) {
 			if (param(mul, ID::A_SIGNED).as_bool())
 				continue;
 			if (!port(mul, constport).is_fully_const())
@@ -114,9 +108,7 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 			// on the shift cell, and we want to stay close
 			// to the original design
 			n.mul_din = mul->getPort(varport);
-			frame.enter(mul);
-			code_rewrite(n);
-			if (frame.leave())
+			if (descend(frame, mul, &PeepoptShiftmulRight::code_rewrite, n))
 				return;
 		}
 	}

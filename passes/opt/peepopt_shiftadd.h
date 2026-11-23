@@ -101,16 +101,12 @@ struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
 	void match_shift(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *shift : shift_cells) {
-			if (blacklisted(shift))
-				continue;
+		for (Cell *shift : candidates(shift_cells)) {
 			if (port(shift, ID::B).empty())
 				continue;
 			Match n = m;
 			n.shift = shift;
-			frame.enter(shift);
-			code_shift_amount(n);
-			if (frame.leave())
+			if (descend(frame, shift, &PeepoptShiftadd::code_shift_amount, n))
 				return;
 		}
 	}
@@ -140,9 +136,7 @@ struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
 	void match_add(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[add, constport, varport, varport_A, is_sub, constport_signed, varport_signed, offset_negative] : add_index.find(m.shift_amount)) {
-			if (blacklisted(add))
-				continue;
+		for (auto &[add, constport, varport, varport_A, is_sub, constport_signed, varport_signed, offset_negative] : candidates(add_index.find(m.shift_amount))) {
 			// -> data[var+c +:W1] (with var signed) is illegal
 			if (!offset_negative && varport_signed)
 				continue;
@@ -159,9 +153,7 @@ struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
 			n.offset = ( (port(add, constport).as_int(constport_signed) << n.log2scale) * ( (is_sub && varport_A) ? -1 : 1 ) );
 			n.var_signed = varport_signed;
 			n.var_signal = add->getPort(varport);
-			frame.enter(add);
-			code_rewrite(n);
-			if (frame.leave())
+			if (descend(frame, add, &PeepoptShiftadd::code_rewrite, n))
 				return;
 		}
 	}

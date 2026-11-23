@@ -81,18 +81,14 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 	void match_mul(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *mul : mul_cells) {
-			if (blacklisted(mul))
-				continue;
+		for (Cell *mul : candidates(mul_cells)) {
 			// It has either two or three consumers depending on whether there's a mux
 			// in the pattern or not
 			if (nusers(port(mul, ID::Y)) != (m.mux_in_pattern ? 3 : 2))
 				continue;
 			Match n = m;
 			n.mul = mul;
-			frame.enter(mul);
-			code_output_registered(n);
-			if (frame.leave())
+			if (descend(frame, mul, &QlDspMacc::code_output_registered, n))
 				return;
 		}
 	}
@@ -112,9 +108,7 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 	{
 		MatchFrame frame(ctx);
 		// One input to the adder is fed by the multiplier
-		for (auto &[add, BA] : add_index.find(port(m.mul, ID::Y))) {
-			if (blacklisted(add))
-				continue;
+		for (auto &[add, BA] : candidates(add_index.find(port(m.mul, ID::Y)))) {
 			// Adder has either two or three consumers; it will have three consumers
 			// IFF there's no mux in the pattern and the multiplier-accumulator result
 			// is taken unregistered
@@ -124,9 +118,7 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 			n.add = add;
 			// Save the other input port, it needs to be fed by the flip-flop
 			n.add_ba = BA;
-			frame.enter(add);
-			match_mux(n);
-			if (frame.leave())
+			if (descend(frame, add, &QlDspMacc::match_mux, n))
 				return;
 		}
 	}
@@ -140,17 +132,13 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 			return;
 		}
 		MatchFrame frame(ctx);
-		for (auto &[mux, AB] : mux_index.find({port(m.mul, ID::Y), port(m.add, ID::Y)})) {
-			if (blacklisted(mux))
-				continue;
+		for (auto &[mux, AB] : candidates(mux_index.find({port(m.mul, ID::Y), port(m.add, ID::Y)}))) {
 			if (nusers(port(mux, ID::Y)) != (m.output_registered ? 2 : 3))
 				continue;
 			Match n = m;
 			n.mux = mux;
 			n.mux_ab = AB;
-			frame.enter(mux);
-			match_ff(n);
-			if (frame.leave())
+			if (descend(frame, mux, &QlDspMacc::match_ff, n))
 				return;
 		}
 	}
@@ -158,16 +146,12 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 	void match_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *ff : ff_index.find({m.mux_in_pattern ? port(m.mux, ID::Y) : port(m.add, ID::Y), port(m.add, m.add_ba)})) {
-			if (blacklisted(ff))
-				continue;
+		for (Cell *ff : candidates(ff_index.find({m.mux_in_pattern ? port(m.mux, ID::Y) : port(m.add, ID::Y), port(m.add, m.add_ba)}))) {
 			if (nusers(port(ff, ID::Q)) != (m.output_registered ? 3 : 2))
 				continue;
 			Match n = m;
 			n.ff = ff;
-			frame.enter(ff);
-			accept(n);
-			if (frame.leave())
+			if (descend(frame, ff, &QlDspMacc::accept, n))
 				return;
 		}
 	}

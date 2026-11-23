@@ -45,17 +45,13 @@ struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *first : first_cells) {
-			if (blacklisted(first))
-				continue;
+		for (Cell *first : candidates(first_cells)) {
 			if (non_first_cells.count(first))
 				continue;
 			found_any_match = true;
 			Match n = m;
 			n.first = first;
-			frame.enter(first);
-			code_chain(n);
-			if (frame.leave())
+			if (descend(frame, first, &TestPmgenReduce::code_chain, n))
 				return;
 		}
 
@@ -129,15 +125,11 @@ struct TestPmgenReduce : MatchPattern<TestPmgenReduce, TestPmgenReduceMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *next : next_index.find({chain.back().first->type, port(chain.back().first, chain.back().second)})) {
-			if (blacklisted(next))
-				continue;
+		for (Cell *next : candidates(next_index.find({chain.back().first->type, port(chain.back().first, chain.back().second)}))) {
 			found_any_match = true;
 			Match n = m;
 			n.next = next;
-			frame.enter(next);
-			tail_code_extend(n);
-			if (frame.leave())
+			if (descend(frame, next, &TestPmgenReduce::tail_code_extend, n))
 				return;
 		}
 
@@ -227,18 +219,14 @@ struct TestPmgenEqpmux : MatchPattern<TestPmgenEqpmux, TestPmgenEqpmuxMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *eq : eq_cells) {
-			if (blacklisted(eq))
-				continue;
+		for (Cell *eq : candidates(eq_cells)) {
 			found_any_match = true;
 			Match n = m;
 			n.eq = eq;
 			n.eq_inA = port(eq, ID::A);
 			n.eq_inB = port(eq, ID::B);
 			n.eq_ne_signed = param(eq, ID::A_SIGNED).as_bool();
-			frame.enter(eq);
-			match_pmux(n);
-			if (frame.leave())
+			if (descend(frame, eq, &TestPmgenEqpmux::match_pmux, n))
 				return;
 		}
 
@@ -254,16 +242,12 @@ struct TestPmgenEqpmux : MatchPattern<TestPmgenEqpmux, TestPmgenEqpmuxMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (auto &[pmux, idx] : pmux_index.find(SigBit(port(m.eq, ID::Y)))) {
-			if (blacklisted(pmux))
-				continue;
+		for (auto &[pmux, idx] : candidates(pmux_index.find(SigBit(port(m.eq, ID::Y))))) {
 			found_any_match = true;
 			Match n = m;
 			n.pmux = pmux;
 			n.pmux_slice_eq = idx;
-			frame.enter(pmux);
-			match_ne(n);
-			if (frame.leave())
+			if (descend(frame, pmux, &TestPmgenEqpmux::match_ne, n))
 				return;
 		}
 
@@ -289,15 +273,11 @@ struct TestPmgenEqpmux : MatchPattern<TestPmgenEqpmux, TestPmgenEqpmuxMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *ne : ne_index.find({m.eq_inA, m.eq_inB, m.eq_ne_signed})) {
-			if (blacklisted(ne))
-				continue;
+		for (Cell *ne : candidates(ne_index.find({m.eq_inA, m.eq_inB, m.eq_ne_signed}))) {
 			found_any_match = true;
 			Match n = m;
 			n.ne = ne;
-			frame.enter(ne);
-			match_pmux2(n);
-			if (frame.leave())
+			if (descend(frame, ne, &TestPmgenEqpmux::match_pmux2, n))
 				return;
 		}
 
@@ -325,14 +305,10 @@ struct TestPmgenEqpmux : MatchPattern<TestPmgenEqpmux, TestPmgenEqpmuxMatch>
 	void match_pmux2(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[pmux2, idx] : pmux2_index.find({m.pmux, SigBit(port(m.ne, ID::Y))})) {
-			if (blacklisted(pmux2))
-				continue;
+		for (auto &[pmux2, idx] : candidates(pmux2_index.find({m.pmux, SigBit(port(m.ne, ID::Y))}))) {
 			Match n = m;
 			n.pmux_slice_ne = idx;
-			frame.enter(pmux2);
-			accept(n);
-			if (frame.leave())
+			if (descend(frame, pmux2, &TestPmgenEqpmux::accept, n))
 				return;
 		}
 	}

@@ -105,6 +105,47 @@ struct MatchIndex
 	}
 };
 
+template <typename It>
+struct MatchCandidateIterator
+{
+	const pool<Cell*> *blacklist = nullptr;
+	It it = {};
+	It end = {};
+
+	static Cell *cell_of(Cell *cell) { return cell; }
+	template <typename T>
+	static Cell *cell_of(const T &value) { return value.cell; }
+
+	void skip()
+	{
+		while (it != end && blacklist->count(cell_of(*it)))
+			++it;
+	}
+
+	decltype(auto) operator*() const { return *it; }
+	MatchCandidateIterator &operator++() { ++it; skip(); return *this; }
+	bool operator!=(const MatchCandidateIterator &other) const { return it != other.it; }
+};
+
+template <typename Range>
+struct MatchCandidates
+{
+	const pool<Cell*> *blacklist = nullptr;
+	Range range;
+
+	auto begin() const
+	{
+		MatchCandidateIterator<decltype(std::begin(range))> i = {blacklist, std::begin(range), std::end(range)};
+		i.skip();
+		return i;
+	}
+
+	auto end() const
+	{
+		return MatchCandidateIterator<decltype(std::begin(range))>{blacklist, std::end(range), std::end(range)};
+	}
+};
+
 struct MatchPatternBase
 {
 	MatchContext &ctx;
@@ -181,6 +222,12 @@ struct MatchPatternBase
 		return ctx.blacklist_cells.count(cell) != 0;
 	}
 
+	template <typename Range>
+	MatchCandidates<Range> candidates(Range &&range) const
+	{
+		return {&ctx.blacklist_cells, std::forward<Range>(range)};
+	}
+
 	bool unwinding() const
 	{
 		return ctx.rollback != 0;
@@ -233,18 +280,22 @@ struct MatchPattern : MatchPatternBase
 		return unwinding();
 	}
 
+	template <typename Next>
+	bool descend(MatchFrame &frame, Cell *cell, Next next, const Match &n)
+	{
+		frame.enter(cell);
+		(static_cast<Pattern *>(this)->*next)(n);
+		return frame.leave();
+	}
+
 	template <typename Cells, typename Next>
 	void match_each(const Match &m, const Cells &cells, Cell *Match::*state, Next next)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *cell : cells) {
-			if (blacklisted(cell))
-				continue;
+		for (Cell *cell : candidates(cells)) {
 			Match n = m;
 			n.*state = cell;
-			frame.enter(cell);
-			(static_cast<Pattern *>(this)->*next)(n);
-			if (frame.leave())
+			if (descend(frame, cell, next, n))
 				return;
 		}
 	}

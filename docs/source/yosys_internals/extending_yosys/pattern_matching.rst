@@ -164,9 +164,13 @@ and matched by the stage:
 
 A match stage stores the matched cell in a state variable of type ``Cell*``, here
 ``mul``, and calls the next stage, here ``code_width``, for each candidate.
-Blacklisted candidates are skipped, and ``frame.enter()`` / ``frame.leave()``
-around the call to the next stage end the loop early when a matched cell gets
-blacklisted.
+``candidates()`` skips blacklisted cells. ``descend()`` calls the next stage
+inside the ``MatchFrame`` and returns ``true`` when a matched cell got
+blacklisted, which ends the loop early.
+
+A match stage without conditions in the loop, without a guard and without the
+call after the loop is a single ``match_each()`` call, for example
+``match_each(m, ff_cells, &Match::ff, &Foobar::match_mul)``.
 
 The guard ``if (m.ff)`` makes the match conditional. If it evaluates to
 ``false`` then the match is skipped and the corresponding state variable is set

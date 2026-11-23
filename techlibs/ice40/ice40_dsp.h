@@ -278,9 +278,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	{
 		if (m.mul->type != ID::SB_MAC16 || (param(m.mul, ID::TOPOUTPUT_SELECT).as_int() == 3 && param(m.mul, ID::BOTOUTPUT_SELECT).as_int() == 3)) {
 			MatchFrame frame(ctx);
-			for (auto &[add, AB] : add_index.find(m.sigH[0])) {
-				if (blacklisted(add))
-					continue;
+			for (auto &[add, AB] : candidates(add_index.find(m.sigH[0]))) {
 				if (!(GetSize(port(add, AB)) <= GetSize(m.sigH)))
 					continue;
 				if (!(port(add, AB) == m.sigH.extract(0, GetSize(port(add, AB)))))
@@ -290,9 +288,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 				Match n = m;
 				n.add = add;
 				n.addAB = AB;
-				frame.enter(add);
-				code_add(n);
-				if (frame.leave())
+				if (descend(frame, add, &Ice40Dsp::code_add, n))
 					return;
 			}
 		}
@@ -327,15 +323,11 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	void match_mux(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[mux, AB] : mux_index.find(m.sigO)) {
-			if (blacklisted(mux))
-				continue;
+		for (auto &[mux, AB] : candidates(mux_index.find(m.sigO))) {
 			Match n = m;
 			n.mux = mux;
 			n.muxAB = AB;
-			frame.enter(mux);
-			code_mux(n);
-			if (frame.leave())
+			if (descend(frame, mux, &Ice40Dsp::code_mux, n))
 				return;
 		}
 
@@ -459,9 +451,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	void in_dffe_match_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : in_ff_index.find(m.argQ[0])) {
-			if (blacklisted(ff))
-				continue;
+		for (auto &[ff, offset] : candidates(in_ff_index.find(m.argQ[0]))) {
 			// Check that the rest of argQ is present
 			if (!(GetSize(port(ff, ID::Q)) >= offset + GetSize(m.argQ)))
 				continue;
@@ -469,9 +459,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 				continue;
 			Match n = m;
 			n.ff = ff;
-			frame.enter(ff);
-			in_dffe_code_found(n);
-			if (frame.leave())
+			if (descend(frame, ff, &Ice40Dsp::in_dffe_code_found, n))
 				return;
 		}
 	}
@@ -508,9 +496,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 	void out_dffe_match_ff(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[ff, offset] : out_ff_index.find(m.argD[0])) {
-			if (blacklisted(ff))
-				continue;
+		for (auto &[ff, offset] : candidates(out_ff_index.find(m.argD[0]))) {
 			// Only allow sync reset if requested.
 			if (!(m.argSdff || ff->type.in(ID($dff), ID($dffe))))
 				continue;
@@ -521,9 +507,7 @@ struct Ice40Dsp : MatchPattern<Ice40Dsp, Ice40DspMatch>
 				continue;
 			Match n = m;
 			n.ff = ff;
-			frame.enter(ff);
-			out_dffe_code_found(n);
-			if (frame.leave())
+			if (descend(frame, ff, &Ice40Dsp::out_dffe_code_found, n))
 				return;
 		}
 	}

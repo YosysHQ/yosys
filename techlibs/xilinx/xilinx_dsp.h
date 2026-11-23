@@ -212,14 +212,10 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		if (preadder_usable(m)) {
 			MatchFrame frame(ctx);
-			for (Cell *preAdd : preAdd_index.find(m.sigA)) {
-				if (blacklisted(preAdd))
-					continue;
+			for (Cell *preAdd : candidates(preAdd_index.find(m.sigA))) {
 				Match n = m;
 				n.preAdd = preAdd;
-				frame.enter(preAdd);
-				code_preAdd(n);
-				if (frame.leave())
+				if (descend(frame, preAdd, &XilinxDspPack::code_preAdd, n))
 					return;
 			}
 		}
@@ -244,14 +240,10 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		if (preadder_usable(m)) {
 			MatchFrame frame(ctx);
-			for (Cell *preSub : preSub_index.find(m.sigA)) {
-				if (blacklisted(preSub))
-					continue;
+			for (Cell *preSub : candidates(preSub_index.find(m.sigA))) {
 				Match n = m;
 				n.preSub = preSub;
-				frame.enter(preSub);
-				code_preSub(n);
-				if (frame.leave())
+				if (descend(frame, preSub, &XilinxDspPack::code_preSub, n))
 					return;
 			}
 		}
@@ -372,9 +364,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 		// Ensure that Z mux is not already used
 		if (port(m.dsp, ID::OPMODE, SigSpec(0, 7)).extract(4,3).is_fully_zero()) {
 			MatchFrame frame(ctx);
-			for (auto &[postAdd, AB] : postAdd_index.find(m.sigP[0])) {
-				if (blacklisted(postAdd))
-					continue;
+			for (auto &[postAdd, AB] : candidates(postAdd_index.find(m.sigP[0]))) {
 				if (GetSize(port(postAdd, AB)) < GetSize(m.sigP))
 					continue;
 				if (port(postAdd, AB).extract(0, GetSize(m.sigP)) != m.sigP)
@@ -385,9 +375,7 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 				Match n = m;
 				n.postAdd = postAdd;
 				n.postAddAB = AB;
-				frame.enter(postAdd);
-				code_postAdd(n);
-				if (frame.leave())
+				if (descend(frame, postAdd, &XilinxDspPack::code_postAdd, n))
 					return;
 			}
 		}
@@ -440,15 +428,11 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		if (m.postAdd && m.ffP) {
 			MatchFrame frame(ctx);
-			for (auto &[postAddMux, AB] : postAddMux_index.find({m.sigP, m.sigC})) {
-				if (blacklisted(postAddMux))
-					continue;
+			for (auto &[postAddMux, AB] : candidates(postAddMux_index.find({m.sigP, m.sigC}))) {
 				Match n = m;
 				n.postAddMux = postAddMux;
 				n.postAddMuxAB = AB;
-				frame.enter(postAddMux);
-				code_postAddMux(n);
-				if (frame.leave())
+				if (descend(frame, postAddMux, &XilinxDspPack::code_postAddMux, n))
 					return;
 			}
 		}
@@ -474,14 +458,10 @@ struct XilinxDspPack : MatchPattern<XilinxDspPack, XilinxDspPackMatch>
 	{
 		if (m.ffP && param(m.dsp, ID::USE_PATTERN_DETECT).decode_string() == "NO_PATDET") {
 			MatchFrame frame(ctx);
-			for (Cell *overflow : overflow_index.find(m.sigP)) {
-				if (blacklisted(overflow))
-					continue;
+			for (Cell *overflow : candidates(overflow_index.find(m.sigP))) {
 				Match n = m;
 				n.overflow = overflow;
-				frame.enter(overflow);
-				accept(n);
-				if (frame.leave())
+				if (descend(frame, overflow, &XilinxDspPack::accept, n))
 					return;
 			}
 		}

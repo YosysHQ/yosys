@@ -77,17 +77,13 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *first : first_cells) {
-			if (blacklisted(first))
-				continue;
+		for (Cell *first : candidates(first_cells)) {
 			if (non_first_cells.count(first))
 				continue;
 			found_any_match = true;
 			Match n = m;
 			n.first = first;
-			frame.enter(first);
-			code_chain(n);
-			if (frame.leave())
+			if (descend(frame, first, &XilinxSrlFixed::code_chain, n))
 				return;
 		}
 
@@ -157,16 +153,12 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 	void setup_match_next(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *next : next_index.find({m.first->type, SigBit(port(m.first, ID::D))})) {
-			if (blacklisted(next))
-				continue;
+		for (Cell *next : candidates(next_index.find({m.first->type, SigBit(port(m.first, ID::D))}))) {
 			if (!next_compatible(m, next))
 				continue;
 			Match n = m;
 			n.next = next;
-			frame.enter(next);
-			setup_code_mark(n);
-			if (frame.leave())
+			if (descend(frame, next, &XilinxSrlFixed::setup_code_mark, n))
 				return;
 		}
 	}
@@ -180,17 +172,13 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *next : next_index.find({chain.back()->type, SigBit(port(chain.back(), ID::D))})) {
-			if (blacklisted(next))
-				continue;
+		for (Cell *next : candidates(next_index.find({chain.back()->type, SigBit(port(chain.back(), ID::D))}))) {
 			if (!next_compatible(m, next))
 				continue;
 			found_any_match = true;
 			Match n = m;
 			n.next = next;
-			frame.enter(next);
-			tail_code_extend(n);
-			if (frame.leave())
+			if (descend(frame, next, &XilinxSrlFixed::tail_code_extend, n))
 				return;
 		}
 
@@ -286,17 +274,13 @@ struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatc
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *shiftx : shiftx_cells) {
-			if (blacklisted(shiftx))
-				continue;
+		for (Cell *shiftx : candidates(shiftx_cells)) {
 			if (param(shiftx, ID::A_WIDTH).as_int() < minlen)
 				continue;
 			found_any_match = true;
 			Match n = m;
 			n.shiftx = shiftx;
-			frame.enter(shiftx);
-			code_shiftx_width(n);
-			if (frame.leave())
+			if (descend(frame, shiftx, &XilinxSrlVariable::code_shiftx_width, n))
 				return;
 		}
 
@@ -317,16 +301,12 @@ struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatc
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (auto &[first, idx] : first_index.find(port(m.shiftx, ID::A)[m.shiftx_width-1])) {
-			if (blacklisted(first))
-				continue;
+		for (auto &[first, idx] : candidates(first_index.find(port(m.shiftx, ID::A)[m.shiftx_width-1]))) {
 			found_any_match = true;
 			Match n = m;
 			n.first = first;
 			n.slice = idx;
-			frame.enter(first);
-			code_chain(n);
-			if (frame.leave())
+			if (descend(frame, first, &XilinxSrlVariable::code_chain, n))
 				return;
 		}
 
@@ -388,9 +368,7 @@ struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatc
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (auto &[next, idx] : next_index.find({chain.back().first->type, port(chain.back().first, ID::D)[chain.back().second], port(m.shiftx, ID::A)[m.shiftx_width-1-GetSize(chain)]})) {
-			if (blacklisted(next))
-				continue;
+		for (auto &[next, idx] : candidates(next_index.find({chain.back().first->type, port(chain.back().first, ID::D)[chain.back().second], port(m.shiftx, ID::A)[m.shiftx_width-1-GetSize(chain)]}))) {
 			if (port(next, m.clk_port) != port(m.first, m.clk_port))
 				continue;
 			if (m.en_port != IdString::Null && port(next, m.en_port) != port(m.first, m.en_port))
@@ -405,9 +383,7 @@ struct XilinxSrlVariable : MatchPattern<XilinxSrlVariable, XilinxSrlVariableMatc
 			Match n = m;
 			n.next = next;
 			n.slice = idx;
-			frame.enter(next);
-			tail_code_extend(n);
-			if (frame.leave())
+			if (descend(frame, next, &XilinxSrlVariable::tail_code_extend, n))
 				return;
 		}
 

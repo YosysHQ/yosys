@@ -265,15 +265,11 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *nextP : nextP_index.find(port(std::get<0>(chain.back()), ID::P)[0])) {
-			if (blacklisted(nextP))
-				continue;
+		for (Cell *nextP : candidates(nextP_index.find(port(std::get<0>(chain.back()), ID::P)[0]))) {
 			found_any_match = true;
 			Match n = m;
 			n.nextP = nextP;
-			frame.enter(nextP);
-			tail_match_nextP_shift17(n);
-			if (frame.leave())
+			if (descend(frame, nextP, &XilinxDspCascade::tail_match_nextP_shift17, n))
 				return;
 		}
 		if (!found_any_match) {
@@ -295,15 +291,11 @@ struct XilinxDspCascade : MatchPattern<XilinxDspCascade, XilinxDspCascadeMatch>
 		}
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *nextP_shift17 : nextP_shift17_index.find(port(std::get<0>(chain.back()), ID::P)[17])) {
-			if (blacklisted(nextP_shift17))
-				continue;
+		for (Cell *nextP_shift17 : candidates(nextP_shift17_index.find(port(std::get<0>(chain.back()), ID::P)[17]))) {
 			found_any_match = true;
 			Match n = m;
 			n.nextP_shift17 = nextP_shift17;
-			frame.enter(nextP_shift17);
-			tail_code_next(n);
-			if (frame.leave())
+			if (descend(frame, nextP_shift17, &XilinxDspCascade::tail_code_next, n))
 				return;
 		}
 		if (!found_any_match) {

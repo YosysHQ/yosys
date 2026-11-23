@@ -311,9 +311,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	{
 		MatchFrame frame(ctx);
 		// has one input coming from multiplier
-		for (auto &[postAdd, AB] : postAdd_index.find(m.sigP[0])) {
-			if (blacklisted(postAdd))
-				continue;
+		for (auto &[postAdd, AB] : candidates(postAdd_index.find(m.sigP[0]))) {
 			if (!(GetSize(port(postAdd, AB)) >= GetSize(m.sigP)))
 				continue;
 			if (!(port(postAdd, AB).extract(0, GetSize(m.sigP)) == m.sigP))
@@ -324,9 +322,7 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 			Match n = m;
 			n.postAdd = postAdd;
 			n.postAddAB = AB;
-			frame.enter(postAdd);
-			postAddMatching_code_found(n);
-			if (frame.leave())
+			if (descend(frame, postAdd, &MicrochipDspPack::postAddMatching_code_found, n))
 				return;
 		}
 	}
@@ -364,17 +360,13 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 	void preAddMatching_match_preAdd(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *preAdd : preAdd_cells) {
-			if (blacklisted(preAdd))
-				continue;
+		for (Cell *preAdd : candidates(preAdd_cells)) {
 			// Output feeds into one of multiplier input
 			if (!(port(preAdd, ID::Y) == m.sigB || port(preAdd, ID::Y) == m.sigA))
 				continue;
 			Match n = m;
 			n.preAdd = preAdd;
-			frame.enter(preAdd);
-			preAddMatching_code_found(n);
-			if (frame.leave())
+			if (descend(frame, preAdd, &MicrochipDspPack::preAddMatching_code_found, n))
 				return;
 		}
 	}

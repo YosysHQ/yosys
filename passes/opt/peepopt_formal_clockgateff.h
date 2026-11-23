@@ -63,17 +63,13 @@ struct PeepoptFormalClockgateff : MatchPattern<PeepoptFormalClockgateff, Peepopt
 	void match_latch(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *latch : latch_cells) {
-			if (blacklisted(latch))
-				continue;
+		for (Cell *latch : candidates(latch_cells)) {
 			Match n = m;
 			n.latch = latch;
 			n.clk = port(latch, ID::EN);
 			n.en = port(latch, ID::D);
 			n.latched_en = port(latch, ID::Q);
-			frame.enter(latch);
-			match_and_gate(n);
-			if (frame.leave())
+			if (descend(frame, latch, &PeepoptFormalClockgateff::match_and_gate, n))
 				return;
 		}
 	}
@@ -81,16 +77,12 @@ struct PeepoptFormalClockgateff : MatchPattern<PeepoptFormalClockgateff, Peepopt
 	void match_and_gate(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[and_gate, latch_port] : and_gate_index.find({m.clk, m.latched_en})) {
-			if (blacklisted(and_gate))
-				continue;
+		for (auto &[and_gate, latch_port] : candidates(and_gate_index.find({m.clk, m.latched_en}))) {
 			Match n = m;
 			n.and_gate = and_gate;
 			n.gated_clk = port(and_gate, ID::Y);
 			n.latched_en_port_name = latch_port;
-			frame.enter(and_gate);
-			code_replace(n);
-			if (frame.leave())
+			if (descend(frame, and_gate, &PeepoptFormalClockgateff::code_replace, n))
 				return;
 		}
 	}

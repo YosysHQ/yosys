@@ -49,16 +49,12 @@ struct Foobar : MatchPattern<Foobar, FoobarMatch>
 	{
 		if (m.ff) {
 			MatchFrame frame(ctx);
-			for (Cell *mul : mul_index.find(port(m.ff, ID::D))) {
-				if (blacklisted(mul))
-					continue;
+			for (Cell *mul : candidates(mul_index.find(port(m.ff, ID::D)))) {
 				if (!(some_weird_function(mul) < other_weird_function(m.ff)))
 					continue;
 				Match n = m;
 				n.mul = mul;
-				frame.enter(mul);
-				code_width(n);
-				if (frame.leave())
+				if (descend(frame, mul, &Foobar::code_width, n))
 					return;
 			}
 		}
@@ -233,15 +229,11 @@ struct EqPmux : MatchPattern<EqPmux, EqPmuxMatch>
 	void match_pmux(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[pmux, idx] : pmux_index.find(port(m.eq, ID::Y))) {
-			if (blacklisted(pmux))
-				continue;
+		for (auto &[pmux, idx] : candidates(pmux_index.find(port(m.eq, ID::Y)))) {
 			Match n = m;
 			n.pmux = pmux;
 			n.pmux_slice = idx;
-			frame.enter(pmux);
-			match_ne(n);
-			if (frame.leave())
+			if (descend(frame, pmux, &EqPmux::match_ne, n))
 				return;
 		}
 	}
@@ -251,16 +243,12 @@ struct EqPmux : MatchPattern<EqPmux, EqPmuxMatch>
 	void match_ne(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (auto &[ne, AB, BA] : ne_index.find({port(m.eq, ID::A), port(m.eq, ID::B)})) {
-			if (blacklisted(ne))
-				continue;
+		for (auto &[ne, AB, BA] : candidates(ne_index.find({port(m.eq, ID::A), port(m.eq, ID::B)}))) {
 			Match n = m;
 			n.ne = ne;
 			n.ne_ab = AB;
 			n.ne_ba = BA;
-			frame.enter(ne);
-			accept(n);
-			if (frame.leave())
+			if (descend(frame, ne, &EqPmux::accept, n))
 				return;
 		}
 	}
@@ -330,15 +318,11 @@ struct AndTree : MatchPattern<AndTree, AndTreeMatch>
 	void match_root(const Match &m)
 	{
 		MatchFrame frame(ctx);
-		for (Cell *root : and_cells) {
-			if (blacklisted(root))
-				continue;
+		for (Cell *root : candidates(and_cells)) {
 			Match n = m;
 			n.root = root;
 			n.next = root;
-			frame.enter(root);
-			code_root(n);
-			if (frame.leave())
+			if (descend(frame, root, &AndTree::code_root, n))
 				return;
 		}
 	}
@@ -384,15 +368,11 @@ struct AndTree : MatchPattern<AndTree, AndTreeMatch>
 	{
 		bool found_any_match = false;
 		MatchFrame frame(ctx);
-		for (Cell *next : and_index.find(port(stack.back(), m.portAB))) {
-			if (blacklisted(next))
-				continue;
+		for (Cell *next : candidates(and_index.find(port(stack.back(), m.portAB)))) {
 			found_any_match = true;
 			Match n = m;
 			n.next = next;
-			frame.enter(next);
-			code_extend(n);
-			if (frame.leave())
+			if (descend(frame, next, &AndTree::code_extend, n))
 				return;
 		}
 
