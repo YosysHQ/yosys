@@ -1,0 +1,8 @@
+logger -expect warning "`casez' in a generate block is not standard Verilog\." 1
+read_verilog <<EOT
+module top;
+	generate casez (1'b0)
+		default: wire w;
+	endcase endgenerate
+endmodule
+EOT
