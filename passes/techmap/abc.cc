@@ -1538,9 +1538,9 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 	dict<std::string, int> cell_stats;
 	for (auto c : mapped_mod->cells())
 	{
+		cell_stats[c->type.unescape()]++;
 		if (builtin_lib)
 		{
-			cell_stats[c->type.unescape()]++;
 			if (c->type.in(ID(ZERO), ID(ONE))) {
 				RTLIL::SigSig conn;
 				IdString name_y = remap_ref(module, c->getPort(ID::Y).as_wire()->name);
@@ -1558,90 +1558,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				module->connect(conn);
 				continue;
 			}
-			if (c->type == ID(NOT)) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_NOT_));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type.in(ID(AND), ID(OR), ID(XOR), ID(NAND), ID(NOR), ID(XNOR), ID(ANDNOT), ID(ORNOT))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type.in(ID(MUX), ID(NMUX))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::S, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type == ID(MUX4)) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX4_));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type == ID(MUX8)) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX8_));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type == ID(MUX16)) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), ID($_MUX16_));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K,
-						ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type.in(ID(AOI3), ID(OAI3))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type.in(ID(AOI4), ID(OAI4))) {
-				RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), stringf("$_%s_", c->type.unescape()));
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
-				for (auto name : {ID::A, ID::B, ID::C, ID::D, ID::Y}) {
-					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
-					cell->setPort(name, module->wire(remapped_name));
-				}
-				design->select(module, cell);
-				continue;
-			}
 		}
-		else
-			cell_stats[c->type.unescape()]++;
 
 		if (c->type.in(ID(_const0_), ID(_const1_))) {
 			RTLIL::SigSig conn;
@@ -1699,7 +1616,13 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			continue;
 		}
 
-		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), module->twines().copy_from(mapped_design.twines(), c->type));
+		RTLIL::IdString type;
+		if (builtin_lib && c->type.in(ID(NOT), ID(AND), ID(NAND), ID(OR), ID(NOR), ID(XOR), ID(XNOR), ID(ANDNOT), ID(ORNOT),
+				ID(AOI3), ID(OAI3), ID(AOI4), ID(OAI4), ID(MUX), ID(NMUX), ID(MUX4), ID(MUX8), ID(MUX16)))
+			type = module->twines().add(stringf("$_%s_", c->type.unescape()));
+		else
+			type = module->twines().copy_from(mapped_design.twines(), c->type);
+		RTLIL::Cell *cell = module->addCell(remap_ref(module, c->name), type);
 		if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 		RTLIL::copy_attr_dict(cell->parameters, c->parameters, c->module->design, module->design);
 		for (auto &conn : c->connections()) {
