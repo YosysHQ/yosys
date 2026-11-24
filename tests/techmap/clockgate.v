@@ -1,4 +1,3 @@
-`ifndef CLOCKGATE_ICG_MODELS
 module dffe_00( input clk, en,
 			input d1, output reg q1,
 		);
@@ -125,24 +124,3 @@ module sdffe_separate_reset( input clk, en, rst1, rst2,
 			q2 <= d2;
 	end
 endmodule
-
-`else
-
-
-module pos_small(input CE, CLK, output GCLK);
-    reg ce_latched;
-    always @* begin
-        if (!CLK) ce_latched = CE;
-    end
-    assign GCLK = CLK & ce_latched;
-endmodule
-
-module neg_small(input CE, CLK, output GCLK);
-    reg ce_latched;
-    always @* begin
-        if (CLK) ce_latched = CE;
-    end
-    assign GCLK = CLK | !ce_latched;
-endmodule
-
-`endif

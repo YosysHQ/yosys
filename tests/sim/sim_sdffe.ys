@@ -1,5 +1,5 @@
 #read original SDFFE and its ICG model
-read_verilog -D CLOCKGATE_ICG_MODELS ../techmap/clockgate.v
+read_verilog ../techmap/clockgate_icg.v
 read_verilog sdffe.v
 proc
 opt_dff

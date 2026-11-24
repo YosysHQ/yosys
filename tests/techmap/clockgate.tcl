@@ -104,7 +104,7 @@ select -assert-count 1 t:\\pdk_icg
 design -reset
 read_liberty c*ckgate.lib
 # Override only the in-memory small-cell models, not the shared Liberty file.
-read_verilog -overwrite -D CLOCKGATE_ICG_MODELS clockgate.v
+read_verilog -overwrite clockgate_icg.v
 yosys proc
 opt
 design -save map

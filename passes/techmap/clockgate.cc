@@ -234,8 +234,8 @@ struct ClockgatePass : public Pass {
 		SigBit ce_bit;
 		bool pol_clk;
 		bool pol_ce;
-		//This field contains the reset signal and polarity
-		//if no synchronous reset is needed to independently open this register's clock gate, it stays empty
+		// This field contains the reset signal and polarity
+		// If no synchronous reset is needed to independently open this register's clock gate, it stays empty
 		std::optional<std::pair<SigBit, bool>> gate_srst = std::nullopt;
 
 		[[nodiscard]] Hasher hash_into(Hasher h) const {
@@ -257,7 +257,7 @@ struct ClockgatePass : public Pass {
 		int net_size;
 		// After ICG generation, we have new gated CLK signals
 		Wire* new_net;
-		//This pointer points to one of the FFs in the group(to use its description to generate the ICG's enable logic)
+		// This pointer points to one of the FFs in the group (to use its description to generate the ICG's enable logic)
 		Cell* representative = nullptr;
 	};
 
@@ -265,8 +265,10 @@ struct ClockgatePass : public Pass {
 		SigBit clk = ff.sig_clk[0];
 		SigBit ce = ff.sig_ce[0];
 		ClkNetInfo info{clk, ce, ff.pol_clk, ff.pol_ce};
-		//if reset independently requires an edge, record the reset signal and polarity in the key 
-		if (ff.has_srst && !ff.ce_over_srst) info.gate_srst = std::make_pair(ff.sig_srst[0], ff.pol_srst);
+		// If reset independently requires an edge, record the reset signal and polarity in the key
+		if (ff.has_srst && !ff.ce_over_srst) {
+			info.gate_srst = std::make_pair(ff.sig_srst[0], ff.pol_srst);
+		}
 		return info;
 	}
 
@@ -355,8 +357,10 @@ struct ClockgatePass : public Pass {
 
 					ClkNetInfo info = clk_info_from_ff(ff);
 					auto& group = clk_nets[info];
-					//the first FF we see in this group will become the representative
-					if(group.representative == nullptr) group.representative = cell;
+					// The first FF we see in this group will become the representative
+					if (group.representative == nullptr) {
+						group.representative = cell;
+					}
 					group.net_size++;
 				}
 			}
@@ -380,16 +384,16 @@ struct ClockgatePass : public Pass {
 
 				log_assert(gclk.representative != nullptr);
 				FfData gate_ff(nullptr, gclk.representative);
-				//this helper requests an enable priority representatiion of the FF
+				// Convert the temporary FF to an enable-priority representation
 				gate_ff.convert_ce_over_srst(true);
 				SigBit gate_enable = gate_ff.sig_ce[0];
 				// Fix CE polarity if needed
 				if (!gate_ff.pol_ce) {
-					 gate_enable = module->NotGate(NEW_ID, gate_enable);
+					gate_enable = module->NotGate(NEW_ID, gate_enable);
 				}
 				auto& twines = module->twines();
 				Cell* icg = module->addCell(NEW_ID, twines.add(matching_icg_desc->name));
-				//connect the effective active high enable request to the ICG's enable port
+				// Connect the effective active high enable request to the ICG's enable port
 				icg->setPort(matching_icg_desc->ce_pin, gate_enable);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID);
