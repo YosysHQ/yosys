@@ -252,6 +252,8 @@ struct SynthGateMatePass : public ScriptPass
 			run("peepopt");
 			run("opt_clean");
 			run("muxpack");
+			run("pmux2shiftx");
+			run("opt_clean");
 			run("share");
 			run("techmap -map +/cmp2lut.v -D LUT_WIDTH=4");
 			run("opt_expr");
