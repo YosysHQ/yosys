@@ -1,4 +1,4 @@
-// checkpoint and clear, CheckpointWriter protects each ref object, then anchors it
+// checkpoint, CheckpointWriter protects each ref object, then anchors it
 #include "kernel/nettrack_internal.h"
 
 YOSYS_NAMESPACE_BEGIN
@@ -7,13 +7,13 @@ NetTracker::NetTracker() : data_(std::make_unique<detail::TrackData>()) {}
 
 NetTracker::~NetTracker() = default;
 
-void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool protect)
+void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs)
 {
 	log_assert(view.upToDate());
 	// a cell keeps its id, design -load can bring back a cell of an older checkpoint
 	*data_ = {};
 	detail::removeOwnedKeeps(view.design());
-	detail::CheckpointWriter writer(view, *data_, protect);
+	detail::CheckpointWriter writer(view, *data_);
 	detail::makeScopeNamesUnique(view);
 	for (uint32_t ref_index = 0; ref_index < refs.size(); ref_index++)
 		writer.write(ref_index, *refs[ref_index]);
@@ -21,20 +21,6 @@ void NetTracker::checkpoint(NetView &view, const std::vector<TrackedRef *> &refs
 	writer.noteScopes();
 	writer.dropUnusedIds();
 	view.markUpToDate();
-}
-
-void NetTracker::clear(RTLIL::Design *design)
-{
-	*data_ = {};
-	RTLIL::IdString id = design->twines().find(detail::ref_attr);
-	for (RTLIL::Module *module : design->modules()) {
-		for (RTLIL::Cell *cell : module->cells()) {
-			if (cell->type != ID($barrier)) // a barrier keeps its id
-				cell->attributes.erase(id);
-		}
-		for (RTLIL::Wire *wire : module->wires())
-			wire->attributes.erase(id);
-	}
 }
 
 // hdlname on each scope cell, see ensureHdlname, then no two scopes of the view share their scopeNames
@@ -214,7 +200,7 @@ void detail::CheckpointWriter::anchorPin(const Netlist::Pin *pin, uint32_t ref_i
 		addAnchor(wire, anchor);
 		return;
 	}
-	bool cut = protect_ && cutPin(pin, ref_index);
+	bool cut = cutPin(pin, ref_index);
 	if (cut && !inst->isLeaf())
 		return;
 	if (cut && pin->isDriver())
@@ -290,8 +276,8 @@ void detail::CheckpointWriter::anchorIn(const Netlist::Instance *inst, RTLIL::Ce
 {
 	detail::ensureHdlname(cell);
 	// flatten keeps the scope names of a cell in its hdlname only below a scope with a public name
-	// so a protected scope with a private name above the instance stays
-	for (const Netlist::Instance *above = inst->parent; protect_ && !above->isTop(); above = above->parent) {
+	// so a scope with a private name above the instance stays
+	for (const Netlist::Instance *above = inst->parent; !above->isTop(); above = above->parent) {
 		if (!above->cell->name.isPublic())
 			detail::setOwnedAttribute(view_.design(), above->cell, ID::keep_hierarchy);
 	}

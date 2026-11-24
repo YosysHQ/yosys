@@ -293,37 +293,6 @@ TEST_F(NetProtectTest, flattenDissolvesOnlyAPublicScopeOfARef)
 	EXPECT_FALSE(u_private->has_attribute(ID::keep_hierarchy));
 }
 
-// with no protect the private scope is gone, the one cell with the id is the cell of the ref
-TEST_F(NetProtectTest, flattenOfAPrivateScopeKeepsTheRef)
-{
-	ensurePasses();
-	top->rename(u_sub, "$u_sub");
-	TrackedView t(d);
-	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.view->instance(i1, t.child(u_sub))}};
-	t.tracker.checkpoint(*t.view, {&cell}, false);
-	Pass::call(d, "flatten -noscopeinfo");
-	ASSERT_EQ(top->cell("$u_sub"), nullptr);
-	t.next({&cell});
-	ASSERT_EQ(cell.instances.size(), 1u);
-	EXPECT_TRUE(cell.instances[0]->cell->hasPort(ID::Y)); // only i1 has it
-	EXPECT_FALSE(cell.gone);
-}
-
-// two private scopes of one module leave two cells with the id and no scope name, the ref takes none
-TEST_F(NetProtectTest, twinsOfADissolvedPrivateScopeLoseTheRef)
-{
-	ensurePasses();
-	top->rename(u_sub, "$u_sub");
-	top->addCell("$u_twin", "\\sub")->setPort(ID(a), d0);
-	TrackedView t(d);
-	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.view->instance(i1, t.child(u_sub))}};
-	t.tracker.checkpoint(*t.view, {&cell}, false);
-	Pass::call(d, "flatten -noscopeinfo");
-	t.next({&cell});
-	EXPECT_TRUE(cell.instances.empty());
-	EXPECT_TRUE(cell.gone);
-}
-
 // a private cell with the flatten name of a scope below gets its cell name, the checkpoint must end
 TEST_F(NetProtectTest, flattenNamedTwinOfAScopeGetsItsCellName)
 {
@@ -359,7 +328,7 @@ TEST_F(NetProtectTest, mergedNetGivesItsOldPins)
 	ensurePasses();
 	TrackedView t(d);
 	TrackedRef net{.kind = TrackedRef::Kind::Net, .nets = {t.child(u_sub)->findPin("a", 0)->inner}};
-	t.tracker.checkpoint(*t.view, {&net}, false);
+	t.checkpoint({&net});
 	Pass::call(d, "flatten -noscopeinfo");
 	for (int run = 0; run < 2; run++) { // a rerun gives the same
 		t.next({&net});
@@ -561,22 +530,6 @@ TEST_F(NetProtectTest, driverPinOfACellThatBecameAWireIsLost)
 	EXPECT_TRUE(ref.gone);
 	EXPECT_TRUE(ref.pins.empty());
 	EXPECT_TRUE(ref.loads.empty());
-}
-
-// after clear, resolve finds nothing
-TEST_F(NetProtectTest, clearForgetsTheAnchors)
-{
-	TrackedView t(d);
-	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
-	TrackedRef port = pinRef({t.view->top()->findPin("in", 0)});
-	TrackedRef net{.kind = TrackedRef::Kind::Net, .nets = {t.view->top()->findPin("in", 0)->inner}};
-	t.checkpoint({&cell, &port, &net});
-	t.tracker.clear(d);
-	t.next({&cell, &port, &net});
-	EXPECT_TRUE(cell.instances.empty());
-	EXPECT_TRUE(port.pins.empty()); // the name of a top port finds no pin
-	EXPECT_TRUE(net.nets.empty());
-	EXPECT_TRUE(cell.gone && port.gone && net.gone);
 }
 
 YOSYS_NAMESPACE_END

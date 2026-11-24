@@ -39,14 +39,12 @@ struct NetTracker final {
 	~NetTracker();
 
 	// drops the old anchors, the view must be up to date
-	// protect puts a $barrier at each ref pin and a keep on each ref cell, without it a pass can remove the object
-	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs, bool protect = true);
+	// puts a $barrier at each ref pin and a keep on each ref cell, without them a pass can remove the object
+	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs);
 	// refs of the checkpoint in the same order, can rerun
 	// two moved cells that fit one ref lose it, a copy can get the ref of a deleted cell
 	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
-	// drops the ids and the anchors, barriers stay until unprotect
-	void clear(RTLIL::Design *design);
-	// removes barriers and keeps, the anchors stay, a later checkpoint with protect puts them back
+	// removes barriers and keeps, the anchors stay, a later checkpoint puts them back
 	void unprotect(RTLIL::Design *design);
 private:
 	std::unique_ptr<detail::TrackData> data_;

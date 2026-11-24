@@ -21,8 +21,7 @@ void NetTracker::unprotect(RTLIL::Design *design)
 }
 
 // two cells of a module with the same id and hdlname are copies, one gets its own id
-detail::CheckpointWriter::CheckpointWriter(const NetView &view, TrackData &data, bool protect)
-	: view_(view), data_(data), protect_(protect)
+detail::CheckpointWriter::CheckpointWriter(const NetView &view, TrackData &data) : view_(view), data_(data)
 {
 	RTLIL::Design *design = view.design();
 	tracked_cells_ = detail::trackedCells(design);
@@ -123,8 +122,6 @@ void detail::CheckpointWriter::keepCell(const Netlist::Instance *inst)
 
 void detail::CheckpointWriter::protectCell(const Netlist::Instance *inst, uint32_t ref_index)
 {
-	if (!protect_)
-		return;
 	keepCell(inst);
 	if (!inst->isLeaf())
 		return;

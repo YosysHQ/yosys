@@ -93,7 +93,7 @@ struct TrackData {
 
 // puts a $barrier at each pin of a ref, it cuts the pin off its net with a cut wire
 struct CheckpointWriter {
-	CheckpointWriter(const NetView &view, TrackData &data, bool protect);
+	CheckpointWriter(const NetView &view, TrackData &data);
 	// makeScopeNamesUnique -> write each ref -> setCutPorts -> noteScopes -> dropUnusedIds
 	void write(uint32_t ref_index, const TrackedRef &ref);
 	void setCutPorts();
@@ -115,7 +115,6 @@ private:
 	RTLIL::Cell *createBarrierCell(RTLIL::Module *module, RTLIL::SigBit bit, bool cut_on_a);
 	const NetView &view_;
 	TrackData &data_;
-	bool protect_;
 	dict<RTLIL::SigBit, RTLIL::Cell *> barrier_by_cut_bit_;
 	dict<CellPort, RTLIL::SigSpec> cut_ports_; // new signal of each port with a cut bit
 	dict<RTLIL::SigBit, int> cut_users_;       // cell pins on each cut bit
