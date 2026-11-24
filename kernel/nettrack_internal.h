@@ -219,13 +219,12 @@ std::optional<int> refIdOf(RTLIL::Design *design, const RTLIL::AttrObject *objec
 int keySeed(RTLIL::Design *design);
 Anchor pinAnchor(const Netlist::Pin *pin, uint32_t ref_index, Anchor::Role role = Anchor::Role::Pin);
 bool isAtOrBelow(const Netlist::Instance *inst, const Netlist::Instance *scope);
-// leaf pins on a net and its connected nets, by the side of a scope
+// leaf pins on a net and its connected nets, in a scope and below
 struct LeafPinsOnNet {
 	PinList inside; // of the wanted direction
-	PinList loads_outside;
 	bool has_load_inside = false;
 };
-void addLeafPins(const Netlist::Net *net, bool in_scope, RTLIL::PortDir dir, LeafPinsOnNet &found);
+void addLeafPins(const Netlist::Net *net, RTLIL::PortDir dir, LeafPinsOnNet &found);
 PinList standInPins(const Netlist::Net *net, RTLIL::PortDir dir);
 void ensureHdlname(RTLIL::Cell *cell);
 

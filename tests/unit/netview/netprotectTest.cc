@@ -339,6 +339,20 @@ TEST_F(NetProtectTest, mergedNetGivesItsOldPins)
 	}
 }
 
+// an output on a constant has no loads, the loads of the tie net do not stand in for it
+TEST_F(NetProtectTest, scopeOutputOnAConstantIsLostWithItsScope)
+{
+	sub->addCell("\\i3", ID(INV))->setPort(ID(A), SigBit(y, 0));
+	u_sub->setPort(ID(y), State::S0);
+	u_inv2->setPort(ID(A), State::S0);
+	TrackedView t(d);
+	TrackedRef ref = pinRef({t.child(u_sub)->findPin("y", 0)});
+	t.checkpoint({&ref});
+	top->remove(u_sub);
+	t.next({&ref});
+	EXPECT_TRUE(ref.gone);
+}
+
 // a ref on a load below the hierarchical pin has its own barrier, the pin still is each load behind it
 TEST_F(NetProtectTest, hierPinPassesTheBarrierOfALoadRef)
 {

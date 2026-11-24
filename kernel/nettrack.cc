@@ -228,45 +228,35 @@ bool detail::isAtOrBelow(const Netlist::Instance *inst, const Netlist::Instance 
 }
 
 // leaf pins on the net in its scope and below, they stand in when flatten dissolves the scope
-// PD_INPUT takes loads, PD_OUTPUT drivers, PD_INOUT both, an output with a load inside the loads outside
+// PD_INPUT takes loads, PD_OUTPUT drivers, PD_INOUT both
 detail::PinList detail::standInPins(const Netlist::Net *net, RTLIL::PortDir dir)
 {
 	LeafPinsOnNet found;
-	bool has_top_port = false;
 	size_t scope_ports = 0;
 	for (const Netlist::Net *connected : detail::connectedNets(net)) {
-		bool in_scope = detail::isAtOrBelow(connected->scope, net->scope);
-		detail::addLeafPins(connected, in_scope, dir, found);
+		if (detail::isAtOrBelow(connected->scope, net->scope))
+			detail::addLeafPins(connected, dir, found);
 		if (connected->scope == net->scope)
 			scope_ports += connected->boundary.size();
-		// a top output is a load with no leaf pin
-		if (connected->scope->isTop() && !connected->boundary.empty())
-			has_top_port = true;
 	}
-	// a driver with a load inside would widen the ref to that load, the loads outside have just its paths
-	if (dir == RTLIL::PD_OUTPUT && found.has_load_inside) {
+	// a driver with a load inside would widen the ref to that load
+	if (dir == RTLIL::PD_OUTPUT && found.has_load_inside)
 		found.inside.clear();
-		if (!has_top_port)
-			found.inside = found.loads_outside;
-	}
 	// leaf pins have the paths of a second port of the scope too, the ref is then lost with the scope
 	if (dir != RTLIL::PD_INOUT && scope_ports > 1)
 		found.inside.clear();
 	return found.inside;
 }
 
-void detail::addLeafPins(const Netlist::Net *net, bool in_scope, RTLIL::PortDir dir, LeafPinsOnNet &found)
+void detail::addLeafPins(const Netlist::Net *net, RTLIL::PortDir dir, LeafPinsOnNet &found)
 {
 	for (const Netlist::Pin *pin : net->pins) {
 		if (!pin->inst->isLeaf())
 			continue;
-		bool is_load = !pin->isDriver();
 		bool wanted = dir == RTLIL::PD_INOUT || pin->isDriver() == (dir == RTLIL::PD_OUTPUT);
-		if (in_scope && wanted)
+		if (wanted)
 			found.inside.push_back(pin);
-		if (!in_scope && is_load)
-			found.loads_outside.push_back(pin);
-		if (in_scope && is_load)
+		if (!pin->isDriver())
 			found.has_load_inside = true;
 	}
 }
