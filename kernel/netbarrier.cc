@@ -4,7 +4,6 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-// optbarriers -remove runs as a pass, so the pass hooks of the consumer see it
 void NetTracker::unprotect(RTLIL::Design *design)
 {
 	RTLIL::Selection barriers = RTLIL::Selection::EmptySelection(design);
