@@ -234,8 +234,12 @@ struct ClockgatePass : public Pass {
 		SigBit ce_bit;
 		bool pol_clk;
 		bool pol_ce;
+		// This field contains the reset signal and polarity
+		// If no synchronous reset is needed to independently open this register's clock gate, it stays empty
+		std::optional<std::pair<SigBit, bool>> gate_srst = std::nullopt;
+
 		[[nodiscard]] Hasher hash_into(Hasher h) const {
-			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce);
+			auto t = std::make_tuple(clk_bit, ce_bit, pol_clk, pol_ce, gate_srst);
 			h.eat(t);
 			return h;
 		}
@@ -243,7 +247,8 @@ struct ClockgatePass : public Pass {
 			return (clk_bit == other.clk_bit) &&
 			       (ce_bit == other.ce_bit) &&
 			       (pol_clk == other.pol_clk) &&
-			       (pol_ce == other.pol_ce);
+			       (pol_ce == other.pol_ce) &&
+			       (gate_srst == other.gate_srst);
 		}
 	};
 
@@ -252,12 +257,18 @@ struct ClockgatePass : public Pass {
 		int net_size;
 		// After ICG generation, we have new gated CLK signals
 		Wire* new_net;
+		// This pointer points to one of the FFs in the group (to use its description to generate the ICG's enable logic)
+		Cell* representative = nullptr;
 	};
 
 	ClkNetInfo clk_info_from_ff(FfData& ff) {
 		SigBit clk = ff.sig_clk[0];
 		SigBit ce = ff.sig_ce[0];
 		ClkNetInfo info{clk, ce, ff.pol_clk, ff.pol_ce};
+		// If reset independently requires an edge, record the reset signal and polarity in the key
+		if (ff.has_srst && !ff.ce_over_srst) {
+			info.gate_srst = std::make_pair(ff.sig_srst[0], ff.pol_srst);
+		}
 		return info;
 	}
 
@@ -337,8 +348,6 @@ struct ClockgatePass : public Pass {
 				FfData ff(nullptr, cell);
 				// It would be odd to get constants, but we better handle it
 				if (ff.has_ce) {
-					if (ff.has_srst && !ff.ce_over_srst)
-						continue;
 					if (!ff.sig_clk.is_bit() || !ff.sig_ce.is_bit())
 						continue;
 					if (!ff.sig_clk[0].is_wire() || !ff.sig_ce[0].is_wire())
@@ -347,10 +356,12 @@ struct ClockgatePass : public Pass {
 					ce_ffs.insert(cell);
 
 					ClkNetInfo info = clk_info_from_ff(ff);
-					auto it = clk_nets.find(info);
-					if (it == clk_nets.end())
-						clk_nets[info] = GClkNetInfo();
-					clk_nets[info].net_size++;
+					auto& group = clk_nets[info];
+					// The first FF we see in this group will become the representative
+					if (group.representative == nullptr) {
+						group.representative = cell;
+					}
+					group.net_size++;
 				}
 			}
 
@@ -371,20 +382,25 @@ struct ClockgatePass : public Pass {
 				if (!matching_icg_desc)
 					continue;
 
+				log_assert(gclk.representative != nullptr);
+				FfData gate_ff(nullptr, gclk.representative);
+				// Convert the temporary FF to an enable-priority representation
+				gate_ff.convert_ce_over_srst(true);
+				SigBit gate_enable = gate_ff.sig_ce[0];
+				// Fix CE polarity if needed
+				if (!gate_ff.pol_ce) {
+					gate_enable = module->NotGate(NEW_ID, gate_enable);
+				}
 				auto& twines = module->twines();
 				Cell* icg = module->addCell(NEW_ID, twines.add(matching_icg_desc->name));
-				icg->setPort(matching_icg_desc->ce_pin, clk.ce_bit);
+				// Connect the effective active high enable request to the ICG's enable port
+				icg->setPort(matching_icg_desc->ce_pin, gate_enable);
 				icg->setPort(matching_icg_desc->clk_in_pin, clk.clk_bit);
 				gclk.new_net = module->addWire(NEW_ID);
 				icg->setPort(matching_icg_desc->clk_out_pin, gclk.new_net);
 				// Tie low DFT ports like scan chain enable
 				for (auto port : matching_icg_desc->tie_lo_pins)
 					icg->setPort(port, Const(0, 1));
-				// Fix CE polarity if needed
-				if (!clk.pol_ce) {
-					SigBit ce_fixed_pol = module->NotGate(NEW_ID, clk.ce_bit);
-					icg->setPort(matching_icg_desc->ce_pin, ce_fixed_pol);
-				}
 			}
 
 			for (auto cell : ce_ffs) {

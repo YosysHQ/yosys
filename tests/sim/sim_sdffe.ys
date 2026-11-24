@@ -1,6 +1,31 @@
+#read original SDFFE and its ICG model
+read_verilog ../techmap/clockgate_icg.v
 read_verilog sdffe.v
 proc
 opt_dff
 stat
+#make sure we get a sdffe
 select -assert-count 1 t:$sdffe
-sim -clock clk -r tb_sdffe.fst -scope tb_sdffe.uut -sim-cmp sdffe
+
+# read original sdffe's input and output and provide the input to the yosys equivalant sdffe, and then check the output of two sdffes are the same
+sim -r tb_sdffe.fst -scope tb_sdffe.uut -sim-cmp sdffe
+
+# clock gating sdffe
+clockgate -liberty ../techmap/clockgate.lib
+
+#make sure it includes one pos small which handles ICG
+#and 1 sdff which updates data
+#and 0 sdffe which means the original sdffe is replaced
+select -module sdffe -assert-count 1 t:pos_small
+select -module sdffe -assert-count 1 t:$sdff
+select -module sdffe -assert-count 0 t:$sdffe
+select -clear
+
+# flatten the ICG behavior for yosys simulation
+hierarchy -top sdffe
+flatten
+opt_clean
+stat
+
+# read original sdffe's input and output and provide the input to the clock gated sdffe, and then check the output of two sdffes are the same
+sim -r tb_sdffe.fst -scope tb_sdffe.uut -sim-cmp sdffe
