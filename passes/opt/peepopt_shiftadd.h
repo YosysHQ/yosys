@@ -215,7 +215,7 @@ struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
 			m.shift->setParam(ID::A_SIGNED, 0);
 		m.shift->setPort(ID::B, new_b);
 		m.shift->setParam(ID::B_WIDTH, GetSize(new_b));
-		blacklist(m.add);
+		denylist(m.add);
 		accept(m);
 	}
 };

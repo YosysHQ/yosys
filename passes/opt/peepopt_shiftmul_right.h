@@ -119,7 +119,7 @@ struct PeepoptShiftmulRight : MatchPattern<PeepoptShiftmulRight, PeepoptShiftmul
 		m.shift->setPort(ID::B, new_b);
 		m.shift->setParam(ID::B_WIDTH, GetSize(new_b));
 
-		blacklist(m.shift);
+		denylist(m.shift);
 		accept(m);
 	}
 };

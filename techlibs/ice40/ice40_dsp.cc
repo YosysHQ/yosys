@@ -266,7 +266,7 @@ void create_ice40_dsp(Ice40Dsp &pm, const Ice40Dsp::Match &st)
 	if (cell != st.mul)
 		pm.autoremove(st.mul);
 	else
-		pm.blacklist(st.mul);
+		pm.denylist(st.mul);
 	pm.autoremove(st.ffFJKG);
 	pm.autoremove(st.add);
 }

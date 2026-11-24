@@ -184,7 +184,7 @@ void microchip_dsp_pack(MicrochipDspPack &pm, const MicrochipDspPack::Match &m)
 		P.append(pm.module->addWire(NEW_ID, 48 - GetSize(P)));
 	cell->setPort(ID::P, P);
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 // For packing cascaded DSPs
@@ -264,7 +264,7 @@ void microchip_dsp_packC(MicrochipDspPackC &pm, const MicrochipDspPackC::Match &
 		log("\n");
 	}
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 struct MicrochipDspPass : public Pass {

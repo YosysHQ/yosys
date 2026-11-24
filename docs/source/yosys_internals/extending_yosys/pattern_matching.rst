@@ -38,8 +38,8 @@ any future matches:
 .. literalinclude:: ../../../../tests/unit/kernel/matcherDocTest.cc
    :language: cpp
    :tab-width: 4
-   :start-after: [blacklist]
-   :end-before: [/blacklist]
+   :start-after: [denylist]
+   :end-before: [/denylist]
    :dedent:
 
 The ``run(callback_function)`` method searches for all matches for the pattern
@@ -135,9 +135,9 @@ matchers:
 - ``add_siguser(<sigspec>, <cell>)`` records ``<cell>`` as a user of the given
   signal bits, so that ``nusers`` accounts for connections made while matching.
 
-- ``blacklisted(<cell>)`` returns ``true`` if the cell has been blacklisted.
+- ``denylisted(<cell>)`` returns ``true`` if the cell has been denylisted.
 
-- ``autoremove(<cell>)`` blacklists the cell and removes it from the module
+- ``autoremove(<cell>)`` denylists the cell and removes it from the module
   when the ``MatchContext`` is destroyed.
 
 Matching cells
@@ -164,9 +164,9 @@ and matched by the stage:
 
 A match stage stores the matched cell in a state variable of type ``Cell*``, here
 ``mul``, and calls the next stage, here ``code_width``, for each candidate.
-``candidates()`` skips blacklisted cells. ``descend()`` calls the next stage
+``candidates()`` skips denylisted cells. ``descend()`` calls the next stage
 inside the ``MatchFrame`` and returns ``true`` when a matched cell got
-blacklisted, which ends the loop early.
+denylisted, which ends the loop early.
 
 A match stage without a guard and without the call after the loop is a single
 ``match_each()`` call, for example
@@ -286,7 +286,7 @@ Returning without calling the next stage rejects the current state and
 backtracks. Similarly, ``accept(n)`` accepts the current state. (``accept`` will
 not backtrack. This means it continues with the current branch and may accept a
 larger match later.) It returns ``true`` when the stage must return, for example
-because the callback blacklisted a matched cell. For example:
+because the callback denylisted a matched cell. For example:
 
 .. literalinclude:: ../../../../tests/unit/kernel/matcherDocTest.cc
    :language: cpp

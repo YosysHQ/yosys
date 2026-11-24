@@ -484,7 +484,7 @@ void xilinx_dsp_pack(XilinxDspPack &pm, const XilinxDspPack::Match &m)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID::P, P);
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 void xilinx_dsp48a_pack(XilinxDsp48aPack &pm, const XilinxDsp48aPack::Match &m)
@@ -663,7 +663,7 @@ void xilinx_dsp48a_pack(XilinxDsp48aPack &pm, const XilinxDsp48aPack::Match &m)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID::P, P);
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 void xilinx_dsp_packC(XilinxDspPackC &pm, const XilinxDspPackC::Match &st)
@@ -725,7 +725,7 @@ void xilinx_dsp_packC(XilinxDspPackC &pm, const XilinxDspPackC::Match &st)
 		log("%s\n", message);
 	}
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 struct XilinxDspPass : public Pass {

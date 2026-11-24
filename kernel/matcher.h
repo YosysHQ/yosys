@@ -12,7 +12,7 @@ struct MatchContext
 	Module *module = nullptr;
 	SigMap sigmap = {};
 	dict<SigBit, pool<Cell*>> sigusers = {};
-	pool<Cell*> blacklist_cells = {};
+	pool<Cell*> denylist_cells = {};
 	pool<Cell*> autoremove_cells = {};
 	dict<Cell*, int> rollback_cache = {};
 	int rollback = 0;
@@ -108,7 +108,7 @@ struct MatchIndex
 template <typename It>
 struct MatchCandidateIterator
 {
-	const pool<Cell*> *blacklist = nullptr;
+	const pool<Cell*> *denylist = nullptr;
 	It it = {};
 	It end = {};
 
@@ -118,7 +118,7 @@ struct MatchCandidateIterator
 
 	void skip()
 	{
-		while (it != end && blacklist->count(cell_of(*it)))
+		while (it != end && denylist->count(cell_of(*it)))
 			++it;
 	}
 
@@ -130,19 +130,19 @@ struct MatchCandidateIterator
 template <typename Range>
 struct MatchCandidates
 {
-	const pool<Cell*> *blacklist = nullptr;
+	const pool<Cell*> *denylist = nullptr;
 	Range range;
 
 	auto begin() const
 	{
-		MatchCandidateIterator<decltype(std::begin(range))> i = {blacklist, std::begin(range), std::end(range)};
+		MatchCandidateIterator<decltype(std::begin(range))> i = {denylist, std::begin(range), std::end(range)};
 		i.skip();
 		return i;
 	}
 
 	auto end() const
 	{
-		return MatchCandidateIterator<decltype(std::begin(range))>{blacklist, std::end(range), std::end(range)};
+		return MatchCandidateIterator<decltype(std::begin(range))>{denylist, std::end(range), std::end(range)};
 	}
 };
 
@@ -198,9 +198,9 @@ struct MatchPatternBase
 		ctx.add_siguser(sig, cell);
 	}
 
-	void blacklist(Cell *cell)
+	void denylist(Cell *cell)
 	{
-		if (cell == nullptr || !ctx.blacklist_cells.insert(cell).second)
+		if (cell == nullptr || !ctx.denylist_cells.insert(cell).second)
 			return;
 		auto it = ctx.rollback_cache.find(cell);
 		if (it == ctx.rollback_cache.end())
@@ -214,18 +214,18 @@ struct MatchPatternBase
 		if (cell == nullptr)
 			return;
 		ctx.autoremove_cells.insert(cell);
-		blacklist(cell);
+		denylist(cell);
 	}
 
-	bool blacklisted(Cell *cell) const
+	bool denylisted(Cell *cell) const
 	{
-		return ctx.blacklist_cells.count(cell) != 0;
+		return ctx.denylist_cells.count(cell) != 0;
 	}
 
 	template <typename Range>
 	MatchCandidates<Range> candidates(Range &&range) const
 	{
-		return {&ctx.blacklist_cells, std::forward<Range>(range)};
+		return {&ctx.denylist_cells, std::forward<Range>(range)};
 	}
 
 	bool unwinding() const

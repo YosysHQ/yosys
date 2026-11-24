@@ -184,7 +184,7 @@ struct PeepoptShiftmulLeft : MatchPattern<PeepoptShiftmulLeft, PeepoptShiftmulLe
 			m.shift->setParam(ID::B_WIDTH, GetSize(b_neg));
 		}
 
-		blacklist(m.shift);
+		denylist(m.shift);
 		accept(m);
 	}
 };

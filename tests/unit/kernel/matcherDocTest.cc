@@ -90,9 +90,9 @@ void foobar_callback(Foobar &pm, const Foobar::Match &st)
 }
 // [/foobar_callback]
 
-void blacklist_ff(Foobar &pm, const Foobar::Match &st)
+void denylist_ff(Foobar &pm, const Foobar::Match &st)
 {
-	pm.blacklist(st.ff);
+	pm.denylist(st.ff);
 }
 
 Module *foobar_module(Design &design)
@@ -140,7 +140,7 @@ TEST(MatcherDocTest, foobar)
 	EXPECT_EQ(pm.run(), 0);
 }
 
-TEST(MatcherDocTest, foobarBlacklist)
+TEST(MatcherDocTest, foobarDenylist)
 {
 	Design design;
 	Module *module = foobar_module(design);
@@ -149,21 +149,21 @@ TEST(MatcherDocTest, foobarBlacklist)
 	pm.max_data_width = 32;
 	Cell *mul = module->cell("\\mul");
 
-	// [blacklist]
-	pm.blacklist(mul);
-	// [/blacklist]
+	// [denylist]
+	pm.denylist(mul);
+	// [/denylist]
 	EXPECT_EQ(pm.run(), 2);
 }
 
-TEST(MatcherDocTest, foobarBlacklistInCallback)
+TEST(MatcherDocTest, foobarDenylistInCallback)
 {
 	Design design;
 	Module *module = foobar_module(design);
 	MatchContext ctx(module);
 	Foobar pm(ctx, module->selected_cells());
 	pm.max_data_width = 32;
-	// blacklisting ff1 after its match with mul skips its match without mul
-	EXPECT_EQ(pm.run(blacklist_ff), 2);
+	// denylisting ff1 after its match with mul skips its match without mul
+	EXPECT_EQ(pm.run(denylist_ff), 2);
 }
 
 struct EqPmuxMatch
