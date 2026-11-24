@@ -5162,6 +5162,11 @@ void AstNode::expand_genblock(const std::string &prefix)
 		case AST_TYPEDEF:
 		case AST_ENUM_ITEM:
 		case AST_GENVAR:
+		case AST_ASSERT:
+		case AST_ASSUME:
+		case AST_LIVE:
+		case AST_FAIR:
+		case AST_COVER:
 			prefix_node(child);
 			break;
 
@@ -6378,5 +6383,6 @@ std::string AstNode::try_pop_module_prefix() const
 	}
 	return str;
 }
-
 YOSYS_NAMESPACE_END
+
+
