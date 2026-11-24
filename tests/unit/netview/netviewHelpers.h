@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 
-#include "kernel/nettrack.h"
+#include "kernel/netview/nettrack.h"
 #include "kernel/newcelltypes.h"
 #include "kernel/register.h"
 #include "kernel/rtlil.h"

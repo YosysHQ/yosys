@@ -1,5 +1,5 @@
 // barriers of NetTracker, see CheckpointWriter
-#include "kernel/nettrack_internal.h"
+#include "kernel/netview/nettrack_internal.h"
 #include "kernel/register.h"
 
 YOSYS_NAMESPACE_BEGIN

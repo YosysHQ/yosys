@@ -3,7 +3,7 @@
 #ifndef NETTRACK_H
 #define NETTRACK_H
 
-#include "kernel/netview.h"
+#include "kernel/netview/netview.h"
 
 YOSYS_NAMESPACE_BEGIN
 

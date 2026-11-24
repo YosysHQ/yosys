@@ -1,7 +1,7 @@
 #ifndef NETVIEW_INTERNAL_H
 #define NETVIEW_INTERNAL_H
 
-#include "kernel/netview.h"
+#include "kernel/netview/netview.h"
 #include "kernel/sigtools.h"
 
 #include <map>

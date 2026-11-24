@@ -9,14 +9,14 @@ keeps its own data about netlist objects, such as the timing constraints of
 the OpenSTA plugin `opensta_net <https://github.com/YosysHQ/opensta_net>`_,
 has to find those objects again after each pass.
 
-``NetView`` (:file:`kernel/netview.h`) is a read-only, bit-level snapshot of a
-design with its hierarchy unfolded. The top module and every cell below it
-become an ``Instance``, with a ``Pin`` per port bit and a ``Net`` per signal
-bit that reaches a pin. A module used twice gets two copies of everything. An
-instance is the top, a scope (a cell of a module that is not a blackbox or
-whitebox) or a leaf (any other cell). The records live in the ``Netlist``
-namespace. Instance ids count from 0 (the top), pin and net ids from 1, so
-pin ``n`` is ``pins()[n - 1]``.
+``NetView`` (:file:`kernel/netview/netview.h`) is a read-only, bit-level
+snapshot of a design with its hierarchy unfolded. The top module and every cell
+below it become an ``Instance``, with a ``Pin`` per port bit and a ``Net`` per
+signal bit that reaches a pin. A module used twice gets two copies of
+everything. An instance is the top, a scope (a cell of a module that is not a
+blackbox or whitebox) or a leaf (any other cell). The records live in the
+``Netlist`` namespace. Instance ids count from 0 (the top), pin and net ids
+from 1, so pin ``n`` is ``pins()[n - 1]``.
 
 The view looks through `$connect` and `$barrier` cells, and gives them,
 `$input_port` and `$scopeinfo` no instance. Leaf ports come from the
@@ -26,10 +26,10 @@ module, else from the Yosys cell types. The view does not follow the design.
 or connections of a module in the view change. It misses cell parameters and
 attributes. The RTLIL pointers in the records are only safe while it is true.
 
-``NetTracker`` (:file:`kernel/nettrack.h`) finds the objects of an old view
-again in a new one. ``checkpoint()`` writes a ``netview_ref`` id attribute on
-each object you want to follow and puts `$barrier` cells at its
-pins, so optimizations cannot merge or remove it. After your passes,
+``NetTracker`` (:file:`kernel/netview/nettrack.h`) finds the objects of an old
+view again in a new one. ``checkpoint()`` writes a ``netview_ref`` id attribute
+on each object you want to follow and puts `$barrier` cells at its pins, so
+optimizations cannot merge or remove it. After your passes,
 ``resolve()`` reads the ids back in a new view and tells you what each object
 turned into.
 

@@ -2,8 +2,8 @@
 #define NETTRACK_INTERNAL_H
 
 #include "kernel/modtools.h"
-#include "kernel/nettrack.h"
-#include "kernel/netview_internal.h"
+#include "kernel/netview/nettrack.h"
+#include "kernel/netview/netview_internal.h"
 
 #include <optional>
 

@@ -1,4 +1,4 @@
-#include "kernel/netview_internal.h"
+#include "kernel/netview/netview_internal.h"
 #include "kernel/newcelltypes.h"
 
 YOSYS_NAMESPACE_BEGIN

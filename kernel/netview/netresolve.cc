@@ -1,5 +1,5 @@
 // resolve of NetTracker, see Resolver
-#include "kernel/nettrack_internal.h"
+#include "kernel/netview/nettrack_internal.h"
 
 YOSYS_NAMESPACE_BEGIN
 
