@@ -1,0 +1,15 @@
+read_verilog -defer <<EOT
+module a(input x, output reg y);
+	always @* begin
+		reg t;
+		t = x;
+		y = t;
+	end
+endmodule
+EOT
+read_verilog -sv <<EOT
+module b;
+endmodule
+EOT
+logger -expect error "Local declaration in unnamed block is only supported in SystemVerilog mode!" 1
+hierarchy -top a

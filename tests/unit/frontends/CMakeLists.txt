@@ -1,5 +1,5 @@
 yosys_gtest(frontends
-	verilogThreadingTest.cc
+	verilogFrontendTest.cc
 	COMPONENTS
 		hierarchy
 )
