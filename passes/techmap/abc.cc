@@ -1514,7 +1514,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 
 	bool builtin_lib = run_abc.config.liberty_files.empty() && run_abc.config.genlib_files.empty();
 	RTLIL::Design mapped_design;
-	parse_blif(&mapped_design, ifs, builtin_lib ? ID(DFF) : ID(_dff_), map_autoidx);
+	parse_blif(&mapped_design, ifs, ID(_dff_), map_autoidx);
 
 	ifs.close();
 
@@ -1636,46 +1636,6 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 					IdString remapped_name = remap_ref(module, c->getPort(name).as_wire()->name);
 					cell->setPort(name, module->wire(remapped_name));
 				}
-				design->select(module, cell);
-				continue;
-			}
-			if (c->type == ID(DFF)) {
-				log_assert(clk_sig.size() == 1);
-				FfData ff(module, &initvals, remap_ref(module, c->name));
-				ff.width = 1;
-				ff.is_fine = true;
-				ff.has_clk = true;
-				ff.pol_clk = clk_polarity;
-				ff.sig_clk = clk_sig;
-				if (en_sig.size() != 0) {
-					log_assert(en_sig.size() == 1);
-					ff.has_ce = true;
-					ff.pol_ce = en_polarity;
-					ff.sig_ce = en_sig;
-				}
-				RTLIL::Const init = mapped_initvals(c->getPort(ID::Q));
-				if (had_init)
-					ff.val_init = init;
-				else
-					ff.val_init = State::Sx;
-				if (arst_sig.size() != 0) {
-					log_assert(arst_sig.size() == 1);
-					ff.has_arst = true;
-					ff.pol_arst = arst_polarity;
-					ff.sig_arst = arst_sig;
-					ff.val_arst = init;
-				}
-				if (srst_sig.size() != 0) {
-					log_assert(srst_sig.size() == 1);
-					ff.has_srst = true;
-					ff.pol_srst = srst_polarity;
-					ff.sig_srst = srst_sig;
-					ff.val_srst = init;
-				}
-				ff.sig_d = module->wire(remap_ref(module, c->getPort(ID::D).as_wire()->name));
-				ff.sig_q = module->wire(remap_ref(module, c->getPort(ID::Q).as_wire()->name));
-				RTLIL::Cell *cell = ff.emit();
-				if (markgroups) cell->attributes[ID::abcgroup] = map_autoidx;
 				design->select(module, cell);
 				continue;
 			}

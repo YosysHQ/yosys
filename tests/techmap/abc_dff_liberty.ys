@@ -34,3 +34,16 @@ miter -equiv -flatten -make_assert gold gate miter
 hierarchy -top miter
 async2sync
 sat -verify -prove-asserts -seq 5 -set-init-undef -set-def-inputs miter
+
+design -load gold
+abc -dff
+select -assert-count 2 t:$_DFFE_*
+select -assert-count 2 t:$_SDFFE_*
+select -assert-none t:$_DFF_P_ t:$_DFF_N_
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+async2sync
+sat -verify -prove-asserts -seq 5 -set-init-undef -set-def-inputs miter
