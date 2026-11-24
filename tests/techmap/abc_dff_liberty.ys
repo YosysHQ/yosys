@@ -1,0 +1,36 @@
+read_verilog <<EOT
+module top(input clk, arst, srst, en, d, output reg qa, qs, qb, qt);
+always @(posedge clk or posedge arst)
+	if (arst) qa <= 1'b0;
+	else if (en) qa <= d;
+always @(posedge clk)
+	if (srst) qs <= 1'b0;
+	else if (en) qs <= d;
+always @(negedge clk or negedge arst)
+	if (!arst) qb <= 1'b1;
+	else if (!en) qb <= d;
+always @(negedge clk)
+	if (!srst) qt <= 1'b1;
+	else if (!en) qt <= d;
+endmodule
+EOT
+synth -top top -noabc
+opt -fast
+select -assert-count 1 t:$_DFFE_PP0P_
+select -assert-count 1 t:$_SDFFE_PP0P_
+select -assert-count 1 t:$_DFFE_NN1N_
+select -assert-count 1 t:$_SDFFE_NN1N_
+design -save gold
+
+abc -dff -liberty ../liberty/normal.lib
+select -assert-count 2 t:$_DFFE_*
+select -assert-count 2 t:$_SDFFE_*
+select -assert-none t:$_DFF_P_ t:$_DFF_N_
+design -stash gate
+design -copy-from gold -as gold top
+design -copy-from gate -as gate top
+read_liberty ../liberty/normal.lib
+miter -equiv -flatten -make_assert gold gate miter
+hierarchy -top miter
+async2sync
+sat -verify -prove-asserts -seq 5 -set-init-undef -set-def-inputs miter

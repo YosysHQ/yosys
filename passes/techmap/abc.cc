@@ -1701,6 +1701,7 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 			ff.sig_clk = clk_sig;
 			if (en_sig.size() != 0) {
 				log_assert(en_sig.size() == 1);
+				ff.has_ce = true;
 				ff.pol_ce = en_polarity;
 				ff.sig_ce = en_sig;
 			}
@@ -1711,12 +1712,14 @@ void AbcModuleState::extract(RTLIL::Design *design, RTLIL::Module *module)
 				ff.val_init = State::Sx;
 			if (arst_sig.size() != 0) {
 				log_assert(arst_sig.size() == 1);
+				ff.has_arst = true;
 				ff.pol_arst = arst_polarity;
 				ff.sig_arst = arst_sig;
 				ff.val_arst = init;
 			}
 			if (srst_sig.size() != 0) {
 				log_assert(srst_sig.size() == 1);
+				ff.has_srst = true;
 				ff.pol_srst = srst_polarity;
 				ff.sig_srst = srst_sig;
 				ff.val_srst = init;
