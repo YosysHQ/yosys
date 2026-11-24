@@ -307,6 +307,20 @@ struct MatchPattern : MatchPatternBase
 				return;
 		}
 	}
+
+	template <typename Cells, typename Filter, typename Next>
+	void match_each(const Match &m, const Cells &cells, Filter filter, Cell *Match::*state, Next next)
+	{
+		MatchFrame frame(ctx);
+		for (Cell *cell : candidates(cells)) {
+			if (!(static_cast<Pattern *>(this)->*filter)(m, cell))
+				continue;
+			Match n = m;
+			n.*state = cell;
+			if (descend(frame, cell, next, n))
+				return;
+		}
+	}
 };
 
 YOSYS_NAMESPACE_END

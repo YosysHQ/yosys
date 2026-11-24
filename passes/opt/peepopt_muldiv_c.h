@@ -91,22 +91,16 @@ struct PeepoptMuldivC : MatchPattern<PeepoptMuldivC, PeepoptMuldivCMatch>
 		match_div(n);
 	}
 
+	bool div_by_const(const Match &m, Cell *div) const
+	{
+		// Check that b_const and c_const is constant
+		return m.b_const.is_fully_const() && port(div, ID::B).is_fully_const() &&
+				param(div, ID::A_SIGNED).as_bool() == param(m.mul, ID::A_SIGNED).as_bool();
+	}
+
 	void match_div(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *div : candidates(div_index.find(m.mul_y))) {
-			// Check that b_const and c_const is constant
-			if (!m.b_const.is_fully_const())
-				continue;
-			if (!port(div, ID::B).is_fully_const())
-				continue;
-			if (param(div, ID::A_SIGNED).as_bool() != param(m.mul, ID::A_SIGNED).as_bool())
-				continue;
-			Match n = m;
-			n.div = div;
-			if (descend(frame, div, &PeepoptMuldivC::code_rewire, n))
-				return;
-		}
+		match_each(m, div_index.find(m.mul_y), &PeepoptMuldivC::div_by_const, &Match::div, &PeepoptMuldivC::code_rewire);
 	}
 
 	void code_rewire(const Match &m)

@@ -53,17 +53,14 @@ struct PeepoptShiftmulLeft : MatchPattern<PeepoptShiftmulLeft, PeepoptShiftmulLe
 		}
 	}
 
+	bool has_shift_amount(const Match &, Cell *shift) const
+	{
+		return !port(shift, ID::B).empty();
+	}
+
 	void match_shift(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *shift : candidates(shift_cells)) {
-			if (port(shift, ID::B).empty())
-				continue;
-			Match n = m;
-			n.shift = shift;
-			if (descend(frame, shift, &PeepoptShiftmulLeft::match_neg, n))
-				return;
-		}
+		match_each(m, shift_cells, &PeepoptShiftmulLeft::has_shift_amount, &Match::shift, &PeepoptShiftmulLeft::match_neg);
 	}
 
 	void match_neg(const Match &m)

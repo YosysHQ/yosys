@@ -158,15 +158,7 @@ struct XilinxSrlFixed : MatchPattern<XilinxSrlFixed, XilinxSrlFixedMatch>
 
 	void setup_match_next(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *next : candidates(next_index.find({m.first->type, SigBit(port(m.first, ID::D))}))) {
-			if (!next_compatible(m, next))
-				continue;
-			Match n = m;
-			n.next = next;
-			if (descend(frame, next, &XilinxSrlFixed::setup_code_mark, n))
-				return;
-		}
+		match_each(m, next_index.find({m.first->type, SigBit(port(m.first, ID::D))}), &XilinxSrlFixed::next_compatible, &Match::next, &XilinxSrlFixed::setup_code_mark);
 	}
 
 	void setup_code_mark(const Match &m)

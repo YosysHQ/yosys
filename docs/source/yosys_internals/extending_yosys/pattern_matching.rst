@@ -168,9 +168,11 @@ A match stage stores the matched cell in a state variable of type ``Cell*``, her
 inside the ``MatchFrame`` and returns ``true`` when a matched cell got
 blacklisted, which ends the loop early.
 
-A match stage without conditions in the loop, without a guard and without the
-call after the loop is a single ``match_each()`` call, for example
-``match_each(m, ff_cells, &Match::ff, &Foobar::match_mul)``.
+A match stage without a guard and without the call after the loop is a single
+``match_each()`` call, for example
+``match_each(m, ff_cells, &Match::ff, &Foobar::match_mul)``. Conditions in the
+loop go into a member function ``bool f(const Match &m, Cell *cell) const``,
+passed before the state variable.
 
 The guard ``if (m.ff)`` makes the match conditional. If it evaluates to
 ``false`` then the match is skipped and the corresponding state variable is set

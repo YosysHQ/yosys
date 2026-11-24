@@ -332,18 +332,15 @@ struct MicrochipDspPack : MatchPattern<MicrochipDspPack, MicrochipDspPackMatch>
 		preAddMatching_match_preAdd(m);
 	}
 
+	bool preadd_feeds_mul(const Match &m, Cell *preAdd) const
+	{
+		// Output feeds into one of multiplier input
+		return port(preAdd, ID::Y) == m.sigB || port(preAdd, ID::Y) == m.sigA;
+	}
+
 	void preAddMatching_match_preAdd(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *preAdd : candidates(preAdd_cells)) {
-			// Output feeds into one of multiplier input
-			if (!(port(preAdd, ID::Y) == m.sigB || port(preAdd, ID::Y) == m.sigA))
-				continue;
-			Match n = m;
-			n.preAdd = preAdd;
-			if (descend(frame, preAdd, &MicrochipDspPack::preAddMatching_code_found, n))
-				return;
-		}
+		match_each(m, preAdd_cells, &MicrochipDspPack::preadd_feeds_mul, &Match::preAdd, &MicrochipDspPack::preAddMatching_code_found);
 	}
 
 	void preAddMatching_code_found(const Match &m)

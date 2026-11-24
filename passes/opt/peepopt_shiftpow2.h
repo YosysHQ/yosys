@@ -28,17 +28,14 @@ struct PeepoptShiftpow2 : MatchPattern<PeepoptShiftpow2, PeepoptShiftpow2Match>
 				shift_cells.push_back(cell);
 	}
 
+	bool has_shift_amount(const Match &, Cell *shift) const
+	{
+		return !port(shift, ID::B).empty();
+	}
+
 	void match_shift(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *shift : candidates(shift_cells)) {
-			if (port(shift, ID::B).empty())
-				continue;
-			Match n = m;
-			n.shift = shift;
-			if (descend(frame, shift, &PeepoptShiftpow2::code_rewrite, n))
-				return;
-		}
+		match_each(m, shift_cells, &PeepoptShiftpow2::has_shift_amount, &Match::shift, &PeepoptShiftpow2::code_rewrite);
 	}
 
 	void code_rewrite(const Match &m)

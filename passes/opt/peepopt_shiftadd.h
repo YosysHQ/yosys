@@ -98,17 +98,14 @@ struct PeepoptShiftadd : MatchPattern<PeepoptShiftadd, PeepoptShiftaddMatch>
 		}
 	}
 
+	bool has_shift_amount(const Match &, Cell *shift) const
+	{
+		return !port(shift, ID::B).empty();
+	}
+
 	void match_shift(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *shift : candidates(shift_cells)) {
-			if (port(shift, ID::B).empty())
-				continue;
-			Match n = m;
-			n.shift = shift;
-			if (descend(frame, shift, &PeepoptShiftadd::code_shift_amount, n))
-				return;
-		}
+		match_each(m, shift_cells, &PeepoptShiftadd::has_shift_amount, &Match::shift, &PeepoptShiftadd::code_shift_amount);
 	}
 
 	void code_shift_amount(const Match &m)

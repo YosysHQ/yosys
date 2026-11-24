@@ -51,17 +51,14 @@ struct PeepoptMuldiv : MatchPattern<PeepoptMuldiv, PeepoptMuldivMatch>
 		match_div(n);
 	}
 
+	bool div_signed_like_mul(const Match &m, Cell *div) const
+	{
+		return param(div, ID::A_SIGNED).as_bool() == m.is_signed;
+	}
+
 	void match_div(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *div : candidates(div_index.find({m.t, m.x}))) {
-			if (param(div, ID::A_SIGNED).as_bool() != m.is_signed)
-				continue;
-			Match n = m;
-			n.div = div;
-			if (descend(frame, div, &PeepoptMuldiv::code_replace, n))
-				return;
-		}
+		match_each(m, div_index.find({m.t, m.x}), &PeepoptMuldiv::div_signed_like_mul, &Match::div, &PeepoptMuldiv::code_replace);
 	}
 
 	void code_replace(const Match &m)

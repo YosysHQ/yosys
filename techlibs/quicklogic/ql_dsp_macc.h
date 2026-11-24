@@ -84,19 +84,16 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 	}
 
 	// The multiplier is at the center of our pattern
+	bool mul_users_fit(const Match &m, Cell *mul) const
+	{
+		// It has either two or three consumers depending on whether there's a mux
+		// in the pattern or not
+		return nusers(port(mul, ID::Y)) == (m.mux_in_pattern ? 3 : 2);
+	}
+
 	void match_mul(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *mul : candidates(mul_cells)) {
-			// It has either two or three consumers depending on whether there's a mux
-			// in the pattern or not
-			if (nusers(port(mul, ID::Y)) != (m.mux_in_pattern ? 3 : 2))
-				continue;
-			Match n = m;
-			n.mul = mul;
-			if (descend(frame, mul, &QlDspMacc::code_output_registered, n))
-				return;
-		}
+		match_each(m, mul_cells, &QlDspMacc::mul_users_fit, &Match::mul, &QlDspMacc::code_output_registered);
 	}
 
 	void code_output_registered(const Match &m)
@@ -141,17 +138,14 @@ struct QlDspMacc : MatchPattern<QlDspMacc, QlDspMaccMatch>
 		}
 	}
 
+	bool ff_users_fit(const Match &m, Cell *ff) const
+	{
+		return nusers(port(ff, ID::Q)) == (m.output_registered ? 3 : 2);
+	}
+
 	void match_ff(const Match &m)
 	{
-		MatchFrame frame(ctx);
-		for (Cell *ff : candidates(ff_index.find({m.mux_in_pattern ? port(m.mux, ID::Y) : port(m.add, ID::Y), port(m.add, m.add_ba)}))) {
-			if (nusers(port(ff, ID::Q)) != (m.output_registered ? 3 : 2))
-				continue;
-			Match n = m;
-			n.ff = ff;
-			if (descend(frame, ff, &QlDspMacc::accept, n))
-				return;
-		}
+		match_each(m, ff_index.find({m.mux_in_pattern ? port(m.mux, ID::Y) : port(m.add, ID::Y), port(m.add, m.add_ba)}), &QlDspMacc::ff_users_fit, &Match::ff, &QlDspMacc::accept);
 	}
 };
 
