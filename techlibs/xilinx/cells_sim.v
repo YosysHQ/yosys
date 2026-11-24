@@ -40,9 +40,11 @@ module IBUF(
   parameter IFD_DELAY_VALUE = "AUTO";
   parameter IOSTANDARD = "DEFAULT";
   assign O = I;
+  `ifdef TIMING
   specify
     (I => O) = 0;
   endspecify
+  `endif // TIMING
 endmodule
 
 module IBUFG(
@@ -65,9 +67,11 @@ module OBUF(
   parameter DRIVE = 12;
   parameter SLEW = "SLOW";
   assign O = I;
+  `ifdef TIMING
   specify
     (I => O) = 0;
   endspecify
+  `endif // TIMING
 endmodule
 
 module IOBUF (
@@ -83,10 +87,12 @@ module IOBUF (
     parameter SLEW = "SLOW";
     assign IO = T ? 1'bz : I;
     assign O = IO;
+    `ifdef TIMING
     specify
         (I => IO) = 0;
         (IO => O) = 0;
     endspecify
+    `endif // TIMING
 endmodule
 
 module OBUFT (
@@ -100,9 +106,11 @@ module OBUFT (
     parameter IOSTANDARD = "DEFAULT";
     parameter SLEW = "SLOW";
     assign O = T ? 1'bz : I;
+    `ifdef TIMING
     specify
         (I => O) = 0;
     endspecify
+    `endif // TIMING
 endmodule
 
 module BUFG(
@@ -110,10 +118,12 @@ module BUFG(
     output O,
     input I);
   assign O = I;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/CLK_BUFG_TOP_R.sdf#L11
     (I => O) = 96;
   endspecify
+  `endif // TIMING
 endmodule
 
 module BUFGCTRL(
@@ -181,18 +191,22 @@ module INV(
     input I
 );
   assign O = !I;
+  `ifdef TIMING
   specify
     (I => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_lut=1 *)
 module LUT1(output O, input I0);
   parameter [1:0] INIT = 0;
   assign O = I0 ? INIT[1] : INIT[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_lut=2 *)
@@ -200,10 +214,12 @@ module LUT2(output O, input I0, I1);
   parameter [3:0] INIT = 0;
   wire [ 1: 0] s1 = I1 ? INIT[ 3: 2] : INIT[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 238;
     (I1 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -212,11 +228,13 @@ module LUT3(output O, input I0, I1, I2);
   wire [ 3: 0] s2 = I2 ? INIT[ 7: 4] : INIT[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 407;
     (I1 => O) = 238;
     (I2 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -226,12 +244,14 @@ module LUT4(output O, input I0, I1, I2, I3);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 472;
     (I1 => O) = 407;
     (I2 => O) = 238;
     (I3 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_lut=3 *)
@@ -242,6 +262,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 631;
     (I1 => O) = 472;
@@ -249,6 +270,7 @@ module LUT5(output O, input I0, I1, I2, I3, I4);
     (I3 => O) = 238;
     (I4 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 // This is a placeholder for ABC9 to extract the area/delay
@@ -263,6 +285,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
   wire [ 3: 0] s2 = I2 ?   s3[ 7: 4] :   s3[ 3: 0];
   wire [ 1: 0] s1 = I1 ?   s2[ 3: 2] :   s2[ 1: 0];
   assign O = I0 ? s1[1] : s1[0];
+  `ifdef TIMING
   specify
     (I0 => O) = 642;
     (I1 => O) = 631;
@@ -271,6 +294,7 @@ module LUT6(output O, input I0, I1, I2, I3, I4, I5);
     (I4 => O) = 238;
     (I5 => O) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 module LUT6_2(output O6, output O5, input I0, I1, I2, I3, I4, I5);
@@ -294,6 +318,7 @@ endmodule
 (* abc9_lut=10 *)
 module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
 `ifndef __ICARUS__
+  `ifdef TIMING
   specify
                                                  // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L867
     (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
@@ -304,6 +329,7 @@ module \$__ABC9_LUT7 (output O, input I0, I1, I2, I3, I4, I5, I6);
     (I5 => O) = 127 + 223 /* to cross F7BMUX */ + 174 /* CMUX */;
     (I6 => O) = 0 + 296 /* to select F7BMUX */ + 174 /* CMUX */;
   endspecify
+  `endif // TIMING
 `endif
 endmodule
 
@@ -312,6 +338,7 @@ endmodule
 (* abc9_lut=20 *)
 module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
 `ifndef __ICARUS__
+  `ifdef TIMING
   specify
                                                                              // https://github.com/SymbiFlow/prjxray-db/blob/1c85daf1b115da4d27ca83c6b89f53a94de39748/artix7/timings/slicel.sdf#L716
     (I0 => O) = 642 + 223 /* to cross F7BMUX */ + 104 /* to cross F8MUX */ + 192 /* BMUX */;
@@ -323,6 +350,7 @@ module \$__ABC9_LUT8 (output O, input I0, I1, I2, I3, I4, I5, I6, I7);
     (I6 => O) = 0 + 296 /* to select F7BMUX */  + 104 /* to cross F8MUX */ + 192 /* BMUX */;
     (I7 => O) = 0 + 0 + 273 /* to select F8MUX */ + 192 /* BMUX */;
   endspecify
+  `endif // TIMING
 `endif
 endmodule
 
@@ -341,23 +369,27 @@ endmodule
 (* abc9_box, lib_whitebox *)
 module MUXF7(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L451-L453
     (I0 => O) = 217;
     (I1 => O) = 223;
     (S => O) = 296;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
 module MUXF8(output O, input I0, I1, S);
   assign O = S ? I1 : I0;
+  `ifdef TIMING
   specify
     // Max delays from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L462-L464
     (I0 => O) = 104;
     (I1 => O) = 94;
     (S => O) = 273;
   endspecify
+  `endif // TIMING
 endmodule
 
 module MUXF9(output O, input I0, I1, S);
@@ -383,6 +415,7 @@ module CARRY4(
   assign CO[1] = S[1] ? CO[0] : DI[1];
   assign CO[2] = S[2] ? CO[1] : DI[2];
   assign CO[3] = S[3] ? CO[2] : DI[3];
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLL_L.sdf#L11-L46
     (CYINIT => O[0]) = 482;
@@ -438,6 +471,7 @@ module CARRY4(
     (S[3]   => CO[3]) = 380;
     (CI     => CO[3]) = 114;
   endspecify
+  `endif // TIMING
 endmodule
 
 module CARRY8(
@@ -488,13 +522,14 @@ module FDRE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (R == !IS_R_INVERTED) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
   endgenerate
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , posedge C &&& CE && !IS_C_INVERTED , /*-46*/ 0); // Negative times not currently supported
@@ -511,6 +546,7 @@ module FDRE (
     if (!IS_C_INVERTED && R == IS_R_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && R == IS_R_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -523,8 +559,9 @@ module FDRE_1 (
   input R
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (R) Q <= 1'b0; else if (CE) Q <= D;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
@@ -535,6 +572,7 @@ module FDRE_1 (
     if (R)        (negedge C => (Q : 1'b0)) = 303;
     if (!R && CE) (negedge C => (Q : D)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -553,13 +591,14 @@ module FDSE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case (|IS_C_INVERTED)
     1'b0: always @(posedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     1'b1: always @(negedge C) if (S == !IS_S_INVERTED) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
   endgenerate
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
@@ -576,6 +615,7 @@ module FDSE (
     if (!IS_C_INVERTED && S == IS_S_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && S == IS_S_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_flop, lib_whitebox *)
@@ -588,8 +628,9 @@ module FDSE_1 (
   input S
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C) if (S) Q <= 1'b1; else if (CE) Q <= D;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
@@ -601,6 +642,7 @@ module FDSE_1 (
     if (S)        (negedge C => (Q : 1'b1)) = 303;
     if (!S && CE) (negedge C => (Q : D)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 module FDRSE (
@@ -623,7 +665,7 @@ module FDRSE (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   wire c = C ^ IS_C_INVERTED;
   wire ce = CE ^ IS_CE_INVERTED;
   wire d = D ^ IS_D_INVERTED;
@@ -658,7 +700,7 @@ module FDRSE_1 (
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_R_INVERTED = 1'b0;
   parameter [0:0] IS_S_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   wire c = C ^ IS_C_INVERTED;
   wire ce = CE ^ IS_CE_INVERTED;
   wire d = D ^ IS_D_INVERTED;
@@ -689,7 +731,7 @@ module FDCE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_CLR_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate
   case ({|IS_C_INVERTED, |IS_CLR_INVERTED})
     2'b00: always @(posedge C, posedge CLR) if ( CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -698,6 +740,7 @@ module FDCE (
     2'b11: always @(negedge C, negedge CLR) if (!CLR) Q <= 1'b0; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
   endgenerate
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
@@ -720,6 +763,7 @@ module FDCE (
     if (!IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && CLR == IS_CLR_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -732,8 +776,9 @@ module FDCE_1 (
   input D
 );
   parameter [0:0] INIT = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge CLR) if (CLR) Q <= 1'b0; else if (CE) Q <= D;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
@@ -751,6 +796,7 @@ module FDCE_1 (
 `endif
     if (!CLR && CE) (negedge C => (Q : D)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -769,7 +815,7 @@ module FDPE (
   parameter [0:0] IS_C_INVERTED = 1'b0;
   parameter [0:0] IS_D_INVERTED = 1'b0;
   parameter [0:0] IS_PRE_INVERTED = 1'b0;
-  initial Q <= INIT;
+  initial Q = INIT;
   generate case ({|IS_C_INVERTED, |IS_PRE_INVERTED})
     2'b00: always @(posedge C, posedge PRE) if ( PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
     2'b01: always @(posedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
@@ -777,6 +823,7 @@ module FDPE (
     2'b11: always @(negedge C, negedge PRE) if (!PRE) Q <= 1'b1; else if (CE) Q <= D ^ IS_D_INVERTED;
   endcase
   endgenerate
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , posedge C &&& !IS_C_INVERTED && CE, /*-46*/ 0); // Negative times not currently supported
@@ -799,6 +846,7 @@ module FDPE (
     if (!IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (posedge C => (Q : D ^ IS_D_INVERTED)) = 303;
     if ( IS_C_INVERTED && PRE == IS_PRE_INVERTED && CE) (negedge C => (Q : D ^ IS_D_INVERTED)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -811,8 +859,9 @@ module FDPE_1 (
   input PRE
 );
   parameter [0:0] INIT = 1'b1;
-  initial Q <= INIT;
+  initial Q = INIT;
   always @(negedge C, posedge PRE) if (PRE) Q <= 1'b1; else if (CE) Q <= D;
+  `ifdef TIMING
   specify
     // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/slicel.sdf#L249
     $setup(D , negedge C &&& CE, /*-46*/ 0); // Negative times not currently supported
@@ -830,6 +879,7 @@ module FDPE_1 (
 `endif
     if (!PRE && CE) (negedge C => (Q : D)) = 303;
   endspecify
+  `endif // TIMING
 endmodule
 
 module FDCPE (
@@ -1504,6 +1554,7 @@ module RAM32X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
@@ -1537,6 +1588,7 @@ module RAM32X1D (
     (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
     (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1563,6 +1615,7 @@ module RAM32X1D_1 (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(D , negedge WCLK &&& WE, 453);
@@ -1587,6 +1640,7 @@ module RAM32X1D_1 (
     (A3 => SPO) = 407; (DPRA3 => DPO) = 407;
     (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1609,6 +1663,7 @@ module RAM64X1D (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[a] <= D;
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
@@ -1646,6 +1701,7 @@ module RAM64X1D (
     (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
     (A5 => SPO) = 127; (DPRA5 => DPO) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 module RAM64X1D_1 (
@@ -1667,6 +1723,7 @@ module RAM64X1D_1 (
   assign DPO = mem[dpra];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(negedge clk) if (WE) mem[a] <= D;
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(D , negedge WCLK &&& WE, 453);
@@ -1694,6 +1751,7 @@ module RAM64X1D_1 (
     (A4 => SPO) = 238; (DPRA4 => DPO) = 238;
     (A5 => SPO) = 127; (DPRA5 => DPO) = 127;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -1714,6 +1772,7 @@ module RAM128X1D (
   assign DPO = mem[DPRA];
   wire clk = WCLK ^ IS_WCLK_INVERTED;
   always @(posedge clk) if (WE) mem[A] <= D;
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(D , posedge WCLK &&& !IS_WCLK_INVERTED && WE, 453);
@@ -1756,6 +1815,7 @@ module RAM128X1D (
     (DPRA[6] => DPO) = 0 + 296 /* to select MUXF7 */ + 174 /* CMUX */;
 `endif
   endspecify
+  `endif // TIMING
 endmodule
 
 module RAM256X1D (
@@ -1816,6 +1876,7 @@ module RAM32M (
       mem_c[2*ADDRD+:2] <= DIC;
       mem_d[2*ADDRD+:2] <= DID;
     end
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L986
     $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 245);
@@ -1881,6 +1942,7 @@ module RAM32M (
     (ADDRA[3] *> DOA) = 407; (ADDRB[3] *> DOB) = 407; (ADDRC[3] *> DOC) = 407; (ADDRD[3] *> DOD) = 407;
     (ADDRA[4] *> DOA) = 238; (ADDRB[4] *> DOB) = 238; (ADDRC[4] *> DOC) = 238; (ADDRD[4] *> DOD) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 module RAM32M16 (
@@ -1990,6 +2052,7 @@ module RAM64M (
       mem_c[ADDRD] <= DIC;
       mem_d[ADDRD] <= DID;
     end
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/31f51ac5ec7448dd6f79a8267f147123e4413c21/artix7/timings/CLBLM_R.sdf#L818-L830
     $setup(ADDRD[0], posedge WCLK &&& !IS_WCLK_INVERTED && WE, 362);
@@ -2037,6 +2100,7 @@ module RAM64M (
     (ADDRA[3] => DOA) = 407; (ADDRB[3] => DOB) = 407; (ADDRC[3] => DOC) = 407; (ADDRD[3] => DOD) = 407;
     (ADDRA[4] => DOA) = 238; (ADDRB[4] => DOB) = 238; (ADDRC[4] => DOC) = 238; (ADDRD[4] => DOD) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 module RAM64M8 (
@@ -2265,6 +2329,7 @@ module SRL16 (
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
 
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L905
     (posedge CLK => (Q : 1'bx)) = 1472;
@@ -2275,6 +2340,7 @@ module SRL16 (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -2298,6 +2364,7 @@ module SRL16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
@@ -2313,6 +2380,7 @@ module SRL16E (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -2331,6 +2399,7 @@ module SRLC16 (
   assign Q = r[{A3,A2,A1,A0}];
   always @(posedge CLK) r <= { r[14:0], D };
 
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK, 173);
@@ -2343,6 +2412,7 @@ module SRLC16 (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -2368,6 +2438,7 @@ module SRLC16E (
     else
       always @(posedge CLK) if (CE) r <= { r[14:0], D };
   endgenerate
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
@@ -2386,6 +2457,7 @@ module SRLC16E (
     (A2 => Q) = 407;
     (A3 => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 (* abc9_box, lib_whitebox *)
@@ -2412,6 +2484,7 @@ module SRLC32E (
     else
       always @(posedge CLK) if (CE) r <= { r[30:0], D };
   endgenerate
+  `ifdef TIMING
   specify
     // Max delay from: https://github.com/SymbiFlow/prjxray-db/blob/34ea6eb08a63d21ec16264ad37a0a7b142ff6031/artix7/timings/CLBLM_R.sdf#L912
     $setup(D , posedge CLK &&& !IS_CLK_INVERTED, 173);
@@ -2431,6 +2504,7 @@ module SRLC32E (
     (A[3] => Q) = 407;
     (A[4] => Q) = 238;
   endspecify
+  `endif // TIMING
 endmodule
 
 module CFGLUT5 (
@@ -3457,6 +3531,7 @@ module DSP48E1 (
     end
     endfunction
 `ifndef VERIFIC
+`ifdef TIMING
     generate
         if (PREG == 0 && MREG == 0 && AREG == 0 && ADREG == 0)
             specify
@@ -3521,6 +3596,7 @@ module DSP48E1 (
                 if ( IS_CLK_INVERTED && CEP) (negedge CLK => (PCOUT : 48'bx)) = \PCOUT.arrival () ;
             endspecify
     endgenerate
+`endif // TIMING
 `endif
 `endif
 
@@ -4089,6 +4165,7 @@ module RAMB18E1 (
     parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
     parameter IS_RSTREGB_INVERTED = 1'b0;
 
+    `ifdef TIMING
     specify
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
         $setup(ADDRARDADDR, posedge CLKARDCLK, 566);
@@ -4131,6 +4208,7 @@ module RAMB18E1 (
         // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
         if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 2'bx)) = 882;
     endspecify
+    `endif // TIMING
 endmodule
 
 module RAMB36E1 (
@@ -4353,6 +4431,7 @@ module RAMB36E1 (
     parameter IS_RSTREGARSTREG_INVERTED = 1'b0;
     parameter IS_RSTREGB_INVERTED = 1'b0;
 
+    `ifdef TIMING
     specify
         // https://github.com/SymbiFlow/prjxray-db/blob/23c8b0851f979f0799318eaca90174413a46b257/artix7/timings/BRAM_L.sdf#L13
         $setup(ADDRARDADDR, posedge CLKARDCLK, 566);
@@ -4395,4 +4474,5 @@ module RAMB36E1 (
         // https://github.com/SymbiFlow/prjxray-db/blob/4bc6385ab300b1819848371f508185f57b649a0e/artix7/timings/BRAM_L.sdf#L174
         if (|DOB_REG) (posedge CLKBWRCLK => (DOPBDOP : 4'bx)) = 882;
     endspecify
+    `endif // TIMING
 endmodule

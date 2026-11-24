@@ -267,7 +267,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 	void script() override
 	{
 		if (check_label("begin")) {
-			run(stringf("read_verilog -lib -specify %s +/analogdevices/cells_sim.v", tech_param));
+			run(stringf("read_verilog -lib -specify -DTIMING=1 %s +/analogdevices/cells_sim.v", tech_param));
 			run(stringf("hierarchy -check %s", top_opt));
 		}
 
@@ -452,7 +452,7 @@ struct SynthAnalogDevicesPass : public ScriptPass
 				run("check");
 				run("flatten");
 			}
-			run("read_verilog -icells -lib -specify +/analogdevices/abc9_model.v");
+			run("read_verilog -icells -lib -specify -DTIMING=1 +/analogdevices/abc9_model.v");
 			std::string abc9_opts;
 			std::string k = "synth_analogdevices.abc9.W";
 			if (active_design && active_design->scratchpad.count(k))

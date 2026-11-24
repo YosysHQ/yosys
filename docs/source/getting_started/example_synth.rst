@@ -78,9 +78,9 @@ Let's start with the section labeled ``begin``:
    :caption: ``begin`` section
    :name: synth_begin
 
-:yoscrypt:`read_verilog -D ICE40_HX -lib -specify +/ice40/cells_sim.v` loads the
-iCE40 cell models which allows us to include platform specific IP blocks in our
-design.  PLLs are a common example of this, where we might need to reference
+:yoscrypt:`read_verilog -D ICE40_HX -lib -specify -DTIMING=1 +/ice40/cells_sim.v`
+loads the iCE40 cell models which allows us to include platform specific IP blocks
+in our design.  PLLs are a common example of this, where we might need to reference
 ``SB_PLL40_CORE`` directly rather than being able to rely on mapping passes
 later.  Since our simple design doesn't use any of these IP blocks, we can skip
 this command for now.  Because these cell models will also be needed once we
@@ -592,7 +592,7 @@ The remaining sections each map a different type of hardware and are much more
 architecture dependent than the previous sections.  As such we will only be
 looking at each section very briefly.
 
-If you skipped calling :yoscrypt:`read_verilog -D ICE40_HX -lib -specify
+If you skipped calling :yoscrypt:`read_verilog -D ICE40_HX -lib -specify -DTIMING=1
 +/ice40/cells_sim.v` earlier, do it now.
 
 Memory blocks

@@ -49,6 +49,7 @@ module MISTRAL_MLAB(input [4:0] A1ADDR, input A1DATA, A1EN,
 reg [31:0] mem = 32'b0;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     $setup(A1ADDR, posedge CLK1, 86);
     $setup(A1DATA, posedge CLK1, 86);
@@ -60,6 +61,7 @@ specify
     (B1ADDR[3] => B1DATA) = 284;
     (B1ADDR[4] => B1DATA) = 96;
 endspecify
+`endif // TIMING
 `endif
 
 always @(posedge CLK1)
@@ -89,6 +91,7 @@ output reg [CFG_DBITS-1:0] B1DATA;
 reg [2**CFG_ABITS * CFG_DBITS - 1 : 0] mem = INIT;
 
 `ifdef cyclonev
+`ifdef TIMING
 specify
     $setup(A1ADDR, posedge CLK1, 125);
     $setup(A1DATA, posedge CLK1, 97);
@@ -98,6 +101,7 @@ specify
 
     if (B1EN) (posedge CLK1 => (B1DATA : A1DATA)) = 1004;
 endspecify
+`endif // TIMING
 `endif
 
 always @(posedge CLK1) begin

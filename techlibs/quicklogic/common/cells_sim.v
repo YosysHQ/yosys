@@ -28,9 +28,11 @@ module gclkbuff (
   input A,
   output Z
 );
+  `ifdef TIMING
   specify
     (A => Z) = 0;
   endspecify
+  `endif // TIMING
 
   assign Z = A;
 endmodule

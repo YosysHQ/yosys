@@ -26,6 +26,7 @@ module \$__ICE40_CARRY_WRAPPER (
 		.I3(I3_OR_CI),
 		.O(O)
 	);
+`ifdef TIMING
 `ifdef ICE40_HX
 	specify
 		// https://github.com/YosysHQ/icestorm/blob/be0bca0230d6fe1102e0a360b953fbb0d273a39f/icefuzz/timings_hx1k.txt#L79
@@ -83,4 +84,5 @@ module \$__ICE40_CARRY_WRAPPER (
 		(CI => O) = (861, 874);
 	endspecify
 `endif
+`endif // TIMING
 endmodule
