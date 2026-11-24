@@ -28,7 +28,7 @@ attributes. The RTLIL pointers in the records are only safe while it is true.
 
 ``NetTracker`` (:file:`kernel/nettrack.h`) finds the objects of an old view
 again in a new one. ``checkpoint()`` writes a ``netview_ref`` id attribute on
-each object you want to follow and, by default, puts `$barrier` cells at its
+each object you want to follow and puts `$barrier` cells at its
 pins, so optimizations cannot merge or remove it. After your passes,
 ``resolve()`` reads the ids back in a new view and tells you what each object
 turned into.
@@ -65,19 +65,15 @@ go on using it.
 order. It never reads the old view, and you can call it again with a newer
 one.
 
-To make a checkpoint before every pass, add a function to
-``Pass::pre_call_hooks``. ``Pass::call()`` runs it before each pass, also for
-passes that other passes call, like `flatten` in `synth` ``-flatten``.
-``unprotect()`` runs `optbarriers` ``-remove`` as a pass, so your hook runs
-there too.
+Make a new checkpoint after your own changes to the design, before the next
+pass.
 
 After ``resolve()``, a ref holds what its objects turned into:
 
 - A pin with a barrier becomes the pins now on its side of the barrier.
 - A pin of a scope that `flatten` removed becomes the leaf pins below it, the
   loads of an input or the drivers of an output. An output that also drove
-  loads inside the scope becomes the loads outside, or is gone if it had a
-  barrier.
+  loads inside the scope is gone, and ``loads`` holds the loads outside.
 - A cell that a pass split or replaced becomes the cells now between its old
   barriers. ``port_cuts`` lists the pins on each old port.
 - A net below the top that is gone becomes the leaf pins of that net, so the
@@ -91,13 +87,13 @@ After ``resolve()``, a ref holds what its objects turned into:
 Barriers
 ~~~~~~~~
 
-Ids alone do not stop a pass from merging or removing an object. With
-``protect`` (the default), ``checkpoint()`` puts a `$barrier` between each
-ref pin and its net, on every pin of a leaf ref cell and at the leaf drivers
-of a ref net. Leaf ref cells get ``keep`` and scope ref cells get
-``keep_hierarchy``. So does a scope with a private name above a ref, because
-`flatten` only keeps scope names below public ones. Inout, constant and
-unconnected pins and top ports get no barrier.
+Ids alone do not stop a pass from merging or removing an object. So
+``checkpoint()`` puts a `$barrier` between each ref pin and its net, on
+every pin of a leaf ref cell and at the leaf drivers of a ref net. Leaf ref
+cells get ``keep`` and scope ref cells get ``keep_hierarchy``. So does a
+scope with a private name above a ref, because `flatten` only keeps scope
+names below public ones. Inout, constant and unconnected pins and top ports
+get no barrier.
 
 The view unfolds the hierarchy, so a ref names one instance, and only that
 instance comes back from ``resolve()``. The barriers and keep attributes go
@@ -107,11 +103,6 @@ matters.
 
 ``unprotect()`` removes the barriers, keep attributes and cut marks of the
 tracker. The ids and ``hdlname`` stay, so ``resolve()`` still finds cells,
-leaf pins and nets. Call it before you write the design out. A scope pin is
-anchored only by its barrier and gets lost, unless you make a checkpoint with
-``protect = false`` first. ``clear()`` drops the checkpoint and the ids,
-except those on barriers. Barriers, cut marks and keep attributes stay until
-``unprotect()``.
 
 Limits
 ~~~~~~
