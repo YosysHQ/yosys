@@ -1,0 +1,17 @@
+logger -expect error "Local declaration in unnamed block requires explicit begin-end wrap" 1
+
+read_verilog -sv <<EOT
+module repro (input clock, input reset);
+  reg [3:0] counter;
+  wire cond = |counter;
+
+  always @(posedge clock)
+    if (cond & ~reset)
+
+  wire next = counter == 4'h0;
+
+  always @(posedge clock)
+    if (reset) counter <= 4'h0;
+    else counter <= counter + 4'h1;
+endmodule
+EOT
