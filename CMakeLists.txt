@@ -413,6 +413,9 @@ endif()
 
 # ABC submodule.
 if (YOSYS_ENABLE_ABC AND NOT YOSYS_ABC_EXECUTABLE)
+	if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+		message(FATAL_ERROR "ABC is known to silently produce incorrect netlists on big-endian architectures.")
+	endif()
 	set(YOSYS_ABC_INSTALL NO)
 	if (YOSYS_ABC_EXECUTABLE STREQUAL "" AND (YOSYS_INSTALL_DRIVER OR YOSYS_INSTALL_LIBRARY))
 		set(YOSYS_ABC_INSTALL YES)
