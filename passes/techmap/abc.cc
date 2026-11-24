@@ -976,12 +976,12 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		if (en_str.find(',') != std::string::npos) {
 			int pos = en_str.find(',');
 			arst_str = en_str.substr(pos+1);
-			arst_str = en_str.substr(0, pos);
+			en_str = en_str.substr(0, pos);
 		}
 		if (arst_str.find(',') != std::string::npos) {
 			int pos = arst_str.find(',');
 			srst_str = arst_str.substr(pos+1);
-			srst_str = arst_str.substr(0, pos);
+			arst_str = arst_str.substr(0, pos);
 		}
 		if (clk_str[0] == '!') {
 			clk_polarity = false;
@@ -1923,7 +1923,7 @@ struct AbcPass : public Pass {
 		log("        clock domains are automatically partitioned in clock domains and each\n");
 		log("        domain is passed through ABC independently.\n");
 		log("\n");
-		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>]\n");
+		log("    -clk [!]<clock-signal-name>[,[!]<enable-signal-name>[,[!]<arst-signal-name>[,[!]<srst-signal-name>]]]\n");
 		log("        use only the specified clock domain. this is like -dff, but only FF\n");
 		log("        cells that belong to the specified clock domain are used.\n");
 		log("\n");
