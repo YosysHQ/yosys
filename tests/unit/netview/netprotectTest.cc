@@ -17,6 +17,14 @@ static std::vector<Cell *> barriersOf(Module *module)
 	return barriers;
 }
 
+static void addAnd2(Module *module, const char *name, const SigSpec &a, const SigSpec &b, const SigSpec &y)
+{
+	Cell *gate = module->addCell(name, "\\AND2");
+	gate->setPort(ID(A), a);
+	gate->setPort(ID(B), b);
+	gate->setPort(ID(Y), y);
+}
+
 static Cell *addBidiCell(Design *design, Module *parent, const SigSpec &signal)
 {
 	Module *bidi = design->addModule("\\BIDI");
@@ -28,6 +36,47 @@ static Cell *addBidiCell(Design *design, Module *parent, const SigSpec &signal)
 	Cell *b = parent->addCell("\\b", "\\BIDI");
 	b->setPort("\\IO", signal);
 	return b;
+}
+
+// the port drives a new wire, gives the signal it drove
+static SigSpec detachPort(Cell *cell, IdString port, const char *wire_name)
+{
+	SigSpec old_signal = cell->getPort(port);
+	cell->setPort(port, cell->module->addWire(wire_name));
+	return old_signal;
+}
+
+// a blackbox TIEH with only an output Y
+static void addTieHigh(Design *design)
+{
+	Module *tie_high = design->addModule("\\TIEH");
+	tie_high->addWire(ID(Y))->port_output = true;
+	tie_high->fixup_ports();
+	tie_high->set_bool_attribute(ID::blackbox);
+}
+
+// a blackbox HA with input A and outputs Y and CO, CO on a new top output
+static Cell *addHalfAdder(Design *design, Module *top, SigBit a)
+{
+	Module *half_adder = addInv(design, "\\HA");
+	half_adder->addWire(ID(CO))->port_output = true;
+	half_adder->fixup_ports();
+	Wire *carry = top->addWire("\\carry");
+	carry->port_output = true;
+	top->fixup_ports();
+	Cell *adder = top->addCell("\\adder", "\\HA");
+	adder->setPort(ID(A), a);
+	adder->setPort(ID(Y), top->addWire("\\sum"));
+	adder->setPort(ID(CO), carry);
+	return adder;
+}
+
+// the ref is the kept cell alone
+static void expectKept(const TrackedRef &ref, const Netlist::Instance *kept, bool partial)
+{
+	EXPECT_FALSE(ref.gone);
+	EXPECT_EQ(ref.partial, partial);
+	EXPECT_EQ(ref.instances, std::vector<const Netlist::Instance *>{kept});
 }
 
 TEST_F(NetProtectTest, unprotectKeepsTheAnchors)
@@ -58,6 +107,7 @@ TEST_F(NetProtectTest, cellThatBecameAWireGivesTheLoadsBehindIt)
 	t.next({&cell});
 	EXPECT_TRUE(cell.instances.empty());
 	EXPECT_TRUE(cell.pins.empty());
+	EXPECT_FALSE(cell.partial);
 	EXPECT_EQ(cell.loads, std::vector<const Netlist::Pin *>{t.view->top()->findPin("out", 0)});
 	EXPECT_EQ(cell.port_cuts.size(), 2u);
 }
@@ -117,6 +167,151 @@ TEST_F(NetProtectTest, splitCellWithASideInputGivesOnlyTheNewCell)
 	top->remove(u_inv2);
 	t.next({&cell});
 	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{t.child(gate)});
+}
+
+// the cell kept its id but a new cell drives its output, the cells between take its place
+TEST_F(NetProtectTest, keptCellThatLostItsOutputGivesTheCellsBetween)
+{
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	Cell *sibling = top->addCell("\\sibling", ID(INV));
+	sibling->setPort(ID(A), u_inv2->getPort(ID(A)));
+	sibling->setPort(ID(Y), detachPort(u_inv2, ID(Y), "\\dangling"));
+	t.next({&cell});
+	EXPECT_TRUE(cell.gone);
+	EXPECT_FALSE(cell.partial);
+	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{t.child(sibling)});
+}
+
+// the output of the kept cell is a wire from its input now, the cell stays the ref and is partial
+TEST_F(NetProtectTest, keptCellAroundAWireIsPartial)
+{
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	top->connect(detachPort(u_inv2, ID(Y), "\\dangling"), u_inv2->getPort(ID(A)));
+	t.next({&cell});
+	expectKept(cell, t.child(u_inv2), true);
+}
+
+// a constant output has no path, the kept cell stays the ref with no flag
+TEST_F(NetProtectTest, keptCellWithAConstantOutputKeepsIt)
+{
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	top->connect(detachPort(u_inv2, ID(Y), "\\dangling"), State::S0);
+	t.next({&cell});
+	expectKept(cell, t.child(u_inv2), false);
+}
+
+// a tie cell and a constant after the kept cell bring no other path, the cell stays the ref
+TEST_F(NetProtectTest, gatesWithNoOtherPathAfterAKeptCellKeepIt)
+{
+	addTieHigh(d);
+	Module *and2 = addInv(d, "\\AND2");
+	and2->addWire(ID(B))->port_input = true;
+	and2->fixup_ports();
+	// an inout top port puts a driver on the constant net
+	Wire *pad_io = top->addWire("\\pad_io");
+	pad_io->port_input = pad_io->port_output = true;
+	top->fixup_ports();
+	top->connect(pad_io, State::S0);
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	SigSpec cut = detachPort(u_inv2, ID(Y), "\\mid");
+	Wire *high = top->addWire("\\high");
+	Wire *tied = top->addWire("\\tied");
+	top->addCell("\\tie_cell", "\\TIEH")->setPort(ID(Y), high);
+	addAnd2(top, "\\with_tie", u_inv2->getPort(ID(Y)), high, tied);
+	addAnd2(top, "\\with_constant", tied, State::S0, cut);
+	t.next({&cell});
+	expectKept(cell, t.child(u_inv2), false);
+}
+
+// a pass splits a cell and ties one output, a tie cell has no path, no flag
+TEST_F(NetProtectTest, splitCellWithATiedOutputIsNoLoss)
+{
+	addTieHigh(d);
+	Cell *adder = addHalfAdder(d, top, SigBit(q, 0));
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(adder)}};
+	t.checkpoint({&cell});
+	Cell *sum = top->addCell("\\sum_inv", ID(INV));
+	sum->setPort(ID(A), adder->getPort(ID(A)));
+	sum->setPort(ID(Y), adder->getPort(ID(Y)));
+	top->addCell("\\tie_cell", "\\TIEH")->setPort(ID(Y), adder->getPort(ID(CO)));
+	top->remove(adder);
+	t.next({&cell});
+	EXPECT_TRUE(cell.gone);
+	EXPECT_FALSE(cell.partial);
+	EXPECT_EQ(cell.instances, std::vector<const Netlist::Instance *>{t.child(sum)});
+}
+
+// a new scope has the id and an inverter after it, its cells count as the id cells, the scope stays the ref
+TEST_F(NetProtectTest, scopeWithTheIdKeepsIt)
+{
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	Cell *wrapper = top->addCell("\\wrapper", "\\sub");
+	wrapper->attributes = u_inv2->attributes;
+	wrapper->setPort(ID(a), u_inv2->getPort(ID(A)));
+	Wire *wrapped = top->addWire("\\wrapped", 4);
+	wrapper->setPort(ID(y), wrapped);
+	Cell *inverter = top->addCell("\\after_scope", ID(INV));
+	inverter->setPort(ID(A), SigBit(wrapped, 0));
+	inverter->setPort(ID(Y), u_inv2->getPort(ID(Y)));
+	top->remove(u_inv2);
+	t.next({&cell});
+	expectKept(cell, t.child(wrapper), false);
+}
+
+// a pad after the kept cell drives an inout top port, the cell stays the ref with no flag
+TEST_F(NetProtectTest, padAfterAKeptCellKeepsIt)
+{
+	out->port_input = true;
+	top->fixup_ports();
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(u_inv2)}};
+	t.checkpoint({&cell});
+	Cell *pad = addBidiCell(d, top, detachPort(u_inv2, ID(Y), "\\mid"));
+	Module *bidi = d->module("\\BIDI");
+	bidi->addWire(ID(I))->port_input = true;
+	bidi->fixup_ports();
+	pad->setPort(ID(I), u_inv2->getPort(ID(Y)));
+	t.next({&cell});
+	expectKept(cell, t.child(u_inv2), false);
+}
+
+// other logic drives one of two old outputs, the ref keeps the cell and is partial
+TEST_F(NetProtectTest, otherLogicOnOneOfTwoOutputsIsPartial)
+{
+	Cell *adder = addHalfAdder(d, top, SigBit(q, 0));
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(adder)}};
+	t.checkpoint({&cell});
+	Cell *other = top->addCell("\\other", ID(INV));
+	other->setPort(ID(A), SigBit(q, 1));
+	other->setPort(ID(Y), detachPort(adder, ID(CO), "\\dangling"));
+	t.next({&cell});
+	expectKept(cell, t.child(adder), true);
+}
+
+// a kept cell with only outputs, other logic drives one, the region is no fan-in cone of that logic
+TEST_F(NetProtectTest, otherLogicOnAnOutputOnlyCellIsPartial)
+{
+	Cell *adder = addHalfAdder(d, top, State::S0);
+	TrackedView t(d);
+	TrackedRef cell{.kind = TrackedRef::Kind::Instance, .instances = {t.child(adder)}};
+	t.checkpoint({&cell});
+	Cell *other = top->addCell("\\other", ID(INV));
+	other->setPort(ID(A), d0);
+	other->setPort(ID(Y), detachPort(adder, ID(CO), "\\dangling"));
+	t.next({&cell});
+	expectKept(cell, t.child(adder), true);
 }
 
 TEST_F(NetProtectTest, deletedCellGivesNoPins)
