@@ -141,7 +141,7 @@ module CC_SERDES #(
 	parameter  [7:0] RX_8B10B_BYPASS = 0,
 	parameter  [0:0] RX_BYTE_REALIGN = 0,
 	parameter  [0:0] RX_DBG_EN = 0,
-	parameter  [1:0] RX_DBG_SEL = 0,
+	parameter  [3:0] RX_DBG_SEL = 0,
 	parameter  [0:0] RX_DBG_MODE = 0,
 	parameter  [5:0] RX_DBG_SRAM_DELAY = 6'h05,
 	parameter  [9:0] RX_DBG_ADDR = 0,
