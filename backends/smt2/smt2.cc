@@ -568,7 +568,7 @@ struct Smt2Worker
 			registers.insert(cell);
 			SigBit q_bit = cell->getPort(ID::Q);
 			if (q_bit.is_wire())
-				decls.push_back(witness_signal("reg", 1, 0, "", idcounter, q_bit.wire));
+				decls.push_back(witness_signal("reg", 1, 0, "", idcounter, q_bit.wire, 0, true));
 			makebits(stringf("%s#%d", get_id(module), idcounter), 0, log_signal(cell->getPort(ID::Q)));
 			register_bool(cell->getPort(ID::Q), idcounter++);
 			recursive_cells.erase(cell);
@@ -1528,7 +1528,7 @@ struct Smt2Worker
 		return path;
 	}
 
-	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0)
+	std::string witness_signal(const char *type, int width, int offset, const std::string &smtname, int smtid, RTLIL::Wire *wire, int smtoffset = 0, bool smtbool = false)
 	{
 		std::vector<std::string> hiername;
 		if (wire->name.isPublic()) {
@@ -1546,6 +1546,7 @@ struct Smt2Worker
 			{ "width", width },
 			{ "smtname", smtname.empty() ? json11::Json(smtid) : json11::Json(smtname) },
 			{ "smtoffset", smtoffset },
+			{ "smtbool", smtbool },
 			{ "path", witness_path(wire) },
 		}}).dump(line);
 		line += "\n";

@@ -745,7 +745,7 @@ def ywfile_signal(sig, step, mask=None):
         for wire in smt_wires[sig.path]:
             width, offset = wire["width"], wire["offset"]
 
-            smt_bool = smt.net_width(topmod, wire["smtpath"]) == 1
+            smt_bool = smt.witness_is_bool(topmod, wire)
 
             offset = max(offset, 0)
 
