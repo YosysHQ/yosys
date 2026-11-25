@@ -555,6 +555,56 @@ struct CellTypes
 		log_assert(arg4.size() == 0);
 		return eval(cell, arg1, arg2, arg3, errp);
 	}
+
+	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4, const RTLIL::Const &arg5, bool *errp = nullptr)
+	{
+		if (cell->type == ID($_MUX4_)) {
+			log_assert(arg5.size() == 2);
+			RTLIL::Const data = arg1;
+			for (auto arg : {&arg2, &arg3, &arg4})
+				data.append(*arg);
+			return const_bmux(data, arg5);
+		}
+
+		log_assert(arg5.size() == 0);
+		return eval(cell, arg1, arg2, arg3, arg4, errp);
+	}
+
+
+	static RTLIL::Const eval(RTLIL::Cell *cell, const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4, const RTLIL::Const &arg5, const RTLIL::Const &arg6, const RTLIL::Const &arg7, const RTLIL::Const &arg8, const RTLIL::Const &arg9, bool *errp = nullptr)
+	{
+		if (cell->type == ID($_MUX8_)) {
+			log_assert(arg9.size() == 3);
+			RTLIL::Const data = arg1;
+			for (auto arg : {&arg2, &arg3, &arg4, &arg5, &arg6, &arg7, &arg8})
+				data.append(*arg);
+			return const_bmux(data, arg9);
+		}
+
+		log_assert(arg9.size() == 0 && arg8.size() == 0 && arg7.size() == 0 && arg6.size() == 0);
+		return eval(cell, arg1, arg2, arg3, arg4, arg5, errp);
+	}
+
+	static RTLIL::Const eval(RTLIL::Cell *cell,
+		const RTLIL::Const &arg1, const RTLIL::Const &arg2, const RTLIL::Const &arg3, const RTLIL::Const &arg4,
+		const RTLIL::Const &arg5, const RTLIL::Const &arg6, const RTLIL::Const &arg7, const RTLIL::Const &arg8,
+		const RTLIL::Const &arg9, const RTLIL::Const &arg10, const RTLIL::Const &arg11, const RTLIL::Const &arg12,
+		const RTLIL::Const &arg13, const RTLIL::Const &arg14, const RTLIL::Const &arg15, const RTLIL::Const &arg16,
+		const RTLIL::Const &arg17, bool *errp = nullptr)
+	{
+		if (cell->type == ID($_MUX16_)) {
+			log_assert(arg17.size() == 4);
+			RTLIL::Const data = arg1;
+			for (auto arg : {&arg2, &arg3, &arg4, &arg5, &arg6, &arg7, &arg8, &arg9,
+			                &arg10, &arg11, &arg12, &arg13, &arg14, &arg15, &arg16})
+				data.append(*arg);
+			return const_bmux(data, arg17);
+		}
+
+		for (auto arg : {&arg10, &arg11, &arg12, &arg13, &arg14, &arg15, &arg16, &arg17})
+			log_assert(arg->size() == 0);
+		return eval(cell, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, errp);
+	}
 };
 
 YOSYS_NAMESPACE_END

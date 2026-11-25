@@ -213,6 +213,45 @@ struct ConstEval
 			else
 				set(sig_y, y_values.front());
 		}
+		else if (cell->type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_)))
+		{
+			int inputs;
+			switch (cell->type.ref().raw()) {
+			case ID($_MUX4_).raw():
+				inputs = 4;
+				break;
+			case ID($_MUX8_).raw():
+				inputs = 8;
+				break;
+			case ID($_MUX16_).raw():
+				inputs = 16;
+				break;
+			default:
+				log_abort();
+			}
+			sig_s.append(cell->getPort(ID::T));
+			if (inputs >= 8)
+				sig_s.append(cell->getPort(ID::U));
+			if (inputs == 16)
+				sig_s.append(cell->getPort(ID::V));
+			if (!eval(sig_s, undef, cell))
+				return false;
+
+			const IdString ports[] = {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H,
+			                          ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P};
+			RTLIL::Const args[17];
+			for (int i = 0; i < inputs; i++) {
+				auto sig = cell->getPort(ports[i]);
+				if (!eval(sig, undef, cell))
+					return false;
+				args[i] = sig.as_const();
+			}
+			args[inputs] = sig_s.as_const();
+
+			auto result = CellTypes::eval(cell, args[0], args[1], args[2], args[3], args[4], args[5],
+				args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15], args[16]);
+			set(sig_y, result);
+		}
 		else if (cell->type == ID($bmux))
 		{
 			if (!eval(sig_s, undef, cell))
