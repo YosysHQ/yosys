@@ -263,7 +263,7 @@ constexpr void CellTableBuilder::setup_stdcells_eval()
 	for (auto type : mux_ops)
 		setup_type(type, {ID::A, ID::B, ID::S}, {ID::Y}, features);
 
-	features.is_evaluable = false;
+	features.is_evaluable = true;
 	setup_type(ID($_MUX4_), {ID::A, ID::B, ID::C, ID::D, ID::S, ID::T}, {ID::Y}, features);
 	setup_type(ID($_MUX8_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::S, ID::T, ID::U}, {ID::Y}, features);
 	setup_type(ID($_MUX16_), {ID::A, ID::B, ID::C, ID::D, ID::E, ID::F, ID::G, ID::H, ID::I, ID::J, ID::K, ID::L, ID::M, ID::N, ID::O, ID::P, ID::S, ID::T, ID::U, ID::V}, {ID::Y}, features);
