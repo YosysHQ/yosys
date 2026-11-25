@@ -71,11 +71,8 @@ TEST(CellTypesTest, basic)
 
 	for (size_t i = 0; i < static_cast<size_t>(STATIC_TWINE_END); i++) {
 		IdString type(i);
-		EXPECT_EQ(older.cell_known(type), newer.cell_known(type));
-		if (type.in(ID($_MUX4_), ID($_MUX8_), ID($_MUX16_)))
-			EXPECT_FALSE(newer.cell_evaluable(type));
-		else
-			EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
+		EXPECT_EQ(older.cell_known(type),     newer.cell_known(type));
+		EXPECT_EQ(older.cell_evaluable(type), newer.cell_evaluable(type));
 		for (auto port : StaticCellTypes::builder.cells.data()->inputs.ports)
 			check_port(type, port);
 		for (auto port : StaticCellTypes::builder.cells.data()->outputs.ports)
