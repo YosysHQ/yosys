@@ -1,3 +1,15 @@
+# Prefer installed FlexLexer.h, use one from libs as fallback
+get_filename_component(_flex_real "${FLEX_EXECUTABLE}" REALPATH)
+get_filename_component(_flex_real_bin "${_flex_real}" DIRECTORY)
+find_path(FLEX_LEXER_INCLUDE_DIR FlexLexer.h
+	PATHS
+		"${_flex_real_bin}/../include"
+		"${_flex_real_bin}"
+	NO_DEFAULT_PATH
+)
+if (FLEX_LEXER_INCLUDE_DIR)
+	set(FLEX_INCLUDE_DIRS ${FLEX_LEXER_INCLUDE_DIR})
+endif()
 if (NOT FLEX_INCLUDE_DIRS)
 	set(FLEX_INCLUDE_DIRS ${YOSYS_CMAKE_SOURCE_DIR}/libs/flex)
 endif()
