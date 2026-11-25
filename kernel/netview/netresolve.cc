@@ -289,23 +289,140 @@ void detail::Resolver::resolve(uint32_t ref_index, TrackedRef &ref)
 void detail::Resolver::resolveInstance(uint32_t ref_index, TrackedRef &ref)
 {
 	ref.port_cuts.clear();
+	bool has_wired_output = false;
 	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier})) {
 		bool is_output = detail::cutOnA(hit.cell);
 		PinList cut_side = cutPins(hit, WalkReach::AllLoads);
 		ref.port_cuts.push_back({hit.anchor->port, is_output, cut_side});
+		has_wired_output = has_wired_output || (is_output && isWiredOutput(hit, cut_side));
 	}
 	ref.instances.clear();
 	for (const AnchorHit &hit : hits_by_ref_role_.get({ref_index, Anchor::Role::Cell}))
 		ref.instances.push_back(view_.instance(hit.cell, hit.scope));
-	ref.gone = ref.instances.empty();
+	bool has_id = !ref.instances.empty();
+	InstanceList new_drivers = detail::newDrivers(ref);
+	InstanceList between;
+	if (!has_id || !new_drivers.empty())
+		between = cellsBetween(ref_index, has_id);
+	// the id holds while only the id cells feed the new drivers, see _TECHMAP_REPLACE_
+	bool is_bypassed = !has_id || !isFedOnlyBy(new_drivers, ref.instances, between);
+	// with no other cell between, the id stays
+	ref.gone = !has_id || (is_bypassed && !detail::isAllBetween(between, ref.instances));
 	if (ref.gone)
-		ref.instances = cellsBetween(ref_index);
+		ref.instances = between;
+	ref.partial = !ref.instances.empty() && (has_wired_output || (is_bypassed && !detail::newDrivers(ref).empty()));
 	bool has_inout_pins = !data_.open_bits_by_ref.get(ref_index).empty();
 	bool is_wire = ref.gone && ref.instances.empty() && !has_inout_pins;
 	for (const TrackedRef::PortCut &cut : ref.port_cuts) {
 		if (is_wire && cut.is_output)
 			ref.loads.insert(ref.loads.end(), cut.pins.begin(), cut.pins.end());
 	}
+}
+
+// an old output with loads and no leaf driver is a wire, a constant is none
+bool detail::Resolver::isWiredOutput(const AnchorHit &hit, const PinList &cut_side)
+{
+	RTLIL::SigBit cut_bit = walkerOf(hit.scope->module).sigmap(detail::cutBit(hit.cell));
+	bool has_driver = std::ranges::any_of(cut_side, detail::isLeafDriver);
+	return cut_bit.wire != nullptr && !has_driver && !cut_side.empty();
+}
+
+bool detail::isLeafDriver(const Netlist::Pin *pin)
+{
+	return pin->inst->isLeaf() && pin->isDriver();
+}
+
+// no input pin, so no path into it
+bool detail::isTieCell(const Netlist::Instance *inst)
+{
+	auto first_input = std::ranges::find(inst->pins, RTLIL::PD_INPUT, &Netlist::Pin::dir);
+	return inst->isLeaf() && first_input == inst->pins.end();
+}
+
+// leaf drivers of the old outputs that are not ref cells or tie cells
+detail::InstanceList detail::newDrivers(const TrackedRef &ref)
+{
+	InstanceList drivers;
+	for (const TrackedRef::PortCut &cut : ref.port_cuts) {
+		for (const Netlist::Pin *pin : cut.pins) {
+			bool is_new_driver = cut.is_output && detail::isLeafDriver(pin) && !detail::isBetween(pin->inst, ref.instances);
+			if (is_new_driver && !detail::isTieCell(pin->inst))
+				drivers.push_back(pin->inst);
+		}
+	}
+	return drivers;
+}
+
+// each path into todo starts at cells and stays between
+bool detail::Resolver::isFedOnlyBy(InstanceList todo, const InstanceList &cells, const InstanceList &between)
+{
+	pool<const Netlist::Instance *> seen(todo.begin(), todo.end());
+	while (!todo.empty()) {
+		const Netlist::Instance *at = todo.back();
+		todo.pop_back();
+		for (const Netlist::Pin *input : at->pins) {
+			if (!queueDriversBetween(input, cells, between, seen, todo))
+				return false;
+		}
+	}
+	return true;
+}
+
+// queues the drivers that are between, false for one outside like a top input
+bool detail::Resolver::queueDriversBetween(const Netlist::Pin *input, const InstanceList &cells, const InstanceList &between, pool<const Netlist::Instance *> &seen, InstanceList &todo)
+{
+	// only a driven input brings a path
+	bool is_input = input->dir() == RTLIL::PD_INPUT;
+	if (!is_input || input->net == nullptr || input->net->constant != Netlist::Net::Const::None)
+		return true;
+	for (const Netlist::Instance *driver : driverCells(input->net)) {
+		if (detail::isBetween(driver, cells))
+			continue;
+		if (!detail::isBetween(driver, between))
+			return false;
+		if (seen.insert(driver).second)
+			todo.push_back(driver);
+	}
+	return true;
+}
+
+// drivers over the hierarchy, the top for a top input, cached since many refs read a clock
+const detail::InstanceList &detail::Resolver::driverCells(const Netlist::Net *net)
+{
+	if (driver_cells_by_net_.count(net) != 0)
+		return driver_cells_by_net_.at(net);
+	NetList connected_nets = detail::connectedNets(net);
+	InstanceList drivers;
+	for (const Netlist::Net *connected : connected_nets) {
+		for (const std::vector<Netlist::Pin *> *pins : {&connected->boundary, &connected->pins}) {
+			for (const Netlist::Pin *pin : *pins) {
+				if (pin->isDriver() && !detail::isTieCell(pin->inst))
+					drivers.push_back(pin->inst);
+			}
+		}
+	}
+	for (const Netlist::Net *connected : connected_nets)
+		driver_cells_by_net_[connected] = drivers;
+	return driver_cells_by_net_.at(net);
+}
+
+// at or below one of between, a scope holds its cells
+bool detail::isBetween(const Netlist::Instance *inst, const InstanceList &between)
+{
+	for (const Netlist::Instance *cell : between) {
+		if (detail::isAtOrBelow(inst, cell))
+			return true;
+	}
+	return false;
+}
+
+bool detail::isAllBetween(const InstanceList &cells, const InstanceList &between)
+{
+	for (const Netlist::Instance *cell : cells) {
+		if (!detail::isBetween(cell, between))
+			return false;
+	}
+	return true;
 }
 
 // a leaf pin with a barrier resolves to its cut side, a lost barrier gives the pin of the anchored cell
@@ -525,7 +642,7 @@ bool detail::Resolver::addPinsBelow(const Netlist::Instance *inst, const PortBit
 }
 
 // an inout pin has no barrier, its old net ends the new logic, none when a pass removed that net
-detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
+detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index, bool has_id)
 {
 	const HitList &hits = hits_by_ref_role_.get({ref_index, Anchor::Role::Barrier});
 	if (hits.empty())
@@ -539,16 +656,17 @@ detail::InstanceList detail::Resolver::cellsBetween(uint32_t ref_index)
 			return {};
 		ends.insert(walker.sigmap(RTLIL::SigBit(wire, offset)));
 	}
-	return cellsUpTo(hits, ends);
+	return cellsUpTo(hits, ends, has_id);
 }
 
 // cells on a path from an input cut wire to an output cut wire, a new cell can read a signal of other logic
 // with cuts on one side or an inout pin there is no such path, a path of one direction is then enough
-detail::InstanceList detail::Resolver::cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends)
+// a cell with its id needs no stand-in, it would take in the cone of other logic
+detail::InstanceList detail::Resolver::cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends, bool has_id)
 {
 	const Netlist::Instance *scope = hits[0].scope;
 	size_t output_cuts = std::ranges::count_if(hits, detail::cutOnA, &AnchorHit::cell);
-	bool one_direction = output_cuts == 0 || output_cuts == hits.size() || !ends.empty();
+	bool one_direction = !has_id && (output_cuts == 0 || output_cuts == hits.size() || !ends.empty());
 	CellSet after_inputs = cellsToward(hits, ends, WalkTarget::Loads);
 	CellSet before_outputs = cellsToward(hits, ends, WalkTarget::Drivers);
 	if (one_direction)

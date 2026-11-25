@@ -25,7 +25,8 @@ struct TrackedRef {
 	Kind kind;                            // a gone Net resolves to a Pin of its old leaf pins
 	Netlist::PinList pins = {};           // a resolved leaf pin is on its cut side
 	Netlist::InstanceList instances = {}; // cells between its barriers when the cell is gone
-	bool gone = false;                    // not found by resolve
+	bool gone = false;                    // not found, an Instance also when new cells bypass it
+	bool partial = false;                 // an Instance, a wire or other logic drives an old output
 	Netlist::PinList loads = {};          // behind a leaf Pin or Instance now a wire or constant, a Pin ref anchors them as pins
 	std::vector<PortCut> port_cuts = {};  // each old port of an Instance
 	Netlist::NetList nets = {};

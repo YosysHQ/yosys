@@ -189,8 +189,12 @@ private:
 	bool passCell(const Netlist::Instance *scope, const PortBit &at, WalkTarget target, CutWalk &walk);
 	bool addPinsAbove(const Netlist::Instance *scope, RTLIL::SigBit root, WalkTarget target, CutWalk &walk);
 	bool addPinsBelow(const Netlist::Instance *inst, const PortBit &at, WalkTarget target, CutWalk &walk);
-	InstanceList cellsBetween(uint32_t ref_index);
-	InstanceList cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends);
+	InstanceList cellsBetween(uint32_t ref_index, bool has_id);
+	bool isWiredOutput(const AnchorHit &hit, const PinList &cut_side);
+	bool isFedOnlyBy(InstanceList todo, const InstanceList &cells, const InstanceList &between);
+	bool queueDriversBetween(const Netlist::Pin *input, const InstanceList &cells, const InstanceList &between, pool<const Netlist::Instance *> &seen, InstanceList &todo);
+	const InstanceList &driverCells(const Netlist::Net *net);
+	InstanceList cellsUpTo(const HitList &hits, const pool<RTLIL::SigBit> &ends, bool has_id);
 	CellSet cellsToward(const HitList &hits, const pool<RTLIL::SigBit> &ends, WalkTarget target);
 	PinList loadsBehind(const AnchorHit &hit);
 	NetList resolveNet(uint32_t ref_index);
@@ -211,6 +215,7 @@ private:
 	std::map<RTLIL::Module *, ModWalker> mod_walkers_;
 	// by instance id, checkpoint scopeNames or names of now for a new scope, none when not entered (twins and below)
 	std::vector<std::optional<std::string>> scope_names_;
+	dict<const Netlist::Net *, InstanceList> driver_cells_by_net_; // see driverCells
 };
 
 void makeScopeNamesUnique(const NetView &view);
@@ -227,6 +232,11 @@ struct LeafPinsOnNet {
 void addLeafPins(const Netlist::Net *net, RTLIL::PortDir dir, LeafPinsOnNet &found);
 PinList standInPins(const Netlist::Net *net, RTLIL::PortDir dir);
 void ensureHdlname(RTLIL::Cell *cell);
+bool isLeafDriver(const Netlist::Pin *pin);
+bool isTieCell(const Netlist::Instance *inst);
+InstanceList newDrivers(const TrackedRef &ref);
+bool isBetween(const Netlist::Instance *inst, const InstanceList &between);
+bool isAllBetween(const InstanceList &cells, const InstanceList &between);
 
 void setOwnedAttribute(RTLIL::Design *design, RTLIL::AttrObject *object, RTLIL::IdString attr);
 void removeOwnedKeeps(RTLIL::Design *design);
