@@ -25,6 +25,7 @@ module, else from the Yosys cell types. The view does not follow the design.
 ``upToDate()`` turns false when the module list, the top, or the cells, wires
 or connections of a module in the view change. It misses cell parameters and
 attributes. The RTLIL pointers in the records are only safe while it is true.
+The caller checks it, and ``checkpoint()`` asserts it.
 
 ``NetTracker`` (:file:`kernel/netview/nettrack.h`) finds the objects of an old
 view again in a new one. ``checkpoint()`` writes a ``netview_ref`` id attribute
@@ -36,15 +37,16 @@ turned into.
 Usage
 ~~~~~
 
-The design needs a top module and no processes, so run `hierarchy` ``-top``
-and `proc` first. ``NetView::buildable()`` tells you why a design has no view.
+The design needs a top module and no processes, so run `hierarchy -top` and
+`proc` first. ``NetView::buildable()`` tells you why a design has no view.
 The constructor can still fail with ``log_cmd_error`` on a leaf type with no
 known ports.
+
 Put the objects you want to follow in a ``TrackedRef``. A ref holds pins,
 instances or nets, one kind per ref, and never the top instance.
 
 .. code-block:: cpp
-   :caption: Follow the first top pin through `flatten`
+   :caption: Follow the first pin of the top module through `flatten`
 
    NetTracker tracker;
    auto view = std::make_unique<NetView>(design);
@@ -107,16 +109,18 @@ into the module though, which all its instances share. So the other instances
 get them too and are optimized less. Run `flatten` or `uniquify` first if that
 matters.
 
-``unprotect()`` removes the barriers, keep attributes and cut marks of the
-tracker. The ids and ``hdlname`` stay, so ``resolve()`` still finds cells,
-leaf pins and nets. A scope pin with a barrier is anchored only by it and gets
-lost. Call it before you write the design out.
+``unprotect()`` removes only the barriers, keep attributes and cut marks that
+the tracker added. The ids and ``hdlname`` stay, so ``resolve()`` still finds
+cells, leaf pins and nets. A scope pin with a barrier is anchored only by it
+and gets lost. Call it before you write the design out.
 
 Limits
 ~~~~~~
 
 - Use one tracker per design, from one thread.
-- If two cells both match one object of a ref, that object is lost.
+- If a pass copies a cell with its id and no copy stays at its old place in
+  the hierarchy, ``resolve()`` cannot tell the copies apart. The cell is then
+  ``gone``, and the ref becomes the cells between its barriers, if any.
 - A copy of a cell that kept its attributes can be found in place of the
   deleted original.
 - Without a barrier, a cell or wire is lost when a pass drops its attributes.

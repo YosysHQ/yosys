@@ -54,3 +54,20 @@ EOT
 rename -wire
 select -assert-count 1 c:y$barrier
 select -assert-count 1 c:$b1 c:$b2
+design -reset
+
+read_rtlil <<EOT
+module \top
+  wire input 1 \a
+  wire input 2 \b
+  wire output 3 \n
+  wire \n_c
+  cell $_AND_ $and
+    connect \A \a
+    connect \B \b
+    connect \Y \n
+  end
+end
+EOT
+rename -wire -suffix _c t:$_AND_
+select -assert-count 1 c:$and
