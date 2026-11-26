@@ -6,6 +6,6 @@ module top(input enable);
 endmodule
 EOT
 
-logger -expect warning "found logic loop in module top" 1
+logger -expect warning "found logic loop in module top" 2
 logger -expect error "Found 1 problems in 'check -assert'" 1
 prep -formal -top top
