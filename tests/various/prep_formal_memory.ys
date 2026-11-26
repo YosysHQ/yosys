@@ -17,5 +17,10 @@ check -assert
 
 design -load rtl
 prep -formal -top top
+select -assert-count 1 t:$mem_v2
+check -assert
+
+design -load rtl
+prep -formal memmap -top top
 select -assert-none t:$mem*
 check -assert

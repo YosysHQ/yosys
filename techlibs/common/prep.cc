@@ -73,11 +73,12 @@ struct PrepPass : public ScriptPass
 		log("        this limits the optimizations that can be applied to the design to only\n");
 		log("        those involving private wires.\n");
 		log("\n");
-		log("    -formal [multiclock]\n");
+		log("    -formal [multiclock] [memmap]\n");
 		log("        preserve formal semantics before performing other optimizations;\n");
 		log("        replaces undefined bits and undriven signals with anyseq sources\n");
 		log("        for formal verification. run 'async2sync' by default, or\n");
 		log("        'clk2fflogic' when multiclock is specified.\n");
+		log("        memmap runs 'memory_map -formal', memories are not mapped by default.\n");
 		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
@@ -91,7 +92,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers, formal, multiclock;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers, formal, multiclock, memmap;
 
 	void clear_flags() override
 	{
@@ -107,6 +108,7 @@ struct PrepPass : public ScriptPass
 		barriers = false;
 		formal = false;
 		multiclock = false;
+		memmap = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -169,8 +171,15 @@ struct PrepPass : public ScriptPass
 			}
 			if (args[argidx] == "-formal") {
 				formal = true;
-				if (argidx+1 < args.size() && args[argidx+1] == "multiclock") {
-					multiclock = true;
+				multiclock = false;
+				memmap = false;
+				while (argidx+1 < args.size()) {
+					if (args[argidx+1] == "multiclock")
+						multiclock = true;
+					else if (args[argidx+1] == "memmap")
+						memmap = true;
+					else
+						break;
 					argidx++;
 				}
 				continue;
@@ -236,7 +245,8 @@ struct PrepPass : public ScriptPass
 				run(multiclock ? "clk2fflogic" : "async2sync");
 
 			run("chformal -lower");
-			run("memory_map -formal");
+			if (help_mode || memmap)
+				run("memory_map -formal", "(if -formal memmap)");
 			run("formalff -setundef -ff2anyinit -hierarchy");
 
 		}

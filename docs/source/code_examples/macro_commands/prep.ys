@@ -18,7 +18,7 @@ formal:    (if -formal)
     async2sync    (if -formal without multiclock)
     clk2fflogic -nopeepopt -nolower    (if -formal multiclock)
     chformal -lower
-    memory_map -formal
+    memory_map -formal    (if -formal memmap)
     formalff -setundef -ff2anyinit -hierarchy
 
 coarse:
