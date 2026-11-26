@@ -834,10 +834,12 @@ struct Index {
 		}
 	};
 
-	bool visit_hook(int, HierCursor&, SigBit)
+	bool visit_prehook(int, HierCursor&, SigBit)
 	{
 		return false;
 	}
+
+	void visit_posthook(Lit, SigBit) {}
 
 	Lit visit(HierCursor &cursor, SigBit bit)
 	{
@@ -863,7 +865,7 @@ struct Index {
 
 		// provide means for the derived class to override
 		// the visit behavior
-		if ((static_cast<Writer*>(this))->visit_hook(idx, cursor, bit)) {
+		if ((static_cast<Writer*>(this))->visit_prehook(idx, cursor, bit)) {
 			return lits[idx];
 		}
 
@@ -909,6 +911,8 @@ struct Index {
 			}
 			cursor.enter(*this, instance);
 		}
+
+		(static_cast<Writer*>(this))->visit_posthook(ret, bit);
 
 		lits[idx] = ret;
 		return ret;
@@ -1017,6 +1021,9 @@ struct AigerWriter : Index<AigerWriter, unsigned int, 0, 1> {
 				 ninputs + nlatches + nands, ninputs, nlatches, noutputs, nands);
 		f->write(buf, strlen(buf));
 	}
+
+	// I am not proud of this hack, but it works.
+	virtual void visit_posthook(int, SigBit) {}
 
 	void write(std::ostream *f) {
 		reset_counters();
@@ -1156,7 +1163,7 @@ struct XAigerAnalysis : Index<XAigerAnalysis, int, 0, 0> {
 
 	pool<Cell *> seen;
 
-	bool visit_hook(int idx, HierCursor &cursor, SigBit bit)
+	bool visit_prehook(int idx, HierCursor &cursor, SigBit bit)
 	{
 		log_assert(cursor.is_top()); // TOOD: fix analyzer to work with hierarchy
 
@@ -1418,6 +1425,24 @@ struct XAigerWriter : AigerWriter {
 		}
 	}
 
+	void visit_posthook(int lit, SigBit bit) override
+	{
+		if (design->scratchpad_get_bool("abc9.locations") && map_file.is_open()) {
+			map_file << "name " << lit << " " << bit.offset
+				<< " " << design->twines().ref_token(bit.wire->name) << "\n";
+			if (bit.wire->has_attribute(ID::src)) {
+				for (auto source : bit.wire->get_strpool_attribute(ID::src)) {
+					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+				}
+			}
+			if (bit.wire->driverCell()->has_attribute(ID::src)) {
+				for (auto source : bit.wire->driverCell()->get_strpool_attribute(ID::src)) {
+					map_file << "source " << lit << " " << bit.offset << " " << source << '\n';
+				}
+			}
+		}
+	}
+
 	RTLIL::Module *holes_module;
 
 	std::stringstream h_buffer;
@@ -1646,6 +1671,13 @@ struct XAigerWriter : AigerWriter {
 				<< " " << design->twines().ref_token(w->name) << "\n";
 		proper_pos_counter++;
 		pos.push_back(std::make_pair(SigBit(w, i), HierCursor{}));
+	}
+
+	void add_node(Wire *w, int i)
+	{
+		if (map_file.is_open())
+			map_file << "node" << " " << proper_pos_counter << " " << w->start_offset + i
+				<< " " << design->twines().ref_token(w->name) << "\n";
 	}
 
 	void write(std::ostream *f) {

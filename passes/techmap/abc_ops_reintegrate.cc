@@ -90,13 +90,21 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 	dict<RTLIL::IdString, std::pair<int,int>> wideports_cache;
 	dict<RTLIL::IdString, PseudoPo> pseudopos;
 	dict<RTLIL::IdString, KeptWire> keptwires;
+	dict<int, std::pair<RTLIL::IdString, int>> names;
+	dict<int, pool<std::string>> sources;
 
 	if (!map_filename.empty()) {
 		std::ifstream mf(map_filename);
 		std::string type, symbol;
 		int variable, index;
 
-		while (mf >> type >> variable >> index >> symbol) {
+		while (mf >> type >> variable >> index) {
+			if (type == "source") {
+				if (!std::getline(mf >> std::ws, symbol)) break;
+				sources[variable].insert(symbol);
+				continue;
+			}
+			if (!(mf >> symbol)) break;
 			IdString escaped_ref = ref_from_token(design, symbol);
 			if (type == "input") {
 				log_assert(variable < input_count);
@@ -225,6 +233,9 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 					log_debug("Box %d (%s) no longer exists.\n", variable, design->twines().unescaped_str(escaped_ref));
 				else
 					mapped_mod->rename(cell, escaped_ref);
+			}
+			else if (type == "name") {
+				names.insert({variable, std::make_pair(escaped_ref, index)});
 			}
 			else
 				log_error("Symbol type '%s' not recognised.\n", type);
@@ -432,7 +443,43 @@ void reintegrate(RTLIL::Module *module, bool dff_mode, bool stdcell_mode, std::s
 			RTLIL::copy_attr_dict(cell->parameters, mapped_cell->parameters, mapped_mod->design, design);
 			RTLIL::copy_attr_dict(cell->attributes, mapped_cell->attributes, mapped_mod->design, design);
 
-			// Name recovery code will go here, but since it's not ready yet, just remove the source attribute.
+			if (design->scratchpad_get_bool("abc9.locations") && cell->has_attribute(ID::abc9_src)) {
+				auto abc9_srcs = cell->get_intvec_attribute(ID::abc9_src);
+				auto src_pool = pool<std::string>{};
+				for (auto abc9_src : abc9_srcs) {
+					RTLIL::Wire* equiv_wire = nullptr;
+
+					auto name = names.find(abc9_src);
+					if (name != names.end()) {
+						src_pool.insert(stringf("containing signal %s", PooledName(design, name->second.first)));
+						equiv_wire = module->wire(name->second.first);
+					} else {
+						// Perhaps we can use the src attribute of the inverted signal?
+						abc9_src ^= 1;
+						name = names.find(abc9_src);
+						if (name != names.end()) {
+							src_pool.insert(stringf("containing inverted signal %s", PooledName(design, name->second.first)));
+							equiv_wire = module->wire(name->second.first);
+						} else {
+							// No luck.
+							continue;
+						}
+					}
+
+					if (equiv_wire && equiv_wire->has_attribute(ID::src)) {
+						for (auto src : equiv_wire->get_strpool_attribute(ID::src)) {
+							src_pool.insert(stringf("    defined in %s", src));
+						}
+					}
+					auto source = sources.find(abc9_src);
+					if (source != sources.end()) {
+						for (auto src : source->second) {
+							src_pool.insert(stringf("    defined in %s", src));
+						}
+					}
+				}
+				cell->add_strpool_attribute(ID::src, src_pool);
+			}
 			cell->attributes.erase(ID::abc9_src);
 
 			for (auto &mapped_conn : mapped_cell->connections()) {
