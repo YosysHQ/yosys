@@ -697,7 +697,11 @@ bool RTLIL::Design::is_metadata(RTLIL::IdString name)
 std::string RTLIL::Design::get_metadata_string(const RTLIL::AttrObject *obj, RTLIL::IdString name) const
 {
 	log_assert(is_metadata(name));
-	return srcs_.str(obj->src());
+	if (name == ID::src)
+		return srcs_.str(obj->src());
+	else
+		log_assert(false);
+	return ""; // unreachable
 }
 
 bool RTLIL::Design::set_metadata_string(RTLIL::AttrObject *obj, RTLIL::IdString name, const RTLIL::Const &value)
@@ -705,7 +709,10 @@ bool RTLIL::Design::set_metadata_string(RTLIL::AttrObject *obj, RTLIL::IdString 
 	log_assert(is_metadata(name));
 	if (!(value.flags & RTLIL::CONST_FLAG_STRING))
 		return false;
-	obj->set_src(srcs_.add_parsed(value.decode_string()));
+	if (name == ID::src)
+		obj->set_src(srcs_.add_parsed(value.decode_string()));
+	else
+		log_assert(false);
 	return true;
 }
 

@@ -31,7 +31,7 @@ locations as a set with ``SrcPool::add``.
 attribute and splits it. It splits the string on ``|`` into locations, and
 each location at its last ``:`` into the file name and the suffix. A location
 without such a colon becomes a single root twine. As with the old attribute,
-a file name containing ``|`` can't be represented.
+a file name containing ``|`` can't be distinguished from multiple locations.
 
 Every ``AttrObject`` holds a 32-bit ``SrcRef`` index into that pool, or
 ``SrcRef::Null`` when it has no source location.
@@ -170,7 +170,9 @@ re-interns source locations into the target design; elsewhere, use
 
 .. code-block:: cpp
 
-   dst->set_src(dst_design->srcs().copy_from(src_design->srcs(), src->src()));
+   auto old_src = thing->src();
+   auto new_src = dst_design->srcs().copy_from(src_design->srcs(), old_src);
+   dst->set_src(new_src);
 
 Python helpers
 ^^^^^^^^^^^^^^
@@ -187,18 +189,18 @@ way to build locations yet, so locations are created from strings with
 
 .. code-block:: diff
 
-   -cell.set_src_attribute("top.v:3.5-3.9")
-   +cell.set_src(design.srcs().add_parsed("top.v:3.5-3.9"))
+   -cell->set_src_attribute("top.v:3.5-3.9")
+   +cell->set_src(cell->srcs().add_parsed("top.v:3.5-3.9"))
 
 .. code-block:: diff
 
-   -src = cell.get_src_attribute()
-   +src = cell.srcs().str(cell.src())
+   -src = cell->get_src_attribute()
+   +src = cell->srcs().str(cell->src())
 
 .. code-block:: diff
 
-   -module.addAnd("\\and", a, b, y, src=cell.get_src_attribute())
-   +module.addAnd("\\and", a, b, y, src=cell.src())
+   -module.addAnd("\\and", a, b, y, src=cell->get_src_attribute())
+   +module.addAnd("\\and", a, b, y, src=cell->src())
 
 ``Design.transfer_metadata`` and ``Design.absorb_metadata`` work as in C++.
 ``CaseRule`` and ``SwitchRule`` take their module as constructor argument.
