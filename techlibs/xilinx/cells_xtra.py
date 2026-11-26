@@ -706,12 +706,12 @@ def xtract_cell_decl(cell, dirs, outf):
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Extract Xilinx blackbox cell definitions from ISE and Vivado.')
-    parser.add_argument('vivado_dir', nargs='?', default='/opt/Xilinx/Vivado/2022.2')
-    parser.add_argument('ise_dir', nargs='?', default='/opt/Xilinx/ISE/14.7')
+    parser.add_argument('vivado_dir', nargs='?', default='/opt/Vivado/2026.2/Vivado')
+    parser.add_argument('ise_dir', nargs='?', default='/opt/Xilinx/14.7')
     args = parser.parse_args()
 
     dirs = [
-        os.path.join(args.vivado_dir, 'data/verilog/src/xeclib'),
+        #os.path.join(args.vivado_dir, 'data/verilog/src/xeclib'),
         os.path.join(args.vivado_dir, 'data/verilog/src/unisims'),
         os.path.join(args.vivado_dir, 'data/verilog/src/retarget'),
         os.path.join(args.ise_dir, 'ISE_DS/ISE/verilog/xeclib/unisims'),
