@@ -74,8 +74,10 @@ struct LtpWorker
 			}
 
 			for (auto s : src_bits)
-				for (auto d : dst_bits)
-					bit2bits[s][d] = cell;
+				if (bits.count(s))
+					for (auto d : dst_bits)
+						if (bits.count(d))
+							bit2bits[s][d] = cell;
 		}
 
 		maxlvl = -1;
