@@ -1,0 +1,21 @@
+read_verilog -formal <<EOT
+module top(input clk, addr, data, output q);
+    reg mem [0:1];
+
+    always @(posedge clk)
+        mem[addr] <= data;
+
+    assign q = mem[addr];
+endmodule
+EOT
+
+design -save rtl
+
+prep -top top
+select -assert-count 1 t:$mem_v2
+check -assert
+
+design -load rtl
+prep -formal -top top
+select -assert-none t:$mem*
+check -assert

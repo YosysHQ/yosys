@@ -7,8 +7,9 @@ begin:
 
 formal:    (if -formal)
     setundef -undriven -anyseq
-    memory_nordff
     peepopt -formalclk
+    check -assert
+    memory_nordff
     async2sync    (if -formal without multiclock)
     clk2fflogic -nopeepopt -nolower    (if -formal multiclock)
     chformal -lower

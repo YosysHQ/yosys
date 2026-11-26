@@ -1,0 +1,13 @@
+read_verilog -formal <<EOT
+module top(output wire undriven);
+    always @* assert (!undriven);
+endmodule
+EOT
+
+select -assert-count 1 t:$check
+prep -formal -top top
+select -assert-count 1 t:$anyseq
+select -assert-count 1 w:undriven %ci1 t:$anyseq %i
+select -assert-count 1 t:$assert
+select -assert-none t:$check
+check -assert

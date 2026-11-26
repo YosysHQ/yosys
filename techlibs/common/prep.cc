@@ -218,8 +218,9 @@ struct PrepPass : public ScriptPass
 		if (check_label("formal", "(if -formal)") && (formal || help_mode))
 		{
 			run("setundef -undriven -anyseq");
-			run("memory_nordff");
 			run("peepopt -formalclk");
+			run("check -assert");
+			run("memory_nordff");
 
 			if (help_mode) {
 				run("async2sync", "(if -formal without multiclock)");
