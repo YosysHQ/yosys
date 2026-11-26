@@ -1,0 +1,31 @@
+read_slang --top top <<EOT
+module top(anyseq_value, anyconst_value, allseq_value, allconst_value, undriven);
+    (* anyseq *) output wire anyseq_value;
+    (* anyconst *) output wire anyconst_value;
+    (* allseq *) output wire allseq_value;
+    (* allconst *) output wire allconst_value;
+    output wire undriven;
+
+endmodule
+EOT
+
+select -assert-count 1 a:anyseq
+select -assert-count 1 a:anyconst
+select -assert-count 1 a:allseq
+select -assert-count 1 a:allconst
+select -assert-none t:$anyseq t:$anyconst t:$allseq t:$allconst
+
+logger -expect warning "Wire top.*undriven.* is used but has no driver" 1
+prep -formal -top top
+logger -check-expected
+
+select -assert-count 2 t:$anyseq
+select -assert-count 1 t:$anyconst
+select -assert-count 1 t:$allseq
+select -assert-count 1 t:$allconst
+select -assert-count 1 w:anyseq_value %a %ci1 t:$anyseq %i
+select -assert-count 1 w:anyconst_value %a %ci1 t:$anyconst %i
+select -assert-count 1 w:allseq_value %a %ci1 t:$allseq %i
+select -assert-count 1 w:allconst_value %a %ci1 t:$allconst %i
+select -assert-count 1 w:undriven %a %ci1 t:$anyseq %i
+check -assert

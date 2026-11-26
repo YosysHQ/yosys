@@ -30,6 +30,8 @@
 #define MODE_RANDOM   3
 #define MODE_ANYSEQ   4
 #define MODE_ANYCONST 5
+#define MODE_ALLSEQ   6
+#define MODE_ALLCONST 7
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
@@ -70,6 +72,23 @@ struct SetundefWorker
 	uint32_t next_bit_state;
 	vector<SigSpec*> siglist;
 
+	bool formal_mode() const
+	{
+		return next_bit_mode == MODE_ANYSEQ || next_bit_mode == MODE_ANYCONST ||
+		       next_bit_mode == MODE_ALLSEQ || next_bit_mode == MODE_ALLCONST;
+	}
+
+	SigSpec formal_driver(Module *module, int width)
+	{
+		switch (next_bit_mode) {
+		case MODE_ANYSEQ:   return module->Anyseq(NEW_ID, width);
+		case MODE_ANYCONST: return module->Anyconst(NEW_ID, width);
+		case MODE_ALLSEQ:   return module->Allseq(NEW_ID, width);
+		case MODE_ALLCONST: return module->Allconst(NEW_ID, width);
+		default: log_abort();
+		}
+	}
+
 	RTLIL::State next_bit()
 	{
 		if (next_bit_mode == MODE_ZERO)
@@ -97,7 +116,7 @@ struct SetundefWorker
 
 	void operator()(RTLIL::SigSpec &sig)
 	{
-		if (next_bit_mode == MODE_ANYSEQ || next_bit_mode == MODE_ANYCONST) {
+		if (formal_mode()) {
 			siglist.push_back(&sig);
 			return;
 		}
@@ -138,6 +157,12 @@ struct SetundefPass : public Pass {
 		log("\n");
 		log("    -anyconst\n");
 		log("        replace with $anyconst drivers (for formal)\n");
+		log("\n");
+		log("    -allseq\n");
+		log("        replace with $allseq drivers (for formal)\n");
+		log("\n");
+		log("    -allconst\n");
+		log("        replace with $allconst drivers (for formal)\n");
 		log("\n");
 		log("    -random <seed>\n");
 		log("        replace with random bits using the specified integer as seed\n");
@@ -196,6 +221,18 @@ struct SetundefPass : public Pass {
 				worker.next_bit_state = 0;
 				continue;
 			}
+			if (args[argidx] == "-allseq") {
+				got_value++;
+				worker.next_bit_mode = MODE_ALLSEQ;
+				worker.next_bit_state = 0;
+				continue;
+			}
+			if (args[argidx] == "-allconst") {
+				got_value++;
+				worker.next_bit_mode = MODE_ALLCONST;
+				worker.next_bit_state = 0;
+				continue;
+			}
 			if (args[argidx] == "-undef") {
 				got_value++;
 				worker.next_bit_mode = MODE_UNDEF;
@@ -232,12 +269,12 @@ struct SetundefPass : public Pass {
 		if (expose_mode && !undriven_mode)
 			log_cmd_error("Option -expose must be used with option -undriven.\n");
 		if (!got_value)
-			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, -random <seed>, or -expose must be specified.\n");
+			log_cmd_error("One of the options -zero, -one, -anyseq, -anyconst, -allseq, -allconst, -random <seed>, or -expose must be specified.\n");
 		else if (got_value > 1)
-			log_cmd_error("Only one of the options -zero, -one, -anyseq, -anyconst, or -random <seed> can be specified.\n");
+			log_cmd_error("Only one of the options -zero, -one, -anyseq, -anyconst, -allseq, -allconst, or -random <seed> can be specified.\n");
 
-		if (init_mode && (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST))
-			log_cmd_error("The options -init and -anyseq / -anyconst are exclusive.\n");
+		if (init_mode && worker.formal_mode())
+			log_cmd_error("The options -init and -anyseq / -anyconst / -allseq / -allconst are exclusive.\n");
 
 		for (auto module : design->selected_modules())
 		{
@@ -348,10 +385,8 @@ struct SetundefPass : public Pass {
 					RTLIL::SigSpec sig = undriven_signals.export_all();
 					for (auto &c : sig.chunks()) {
 						RTLIL::SigSpec bits;
-						if (worker.next_bit_mode == MODE_ANYSEQ)
-							bits = module->Anyseq(NEW_ID, c.width);
-						else if (worker.next_bit_mode == MODE_ANYCONST)
-							bits = module->Anyconst(NEW_ID, c.width);
+						if (worker.formal_mode())
+							bits = worker.formal_driver(module, c.width);
 						else
 							for (int i = 0; i < c.width; i++)
 								bits.append(worker.next_bit());
@@ -491,9 +526,9 @@ struct SetundefPass : public Pass {
 				log_assert(ffbits.empty());
 			}
 
-			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
+			if (worker.formal_mode())
 			{
-				// Do not add anyseq / anyconst to unused memory port clocks
+				// Do not add formal drivers to unused memory port clocks
 				std::vector<Mem> memories = Mem::get_selected_memories(module);
 				for (auto &mem : memories) {
 					bool changed = false;
@@ -531,7 +566,7 @@ struct SetundefPass : public Pass {
 				}
 			}
 
-			if (worker.next_bit_mode == MODE_ANYSEQ || worker.next_bit_mode == MODE_ANYCONST)
+			if (worker.formal_mode())
 			{
 				vector<SigSpec*> siglist;
 				siglist.swap(worker.siglist);
@@ -548,10 +583,7 @@ struct SetundefPass : public Pass {
 							width++;
 
 						if (width > 0) {
-							if (worker.next_bit_mode == MODE_ANYSEQ)
-								sig.replace(cursor, module->Anyseq(NEW_ID, width));
-							else
-								sig.replace(cursor, module->Anyconst(NEW_ID, width));
+							sig.replace(cursor, worker.formal_driver(module, width));
 							cursor += width;
 						} else {
 							cursor++;

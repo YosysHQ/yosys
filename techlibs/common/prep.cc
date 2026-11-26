@@ -217,8 +217,15 @@ struct PrepPass : public ScriptPass
 
 		if (check_label("formal", "(if -formal)") && (formal || help_mode))
 		{
-			run("setundef -undriven -anyseq");
+			// I think this can be folded into one command if attributes are selected internally
+			run("setundef -undriven -anyseq   a:anyseq  ");
+			run("setundef -undriven -anyconst a:anyconst");
+			run("setundef -undriven -allseq   a:allseq  ");
+			run("setundef -undriven -allconst a:allconst");
+
 			run("peepopt -formalclk");
+			run("check"); // emit a warning for remaining undriven cellls
+			run("setundef -undriven -anyseq");
 			run("check -assert");
 			run("memory_nordff");
 

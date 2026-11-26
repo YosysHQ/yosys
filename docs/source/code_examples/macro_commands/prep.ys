@@ -6,8 +6,13 @@ begin:
     proc [-ifx]
 
 formal:    (if -formal)
-    setundef -undriven -anyseq
+    setundef -undriven -anyseq   a:anyseq
+    setundef -undriven -anyconst a:anyconst
+    setundef -undriven -allseq   a:allseq
+    setundef -undriven -allconst a:allconst
     peepopt -formalclk
+    check
+    setundef -undriven -anyseq
     check -assert
     memory_nordff
     async2sync    (if -formal without multiclock)
