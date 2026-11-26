@@ -200,6 +200,7 @@ private:
 	NetList resolveNet(uint32_t ref_index);
 	void addNetsAt(const NetPlace &place, const PinList &drivers, NetList &nets) const;
 	const Netlist::Net *netInScope(const Netlist::Net *net, const NetPlace &old) const;
+private:
 	const NetView &view_;
 	const TrackData &data_;
 	ListMap<std::pair<uint32_t, Anchor::Role>, AnchorHit> hits_by_ref_role_;

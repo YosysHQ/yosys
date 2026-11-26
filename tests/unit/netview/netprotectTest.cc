@@ -465,8 +465,8 @@ TEST_F(NetProtectTest, pinRefFindsTopPins)
 	EXPECT_EQ(sortedPins(ref.pins), sortedPins(expected));
 }
 
-// protected flatten dissolves a scope with a public name, the ref follows its cell
-// flatten keeps no name of a scope with a private name, so a protected one stays
+// flatten dissolves a scope with a public name, the ref follows its cell
+// flatten keeps no name of a scope with a private name, so the checkpoint keeps the scope
 TEST_F(NetProtectTest, flattenDissolvesOnlyAPublicScopeOfARef)
 {
 	ensurePasses();

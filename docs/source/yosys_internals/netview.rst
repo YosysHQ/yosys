@@ -75,14 +75,20 @@ After ``resolve()``, a ref holds what its objects turned into:
   loads of an input or the drivers of an output. An output that also drove
   loads inside the scope is gone, and ``loads`` holds the loads outside.
 - A cell that a pass split or replaced becomes the cells now between its old
-  barriers. ``port_cuts`` lists the pins on each old port.
+  barriers. ``port_cuts`` lists the pins on each old port. A cell that kept
+  its id stays the ref, unless a new cell that other logic feeds drives one of
+  its old outputs, like a sibling of a ``_TECHMAP_REPLACE_`` cell. Then it is
+  ``gone`` and becomes the cells between too, or stays the kept cell if no other
+  cell is between. When cells remain, ``partial`` is set when a wire or a cell
+  beside them drives an old output. A cell that only they feed, like an inverter
+  after QN, and a tie cell do not count.
 - A net below the top that is gone becomes the leaf pins of that net, so the
   ref turns into a pin ref.
 - If nothing is left between the barriers of a gone pin or cell, for example
   because a pass turned a cell into a wire, ``loads`` holds the pins behind
   them. A cell with an inout pin gets none. The next ``checkpoint()`` anchors
   these for a pin ref.
-- ``gone`` is set only if none of the objects were found.
+- Else ``gone`` is set only if none of the objects were found.
 
 Barriers
 ~~~~~~~~
@@ -103,6 +109,8 @@ matters.
 
 ``unprotect()`` removes the barriers, keep attributes and cut marks of the
 tracker. The ids and ``hdlname`` stay, so ``resolve()`` still finds cells,
+leaf pins and nets. A scope pin with a barrier is anchored only by it and gets
+lost. Call it before you write the design out.
 
 Limits
 ~~~~~~
