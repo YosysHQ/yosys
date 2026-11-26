@@ -1,0 +1,21 @@
+# setundef -anyseq / -anyconst must leave x bits in memory init data alone (#6556)
+read_verilog <<EOT
+module top(input [1:0] ra, output [7:0] rd);
+  reg [7:0] mem [0:3];
+  initial begin mem[0] = 8'h5a; mem[1] = 8'bxxxx0101; end
+  assign rd = mem[ra];
+endmodule
+EOT
+proc
+design -save start
+
+setundef -undriven -anyseq
+select -assert-none t:$anyseq
+memory -nomap
+select -assert-count 1 t:$mem_v2
+
+design -load start
+setundef -undriven -anyconst
+select -assert-none t:$anyconst
+memory -nomap
+select -assert-count 1 t:$mem_v2
