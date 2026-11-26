@@ -39,8 +39,11 @@ void SrcPool::check_owned([[maybe_unused]] SrcRef ref) const {
 
 struct SrcEq {
 	const SrcPool &pool;
-	const SrcSet &node;
-	bool operator()(SrcRef ref) const { return pool[ref] == node; }
+	std::span<const IdString> members;
+	bool operator()(SrcRef ref) const {
+		const std::vector<IdString> &stored = pool[ref].members();
+		return std::equal(stored.begin(), stored.end(), members.begin(), members.end());
+	}
 };
 
 void SrcPool::clone_from(const SrcPool &other) {
@@ -55,9 +58,9 @@ void SrcPool::clear() {
 	index_entries = 0;
 }
 
-uint64_t SrcPool::hash_node(const SrcSet &n) {
+uint64_t SrcSet::hash_members(std::span<const IdString> members) {
 	Hasher h;
-	for (IdString member : n.members())
+	for (IdString member : members)
 		h.eat(member);
 	return h.yield();
 }
@@ -108,16 +111,108 @@ SrcRef SrcPool::add_parsed(std::string_view text) {
 }
 
 SrcRef SrcPool::merge(std::span<const SrcRef> refs) {
-	std::vector<IdString> members;
+	log_assert(!Multithreading::active());
+
+	struct DistinctRefs {
+		SrcRef first = SrcRef::Null;
+		SrcRef second = SrcRef::Null;
+		bool rest = false;
+
+		void add(SrcRef ref)
+		{
+			if (ref == SrcRef::Null || ref == first || ref == second)
+				return;
+			if (first == SrcRef::Null)
+				first = ref;
+			else if (second == SrcRef::Null)
+				second = ref;
+			else
+				rest = true;
+		}
+
+		int size() const
+		{
+			if (rest)
+				return 3;
+			if (second != SrcRef::Null)
+				return 2;
+			return first != SrcRef::Null ? 1 : 0;
+		}
+	};
+
+	DistinctRefs distinct = {};
+	for (SrcRef ref : refs) {
+		if (ref != SrcRef::Null)
+			check_owned(ref);
+		distinct.add(ref);
+		if (distinct.rest)
+			break;
+	}
+
+	if (distinct.size() < 2)
+		return distinct.first;
+	if (distinct.size() == 2)
+		return merge_unchecked(distinct.first, distinct.second);
+
+	std::vector<IdString> members = {};
 	for (SrcRef ref : refs)
 		if (ref != SrcRef::Null)
 			members.insert(members.end(), (*this)[ref].members().begin(), (*this)[ref].members().end());
-	return intern(std::move(members));
+	std::sort(members.begin(), members.end());
+	members.erase(std::unique(members.begin(), members.end()), members.end());
+	return intern_unchecked(std::move(members));
 }
 
 SrcRef SrcPool::merge(SrcRef a, SrcRef b) {
-	SrcRef both[] = {a, b};
-	return merge(std::span<const SrcRef>{both});
+	log_assert(!Multithreading::active());
+	if (a != SrcRef::Null)
+		check_owned(a);
+	if (b != SrcRef::Null)
+		check_owned(b);
+	if (a == SrcRef::Null || a == b)
+		return b;
+	if (b == SrcRef::Null)
+		return a;
+	return merge_unchecked(a, b);
+}
+
+SrcRef SrcPool::merge_unchecked(SrcRef a, SrcRef b) {
+	const std::vector<IdString> &ma = (*this)[a].members();
+	const std::vector<IdString> &mb = (*this)[b].members();
+	std::vector<IdString> scratch;
+	size_t only_a = 0;
+	size_t only_b = 0;
+	auto ia = ma.begin();
+	auto ib = mb.begin();
+	while (ia != ma.end() && ib != mb.end()) {
+		if (*ia < *ib) {
+			scratch.push_back(*ia++);
+			only_a++;
+		} else if (*ib < *ia) {
+			scratch.push_back(*ib++);
+			only_b++;
+		} else {
+			scratch.push_back(*ia++);
+			ib++;
+		}
+	}
+	only_a += ma.end() - ia;
+	only_b += mb.end() - ib;
+	if (only_b == 0)
+		return a;
+	if (only_a == 0)
+		return b;
+	scratch.insert(scratch.end(), ia, ma.end());
+	scratch.insert(scratch.end(), ib, mb.end());
+	return intern_unchecked(std::move(scratch));
+}
+
+SrcRef SrcPool::intern_unchecked(std::vector<IdString> scratch) {
+	uint64_t hash = SrcSet::hash_members(scratch);
+	SrcRef found = find_hashed(hash, SrcEq{*this, scratch});
+	if (found != SrcRef::Null)
+		return stamp(found);
+	return stamp(add_inner(SrcSet{std::move(scratch), hash}));
 }
 
 SrcRef SrcPool::place(size_t idx, std::span<const IdString> members) {
@@ -125,7 +220,8 @@ SrcRef SrcPool::place(size_t idx, std::span<const IdString> members) {
 	canonicalize_members(canon);
 	if (canon.empty())
 		return SrcRef::Null;
-	return stamp(HashConsPool::place(idx, SrcSet{std::move(canon)}));
+	uint64_t hash = SrcSet::hash_members(canon);
+	return stamp(HashConsPool::place(idx, SrcSet{std::move(canon), hash}));
 }
 
 SrcRef SrcPool::find_members(std::span<const IdString> members) const {
@@ -133,8 +229,7 @@ SrcRef SrcPool::find_members(std::span<const IdString> members) const {
 	canonicalize_members(canon);
 	if (canon.empty())
 		return SrcRef::Null;
-	SrcSet node{std::move(canon)};
-	return stamp(find_hashed(hash_node(node), SrcEq{*this, node}));
+	return stamp(find_hashed(SrcSet::hash_members(canon), SrcEq{*this, canon}));
 }
 
 SrcRef SrcPool::copy_from(const SrcPool &other, SrcRef ref) {
@@ -250,11 +345,7 @@ SrcRef SrcPool::intern(std::vector<IdString> members) {
 	canonicalize_members(members);
 	if (members.empty())
 		return SrcRef::Null;
-	SrcSet node{std::move(members)};
-	SrcRef found = find_hashed(hash_node(node), SrcEq{*this, node});
-	if (found != SrcRef::Null)
-		return stamp(found);
-	return stamp(add_inner(std::move(node)));
+	return intern_unchecked(std::move(members));
 }
 
 size_t SrcPoolIo::index(const SrcPool &pool, SrcRef ref) {

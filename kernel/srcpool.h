@@ -44,15 +44,17 @@ template<> struct hash_ops<SrcRef> {
 
 struct SrcSet {
 	SrcSet() = default;
-	explicit SrcSet(std::vector<IdString> members) : members_(std::move(members)) {}
+	SrcSet(std::vector<IdString> members, uint64_t hash) : members_(std::move(members)), hash_(hash) {}
 
 	bool is_dead() const { return members_.empty(); }
 	const std::vector<IdString> &members() const { return members_; }
+	uint64_t hash() const { return hash_; }
 
-	bool operator==(const SrcSet &other) const { return members_ == other.members_; }
+	static uint64_t hash_members(std::span<const IdString> members);
 
 private:
 	std::vector<IdString> members_;
+	uint64_t hash_ = 0;
 };
 
 struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
@@ -78,7 +80,7 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	SrcPool &operator=(const SrcPool &) = delete;
 	SrcPool &operator=(SrcPool &&) = delete;
 
-	static uint64_t hash_node(const SrcSet &n);
+	static uint64_t hash_node(const SrcSet &n) { return n.hash(); }
 
 	template<typename F>
 	static void for_each_child(const SrcSet&, F&&) {}
@@ -126,6 +128,8 @@ private:
 	IdString parse_location(std::string_view location);
 	static void canonicalize_members(std::vector<IdString> &members);
 	SrcRef intern(std::vector<IdString> members);
+	SrcRef intern_unchecked(std::vector<IdString> members);
+	SrcRef merge_unchecked(SrcRef a, SrcRef b);
 };
 
 struct SrcPoolIo {

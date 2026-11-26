@@ -14,6 +14,7 @@ TEST(SrcPoolTest, MergeIsUnion)
 	SrcRef both = srcs.merge(a, b);
 
 	EXPECT_EQ(srcs.add_parsed("top.v:1.2-1.3"), a);
+	EXPECT_EQ(srcs.merge(b, a), both);
 	EXPECT_EQ(srcs.merge(both, a), both);
 	EXPECT_EQ(srcs.add_parsed("top.v:2.2-2.3|top.v:1.2-1.3"), both);
 }
