@@ -23,6 +23,39 @@
 
 USING_YOSYS_NAMESPACE
 
+int SatGen::trailingRunLength(const std::vector<int> &vec)
+{
+	int run_length = 0;
+	while (run_length < GetSize(vec) && vec[GetSize(vec) - 1 - run_length] == vec.back())
+		run_length++;
+	return run_length;
+}
+
+std::vector<int> SatGen::accumulateProduct(std::vector<int> acc, std::vector<int> a, std::vector<int> b, bool subtract)
+{
+	int width = GetSize(acc);
+	log_assert(GetSize(a) == width && GetSize(b) == width);
+
+	if (trailingRunLength(a) > trailingRunLength(b))
+		std::swap(a, b);
+
+	// rows from fold_row up all use b.back() and sum to -(a << fold_row)
+	int run_length = trailingRunLength(b);
+	int fold_row = width - run_length;
+	if (run_length < 2)
+		fold_row = width;
+
+	for (int i = 0; i < width && i <= fold_row; i++) {
+		std::vector<int> row = ez->vec_shift(a, -i, ez->CONST_FALSE, ez->CONST_FALSE);
+		bool row_subtracts = subtract != (i == fold_row);
+		if (row_subtracts)
+			acc = ez->vec_ite(b[i], ez->vec_sub(acc, row), acc);
+		else
+			acc = ez->vec_ite(b[i], ez->vec_add(acc, row), acc);
+	}
+	return acc;
+}
+
 bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 {
 	bool arith_undef_handled = false;
@@ -723,14 +756,8 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 
 		std::vector<int> yy = model_undef ? ez->vec_var(y.size()) : y;
 
-		std::vector<int> tmp(a.size(), ez->CONST_FALSE);
-		for (int i = 0; i < int(a.size()); i++)
-		{
-			std::vector<int> shifted_a(a.size(), ez->CONST_FALSE);
-			for (int j = i; j < int(a.size()); j++)
-				shifted_a.at(j) = a.at(j-i);
-			tmp = ez->vec_ite(b.at(i), ez->vec_add(tmp, shifted_a), tmp);
-		}
+		std::vector<int> zero(a.size(), ez->CONST_FALSE);
+		std::vector<int> tmp = accumulateProduct(zero, a, b, false);
 		ez->assume(ez->vec_eq(tmp, yy));
 
 		if (model_undef) {
@@ -766,15 +793,7 @@ bool SatGen::importCell(RTLIL::Cell *cell, int timestep)
 					in_b.push_back(port.is_signed && !in_b.empty() ? in_b.back() : ez->CONST_FALSE);
 				in_b.resize(GetSize(y));
 
-				for (int i = 0; i < GetSize(in_b); i++) {
-					std::vector<int> shifted_a(in_a.size(), ez->CONST_FALSE);
-					for (int j = i; j < int(in_a.size()); j++)
-						shifted_a.at(j) = in_a.at(j-i);
-					if (port.do_subtract)
-						tmp = ez->vec_ite(in_b.at(i), ez->vec_sub(tmp, shifted_a), tmp);
-					else
-						tmp = ez->vec_ite(in_b.at(i), ez->vec_add(tmp, shifted_a), tmp);
-				}
+				tmp = accumulateProduct(tmp, in_a, in_b, port.do_subtract);
 			}
 			else
 			{

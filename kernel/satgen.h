@@ -291,6 +291,9 @@ struct SatGen
 		initstates[key] = true;
 	}
 
+	int trailingRunLength(const std::vector<int> &vec);
+	std::vector<int> accumulateProduct(std::vector<int> acc, std::vector<int> a, std::vector<int> b, bool subtract);
+
 	bool importCell(RTLIL::Cell *cell, int timestep = -1);
 };
 

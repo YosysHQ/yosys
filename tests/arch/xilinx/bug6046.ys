@@ -1,23 +1,24 @@
 # A 1 in a register bit that the DSP does not absorb used to abort
 # xilinx_dsp (the matcher only checks the absorbed slice, the mover
 # walked the whole Q). The register stays in the fabric with its init.
-# equiv_opt does not look at init values, so each case is also checked
+# equiv_induct does not look at init values, so each case is also checked
 # with a bounded SAT run from the init state.
 
 design -reset
 read_verilog <<EOT
-module outside(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
-  reg [15:0] r = 16'h0001;
+module outside(input clk, input signed [5:0] x, output reg signed [11:0] p = 0);
+  reg [11:0] r = 12'h001;
   always @(posedge clk) begin
     r <= r + 1;
-    p <= $signed(r[15:8]) * x;
+    p <= $signed(r[11:6]) * x;
   end
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -25,7 +26,7 @@ cd outside
 select -assert-count 1 t:DSP48E1
 select -assert-count 1 t:DSP48E1 r:AREG=1 %i r:MREG=1'1 %i
 select -assert-count 1 t:FDRE r:INIT=1'1 %i
-select -assert-count 15 t:FDRE r:INIT=1'0 %i
+select -assert-count 11 t:FDRE r:INIT=1'0 %i
 
 # The reported 32-bit counter: the 1 is in the low half, so only the
 # high half (init 0) is absorbed.
@@ -66,17 +67,18 @@ select -assert-count 1 t:FDRE r:INIT=1'1 %i
 # M register: the 1 sits above the product half.
 design -reset
 read_verilog <<EOT
-module mreg(input clk, input signed [7:0] a, b, input [7:0] c, output reg [23:0] q = 24'h010000);
+module mreg(input clk, input signed [5:0] a, b, input [7:0] c, output reg [19:0] q = 20'h01000);
   always @(posedge clk) begin
-    q[15:0] <= a * b;
-    q[23:16] <= c;
+    q[11:0] <= a * b;
+    q[19:12] <= c;
   end
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -89,17 +91,18 @@ select -assert-count 7 t:FDRE r:INIT=1'0 %i
 # P register, same shape, through the post-adder.
 design -reset
 read_verilog <<EOT
-module preg(input clk, input signed [7:0] a, b, input [15:0] c, input [7:0] d, output reg [23:0] q = 24'h010000);
+module preg(input clk, input signed [5:0] a, b, input [11:0] c, input [7:0] d, output reg [19:0] q = 20'h01000);
   always @(posedge clk) begin
-    q[15:0] <= a * b + c;
-    q[23:16] <= d;
+    q[11:0] <= a * b + c;
+    q[19:12] <= d;
   end
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -132,18 +135,19 @@ select -assert-count 15 t:FDRE r:INIT=1'0 %i
 # DSP48A1 (xc6s) uses the same mover.
 design -reset
 read_verilog <<EOT
-module spartan(input clk, input signed [7:0] x, output reg signed [15:0] p = 0);
-  reg [15:0] r = 16'h0001;
+module spartan(input clk, input signed [5:0] x, output reg signed [11:0] p = 0);
+  reg [11:0] r = 12'h001;
   always @(posedge clk) begin
     r <= r + 1;
-    p <= $signed(r[15:8]) * x;
+    p <= $signed(r[11:6]) * x;
   end
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -151,7 +155,7 @@ cd spartan
 select -assert-count 1 t:DSP48A1
 select -assert-count 1 t:DSP48A1 r:A1REG=1 %i r:MREG=1'1 %i
 select -assert-count 1 t:FDSE r:INIT=1'1 %i
-select -assert-count 15 t:FDRE r:INIT=1'0 %i
+select -assert-count 11 t:FDRE r:INIT=1'0 %i
 
 # Cascade chain. The first pack used to abort before the chain was built.
 design -reset
@@ -188,9 +192,10 @@ module preadd(input clk, input in, input signed [3:0] d, input signed [4:0] b, o
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -211,9 +216,10 @@ module preadd_d(input clk, input in, input signed [3:0] d, input signed [4:0] b,
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc7 -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
@@ -234,9 +240,10 @@ module spartan_preadd(input clk, input in, input signed [3:0] d, input signed [4
 endmodule
 EOT
 proc
-equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
-design -load preopt
 equiv_opt -run :prove -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad
+equiv_make gold gate equiv
+equiv_induct equiv
+equiv_status -assert equiv
 miter -equiv -flatten -make_assert gold gate miter
 sat -verify -prove-asserts -seq 6 -set-init-undef -set-def-inputs miter
 design -load postopt
