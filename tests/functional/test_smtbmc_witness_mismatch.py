@@ -17,13 +17,13 @@ def run(cmd, **kwargs):
     return status
 
 
-def write_smt2(tmp_path, verilog_text):
+def write_smt2(tmp_path, verilog_text, read_options="", passes=("prep -top top",)):
     """Write Verilog to temp and emit SMT2 via yosys."""
     vfile = tmp_path / "design.v"
     smt2 = tmp_path / "design.smt2"
     vfile.write_text(verilog_text)
     run([os.environ.get("YOSYS", "../../yosys"), "-Q", "-p",
-         f"read_verilog {vfile}; prep -top top; write_smt2 {smt2}"])
+         f"read_verilog {read_options} {vfile}; {'; '.join(passes)}; write_smt2 {smt2}"])
     return smt2
 
 
@@ -73,6 +73,20 @@ def run_smtbmc(smt2_path, yw_path):
     return subprocess.run(cmd, capture_output=True, text=True)
 
 
+def run_smtbmc_induction(smt2_path, yw_path):
+    """Run yosys-smtbmc on the SMT2 file with induction."""
+    cmd = [
+        os.environ.get("YOSYS_SMTBMC", "../../yosys-smtbmc"),
+        "-s", "z3",
+        "-m", "top",
+        "-i",
+        "--dump-yw", yw_path,
+        "-t", "2",
+        smt2_path,
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
 def assert_no_mismatch_message(result):
     """Assert the mismatch error prefix is absent from outputs."""
     combined = (result.stderr or "") + (result.stdout or "")
@@ -84,6 +98,14 @@ def assert_has_mismatch_message(result, msg):
     combined = (result.stderr or "") + (result.stdout or "")
     assert "Yosys witness signal mismatch" in combined
     assert msg in combined
+
+
+def assert_smtbmc_status(result, status):
+    """Assert the status of the smtbmc run, and rules out solver errors and tracebacks."""
+    combined = (result.stderr or "") + (result.stdout or "")
+    assert "Solver Error" not in combined
+    assert "Traceback" not in combined
+    assert f"Status: {status}" in combined
 
 
 def test_missing_signal_path(tmp_path):
@@ -189,3 +211,106 @@ endmodule
     write_yw(yw_path, signals, bits)
     result = run_smtbmc(smt2, yw_path)
     assert_no_mismatch_message(result)
+
+
+BOOL_REG_DESIGN = """
+module top(input clk, input in, input in2, output reg a);
+  reg b = 1'b0, c = 1'b0;
+  initial a = 1'b0;
+  always @(posedge clk) begin
+    b <= b & in2;
+    c <= b;
+    a <= in & c;
+  end
+  always @* assert(!a);
+endmodule
+"""
+
+
+def test_bool_reg_witness_flag(tmp_path):
+    smt2 = write_smt2(tmp_path,
+                      BOOL_REG_DESIGN,
+                      read_options="-formal",
+                      passes=["prep -top top", "techmap", "async2sync"])
+    entries = witness_entries(smt2)
+    regs = [x for x in entries if x.get("type") == "reg"]
+    assert sorted(x["path"] for x in regs) == [["\\a"], ["\\b"], ["\\c"]]
+    assert all(x.get("smtbool") is True for x in regs)
+
+    inputs = [x for x in entries if x.get("type") == "input"]
+    assert sorted(x["path"] for x in inputs) == [["\\clk"], ["\\in"], ["\\in2"]]
+    assert all(x.get("smtbool") is False for x in inputs)
+
+
+def test_bool_reg_dump_yw(tmp_path):
+    smt2 = write_smt2(tmp_path,
+                      BOOL_REG_DESIGN,
+                      read_options="-formal",
+                      passes=["prep -top top", "techmap", "async2sync"])
+    yw_path = tmp_path / "trace.yw"
+    result = run_smtbmc_induction(smt2, yw_path)
+    assert_smtbmc_status(result, "FAILED")
+
+    yw_data = json.loads(yw_path.read_text())
+    regs = [x for x in yw_data["signals"] if x.get("init_only") is True]
+    assert sorted(x["path"] for x in regs) == [["\\a"], ["\\b"], ["\\c"]]
+
+    inputs = [x for x in yw_data["signals"] if x.get("init_only") is False]
+    assert sorted(x["path"] for x in inputs) == [["\\clk"], ["\\in"], ["\\in2"]]
+
+
+def test_bool_reg_dump_yw_submodule(tmp_path):
+    verilog = """
+module sub(input clk, input in, input in2, output reg a);
+  reg b = 1'b0, c = 1'b0;
+  initial a = 1'b0;
+  always @(posedge clk) begin
+    b <= b & in2;
+    c <= b;
+    a <= in & c;
+  end
+endmodule
+module top(input clk, input in, input in2, output a);
+  sub u(.clk(clk), .in(in), .in2(in2), .a(a));
+  always @* assert(!a);
+endmodule
+"""
+    smt2 = write_smt2(tmp_path,
+                      verilog,
+                      read_options="-formal",
+                      passes=["prep -top top", "techmap", "async2sync"])
+    yw_path = tmp_path / "trace.yw"
+    result = run_smtbmc_induction(smt2, yw_path)
+    assert_smtbmc_status(result, "FAILED")
+
+    yw_data = json.loads(yw_path.read_text())
+    regs = [x for x in yw_data["signals"] if x.get("init_only") is True]
+    assert sorted(x["path"] for x in regs) == [["\\u", "\\a"], ["\\u", "\\b"], ["\\u", "\\c"]]
+
+
+def test_bool_reg_load_yw(tmp_path):
+    verilog = """
+module top(input clk, input in, output reg a);
+  always @(posedge clk) begin
+    a <= in;
+  end
+  always @* assert(!a);
+endmodule
+"""
+    smt2 = write_smt2(tmp_path,
+                      verilog,
+                      read_options="-formal",
+                      passes=["prep -top top", "techmap", "async2sync"])
+
+    entries = witness_entries(smt2)
+    regs = [x for x in entries if x.get("type") == "reg"]
+    assert sorted(x["path"] for x in regs) == [["\\a"]]
+    assert all(x.get("smtbool") is True for x in regs)
+
+    yw_path = tmp_path / "trace.yw"
+    signals = [{"path": ["\\a"], "offset": 0, "width": 1, "init_only": True}]
+    write_yw(yw_path, signals, "1")
+    result = run_smtbmc(smt2, yw_path)
+    assert_smtbmc_status(result, "PASSED")
+    assert_no_mismatch_message(result)
+    assert result.returncode == 0
