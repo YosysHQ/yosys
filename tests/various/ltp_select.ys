@@ -58,3 +58,20 @@ select -assert-any %
 # EOT
 # ltp -select
 # select -assert-count 2 %
+
+# Selected cells may connect to wires outside of selection.
+design -reset
+read_rtlil << EOT
+module \outside_select
+  wire \a
+  wire \b
+  wire \y
+  cell $_AND_ \and
+    connect \A \a
+    connect \B \b
+    connect \Y \y
+  end
+end
+EOT
+ltp -select outside_select/a outside_select/and
+select -assert-any %
