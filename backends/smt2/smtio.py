@@ -1082,12 +1082,17 @@ class SmtIo:
 
     def witness_net_expr(self, mod, base, witness):
         net = self.net_expr(mod, base, witness["smtpath"])
-        is_bool = self.net_width(mod, witness["smtpath"]) == 1
+        is_bool = self.witness_is_bool(mod, witness)
         if is_bool:
             assert witness["width"] == 1
             assert witness["smtoffset"] == 0
             return net
         return "((_ extract %d %d) %s)" % (witness["smtoffset"] + witness["width"] - 1, witness["smtoffset"], net)
+
+    def witness_is_bool(self, mod, witness):
+        is_smt_bool = witness.get("smtbool", False)
+        is_one = self.net_width(mod, witness["smtpath"]) == 1
+        return is_smt_bool or is_one
 
     def net_width(self, mod, net_path):
         for i in range(len(net_path)-1):
