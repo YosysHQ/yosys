@@ -29,7 +29,7 @@ YOSYS_NAMESPACE_BEGIN
 namespace Hierarchy {
     void resolve_verilog(Design* design, bool nodefaults, bool keep_positionals, bool keep_portwidths, bool top_is_from_verific);
     void resolve_wildcards(Cell* cell, ModuleSet& blackbox_derivatives, bool nodefaults, dict<IdString, dict<IdString, Const>>& defaults_db);
-    void resolve_wand_wor(Module* module, ModuleSet& blackbox_derivatives, bool keep_portwidths, bool top_is_from_verific);
+    void resolve_wand_wor(Module* module);
     void check_supported_formal(Design* design);
 };
 
