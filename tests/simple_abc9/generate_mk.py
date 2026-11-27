@@ -7,13 +7,6 @@ import shutil
 import os
 from pathlib import Path
 
-# ----------------------
-# Check if iverilog is installed
-# ----------------------
-if shutil.which("iverilog") is None:
-    print("Error: Icarus Verilog 'iverilog' not found.", file=sys.stderr)
-    sys.exit(1)
-
 src_dir = Path("../simple")
 # ----------------------
 # Copy all files from ../simple to current directory

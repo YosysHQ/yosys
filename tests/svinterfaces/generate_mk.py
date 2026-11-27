@@ -7,6 +7,8 @@ sys.path.append("..")
 
 import gen_tests_makefile
 
+gen_tests_makefile.check_iverilog()
+
 runone_tests = [
     "svinterface1",
     #"svinterface_at_top"

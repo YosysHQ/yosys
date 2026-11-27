@@ -4,5 +4,6 @@ import sys
 sys.path.append("../..")
 
 import gen_tests_makefile
+gen_tests_makefile.check_iverilog()
 
 gen_tests_makefile.generate(["--yosys-scripts", "--bash", "--yosys-args", "-w 'Yosys has only limited support for tri-state logic at the moment.'" ])

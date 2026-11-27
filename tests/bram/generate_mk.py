@@ -9,6 +9,8 @@ import glob
 sys.path.append("..")
 import gen_tests_makefile
 
+gen_tests_makefile.check_iverilog()
+
 debug_mode = False
 
 def create_bram(dsc_f, sim_f, ref_f, tb_f, k1, k2, or_next):

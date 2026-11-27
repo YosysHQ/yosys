@@ -5,6 +5,8 @@ import os
 import sys
 import argparse
 from contextlib import contextmanager
+import shutil
+import subprocess
 
 yosys_basedir = os.path.relpath(os.path.join(os.path.dirname(__file__), ".."))
 common_mk = os.path.relpath(os.path.join(os.path.dirname(__file__), "common.mk"))
@@ -94,6 +96,7 @@ def generate_tests(argv, cmds, yosys_cmds=""):
             generate_ys_test(f, args.yosys_args, cmds)
 
     if args.tcl_scripts:
+        check_tcl()
         for f in sorted(glob.glob("*.tcl")):
             generate_tcl_test(f, args.yosys_args, cmds)
 
@@ -144,6 +147,7 @@ def generate_autotest_file(test_file, commands):
     generate_target(test_file, cmd)
 
 def generate_autotest(pattern, extra_flags, cmds=""):
+    check_iverilog()
     with open("Makefile", "w") as f:
         with redirect_stdout(f):
             print_header([ f"EXTRA_FLAGS = {extra_flags}",
@@ -154,3 +158,32 @@ def generate_autotest(pattern, extra_flags, cmds=""):
                         ])
             for fn in sorted(glob.glob(pattern)):
                 generate_autotest_file(fn, cmds)
+
+def check_iverilog():
+    if shutil.which("iverilog") is None:
+        print("Error: Icarus Verilog 'iverilog' not found.", file=sys.stderr)
+        sys.exit(1)
+
+def check_vcd2fst():
+    if shutil.which("vcd2fst") is None:
+        print("Error: GTKWave tool 'vcd2fst' not found.", file=sys.stderr)
+        sys.exit(1)
+
+def check_tcl():
+    try:
+        yosys = os.environ["YOSYS"]
+    except KeyError:
+        print("Warning: Unable to check Yosys for required Tcl support.", file=sys.stderr)
+        return
+
+    proc = subprocess.run(
+        [
+            yosys, "-p",
+            'logger -expect error "Missing script file" 1; tcl',
+        ],
+        capture_output=True,
+    )
+
+    if proc.returncode:
+        print("Error: Yosys built without Tcl support.", file=sys.stderr)
+        sys.exit(1)
