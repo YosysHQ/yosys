@@ -24,7 +24,8 @@ script_error="script_location/error.ys:6: $command_error"
 runTest "script flag" "$script_error" -s script_location/error.ys
 runTest "script frontend" "$script_error" script_location/error.ys
 
-tcl_error="script_location/error.tcl:2: ERROR: TCL interpreter returned an error: $command_error"
+tcl_error="$command_error
+script_location/error.tcl:2: ERROR: TCL interpreter returned an error: Yosys command produced an error"
 runTest "tcl flag" \
 	"$tcl_error" \
 	-c script_location/error.tcl
