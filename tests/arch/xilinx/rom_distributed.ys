@@ -1,0 +1,17 @@
+# A ROM with rom_style = "distributed" is LUT logic: there is no write port for
+# a LUTRAM mapping, which used to make memory_libmap fail ("no valid mapping found")
+read_verilog <<EOT
+module rom(input clk, input [7:0] a, output reg [4:0] q);
+	(* rom_style = "distributed" *) reg [4:0] t [0:255];
+	integer i;
+	initial
+		for (i = 0; i < 256; i = i + 1)
+			t[i] = ((i >> 4) * (i >> 4) + (i % 16) * (i % 16)) >> 4;
+	always @(posedge clk)
+		q <= t[a];
+endmodule
+EOT
+synth_xilinx -top rom -noiopad
+cd rom
+select -assert-none t:RAMB18E1 t:RAMB36E1 t:RAM*
+select -assert-min 1 t:LUT*

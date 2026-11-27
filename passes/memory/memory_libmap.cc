@@ -581,6 +581,11 @@ void MemMapping::determine_style() {
 
 // Determine whether the memory can be mapped entirely to soft logic.
 bool MemMapping::determine_logic_ok() {
+	// A distributed ROM is LUT logic (that is what Vivado builds for
+	// rom_style = "distributed"); LUTRAM is only one way to get it, and one
+	// that needs a write port on most targets.
+	if (kind == RamKind::Distributed && mem.wr_ports.empty())
+		return true;
 	if (kind != RamKind::Auto && kind != RamKind::Logic) {
 		log_reject("can't map to logic: RAM kind conflicts with attribute");
 		return false;
