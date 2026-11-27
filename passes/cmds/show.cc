@@ -22,6 +22,8 @@
 #include "kernel/celltypes.h"
 #include "kernel/log_help.h"
 
+#include <charconv>
+
 #ifndef _WIN32
 #  include <dirent.h>
 #endif
@@ -67,6 +69,7 @@ struct ShowWorker
 	bool abbreviateIds;
 	bool notitle;
 	bool href;
+	bool pack;
 	int page_counter;
 
 	const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections;
@@ -425,6 +428,8 @@ struct ShowWorker
 		net_conn_map.clear();
 
 		fprintf(f, "digraph \"%s\" {\n", escape(module->name.str()));
+		if (pack)
+			fprintf(f, " subgraph \"cluster_1\" {");
 		if (!notitle)
 			fprintf(f, "label=\"%s\";\n", escape(module->name.str()));
 		fprintf(f, "rankdir=\"LR\";\n");
@@ -624,16 +629,17 @@ struct ShowWorker
 				fprintf(f, "%s:e -> %s:w [%s, %s];\n", it.first.c_str(), it2.first.c_str(), nextColor(it.second.color).c_str(), widthLabel(it2.second).c_str());
 		}
 
+		if (pack) fprintf(f, "}");
 		fprintf(f, "}\n");
 	}
 
 	ShowWorker(FILE *f, RTLIL::Design *design, std::vector<std::unique_ptr<RTLIL::Design>> &libs, uint32_t colorSeed, bool genWidthLabels,
-			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href,
+			const std::string wireshape, bool genSignedLabels, bool stretchIO, bool enumerateIds, bool abbreviateIds, bool notitle, bool href, bool pack,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &color_selections,
 			const std::vector<std::pair<std::string, RTLIL::Selection>> &label_selections, RTLIL::IdString colorattr) :
 			f(f), design(design), currentColor(colorSeed), genWidthLabels(genWidthLabels), wireshape(wireshape),
 			genSignedLabels(genSignedLabels), stretchIO(stretchIO), enumerateIds(enumerateIds), abbreviateIds(abbreviateIds),
-			notitle(notitle), href(href), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
+			notitle(notitle), href(href), pack(pack), color_selections(color_selections), label_selections(label_selections), colorattr(colorattr)
 	{
 		ct.setup_internals();
 		ct.setup_internals_mem();
@@ -667,6 +673,12 @@ struct ShowWorker
 	}
 };
 
+#ifdef _WIN32
+	#define MOVE_CMD "move"
+#else
+	#define MOVE_CMD "mv"
+#endif
+
 struct ShowPass : public Pass {
 	ShowPass() : Pass("show", "generate schematics using graphviz") { }
 	bool formatted_help() override {
@@ -692,6 +704,13 @@ struct ShowPass : public Pass {
 		log("        Generate a graphics file in the specified format. Use 'dot' to just\n");
 		log("        generate a .dot file, or other <format> strings such as 'svg' or 'ps'\n");
 		log("        to generate files in other formats (this calls the 'dot' command).\n");
+		log("\n");
+		log("    -pack [col|row <count>]\n");
+		log("        Pack modules into one graph. Requires the Graphviz tools\n");
+		log("        'dot', 'gvpack', and 'neato'. Allows multiple modules in output.\n");
+		log("        By default, arrange modules in an automatically sized grid.\n");
+		log("        Use col <count> for <count> columns or row <count> for <count> rows.\n");
+		log("        The count must be positive.\n");
 		log("\n");
 		log("    -lib <verilog_or_rtlil_file>\n");
 		log("        Use the specified library file for determining whether cell ports are\n");
@@ -797,6 +816,8 @@ struct ShowPass : public Pass {
 		bool flag_abbreviate = true;
 		bool flag_notitle = false;
 		bool flag_href = false;
+		bool flag_pack = false;
+		std::string pack_array = "-array";
 		bool custom_prefix = false;
 		std::string background = "&";
 		RTLIL::IdString colorattr;
@@ -850,6 +871,22 @@ struct ShowPass : public Pass {
 				format = args[++argidx];
 				continue;
 			}
+			if (arg == "-pack") {
+				pack_array = "-array";
+				if (argidx+2 < args.size()) {
+					const auto &direction = args[argidx+1];
+					const auto &count_arg = args[argidx+2];
+					unsigned int count = 0;
+					auto result = std::from_chars(count_arg.data(), count_arg.data() + count_arg.size(), count);
+					if ((direction == "col" || direction == "row") && result.ec == std::errc() &&
+							result.ptr == count_arg.data() + count_arg.size() && count > 0) {
+						pack_array = stringf("-array%s%u", direction == "row" ? "_c" : "", count);
+						argidx += 2;
+					}
+				}
+				flag_pack = true;
+				continue;
+			}
 			if (arg == "-wireshape" && argidx+1 < args.size()) {
 				flag_wireshape = args[++argidx];
 				continue;
@@ -896,7 +933,12 @@ struct ShowPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		if (format != "ps" && format != "dot") {
+		#if !defined(YOSYS_ENABLE_SPAWN)
+			if (flag_pack)
+				log_cmd_error("The -pack option requires spawning external commands.\n");
+		#endif
+
+		if (!flag_pack && format != "ps" && format != "dot") {
 			int modcount = 0;
 			for (auto module : design->selected_modules()) {
 				if (module->get_blackbox_attribute())
@@ -932,21 +974,23 @@ struct ShowPass : public Pass {
 			yosys_output_files.insert(dot_file);
 		if (f == nullptr)
 			log_cmd_error("Can't open dot file `%s' for writing.\n", dot_file);
-		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, color_selections, label_selections, colorattr);
+		ShowWorker worker(f, design, libs, colorSeed, flag_width, flag_wireshape, flag_signed, flag_stretch, flag_enum, flag_abbreviate, flag_notitle, flag_href, flag_pack, color_selections, label_selections, colorattr);
 		fclose(f);
 
 		if (worker.page_counter == 0)
 			log_cmd_error("Nothing there to show.\n");
 
-		if (format != "dot" && !format.empty()) {
-			#ifdef _WIN32
-				// system()/cmd.exe does not understand single quotes on Windows.
-				#define DOT_CMD "dot -T%s \"%s\" > \"%s.new\" && move \"%s.new\" \"%s\""
-			#else
-				#define DOT_CMD "dot -T%s '%s' > '%s.new' && mv '%s.new' '%s'"
+		if (flag_pack) {
+			std::string cmd = stringf("dot -Grankdir=LR -Tdot \"%s\" | gvpack %s | neato -n2 -Tdot -o \"%s.new\" && %s \"%s.new\" \"%s\"", dot_file, pack_array, dot_file, MOVE_CMD, dot_file, dot_file);
+			log("Exec: %s\n", cmd);
+			#if defined(YOSYS_ENABLE_SPAWN)
+				if (run_command(cmd) != 0)
+					log_cmd_error("Shell command failed!\n");
 			#endif
-			std::string cmd = stringf(DOT_CMD, format, dot_file, out_file, out_file, out_file);
-			#undef DOT_CMD
+		}
+
+		if (format != "dot" && !format.empty()) {
+			std::string cmd = stringf("%s -T%s \"%s\" > \"%s.new\" && %s \"%s.new\" \"%s\"", flag_pack ? "neato -n2" : "dot", format, dot_file, out_file, MOVE_CMD, out_file, out_file);
 			log("Exec: %s\n", cmd);
 			#if defined(YOSYS_ENABLE_SPAWN)
 				if (run_command(cmd) != 0)
