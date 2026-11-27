@@ -8,6 +8,7 @@ import re
 
 from typing import Any
 from sphinx.application import Sphinx
+from sphinx.environment import BuildEnvironment
 from sphinx.ext import autodoc
 from sphinx.ext.autodoc import Documenter
 from sphinx.util import logging
@@ -79,6 +80,17 @@ class YosysCmd:
         self.experimental_flag = experimental_flag
         self.internal_flag = internal_flag
 
+def get_cmds_obj(cmds_json: Path) -> dict[str, dict[str, dict[str]]]:
+    try:
+        with open(cmds_json, "r") as f:
+            return json.loads(f.read())
+    except FileNotFoundError:
+        logger.warning(
+            f"unable to find cmd lib at {cmds_json}",
+            type = 'cmdref',
+            subtype = 'cmd_lib'
+        )
+        return {}
 class YosysCmdGroupDocumenter(Documenter):
     objtype = 'cmdgroup'
     priority = 10
@@ -98,17 +110,7 @@ class YosysCmdGroupDocumenter(Documenter):
     def cmd_lib(self) -> dict[str, list[str] | dict[str]]:
         if not self.__cmd_lib:
             self.__cmd_lib = {}
-            cmds_obj: dict[str, dict[str, dict[str]]]
-            try:
-                with open(self.config.cmds_json, "r") as f:
-                    cmds_obj = json.loads(f.read())
-            except FileNotFoundError:
-                logger.warning(
-                    f"unable to find cmd lib at {self.config.cmds_json}",
-                    type = 'cmdref',
-                    subtype = 'cmd_lib'
-                )
-                cmds_obj = {}
+            cmds_obj = get_cmds_obj(self.config.cmds_json)
             for (name, obj) in cmds_obj.get(self.lib_key, {}).items():
                 self.__cmd_lib[name] = obj
         return self.__cmd_lib
@@ -249,6 +251,13 @@ class YosysCmdGroupDocumenter(Documenter):
             else:
                 logger.warning(log_msg, type = 'cmdref')
             return
+        elif self.lib_key == 'groups':
+            doc2group: dict[str, set[str]] = self.env.domaindata['cmd']['doc2group']
+            try:
+                doc_groups = doc2group[self.env.docname]
+            except KeyError:
+                doc2group[self.env.docname] = doc_groups = set()
+            doc_groups.add(self.name)
 
         # check __module__ of object (for members not given explicitly)
         # if check_module:
@@ -431,13 +440,29 @@ class YosysCmdRstDocumenter(YosysCmdDocumenter):
         self.indent += self.content_indent
         super().add_content(more_content)
 
+def purge_doc_groups(app: Sphinx, env: BuildEnvironment, docname: str):
+    doc2group: dict[str, set[str]] = env.domaindata['cmd']['doc2group']
+    doc2group.pop(docname, None)
+
+def check_doc_groups(app: Sphinx, env: BuildEnvironment):
+    doc2group: dict[str, set[str]] = env.domaindata['cmd']['doc2group']
+    all_groups: set[str] = set()
+    for groups in doc2group.values():
+        all_groups.update(groups)
+    cmds_obj = get_cmds_obj(app.config.cmds_json)
+    for group in cmds_obj['groups'].keys():
+        if group not in all_groups:
+            logger.warning(f"Undocumented cmd group {group!r}")
+
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value('cmds_json', False, 'html', [Path, PosixPath, WindowsPath])
     app.setup_extension('sphinx.ext.autodoc')
+    app.connect('env-purge-doc', purge_doc_groups)
+    app.connect('env-updated', check_doc_groups)
     app.add_autodocumenter(YosysCmdGroupDocumenter)
     app.add_autodocumenter(YosysCmdDocumenter)
     app.add_autodocumenter(YosysCmdRstDocumenter)
     return {
-        'version': '2',
+        'version': '3',
         'parallel_read_safe': True,
     }

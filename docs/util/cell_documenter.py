@@ -8,6 +8,7 @@ import re
 
 from typing import Any
 from sphinx.application import Sphinx
+from sphinx.environment import BuildEnvironment
 from sphinx.ext import autodoc
 from sphinx.ext.autodoc import Documenter
 from sphinx.util import logging
@@ -35,6 +36,18 @@ class YosysCell:
     outputs: list[str]
     properties: list[str]
 
+def get_cells_obj(cells_json: Path) -> dict[str, dict[str, list[str] | dict[str]]]:
+    try:
+        with open(cells_json, "r") as f:
+            return json.loads(f.read())
+    except FileNotFoundError:
+        logger.warning(
+            f"unable to find cell lib at {cells_json}",
+            type = 'cellref',
+            subtype = 'cell_lib'
+        )
+        return {}
+
 class YosysCellGroupDocumenter(Documenter):
     objtype = 'cellgroup'
     priority = 10
@@ -53,19 +66,9 @@ class YosysCellGroupDocumenter(Documenter):
     def cell_lib(self) -> dict[str, list[str] | dict[str]]:
         if not self.__cell_lib:
             self.__cell_lib = {}
-            cells_obj: dict[str, dict[str, list[str] | dict[str]]]
-            try:
-                with open(self.config.cells_json, "r") as f:
-                    cells_obj = json.loads(f.read())
-            except FileNotFoundError:
-                logger.warning(
-                    f"unable to find cell lib at {self.config.cells_json}",
-                    type = 'cellref',
-                    subtype = 'cell_lib'
-                )
-            else:
-                for (name, obj) in cells_obj.get(self.lib_key, {}).items():
-                    self.__cell_lib[name] = obj
+            cells_obj = get_cells_obj(self.config.cells_json)
+            for (name, obj) in cells_obj.get(self.lib_key, {}).items():
+                self.__cell_lib[name] = obj
         return self.__cell_lib
 
     @classmethod
@@ -206,6 +209,13 @@ class YosysCellGroupDocumenter(Documenter):
                 type = 'cellref'
             )
             return
+        elif self.lib_key == 'groups':
+            doc2group: dict[str, set[str]] = self.env.domaindata['cell']['doc2group']
+            try:
+                doc_groups = doc2group[self.env.docname]
+            except KeyError:
+                doc2group[self.env.docname] = doc_groups = set()
+            doc_groups.add(self.name)
 
         # check __module__ of object (for members not given explicitly)
         # if check_module:
@@ -403,13 +413,29 @@ class YosysCellSourceDocumenter(YosysCellDocumenter):
     ) -> tuple[bool, list[tuple[str, Any]]]:
         return False, []
 
+def purge_doc_groups(app: Sphinx, env: BuildEnvironment, docname: str):
+    doc2group: dict[str, set[str]] = env.domaindata['cell']['doc2group']
+    doc2group.pop(docname, None)
+
+def check_doc_groups(app: Sphinx, env: BuildEnvironment):
+    doc2group: dict[str, set[str]] = env.domaindata['cell']['doc2group']
+    all_groups: set[str] = set()
+    for groups in doc2group.values():
+        all_groups.update(groups)
+    cells_obj = get_cells_obj(app.config.cells_json)
+    for group in cells_obj['groups'].keys():
+        if group not in all_groups:
+            logger.warning(f"Undocumented cell group {group!r}")
+
 def setup(app: Sphinx) -> dict[str, Any]:
     app.add_config_value('cells_json', False, 'html', [Path, PosixPath, WindowsPath])
     app.setup_extension('sphinx.ext.autodoc')
+    app.connect('env-purge-doc', purge_doc_groups)
+    app.connect('env-updated', check_doc_groups)
     app.add_autodocumenter(YosysCellDocumenter)
     app.add_autodocumenter(YosysCellSourceDocumenter)
     app.add_autodocumenter(YosysCellGroupDocumenter)
     return {
-        'version': '1',
+        'version': '2',
         'parallel_read_safe': True,
     }
