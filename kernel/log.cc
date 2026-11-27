@@ -386,14 +386,8 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
 	if (src.filename.empty() && yosys_pass_call_stack) {
-		while (Pass *pass = yosys_pass_call_stack->top()) {
-			auto pass_src = pass->get_source_location();
-			yosys_pass_call_stack->pop();
-			if (pass_src) {
-				src = *pass_src;
-				break;
-			}
-		}
+		if (std::optional<LogSourceLocation> opt_src = yosys_pass_call_stack->unwind_src_loc())
+			src = *opt_src;
 	}
 
 	error_with_prefix(LogSeverity::Error, src, prefix, format, message);

@@ -65,6 +65,17 @@ void PassCallStack::pop()
 	stack.pop_back();
 }
 
+std::optional<LogSourceLocation> PassCallStack::unwind_src_loc() {
+	while (Pass *pass = this->top()) {
+		auto pass_src = pass->get_source_location();
+		this->pop();
+		if (pass_src) {
+			return pass_src;
+		}
+	}
+	return std::nullopt;
+}
+
 void request_garbage_collection()
 {
 	garbage_collection_requested = true;

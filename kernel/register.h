@@ -183,10 +183,8 @@ struct Backend : Pass
 
 class PassCallStack {
 public:
-	Pass *top();
-	void push(Pass *pass);
-	void pop();
 
+	// this effectively allows stacks to catch & run the destructor even when a throw occurs
 	class ScopedPush {
 	public:
 		ScopedPush(PassCallStack &stack, Pass *pass) : stack(stack) { stack.push(pass); }
@@ -198,9 +196,14 @@ public:
 	};
 
 	[[nodiscard]] ScopedPush scoped_push(Pass *pass) { return ScopedPush(*this, pass); }
+	std::optional<LogSourceLocation> unwind_src_loc();
 private:
+	Pass *top();
+	void push(Pass *pass);
+	void pop();
+
 	std::deque<Pass*> stack;
-	
+
 };
 
 extern std::shared_ptr<PassCallStack> yosys_pass_call_stack;
