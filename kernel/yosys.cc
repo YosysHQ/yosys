@@ -91,6 +91,7 @@ const char* yosys_maybe_version() {
 }
 
 std::shared_ptr<RTLIL::Design> yosys_design;
+std::shared_ptr<PassCallStack> yosys_pass_call_stack;
 NewCellTypes yosys_celltypes;
 
 #ifdef YOSYS_ENABLE_TCL
@@ -259,6 +260,7 @@ void yosys_setup()
 	init_share_dirname();
 	init_abc_executable_name();
 
+	yosys_pass_call_stack = std::make_shared<PassCallStack>();
 	Pass::init_register();
 	yosys_design = std::make_shared<RTLIL::Design>();
 	yosys_celltypes.static_cell_types = StaticCellTypes::categories.is_known;
@@ -280,6 +282,7 @@ void yosys_shutdown()
 
 	Pass::done_register();
 
+	yosys_pass_call_stack.reset();
 	yosys_design.reset();
 
 	logger().clear();
