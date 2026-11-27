@@ -181,9 +181,10 @@ enum cxxrtl_flag {
 	// snapshot of the design state.
 	CXXRTL_DRIVEN_SYNC = 1 << 2,
 
-	// Node has bits that are driven by a combinatorial cell or another node.
-	//
-	// This flag can be set on objects of type `CXXRTL_VALUE`, `CXXRTL_WIRE`, and `CXXRTL_OUTLINE`.
+// -------------------------------------------------------------------------
+
+// This flag can be set on objects of type `CXXRTL_VALUE`, `CXXRTL_WIRE`, `CXXRTL_OUTLINE`, and `CXXRTL_ALIAS`.
+#define CXXRTL_DRIVEN_COMB 1
 	// It may be combined with `CXXRTL_DRIVEN_SYNC` and `CXXRTL_UNDRIVEN`, as well as other flags.
 	//
 	// This flag is set on objects that have bits connected to the output of a combinatorial cell,
