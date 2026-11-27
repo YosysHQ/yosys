@@ -15,6 +15,7 @@ include ./common.mk
 MK_TEST_DIRS =
 MK_TEST_DIRS += ./arch/analogdevices
 MK_TEST_DIRS += ./arch/anlogic
+MK_TEST_DIRS += ./arch/cyclone2
 MK_TEST_DIRS += ./arch/ecp5
 MK_TEST_DIRS += ./arch/efinix
 MK_TEST_DIRS += ./arch/fabulous
