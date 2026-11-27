@@ -1,0 +1,60 @@
+# The DSP48E1/DSP48A1 output registers reset to zero, so a register with a
+# synchronous load of a nonzero constant must not be absorbed into the DSP.
+# https://github.com/YosysHQ/yosys/pull/6138
+
+read_verilog <<EOT
+module top(input clk, cond, input signed [8:0] a, b, output reg signed [17:0] q);
+always @(posedge clk)
+	if (cond)
+		q <= a * b;
+	else
+		q <= 50;
+endmodule
+EOT
+design -save read
+
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:DSP48E1
+# the register must stay in fabric
+select -assert-min 1 t:FDRE t:FDSE %u
+
+design -load read
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad # equivalency check
+design -load postopt # load the post-opt design (otherwise equiv_opt loads the pre-opt design)
+cd top # Constrain all select calls below inside the top module
+select -assert-count 1 t:DSP48A1
+# the register must stay in fabric
+select -assert-min 1 t:FDRE t:FDSE %u
+
+# control: a synchronous load of zero is a plain sync reset and is still
+# absorbed into PREG (no fabric registers left)
+design -reset
+read_verilog <<EOT
+module top(input clk, cond, input signed [8:0] a, b, output reg signed [17:0] q);
+always @(posedge clk)
+	if (cond)
+		q <= a * b;
+	else
+		q <= 0;
+endmodule
+EOT
+design -save read_zero
+
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad # equivalency check
+design -load postopt
+cd top
+select -assert-count 1 t:DSP48E1
+select -assert-none t:FDRE t:FDSE %u
+
+design -load read_zero
+proc
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -family xc6s -noiopad # equivalency check
+design -load postopt
+cd top
+select -assert-count 1 t:DSP48A1
+select -assert-none t:FDRE t:FDSE %u
