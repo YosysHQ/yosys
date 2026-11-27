@@ -1,0 +1,6 @@
+read_verilog script_location/design.v
+hierarchy -check -top top
+
+design -reset
+read_verilog script_location/design.v
+hierarchy -check -top missing_top
