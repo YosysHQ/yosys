@@ -137,6 +137,9 @@ global_denylist = frozenset(
 		# owning containers
 		"saved_designs",
 		"pushed_designs",
+		"frontend_register",
+		"backend_register",
+		"target_register"
 	}
 )
 name_lookup_methods = frozenset(
@@ -191,13 +194,14 @@ pyosys_headers = [
 			PyosysClass(
 				"Const",
 				string_expr="s.as_string()",
-				denylist=frozenset({"bits", "bitvectorize"}),
+				denylist=frozenset({"begin", "end", "bits", "bitvectorize"}),
 			),
 			PyosysClass("AttrObject", denylist=frozenset({"get_blackbox_attribute"})),
 			PyosysClass("Selection"),
 			# PyosysClass("Monitor"), # Virtual methods, manually bridged
 			PyosysClass("CaseRule"),
 			PyosysClass("SwitchRule"),
+			PyosysClass("MemWriteAction"),
 			PyosysClass("SyncRule"),
 			PyosysClass(
 				"Process",
@@ -208,7 +212,7 @@ pyosys_headers = [
 			),
 			PyosysClass("SigChunk"),
 			PyosysClass("SigBit", hash_expr="s"),
-			PyosysClass("SigSpec", hash_expr="s", denylist=frozenset({"chunks"})),
+			PyosysClass("SigSpec", hash_expr="s", denylist=frozenset({"begin", "end", "chunks"})),
 			PyosysClass(
 				"Cell",
 				ref_only=True,
@@ -240,6 +244,8 @@ pyosys_headers = [
 					{
 						"Pow",  # has no implementation
 						"selected_members",  # bound manually to keep names tied to the design
+						"wires",
+						"cells",
 					}
 				),
 			),
@@ -249,7 +255,7 @@ pyosys_headers = [
 				shared=True,
 				string_expr="std::to_string((size_t)&s)",  # there is no better identitification string for a Design for good reasons
 				hash_expr="s",
-				denylist=frozenset({"selected_whole_modules"}),  # deprecated
+				denylist=frozenset({"modules", "selected_whole_modules"}),
 			),
 		],
 	),
@@ -352,6 +358,10 @@ class PyosysWrapperGenerator:
 	def generate(self, build_dir):
 		tpl = __file_dir__ / "wrappers_tpl.cc"
 		preprocessor_opts = self.make_preprocessor_options(build_dir)
+		parsed_headers = [
+			(header, parse_file(__yosys_root__ / header.name, options=preprocessor_opts))
+			for header in self.headers
+		]
 		with open(tpl, encoding="utf8") as f:
 			do_line_directive = True
 			for i, line in enumerate(f):
@@ -362,10 +372,11 @@ class PyosysWrapperGenerator:
 					for header in self.headers:
 						self.f.write(f'#include "{header.name}"\n')
 					do_line_directive = True
+				elif "<!-- generated type registrations -->" in line:
+					for header, parsed in parsed_headers:
+						self.process_namespace(header, parsed.namespace, type_register=True)
 				elif "<!-- generated pymod-level code -->" in line:
-					for header in self.headers:
-						header_path = __yosys_root__ / header.name
-						parsed = parse_file(header_path, options=preprocessor_opts)
+					for header, parsed in parsed_headers:
 						self.process_namespace(header, parsed.namespace)
 				else:
 					self.f.write(line)
@@ -552,7 +563,7 @@ class PyosysWrapperGenerator:
 			callable_expr or self.get_overload_cast(function, class_basename)
 		)
 		for i, parameter in enumerate(function.parameters):
-			name = parameter.name or f"arg{i}"
+			name = keyword_aliases.get(parameter.name, parameter.name) or f"arg{i}"
 			parameter_arg = f'py::arg("{name}")'
 			if parameter.default is not None:
 				parameter_arg += f" = {parameter.default.format()}"
@@ -580,6 +591,11 @@ class PyosysWrapperGenerator:
 			return
 
 		if function.constructor:
+			if (
+				metadata.name == "SigSpec"
+				and self.get_parameter_types(function) == "std::initializer_list<RTLIL::SigSpec>"
+			):
+				return
 			if (
 				not metadata.ref_only
 			):  # ref-only classes should not be constructed from python
@@ -780,6 +796,7 @@ class PyosysWrapperGenerator:
 		metadata: PyosysClass,
 		cls: ClassScope,
 		namespace_components: tuple[str, ...],
+		type_register: bool,
 	):
 		pqname: PQName = cls.class_decl.typename
 		full_path = list(namespace_components) + [
@@ -789,13 +806,21 @@ class PyosysWrapperGenerator:
 		self.class_registry[basename] = (cls, metadata)
 
 		declaration_namespace = "::".join(full_path)
-		tpl_args = [basename]
-		if metadata.ref_only:
-			tpl_args.append(f"std::unique_ptr<{basename}, py::nodelete>")
-		elif metadata.shared:
-			tpl_args.append(f"std::shared_ptr<{basename}>")
+		class_var = f"py_{basename.lower()}"
+		if type_register:
+			cpp_type = "::".join((*full_path, basename))
+			tpl_args = [cpp_type]
+			if metadata.ref_only:
+				tpl_args.append(f"std::unique_ptr<{cpp_type}, py::nodelete>")
+			elif metadata.shared:
+				tpl_args.append(f"std::shared_ptr<{cpp_type}>")
+			print(
+				f'\t\tauto {class_var} = py::class_<{", ".join(tpl_args)}>(m, "{basename}");',
+				file=self.f,
+			)
+			return
 		print(
-			f'\t\t{{using namespace {declaration_namespace}; py::class_<{", ".join(tpl_args)}>(m, "{basename}")',
+			f'\t\t{{using namespace {declaration_namespace}; {class_var}',
 			file=self.f,
 		)
 
@@ -859,14 +884,16 @@ class PyosysWrapperGenerator:
 		header: PyosysHeader,
 		ns: NamespaceScope,
 		namespace_components: tuple[str, ...] = (),
+		type_register: bool = False,
 	):
 		for name, subns in ns.namespaces.items():
-			self.process_namespace(header, subns, (*namespace_components, name))
+			self.process_namespace(header, subns, (*namespace_components, name), type_register=type_register)
 
-		for enum in ns.enums:
-			self.process_enum(enum, namespace_components)
+		if type_register:
+			for enum in ns.enums:
+				self.process_enum(enum, namespace_components)
 
-		if len(namespace_components) and (len(ns.functions) + len(ns.variables)):
+		if len(namespace_components) and (len(ns.functions) + len(ns.variables)) and not type_register:
 			# TODO: Not essential but maybe move namespace usage into
 			# process_function for consistency?
 			print(
@@ -882,7 +909,7 @@ class PyosysWrapperGenerator:
 			pqname = cls.class_decl.typename
 			declared_name_str = pqname.segments[-1].format()
 			if cls_metadata := header.classes_by_name.get(declared_name_str):
-				self.process_class(cls_metadata, cls, namespace_components)
+				self.process_class(cls_metadata, cls, namespace_components, type_register=type_register)
 
 
 keyword_aliases = {
