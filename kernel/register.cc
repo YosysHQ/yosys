@@ -54,13 +54,76 @@ void request_garbage_collection()
 	garbage_collection_requested = true;
 }
 
+static bool src_loss_debug()
+{
+	static bool enabled = getenv("YOSYS_DEBUG_SRC_LOSS") != nullptr;
+	return enabled;
+}
+
+struct SrcLossGroup {
+	int count = 0;
+	std::string example = {};
+};
+
+struct SrcLossCheck {
+	pool<Hasher::hash_t> seen = {};
+	std::vector<std::string> passes = {};
+	dict<std::string, SrcLossGroup> groups = {};
+	int total = 0;
+
+	void note(const RTLIL::AttrObject *obj, Hasher::hash_t id, const std::string &group, const std::string &name)
+	{
+		if (obj->has_src() || !seen.insert(id).second)
+			return;
+		SrcLossGroup &g = groups[group];
+		if (g.count++ == 0)
+			g.example = name;
+		total++;
+	}
+
+	void run(RTLIL::Design *design)
+	{
+		for (auto module : design->modules()) {
+			note(module, module->hashidx_, "module", stringf("%s", module->name));
+			for (auto wire : module->wires())
+				note(wire, wire->hashidx_, wire->name.isPublic() ? "wire (public)" : "wire", stringf("%s %s", module->name, wire->name));
+			for (auto cell : module->cells())
+				note(cell, cell->hashidx_, stringf("cell %s", cell->type), stringf("%s %s", module->name, cell->name));
+			for (auto &it : module->memories)
+				note(it.second, it.second->hashidx_, "memory", stringf("%s %s", module->name, it.second->name));
+			for (auto &it : module->processes)
+				note(it.second, it.second->hashidx_, "process", stringf("%s %s", module->name, it.second->name));
+		}
+		if (total > 0) {
+			std::string pass_list = {};
+			for (auto &p : passes)
+				pass_list += (pass_list.empty() ? "" : " ") + p;
+			log("Src loss: %d new object(s) without src after: %s\n", total, pass_list);
+			std::vector<std::pair<int, std::string>> order = {};
+			for (auto &it : groups)
+				order.push_back({-it.second.count, it.first});
+			std::sort(order.begin(), order.end());
+			for (auto &it : order)
+				log("  %7d  %-24s e.g. %s\n", -it.first, it.second, groups.at(it.second).example);
+		}
+		groups.clear();
+		passes.clear();
+		total = 0;
+	}
+};
+
+static SrcLossCheck src_loss_check;
+
 void try_collect_garbage()
 {
 	if (!GarbageCollectionGuard::is_enabled() || !garbage_collection_requested)
 		return;
 	garbage_collection_requested = false;
-	if (yosys_design)
+	if (yosys_design) {
+		if (src_loss_debug())
+			src_loss_check.run(yosys_design.get());
 		yosys_design->gc_twines();
+	}
 }
 
 Pass::Pass(std::string name, std::string short_help, source_location location) :
@@ -293,7 +356,11 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	Pass *pass = pass_register[args[0]];
 
 	// Collect garbage before the next pass if requested. No need to collect garbage after the last pass.
+	if (src_loss_debug())
+		request_garbage_collection();
 	try_collect_garbage();
+	if (src_loss_debug())
+		src_loss_check.passes.push_back(args[0]);
 	GarbageCollectionGuard gc_guard(pass->allow_garbage_collection_during_pass());
 
 	if (pass->experimental_flag)
