@@ -19,16 +19,14 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
+#include "techlibs/xilinx/xilinx_dsp.h"
+#include "techlibs/xilinx/xilinx_dsp48a.h"
+#include "techlibs/xilinx/xilinx_dsp_CREG.h"
+#include "techlibs/xilinx/xilinx_dsp_cascade.h"
 #include <deque>
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-#include "techlibs/xilinx/xilinx_dsp_pm.h"
-#include "techlibs/xilinx/xilinx_dsp48a_pm.h"
-#include "techlibs/xilinx/xilinx_dsp_CREG_pm.h"
-#include "techlibs/xilinx/xilinx_dsp_cascade_pm.h"
 
 static Cell* addDsp(Module *module) {
 	Cell *cell = module->addCell(NEW_ID, ID(DSP48E1));
@@ -256,9 +254,9 @@ void xilinx_simd_pack(Module *module, const std::vector<Cell*> &selected_cells)
 	g24(simd24_sub);
 }
 
-void xilinx_dsp_pack(xilinx_dsp_pm &pm)
+void xilinx_dsp_pack(XilinxDspPack &pm, const XilinxDspPack::Match &m)
 {
-	auto &st = pm.st_xilinx_dsp_pack;
+	XilinxDspPack::Match st = m;
 
 	log("Analysing %s.%s for Xilinx DSP packing.\n", pm.module, st.dsp);
 
@@ -496,12 +494,12 @@ void xilinx_dsp_pack(xilinx_dsp_pm &pm)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID::P, P);
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
-void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
+void xilinx_dsp48a_pack(XilinxDsp48aPack &pm, const XilinxDsp48aPack::Match &m)
 {
-	auto &st = pm.st_xilinx_dsp48a_pack;
+	XilinxDsp48aPack::Match st = m;
 
 	log("Analysing %s.%s for Xilinx DSP48A/DSP48A1 packing.\n", pm.module, st.dsp);
 
@@ -685,13 +683,11 @@ void xilinx_dsp48a_pack(xilinx_dsp48a_pm &pm)
 		P.append(pm.module->addWire(NEW_ID, 48-GetSize(P)));
 	cell->setPort(ID::P, P);
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
-void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
+void xilinx_dsp_packC(XilinxDspPackC &pm, const XilinxDspPackC::Match &st)
 {
-	auto &st = pm.st_xilinx_dsp_packC;
-
 	log_debug("Analysing %s.%s for Xilinx DSP packing (CREG).\n", pm.module, st.dsp);
 	log_debug("ffC:        %s\n", st.ffC ? st.ffC->name.unescape() : "--");
 
@@ -739,7 +735,7 @@ void xilinx_dsp_packC(xilinx_dsp_CREG_pm &pm)
 		log("%s\n", message);
 	}
 
-	pm.blacklist(cell);
+	pm.denylist(cell);
 }
 
 struct XilinxDspPass : public Pass {
@@ -821,11 +817,11 @@ struct XilinxDspPass : public Pass {
 			// Match for all features ([ABDMP][12]?REG, pre-adder,
 			// post-adder, pattern detector, etc.) except for CREG
 			if (family == "xc7") {
-				xilinx_dsp_pm pm(module, module->selected_cells());
-				pm.run_xilinx_dsp_pack(xilinx_dsp_pack);
+				MatchContext ctx(module);
+				XilinxDspPack(ctx, module->selected_cells()).run(xilinx_dsp_pack);
 			} else if (family == "xc6s" || family == "xc3sda") {
-				xilinx_dsp48a_pm pm(module, module->selected_cells());
-				pm.run_xilinx_dsp48a_pack(xilinx_dsp48a_pack);
+				MatchContext ctx(module);
+				XilinxDsp48aPack(ctx, module->selected_cells()).run(xilinx_dsp48a_pack);
 			}
 			// Separating out CREG packing is necessary since there
 			//   is no guarantee that the cell ordering corresponds
@@ -836,15 +832,15 @@ struct XilinxDspPass : public Pass {
 			//   PREG of an upstream DSP that had not been visited
 			//   yet
 			{
-				xilinx_dsp_CREG_pm pm(module, module->selected_cells());
-				pm.run_xilinx_dsp_packC(xilinx_dsp_packC);
+				MatchContext ctx(module);
+				XilinxDspPackC(ctx, module->selected_cells()).run(xilinx_dsp_packC);
 			}
 			// Lastly, identify and utilise PCOUT -> PCIN,
 			//   ACOUT -> ACIN, and BCOUT-> BCIN dedicated cascade
 			//   chains
 			{
-				xilinx_dsp_cascade_pm pm(module, module->selected_cells());
-				pm.run_xilinx_dsp_cascade();
+				MatchContext ctx(module);
+				XilinxDspCascade(ctx, module->selected_cells()).run();
 			}
 		}
 	}

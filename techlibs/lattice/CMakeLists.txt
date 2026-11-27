@@ -1,9 +1,6 @@
-pmgen_command(lattice_dsp_nexus
-	lattice_dsp_nexus.pmg
-)
 yosys_pass(lattice_dsp_nexus
 	lattice_dsp_nexus.cc
-	${PMGEN_lattice_dsp_nexus_OUTPUT}
+	lattice_dsp_nexus.h
 )
 
 yosys_pass(lattice_gsr

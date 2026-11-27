@@ -18,17 +18,13 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
+#include "techlibs/ice40/ice40_dsp.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "techlibs/ice40/ice40_dsp_pm.h"
-
-void create_ice40_dsp(ice40_dsp_pm &pm)
+void create_ice40_dsp(Ice40Dsp &pm, const Ice40Dsp::Match &st)
 {
-	auto &st = pm.st_ice40_dsp;
-
 	log("Checking %s.%s for iCE40 DSP inference.\n", pm.module, st.mul);
 
 	log_debug("ffA:    %s\n", st.ffA ? st.ffA->name.unescape() : "--");
@@ -270,7 +266,7 @@ void create_ice40_dsp(ice40_dsp_pm &pm)
 	if (cell != st.mul)
 		pm.autoremove(st.mul);
 	else
-		pm.blacklist(st.mul);
+		pm.denylist(st.mul);
 	pm.autoremove(st.ffFJKG);
 	pm.autoremove(st.add);
 }
@@ -311,8 +307,10 @@ struct Ice40DspPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			ice40_dsp_pm(module, module->selected_cells()).run_ice40_dsp(create_ice40_dsp);
+		for (auto module : design->selected_modules()) {
+			MatchContext ctx(module);
+			Ice40Dsp(ctx, module->selected_cells()).run(create_ice40_dsp);
+		}
 	}
 } Ice40DspPass;
 

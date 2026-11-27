@@ -56,6 +56,7 @@ yosys_core(kernel
 	log_help.cc
 	log_help.h
 	macc.h
+	matcher.h
 	mem.cc
 	mem.h
 	modtools.h

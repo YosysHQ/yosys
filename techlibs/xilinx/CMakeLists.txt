@@ -1,31 +1,18 @@
 yosys_pass(xilinx_dffopt
 	xilinx_dffopt.cc
 )
-pmgen_command(xilinx_dsp
-	xilinx_dsp.pmg
-)
-pmgen_command(xilinx_dsp48a
-	xilinx_dsp48a.pmg
-)
-pmgen_command(xilinx_dsp_CREG
-	xilinx_dsp_CREG.pmg
-)
-pmgen_command(xilinx_dsp_cascade
-	xilinx_dsp_cascade.pmg
-)
 yosys_pass(xilinx_dsp
 	xilinx_dsp.cc
-	${PMGEN_xilinx_dsp_OUTPUT}
-	${PMGEN_xilinx_dsp48a_OUTPUT}
-	${PMGEN_xilinx_dsp_CREG_OUTPUT}
-	${PMGEN_xilinx_dsp_cascade_OUTPUT}
-)
-pmgen_command(xilinx_srl
-	xilinx_srl.pmg
+	xilinx_dsp.h
+	xilinx_dsp48a.h
+	xilinx_dsp_CREG.h
+	xilinx_dsp_cascade.h
+	../common/dsp_ff.h
+	xilinx_dsp_stages.h
 )
 yosys_pass(xilinx_srl
 	xilinx_srl.cc
-	${PMGEN_xilinx_srl_OUTPUT}
+	xilinx_srl.h
 )
 
 yosys_pass(synth_xilinx

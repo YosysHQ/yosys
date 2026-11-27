@@ -18,21 +18,17 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
 #include "kernel/utils.h"
+#include "passes/opt/peepopt_shiftmul_right.h"
+#include "passes/opt/peepopt_shiftmul_left.h"
+#include "passes/opt/peepopt_shiftadd.h"
+#include "passes/opt/peepopt_shiftpow2.h"
+#include "passes/opt/peepopt_muldiv.h"
+#include "passes/opt/peepopt_muldiv_c.h"
+#include "passes/opt/peepopt_formal_clockgateff.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
-
-// Helper function, removes LSB 0s
-SigSpec remove_bottom_padding(SigSpec sig)
-{
-	int i = 0;
-	for (; i < sig.size() - 1 && sig[i] == State::S0; i++);
-	return sig.extract(i, sig.size() - i);
-}
-
-#include "passes/opt/peepopt_pm.h"
 
 struct PeepoptPass : public Pass {
 	PeepoptPass() : Pass("peepopt", "collection of peephole optimizers") { }
@@ -104,24 +100,31 @@ struct PeepoptPass : public Pass {
 
 			while (did_something)
 			{
-				peepopt_pm pm(module);
-
-				pm.setup(module->selected_cells());
-				pm.ud_shiftadd.shiftadd_max_ratio = shiftadd_max_ratio;
+				MatchContext ctx(module);
+				vector<Cell*> cells = module->selected_cells();
 
 				if (formalclk) {
-					pm.run_formal_clockgateff();
-					did_something = pm.ud_formal_clockgateff.did_something;
+					PeepoptFormalClockgateff formal_clockgateff(ctx, cells);
+					formal_clockgateff.run();
+					did_something = formal_clockgateff.did_something;
 				} else {
-					pm.run_shiftadd();
-					pm.run_shiftmul_right();
-					pm.run_shiftmul_left();
-					pm.run_shiftpow2();
-					pm.run_muldiv();
-					pm.run_muldiv_c();
-					did_something = pm.ud_shiftadd.did_something || pm.ud_shiftmul_right.did_something ||
-							pm.ud_shiftmul_left.did_something || pm.ud_shiftpow2.did_something || pm.ud_muldiv.did_something ||
-							pm.ud_muldiv_c.did_something;
+					PeepoptShiftadd shiftadd(ctx, cells);
+					PeepoptShiftmulRight shiftmul_right(ctx, cells);
+					PeepoptShiftmulLeft shiftmul_left(ctx, cells);
+					PeepoptShiftpow2 shiftpow2(ctx, cells);
+					PeepoptMuldiv muldiv(ctx, cells);
+					PeepoptMuldivC muldiv_c(ctx, cells);
+					shiftadd.shiftadd_max_ratio = shiftadd_max_ratio;
+
+					shiftadd.run();
+					shiftmul_right.run();
+					shiftmul_left.run();
+					shiftpow2.run();
+					muldiv.run();
+					muldiv_c.run();
+					did_something = shiftadd.did_something || shiftmul_right.did_something ||
+							shiftmul_left.did_something || shiftpow2.did_something || muldiv.did_something ||
+							muldiv_c.did_something;
 				}
 			}
 		}

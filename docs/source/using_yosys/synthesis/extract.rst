@@ -9,8 +9,7 @@ The extract pass
   with an instance of the module from the map file.
 - In a way the `extract` pass is the inverse of the techmap pass.
 
-.. todo:: add/expand supporting text, also mention custom pattern matching and
-   pmgen
+.. todo:: add/expand supporting text, also mention custom pattern matching
 
 Example code can be found in |code_examples/macc|_.
 

@@ -19,21 +19,17 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
+#include "techlibs/xilinx/xilinx_srl.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "techlibs/xilinx/xilinx_srl_pm.h"
-
-void run_fixed(xilinx_srl_pm &pm)
+void run_fixed(XilinxSrlFixed &pm, const XilinxSrlFixed::Match &st)
 {
-	auto &st = pm.st_fixed;
-	auto &ud = pm.ud_fixed;
-	log("Found fixed chain of length %d (%s):\n", GetSize(ud.longest_chain), st.first->type.unescape());
+	log("Found fixed chain of length %d (%s):\n", GetSize(pm.longest_chain), st.first->type.unescape());
 
 	SigSpec initval;
-	for (auto cell : ud.longest_chain) {
+	for (auto cell : pm.longest_chain) {
 		log_debug("    %s\n", cell);
 		if (cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_))) {
 			SigBit Q = cell->getPort(ID::Q);
@@ -57,13 +53,13 @@ void run_fixed(xilinx_srl_pm &pm)
 		pm.autoremove(cell);
 	}
 
-	auto first_cell = ud.longest_chain.back();
-	auto last_cell = ud.longest_chain.front();
+	auto first_cell = pm.longest_chain.back();
+	auto last_cell = pm.longest_chain.front();
 	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID(FDRE), ID(FDRE_1))) {
-		c->setParam(ID::DEPTH, GetSize(ud.longest_chain));
+		c->setParam(ID::DEPTH, GetSize(pm.longest_chain));
 		c->setParam(ID::INIT, initval.as_const());
 		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
 			c->setParam(ID(CLKPOL), 1);
@@ -87,7 +83,7 @@ void run_fixed(xilinx_srl_pm &pm)
 		c->setPort(ID::C, first_cell->getPort(ID::C));
 		c->setPort(ID::D, first_cell->getPort(ID::D));
 		c->setPort(ID::Q, last_cell->getPort(ID::Q));
-		c->setPort(ID::L, GetSize(ud.longest_chain)-1);
+		c->setPort(ID::L, GetSize(pm.longest_chain)-1);
 		if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_)))
 			c->setPort(ID::E, State::S1);
 		else if (first_cell->type.in(ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
@@ -103,15 +99,12 @@ void run_fixed(xilinx_srl_pm &pm)
 	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
-void run_variable(xilinx_srl_pm &pm)
+void run_variable(XilinxSrlVariable &pm, const XilinxSrlVariable::Match &st)
 {
-	auto &st = pm.st_variable;
-	auto &ud = pm.ud_variable;
-
-	log("Found variable chain of length %d (%s):\n", GetSize(ud.chain), st.first->type.unescape());
+	log("Found variable chain of length %d (%s):\n", GetSize(pm.chain), st.first->type.unescape());
 
 	SigSpec initval;
-	for (const auto &i : ud.chain) {
+	for (const auto &i : pm.chain) {
 		auto cell = i.first;
 		auto slice = i.second;
 		log_debug("    %s\n", cell);
@@ -131,14 +124,14 @@ void run_variable(xilinx_srl_pm &pm)
 	}
 	pm.autoremove(st.shiftx);
 
-	auto first_cell = ud.chain.back().first;
-	auto first_slice = ud.chain.back().second;
+	auto first_cell = pm.chain.back().first;
+	auto first_slice = pm.chain.back().second;
 
 	Cell *c = pm.module->addCell(NEW_ID, ID($__XILINX_SHREG_));
 	pm.module->swap_names(c, first_cell);
 
 	if (first_cell->type.in(ID($_DFF_N_), ID($_DFF_P_), ID($_DFFE_NN_), ID($_DFFE_NP_), ID($_DFFE_PN_), ID($_DFFE_PP_), ID($dff), ID($dffe))) {
-		c->setParam(ID::DEPTH, GetSize(ud.chain));
+		c->setParam(ID::DEPTH, GetSize(pm.chain));
 		c->setParam(ID::INIT, initval.as_const());
 		Const clkpol, enpol;
 		if (first_cell->type.in(ID($_DFF_P_), ID($_DFFE_PN_), ID($_DFFE_PP_)))
@@ -241,14 +234,17 @@ struct XilinxSrlPass : public Pass {
 			log_cmd_error("'-fixed' and/or '-variable' must be specified.\n");
 
 		for (auto module : design->selected_modules()) {
-			auto pm = xilinx_srl_pm(module, module->selected_cells());
-			pm.ud_fixed.minlen = minlen;
-			pm.ud_variable.minlen = minlen;
+			MatchContext ctx(module);
+			vector<Cell*> cells = module->selected_cells();
+			XilinxSrlFixed srl_fixed(ctx, cells);
+			XilinxSrlVariable srl_variable(ctx, cells);
+			srl_fixed.minlen = minlen;
+			srl_variable.minlen = minlen;
 
 			if (fixed)
-				pm.run_fixed(run_fixed);
+				srl_fixed.run(run_fixed);
 			if (variable)
-				pm.run_variable(run_variable);
+				srl_variable.run(run_variable);
 		}
 	}
 } XilinxSrlPass;

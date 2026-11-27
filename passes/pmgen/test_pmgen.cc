@@ -18,32 +18,26 @@
  */
 
 #include "kernel/yosys.h"
-#include "kernel/sigtools.h"
+#include "passes/pmgen/test_pmgen.h"
+#include "techlibs/xilinx/xilinx_srl.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "passes/pmgen/test_pmgen_pm.h"
-#include "techlibs/ice40/ice40_dsp_pm.h"
-#include "techlibs/xilinx/xilinx_srl_pm.h"
-
 #include "generate.h"
 
-void reduce_chain(test_pmgen_pm &pm)
+void reduce_chain(TestPmgenReduce &pm, const TestPmgenReduce::Match &st)
 {
-	auto &st = pm.st_reduce;
-	auto &ud = pm.ud_reduce;
-
-	if (ud.longest_chain.empty())
+	if (pm.longest_chain.empty())
 		return;
 
-	log("Found chain of length %d (%s):\n", GetSize(ud.longest_chain), st.first->type.unescape());
+	log("Found chain of length %d (%s):\n", GetSize(pm.longest_chain), st.first->type.unescape());
 
 	SigSpec A;
-	SigSpec Y = ud.longest_chain.front().first->getPort(ID::Y);
-	auto last_cell = ud.longest_chain.back().first;
+	SigSpec Y = pm.longest_chain.front().first->getPort(ID::Y);
+	auto last_cell = pm.longest_chain.back().first;
 
-	for (auto it : ud.longest_chain) {
+	for (auto it : pm.longest_chain) {
 		auto cell = it.first;
 		if (cell == last_cell) {
 			A.append(cell->getPort(ID::A));
@@ -69,15 +63,12 @@ void reduce_chain(test_pmgen_pm &pm)
 	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
-void reduce_tree(test_pmgen_pm &pm)
+void reduce_tree(TestPmgenReduce &pm, const TestPmgenReduce::Match &st)
 {
-	auto &st = pm.st_reduce;
-	auto &ud = pm.ud_reduce;
-
-	if (ud.longest_chain.empty())
+	if (pm.longest_chain.empty())
 		return;
 
-	SigSpec A = ud.leaves;
+	SigSpec A = pm.leaves;
 	SigSpec Y = st.first->getPort(ID::Y);
 	pm.autoremove(st.first);
 
@@ -98,10 +89,8 @@ void reduce_tree(test_pmgen_pm &pm)
 	log("    -> %s (%s)\n", c, c->type.unescape());
 }
 
-void opt_eqpmux(test_pmgen_pm &pm)
+void opt_eqpmux(TestPmgenEqpmux &pm, const TestPmgenEqpmux::Match &st)
 {
-	auto &st = pm.st_eqpmux;
-
 	SigSpec Y = st.pmux->getPort(ID::Y);
 	int width = GetSize(Y);
 
@@ -117,7 +106,7 @@ void opt_eqpmux(test_pmgen_pm &pm)
 }
 
 struct TestPmgenPass : public Pass {
-	TestPmgenPass() : Pass("test_pmgen", "test pass for pmgen") {
+	TestPmgenPass() : Pass("test_pmgen", "test pass for pattern matchers") {
 		internal();
 	}
 	void help() override
@@ -126,19 +115,19 @@ struct TestPmgenPass : public Pass {
 		log("\n");
 		log("    test_pmgen -reduce_chain [options] [selection]\n");
 		log("\n");
-		log("Demo for recursive pmgen patterns. Map chains of AND/OR/XOR to $reduce_*.\n");
+		log("Demo for recursive pattern matchers. Map chains of AND/OR/XOR to $reduce_*.\n");
 		log("\n");
 
 		log("\n");
 		log("    test_pmgen -reduce_tree [options] [selection]\n");
 		log("\n");
-		log("Demo for recursive pmgen patterns. Map trees of AND/OR/XOR to $reduce_*.\n");
+		log("Demo for recursive pattern matchers. Map trees of AND/OR/XOR to $reduce_*.\n");
 		log("\n");
 
 		log("\n");
 		log("    test_pmgen -eqpmux [options] [selection]\n");
 		log("\n");
-		log("Demo for recursive pmgen patterns. Optimize EQ/NE/PMUX circuits.\n");
+		log("Demo for recursive pattern matchers. Optimize EQ/NE/PMUX circuits.\n");
 		log("\n");
 
 		log("\n");
@@ -163,8 +152,13 @@ struct TestPmgenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			while (test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_chain)) {}
+		for (auto module : design->selected_modules()) {
+			bool found_match = true;
+			while (found_match) {
+				MatchContext ctx(module);
+				found_match = TestPmgenReduce(ctx, module->selected_cells()).run(reduce_chain) > 0;
+			}
+		}
 	}
 
 	void execute_reduce_tree(std::vector<std::string> args, RTLIL::Design *design)
@@ -182,8 +176,10 @@ struct TestPmgenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			test_pmgen_pm(module, module->selected_cells()).run_reduce(reduce_tree);
+		for (auto module : design->selected_modules()) {
+			MatchContext ctx(module);
+			TestPmgenReduce(ctx, module->selected_cells()).run(reduce_tree);
+		}
 	}
 
 	void execute_eqpmux(std::vector<std::string> args, RTLIL::Design *design)
@@ -201,8 +197,10 @@ struct TestPmgenPass : public Pass {
 		}
 		extra_args(args, argidx, design);
 
-		for (auto module : design->selected_modules())
-			test_pmgen_pm(module, module->selected_cells()).run_eqpmux(opt_eqpmux);
+		for (auto module : design->selected_modules()) {
+			MatchContext ctx(module);
+			TestPmgenEqpmux(ctx, module->selected_cells()).run(opt_eqpmux);
+		}
 	}
 
 	void execute_generate(std::vector<std::string> args, RTLIL::Design *design)
@@ -225,18 +223,15 @@ struct TestPmgenPass : public Pass {
 		string pattern = args[argidx];
 
 		if (pattern == "reduce")
-			return GENERATE_PATTERN(test_pmgen_pm, reduce);
+			return generate_pattern<TestPmgenReduce>("test_pmgen_pm", "reduce", design);
 
 		if (pattern == "eqpmux")
-			return GENERATE_PATTERN(test_pmgen_pm, eqpmux);
-
-		if (pattern == "ice40_dsp")
-			return GENERATE_PATTERN(ice40_dsp_pm, ice40_dsp);
+			return generate_pattern<TestPmgenEqpmux>("test_pmgen_pm", "eqpmux", design);
 
 		if (pattern == "xilinx_srl.fixed")
-			return GENERATE_PATTERN(xilinx_srl_pm, fixed);
+			return generate_pattern<XilinxSrlFixed>("xilinx_srl_pm", "fixed", design);
 		if (pattern == "xilinx_srl.variable")
-			return GENERATE_PATTERN(xilinx_srl_pm, variable);
+			return generate_pattern<XilinxSrlVariable>("xilinx_srl_pm", "variable", design);
 
 		log_cmd_error("Unknown pattern: %s\n", pattern);
 	}

@@ -1,20 +1,12 @@
-pmgen_command(microchip_dsp
-	microchip_dsp.pmg
-)
-pmgen_command(microchip_dsp_cascade
-	microchip_dsp_cascade.pmg
-)
-pmgen_command(microchip_dsp_CREG
-	microchip_dsp_CREG.pmg
-)
 yosys_pass(microchip_dffopt
 	microchip_dffopt.cc
 )
 yosys_pass(microchip_dsp
 	microchip_dsp.cc
-	${PMGEN_microchip_dsp_OUTPUT}
-	${PMGEN_microchip_dsp_cascade_OUTPUT}
-	${PMGEN_microchip_dsp_CREG_OUTPUT}
+	microchip_dsp.h
+	microchip_dsp_cascade.h
+	microchip_dsp_CREG.h
+	../common/dsp_ff.h
 )
 
 yosys_pass(synth_microchip

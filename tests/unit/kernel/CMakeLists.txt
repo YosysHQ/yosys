@@ -6,6 +6,7 @@ yosys_gtest(kernel
 	hashTest.cc
 	ioTest.cc
 	logTest.cc
+	matcherDocTest.cc
 	modindexTest.cc
 	ownedIdTest.cc
 	perfHelpers.h

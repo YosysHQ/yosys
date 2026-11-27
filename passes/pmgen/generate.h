@@ -20,9 +20,6 @@
 #ifndef PMGEN_GENERATE
 #define PMGEN_GENERATE
 
-#define GENERATE_PATTERN(pmclass, pattern) \
-	generate_pattern<pmclass>([](pmclass &pm, std::function<void()> f){ return pm.run_ ## pattern(f); }, #pmclass, #pattern, design)
-
 void pmtest_addports(Module *module)
 {
 	pool<SigBit> driven_bits, used_bits;
@@ -64,8 +61,8 @@ void pmtest_addports(Module *module)
 	module->fixup_ports();
 }
 
-template <class pm>
-void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const char *pmclass, const char *pattern, Design *design)
+template <class Pattern>
+void generate_pattern(const char *pmclass, const char *pattern, Design *design)
 {
 	log("Generating \"%s\" patterns for pattern matcher \"%s\".\n", pattern, pmclass);
 
@@ -85,22 +82,22 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 			if (timeout++ > 10000)
 				log_error("pmgen generator is stuck: 10000 iterations with no matching module generated.\n");
 
-			pm matcher(mod, mod->cells());
+			MatchContext ctx(mod);
+			Pattern matcher(ctx, mod->cells());
 
-			matcher.rng(1);
-			matcher.rngseed += modcnt;
-			matcher.rng(1);
-			matcher.rngseed += submodcnt;
-			matcher.rng(1);
-			matcher.rngseed += itercnt;
-			matcher.rng(1);
-			matcher.rngseed += cellcnt;
-			matcher.rng(1);
+			ctx.rng(1);
+			ctx.rngseed += modcnt;
+			ctx.rng(1);
+			ctx.rngseed += submodcnt;
+			ctx.rng(1);
+			ctx.rngseed += itercnt;
+			ctx.rng(1);
+			ctx.rngseed += cellcnt;
+			ctx.rng(1);
 
 			if (GetSize(mod->cells()) != cellcnt)
 			{
-				bool found_match = false;
-				run(matcher, [&](){ found_match = true; });
+				bool found_match = matcher.run() > 0;
 				cellcnt = GetSize(mod->cells());
 
 				if (found_match) {
@@ -115,8 +112,8 @@ void generate_pattern(std::function<void(pm&,std::function<void()>)> run, const 
 				}
 			}
 
-			matcher.generate_mode = true;
-			run(matcher, [](){});
+			ctx.generate_mode = true;
+			matcher.run();
 		}
 
 		if (submodcnt && maxsubcnt < (1 << 16))

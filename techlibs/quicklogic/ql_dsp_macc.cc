@@ -17,20 +17,16 @@
  *
  */
 
-#include "kernel/sigtools.h"
 #include "kernel/yosys.h"
+#include "techlibs/quicklogic/ql_dsp_macc.h"
 
 USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
-#include "techlibs/quicklogic/ql_dsp_macc_pm.h"
-
 // ============================================================================
 
-static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
+static void create_ql_macc_dsp(QlDspMacc &pm, const QlDspMacc::Match &st)
 {
-    auto &st = pm.st_ql_dsp_macc;
-
     // Get port widths
     size_t a_width = GetSize(st.mul->getPort(ID(A)));
     size_t b_width = GetSize(st.mul->getPort(ID(B)));
@@ -181,8 +177,8 @@ static void create_ql_macc_dsp(ql_dsp_macc_pm &pm)
     pm.autoremove(st.ff);
 }
 
-struct QlDspMacc : public Pass {
-	QlDspMacc() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
+struct QlDspMaccPass : public Pass {
+	QlDspMaccPass() : Pass("ql_dsp_macc", "infer QuickLogic multiplier-accumulator DSP cells") {}
 
 	void help() override
 	{
@@ -205,10 +201,12 @@ struct QlDspMacc : public Pass {
 		}
 		extra_args(a_Args, argidx, a_Design);
 
-		for (auto module : a_Design->selected_modules())
-			ql_dsp_macc_pm(module, module->selected_cells()).run_ql_dsp_macc(create_ql_macc_dsp);
+		for (auto module : a_Design->selected_modules()) {
+			MatchContext ctx(module);
+			QlDspMacc(ctx, module->selected_cells()).run(create_ql_macc_dsp);
+		}
 	}
 
-} QlDspMacc;
+} QlDspMaccPass;
 
 PRIVATE_NAMESPACE_END
