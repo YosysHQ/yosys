@@ -23,8 +23,6 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
-#include <deque>
-
 YOSYS_NAMESPACE_BEGIN
 
 // Track whether garbage collection is enabled. Garbage collection must be disabled
@@ -190,7 +188,7 @@ private:
 	void push(Pass *pass);
 	void pop();
 
-	std::deque<Pass*> stack;
+	std::vector<Pass*> stack;
 };
 
 extern std::shared_ptr<PassCallStack> yosys_pass_call_stack;
