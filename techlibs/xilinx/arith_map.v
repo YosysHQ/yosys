@@ -20,6 +20,12 @@
 // ============================================================================
 // LCU
 
+// Narrowest arithmetic (in bits) mapped to carry chains; anything narrower is
+// left to the generic map and becomes LUT logic (synth_xilinx -mincarry).
+`ifndef MIN_CARRY_WIDTH
+`define MIN_CARRY_WIDTH 3
+`endif
+
 (* techmap_celltype = "$lcu" *)
 module _80_xilinx_lcu (P, G, CI, CO);
 	parameter WIDTH = 2;
@@ -31,7 +37,7 @@ module _80_xilinx_lcu (P, G, CI, CO);
 	(* force_downto *)
 	output [WIDTH-1:0] CO;
 
-	wire _TECHMAP_FAIL_ = WIDTH <= 2;
+	wire _TECHMAP_FAIL_ = WIDTH < `MIN_CARRY_WIDTH;
 
 	genvar i;
 
@@ -115,7 +121,7 @@ module _80_xilinx_alu (A, B, CI, BI, X, Y, CO);
 	(* force_downto *)
 	output [Y_WIDTH-1:0] CO;
 
-	wire _TECHMAP_FAIL_ = Y_WIDTH <= 2;
+	wire _TECHMAP_FAIL_ = Y_WIDTH < `MIN_CARRY_WIDTH;
 
 	(* force_downto *)
 	wire [Y_WIDTH-1:0] A_buf, B_buf;

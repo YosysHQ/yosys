@@ -1,0 +1,20 @@
+# -mincarry: arithmetic narrower than the given width is mapped to LUTs, not carry chains
+read_verilog <<EOT
+module top(input [5:0] a, b, input [11:0] c, d, output [5:0] s, output lt, output [11:0] t);
+	assign s = a + b;
+	assign lt = a < b;
+	assign t = c - d;
+endmodule
+EOT
+design -save read
+
+# default: every operation above 2 bits uses a carry chain
+synth_xilinx -noiopad
+select -assert-count 5 t:CARRY4
+
+# 6-bit add/compare go to LUTs, the 12-bit subtract keeps its 3 CARRY4s
+design -load read
+equiv_opt -assert -map +/xilinx/cells_sim.v synth_xilinx -noiopad -mincarry 9
+design -load postopt
+select -assert-count 3 t:CARRY4
+select -assert-min 1 t:LUT*

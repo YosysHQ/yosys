@@ -101,6 +101,15 @@ struct SynthXilinxPass : public ScriptPass
 		log("    -nocarry\n");
 		log("        do not use XORCY/MUXCY/CARRY4 cells in output netlist\n");
 		log("\n");
+		log("    -mincarry <int>\n");
+		log("        use carry chains (MUXCY/XORCY/CARRY4/CARRY8) only for adders, subtractors\n");
+		log("        and comparators at least this many bits wide; narrower ones are mapped\n");
+		log("        to LUTs. A short carry chain occupies the LUTs of a whole slice, so\n");
+		log("        designs with many narrow counters and compares can pack considerably\n");
+		log("        denser with a value around 9 (8 bits and narrower on LUTs).\n");
+		log("        Minimum value 3.\n");
+		log("        default: 3\n");
+		log("\n");
 		log("    -nowidelut\n");
 		log("        do not use MUXF[5-9] resources to implement LUTs larger than native for\n");
 		log("        the target\n");
@@ -148,7 +157,7 @@ struct SynthXilinxPass : public ScriptPass
 	bool flatten, ise, noiopad, noclkbuf, nobram, nolutram, nosrl, nocarry, nowidelut, nodsp, uram;
 	bool dff;
 	bool flatten_before_abc;
-	int widemux;
+	int widemux, mincarry;
 	int lut_size;
 	int widelut_size;
 
@@ -173,6 +182,7 @@ struct SynthXilinxPass : public ScriptPass
 		dff = false;
 		flatten_before_abc = false;
 		widemux = 0;
+		mincarry = 3;
 		lut_size = 6;
 	}
 
@@ -260,6 +270,10 @@ struct SynthXilinxPass : public ScriptPass
 				nosrl = true;
 				continue;
 			}
+			if (args[argidx] == "-mincarry" && argidx+1 < args.size()) {
+				mincarry = atoi(args[++argidx].c_str());
+				continue;
+			}
 			if (args[argidx] == "-widemux" && argidx+1 < args.size()) {
 				widemux = atoi(args[++argidx].c_str());
 				continue;
@@ -322,6 +336,8 @@ struct SynthXilinxPass : public ScriptPass
 
 		if (widemux != 0 && widemux < 2)
 			log_cmd_error("-widemux value must be 0 or >= 2.\n");
+		if (mincarry < 3)
+			log_cmd_error("-mincarry value must be >= 3.\n");
 
 		if (!design->full_selection())
 			log_cmd_error("This command only operates on fully selected designs!\n");
@@ -607,6 +623,10 @@ struct SynthXilinxPass : public ScriptPass
 			else if (widemux > 0)
 				techmap_args += stringf(" -D MIN_MUX_INPUTS=%d -map +/xilinx/mux_map.v", widemux);
 			if (!nocarry) {
+				if (help_mode)
+					techmap_args += " [-D MIN_CARRY_WIDTH=<int>]";
+				else if (mincarry != 3)
+					techmap_args += stringf(" -D MIN_CARRY_WIDTH=%d", mincarry);
 				techmap_args += " -map +/xilinx/arith_map.v";
 			}
 			run("techmap " + techmap_args);
