@@ -160,7 +160,7 @@ struct AbcSigVal {
 };
 
 // REUSE_YOSYS_ABC_PROCESSES only works when ABC is built with ENABLE_READLINE.
-#if defined(__linux__) && defined(YOSYS_ENABLE_SPAWN) && defined(YOSYS_ENABLE_READLINE)
+#if defined(__linux__) && defined(YOSYS_ENABLE_SPAWN) && defined(YOSYS_ENABLE_READLINE) && !YOSYS_LINK_ABC
 #define REUSE_YOSYS_ABC_PROCESSES
 #endif
 
@@ -1103,6 +1103,14 @@ void AbcModuleState::prepare_module(RTLIL::Design *design, RTLIL::Module *module
 		run_abc.abc_script += stringf("; dress \"%s/input.blif\"", run_abc.per_run_tempdir_name);
 	run_abc.abc_script += stringf("; write_blif %s/output.blif", run_abc.per_run_tempdir_name);
 	run_abc.abc_script = add_echos_to_abc_cmd(run_abc.abc_script);
+#ifdef YOSYS_LINK_ABC
+	// Linked ABC prints to pAbc->Out/Err; redirect them to files we read back after Abc_RealMain.
+	// Separate files: two "w" handles on one path would overwrite each other.
+	// "set abcout -" fcloses (and thus flushes) the redirect files; ABC never closes them otherwise.
+	run_abc.abc_script = stringf("set abcout \"%s/stdout.txt\"; set abcerr \"%s/stderr.txt\"; ",
+			run_abc.per_run_tempdir_name, run_abc.per_run_tempdir_name) + run_abc.abc_script +
+			"; set abcout -; set abcerr -";
+#endif
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
 	if (config.is_yosys_abc())
 		run_abc.abc_script += "; echo; echo \"YOSYS_ABC_DONE\"\n";
@@ -1354,46 +1362,30 @@ void RunAbcState::run(ConcurrentStack<AbcProcess> &)
 		errno = 0;
 		abc_output_filter filt(*this, config.global_tempdir_name, per_run_tempdir_name, config.show_tempdir);
 #ifdef YOSYS_LINK_ABC
-		string temp_stdouterr_name = stringf("%s/stdouterr.txt", per_run_tempdir_name);
-		FILE *temp_stdouterr_w = fopen(temp_stdouterr_name.c_str(), "w");
-		if (temp_stdouterr_w == NULL)
-			logs.log_error("ABC: cannot open a temporary file for output redirection\n");
-		fflush(stdout);
-		fflush(stderr);
-		FILE *old_stdout = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
-		FILE *old_stderr = fopen(temp_stdouterr_name.c_str(), "r"); // need any fd for renumbering
-#if defined(__wasm)
-#define fd_renumber(from, to) (void)__wasilibc_fd_renumber(from, to)
-#else
-#define fd_renumber(from, to) dup2(from, to)
-#endif
-		fd_renumber(fileno(stdout), fileno(old_stdout));
-		fd_renumber(fileno(stderr), fileno(old_stderr));
-		fd_renumber(fileno(temp_stdouterr_w), fileno(stdout));
-		fd_renumber(fileno(temp_stdouterr_w), fileno(stderr));
-		fclose(temp_stdouterr_w);
+		// Output streams are redirected by "set abcout/abcerr" at the top of abc.script.
 		// These needs to be mutable, supposedly due to getopt
 		char *abc_argv[5];
+		// "-q" (quiet batch) instead of "-f": skips the "======== ABC command line" banner,
+		// which would go to the real stdout before abc.script sets up the redirect.
+		std::string abc_cmd = stringf("source %s", tmp_script_name);
 		abc_argv[0] = strdup(config.exe_file.c_str());
 		abc_argv[1] = strdup("-s");
-		abc_argv[2] = strdup("-f");
-		abc_argv[3] = strdup(tmp_script_name.c_str());
+		abc_argv[2] = strdup("-q");
+		abc_argv[3] = strdup(abc_cmd.c_str());
 		abc_argv[4] = 0;
 		ret = abc::Abc_RealMain(4, abc_argv);
 		free(abc_argv[0]);
 		free(abc_argv[1]);
 		free(abc_argv[2]);
 		free(abc_argv[3]);
-		fflush(stdout);
-		fflush(stderr);
-		fd_renumber(fileno(old_stdout), fileno(stdout));
-		fd_renumber(fileno(old_stderr), fileno(stderr));
-		fclose(old_stdout);
-		fclose(old_stderr);
-		std::ifstream temp_stdouterr_r(temp_stdouterr_name);
-		for (std::string line; std::getline(temp_stdouterr_r, line); )
+		std::ifstream temp_out_r(stringf("%s/%s", per_run_tempdir_name, "stdout.txt"));
+		for (std::string line; std::getline(temp_out_r, line); )
 			filt.next_line(line + "\n");
-		temp_stdouterr_r.close();
+		temp_out_r.close();
+		std::ifstream temp_err_r(stringf("%s/%s", per_run_tempdir_name, "stderr.txt"));
+		for (std::string line; std::getline(temp_err_r, line); )
+			filt.next_line(line + "\n");
+		temp_err_r.close();
 		break;
 #else
 #if defined(REUSE_YOSYS_ABC_PROCESSES)
@@ -2250,10 +2242,6 @@ struct AbcPass : public Pass {
 		emit_global_input_files(config);
 
 		int max_threads = INT_MAX;
-#ifdef YOSYS_LINK_ABC
-		// ABC does't support multithreaded calls so don't call it off the main thread.
-		max_threads = 0;
-#endif
 		int num_worker_threads = ThreadPool::pool_size(1, max_threads);
 		ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_queue(num_worker_threads);
 		ConcurrentQueue<std::unique_ptr<AbcModuleState>> work_finished_queue;
