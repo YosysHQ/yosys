@@ -20,6 +20,7 @@
 #ifndef REGISTER_H
 #define REGISTER_H
 
+#include "kernel/log.h"
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
@@ -113,6 +114,9 @@ struct Pass
 	// This should return false if the pass holds onto RTLIL objects outside a Design while it
 	// calls nested passes. For safety, we default to assuming the worst.
 	virtual bool allow_garbage_collection_during_pass() const { return false; }
+
+	// for ys / tcl passes
+	std::optional<LogSourceLocation> get_source_location() const { return std::nullopt; }
 };
 
 struct ScriptPass : Pass
@@ -175,6 +179,15 @@ struct Backend : Pass
 	static void backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::string command);
 	static void backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::vector<std::string> args);
 };
+
+// class PassCallStack {
+// public:
+// 	Pass* top();
+// 	void push(Pass *pass);
+// 	void pop();
+// private:
+// 	std::deque<Pass*> stack;
+// };
 
 // implemented in passes/cmds/select.cc
 extern void handle_extra_select_args(Pass *pass, const std::vector<std::string> &args, size_t argidx, size_t args_size, RTLIL::Design *design);
