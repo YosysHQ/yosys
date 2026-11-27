@@ -863,8 +863,16 @@ struct Smt2Worker
 					decls.push_back(stringf("(define-fun |%s_m:R%dA %s| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), abits, addr, log_signal(addr_sig)));
 
-					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) (select (|%s| state) (|%s_m:R%dA %s| state))) ; %s\n",
-							get_id(module), idcounter, get_id(module), mem->width, memstate, get_id(module), i, get_id(mem->memid), log_signal(port.data)));
+					addr = stringf("(|%s_m:R%dA %s| state)", get_id(module), i, get_id(mem->memid));
+					std::string read_expr = stringf("(select (|%s| state) %s)", memstate, addr);
+
+					if (mem->size < (1 << abits))
+						read_expr = stringf("(ite (bvult (bvsub %s #b%s) #b%s) %s #b%s)", addr,
+								Const(mem->start_offset, abits).as_string(), Const(mem->size, abits).as_string(),
+								read_expr, Const(0, mem->width).as_string());
+
+					decls.push_back(stringf("(define-fun |%s#%d| ((state |%s_s|)) (_ BitVec %d) %s) ; %s\n",
+							get_id(module), idcounter, get_id(module), mem->width, read_expr, log_signal(port.data)));
 
 					decls.push_back(stringf("(define-fun |%s_m:R%dD %s| ((state |%s_s|)) (_ BitVec %d) (|%s#%d| state))\n",
 							get_id(module), i, get_id(mem->memid), get_id(module), mem->width, get_id(module), idcounter));
@@ -1382,8 +1390,8 @@ struct Smt2Worker
 							/* FIXME */;
 						else
 							init_list.push_back(stringf("(= (bvand (select (|%s#%d#0| state) #b%s) #b%s) #b%s) ; %s[%d]",
-									get_id(module), arrayid, Const(i, abits).as_string(),
-									initmask.as_string(), initword.as_string(), get_id(mem->memid), i));
+									get_id(module), arrayid, Const(i + mem->start_offset, abits).as_string(),
+									initmask.as_string(), initword.as_string(), get_id(mem->memid), i + mem->start_offset));
 					}
 				}
 			}
