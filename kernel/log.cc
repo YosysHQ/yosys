@@ -17,7 +17,8 @@
  *
  */
 
-#include "kernel/yosys.h"
+#include "kernel/log.h"
+#include "kernel/register.h"
 #include "libs/sha1/sha1.h"
 #include "backends/rtlil/rtlil_backend.h"
 
@@ -384,6 +385,17 @@ void LogManager::error_with_prefix(LogSeverity severity, LogSourceLocation src, 
 [[noreturn]]
 void LogManager::formatted_error(LogSourceLocation src, std::string_view prefix, std::string_view format, std::string message)
 {
+	if (src.filename.empty() && yosys_pass_call_stack) {
+		while (Pass *pass = yosys_pass_call_stack->top()) {
+			auto pass_src = pass->get_source_location();
+			yosys_pass_call_stack->pop();
+			if (pass_src) {
+				src = *pass_src;
+				break;
+			}
+		}
+	}
+
 	error_with_prefix(LogSeverity::Error, src, prefix, format, message);
 
 	check_expected();

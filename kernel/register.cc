@@ -49,6 +49,22 @@ bool GarbageCollectionGuard::is_enabled_ = true;
 
 static bool garbage_collection_requested = false;
 
+Pass *PassCallStack::top()
+{
+	return stack.empty() ? nullptr : stack.back();
+}
+
+void PassCallStack::push(Pass *pass)
+{
+	stack.push_back(pass);
+}
+
+void PassCallStack::pop()
+{
+	log_assert(!stack.empty());
+	stack.pop_back();
+}
+
 void request_garbage_collection()
 {
 	garbage_collection_requested = true;
@@ -291,6 +307,8 @@ void Pass::call(RTLIL::Design *design, std::vector<std::string> args)
 	if (pass_register.count(args[0]) == 0)
 		log_cmd_error("No such command: %s (type 'help' for a command overview)\n", args[0]);
 	Pass *pass = pass_register[args[0]];
+
+	auto pass_scope = yosys_pass_call_stack->scoped_push(pass);
 
 	// Collect garbage before the next pass if requested. No need to collect garbage after the last pass.
 	try_collect_garbage();

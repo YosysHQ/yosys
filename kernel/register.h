@@ -24,6 +24,8 @@
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
+#include <deque>
+
 YOSYS_NAMESPACE_BEGIN
 
 // Track whether garbage collection is enabled. Garbage collection must be disabled
@@ -115,7 +117,6 @@ struct Pass
 	// calls nested passes. For safety, we default to assuming the worst.
 	virtual bool allow_garbage_collection_during_pass() const { return false; }
 
-	// for ys / tcl passes
 	std::optional<LogSourceLocation> get_source_location() const { return std::nullopt; }
 };
 
@@ -180,14 +181,29 @@ struct Backend : Pass
 	static void backend_call(RTLIL::Design *design, std::ostream *f, std::string filename, std::vector<std::string> args);
 };
 
-// class PassCallStack {
-// public:
-// 	Pass* top();
-// 	void push(Pass *pass);
-// 	void pop();
-// private:
-// 	std::deque<Pass*> stack;
-// };
+class PassCallStack {
+public:
+	Pass *top();
+	void push(Pass *pass);
+	void pop();
+
+	class ScopedPush {
+	public:
+		ScopedPush(PassCallStack &stack, Pass *pass) : stack(stack) { stack.push(pass); }
+		~ScopedPush() { stack.pop(); }
+		ScopedPush(const ScopedPush &) = delete;
+		ScopedPush &operator=(const ScopedPush &) = delete;
+	private:
+		PassCallStack &stack;
+	};
+
+	[[nodiscard]] ScopedPush scoped_push(Pass *pass) { return ScopedPush(*this, pass); }
+private:
+	std::deque<Pass*> stack;
+	
+};
+
+extern std::shared_ptr<PassCallStack> yosys_pass_call_stack;
 
 // implemented in passes/cmds/select.cc
 extern void handle_extra_select_args(Pass *pass, const std::vector<std::string> &args, size_t argidx, size_t args_size, RTLIL::Design *design);
