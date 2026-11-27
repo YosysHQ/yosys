@@ -1,0 +1,56 @@
+// NetTracker lets refs find objects again after passes change the design
+
+#ifndef NETTRACK_H
+#define NETTRACK_H
+
+#include "kernel/netview/netview.h"
+
+YOSYS_NAMESPACE_BEGIN
+
+namespace detail
+{
+struct TrackData;
+}
+
+// caller fills kind and the list of that kind, resolve refills the lists
+struct TrackedRef {
+	enum class Kind : uint8_t { Pin, Instance, Net };
+
+	struct PortCut {
+		std::string port;
+		bool is_output;
+		Netlist::PinList pins; // now at its cut side, the loads behind an output with no new driver
+	};
+
+	Kind kind;                            // a gone Net becomes a Pin of its old leaf pins
+	Netlist::PinList pins = {};           // a leaf pin is on its cut side
+	Netlist::InstanceList instances = {}; // the cells between its barriers when gone
+	bool gone = false;                    // not found, an Instance also when new cells bypass it
+	bool partial = false;                 // an Instance, a wire or other logic drives an old output
+	Netlist::PinList loads = {};          // behind a gone Pin, or an Instance now a wire or constant
+	std::vector<PortCut> port_cuts = {};  // each old port of an Instance
+	Netlist::NetList nets = {};
+};
+
+// checkpoint -> passes -> new view -> resolve
+// one tracker per design and one thread, not checked
+// a checkpoint leaves a netview_ref id and an hdlname in the design, on each scope cell and each ref object
+struct NetTracker final {
+	NetTracker();
+	~NetTracker();
+
+	// drops the old anchors, the view must be up to date
+	// puts a $barrier at each ref pin and a keep on each ref cell, without them a pass can remove the object
+	void checkpoint(NetView &view, const std::vector<TrackedRef *> &refs);
+	// refs of the checkpoint in the same order, can rerun
+	// two moved cells that fit one ref lose it, a copy can get the ref of a deleted cell
+	void resolve(const NetView &view, const std::vector<TrackedRef *> &refs);
+	// removes barriers and keeps, the anchors stay, a later checkpoint puts them back
+	void unprotect(RTLIL::Design *design);
+private:
+	std::unique_ptr<detail::TrackData> data_;
+};
+
+YOSYS_NAMESPACE_END
+
+#endif
