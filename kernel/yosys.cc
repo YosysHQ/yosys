@@ -673,32 +673,6 @@ bool fgetline(FILE *f, std::string &buffer)
 	}
 }
 
-static void handle_label(std::string &command, bool &from_to_active, const std::string &run_from, const std::string &run_to)
-{
-	int pos = 0;
-	std::string label;
-
-	while (pos < GetSize(command) && (command[pos] == ' ' || command[pos] == '\t'))
-		pos++;
-
-	if (pos < GetSize(command) && command[pos] == '#')
-		return;
-
-	while (pos < GetSize(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
-		label += command[pos++];
-
-	if (GetSize(label) > 1 && label.back() == ':')
-	{
-		label = label.substr(0, GetSize(label)-1);
-		command = command.substr(pos);
-
-		if (label == run_from)
-			from_to_active = true;
-		else if (label == run_to || (run_from == run_to && !run_from.empty()))
-			from_to_active = false;
-	}
-}
-
 bool run_frontend(std::string filename, std::string command, RTLIL::Design *design, std::string *from_to_label)
 {
 	if (design == nullptr)
@@ -741,85 +715,11 @@ bool run_frontend(std::string filename, std::string command, RTLIL::Design *desi
 	  }
 	}
 
-	if (command == "script")
-	{
-		std::string run_from, run_to;
-		bool from_to_active = true;
-
-		if (from_to_label != NULL) {
-			size_t pos = from_to_label->find(':');
-			if (pos == std::string::npos) {
-				run_from = *from_to_label;
-				run_to = *from_to_label;
-			} else {
-				run_from = from_to_label->substr(0, pos);
-				run_to = from_to_label->substr(pos+1);
-			}
-			from_to_active = run_from.empty();
-		}
-
-		log("\n");
-		log_comment("-- Executing script file `%s' --\n", filename);
-
-		FILE *f = stdin;
-
-		if (filename != "-") {
-			f = fopen(filename.c_str(), "r");
-			yosys_input_files.insert(filename);
-		}
-
-		if (f == NULL)
-			log_error("Can't open script file `%s' for reading: %s\n", filename, strerror(errno));
-
-		FILE *backup_script_file = Frontend::current_script_file;
-		std::string backup_script_filename = Frontend::current_script_filename;
-		int backup_script_lineno = Frontend::current_script_lineno;
-		Frontend::current_script_file = f;
-		Frontend::current_script_filename = filename;
-		Frontend::current_script_lineno = 0;
-
-		try {
-			std::string command;
-			while (fgetline(f, command)) {
-				Frontend::current_script_lineno++;
-				while (!command.empty() && command[command.size()-1] == '\\') {
-					std::string next_line;
-					if (!fgetline(f, next_line))
-						break;
-					Frontend::current_script_lineno++;
-					command.resize(command.size()-1);
-					command += next_line;
-				}
-				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active) {
-					Pass::call(design, command);
-					design->check();
-				}
-			}
-
-			if (!command.empty()) {
-				handle_label(command, from_to_active, run_from, run_to);
-				if (from_to_active) {
-					Frontend::current_script_lineno++;
-					Pass::call(design, command);
-					design->check();
-				}
-			}
-		}
-		catch (...) {
-			Frontend::current_script_file = backup_script_file;
-			Frontend::current_script_filename = backup_script_filename;
-			Frontend::current_script_lineno = backup_script_lineno;
-			throw;
-		}
-
-		Frontend::current_script_file = backup_script_file;
-		Frontend::current_script_filename = backup_script_filename;
-		Frontend::current_script_lineno = backup_script_lineno;
-
-		if (filename != "-")
-			fclose(f);
-
+	if (command == "script") {
+		std::vector<std::string> args = {command, filename};
+		if (from_to_label != nullptr)
+			args.push_back(*from_to_label);
+		Pass::call(design, args);
 		return true;
 	}
 
@@ -1119,6 +1019,113 @@ struct HistoryPass : public Pass {
 
 struct ScriptCmdPass : public Pass {
 	ScriptCmdPass() : Pass("script", "execute commands from file or wire") { }
+
+	static void handle_label(std::string &command, bool &from_to_active, const std::string &run_from, const std::string &run_to)
+	{
+		int pos = 0;
+		std::string label;
+
+		while (pos < GetSize(command) && (command[pos] == ' ' || command[pos] == '\t'))
+			pos++;
+
+		if (pos < GetSize(command) && command[pos] == '#')
+			return;
+
+		while (pos < GetSize(command) && command[pos] != ' ' && command[pos] != '\t' && command[pos] != '\r' && command[pos] != '\n')
+			label += command[pos++];
+
+		if (GetSize(label) > 1 && label.back() == ':')
+		{
+			label = label.substr(0, GetSize(label)-1);
+			command = command.substr(pos);
+
+			if (label == run_from)
+				from_to_active = true;
+			else if (label == run_to || (run_from == run_to && !run_from.empty()))
+				from_to_active = false;
+		}
+	}
+
+	void run_script_file(std::string filename, RTLIL::Design *design, std::string *from_to_label = nullptr)
+	{
+		std::string run_from, run_to;
+		bool from_to_active = true;
+
+		if (from_to_label != NULL) {
+			size_t pos = from_to_label->find(':');
+			if (pos == std::string::npos) {
+				run_from = *from_to_label;
+				run_to = *from_to_label;
+			} else {
+				run_from = from_to_label->substr(0, pos);
+				run_to = from_to_label->substr(pos+1);
+			}
+			from_to_active = run_from.empty();
+		}
+
+		log("\n");
+		log_comment("-- Executing script file `%s' --\n", filename);
+
+		FILE *f = stdin;
+
+		if (filename != "-") {
+			f = fopen(filename.c_str(), "r");
+			yosys_input_files.insert(filename);
+		}
+
+		if (f == NULL)
+			log_error("Can't open script file `%s' for reading: %s\n", filename, strerror(errno));
+
+		FILE *backup_script_file = Frontend::current_script_file;
+		std::string backup_script_filename = Frontend::current_script_filename;
+		int backup_script_lineno = Frontend::current_script_lineno;
+		Frontend::current_script_file = f;
+		Frontend::current_script_filename = filename;
+		Frontend::current_script_lineno = 0;
+
+		try {
+			std::string command;
+			while (fgetline(f, command)) {
+				Frontend::current_script_lineno++;
+				while (!command.empty() && command[command.size()-1] == '\\') {
+					std::string next_line;
+					if (!fgetline(f, next_line))
+						break;
+					Frontend::current_script_lineno++;
+					command.resize(command.size()-1);
+					command += next_line;
+				}
+				handle_label(command, from_to_active, run_from, run_to);
+				if (from_to_active) {
+					Pass::call(design, command);
+					design->check();
+				}
+			}
+
+			if (!command.empty()) {
+				handle_label(command, from_to_active, run_from, run_to);
+				if (from_to_active) {
+					Frontend::current_script_lineno++;
+					Pass::call(design, command);
+					design->check();
+				}
+			}
+		}
+		catch (...) {
+			Frontend::current_script_file = backup_script_file;
+			Frontend::current_script_filename = backup_script_filename;
+			Frontend::current_script_lineno = backup_script_lineno;
+			throw;
+		}
+
+		Frontend::current_script_file = backup_script_file;
+		Frontend::current_script_filename = backup_script_filename;
+		Frontend::current_script_lineno = backup_script_lineno;
+
+		if (filename != "-")
+			fclose(f);
+	}
+
 	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -1173,9 +1180,9 @@ struct ScriptCmdPass : public Pass {
 		else if (args.size() < 2)
 			log_cmd_error("Missing script file.\n");
 		else if (args.size() == 2)
-			run_frontend(args[1], "script", design);
+			run_script_file(args[1], design);
 		else if (args.size() == 3)
-			run_frontend(args[1], "script", design, &args[2]);
+			run_script_file(args[1], design, &args[2]);
 		else
 			extra_args(args, 2, design, false);
 	}
