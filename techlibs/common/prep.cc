@@ -73,6 +73,13 @@ struct PrepPass : public ScriptPass
 		log("        this limits the optimizations that can be applied to the design to only\n");
 		log("        those involving private wires.\n");
 		log("\n");
+		log("    -formal [multiclock] [memmap]\n");
+		log("        preserve formal semantics before performing other optimizations;\n");
+		log("        replaces undefined bits and undriven signals with anyseq sources\n");
+		log("        for formal verification. run 'async2sync' by default, or\n");
+		log("        'clk2fflogic' when multiclock is specified.\n");
+		log("        memmap runs 'memory_map -formal', memories are not mapped by default.\n");
+		log("\n");
 		log("    -run <from_label>[:<to_label>]\n");
 		log("        only run the commands between the labels (see below). an empty\n");
 		log("        from label is synonymous to 'begin', and empty to label is\n");
@@ -85,7 +92,7 @@ struct PrepPass : public ScriptPass
 	}
 
 	string top_module, fsm_opts;
-	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers;
+	bool autotop, flatten, ifxmode, memxmode, nomemmode, nokeepdc, rdff, barriers, formal, multiclock, memmap;
 
 	void clear_flags() override
 	{
@@ -99,6 +106,9 @@ struct PrepPass : public ScriptPass
 		nokeepdc = false;
 		rdff = false;
 		barriers = false;
+		formal = false;
+		multiclock = false;
+		memmap = false;
 	}
 
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override
@@ -159,6 +169,21 @@ struct PrepPass : public ScriptPass
 				barriers = true;
 				continue;
 			}
+			if (args[argidx] == "-formal") {
+				formal = true;
+				multiclock = false;
+				memmap = false;
+				while (argidx+1 < args.size()) {
+					if (args[argidx+1] == "multiclock")
+						multiclock = true;
+					else if (args[argidx+1] == "memmap")
+						memmap = true;
+					else
+						break;
+					argidx++;
+				}
+				continue;
+			}
 			break;
 		}
 		extra_args(args, argidx, design);
@@ -190,16 +215,44 @@ struct PrepPass : public ScriptPass
 				} else
 					run(stringf("hierarchy -check -top %s", top_module));
 			}
-		}
 
-		if (check_label("coarse"))
-		{
 			if (help_mode || barriers)
 				run("optbarriers", "(if -barriers)");
 			if (help_mode)
 				run("proc [-ifx]");
 			else
-				run(ifxmode ? "proc -ifx" : "proc");
+				run(ifxmode ? "proc -ifx -noopt" : "proc");
+		}
+
+		if (check_label("formal", "(if -formal)") && (formal || help_mode))
+		{
+			// I think this can be folded into one command if attributes are selected internally
+			run("setundef -undriven -anyseq   a:anyseq  ");
+			run("setundef -undriven -anyconst a:anyconst");
+			run("setundef -undriven -allseq   a:allseq  ");
+			run("setundef -undriven -allconst a:allconst");
+
+			run("peepopt -formalclk");
+			run("check"); // emit a warning for remaining undriven cellls
+			run("setundef -undriven -anyseq");
+			run("check -assert");
+			run("memory_nordff");
+
+			if (help_mode) {
+				run("async2sync", "(if -formal without multiclock)");
+				run("clk2fflogic -nopeepopt -nolower", "(if -formal multiclock)");
+			} else
+				run(multiclock ? "clk2fflogic" : "async2sync");
+
+			run("chformal -lower");
+			if (help_mode || memmap)
+				run("memory_map -formal", "(if -formal memmap)");
+			run("formalff -setundef -ff2anyinit -hierarchy");
+
+		}
+
+		if (check_label("coarse"))
+		{
 			if (help_mode || flatten) {
 				run("check");
 				if (help_mode)

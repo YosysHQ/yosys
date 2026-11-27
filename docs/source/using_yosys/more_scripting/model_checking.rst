@@ -34,6 +34,19 @@ When running symbolic model checking from within yosys, there are a few things t
    This replaces all wires that are undriven or explicitly set as X with ``$anyseq`` cells.
 
 These are transformations that SBY and EQY performs for you so are only needed if you are not using them.
+Another solution is to use SBY with the
+`none engine <https://yosyshq.readthedocs.io/projects/sby/en/latest/reference.html#none-engine>`_
+and use the generated model file manually.
+
+prep -formal
+^^^^^^^^^^^^
+
+The ``prep`` command provides an experimental ``-formal`` flag to replace most
+manual preparation scripts of this kind. Use ``prep -formal -top <top>`` which runs
+``async2sync`` by default. Use ``prep -formal multiclock -top <top>`` to run
+``clk2fflogic`` instead when designs use multiple clocks.
+Add ``memmap`` to run ``memory_map -formal``, which
+maps memory to registers and address logic.
 
 Checking techmap
 ~~~~~~~~~~~~~~~~

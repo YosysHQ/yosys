@@ -2,10 +2,26 @@
 #end:$
 begin:
     hierarchy -check [-top <top> | -auto-top]
-
-coarse:
     optbarriers    (if -barriers)
     proc [-ifx]
+
+formal:    (if -formal)
+    setundef -undriven -anyseq   a:anyseq
+    setundef -undriven -anyconst a:anyconst
+    setundef -undriven -allseq   a:allseq
+    setundef -undriven -allconst a:allconst
+    peepopt -formalclk
+    check
+    setundef -undriven -anyseq
+    check -assert
+    memory_nordff
+    async2sync    (if -formal without multiclock)
+    clk2fflogic -nopeepopt -nolower    (if -formal multiclock)
+    chformal -lower
+    memory_map -formal    (if -formal memmap)
+    formalff -setundef -ff2anyinit -hierarchy
+
+coarse:
     check
     flatten [-barriers]    (if -flatten)
     future
