@@ -3186,6 +3186,8 @@ gen_stmt:
 		extra->ast_stack.pop_back();
 	} |
 	case_type TOK_LPAREN expr TOK_RPAREN {
+		if (extra->case_type_stack.back() != 0)
+			warn_at_loc(@1, "`%s' in a generate block is not standard Verilog.", extra->case_type_stack.back() == 'x' ? "casex" : "casez");
 		(void)extra->pushChild(std::make_unique<AstNode>(@$, AST_GENCASE, std::move($3)));
 	} gen_case_body TOK_ENDCASE {
 		extra->case_type_stack.pop_back();

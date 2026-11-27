@@ -710,6 +710,23 @@ static std::string prefix_id(const std::string &prefix, const std::string &str)
 	return prefix + str;
 }
 
+static bool case_item_wildcard_match(RTLIL::Const sel, RTLIL::Const item, bool is_signed, AstNodeType cond_type)
+{
+	int width = max(GetSize(sel), GetSize(item));
+	sel.resize(width, is_signed && GetSize(sel) > 0 ? sel.back() : RTLIL::State::S0);
+	item.resize(width, is_signed && GetSize(item) > 0 ? item.back() : RTLIL::State::S0);
+	bool has_wildcard = false;
+	for (int i = 0; i < width; i++) {
+		RTLIL::State bit = item.at(i);
+		if (bit == RTLIL::State::Sa || bit == RTLIL::State::Sz || (cond_type == AST_CONDX && bit == RTLIL::State::Sx)) {
+			sel.set(i, RTLIL::State::S0);
+			item.set(i, RTLIL::State::S0);
+			has_wildcard = true;
+		}
+	}
+	return has_wildcard && RTLIL::const_eq(sel, item, false, false, 1).as_bool();
+}
+
 // direct access to this global should be limited to the following two functions
 static const RTLIL::Design *simplify_design_context = nullptr;
 static dict<std::string, RTLIL::IdString> simplify_design_modules;
@@ -2956,6 +2973,8 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 				}
 
 				bool is_selected = RTLIL::const_eq(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, ref_signed && buf->is_signed, 1).as_bool();
+				if (!is_selected && children.at(i)->type != AST_COND)
+					is_selected = case_item_wildcard_match(ref_value, buf->bitsAsConst(), ref_signed && buf->is_signed, children.at(i)->type);
 
 				if (is_selected) {
 					selected_case = this_genblock;
@@ -6238,6 +6257,16 @@ std::unique_ptr<AstNode> AstNode::eval_const_function(AstNode *fcall, bool must_
 					}
 
 					found_match = cond->asBool();
+
+					if (!found_match && stmt->children.at(i)->type != AST_COND && expr->type == AST_CONSTANT) {
+						auto item = stmt->children.at(i)->children.at(j)->clone();
+						if (!item->replace_variables(variables, fcall, must_succeed))
+							goto finished;
+						item->set_in_param_flag(true);
+						while (item->simplify(true, 1, -1, false)) { }
+						if (item->type == AST_CONSTANT)
+							found_match = case_item_wildcard_match(expr->bitsAsConst(), item->bitsAsConst(), expr->is_signed && item->is_signed, stmt->children.at(i)->type);
+					}
 				}
 
 				if (found_match) {
