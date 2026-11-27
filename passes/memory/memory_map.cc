@@ -98,6 +98,7 @@ struct MemoryMapWorker
 		if (GetSize(addr_sig) < 2) {
 			if (cell == nullptr) {
 				RTLIL::Wire *y = module->addWire(NEW_ID);
+				y->set_src(mem_src);
 				cell = module->addEq(NEW_ID, addr_sig, addr_val, y, false, mem_src);
 			}
 		} else {
@@ -106,6 +107,7 @@ struct MemoryMapWorker
 			RTLIL::Wire *right_eq = addr_decode(addr_sig.extract(split_at, GetSize(addr_sig) - split_at), addr_val.extract(split_at, GetSize(addr_val) - split_at));
 			if (cell == nullptr) {
 				RTLIL::Wire *y = module->addWire(NEW_ID);
+				y->set_src(mem_src);
 				cell = module->addAnd(NEW_ID, left_eq, right_eq, y, false, mem_src);
 			}
 		}
@@ -256,6 +258,7 @@ struct MemoryMapWorker
 				c->parameters[ID::WIDTH] = mem.width;
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
+				w_in->set_src(mem_src);
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
@@ -264,6 +267,7 @@ struct MemoryMapWorker
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
+				w_out->set_src(mem_src);
 				wire_names.insert(w_out->name.str());
 
 				if (formal && mem.packed && mem.cell->name.isPublic()) {
@@ -314,8 +318,12 @@ struct MemoryMapWorker
 					c->setPort(ID::S, rd_addr.extract(abits-j-1, 1));
 					count_mux++;
 
-					c->setPort(ID::A, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data)));
-					c->setPort(ID::B, module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data)));
+					RTLIL::Wire *w_a = module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$a"), GetSize(port.data));
+					RTLIL::Wire *w_b = module->addWire(genid(mem.memid, "$rdmux", i, "", j, "", k, "$b"), GetSize(port.data));
+					w_a->set_src(mem_src);
+					w_b->set_src(mem_src);
+					c->setPort(ID::A, w_a);
+					c->setPort(ID::B, w_b);
 
 					next_rd_signals.push_back(c->getPort(ID::A));
 					next_rd_signals.push_back(c->getPort(ID::B));
@@ -378,6 +386,7 @@ struct MemoryMapWorker
 							c->setPort(ID::B, wr_bit);
 
 							w = module->addWire(genid(mem.memid, "$wren", addr, "", j, "", wr_offset, "$y"));
+							w->set_src(mem_src);
 							c->setPort(ID::Y, RTLIL::SigSpec(w));
 						}
 
@@ -389,6 +398,7 @@ struct MemoryMapWorker
 						c->setPort(ID::S, RTLIL::SigSpec(w));
 
 						w = module->addWire(genid(mem.memid, "$wrmux", addr, "", j, "", wr_offset, "$y"), wr_width);
+						w->set_src(mem_src);
 						c->setPort(ID::Y, w);
 
 						sig.replace(wr_offset, w);

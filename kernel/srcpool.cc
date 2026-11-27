@@ -130,8 +130,7 @@ SrcRef SrcPool::merge(std::span<const SrcRef> refs) {
 				rest = true;
 		}
 
-		int size() const
-		{
+		int size() const {
 			if (rest)
 				return 3;
 			if (second != SrcRef::Null)
@@ -149,11 +148,13 @@ SrcRef SrcPool::merge(std::span<const SrcRef> refs) {
 			break;
 	}
 
+	// Optimized handling for 0, 1, or 2 refs
 	if (distinct.size() < 2)
 		return distinct.first;
 	if (distinct.size() == 2)
 		return merge_unchecked(distinct.first, distinct.second);
 
+	// More than 2 distinct refs
 	std::vector<IdString> members = {};
 	for (SrcRef ref : refs)
 		if (ref != SrcRef::Null)

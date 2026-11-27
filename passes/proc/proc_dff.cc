@@ -77,16 +77,16 @@ void gen_dffsr_complex(RTLIL::Module *mod, RTLIL::SigSpec sig_d, RTLIL::SigSpec 
 	for (auto it = async_rules.crbegin(); it != async_rules.crend(); it++)
 	{
 		const auto& [sync_value, rule] = *it;
-		const auto pos_trig = rule->type == RTLIL::SyncType::ST1 ? rule->signal : mod->Not(NEW_ID, rule->signal);
+		const auto pos_trig = rule->type == RTLIL::SyncType::ST1 ? rule->signal : mod->Not(NEW_ID, rule->signal, false, proc->src());
 
 		// If pos_trig is true, we have priority at this point in the tree so
 		// set a bit if sync_value has a set bit. Otherwise, defer to the rest
 		// of the priority tree
-		sig_sr_set = mod->Mux(NEW_ID, sig_sr_set, sync_value, pos_trig);
+		sig_sr_set = mod->Mux(NEW_ID, sig_sr_set, sync_value, pos_trig, proc->src());
 
 		// Same deal with clear bit
-		const auto sync_value_inv = mod->Not(NEW_ID, sync_value);
-		sig_sr_clr = mod->Mux(NEW_ID, sig_sr_clr, sync_value_inv, pos_trig);
+		const auto sync_value_inv = mod->Not(NEW_ID, sync_value, false, proc->src());
+		sig_sr_clr = mod->Mux(NEW_ID, sig_sr_clr, sync_value_inv, pos_trig, proc->src());
 	}
 
 	std::stringstream sstr;
@@ -249,12 +249,12 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 			// (with appropriate negation)
 			RTLIL::SigSpec triggers;
 			for (const auto &[_, it] : async_rules)
-				triggers.append(it->type == RTLIL::SyncType::ST1 ? it->signal : mod->Not(NEW_ID, it->signal));
+				triggers.append(it->type == RTLIL::SyncType::ST1 ? it->signal : mod->Not(NEW_ID, it->signal, false, proc->src()));
 
 			// Put this into the dummy sync rule so it can be treated the same
 			// as ones coming from the module
 			single_async_rule.type = RTLIL::SyncType::ST1;
-			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers);
+			single_async_rule.signal = mod->ReduceOr(NEW_ID, triggers, false, proc->src());
 			// TODO: merge the src of the collapsed rules' actions once something reads it
 			single_async_rule.actions.push_back({sig, rstval});
 
@@ -272,9 +272,9 @@ void proc_dff(RTLIL::Module *mod, RTLIL::Process *proc, ConstEval &ce)
 		if (async_rules.size() == 1 && async_rules.front().first == sig) {
 			const auto& [_, rule] = async_rules.front();
 			if (rule->type == RTLIL::SyncType::ST1)
-				insig = mod->Mux(NEW_ID, insig, sig, rule->signal);
+				insig = mod->Mux(NEW_ID, insig, sig, rule->signal, proc->src());
 			else
-				insig = mod->Mux(NEW_ID, sig, insig, rule->signal);
+				insig = mod->Mux(NEW_ID, sig, insig, rule->signal, proc->src());
 
 			async_rules.clear();
 		}

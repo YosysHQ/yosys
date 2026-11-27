@@ -931,7 +931,9 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 
 		if (width)
 		{
-			SigSpec sig_q = module->addWire(stringf("$%s$rdreg[%d]$q", memid_str, idx), width);
+			Wire *sig_q_wire = module->addWire(stringf("$%s$rdreg[%d]$q", memid_str, idx), width);
+			sig_q_wire->set_src(src());
+			SigSpec sig_q = sig_q_wire;
 			SigSpec sig_d;
 
 			int pos = 0;
@@ -950,7 +952,8 @@ Cell *Mem::extract_rdff(int idx, FfInitVals *initvals) {
 	{
 		log_assert(port.arst == State::S0 || port.srst == State::S0);
 
-		SigSpec async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid_str, idx), GetSize(port.data));
+		Wire *async_d = module->addWire(stringf("$%s$rdreg[%d]$d", memid_str, idx), GetSize(port.data));
+		async_d->set_src(src());
 		SigSpec sig_d = async_d;
 
 		for (int i = 0; i < GetSize(wr_ports); i++) {
@@ -1174,7 +1177,9 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 	// The write data FF doesn't need full reset/init behavior, as it'll be masked by
 	// the mux whenever this would be relevant.  It does, however, need to have the same
 	// clock enable signal as the read port.
-	SigSpec wdata_q = module->addWire(NEW_ID, GetSize(wport.data));
+	Wire *wdata_q_wire = module->addWire(NEW_ID, GetSize(wport.data));
+	wdata_q_wire->set_src(src());
+	SigSpec wdata_q = wdata_q_wire;
 	module->addDffe(NEW_ID, rport.clk, rport.en, wport.data, wdata_q, rport.clk_polarity, true);
 	for (int sub = 0; sub < (1 << max_wide_log2); sub += (1 << min_wide_log2)) {
 		SigSpec raddr = rport.addr;
@@ -1191,7 +1196,9 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 		int ewidth = width << min_wide_log2;
 		int wsub = wide_write ? sub : 0;
 		int rsub = wide_write ? 0 : sub;
-		SigSpec rdata_a = module->addWire(NEW_ID, ewidth);
+		Wire *rdata_a_wire = module->addWire(NEW_ID, ewidth);
+		rdata_a_wire->set_src(src());
+		SigSpec rdata_a = rdata_a_wire;
 		while (pos < ewidth) {
 			int epos = pos;
 			while (epos < ewidth && wport.en[epos + wsub * width] == wport.en[pos + wsub * width])
@@ -1201,7 +1208,8 @@ void Mem::emulate_transparency(int widx, int ridx, FfInitVals *initvals) {
 				cond = module->And(NEW_ID, wport.en[pos + wsub * width], addr_eq);
 			else
 				cond = wport.en[pos + wsub * width];
-			SigSpec cond_q = module->addWire(NEW_ID);
+			Wire *cond_q = module->addWire(NEW_ID);
+			cond_q->set_src(src());
 			// The FF for storing the bypass enable signal must be carefully
 			// constructed to preserve the overall init/reset/enable behavior
 			// of the whole port.
@@ -1402,8 +1410,11 @@ void Mem::emulate_rden(int idx, FfInitVals *initvals) {
 	log_assert(port.clk_enable);
 	emulate_rd_ce_over_srst(idx);
 	Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+	new_data->set_src(src());
 	Wire *prev_data = module->addWire(NEW_ID, GetSize(port.data));
+	prev_data->set_src(src());
 	Wire *sel = module->addWire(NEW_ID);
+	sel->set_src(src());
 	FfData ff_sel(module, initvals, NEW_ID);
 	FfData ff_data(module, initvals, NEW_ID);
 	ff_sel.width = 1;
@@ -1462,8 +1473,10 @@ void Mem::emulate_reset(int idx, bool emu_init, bool emu_arst, bool emu_srst, Ff
 	auto &port = rd_ports[idx];
 	if (emu_init && !port.init_value.is_fully_undef()) {
 		Wire *sel = module->addWire(NEW_ID);
+		sel->set_src(src());
 		FfData ff_sel(module, initvals, NEW_ID);
 		Wire *new_data = module->addWire(NEW_ID, GetSize(port.data));
+		new_data->set_src(src());
 		ff_sel.width = 1;
 		ff_sel.has_clk = true;
 		ff_sel.sig_clk = port.clk;
