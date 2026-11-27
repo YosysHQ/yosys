@@ -1,0 +1,78 @@
+read_verilog -icells <<EOT
+module top(input [15:0] d, input [3:0] s, output y4, y8, y16);
+    \$_MUX4_ mux4 (.A(d[0]), .B(d[1]), .C(d[2]), .D(d[3]),
+                   .S(s[0]), .T(s[1]), .Y(y4));
+    \$_MUX8_ mux8 (.A(d[0]), .B(d[1]), .C(d[2]), .D(d[3]),
+                   .E(d[4]), .F(d[5]), .G(d[6]), .H(d[7]),
+                   .S(s[0]), .T(s[1]), .U(s[2]), .Y(y8));
+    \$_MUX16_ mux16 (.A(d[0]), .B(d[1]), .C(d[2]), .D(d[3]),
+                     .E(d[4]), .F(d[5]), .G(d[6]), .H(d[7]),
+                     .I(d[8]), .J(d[9]), .K(d[10]), .L(d[11]),
+                     .M(d[12]), .N(d[13]), .O(d[14]), .P(d[15]),
+                     .S(s[0]), .T(s[1]), .U(s[2]), .V(s[3]), .Y(y16));
+endmodule
+EOT
+
+select -assert-count 1 t:$_MUX4_
+select -assert-count 1 t:$_MUX8_
+select -assert-count 1 t:$_MUX16_
+
+log -header "Evaluate MUX4 output 1"
+log -push
+logger -expect log "Eval result: \\y4 = 1'1\." 4
+eval -set d 16'b0000000000000001 -set s 4'b0000 -show y4
+eval -set d 16'b0000000000000010 -set s 4'b0001 -show y4
+eval -set d 16'b0000000000000100 -set s 4'b0010 -show y4
+eval -set d 16'b0000000000001000 -set s 4'b0011 -show y4
+logger -check-expected
+log -pop
+
+log -header "Evaluate MUX8 output 1"
+log -push
+logger -expect log "Eval result: \\y8 = 1'1\." 4
+eval -set d 16'b0000000000000001 -set s 4'b0000 -show y8
+eval -set d 16'b0000000000000010 -set s 4'b0001 -show y8
+eval -set d 16'b0000000000001000 -set s 4'b0011 -show y8
+eval -set d 16'b0000000010000000 -set s 4'b0111 -show y8
+logger -check-expected
+log -pop
+
+log -header "Evaluate MUX16 output 1"
+log -push
+logger -expect log "Eval result: \\y16 = 1'1\." 7
+eval -set d 16'b0000000000000001 -set s 4'b0000 -show y16
+eval -set d 16'b0000000000000010 -set s 4'b0001 -show y16
+eval -set d 16'b0000000000000100 -set s 4'b0010 -show y16
+eval -set d 16'b0000000000001000 -set s 4'b0011 -show y16
+eval -set d 16'b0000000000010000 -set s 4'b0100 -show y16
+eval -set d 16'b0000000100000000 -set s 4'b1000 -show y16
+eval -set d 16'b1000000000000000 -set s 4'b1111 -show y16
+logger -check-expected
+log -pop
+
+log -header "Evaluate MUX4 output 0"
+log -push
+logger -expect log "Eval result: \\y4 = 1'0\." 3
+eval -set d 16'b1111111111111110 -set s 4'b0000 -show y4
+eval -set d 16'b1111111111111011 -set s 4'b0010 -show y4
+eval -set d 16'b1111111111110111 -set s 4'b0011 -show y4
+logger -check-expected
+log -pop
+
+log -header "Evaluate MUX8 output 0"
+log -push
+logger -expect log "Eval result: \\y8 = 1'0\." 3
+eval -set d 16'b1111111111111110 -set s 4'b0000 -show y8
+eval -set d 16'b1111111111101111 -set s 4'b0100 -show y8
+eval -set d 16'b1111111101111111 -set s 4'b0111 -show y8
+logger -check-expected
+log -pop
+
+log -header "Evaluate MUX16 output 0"
+log -push
+logger -expect log "Eval result: \\y16 = 1'0\." 3
+eval -set d 16'b1111111111111110 -set s 4'b0000 -show y16
+eval -set d 16'b1111111011111111 -set s 4'b1000 -show y16
+eval -set d 16'b0111111111111111 -set s 4'b1111 -show y16
+logger -check-expected
+log -pop

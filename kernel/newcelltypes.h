@@ -40,16 +40,24 @@ struct CellTableBuilder {
 		constexpr size_t size() const { return count; }
 	};
 	struct Features {
+		bool is_internal = true;
 		bool is_evaluable = false;
+		bool is_x_aware = false;
+		bool is_x_output = false;
 		bool is_combinatorial = false;
+		bool is_stateless = true;
 		bool is_synthesizable = false;
 		bool is_stdcell = false;
 		bool is_ff = false;
+		bool is_mem = false;
+		[[deprecated("Use is_mem instead")]]
 		bool is_mem_noff = false;
-		bool is_anyinit = false;
+		bool is_clocked = false;
 		bool is_tristate = false;
 		bool has_side_effect = false;
 		bool is_nondeterministic = false;
+		bool is_formal = false;
+		bool is_meta_info = false;
 	};
 	struct CellInfo {
 		RTLIL::IdString type;
@@ -59,13 +67,11 @@ struct CellTableBuilder {
 	std::array<CellInfo, MAX_CELLS> cells{};
 	size_t count = 0;
 
-	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features) {
-		cells[count++] = {type, PortList(inputs), PortList(outputs), features};
-	}
+	constexpr void setup_type(RTLIL::IdString type, std::initializer_list<RTLIL::IdString> inputs, std::initializer_list<RTLIL::IdString> outputs, const Features& features);
+
 	constexpr void setup_internals_other();
 	constexpr void setup_internals_eval();
 	constexpr void setup_internals_ff();
-	constexpr void setup_internals_anyinit();
 	constexpr void setup_internals_mem_noff();
 	constexpr void setup_stdcells_tristate();
 
@@ -121,29 +127,37 @@ struct Categories {
 		constexpr size_t size() const { return data.size(); }
 	};
 	Category empty {};
+	Category is_internal {};
 	Category is_known {};
 	Category is_evaluable {};
+	Category is_x_aware {};
+	Category is_x_output {};
 	Category is_combinatorial {};
+	Category is_stateless {};
+	Category is_clocked {};
 	Category is_synthesizable {};
 	Category is_stdcell {};
 	Category is_ff {};
-	Category is_mem_noff {};
-	Category is_anyinit {};
+	Category is_mem {};
 	Category is_tristate {};
 	Category has_side_effect {};
 	Category is_nondeterministic {};
+	Category is_formal {};
+	Category is_meta_info {};
 	constexpr Categories();
-	constexpr static Category join(Category left, Category right) {
+	template<typename... Args>
+	constexpr static Category join(Args... args) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c.set(i, left[i] || right[i]);
+			c.set(i, ( ... || args[i]));
 		}
 		return c;
 	}
-	constexpr static Category meet(Category left, Category right) {
+	template<typename... Args>
+	constexpr static Category meet(Args... args) {
 		Category c {};
 		for (size_t i = 0; i < MAX_CELLS; ++i) {
-			c.set(i, left[i] && right[i]);
+			c.set(i, (... && args[i]));
 		}
 		return c;
 	}
@@ -155,6 +169,62 @@ struct Categories {
 			c.set(i, !arg[i]);
 		}
 		return c;
+	}
+	constexpr std::optional<Category> lookup(const std::string &property) const {
+		if (property == "empty") {
+			return empty;
+		} else
+		if (property == "is_internal") {
+			return is_internal;
+		} else
+		if (property == "is_known") {
+			return is_known;
+		} else
+		if (property == "is_evaluable") {
+			return is_evaluable;
+		} else
+		if (property == "is_x_aware") {
+			return is_x_aware;
+		} else
+		if (property == "is_x_output") {
+			return is_x_output;
+		} else
+		if (property == "is_combinatorial") {
+			return is_combinatorial;
+		} else
+		if (property == "is_clocked") {
+			return is_clocked;
+		} else
+		if (property == "is_stateless") {
+			return is_stateless;
+		} else
+		if (property == "is_synthesizable") {
+			return is_synthesizable;
+		} else
+		if (property == "is_stdcell") {
+			return is_stdcell;
+		} else
+		if (property == "is_ff") {
+			return is_ff;
+		} else
+		if (property == "is_mem") {
+			return is_mem;
+		} else
+		if (property == "is_tristate") {
+			return is_tristate;
+		} else
+		if (property == "has_side_effect") {
+			return has_side_effect;
+		} else
+		if (property == "is_nondeterministic") {
+			return is_nondeterministic;
+		} else
+		if (property == "is_formal") {
+			return is_formal;
+		} else
+		if (property == "is_meta_info") {
+			return is_meta_info;
+		} else return std::nullopt;
 	}
 };
 
