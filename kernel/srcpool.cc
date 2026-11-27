@@ -4,7 +4,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-template struct HashConsPool<SrcPool, SrcSet, SrcRef>;
+template struct HashConsPool<SrcPool, SrcSet, SrcRef, Hasher::hash_t>;
 
 template<typename T> concept Ordered = requires(T a) { a < a; };
 template<typename T> concept Indexable = requires(T a) { a.raw(); };
@@ -58,7 +58,7 @@ void SrcPool::clear() {
 	index_entries = 0;
 }
 
-uint64_t SrcSet::hash_members(std::span<const IdString> members) {
+Hasher::hash_t SrcSet::hash_members(std::span<const IdString> members) {
 	Hasher h;
 	for (IdString member : members)
 		h.eat(member);
@@ -209,7 +209,7 @@ SrcRef SrcPool::merge_unchecked(SrcRef a, SrcRef b) {
 }
 
 SrcRef SrcPool::intern_unchecked(std::vector<IdString> scratch) {
-	uint64_t hash = SrcSet::hash_members(scratch);
+	auto hash = SrcSet::hash_members(scratch);
 	SrcRef found = find_hashed(hash, SrcEq{*this, scratch});
 	if (found != SrcRef::Null)
 		return stamp(found);
@@ -221,7 +221,7 @@ SrcRef SrcPool::place(size_t idx, std::span<const IdString> members) {
 	canonicalize_members(canon);
 	if (canon.empty())
 		return SrcRef::Null;
-	uint64_t hash = SrcSet::hash_members(canon);
+	auto hash = SrcSet::hash_members(canon);
 	return stamp(HashConsPool::place(idx, SrcSet{std::move(canon), hash}));
 }
 

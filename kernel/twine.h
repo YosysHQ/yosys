@@ -345,7 +345,7 @@ private:
 extern int64_t twine_gc_ns;
 extern int twine_gc_count;
 
-struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString> {
+struct TwinePool : HashConsPool<TwinePool, TwineNode, IdString, uint64_t> {
 	static constexpr size_t STATIC_COUNT = STATIC_TWINE_END;
 
 	TwinePool();

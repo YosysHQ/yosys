@@ -7,8 +7,8 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-template<typename Derived, typename Node, typename Ref>
-bool HashConsPool<Derived, Node, Ref>::is_live(Ref ref) const {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+bool HashConsPool<Derived, Node, Ref, HashType>::is_live(Ref ref) const {
 	Ref idx = ref.untag();
 	if (is_static(idx))
 		return true;
@@ -16,11 +16,11 @@ bool HashConsPool<Derived, Node, Ref>::is_live(Ref ref) const {
 	return slot < backing.size() && !backing[slot].is_dead();
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::check_ready() {}
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::check_ready() {}
 
-template<typename Derived, typename Node, typename Ref>
-const Node& HashConsPool<Derived, Node, Ref>::operator[] (Ref ref) const {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+const Node& HashConsPool<Derived, Node, Ref, HashType>::operator[] (Ref ref) const {
 	Ref idx = ref.untag();
 	if constexpr (Derived::STATIC_COUNT != 0) {
 		if (is_static(idx))
@@ -29,87 +29,87 @@ const Node& HashConsPool<Derived, Node, Ref>::operator[] (Ref ref) const {
 	return backing[idx.raw() - Derived::STATIC_COUNT];
 }
 
-template<typename Derived, typename Node, typename Ref>
-Derived* HashConsPool<Derived, Node, Ref>::self() { return static_cast<Derived*>(this); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+Derived* HashConsPool<Derived, Node, Ref, HashType>::self() { return static_cast<Derived*>(this); }
 
-template<typename Derived, typename Node, typename Ref>
-const Derived* HashConsPool<Derived, Node, Ref>::self() const { return static_cast<const Derived*>(this); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+const Derived* HashConsPool<Derived, Node, Ref, HashType>::self() const { return static_cast<const Derived*>(this); }
 
-template<typename Derived, typename Node, typename Ref>
-bool HashConsPool<Derived, Node, Ref>::is_static(Ref ref) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+bool HashConsPool<Derived, Node, Ref, HashType>::is_static(Ref ref) {
 	if constexpr (Derived::STATIC_COUNT == 0)
 		return false;
 	else
 		return ref.raw() < Derived::STATIC_COUNT;
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::RefIterator::settle() {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::RefIterator::settle() {
 	while (skip_dead && idx < stop && !pool->slot_live(idx))
 		idx++;
 }
 
-template<typename Derived, typename Node, typename Ref>
-Ref HashConsPool<Derived, Node, Ref>::RefIterator::operator*() const { return Ref(idx); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+Ref HashConsPool<Derived, Node, Ref, HashType>::RefIterator::operator*() const { return Ref(idx); }
 
-template<typename Derived, typename Node, typename Ref>
-auto HashConsPool<Derived, Node, Ref>::RefIterator::operator++() -> RefIterator& { idx++; settle(); return *this; }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+auto HashConsPool<Derived, Node, Ref, HashType>::RefIterator::operator++() -> RefIterator& { idx++; settle(); return *this; }
 
-template<typename Derived, typename Node, typename Ref>
-bool HashConsPool<Derived, Node, Ref>::RefIterator::operator!=(const RefIterator& other) const { return idx != other.idx; }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+bool HashConsPool<Derived, Node, Ref, HashType>::RefIterator::operator!=(const RefIterator& other) const { return idx != other.idx; }
 
-template<typename Derived, typename Node, typename Ref>
-auto HashConsPool<Derived, Node, Ref>::RefRange::begin() const -> RefIterator {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+auto HashConsPool<Derived, Node, Ref, HashType>::RefRange::begin() const -> RefIterator {
 	RefIterator it{pool, first, stop, skip_dead};
 	it.settle();
 	return it;
 }
 
-template<typename Derived, typename Node, typename Ref>
-auto HashConsPool<Derived, Node, Ref>::RefRange::end() const -> RefIterator { return RefIterator{pool, stop, stop, skip_dead}; }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+auto HashConsPool<Derived, Node, Ref, HashType>::RefRange::end() const -> RefIterator { return RefIterator{pool, stop, stop, skip_dead}; }
 
-template<typename Derived, typename Node, typename Ref>
-auto HashConsPool<Derived, Node, Ref>::refs(bool include_statics) const -> RefRange {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+auto HashConsPool<Derived, Node, Ref, HashType>::refs(bool include_statics) const -> RefRange {
 	return RefRange{this, include_statics ? 0 : Derived::STATIC_COUNT,
 			Derived::STATIC_COUNT + backing.size(), true};
 }
 
-template<typename Derived, typename Node, typename Ref>
-auto HashConsPool<Derived, Node, Ref>::slots() const -> RefRange {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+auto HashConsPool<Derived, Node, Ref, HashType>::slots() const -> RefRange {
 	return RefRange{this, Derived::STATIC_COUNT,
 			Derived::STATIC_COUNT + backing.size(), false};
 }
 
-template<typename Derived, typename Node, typename Ref>
-size_t HashConsPool<Derived, Node, Ref>::home_slot(uint64_t hash) const {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+size_t HashConsPool<Derived, Node, Ref, HashType>::home_slot(uint64_t hash) const {
 	// Knuth's Fibonacci hashing saves us from how bad DJB2 is
 	return (hash * 0x9e3779b97f4a7c15ull) >> (64 - std::countr_zero(table.size()));
 }
 
-template<typename Derived, typename Node, typename Ref>
-size_t HashConsPool<Derived, Node, Ref>::next_slot(size_t slot) const { return (slot + 1) & (table.size() - 1); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+size_t HashConsPool<Derived, Node, Ref, HashType>::next_slot(size_t slot) const { return (slot + 1) & (table.size() - 1); }
 
-template<typename Derived, typename Node, typename Ref>
-size_t HashConsPool<Derived, Node, Ref>::size() const { return backing.size() - free_list.size(); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+size_t HashConsPool<Derived, Node, Ref, HashType>::size() const { return backing.size() - free_list.size(); }
 
-template<typename Derived, typename Node, typename Ref>
-bool HashConsPool<Derived, Node, Ref>::slot_live(size_t abs) const {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+bool HashConsPool<Derived, Node, Ref, HashType>::slot_live(size_t abs) const {
 	if (abs < Derived::STATIC_COUNT)
 		return true;
 	return !backing[abs - Derived::STATIC_COUNT].is_dead();
 }
 
-template<typename Derived, typename Node, typename Ref>
-HashConsPool<Derived, Node, Ref>::HashConsPool() { rebuild_index(); }
+template<typename Derived, typename Node, typename Ref, typename HashType>
+HashConsPool<Derived, Node, Ref, HashType>::HashConsPool() { rebuild_index(); }
 
-template<typename Derived, typename Node, typename Ref>
-HashConsPool<Derived, Node, Ref>::HashConsPool(HashConsPool&& other)
+template<typename Derived, typename Node, typename Ref, typename HashType>
+HashConsPool<Derived, Node, Ref, HashType>::HashConsPool(HashConsPool&& other)
 	: backing(std::move(other.backing)), table(std::move(other.table)), free_list(std::move(other.free_list)), index_entries(other.index_entries) {
 	other.reset();
 }
 
-template<typename Derived, typename Node, typename Ref>
-HashConsPool<Derived, Node, Ref>& HashConsPool<Derived, Node, Ref>::operator=(HashConsPool&& other) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+HashConsPool<Derived, Node, Ref, HashType>& HashConsPool<Derived, Node, Ref, HashType>::operator=(HashConsPool&& other) {
 	if (this != &other) {
 		backing = std::move(other.backing);
 		table = std::move(other.table);
@@ -120,15 +120,15 @@ HashConsPool<Derived, Node, Ref>& HashConsPool<Derived, Node, Ref>::operator=(Ha
 	return *this;
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::reset() {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::reset() {
 	backing.clear();
 	free_list.clear();
 	rebuild_index();
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::rebuild_index() {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::rebuild_index() {
 	Derived::check_ready();
 	free_list.clear();
 	for (size_t idx = 0; idx < backing.size(); ++idx)
@@ -141,9 +141,9 @@ void HashConsPool<Derived, Node, Ref>::rebuild_index() {
 		index_insert(ref);
 }
 
-template<typename Derived, typename Node, typename Ref>
+template<typename Derived, typename Node, typename Ref, typename HashType>
 template<typename Eq>
-Ref HashConsPool<Derived, Node, Ref>::find_hashed(uint64_t hash, Eq&& eq) const {
+Ref HashConsPool<Derived, Node, Ref, HashType>::find_hashed(HashType hash, Eq&& eq) const {
 	for (size_t slot = home_slot(hash); table[slot] != Ref(); slot = next_slot(slot)) {
 		Ref ref = table[slot];
 		if (Derived::hash_node((*this)[ref]) == hash && eq(ref))
@@ -152,8 +152,8 @@ Ref HashConsPool<Derived, Node, Ref>::find_hashed(uint64_t hash, Eq&& eq) const 
 	return Ref();
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::index_insert(Ref ref) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::index_insert(Ref ref) {
 	if ((index_entries + 1) * 3 > table.size() * 2)
 		grow_index();
 	size_t slot = home_slot(Derived::hash_node((*this)[ref]));
@@ -163,8 +163,8 @@ void HashConsPool<Derived, Node, Ref>::index_insert(Ref ref) {
 	index_entries++;
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::index_erase(Ref ref) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::index_erase(Ref ref) {
 	size_t hole = home_slot(Derived::hash_node((*this)[ref]));
 	while (table[hole] != ref)
 		hole = next_slot(hole);
@@ -180,8 +180,8 @@ void HashConsPool<Derived, Node, Ref>::index_erase(Ref ref) {
 	index_entries--;
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::grow_index() {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::grow_index() {
 	std::vector<Ref> old(table.size() * 2, Ref());
 	std::swap(old, table);
 	index_entries = 0;
@@ -190,8 +190,8 @@ void HashConsPool<Derived, Node, Ref>::grow_index() {
 			index_insert(ref);
 }
 
-template<typename Derived, typename Node, typename Ref>
-Ref HashConsPool<Derived, Node, Ref>::add_inner(Node t) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+Ref HashConsPool<Derived, Node, Ref, HashType>::add_inner(Node t) {
 	Ref ref;
 	if (!free_list.empty()) {
 		size_t idx = free_list.back();
@@ -212,8 +212,8 @@ Ref HashConsPool<Derived, Node, Ref>::add_inner(Node t) {
 	return ref;
 }
 
-template<typename Derived, typename Node, typename Ref>
-Ref HashConsPool<Derived, Node, Ref>::place(size_t abs, Node t) {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+Ref HashConsPool<Derived, Node, Ref, HashType>::place(size_t abs, Node t) {
 	log_assert(abs >= Derived::STATIC_COUNT);
 	size_t slot = abs - Derived::STATIC_COUNT;
 	free_list.clear();
@@ -225,14 +225,14 @@ Ref HashConsPool<Derived, Node, Ref>::place(size_t abs, Node t) {
 	return Ref(abs);
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::finish_placement() {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::finish_placement() {
 	rebuild_index();
 }
 
-template<typename Derived, typename Node, typename Ref>
+template<typename Derived, typename Node, typename Ref, typename HashType>
 template<typename Roots>
-size_t HashConsPool<Derived, Node, Ref>::gc(const Roots& roots) {
+size_t HashConsPool<Derived, Node, Ref, HashType>::gc(const Roots& roots) {
 	std::vector<bool> live(backing.size());
 	for (Ref ref : roots)
 		mark_live(ref, live);
@@ -252,8 +252,8 @@ size_t HashConsPool<Derived, Node, Ref>::gc(const Roots& roots) {
 	return erased;
 }
 
-template<typename Derived, typename Node, typename Ref>
-void HashConsPool<Derived, Node, Ref>::mark_live(Ref ref, std::vector<bool>& live) const {
+template<typename Derived, typename Node, typename Ref, typename HashType>
+void HashConsPool<Derived, Node, Ref, HashType>::mark_live(Ref ref, std::vector<bool>& live) const {
 	ref = ref.untag();
 	if (ref == Ref() || is_static(ref))
 		return;

@@ -19,7 +19,7 @@ struct SrcRef {
 	constexpr bool operator==(const SrcRef &rhs) const { return value == rhs.value; }
 
 private:
-	template<typename, typename, typename> friend struct HashConsPool;
+	template<typename, typename, typename, typename> friend struct HashConsPool;
 	friend struct SrcPool;
 	friend struct SrcPoolIo;
 
@@ -44,20 +44,20 @@ template<> struct hash_ops<SrcRef> {
 
 struct SrcSet {
 	SrcSet() = default;
-	SrcSet(std::vector<IdString> members, uint64_t hash) : members_(std::move(members)), hash_(hash) {}
+	SrcSet(std::vector<IdString> members, Hasher::hash_t hash) : members_(std::move(members)), hash_(hash) {}
 
 	bool is_dead() const { return members_.empty(); }
 	const std::vector<IdString> &members() const { return members_; }
 	uint64_t hash() const { return hash_; }
 
-	static uint64_t hash_members(std::span<const IdString> members);
+	static Hasher::hash_t hash_members(std::span<const IdString> members);
 
 private:
 	std::vector<IdString> members_;
-	uint64_t hash_ = 0;
+	Hasher::hash_t hash_ = 0;
 };
 
-struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
+struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef, Hasher::hash_t> {
 	static constexpr size_t STATIC_COUNT = 0;
 
 	struct Marks {
@@ -80,7 +80,7 @@ struct SrcPool : HashConsPool<SrcPool, SrcSet, SrcRef> {
 	SrcPool &operator=(const SrcPool &) = delete;
 	SrcPool &operator=(SrcPool &&) = delete;
 
-	static uint64_t hash_node(const SrcSet &n) { return n.hash(); }
+	static Hasher::hash_t hash_node(const SrcSet &n) { return n.hash(); }
 
 	template<typename F>
 	static void for_each_child(const SrcSet&, F&&) {}

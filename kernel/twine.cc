@@ -4,7 +4,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-template struct HashConsPool<TwinePool, TwineNode, IdString>;
+template struct HashConsPool<TwinePool, TwineNode, IdString, uint64_t>;
 
 std::vector<TwineNode> StaticTwines::nodes_;
 

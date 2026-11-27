@@ -13,7 +13,7 @@
 
 YOSYS_NAMESPACE_BEGIN
 
-template<typename Derived, typename Node, typename Ref>
+template<typename Derived, typename Node, typename Ref, typename HashType>
 struct HashConsPool {
 public:
 	bool is_live(Ref ref) const;
@@ -35,7 +35,7 @@ protected:
 	const Node& operator[] (Ref ref) const;
 
 	template<typename Eq>
-	Ref find_hashed(uint64_t hash, Eq&& eq) const;
+	Ref find_hashed(HashType hash, Eq&& eq) const;
 	Ref add_inner(Node t);
 	Ref place(size_t abs, Node t);
 	void finish_placement();
