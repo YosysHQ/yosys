@@ -1120,7 +1120,7 @@ public:
 	std::map<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_map(const RTLIL::SigSpec &other) const;
 	dict<RTLIL::SigBit, RTLIL::SigBit> to_sigbit_dict(const RTLIL::SigSpec &other) const;
 
-	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
+	static bool parse(RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str, const RTLIL::Design *design = nullptr);
 	static bool parse_sel(RTLIL::SigSpec &sig, RTLIL::Design *design, RTLIL::Module *module, std::string str);
 	static bool parse_rhs(const RTLIL::SigSpec &lhs, RTLIL::SigSpec &sig, RTLIL::Module *module, std::string str);
 
@@ -1259,6 +1259,7 @@ struct RTLIL::Monitor
 
 // Forward declaration; defined in preproc.h.
 struct define_map_t;
+struct FrontendContext;
 
 template<typename N>
 inline constexpr bool is_unpooled_name_v =
@@ -1321,6 +1322,7 @@ public:
 
 	std::vector<std::unique_ptr<AST::AstNode>> verilog_packages, verilog_globals;
 	std::unique_ptr<define_map_t> verilog_defines;
+	std::unique_ptr<FrontendContext> frontend_context;
 
 	std::vector<RTLIL::Selection> selection_stack;
 	dict<RTLIL::IdString, RTLIL::Selection> selection_vars;

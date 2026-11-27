@@ -52,7 +52,7 @@ static bool match_ids(const std::string &id, const std::string &pattern)
 	return false;
 }
 
-static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern, char match_op)
+static bool match_attr_val(const RTLIL::Design *design, const RTLIL::Const &value, const std::string &pattern, char match_op)
 {
 	if (match_op == 0)
 		return true;
@@ -61,7 +61,7 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	{
 		RTLIL::SigSpec sig_value;
 
-		if (!RTLIL::SigSpec::parse(sig_value, nullptr, pattern))
+		if (!RTLIL::SigSpec::parse(sig_value, nullptr, pattern, design))
 			return false;
 
 		RTLIL::Const pattern_value = sig_value.as_const();
@@ -104,44 +104,44 @@ static bool match_attr_val(const RTLIL::Const &value, const std::string &pattern
 	log_abort();
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
+static bool match_attr(const RTLIL::Design *design, const dict<IdString, RTLIL::Const> &attributes, const std::string &name_pat, const std::string &value_pat, char match_op)
 {
 	if (name_pat.find('*') != std::string::npos || name_pat.find('?') != std::string::npos || name_pat.find('[') != std::string::npos) {
 		for (auto &it : attributes) {
-			std::string name = pool.str(it.first);
-			if (patmatch(name_pat.c_str(), name.c_str()) && match_attr_val(it.second, value_pat, match_op))
+			std::string name = design->twines().str(it.first);
+			if (patmatch(name_pat.c_str(), name.c_str()) && match_attr_val(design, it.second, value_pat, match_op))
 				return true;
-			if (name.size() > 0 && name[0] == '\\' && patmatch(name_pat.c_str(), name.c_str() + 1) && match_attr_val(it.second, value_pat, match_op))
+			if (name.size() > 0 && name[0] == '\\' && patmatch(name_pat.c_str(), name.c_str() + 1) && match_attr_val(design, it.second, value_pat, match_op))
 				return true;
 		}
 	} else {
 		if (name_pat.size() > 0 && (name_pat[0] == '\\' || name_pat[0] == '$')) {
-			IdString key = pool.find(name_pat);
-			if (key != IdString::Null && attributes.count(key) && match_attr_val(attributes.at(key), value_pat, match_op))
+			IdString key = design->twines().find(name_pat);
+			if (key != IdString::Null && attributes.count(key) && match_attr_val(design, attributes.at(key), value_pat, match_op))
 				return true;
 		}
-		IdString key = pool.find("\\" + name_pat);
-		if (key != IdString::Null && attributes.count(key) && match_attr_val(attributes.at(key), value_pat, match_op))
+		IdString key = design->twines().find("\\" + name_pat);
+		if (key != IdString::Null && attributes.count(key) && match_attr_val(design, attributes.at(key), value_pat, match_op))
 			return true;
 	}
 	return false;
 }
 
-static bool match_attr(const TwinePool &pool, const dict<IdString, RTLIL::Const> &attributes, const std::string &match_expr)
+static bool match_attr(const RTLIL::Design *design, const dict<IdString, RTLIL::Const> &attributes, const std::string &match_expr)
 {
 	size_t pos = match_expr.find_first_of("<!=>");
 
 	if (pos != std::string::npos) {
 		if (match_expr.compare(pos, 2, "!=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
+			return match_attr(design, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '!');
 		if (match_expr.compare(pos, 2, "<=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
+			return match_attr(design, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), '[');
 		if (match_expr.compare(pos, 2, ">=") == 0)
-			return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
-		return match_attr(pool, attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
+			return match_attr(design, attributes, match_expr.substr(0, pos), match_expr.substr(pos+2), ']');
+		return match_attr(design, attributes, match_expr.substr(0, pos), match_expr.substr(pos+1), match_expr[pos]);
 	}
 
-	return match_attr(pool, attributes, match_expr, std::string(), 0);
+	return match_attr(design, attributes, match_expr, std::string(), 0);
 }
 
 static void select_all(RTLIL::Design *design, RTLIL::Selection &lhs)
@@ -878,7 +878,7 @@ static void select_stmt(RTLIL::Design *design, std::vector<RTLIL::Selection> &wo
 			continue;
 
 		if (arg_mod.compare(0, 2, "A:") == 0) {
-			if (!match_attr(design->twines(), mod->attributes, arg_mod.substr(2)))
+			if (!match_attr(design, mod->attributes, arg_mod.substr(2)))
 				continue;
 		} else
 		if (arg_mod.compare(0, 2, "N:") == 0) {
@@ -966,21 +966,21 @@ static void select_stmt(RTLIL::Design *design, std::vector<RTLIL::Selection> &wo
 		} else
 		if (arg_memb.compare(0, 2, "a:") == 0) {
 			for (auto wire : mod->wires())
-				if (match_attr(design->twines(), wire->attributes, arg_memb.substr(2)))
+				if (match_attr(design, wire->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(wire->name);
 			for (auto &it : mod->memories)
-				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines(), cell->attributes, arg_memb.substr(2)))
+				if (match_attr(design, cell->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 			for (auto &it : mod->processes)
-				if (match_attr(design->twines(), it.second->attributes, arg_memb.substr(2)))
+				if (match_attr(design, it.second->attributes, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(it.first);
 		} else
 		if (arg_memb.compare(0, 2, "r:") == 0) {
 			for (auto cell : mod->cells())
-				if (match_attr(design->twines(), cell->parameters, arg_memb.substr(2)))
+				if (match_attr(design, cell->parameters, arg_memb.substr(2)))
 					sel.selected_members[mod->name].insert(cell->name);
 		} else {
 			std::string orig_arg_memb = arg_memb;

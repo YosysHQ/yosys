@@ -37,12 +37,14 @@
 #include "libs/sha1/sha1.h"
 #include <stdarg.h>
 #include <list>
+#include <atomic>
 
 YOSYS_NAMESPACE_BEGIN
 using namespace VERILOG_FRONTEND;
 
 // use the Verilog bison/flex parser to generate an AST and use AST::process() to convert it to RTLIL
 
+static std::atomic<int> verilog_defaults_frozen = 0;
 static std::vector<std::string> verilog_defaults;
 static std::list<std::vector<std::string>> verilog_defaults_stack;
 
@@ -500,7 +502,7 @@ struct VerilogFrontend : public Frontend {
 		if (parse_mode.formal || !flag_nosynthesis)
 			defines_map.add(parse_mode.formal ? "FORMAL" : "SYNTHESIS", "1");
 
-		extra_args(f, filename, args, argidx);
+		extra_args(f, filename, args, argidx, design);
 
 		log_header(design, "Executing Verilog-2005 frontend: %s\n", filename);
 
@@ -515,7 +517,6 @@ struct VerilogFrontend : public Frontend {
 				filename = std::string("+/") + filename.substr(share_path.length());
 			log("new filename %s\n", filename);
 		}
-		AST::sv_mode_but_global_and_used_for_literally_one_condition = parse_mode.sv;
 		std::string code_after_preproc;
 
 		parse_state.lexin = f;
@@ -574,7 +575,7 @@ struct VerilogFrontend : public Frontend {
 			error_on_dpi_function(parse_state.current_ast);
 
 		AST::process(design, parse_state.current_ast, flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches,
-				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire, flag_unroll_limit);
+				flag_nomeminit, flag_nomem2reg, flag_mem2reg, flag_noblackbox, parse_mode.lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_nooverwrite, flag_overwrite, flag_defer, parse_state.default_nettype_wire, parse_mode.sv, flag_unroll_limit);
 
 
 		if (!flag_nopp)
@@ -590,6 +591,10 @@ struct VerilogFrontend : public Frontend {
 		log("Successfully finished Verilog frontend.\n");
 	}
 } VerilogFrontend;
+
+VerilogDefaultsFreeze::VerilogDefaultsFreeze() { verilog_defaults_frozen++; }
+
+VerilogDefaultsFreeze::~VerilogDefaultsFreeze() { verilog_defaults_frozen--; }
 
 struct VerilogDefaults : public Pass {
 	VerilogDefaults() : Pass("verilog_defaults", "set default options for read_verilog") { }
@@ -618,6 +623,9 @@ struct VerilogDefaults : public Pass {
 	{
 		if (args.size() < 2)
 			cmd_error(args, 1, "Missing argument.");
+
+		if (verilog_defaults_frozen.load() > 0)
+			log_cmd_error("verilog_defaults cannot be changed while designs are processed concurrently.\n");
 
 		if (args[1] == "-add") {
 			verilog_defaults.insert(verilog_defaults.end(), args.begin()+2, args.end());

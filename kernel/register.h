@@ -135,16 +135,16 @@ struct ScriptPass : Pass
 	bool allow_garbage_collection_during_pass() const override { return true; }
 };
 
+struct FrontendContext
+{
+	FILE *script_file = nullptr;
+	std::string script_filename;
+	int script_lineno = 0;
+	std::vector<std::string> next_args;
+};
+
 struct Frontend : Pass
 {
-	// for reading of here documents
-	static FILE *current_script_file;
-	static std::string last_here_document;
-
-	// script file and last line read from it
-	static std::string current_script_filename;
-	static int current_script_lineno;
-
 	std::string frontend_name;
 	Frontend(std::string name, std::string short_help = "** document me **",
 		source_location location = source_location::current());
@@ -153,8 +153,7 @@ struct Frontend : Pass
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override final;
 	virtual void execute(std::istream *&f, std::string filename, std::vector<std::string> args, RTLIL::Design *design) = 0;
 
-	static std::vector<std::string> next_args;
-	void extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input = false);
+	void extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool bin_input = false);
 
 	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::string command);
 	static void frontend_call(RTLIL::Design *design, std::istream *f, std::string filename, std::vector<std::string> args);
@@ -198,6 +197,7 @@ struct Target {
 extern std::map<std::string, Target> target_register;
 
 #define YOSYS_HAS_TARGET_REGISTER 1
+#define YOSYS_HAS_FRONTEND_CONTEXT 1
 
 YOSYS_NAMESPACE_END
 

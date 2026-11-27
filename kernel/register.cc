@@ -43,7 +43,6 @@ std::map<std::string, Pass*> pass_register;
 std::map<std::string, Backend*> backend_register;
 std::map<std::string, Target> target_register;
 
-std::vector<std::string> Frontend::next_args;
 
 bool GarbageCollectionGuard::is_enabled_ = true;
 
@@ -446,25 +445,30 @@ Frontend::~Frontend()
 
 void Frontend::execute(std::vector<std::string> args, RTLIL::Design *design)
 {
-	log_assert(next_args.empty());
-	do {
-		std::istream *f = NULL;
-		next_args.clear();
-		auto state = pre_execute();
-		execute(f, std::string(), args, design);
-		post_execute(state);
-		args = next_args;
-		delete f;
-	} while (!args.empty());
+	FrontendContext &ctx = *design->frontend_context;
+	std::vector<std::string> outer_next_args = std::move(ctx.next_args);
+	try {
+		do {
+			std::istream *f = NULL;
+			ctx.next_args.clear();
+			auto state = pre_execute();
+			execute(f, std::string(), args, design);
+			post_execute(state);
+			args = std::move(ctx.next_args);
+			delete f;
+		} while (!args.empty());
+	}
+	catch (...) {
+		ctx.next_args = std::move(outer_next_args);
+		throw;
+	}
+	ctx.next_args = std::move(outer_next_args);
 }
 
-FILE *Frontend::current_script_file = NULL;
-std::string Frontend::last_here_document;
-std::string Frontend::current_script_filename;
-int Frontend::current_script_lineno = 0;
-
-void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, bool bin_input)
+void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<std::string> args, size_t argidx, RTLIL::Design *design, bool bin_input)
 {
+	FrontendContext &ctx = *design->frontend_context;
+	std::vector<std::string> &next_args = ctx.next_args;
 	bool called_with_fp = f != NULL;
 
 	next_args.clear();
@@ -486,19 +490,19 @@ void Frontend::extra_args(std::istream *&f, std::string &filename, std::vector<s
 			if (filename.size() <= 2)
 				log_error("Missing EOT marker in here document!\n");
 			std::string eot_marker = filename.substr(2);
-			filename = (Frontend::current_script_file == nullptr) ?  "<stdin>" : "<inlined>";
-			last_here_document.clear();
+			filename = (ctx.script_file == nullptr) ?  "<stdin>" : "<inlined>";
+			std::string last_here_document;
 			while (1) {
 				std::string buffer;
 				char block[4096];
 				while (1) {
-					if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
+					if (fgets(block, 4096, ctx.script_file == nullptr? stdin : ctx.script_file) == nullptr)
 						log_error("Unexpected end of file in here document '%s'!\n", filename);
 					buffer += block;
 					if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))
 						break;
 				}
-				Frontend::current_script_lineno++;
+				ctx.script_lineno++;
 				size_t indent = buffer.find_first_not_of(" \t\r\n");
 				if (indent != std::string::npos && buffer.compare(indent, eot_marker.size(), eot_marker) == 0)
 					break;

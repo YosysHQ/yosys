@@ -192,14 +192,14 @@ std::string VerificCommand::frontend_rewrite()
 		if (filename.size() <= 2)
 			log_error("Missing EOT marker in here document!\n");
 		std::string eot_marker = filename.substr(2);
-		if (Frontend::current_script_file == nullptr)
+		if (design->frontend_context->script_file == nullptr)
 			filename = "<stdin>";
 		std::string last_here_document;
 		while (1) {
 			std::string buffer;
 			char block[4096];
 			while (1) {
-				if (fgets(block, 4096, Frontend::current_script_file == nullptr? stdin : Frontend::current_script_file) == nullptr)
+				if (fgets(block, 4096, design->frontend_context->script_file == nullptr? stdin : design->frontend_context->script_file) == nullptr)
 					log_error("Unexpected end of file in here document '%s'!\n", filename);
 				buffer += block;
 				if (buffer.size() > 0 && (buffer[buffer.size() - 1] == '\n' || buffer[buffer.size() - 1] == '\r'))

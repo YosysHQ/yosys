@@ -1999,7 +1999,7 @@ bool AstNode::simplify(bool const_fold, int stage, int width_hint, bool sign_hin
 			if (children[i]->type == AST_WIRE || children[i]->type == AST_MEMORY || children[i]->type == AST_PARAMETER || children[i]->type == AST_LOCALPARAM || children[i]->type == AST_TYPEDEF)
 			{
 				string errmsg = "";
-				if (sv_mode_but_global_and_used_for_literally_one_condition)
+				if (flag_sv)
 					errmsg = "requires explicit begin-end wrap";
 				else
 					errmsg = "is only supported in SystemVerilog mode";

@@ -37,21 +37,10 @@ using namespace AST;
 using namespace AST_INTERNAL;
 
 // instantiate global variables (public API)
-namespace AST {
-	bool sv_mode_but_global_and_used_for_literally_one_condition;
-	unsigned long long astnodes = 0;
-	unsigned long long astnode_count() { return astnodes; }
-}
-
-TwinePool &AST::ast_name_pool()
-{
-	static TwinePool pool;
-	return pool;
-}
-
+static std::recursive_mutex ast_mutex;
 static RTLIL::Design *ast_scoped_design = nullptr;
 
-AST::DesignScope::DesignScope(RTLIL::Design *design) : prev(ast_scoped_design)
+AST::DesignScope::DesignScope(RTLIL::Design *design) : lock(ast_mutex), prev(ast_scoped_design)
 {
 	ast_scoped_design = design;
 }
@@ -66,10 +55,47 @@ static RTLIL::Design *scoped_design()
 
 int AST::ast_autoidx() { return scoped_design()->twines().next_autoidx(); }
 
+IdString AST::intern_attr_name(std::string_view name) { return scoped_design()->twines().add(name); }
+
+std::string AST::attr_name_str(IdString id) { return scoped_design()->twines().str(id); }
+
+static void visit_attr_names(const AstNode *node, const std::function<void(IdString)> &visit)
+{
+	for (auto &[key, value] : node->attributes) {
+		visit(key);
+		visit_attr_names(value.get(), visit);
+	}
+	for (auto &child : node->children)
+		visit_attr_names(child.get(), visit);
+}
+
+static void remap_attr_names(AstNode *node, TwinePool &dst, const TwinePool &src)
+{
+	std::map<IdString, std::unique_ptr<AstNode>> remapped;
+	for (auto &[key, value] : node->attributes) {
+		remap_attr_names(value.get(), dst, src);
+		remapped[dst.copy_from(src, key)] = std::move(value);
+	}
+	node->attributes = std::move(remapped);
+	for (auto &child : node->children)
+		remap_attr_names(child.get(), dst, src);
+}
+
+void AST::attr_name_roots(RTLIL::Design *design, const std::function<void(IdString)> &root)
+{
+	for (auto module : design->modules())
+		if (auto ast_module = dynamic_cast<AstModule*>(module); ast_module && ast_module->ast)
+			visit_attr_names(ast_module->ast.get(), root);
+	for (auto &node : design->verilog_packages)
+		visit_attr_names(node.get(), root);
+	for (auto &node : design->verilog_globals)
+		visit_attr_names(node.get(), root);
+}
+
 // instantiate global variables (private API)
 namespace AST_INTERNAL {
 	bool flag_nodisplay, flag_dump_ast1, flag_dump_ast2, flag_no_dump_ptr, flag_dump_vlog1, flag_dump_vlog2, flag_dump_rtlil, flag_nolatches, flag_nomeminit;
-	bool flag_nomem2reg, flag_mem2reg, flag_noblackbox, flag_lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_autowire;
+	bool flag_nomem2reg, flag_mem2reg, flag_noblackbox, flag_lib, flag_nowb, flag_noopt, flag_icells, flag_pwires, flag_autowire, flag_sv;
 	int flag_unroll_limit;
 	AstNode *current_ast, *current_ast_mod;
 	std::map<std::string, AstNode*> current_scope;
@@ -227,7 +253,6 @@ bool AstNode::get_bool_attribute(RTLIL::IdString id)
 AstNode::AstNode(AstSrcLocType loc, AstNodeType type, std::unique_ptr<AstNode> child1, std::unique_ptr<AstNode> child2, std::unique_ptr<AstNode> child3, std::unique_ptr<AstNode> child4)
 {
 	hashidx_ = ast_scoped_design ? ast_scoped_design->next_hashidx() : LARGE_HASHIDX_COLLIDER;
-	astnodes++;
 
 	this->type = type;
 	location = loc;
@@ -333,7 +358,6 @@ void AstNode::delete_children()
 // AstNode destructor
 AstNode::~AstNode()
 {
-	astnodes--;
 	delete_children();
 }
 
@@ -1339,7 +1363,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 			log_assert((bool)attr.second.get());
 			if (attr.second->type != AST_CONSTANT)
 				ast->input_error("Attribute `%s' with non-constant value!\n", attr_name_str(attr.first));
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (size_t i = 0; i < ast->children.size(); i++) {
 			const auto& node = ast->children[i];
@@ -1367,7 +1391,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 		for (auto &attr : ast->attributes) {
 			if (attr.second->type != AST_CONSTANT)
 				continue;
-			module->attributes[design->twines().add(attr_name_str(attr.first))] = attr.second->asAttrConst();
+			module->attributes[attr.first] = attr.second->asAttrConst();
 		}
 		for (const auto& node : ast->children)
 			if (node->type == AST_PARAMETER)
@@ -1388,6 +1412,7 @@ static RTLIL::Module *process_module(RTLIL::Design *design, AstNode *ast, bool d
 	module->icells = flag_icells;
 	module->pwires = flag_pwires;
 	module->autowire = flag_autowire;
+	module->sv = flag_sv;
 	module->fixup_ports();
 
 	if (flag_dump_rtlil) {
@@ -1407,13 +1432,11 @@ AST_INTERNAL::process_and_replace_module(RTLIL::Design *design,
                                          std::unique_ptr<AstNode> original_ast)
 {
 	// The old module will be deleted. Rename and mark for deletion, using
-	// a static counter to make sure we get a unique name.
-	static unsigned counter;
+	// autoidx to make sure we get a unique name.
 	std::ostringstream new_name;
 	new_name << old_module->name.str()
 		 << "_before_process_and_replace_module_"
-		 << counter;
-	++counter;
+		 << ast_autoidx();
 
 	design->rename(old_module, new_name.str());
 	old_module->set_bool_attribute(ID::to_delete);
@@ -1456,7 +1479,7 @@ static void rename_in_package_stmts(AstNode *pkg)
 
 // create AstModule instances for all modules in the AST tree and add them to 'design'
 void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump_ast1, bool dump_ast2, bool no_dump_ptr, bool dump_vlog1, bool dump_vlog2, bool dump_rtlil,
-		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire, int unroll_limit)
+		bool nolatches, bool nomeminit, bool nomem2reg, bool mem2reg, bool noblackbox, bool lib, bool nowb, bool noopt, bool icells, bool pwires, bool nooverwrite, bool overwrite, bool defer, bool autowire, bool sv, int unroll_limit)
 {
 	current_ast = ast;
 	current_ast_mod = nullptr;
@@ -1478,6 +1501,7 @@ void AST::process(RTLIL::Design *design, AstNode *ast, bool nodisplay, bool dump
 	flag_icells = icells;
 	flag_pwires = pwires;
 	flag_autowire = autowire;
+	flag_sv = sv;
 	flag_unroll_limit = unroll_limit;
 
 	ast->fixup_hierarchy_flags(true);
@@ -2003,6 +2027,8 @@ void AstModule::copy_config_into(AstModule *new_mod) const
 {
 	DesignScope design_scope(new_mod->design);
 	new_mod->ast = ast->clone();
+	if (new_mod->design != design)
+		remap_attr_names(new_mod->ast.get(), new_mod->design->twines(), design->twines());
 	new_mod->nolatches = nolatches;
 	new_mod->nomeminit = nomeminit;
 	new_mod->nomem2reg = nomem2reg;
@@ -2014,6 +2040,7 @@ void AstModule::copy_config_into(AstModule *new_mod) const
 	new_mod->icells = icells;
 	new_mod->pwires = pwires;
 	new_mod->autowire = autowire;
+	new_mod->sv = sv;
 }
 
 void AstModule::loadconfig() const
@@ -2034,6 +2061,7 @@ void AstModule::loadconfig() const
 	flag_icells = icells;
 	flag_pwires = pwires;
 	flag_autowire = autowire;
+	flag_sv = sv;
 }
 
 void AstNode::formatted_input_error(std::string_view format, std::string str) const
