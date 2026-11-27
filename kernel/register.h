@@ -117,7 +117,7 @@ struct Pass
 	// calls nested passes. For safety, we default to assuming the worst.
 	virtual bool allow_garbage_collection_during_pass() const { return false; }
 
-	std::optional<LogSourceLocation> get_source_location() const { return std::nullopt; }
+	virtual std::optional<LogSourceLocation> get_source_location() const { return std::nullopt; }
 };
 
 struct ScriptPass : Pass
