@@ -406,7 +406,11 @@ extern Tcl_Interp *yosys_get_tcl_interp()
 
 // Also see SdcPass
 struct TclPass : public Pass {
+	std::optional<LogSourceLocation> src;
+
 	TclPass() : Pass("tcl", "execute a TCL script file") { }
+	std::optional<LogSourceLocation> get_source_location() const override { return src; }
+
 	void help() override {
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
 		log("\n");
@@ -442,9 +446,12 @@ struct TclPass : public Pass {
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(script_args.size()), 0);
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(script_args.size(), script_args.data()), 0);
 		Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(args[1].c_str(), args[1].size()), 0);
-		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK)
-			// here?
-			log_cmd_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(interp));
+		if (Tcl_EvalFile(interp, args[1].c_str()) != TCL_OK) {
+			std::string error = Tcl_GetStringResult(interp);
+			if (!logger().get_cmd_error_throw())
+				src = LogSourceLocation(args[1], Tcl_GetErrorLine(interp));
+			log_cmd_error("TCL interpreter returned an error: %s\n", error);
+		}
 		Tcl_Release(interp);
 	}
 } TclPass;
