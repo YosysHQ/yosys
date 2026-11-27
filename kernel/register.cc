@@ -49,6 +49,22 @@ bool GarbageCollectionGuard::is_enabled_ = true;
 
 static bool garbage_collection_requested = false;
 
+Pass *PassCallStack::top()
+{
+	return stack.empty() ? nullptr : stack.back();
+}
+
+void PassCallStack::push(Pass *pass)
+{
+	stack.push_back(pass);
+}
+
+void PassCallStack::pop()
+{
+	log_assert(!stack.empty());
+	stack.pop_back();
+}
+
 void request_garbage_collection()
 {
 	garbage_collection_requested = true;
@@ -116,6 +132,7 @@ Pass::~Pass()
 
 Pass::pre_post_exec_state_t Pass::pre_execute()
 {
+	yosys_pass_call_stack->push(this);
 	pre_post_exec_state_t state;
 	call_counter++;
 	state.begin_ns = PerformanceTimer::query();
@@ -133,6 +150,7 @@ void Pass::post_execute(Pass::pre_post_exec_state_t state)
 	runtime_ns += time_ns;
 	current_pass = state.parent_pass;
 	subtract_from_current_runtime_ns(time_ns);
+	yosys_pass_call_stack->pop();
 }
 
 void Pass::subtract_from_current_runtime_ns(int64_t time_ns)

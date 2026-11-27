@@ -604,18 +604,9 @@ int main(int argc, char **argv)
 	if (!scriptfile.empty()) {
 		if (scriptfile_tcl) {
 #ifdef YOSYS_ENABLE_TCL
-			int tcl_argc = special_args.size();
-			std::vector<Tcl_Obj*> script_args;
-			Tcl_Interp *interp = yosys_get_tcl_interp();
-			for (auto arg : special_args)
-				script_args.push_back(Tcl_NewStringObj(arg.c_str(), arg.length()));
-
-			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argc", 4), NULL, Tcl_NewIntObj(tcl_argc), 0);
-			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv", 4), NULL, Tcl_NewListObj(tcl_argc, script_args.data()), 0);
-			Tcl_ObjSetVar2(interp, Tcl_NewStringObj("argv0", 5), NULL, Tcl_NewStringObj(scriptfile.c_str(), scriptfile.length()), 0);
-
-			if (Tcl_EvalFile(interp, scriptfile.c_str()) != TCL_OK)
-				log_error("TCL interpreter returned an error: %s\n", Tcl_GetStringResult(yosys_get_tcl_interp()));
+			std::vector<std::string> args = {"tcl", scriptfile};
+			args.insert(args.end(), special_args.begin(), special_args.end());
+			Pass::call(yosys_design.get(), args);
 #else
 			log_error("Can't execute TCL script: this version of yosys is not built with TCL support enabled.\n");
 #endif
