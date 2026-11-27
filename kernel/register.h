@@ -20,6 +20,7 @@
 #ifndef REGISTER_H
 #define REGISTER_H
 
+#include "kernel/log.h"
 #include "kernel/yosys_common.h"
 #include "kernel/yosys.h"
 
@@ -113,6 +114,8 @@ struct Pass
 	// This should return false if the pass holds onto RTLIL objects outside a Design while it
 	// calls nested passes. For safety, we default to assuming the worst.
 	virtual bool allow_garbage_collection_during_pass() const { return false; }
+
+	virtual std::optional<LogSourceLocation> get_source_location() const { return std::nullopt; }
 };
 
 struct ScriptPass : Pass

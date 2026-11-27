@@ -393,6 +393,7 @@ public:
 	void set_hdump_all(bool value) { hdump_all = value; }
 	int get_verbose_level() const { return verbose_level; }
 	bool get_log_time() const { return log_time; }
+	bool get_cmd_error_throw() const { return cmd_error_throw; }
 	int get_warnings_unique() const { return GetSize(warnings); }
 	int get_warnings_total() const { return warnings_count; }
 	int get_errors_total() const { return errors_count; }
