@@ -41,7 +41,9 @@ static Module *make_module(Design *design, IdString name, int width)
 }
 
 struct TestKoggeStonePass : public Pass {
-	TestKoggeStonePass() : Pass("test_kogge_stone", "build adders for Kogge-Stone equivalence testing") {}
+	TestKoggeStonePass() : Pass("test_kogge_stone", "build adders for Kogge-Stone equivalence testing") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
