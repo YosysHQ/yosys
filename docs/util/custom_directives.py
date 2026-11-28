@@ -621,6 +621,7 @@ class CommandDomain(Domain):
         'objects': [],      # object list
         'obj2tag': {},      # name -> tags
         'obj2title': {},    # name -> title
+        'doc2group': {},    # tracking undocumented groups
     }
 
     def get_full_qualified_name(self, node):
@@ -685,6 +686,7 @@ class CellDomain(CommandDomain):
         'objects': [],      # object list
         'obj2prop': {},     # name -> properties
         'obj2title': {},    # name -> title
+        'doc2group': {},    # tracking undocumented groups
     }
 
     def get_objects(self):

@@ -1,9 +1,7 @@
 #include "kernel/yosys_config.h"
 #ifdef YOSYS_ENABLE_TCL
 
-#include "kernel/register.h"
-#include "kernel/rtlil.h"
-#include "kernel/log.h"
+#include "kernel/yosys.h"
 #include <tcl.h>
 #include <list>
 #include <optional>
@@ -722,6 +720,9 @@ public:
 
 // Also see TclPass
 struct SdcPass : public Pass {
+	SdcPass() : Pass("sdc", "Read an SDC file") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
@@ -740,7 +741,6 @@ struct SdcPass : public Pass {
 		log("        Add keep_hierarchy attributes while retaining SDC validity.\n");
 		log("\n");
 	}
-	SdcPass() : Pass("sdc", "Read an SDC file") { }
 	void execute(std::vector<std::string> args, RTLIL::Design *design) override {
 		log_header(design, "Executing SDC pass.\n");
 		log_experimental("sdc");

@@ -5,7 +5,9 @@ USING_YOSYS_NAMESPACE
 PRIVATE_NAMESPACE_BEGIN
 
 struct RaiseErrorPass : public Pass {
-	RaiseErrorPass() : Pass("raise_error", "raise errors from attributes") { }
+	RaiseErrorPass() : Pass("raise_error", "raise errors from attributes") {
+		internal();
+	}
 	void help() override
 	{
 		//   |---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|---v---|
