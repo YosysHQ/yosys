@@ -18,12 +18,10 @@
  *
  */
 
-#include "kernel/log.h"
-#include "kernel/register.h"
+#include "kernel/yosys.h"
+#include "kernel/log_help.h"
 #include "kernel/ff.h"
 #include "passes/opt/dff/opt_dff.h"
-#include <stdio.h>
-#include <stdlib.h>
 
 USING_YOSYS_NAMESPACE
 
@@ -56,6 +54,12 @@ PRIVATE_NAMESPACE_BEGIN
 
 struct OptDffPass : public Pass {
 	OptDffPass() : Pass("opt_dff", "perform DFF optimizations") { }
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/opt");
+		return false;
+	}
 
 	void help() override
 	{

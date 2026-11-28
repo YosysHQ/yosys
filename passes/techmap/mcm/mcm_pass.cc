@@ -22,6 +22,7 @@
 
 #include "kernel/yosys.h"
 #include "kernel/sigtools.h"
+#include "kernel/log_help.h"
 
 #include "libs/bigint/BigUnsigned.hh"
 #include "libs/bigint/BigIntegerLibrary.hh"
@@ -366,6 +367,12 @@ struct McmWorker {
 
 struct McmPass : public Pass {
 	McmPass() : Pass("mcm", "replace constant multipliers with shared adder graphs") {}
+
+	bool formatted_help() override {
+		auto *help = PrettyHelp::get_current();
+		help->set_group("passes/techmap");
+		return false;
+	}
 
 	void help() override
 	{
